@@ -1,0 +1,131 @@
+package config
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+
+	"github.com/joho/godotenv"
+)
+
+// Config holds all configuration for the application
+type Config struct {
+	// Server settings
+	Port string
+
+	// Database settings
+	DatabaseURL string
+
+	// Authentication
+	JWTSecret string
+
+	// Logging
+	LogLevel string
+
+	// App Bundle settings
+	AppBundlePath   string
+	MaxVersionsKept int
+
+	// Internal tracking
+	Source string // Source of the configuration (env, .env file path, etc.)
+}
+
+// Load loads the configuration from environment variables
+// and .env file if it exists
+func Load() (*Config, error) {
+	// Try to load .env file from multiple locations
+	// 1. Current working directory
+	// 2. Executable directory
+	// 3. Parent of executable directory
+	loadedEnv := false
+	configSource := "environment variables"
+
+	// 1. Try current working directory first
+	cwd, _ := os.Getwd()
+	cwdEnvPath := filepath.Join(cwd, ".env")
+	fmt.Printf("Searching for .env file at: %s\n", cwdEnvPath)
+	if _, err := os.Stat(cwdEnvPath); err == nil {
+		fmt.Printf("Found .env file at: %s\n", cwdEnvPath)
+		if err := godotenv.Load(cwdEnvPath); err == nil {
+			loadedEnv = true
+			configSource = "file: " + cwdEnvPath
+			fmt.Printf("Successfully loaded .env file from: %s\n", cwdEnvPath)
+		} else {
+			fmt.Printf("Error loading .env file from %s: %v\n", cwdEnvPath, err)
+		}
+	}
+
+	// 2. Try executable directory if not loaded yet
+	if !loadedEnv {
+		exePath, err := os.Executable()
+		if err == nil {
+			exeDir := filepath.Dir(exePath)
+			envPath := filepath.Join(exeDir, ".env")
+			fmt.Printf("Searching for .env file at: %s\n", envPath)
+			if _, err := os.Stat(envPath); err == nil {
+				fmt.Printf("Found .env file at: %s\n", envPath)
+				if err := godotenv.Load(envPath); err == nil {
+					loadedEnv = true
+					configSource = "file: " + envPath
+					fmt.Printf("Successfully loaded .env file from: %s\n", envPath)
+				} else {
+					fmt.Printf("Error loading .env file from %s: %v\n", envPath, err)
+				}
+			}
+		} else {
+			fmt.Printf("Error getting executable path: %v\n", err)
+		}
+	}
+
+	// 3. Try parent of executable directory if not loaded yet
+	if !loadedEnv {
+		exePath, err := os.Executable()
+		if err == nil {
+			exeDir := filepath.Dir(exePath)
+			parentDir := filepath.Dir(exeDir)
+			envPath := filepath.Join(parentDir, ".env")
+			fmt.Printf("Searching for .env file at: %s\n", envPath)
+			if _, err := os.Stat(envPath); err == nil {
+				fmt.Printf("Found .env file at: %s\n", envPath)
+				if err := godotenv.Load(envPath); err == nil {
+					configSource = "file: " + envPath
+					fmt.Printf("Successfully loaded .env file from: %s\n", envPath)
+				} else {
+					fmt.Printf("Error loading .env file from %s: %v\n", envPath, err)
+				}
+			}
+		}
+	}
+
+	// Print a summary of where configuration was loaded from
+	fmt.Printf("Configuration loaded from: %s\n", configSource)
+
+	return &Config{
+		Port:            getEnvOrDefault("PORT", "8080"),
+		DatabaseURL:     getEnvOrDefault("DB_CONNECTION", "postgres://user:password@localhost:5432/synkronus"),
+		JWTSecret:       getEnvOrDefault("JWT_SECRET", ""),
+		LogLevel:        getEnvOrDefault("LOG_LEVEL", "info"),
+		AppBundlePath:   getEnvOrDefault("APP_BUNDLE_PATH", "./data/app-bundles"),
+		MaxVersionsKept: getEnvIntOrDefault("MAX_VERSIONS_KEPT", 5),
+		Source:          configSource,
+	}, nil
+}
+
+// getEnvOrDefault retrieves an environment variable or returns a default value
+func getEnvOrDefault(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
+	}
+	return defaultValue
+}
+
+// getEnvIntOrDefault retrieves an environment variable as an integer or returns a default value
+func getEnvIntOrDefault(key string, defaultValue int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}

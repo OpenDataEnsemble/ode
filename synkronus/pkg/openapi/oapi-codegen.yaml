@@ -1,0 +1,13 @@
+package: generated
+output-options:
+  skip-prune: true
+import-mapping:
+  ./synkronus.yaml: github.com/collectakit/synkronus/openapi
+generate:
+  models: true
+  echo-server: false
+  chi-server: true
+  gin-server: false
+  fiber-server: false
+  strict-server: true
+  embedded-spec: false
