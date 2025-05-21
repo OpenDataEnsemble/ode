@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/collectakit/synkronus/pkg/logger"
@@ -25,6 +26,7 @@ type Service struct {
 	maxVersions    int
 	log            *logger.Logger
 	manifest       *Manifest
+	versionMutex   sync.Mutex
 }
 
 // Config contains app bundle configuration

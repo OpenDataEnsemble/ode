@@ -8,14 +8,20 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
-	"time"
 )
 
 // PushBundle uploads a new app bundle from a zip file
 func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifest, error) {
-	// Create a timestamp-based version name
-	versionName := time.Now().UTC().Format("20060102-150405")
+	// Get the next version number
+	versionNumber, err := s.getNextVersionNumber()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next version number: %w", err)
+	}
+
+	// Create version name with leading zeros for sorting (e.g., 0001, 0002, etc.)
+	versionName := fmt.Sprintf("%04d", versionNumber)
 	versionPath := filepath.Join(s.versionsPath, versionName)
 
 	// Create the version directory
@@ -247,6 +253,45 @@ func (s *Service) copyFile(src, dst string, mode os.FileMode) error {
 	}
 
 	return nil
+}
+
+// getNextVersionNumber gets the next version number by finding the highest existing version and incrementing it
+func (s *Service) getNextVersionNumber() (int, error) {
+	s.versionMutex.Lock()
+	defer s.versionMutex.Unlock()
+
+	// Ensure versions directory exists
+	if err := os.MkdirAll(s.versionsPath, 0755); err != nil {
+		return 0, fmt.Errorf("failed to create versions directory: %w", err)
+	}
+
+	// List all version directories
+	entries, err := os.ReadDir(s.versionsPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read versions directory: %w", err)
+	}
+
+	// Find the highest version number
+	highestVersion := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Parse version number from directory name
+		version, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			// Skip non-numeric directories
+			continue
+		}
+
+		if version > highestVersion {
+			highestVersion = version
+		}
+	}
+
+	// Return the next version number
+	return highestVersion + 1, nil
 }
 
 // cleanupOldVersions removes old versions to keep only the maximum number of versions
