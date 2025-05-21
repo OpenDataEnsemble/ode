@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -65,12 +66,12 @@ func (c *Client) GetAppBundleManifest() (map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/app-bundle/manifest", c.BaseURL)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+		return nil, err
 	}
 
 	resp, err := c.doRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -92,12 +93,12 @@ func (c *Client) GetAppBundleVersions() (map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/app-bundle/versions", c.BaseURL)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+		return nil, err
 	}
 
 	resp, err := c.doRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -155,18 +156,19 @@ func (c *Client) GetAppBundleChanges(currentVersion, targetVersion string) (*App
 // DownloadAppBundleFile downloads a specific file from the app bundle
 // If preview is true, adds ?preview=true to the request URL
 func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) error {
-	url := fmt.Sprintf("%s/app-bundle/%s", c.BaseURL, path)
+	url := fmt.Sprintf("%s/app-bundle/download?path=%s", c.BaseURL, url.QueryEscape(path))
 	if preview {
-		url += "?preview=true"
+		url += "&preview=true"
 	}
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return fmt.Errorf("error creating request: %w", err)
+		return err
 	}
 
 	resp, err := c.doRequest(req)
 	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -178,20 +180,20 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 	// Create destination directory if it doesn't exist
 	destDir := filepath.Dir(destPath)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return fmt.Errorf("error creating directory: %w", err)
+		return err
 	}
 
 	// Create destination file
 	out, err := os.Create(destPath)
 	if err != nil {
-		return fmt.Errorf("error creating file: %w", err)
+		return err
 	}
 	defer out.Close()
 
 	// Copy response body to file
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		return fmt.Errorf("error writing file: %w", err)
+		return err
 	}
 
 	return nil
@@ -204,7 +206,7 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 	// Open the bundle file
 	file, err := os.Open(bundlePath)
 	if err != nil {
-		return nil, fmt.Errorf("error opening bundle file: %w", err)
+		return nil, err
 	}
 	defer file.Close()
 
@@ -215,25 +217,25 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 	// Add file to form
 	part, err := writer.CreateFormFile("bundle", filepath.Base(bundlePath))
 	if err != nil {
-		return nil, fmt.Errorf("error creating form file: %w", err)
+		return nil, err
 	}
 
 	// Copy file content to form
 	_, err = io.Copy(part, file)
 	if err != nil {
-		return nil, fmt.Errorf("error copying file content: %w", err)
+		return nil, err
 	}
 
 	// Close multipart writer
 	err = writer.Close()
 	if err != nil {
-		return nil, fmt.Errorf("error closing multipart writer: %w", err)
+		return nil, err
 	}
 
 	// Create request
 	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+		return nil, err
 	}
 
 	// Set content type
@@ -242,7 +244,7 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 	// Send request
 	resp, err := c.doRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -253,7 +255,7 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
+		return nil, err
 	}
 
 	return result, nil
@@ -265,12 +267,12 @@ func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{},
 
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+		return nil, err
 	}
 
 	resp, err := c.doRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 

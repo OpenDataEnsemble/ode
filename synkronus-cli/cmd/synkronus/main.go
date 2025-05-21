@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/cmd"
@@ -9,7 +8,8 @@ import (
 
 func main() {
 	if err := cmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		// The error will be printed by Cobra, so we don't need to print it here
+		// Just exit with non-zero status
 		os.Exit(1)
 	}
 }

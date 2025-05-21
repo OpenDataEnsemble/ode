@@ -28,6 +28,7 @@ func init() {
 			c := client.NewClient()
 			manifest, err := c.GetAppBundleManifest()
 			if err != nil {
+				cmd.SilenceUsage = true
 				return fmt.Errorf("failed to get app bundle manifest: %w", err)
 			}
 
@@ -40,6 +41,7 @@ func init() {
 			if jsonOutput {
 				jsonData, err := json.MarshalIndent(manifest, "", "  ")
 				if err != nil {
+					cmd.SilenceUsage = true
 					return fmt.Errorf("error formatting JSON: %w", err)
 				}
 				fmt.Println(string(jsonData))
@@ -84,7 +86,8 @@ func init() {
 			c := client.NewClient()
 			response, err := c.GetAppBundleVersions()
 			if err != nil {
-				return fmt.Errorf("failed to get app bundle versions: %w", err)
+				cmd.SilenceUsage = true
+				return err
 			}
 
 			// Format output as JSON
@@ -96,7 +99,7 @@ func init() {
 			if jsonOutput {
 				jsonData, err := json.MarshalIndent(response, "", "  ")
 				if err != nil {
-					return fmt.Errorf("error formatting JSON: %w", err)
+					return err
 				}
 				fmt.Println(string(jsonData))
 				return nil
@@ -133,7 +136,8 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 			// Get manifest first
 			manifest, err := c.GetAppBundleManifest()
 			if err != nil {
-				return fmt.Errorf("failed to get app bundle manifest: %w", err)
+				cmd.SilenceUsage = true
+				return err
 			}
 
 			// Determine output directory
@@ -148,7 +152,8 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 
 			// Create output directory if it doesn't exist
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
-				return fmt.Errorf("error creating output directory: %w", err)
+				cmd.SilenceUsage = true
+				return err
 			}
 
 			// Filter by specific path if provided
@@ -185,8 +190,10 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 				fmt.Printf("Downloading %s...\n", filePath)
 
 				preview, _ := cmd.Flags().GetBool("preview")
-				if err := c.DownloadAppBundleFile(filePath, destPath, preview); err != nil {
-					return fmt.Errorf("error downloading %s: %w", filePath, err)
+				err = c.DownloadAppBundleFile(filePath, destPath, preview)
+				if err != nil {
+					cmd.SilenceUsage = true
+					return err
 				}
 
 				downloadCount++
@@ -216,12 +223,15 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 
 			// Check if file exists
 			if _, err := os.Stat(bundlePath); os.IsNotExist(err) {
-				return fmt.Errorf("file not found: %s", bundlePath)
+				cmd.SilenceUsage = true
+				return fmt.Errorf("file not found: %s: %w", bundlePath, err)
 			}
 
 			c := client.NewClient()
 			response, err := c.UploadAppBundle(bundlePath)
 			if err != nil {
+				cmd.SilenceUsage = true
+				// Add context to the error
 				return fmt.Errorf("failed to upload app bundle: %w", err)
 			}
 
@@ -262,6 +272,7 @@ If only one version is specified, compares it with the current version.`,
 			// Get changes from API
 			changes, err := c.GetAppBundleChanges(currentVersion, targetVersion)
 			if err != nil {
+				cmd.SilenceUsage = true
 				return fmt.Errorf("failed to get app bundle changes: %w", err)
 			}
 
@@ -270,6 +281,7 @@ If only one version is specified, compares it with the current version.`,
 			if jsonOutput {
 				jsonData, err := json.MarshalIndent(changes, "", "  ")
 				if err != nil {
+					cmd.SilenceUsage = true
 					return fmt.Errorf("error formatting JSON: %w", err)
 				}
 				fmt.Println(string(jsonData))
@@ -328,6 +340,7 @@ If only one version is specified, compares it with the current version.`,
 			c := client.NewClient()
 			response, err := c.SwitchAppBundleVersion(version)
 			if err != nil {
+				cmd.SilenceUsage = true
 				return fmt.Errorf("failed to switch app bundle version: %w", err)
 			}
 
