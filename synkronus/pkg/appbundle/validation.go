@@ -22,8 +22,9 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 	// Track required top-level directories
 	hasAppDir := false
 	topDirs := make(map[string]bool)
+	formDirs := make(map[string]struct{})
 
-	// First pass: validate top-level structure
+	// First pass: validate top-level structure and collect form directories
 	for _, file := range zipReader.File {
 		// Get the top-level directory
 		parts := strings.SplitN(file.Name, "/", 2)
@@ -42,6 +43,14 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 		if file.Name == "app/index.html" {
 			hasAppDir = true
 		}
+
+		// Track form directories
+		if strings.HasPrefix(file.Name, "forms/") && !strings.HasSuffix(file.Name, "/") {
+			formParts := strings.Split(file.Name, "/")
+			if len(formParts) >= 2 {
+				formDirs[formParts[1]] = struct{}{}
+			}
+		}
 	}
 
 	// Ensure we have the required app directory with index.html
@@ -50,15 +59,36 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 	}
 
 	// Second pass: validate forms and cells structure
+	hasFormSchema := make(map[string]bool)
+	hasFormUI := make(map[string]bool)
+
 	for _, file := range zipReader.File {
 		if strings.HasPrefix(file.Name, "forms/") {
 			if err := s.validateFormFile(file); err != nil {
 				return err
 			}
+
+			// Track which forms have schema.json and ui.json
+			parts := strings.Split(file.Name, "/")
+			if len(parts) >= 3 {
+				formName := parts[1]
+				if parts[2] == "schema.json" {
+					hasFormSchema[formName] = true
+				} else if parts[2] == "ui.json" {
+					hasFormUI[formName] = true
+				}
+			}
 		} else if strings.HasPrefix(file.Name, "cells/") {
 			if err := s.validateCellFile(file); err != nil {
 				return err
 			}
+		}
+	}
+
+	// Verify each form directory has both schema.json and ui.json
+	for formDir := range formDirs {
+		if !hasFormSchema[formDir] || !hasFormUI[formDir] {
+			return fmt.Errorf("%w: form '%s' is missing required files (schema.json or ui.json)", ErrInvalidFormStructure, formDir)
 		}
 	}
 
