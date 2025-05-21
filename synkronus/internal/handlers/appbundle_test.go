@@ -130,6 +130,88 @@ func TestGetAppBundleFile(t *testing.T) {
 	}
 }
 
+func TestGetAppBundleFileWithPreview(t *testing.T) {
+	// Create a test handler
+	h, _ := createTestHandler()
+
+	// Test with preview=true
+	t.Run("with preview=true", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/app-bundle/index.html?preview=true", nil)
+		w := httptest.NewRecorder()
+
+		// Create a router for URL parameter extraction
+		r := chi.NewRouter()
+		r.Get("/app-bundle/{path}", h.GetAppBundleFile)
+
+		// Serve the request
+		r.ServeHTTP(w, req)
+
+		// Check response
+		resp := w.Result()
+		defer resp.Body.Close()
+
+		// Should return 200 OK
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+
+		// Check x-is-preview header
+		assert.Equal(t, "true", resp.Header.Get("x-is-preview"), "Expected x-is-preview header to be 'true'")
+
+		// Check that response body is not empty
+		body, err := resp.Body.Read(make([]byte, 1))
+		assert.True(t, body > 0 || err == nil, "Expected response body to not be empty")
+	})
+
+	// Test with preview=false
+	t.Run("with preview=false", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/app-bundle/index.html?preview=false", nil)
+		w := httptest.NewRecorder()
+
+		// Create a router for URL parameter extraction
+		r := chi.NewRouter()
+		r.Get("/app-bundle/{path}", h.GetAppBundleFile)
+
+		// Serve the request
+		r.ServeHTTP(w, req)
+
+		// Check response
+		resp := w.Result()
+		defer resp.Body.Close()
+
+		// Should return 200 OK
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+
+		// Check x-is-preview header is not set
+		assert.Empty(t, resp.Header.Get("x-is-preview"), "Expected x-is-preview header to not be set")
+
+		// Check that response body is not empty
+		body, err := resp.Body.Read(make([]byte, 1))
+		assert.True(t, body > 0 || err == nil, "Expected response body to not be empty")
+	})
+
+	// Test with invalid preview value
+	t.Run("with invalid preview value", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/app-bundle/index.html?preview=invalid", nil)
+		w := httptest.NewRecorder()
+
+		// Create a router for URL parameter extraction
+		r := chi.NewRouter()
+		r.Get("/app-bundle/{path}", h.GetAppBundleFile)
+
+		// Serve the request
+		r.ServeHTTP(w, req)
+
+		// Check response
+		resp := w.Result()
+		defer resp.Body.Close()
+
+		// Should still return 200 OK
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
+
+		// Check x-is-preview header is not set
+		assert.Empty(t, resp.Header.Get("x-is-preview"), "Expected x-is-preview header to not be set for invalid preview value")
+	})
+}
+
 func TestGetAppBundleFileNotModified(t *testing.T) {
 	// Create a test handler
 	h, _ := createTestHandler()
@@ -216,12 +298,12 @@ func TestCompareAppBundleVersions(t *testing.T) {
 		{
 			name:           "compare with preview",
 			currentVersion: "v2.0.0",
-			preview:       "true",
+			preview:        "true",
 			expectedCode:   http.StatusOK,
 		},
 		{
-			name:           "no current version",
-			expectedCode:   http.StatusOK,
+			name:         "no current version",
+			expectedCode: http.StatusOK,
 		},
 	}
 
@@ -242,7 +324,6 @@ func TestCompareAppBundleVersions(t *testing.T) {
 
 			// Call handler
 			h.CompareAppBundleVersions(w, req)
-
 
 			// Check response
 			resp := w.Result()

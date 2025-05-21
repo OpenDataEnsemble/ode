@@ -255,12 +255,14 @@ func TestValidateCoreFields(t *testing.T) {
 
 			// Test core field hashing
 			if tt.hasCoreFields {
-				hash1 := hashCoreFields(coreFields)
+				hash1, err := hashCoreFields(coreFields)
+				require.NoError(t, err, "failed to hash core fields")
 				assert.NotEmpty(t, hash1, "hash should not be empty")
 
 				// Hash should be deterministic
 				coreFields2 := extractCoreFields(schema)
-				hash2 := hashCoreFields(coreFields2)
+				hash2, err := hashCoreFields(coreFields2)
+				require.NoError(t, err, "failed to hash core fields")
 				assert.Equal(t, hash1, hash2, "hashes should be equal for same input")
 			}
 		})

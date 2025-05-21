@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -27,6 +28,10 @@ type Service struct {
 	log            *logger.Logger
 	manifest       *Manifest
 	versionMutex   sync.Mutex
+	
+	// Core field tracking
+	coreFieldMutex  sync.RWMutex
+	coreFieldHashes map[string]string // formName -> hash
 }
 
 // Config contains app bundle configuration
@@ -80,6 +85,12 @@ func (s *Service) Initialize(ctx context.Context) error {
 	// Generate the initial manifest
 	if _, err := s.GetManifest(ctx); err != nil {
 		return fmt.Errorf("failed to generate initial manifest: %w", err)
+	}
+
+	// Load core field hashes from the current version
+	if err := s.loadCoreFieldHashes(); err != nil {
+		s.log.Warn("Failed to load core field hashes", "error", err)
+		// Continue anyway, this is not critical
 	}
 
 	return nil
@@ -337,6 +348,41 @@ func (s *Service) hashFile(path string) (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// loadCoreFieldHashes loads core field hashes from the latest app info file
+func (s *Service) loadCoreFieldHashes() error {
+	// Check if we have a current version
+	currentVersionPath := filepath.Join(s.bundlePath, "APP_INFO.json")
+	if _, err := os.Stat(currentVersionPath); os.IsNotExist(err) {
+		// No current version, nothing to load
+		return nil
+	}
+
+	// Read the app info file
+	data, err := os.ReadFile(currentVersionPath)
+	if err != nil {
+		return fmt.Errorf("failed to read app info file: %w", err)
+	}
+
+	var appInfo AppInfo
+	if err := json.Unmarshal(data, &appInfo); err != nil {
+		return fmt.Errorf("failed to parse app info: %w", err)
+	}
+
+	// Store the core hashes
+	s.coreFieldMutex.Lock()
+	defer s.coreFieldMutex.Unlock()
+
+	if s.coreFieldHashes == nil {
+		s.coreFieldHashes = make(map[string]string)
+	}
+
+	for formName, formInfo := range appInfo.Forms {
+		s.coreFieldHashes[formName] = formInfo.CoreHash
+	}
+
+	return nil
 }
 
 // hashManifest generates a SHA-256 hash for the manifest

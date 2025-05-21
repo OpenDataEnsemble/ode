@@ -48,13 +48,13 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if we should get the latest version
-	latest := false
-	if latestParam := r.URL.Query().Get("latest"); latestParam != "" {
+	// Check if we should get the preview version
+	preview := false
+	if previewParam := r.URL.Query().Get("preview"); previewParam != "" {
 		var err error
-		latest, err = strconv.ParseBool(latestParam)
+		preview, err = strconv.ParseBool(previewParam)
 		if err != nil {
-			h.log.Warn("Invalid value for 'latest' parameter, using default (false)", "value", latestParam, "error", err)
+			h.log.Warn("Invalid value for 'preview' parameter, using default (false)", "value", previewParam, "error", err)
 		}
 	}
 
@@ -64,15 +64,15 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 		err      error
 	)
 
-	// Get the file from either the latest version or the active version
-	if latest {
+	// Get the file from either the preview version or the active version
+	if preview {
 		file, fileInfo, err = h.appBundleService.GetLatestVersionFile(r.Context(), filePath)
 	} else {
 		file, fileInfo, err = h.appBundleService.GetFile(r.Context(), filePath)
 	}
 
 	if err != nil {
-		h.log.Error("Failed to get file from app bundle", "error", err, "path", filePath, "latest", latest)
+		h.log.Error("Failed to get file from app bundle", "error", err, "path", filePath, "preview", preview)
 		if errors.Is(err, os.ErrNotExist) || errors.Is(err, appbundle.ErrFileNotFound) {
 			SendErrorResponse(w, http.StatusNotFound, err, "File not found")
 		} else {
@@ -87,8 +87,8 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", fileInfo.MimeType)
 	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size))
 	w.Header().Set("ETag", etag)
-	if latest {
-		w.Header().Set("X-Is-Latest", "true")
+	if preview {
+		w.Header().Set("x-is-preview", "true")
 	}
 
 	// Check If-None-Match header for caching
@@ -173,9 +173,9 @@ func (h *Handler) CompareAppBundleVersions(w http.ResponseWriter, r *http.Reques
 	// Compare the versions
 	changeLog, err := h.appBundleService.CompareAppInfos(ctx, currentVersion, targetVersion)
 	if err != nil {
-		h.log.Error("Failed to compare app bundle versions", 
-			"versionA", currentVersion, 
-			"versionB", targetVersion, 
+		h.log.Error("Failed to compare app bundle versions",
+			"versionA", currentVersion,
+			"versionB", targetVersion,
 			"error", err)
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to compare versions")
 		return

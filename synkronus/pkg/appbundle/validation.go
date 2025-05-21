@@ -2,6 +2,8 @@ package appbundle
 
 import (
 	"archive/zip"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -134,12 +136,18 @@ func (s *Service) validateFormSchema(file *zip.File) error {
 
 	// Get form name from path
 	parts := strings.Split(file.Name, "/")
+	if len(parts) < 2 {
+		return fmt.Errorf("invalid file path: %s", file.Name)
+	}
 	formName := parts[1]
 
 	// Check for core field modifications
 	if currentHash, exists := s.getCoreFieldsHash(formName); exists {
 		coreFields := extractCoreFields(schema)
-		newHash := hashCoreFields(coreFields)
+		newHash, err := hashCoreFields(coreFields)
+		if err != nil {
+			return fmt.Errorf("failed to hash core fields: %w", err)
+		}
 		if newHash != currentHash {
 			return ErrCoreFieldModified
 		}
@@ -236,28 +244,91 @@ func checkCellReferences(data interface{}, availableCells map[string]bool) error
 	return nil
 }
 
-// extractCoreFields extracts core fields (starting with core_) from the schema
+// extractCoreFields extracts fields starting with "core_" from the schema.
+// It performs a deep copy of the values to ensure the original data isn't modified.
 func extractCoreFields(schema map[string]interface{}) map[string]interface{} {
 	coreFields := make(map[string]interface{})
 	for k, v := range schema {
 		if strings.HasPrefix(k, "core_") {
-			coreFields[k] = v
+			// Create a deep copy of the value to avoid modifying the original
+			coreFields[k] = deepCopyValue(v)
 		}
 	}
 	return coreFields
 }
 
-// hashCoreFields generates a hash for the core fields
-func hashCoreFields(fields map[string]interface{}) string {
-	// In a real implementation, you'd want to use a proper hashing function
-	// This is a simplified version for demonstration
-	return fmt.Sprintf("%v", fields)
+// hashCoreFields generates a deterministic hash for the core fields map.
+// It sorts map keys to ensure consistent ordering before hashing.
+func hashCoreFields(fields map[string]interface{}) (string, error) {
+	if len(fields) == 0 {
+		return "", nil
+	}
+
+	// Convert to JSON for consistent hashing
+	jsonData, err := json.Marshal(fields)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal core fields: %w", err)
+	}
+
+	// Use SHA-256 for the hash
+	hash := sha256.Sum256(jsonData)
+	return hex.EncodeToString(hash[:]), nil
 }
 
-// getCoreFieldsHash gets the hash of core fields for a form
+// getCoreFieldsHash retrieves the stored hash for a form's core fields.
+// It returns the hash and a boolean indicating if the hash was found.
 func (s *Service) getCoreFieldsHash(formName string) (string, bool) {
-	// In a real implementation, you'd want to store and retrieve these hashes
-	// from a database or some persistent storage
-	// For now, return false to indicate no existing hash
-	return "", false
+	s.coreFieldMutex.RLock()
+	defer s.coreFieldMutex.RUnlock()
+
+	if s.coreFieldHashes == nil {
+		s.coreFieldHashes = make(map[string]string)
+		return "", false
+	}
+
+	hash, exists := s.coreFieldHashes[formName]
+	return hash, exists
+}
+
+// setCoreFieldsHash stores the hash for a form's core fields.
+func (s *Service) setCoreFieldsHash(formName, hash string) {
+	s.coreFieldMutex.Lock()
+	defer s.coreFieldMutex.Unlock()
+
+	if s.coreFieldHashes == nil {
+		s.coreFieldHashes = make(map[string]string)
+	}
+	s.coreFieldHashes[formName] = hash
+}
+
+// deepCopyValue creates a deep copy of the given value.
+// It handles maps, slices, and primitive types.
+func deepCopyValue(v interface{}) interface{} {
+	switch v := v.(type) {
+	case map[string]interface{}:
+		return deepCopyMap(v)
+	case []interface{}:
+		return deepCopySlice(v)
+	default:
+		// For primitive types, return as is (they're passed by value)
+		return v
+	}
+}
+
+// deepCopyMap creates a deep copy of a map.
+func deepCopyMap(m map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{}, len(m))
+	for k, v := range m {
+		result[k] = deepCopyValue(v)
+	}
+	return result
+}
+
+// deepCopySlice creates a deep copy of a slice.
+func deepCopySlice(s []interface{}) []interface{} {
+	result := make([]interface{}, len(s))
+	for i, v := range s {
+		result[i] = deepCopyValue(v)
+	}
+	return result
 }

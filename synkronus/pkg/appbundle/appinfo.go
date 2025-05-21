@@ -13,24 +13,24 @@ import (
 
 // AppInfo represents the structure of APP_INFO.json
 type AppInfo struct {
-	Version   string             `json:"version"`
+	Version   string              `json:"version"`
 	Forms     map[string]FormInfo `json:"forms,omitempty"`
-	Timestamp string            `json:"timestamp,omitempty"`
+	Timestamp string              `json:"timestamp,omitempty"`
 }
 
 // FormInfo contains information about a form
 type FormInfo struct {
-	CoreHash  string                 `json:"core_hash"`          // Hash of core_* fields
-	FormHash  string                 `json:"form_hash"`          // Hash of the entire form schema
-	UIHash    string                 `json:"ui_hash"`            // Hash of the UI schema
-	Fields    []FieldInfo            `json:"fields,omitempty"`    // List of all fields
+	CoreHash  string                 `json:"core_hash"`            // Hash of core_* fields
+	FormHash  string                 `json:"form_hash"`            // Hash of the entire form schema
+	UIHash    string                 `json:"ui_hash"`              // Hash of the UI schema
+	Fields    []FieldInfo            `json:"fields,omitempty"`     // List of all fields
 	CellTypes map[string]interface{} `json:"cell_types,omitempty"` // Map of cell types used in the form
 }
 
 // FieldInfo contains information about a form field
 type FieldInfo struct {
 	Name     string      `json:"name"`
-	Type     string      `json:	ype,omitempty"`
+	Type     string      `json:"type,omitempty"`
 	Required bool        `json:"required,omitempty"`
 	CellType string      `json:"cell_type,omitempty"`
 	Default  interface{} `json:"default,omitempty"`
@@ -39,14 +39,14 @@ type FieldInfo struct {
 // generateAppInfo generates the APP_INFO.json content for the bundle
 func (s *Service) generateAppInfo(zipReader *zip.Reader, version string) ([]byte, error) {
 	appInfo := AppInfo{
-		Version:   version,
-		Forms:     make(map[string]FormInfo),
+		Version: version,
+		Forms:   make(map[string]FormInfo),
 	}
 
 	// First pass: collect all form schemas and UI schemas
-	formSchemas := make(map[string]*zip.File)   // formName -> schema.json
-	uiSchemas := make(map[string]*zip.File)     // formName -> ui.json
-	cellFiles := make(map[string]bool)          // cellName -> true
+	formSchemas := make(map[string]*zip.File) // formName -> schema.json
+	uiSchemas := make(map[string]*zip.File)   // formName -> ui.json
+	cellFiles := make(map[string]bool)        // cellName -> true
 
 	for _, file := range zipReader.File {
 		switch {
@@ -73,7 +73,6 @@ func (s *Service) generateAppInfo(zipReader *zip.Reader, version string) ([]byte
 		}
 	}
 
-
 	// Process each form
 	for formName, schemaFile := range formSchemas {
 		// Read and parse the form schema
@@ -90,6 +89,9 @@ func (s *Service) generateAppInfo(zipReader *zip.Reader, version string) ([]byte
 		// Extract core fields and create hash
 		coreFields := extractCoreFields(schema)
 		coreHash := hashData(coreFields)
+
+		// Store the core hash in the service cache
+		s.setCoreFieldsHash(formName, coreHash)
 
 		// Create form info
 		formInfo := FormInfo{
