@@ -51,7 +51,7 @@ func init() {
 			fmt.Printf("Version: %s\n", manifest["version"])
 			fmt.Printf("Generated At: %s\n", manifest["generatedAt"])
 			fmt.Printf("Hash: %s\n", manifest["hash"])
-			
+
 			files, ok := manifest["files"].([]interface{})
 			if ok {
 				fmt.Printf("Files: %d\n", len(files))
@@ -60,14 +60,14 @@ func init() {
 						fmt.Printf("... and %d more files (use --all to show all)\n", len(files)-5)
 						break
 					}
-					
+
 					fileMap, ok := file.(map[string]interface{})
 					if ok {
 						fmt.Printf("  - %s (%d bytes)\n", fileMap["path"], int(fileMap["size"].(float64)))
 					}
 				}
 			}
-			
+
 			return nil
 		},
 	}
@@ -112,7 +112,7 @@ func init() {
 			} else {
 				fmt.Println("No versions found")
 			}
-			
+
 			return nil
 		},
 	}
@@ -123,82 +123,86 @@ func init() {
 	downloadCmd := &cobra.Command{
 		Use:   "download [path]",
 		Short: "Download app bundle files",
-		Long:  `Download files from the app bundle to a local directory.`,
-		Args:  cobra.MaximumNArgs(1),
+		Long: `Download files from the app bundle to a local directory.
+
+Use the --latest flag to ensure you get the latest version of the app bundle.`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.NewClient()
-			
+
 			// Get manifest first
 			manifest, err := c.GetAppBundleManifest()
 			if err != nil {
 				return fmt.Errorf("failed to get app bundle manifest: %w", err)
 			}
-			
+
 			// Determine output directory
 			outputDir, err := cmd.Flags().GetString("output")
 			if err != nil {
 				return err
 			}
-			
+
 			if outputDir == "" {
 				outputDir = "app-bundle"
 			}
-			
+
 			// Create output directory if it doesn't exist
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
 				return fmt.Errorf("error creating output directory: %w", err)
 			}
-			
+
 			// Filter by specific path if provided
 			filterPath := ""
 			if len(args) > 0 {
 				filterPath = args[0]
 			}
-			
+
 			// Download files
 			files, ok := manifest["files"].([]interface{})
 			if !ok {
 				return fmt.Errorf("invalid manifest format")
 			}
-			
+
 			downloadCount := 0
 			for _, file := range files {
 				fileMap, ok := file.(map[string]interface{})
 				if !ok {
 					continue
 				}
-				
+
 				filePath, ok := fileMap["path"].(string)
 				if !ok {
 					continue
 				}
-				
+
 				// Skip if not matching filter
 				if filterPath != "" && filePath != filterPath {
 					continue
 				}
-				
+
 				// Download file
 				destPath := filepath.Join(outputDir, filePath)
 				fmt.Printf("Downloading %s...\n", filePath)
-				
-				if err := c.DownloadAppBundleFile(filePath, destPath); err != nil {
+
+				latest, _ := cmd.Flags().GetBool("latest")
+				if err := c.DownloadAppBundleFile(filePath, destPath, latest); err != nil {
 					return fmt.Errorf("error downloading %s: %w", filePath, err)
 				}
-				
+
 				downloadCount++
-				
+
 				// If specific file was requested, stop after downloading it
 				if filterPath != "" {
 					break
 				}
 			}
-			
+
 			fmt.Printf("Downloaded %d files to %s\n", downloadCount, outputDir)
 			return nil
 		},
 	}
 	downloadCmd.Flags().StringP("output", "o", "", "Output directory for downloaded files")
+	downloadCmd.Flags().Bool("latest", false, "Download the latest (unreleased) version of the app bundle")
 	appBundleCmd.AddCommand(downloadCmd)
 
 	// Upload command
@@ -209,21 +213,21 @@ func init() {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			bundlePath := args[0]
-			
+
 			// Check if file exists
 			if _, err := os.Stat(bundlePath); os.IsNotExist(err) {
 				return fmt.Errorf("file not found: %s", bundlePath)
 			}
-			
+
 			c := client.NewClient()
 			response, err := c.UploadAppBundle(bundlePath)
 			if err != nil {
 				return fmt.Errorf("failed to upload app bundle: %w", err)
 			}
-			
+
 			fmt.Println("App bundle uploaded successfully!")
 			fmt.Printf("Message: %s\n", response["message"])
-			
+
 			return nil
 		},
 	}
@@ -237,16 +241,16 @@ func init() {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			version := args[0]
-			
+
 			c := client.NewClient()
 			response, err := c.SwitchAppBundleVersion(version)
 			if err != nil {
 				return fmt.Errorf("failed to switch app bundle version: %w", err)
 			}
-			
+
 			fmt.Println("App bundle version switched successfully!")
 			fmt.Printf("Message: %s\n", response["message"])
-			
+
 			return nil
 		},
 	}
