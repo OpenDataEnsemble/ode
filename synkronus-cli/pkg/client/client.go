@@ -15,6 +15,15 @@ import (
 	"github.com/spf13/viper"
 )
 
+// AppBundleChanges represents the changes between two app bundle versions
+type AppBundleChanges struct {
+	CurrentVersion string                   `json:"current_version"`
+	TargetVersion  string                   `json:"target_version"`
+	Added         []map[string]interface{} `json:"added"`
+	Modified      []map[string]interface{} `json:"modified"`
+	Removed       []map[string]interface{} `json:"removed"`
+}
+
 // Client represents a Synkronus API client
 type Client struct {
 	BaseURL    string
@@ -105,12 +114,50 @@ func (c *Client) GetAppBundleVersions() (map[string]interface{}, error) {
 	return result, nil
 }
 
+// GetAppBundleChanges gets the changes between two app bundle versions
+func (c *Client) GetAppBundleChanges(currentVersion, targetVersion string) (*AppBundleChanges, error) {
+	url := fmt.Sprintf("%s/app-bundle/changes", c.BaseURL)
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request: %w", err)
+	}
+
+	// Add query parameters if provided
+	q := req.URL.Query()
+	if currentVersion != "" {
+		q.Add("current", currentVersion)
+	}
+	if targetVersion != "" {
+		q.Add("target", targetVersion)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var changes AppBundleChanges
+	if err := json.NewDecoder(resp.Body).Decode(&changes); err != nil {
+		return nil, fmt.Errorf("error parsing response: %w", err)
+	}
+
+	return &changes, nil
+}
+
 // DownloadAppBundleFile downloads a specific file from the app bundle
-// If latest is true, adds ?latest=true to the request URL
-func (c *Client) DownloadAppBundleFile(path, destPath string, latest bool) error {
+// If preview is true, adds ?preview=true to the request URL
+func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) error {
 	url := fmt.Sprintf("%s/app-bundle/%s", c.BaseURL, path)
-	if latest {
-		url += "?latest=true"
+	if preview {
+		url += "?preview=true"
 	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

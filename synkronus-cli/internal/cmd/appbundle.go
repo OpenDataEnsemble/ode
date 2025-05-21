@@ -233,6 +233,89 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 	}
 	appBundleCmd.AddCommand(uploadCmd)
 
+	// Changes command
+	changesCmd := &cobra.Command{
+		Use:   "changes",
+		Short: "Show changes between app bundle versions",
+		Long: `Compare two versions of the app bundle and display the changes.
+
+If no versions are specified, shows changes between the current version and the previous one.
+If only one version is specified, compares it with the current version.`,
+		Args: cobra.MaximumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := client.NewClient()
+
+			// Parse version arguments
+			var currentVersion, targetVersion string
+			switch len(args) {
+			case 0:
+				// No arguments - compare current with previous
+			case 1:
+				// One argument - compare specified version with current
+				targetVersion = args[0]
+			case 2:
+				// Two arguments - compare first with second
+				currentVersion = args[0]
+				targetVersion = args[1]
+			}
+
+			// Get changes from API
+			changes, err := c.GetAppBundleChanges(currentVersion, targetVersion)
+			if err != nil {
+				return fmt.Errorf("failed to get app bundle changes: %w", err)
+			}
+
+			// Format output as JSON if requested
+			jsonOutput, _ := cmd.Flags().GetBool("json")
+			if jsonOutput {
+				jsonData, err := json.MarshalIndent(changes, "", "  ")
+				if err != nil {
+					return fmt.Errorf("error formatting JSON: %w", err)
+				}
+				fmt.Println(string(jsonData))
+				return nil
+			}
+
+			// Display formatted output
+			fmt.Printf("Changes from version %s to %s\n\n", changes.CurrentVersion, changes.TargetVersion)
+
+			// Added files
+			if len(changes.Added) > 0 {
+				fmt.Println("Added files:")
+				for _, file := range changes.Added {
+					fmt.Printf("  - %s\n", file["path"])
+				}
+				fmt.Println()
+			}
+
+			// Modified files
+			if len(changes.Modified) > 0 {
+				fmt.Println("Modified files:")
+				for _, file := range changes.Modified {
+					fmt.Printf("  - %s\n", file["path"])
+				}
+				fmt.Println()
+			}
+
+			// Removed files
+			if len(changes.Removed) > 0 {
+				fmt.Println("Removed files:")
+				for _, file := range changes.Removed {
+					fmt.Printf("  - %s\n", file["path"])
+				}
+				fmt.Println()
+			}
+
+			if len(changes.Added) == 0 && len(changes.Modified) == 0 && len(changes.Removed) == 0 {
+				fmt.Println("No changes found between the specified versions.")
+			}
+
+			return nil
+		},
+	}
+	changesCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
+	appBundleCmd.AddCommand(changesCmd)
+
 	// Switch version command
 	switchCmd := &cobra.Command{
 		Use:   "switch [version]",
