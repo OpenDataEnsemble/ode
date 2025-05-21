@@ -42,13 +42,13 @@ paths:
           required: true
           schema:
             type: string
-        - name: latest
+        - name: preview
           in: query
           required: false
           schema:
             type: boolean
             default: false
-          description: If true, returns the file from the latest version regardless of the active version
+          description: If true, returns the file from the latest version including unreleased changes
         - name: if-none-match
           in: header
           schema:
@@ -717,6 +717,84 @@ components:
           items:
             type: string
           description: List of available app bundle versions (timestamp-based identifiers)
+
+    AppBundleChangeLog:
+      type: object
+      required: [compare_version_a, compare_version_b, form_changes, ui_changes]
+      properties:
+        compare_version_a:
+          type: string
+          description: The first version being compared (usually the current version)
+        compare_version_b:
+          type: string
+          description: The second version being compared (previous or preview version)
+        form_changes:
+          type: boolean
+          description: Whether there are any form changes between the versions
+        ui_changes:
+          type: boolean
+          description: Whether there are any UI changes between the versions
+        new_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormDiff'
+          description: List of forms that were added in the new version
+        removed_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormDiff'
+          description: List of forms that were removed in the new version
+        modified_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormModification'
+          description: List of forms that were modified between versions
+
+    FormDiff:
+      type: object
+      required: [form]
+      properties:
+        form:
+          type: string
+          description: Name/identifier of the form
+
+    FormModification:
+      type: object
+      required: [form_name, schema_changed, ui_changed, core_changed]
+      properties:
+        form_name:
+          type: string
+          description: Name of the modified form
+        schema_changed:
+          type: boolean
+          description: Whether the form schema was modified
+        ui_changed:
+          type: boolean
+          description: Whether the form UI was modified
+        core_changed:
+          type: boolean
+          description: Whether the core form properties were modified
+        added_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldChange'
+          description: Fields that were added to the form
+        removed_fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldChange'
+          description: Fields that were removed from the form
+
+    FieldChange:
+      type: object
+      required: [field, type]
+      properties:
+        field:
+          type: string
+          description: Name of the field
+        type:
+          type: string
+          description: Type of the field
 
     AppBundlePushResponse:
       type: object
