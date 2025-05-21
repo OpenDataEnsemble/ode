@@ -100,10 +100,10 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Stream the file to the response
-	h.streamFile(w, r, file, fileInfo)
+	h.streamFile(w, file, fileInfo)
 }
 
-func (h *Handler) streamFile(w http.ResponseWriter, r *http.Request, file io.ReadCloser, fileInfo *appbundle.File) {
+func (h *Handler) streamFile(w http.ResponseWriter, file io.ReadCloser, fileInfo *appbundle.File) {
 	// Stream the file to the response
 	if _, err := io.Copy(w, file); err != nil {
 		h.log.Error("Failed to stream file", "error", err, "path", fileInfo.Path)
