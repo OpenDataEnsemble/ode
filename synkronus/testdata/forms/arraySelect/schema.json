@@ -1,0 +1,29 @@
+{
+  "properties": {
+    "comments": {
+      "type": "array-select",
+      "title": "Comments",
+      "description": "Select a person",
+      "items": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "person": {
+            "type": "object",
+            "properties": {
+              "firstname": {
+                "type": "string"
+              },
+              "lastname": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

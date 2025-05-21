@@ -1,0 +1,18 @@
+{
+  "comments": [
+    {
+      "person": {
+        "firstname": "John",
+        "lastname": "Doe"
+      },
+      "message": "This is an example message"
+    },
+    {
+      "person": {
+        "firstname": "Max",
+        "lastname": "Mustermann"
+      },
+      "message": "Another message"
+    }
+  ]
+}

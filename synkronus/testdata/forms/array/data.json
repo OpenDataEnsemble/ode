@@ -1,0 +1,12 @@
+{
+  "comments": [
+    {
+      "name": "John Doe",
+      "message": "This is an example message"
+    },
+    {
+      "name": "Max Mustermann",
+      "message": "Another message"
+    }
+  ]
+}

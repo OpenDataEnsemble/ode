@@ -1,0 +1,37 @@
+{
+  "type": "VerticalLayout",
+  "elements": [
+    {
+      "type": "Control",
+      "scope": "#/properties/comments",
+      "options": {
+        "elementLabelProps": [
+          "person.firstname",
+          "person.lastname"
+        ],
+        "detail": {
+          "type": "VerticalLayout",
+          "elements": [
+            {
+              "type": "HorizontalLayout",
+              "elements": [
+                {
+                  "type": "Control",
+                  "scope": "#/properties/comments/items/properties/person/properties/firstname"
+                },
+                {
+                  "type": "Control",
+                  "scope": "#/properties/comments/items/properties/person/properties/lastname"
+                }
+              ]
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/comments/items/properties/message"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

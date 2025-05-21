@@ -1,0 +1,25 @@
+{
+  "type": "VerticalLayout",
+  "elements": [
+    {
+      "type": "Control",
+      "scope": "#/properties/comments",
+      "options": {
+        "elementLabelProp": "name",
+        "detail": {
+          "type": "HorizontalLayout",
+          "elements": [
+            {
+              "type": "Control",
+              "scope": "#/properties/comments/items/properties/message"
+            },
+            {
+              "type": "Control",
+              "scope": "#/properties/comments/items/properties/name"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
