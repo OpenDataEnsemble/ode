@@ -42,6 +42,13 @@ paths:
           required: true
           schema:
             type: string
+        - name: latest
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: If true, returns the file from the latest version regardless of the active version
         - name: if-none-match
           in: header
           schema:

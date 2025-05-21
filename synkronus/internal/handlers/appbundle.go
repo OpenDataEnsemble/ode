@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"path"
-	"strings"
+	"os"
+	"strconv"
 
+	"github.com/collectakit/synkronus/pkg/appbundle"
 	"github.com/go-chi/chi/v5"
 )
 
@@ -46,55 +48,65 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clean the path to prevent directory traversal
-	filePath = path.Clean(filePath)
-	if strings.Contains(filePath, "..") {
-		SendErrorResponse(w, http.StatusBadRequest, nil, "Invalid file path")
-		return
+	// Check if we should get the latest version
+	latest := false
+	if latestParam := r.URL.Query().Get("latest"); latestParam != "" {
+		var err error
+		latest, err = strconv.ParseBool(latestParam)
+		if err != nil {
+			h.log.Warn("Invalid value for 'latest' parameter, using default (false)", "value", latestParam, "error", err)
+		}
 	}
 
-	h.log.Info("App bundle file requested", "path", filePath)
-	ctx := r.Context()
+	var (
+		file     io.ReadCloser
+		fileInfo *appbundle.File
+		err      error
+	)
 
-	// Get the file hash for ETag
-	hash, err := h.appBundleService.GetFileHash(ctx, filePath)
-	if err != nil {
-		h.log.Error("Failed to get file hash", "error", err, "path", filePath)
-		// Continue anyway, we'll handle the error when getting the file
+	// Get the file from either the latest version or the active version
+	if latest {
+		file, fileInfo, err = h.appBundleService.GetLatestVersionFile(r.Context(), filePath)
 	} else {
-		// Check if ETag matches
-		etag := fmt.Sprintf("\"%s\"", hash)
-		if r.Header.Get("If-None-Match") == etag {
+		file, fileInfo, err = h.appBundleService.GetFile(r.Context(), filePath)
+	}
+
+	if err != nil {
+		h.log.Error("Failed to get file from app bundle", "error", err, "path", filePath, "latest", latest)
+		if errors.Is(err, os.ErrNotExist) || errors.Is(err, appbundle.ErrFileNotFound) {
+			SendErrorResponse(w, http.StatusNotFound, err, "File not found")
+		} else {
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to get file")
+		}
+		return
+	}
+	defer file.Close()
+
+	// Set the appropriate headers
+	etag := fmt.Sprintf("\"%s\"", fileInfo.Hash)
+	w.Header().Set("Content-Type", fileInfo.MimeType)
+	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size))
+	w.Header().Set("ETag", etag)
+	if latest {
+		w.Header().Set("X-Is-Latest", "true")
+	}
+
+	// Check If-None-Match header for caching
+	if match := r.Header.Get("If-None-Match"); match != "" {
+		if match == etag || match == "*" {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
-		// Set ETag header
-		w.Header().Set("ETag", etag)
 	}
-
-	// Get the file from the service
-	fileReader, fileInfo, err := h.appBundleService.GetFile(ctx, filePath)
-	if err != nil {
-		h.log.Error("Failed to get app bundle file", "error", err, "path", filePath)
-		SendErrorResponse(w, http.StatusNotFound, err, "File not found")
-		return
-	}
-	defer fileReader.Close()
-
-	// Set content type header
-	if fileInfo.MimeType != "" {
-		w.Header().Set("Content-Type", fileInfo.MimeType)
-	} else {
-		w.Header().Set("Content-Type", "application/octet-stream")
-	}
-
-	// Set content length header
-	w.Header().Set("Content-Length", fmt.Sprintf("%d", fileInfo.Size))
 
 	// Stream the file to the response
-	_, err = io.Copy(w, fileReader)
-	if err != nil {
-		h.log.Error("Failed to stream file", "error", err, "path", filePath)
+	h.streamFile(w, r, file, fileInfo)
+}
+
+func (h *Handler) streamFile(w http.ResponseWriter, r *http.Request, file io.ReadCloser, fileInfo *appbundle.File) {
+	// Stream the file to the response
+	if _, err := io.Copy(w, file); err != nil {
+		h.log.Error("Failed to stream file", "error", err, "path", fileInfo.Path)
 		// Error already sent to client, nothing more to do
 	}
 }

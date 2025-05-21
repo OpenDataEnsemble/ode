@@ -74,7 +74,7 @@ func (m *MockAppBundleService) GetManifest(ctx context.Context) (*appbundle.Mani
 	return m.manifest, nil
 }
 
-// GetFile retrieves a specific file from the app bundle
+// GetFile returns a file from the app bundle
 func (m *MockAppBundleService) GetFile(ctx context.Context, path string) (io.ReadCloser, *appbundle.File, error) {
 	file, exists := m.files[path]
 	if !exists {
@@ -84,14 +84,26 @@ func (m *MockAppBundleService) GetFile(ctx context.Context, path string) (io.Rea
 	return io.NopCloser(bytes.NewReader(file.content)), &file.fileInfo, nil
 }
 
+// GetLatestVersionFile returns a file from the latest version of the app bundle
+func (m *MockAppBundleService) GetLatestVersionFile(ctx context.Context, path string) (io.ReadCloser, *appbundle.File, error) {
+	// For testing, just return the same as GetFile
+	return m.GetFile(ctx, path)
+}
+
 // GetFileHash returns the hash for a specific file
-func (m *MockAppBundleService) GetFileHash(ctx context.Context, path string) (string, error) {
+func (m *MockAppBundleService) GetFileHash(ctx context.Context, path string, useLatest bool) (string, error) {
 	file, exists := m.files[path]
 	if !exists {
 		return "", appbundle.ErrFileNotFound
 	}
 
 	return file.fileInfo.Hash, nil
+}
+
+// RefreshManifest refreshes the app bundle manifest
+func (m *MockAppBundleService) RefreshManifest() error {
+	// For testing, just return nil
+	return nil
 }
 
 // PushBundle uploads a new app bundle from a zip file

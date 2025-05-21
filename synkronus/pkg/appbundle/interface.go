@@ -35,8 +35,14 @@ type AppBundleServiceInterface interface {
 	// GetFile retrieves a specific file from the app bundle
 	GetFile(ctx context.Context, path string) (io.ReadCloser, *File, error)
 
-	// GetFileHash returns the hash for a specific file
-	GetFileHash(ctx context.Context, path string) (string, error)
+	// GetLatestVersionFile gets a file from the latest version
+	GetLatestVersionFile(ctx context.Context, path string) (io.ReadCloser, *File, error)
+
+	// GetFileHash returns the hash for a specific file, optionally from the latest version
+	GetFileHash(ctx context.Context, path string, useLatest bool) (string, error)
+
+	// RefreshManifest forces a refresh of the manifest
+	RefreshManifest() error
 
 	// PushBundle uploads a new app bundle from a zip file
 	PushBundle(ctx context.Context, zipReader io.Reader) (*Manifest, error)
