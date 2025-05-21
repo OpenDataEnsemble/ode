@@ -14,22 +14,6 @@ import (
 
 // PushBundle uploads a new app bundle from a zip file
 func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifest, error) {
-	// Get the next version number
-	versionNumber, err := s.getNextVersionNumber()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get next version number: %w", err)
-	}
-
-	// Create version name with leading zeros for sorting (e.g., 0001, 0002, etc.)
-	versionName := fmt.Sprintf("%04d", versionNumber)
-	versionPath := filepath.Join(s.versionsPath, versionName)
-
-	// Create the version directory
-	s.log.Info("Creating new app bundle version", "version", versionName)
-	if err := os.MkdirAll(versionPath, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create version directory: %w", err)
-	}
-
 	// Create a temporary file to store the zip content
 	tempZipFile, err := os.CreateTemp("", "appbundle-*.zip")
 	if err != nil {
@@ -48,10 +32,44 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 		return nil, fmt.Errorf("failed to rewind temporary file: %w", err)
 	}
 
-	// Open the zip file
+	// Open the zip file for validation
 	zipFile, err := zip.OpenReader(tempZipFile.Name())
 	if err != nil {
 		return nil, fmt.Errorf("failed to open zip file: %w", err)
+	}
+	defer zipFile.Close()
+
+	// Validate the bundle structure
+	if err := s.validateBundleStructure(&zipFile.Reader); err != nil {
+		return nil, fmt.Errorf("bundle validation failed: %w", err)
+	}
+
+	// Get the next version number after validation passes
+	versionNumber, err := s.getNextVersionNumber()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get next version number: %w", err)
+	}
+
+	// Create version name with leading zeros for sorting (e.g., 0001, 0002, etc.)
+	versionName := fmt.Sprintf("%04d", versionNumber)
+	versionPath := filepath.Join(s.versionsPath, versionName)
+
+	// Create the version directory
+	s.log.Info("Creating new app bundle version", "version", versionName)
+	if err := os.MkdirAll(versionPath, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create version directory: %w", err)
+	}
+
+	// Rewind the file again for extraction
+	if _, err := tempZipFile.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("failed to rewind temporary file: %w", err)
+	}
+
+	// Reopen the zip file for extraction
+	zipFile.Close()
+	zipFile, err = zip.OpenReader(tempZipFile.Name())
+	if err != nil {
+		return nil, fmt.Errorf("failed to reopen zip file: %w", err)
 	}
 	defer zipFile.Close()
 
