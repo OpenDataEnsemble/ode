@@ -433,6 +433,12 @@ func TestCoreFieldsValidation(t *testing.T) {
 	}
 
 	t.Run("CoreFieldModification", func(t *testing.T) {
+		// Create a new service for this test case to avoid cache pollution
+		service = &Service{
+			bundlePath:   t.TempDir(),
+			versionsPath: t.TempDir(),
+			maxVersions:  5,
+		}
 		// Initial bundle with a form containing core fields
 		bundle1, err := createTestFormBundle(t, map[string]map[string]interface{}{
 			"user": {
@@ -448,13 +454,19 @@ func TestCoreFieldsValidation(t *testing.T) {
 		require.NoError(t, err, "Failed to create initial bundle")
 		defer cleanupTestBundle(t, bundle1)
 
-		// Process the first version
+		// Process the first version to extract and store core field hashes
 		zip1, err := zip.OpenReader(bundle1)
 		require.NoError(t, err)
 		defer zip1.Close()
 
-		err = service.validateBundleStructure(&zip1.Reader)
-		require.NoError(t, err, "Initial bundle validation failed")
+		// Generate app info to store core field hashes
+		_, err = service.generateAppInfo(&zip1.Reader, "1.0.0")
+		require.NoError(t, err, "Failed to generate app info")
+
+		// Verify the core field hash was stored
+		hash, exists := service.getCoreFieldsHash("user")
+		require.True(t, exists, "Core field hash should be stored")
+		require.NotEmpty(t, hash, "Core field hash should not be empty")
 
 		// Create a second version that modifies a core field
 		bundle2, err := createTestFormBundle(t, map[string]map[string]interface{}{
@@ -483,6 +495,13 @@ func TestCoreFieldsValidation(t *testing.T) {
 	})
 
 	t.Run("NonCoreFieldModification", func(t *testing.T) {
+		// Create a new service for this test case to avoid cache pollution
+		service = &Service{
+			bundlePath:   t.TempDir(),
+			versionsPath: t.TempDir(),
+			maxVersions:  5,
+		}
+
 		// Create a bundle with a non-core form
 		bundle, err := createTestFormBundle(t, map[string]map[string]interface{}{
 			"user": {

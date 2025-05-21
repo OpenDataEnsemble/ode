@@ -149,7 +149,7 @@ func (s *Service) validateFormSchema(file *zip.File) error {
 			return fmt.Errorf("failed to hash core fields: %w", err)
 		}
 		if newHash != currentHash {
-			return ErrCoreFieldModified
+			return fmt.Errorf("%w: core field type or structure has been modified", ErrCoreFieldModified)
 		}
 	}
 
@@ -198,15 +198,15 @@ func (s *Service) validateFormCellReferences(zipReader *zip.Reader) error {
 
 			// Parse the schema
 			var schema map[string]interface{}
-			if err := json.NewDecoder(f).Decode(&schema); err != nil {
-				f.Close()
-				return fmt.Errorf("invalid JSON in form schema: %w", err)
+			err = json.NewDecoder(f).Decode(&schema)
+			f.Close() // Close the file immediately after reading
+			if err != nil {
+				return fmt.Errorf("failed to parse form schema: %w", err)
 			}
-			f.Close()
 
 			// Check for cell references in the schema
 			if err := checkCellReferences(schema, availableCells); err != nil {
-				return fmt.Errorf("form schema validation failed: %w", err)
+				return fmt.Errorf("%w: %v", ErrMissingCellReference, err)
 			}
 		}
 	}
@@ -218,10 +218,15 @@ func (s *Service) validateFormCellReferences(zipReader *zip.Reader) error {
 func checkCellReferences(data interface{}, availableCells map[string]bool) error {
 	switch v := data.(type) {
 	case map[string]interface{}:
-		// Check for cell type
+		// Check for cell type (both x-cell and cellType formats)
+		if cellType, ok := v["x-cell"].(string); ok {
+			if !availableCells[cellType] {
+				return fmt.Errorf("references non-existent cell '%s' (x-cell)", cellType)
+			}
+		}
 		if cellType, ok := v["cellType"].(string); ok {
 			if !availableCells[cellType] {
-				return fmt.Errorf("%w: cell type '%s' not found in bundle", ErrMissingCellReference, cellType)
+				return fmt.Errorf("references non-existent cell '%s' (cellType)", cellType)
 			}
 		}
 
@@ -244,16 +249,30 @@ func checkCellReferences(data interface{}, availableCells map[string]bool) error
 	return nil
 }
 
-// extractCoreFields extracts fields starting with "core_" from the schema.
+// extractCoreFields extracts core fields from the schema.
+// Core fields are either marked with x-core: true or start with "core_".
 // It performs a deep copy of the values to ensure the original data isn't modified.
 func extractCoreFields(schema map[string]interface{}) map[string]interface{} {
 	coreFields := make(map[string]interface{})
+	
+	// Check for x-core at the schema level
+	if isCore, ok := schema["x-core"].(bool); ok && isCore {
+		// If the entire schema is marked as core, include all properties
+		if props, ok := schema["properties"].(map[string]interface{}); ok {
+			for k, v := range props {
+				coreFields[k] = deepCopyValue(v)
+			}
+		}
+	}
+
+	// Also include any fields that start with "core_"
 	for k, v := range schema {
 		if strings.HasPrefix(k, "core_") {
 			// Create a deep copy of the value to avoid modifying the original
 			coreFields[k] = deepCopyValue(v)
 		}
 	}
+
 	return coreFields
 }
 
