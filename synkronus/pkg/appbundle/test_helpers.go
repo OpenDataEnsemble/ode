@@ -1,0 +1,134 @@
+package appbundle
+
+import (
+	"archive/zip"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// createTestBundleFromDir creates a zip bundle from a directory structure for testing
+func createTestBundleFromDir(t *testing.T, srcDir string) (string, error) {
+	t.Helper()
+
+	// Create a temporary file for the zip
+	tmpFile, err := os.CreateTemp("", "test-bundle-*.zip")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer tmpFile.Close()
+
+	// Create a new zip writer
+	w := zip.NewWriter(tmpFile)
+
+	// Create required top-level directories
+	for _, dir := range []string{"app/", "forms/", "cells/"} {
+		if _, err := w.Create(dir); err != nil {
+			return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+	}
+
+	// Make sure we have the required app/index.html
+	appIndexPath := filepath.Join(srcDir, "app", "index.html")
+	if _, err := os.Stat(appIndexPath); err == nil {
+		// Read the app/index.html file
+		data, err := os.ReadFile(appIndexPath)
+		if err != nil {
+			return "", fmt.Errorf("failed to read app/index.html: %w", err)
+		}
+
+		// Create the app directory in the zip if it doesn't exist
+		if _, err := w.Create("app/"); err != nil {
+			return "", fmt.Errorf("failed to create app/ directory: %w", err)
+		}
+
+		// Add the index.html file to the zip
+		fw, err := w.Create("app/index.html")
+		if err != nil {
+			return "", fmt.Errorf("failed to create app/index.html in zip: %w", err)
+		}
+
+		if _, err := fw.Write(data); err != nil {
+			return "", fmt.Errorf("failed to write app/index.html to zip: %w", err)
+		}
+	}
+
+	// Walk the source directory and add files to the zip
+	err = filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories and app/index.html (already added)
+		if info.IsDir() || (strings.HasSuffix(path, "app/index.html") && !strings.Contains(path, "testdata")) {
+			return nil
+		}
+
+		// Calculate the relative path within the srcDir
+		relPath, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+
+		// Determine the target path in the zip based on the source directory
+		var zipPath string
+		switch {
+		case strings.HasPrefix(relPath, "app/") && !strings.HasSuffix(relPath, "index.html"):
+			// Other files from testdata/app/ go to app/ in the zip
+			zipPath = relPath
+		case strings.HasPrefix(relPath, "forms/"):
+			// Files from testdata/forms/ go to forms/ in the zip
+			zipPath = relPath
+		case strings.HasPrefix(relPath, "cells/"):
+			// Files from testdata/cells/ go to cells/ in the zip
+			zipPath = relPath
+		default:
+			// Skip files not in the expected directories
+			return nil
+		}
+
+		// Create parent directories in the zip if they don't exist
+		if dir := filepath.Dir(zipPath); dir != "." {
+			if _, err := w.Create(dir + "/"); err != nil {
+				return err
+			}
+		}
+
+		// Create a new file in the zip
+		zipFile, err := w.Create(zipPath)
+		if err != nil {
+			return err
+		}
+
+		// Read the source file
+		fileData, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		// Write the file data to the zip
+		_, err = zipFile.Write(fileData)
+		return err
+	})
+
+	if err != nil {
+		t.Fatalf("Failed to walk directory: %v", err)
+	}
+
+	// Close the zip writer
+	if err := w.Close(); err != nil {
+		t.Fatalf("Failed to close zip writer: %v", err)
+	}
+
+	return tmpFile.Name(), nil
+}
+
+// cleanupTestBundle removes the test bundle file
+func cleanupTestBundle(t *testing.T, path string) {
+	t.Helper()
+	if err := os.Remove(path); err != nil {
+		t.Logf("Warning: Failed to clean up test bundle %s: %v", path, err)
+	}
+}
