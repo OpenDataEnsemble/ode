@@ -125,7 +125,7 @@ func init() {
 		Short: "Download app bundle files",
 		Long: `Download files from the app bundle to a local directory.
 
-Use the --latest flag to ensure you get the latest version of the app bundle.`,
+Use the --preview flag to ensure you get the preview version of the app bundle.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := client.NewClient()
@@ -184,8 +184,8 @@ Use the --latest flag to ensure you get the latest version of the app bundle.`,
 				destPath := filepath.Join(outputDir, filePath)
 				fmt.Printf("Downloading %s...\n", filePath)
 
-				latest, _ := cmd.Flags().GetBool("latest")
-				if err := c.DownloadAppBundleFile(filePath, destPath, latest); err != nil {
+				preview, _ := cmd.Flags().GetBool("preview")
+				if err := c.DownloadAppBundleFile(filePath, destPath, preview); err != nil {
 					return fmt.Errorf("error downloading %s: %w", filePath, err)
 				}
 
@@ -202,7 +202,7 @@ Use the --latest flag to ensure you get the latest version of the app bundle.`,
 		},
 	}
 	downloadCmd.Flags().StringP("output", "o", "", "Output directory for downloaded files")
-	downloadCmd.Flags().Bool("latest", false, "Download the latest (unreleased) version of the app bundle")
+	downloadCmd.Flags().Bool("preview", false, "Download the preview (or latest version if no preview exists) version of the app bundle")
 	appBundleCmd.AddCommand(downloadCmd)
 
 	// Upload command
