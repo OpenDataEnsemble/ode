@@ -52,4 +52,13 @@ type AppBundleServiceInterface interface {
 
 	// SwitchVersion switches to a specific app bundle version
 	SwitchVersion(ctx context.Context, version string) error
+
+	// GetAppInfo retrieves the app info for a specific version
+	GetAppInfo(ctx context.Context, version string) (*AppInfo, error)
+
+	// GetLatestAppInfo retrieves the app info for the latest version (including unreleased)
+	GetLatestAppInfo(ctx context.Context) (*AppInfo, error)
+
+	// CompareAppInfos compares two versions and returns the change log
+	CompareAppInfos(ctx context.Context, versionA, versionB string) (*ChangeLog, error)
 }

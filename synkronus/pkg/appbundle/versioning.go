@@ -3,6 +3,7 @@ package appbundle
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -420,6 +421,75 @@ func (s *Service) getNextVersionNumber() (int, error) {
 
 	// Return the next version number
 	return highestVersion + 1, nil
+}
+
+// GetAppInfo retrieves the app info for a specific version
+func (s *Service) GetAppInfo(ctx context.Context, version string) (*AppInfo, error) {
+	versionDir := filepath.Join(s.versionsPath, version)
+	appInfoPath := filepath.Join(versionDir, "APP_INFO.json")
+
+	data, err := os.ReadFile(appInfoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read APP_INFO.json: %w", err)
+	}
+
+	var appInfo AppInfo
+	if err := json.Unmarshal(data, &appInfo); err != nil {
+		return nil, fmt.Errorf("failed to parse APP_INFO.json: %w", err)
+	}
+
+	return &appInfo, nil
+}
+
+// GetLatestAppInfo retrieves the app info for the latest version (including unreleased)
+func (s *Service) GetLatestAppInfo(ctx context.Context) (*AppInfo, error) {
+	// First check for an unreleased version
+	tempAppInfoPath := filepath.Join(s.versionsPath, "temp_APP_INFO.json")
+	if _, err := os.Stat(tempAppInfoPath); err == nil {
+		// Found an unreleased version
+		return s.GetAppInfo(ctx, "temp")
+	}
+
+	// Otherwise, get the latest released version
+	versions, err := s.GetVersions(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get versions: %w", err)
+	}
+
+	if len(versions) == 0 {
+		return nil, fmt.Errorf("no versions available")
+	}
+
+	// Versions are returned in ascending order, so the last one is the latest
+	latestVersion := versions[len(versions)-1]
+	return s.GetAppInfo(ctx, latestVersion)
+}
+
+// CompareAppInfos compares two versions and returns the change log
+func (s *Service) CompareAppInfos(ctx context.Context, versionA, versionB string) (*ChangeLog, error) {
+	var appInfoA, appInfoB *AppInfo
+	var err error
+
+	// Handle special "latest" version
+	if versionA == "latest" {
+		appInfoA, err = s.GetLatestAppInfo(ctx)
+	} else {
+		appInfoA, err = s.GetAppInfo(ctx, versionA)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get app info for version %s: %w", versionA, err)
+	}
+
+	if versionB == "latest" {
+		appInfoB, err = s.GetLatestAppInfo(ctx)
+	} else {
+		appInfoB, err = s.GetAppInfo(ctx, versionB)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get app info for version %s: %w", versionB, err)
+	}
+
+	return CompareAppInfos(appInfoA, appInfoB)
 }
 
 // cleanupOldVersions removes old versions to keep only the maximum number of versions

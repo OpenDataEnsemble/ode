@@ -109,6 +109,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 			r.Get("/manifest", h.GetAppBundleManifest)
 			r.Get("/{path}", h.GetAppBundleFile)
 			r.Get("/versions", h.GetAppBundleVersions)
+			r.Get("/changes", h.CompareAppBundleVersions)
 
 			// Write endpoints - require admin role
 			r.With(auth.RequireRole(models.RoleAdmin)).Post("/push", h.PushAppBundle)

@@ -120,6 +120,38 @@ func (m *MockAppBundleService) GetVersions(ctx context.Context) ([]string, error
 
 // SwitchVersion switches to a specific app bundle version
 func (m *MockAppBundleService) SwitchVersion(ctx context.Context, version string) error {
-	// For testing, just return nil
+	// Not implemented in mock
 	return nil
+}
+
+// GetAppInfo retrieves the app info for a specific version
+func (m *MockAppBundleService) GetAppInfo(ctx context.Context, version string) (*appbundle.AppInfo, error) {
+	// Return a mock AppInfo
+	return &appbundle.AppInfo{
+		Version: version,
+		Forms:   make(map[string]appbundle.FormInfo),
+	}, nil
+}
+
+// GetLatestAppInfo retrieves the app info for the latest version (including unreleased)
+func (m *MockAppBundleService) GetLatestAppInfo(ctx context.Context) (*appbundle.AppInfo, error) {
+	// Return a mock latest AppInfo
+	return &appbundle.AppInfo{
+		Version: "latest",
+		Forms:   make(map[string]appbundle.FormInfo),
+	}, nil
+}
+
+// CompareAppInfos compares two versions and returns the change log
+func (m *MockAppBundleService) CompareAppInfos(ctx context.Context, versionA, versionB string) (*appbundle.ChangeLog, error) {
+	// Return a mock change log
+	return &appbundle.ChangeLog{
+		CompareVersionA: versionA,
+		CompareVersionB: versionB,
+		FormChanges:     false,
+		UIChanges:       false,
+		NewForms:        []appbundle.FormDiff{},
+		RemovedForms:    []appbundle.FormDiff{},
+		ModifiedForms:   []appbundle.FormModification{},
+	}, nil
 }

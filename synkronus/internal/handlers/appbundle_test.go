@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -165,32 +166,100 @@ func TestGetAppBundleFileNotModified(t *testing.T) {
 }
 
 func TestGetAppBundleManifestNotModified(t *testing.T) {
-	// Create a test handler
+	// Create a test handler with a mock service
 	h, _ := createTestHandler()
 
 	// First request to get the ETag
 	req1 := httptest.NewRequest(http.MethodGet, "/app-bundle/manifest", nil)
 	w1 := httptest.NewRecorder()
-
-	// Call the handler
 	h.GetAppBundleManifest(w1, req1)
-	resp1 := w1.Result()
-	defer resp1.Body.Close()
 
 	// Get the ETag from the first response
+	resp1 := w1.Result()
+	defer resp1.Body.Close()
 	etag := resp1.Header.Get("etag")
-	require.NotEmpty(t, etag, "Expected ETag header to be set")
 
 	// Second request with If-None-Match header
 	req2 := httptest.NewRequest(http.MethodGet, "/app-bundle/manifest", nil)
 	req2.Header.Set("If-None-Match", etag)
 	w2 := httptest.NewRecorder()
-
-	// Call the handler again
 	h.GetAppBundleManifest(w2, req2)
+
+	// Check response
 	resp2 := w2.Result()
 	defer resp2.Body.Close()
 
-	// Check that the second response has a 304 Not Modified status
+	// Should return 304 Not Modified
 	assert.Equal(t, http.StatusNotModified, resp2.StatusCode, "Expected status code %d, got %d", http.StatusNotModified, resp2.StatusCode)
+
+	// Response body should be empty
+	body, err := io.ReadAll(resp2.Body)
+	require.NoError(t, err, "Failed to read response body")
+	assert.Empty(t, body, "Expected empty response body, got %s", string(body))
+}
+
+func TestCompareAppBundleVersions(t *testing.T) {
+	// Create a test handler with a mock service
+	h, _ := createTestHandler()
+
+	tests := []struct {
+		name           string
+		currentVersion string
+		preview        string
+		expectedCode   int
+	}{
+		{
+			name:           "compare with previous version",
+			currentVersion: "v2.0.0",
+			expectedCode:   http.StatusOK,
+		},
+		{
+			name:           "compare with preview",
+			currentVersion: "v2.0.0",
+			preview:       "true",
+			expectedCode:   http.StatusOK,
+		},
+		{
+			name:           "no current version",
+			expectedCode:   http.StatusOK,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create request
+			req := httptest.NewRequest(http.MethodGet, "/app-bundle/changes", nil)
+			q := req.URL.Query()
+			if tc.currentVersion != "" {
+				q.Add("current", tc.currentVersion)
+			}
+			if tc.preview != "" {
+				q.Add("preview", tc.preview)
+			}
+			req.URL.RawQuery = q.Encode()
+
+			w := httptest.NewRecorder()
+
+			// Call handler
+			h.CompareAppBundleVersions(w, req)
+
+
+			// Check response
+			resp := w.Result()
+			defer resp.Body.Close()
+
+			assert.Equal(t, tc.expectedCode, resp.StatusCode)
+
+			// Verify response body is valid JSON
+			var respBody map[string]interface{}
+			err := json.NewDecoder(resp.Body).Decode(&respBody)
+			require.NoError(t, err, "Response should be valid JSON")
+
+			// Check for expected fields in successful responses
+			if resp.StatusCode == http.StatusOK {
+				assert.Contains(t, respBody, "compare_version_a")
+				assert.Contains(t, respBody, "compare_version_b")
+			}
+		})
+	}
 }

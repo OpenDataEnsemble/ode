@@ -6,7 +6,7 @@ import (
 )
 
 // createTestHandler creates a handler with mock dependencies for testing
-func createTestHandler() (*Handler, *logger.Logger) {
+func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 	// Create a logger for testing
 	log := logger.NewLogger()
 
@@ -22,5 +22,5 @@ func createTestHandler() (*Handler, *logger.Logger) {
 	// Create a new handler
 	h := NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mocks.NewMockUserService())
 
-	return h, log
+	return h, mockAppBundleService
 }

@@ -104,9 +104,83 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) streamFile(w http.ResponseWriter, file io.ReadCloser, fileInfo *appbundle.File) {
-	// Stream the file to the response
+	defer file.Close()
+
+	// Set content type and headers
+	w.Header().Set("Content-Type", fileInfo.MimeType)
+	w.Header().Set("Content-Length", strconv.FormatInt(fileInfo.Size, 10))
+	w.Header().Set("ETag", "\""+fileInfo.Hash+"\"")
+
+	// Stream the file
 	if _, err := io.Copy(w, file); err != nil {
-		h.log.Error("Failed to stream file", "error", err, "path", fileInfo.Path)
-		// Error already sent to client, nothing more to do
+		h.log.Error("Failed to stream file", "error", err)
 	}
+}
+
+// CompareAppBundleVersions handles the /app-bundle/changes endpoint
+func (h *Handler) CompareAppBundleVersions(w http.ResponseWriter, r *http.Request) {
+	h.log.Info("App bundle comparison requested")
+	ctx := r.Context()
+
+	// Get query parameters
+	preview := r.URL.Query().Get("preview") == "true"
+
+	// Get the current version
+	currentVersion := r.URL.Query().Get("current")
+	if currentVersion == "" {
+		// If no current version is specified, use the latest released version
+		versions, err := h.appBundleService.GetVersions(ctx)
+		if err != nil || len(versions) == 0 {
+			h.log.Error("Failed to get current version", "error", err)
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to get current version")
+			return
+		}
+		currentVersion = versions[len(versions)-1]
+	}
+
+	// Determine the target version (preview or previous)
+	targetVersion := "latest"
+	if !preview {
+		// If not preview, compare with the previous version
+		versions, err := h.appBundleService.GetVersions(ctx)
+		if err != nil {
+			h.log.Error("Failed to get versions", "error", err)
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to get versions")
+			return
+		}
+
+		// Find the index of the current version
+		currentIdx := -1
+		for i, v := range versions {
+			if v == currentVersion {
+				currentIdx = i
+				break
+			}
+		}
+
+		if currentIdx <= 0 {
+			// If no previous version exists, return an empty change log
+			SendJSONResponse(w, http.StatusOK, &appbundle.ChangeLog{
+				CompareVersionA: currentVersion,
+				CompareVersionB: currentVersion,
+			})
+			return
+		}
+
+		targetVersion = versions[currentIdx-1]
+	}
+
+	// Compare the versions
+	changeLog, err := h.appBundleService.CompareAppInfos(ctx, currentVersion, targetVersion)
+	if err != nil {
+		h.log.Error("Failed to compare app bundle versions", 
+			"versionA", currentVersion, 
+			"versionB", targetVersion, 
+			"error", err)
+		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to compare versions")
+		return
+	}
+
+	// Send the response
+	SendJSONResponse(w, http.StatusOK, changeLog)
 }
