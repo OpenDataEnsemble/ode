@@ -108,7 +108,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		r.Route("/app-bundle", func(r chi.Router) {
 			// Read endpoints - accessible to all authenticated users
 			r.Get("/manifest", h.GetAppBundleManifest)
-			r.Get("/{path}", h.GetAppBundleFile)
+			r.Get("/download/{path}", h.GetAppBundleFile)
 			r.Get("/versions", h.GetAppBundleVersions)
 			r.Get("/changes", h.CompareAppBundleVersions)
 
