@@ -61,7 +61,7 @@ func TestGetAppBundleFile(t *testing.T) {
 
 	// Create a router for URL parameter extraction
 	r := chi.NewRouter()
-	r.Get("/app-bundle/{path}", h.GetAppBundleFile)
+	r.Get("/app-bundle/download/{path}", h.GetAppBundleFile)
 
 	// Test cases
 	testCases := []struct {
@@ -99,7 +99,7 @@ func TestGetAppBundleFile(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a test request
-			req := httptest.NewRequest(http.MethodGet, "/app-bundle/"+tc.path, nil)
+			req := httptest.NewRequest(http.MethodGet, "/app-bundle/download/"+tc.path, nil)
 			w := httptest.NewRecorder()
 
 			// Serve the request through the router to extract URL parameters
@@ -136,12 +136,12 @@ func TestGetAppBundleFileWithPreview(t *testing.T) {
 
 	// Test with preview=true
 	t.Run("with preview=true", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/app-bundle/index.html?preview=true", nil)
+		req := httptest.NewRequest(http.MethodGet, "/app-bundle/download/index.html?preview=true", nil)
 		w := httptest.NewRecorder()
 
 		// Create a router for URL parameter extraction
 		r := chi.NewRouter()
-		r.Get("/app-bundle/{path}", h.GetAppBundleFile)
+		r.Get("/app-bundle/download/{path}", h.GetAppBundleFile)
 
 		// Serve the request
 		r.ServeHTTP(w, req)
@@ -163,12 +163,12 @@ func TestGetAppBundleFileWithPreview(t *testing.T) {
 
 	// Test with preview=false
 	t.Run("with preview=false", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/app-bundle/index.html?preview=false", nil)
+		req := httptest.NewRequest(http.MethodGet, "/app-bundle/download/index.html?preview=false", nil)
 		w := httptest.NewRecorder()
 
 		// Create a router for URL parameter extraction
 		r := chi.NewRouter()
-		r.Get("/app-bundle/{path}", h.GetAppBundleFile)
+		r.Get("/app-bundle/download/{path}", h.GetAppBundleFile)
 
 		// Serve the request
 		r.ServeHTTP(w, req)
@@ -190,12 +190,12 @@ func TestGetAppBundleFileWithPreview(t *testing.T) {
 
 	// Test with invalid preview value
 	t.Run("with invalid preview value", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/app-bundle/index.html?preview=invalid", nil)
+		req := httptest.NewRequest(http.MethodGet, "/app-bundle/download/index.html?preview=invalid", nil)
 		w := httptest.NewRecorder()
 
 		// Create a router for URL parameter extraction
 		r := chi.NewRouter()
-		r.Get("/app-bundle/{path}", h.GetAppBundleFile)
+		r.Get("/app-bundle/download/{path}", h.GetAppBundleFile)
 
 		// Serve the request
 		r.ServeHTTP(w, req)

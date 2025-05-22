@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/opendataensemble/synkronus/pkg/appbundle"
@@ -76,6 +78,17 @@ func (m *MockAppBundleService) GetManifest(ctx context.Context) (*appbundle.Mani
 
 // GetFile returns a file from the app bundle
 func (m *MockAppBundleService) GetFile(ctx context.Context, path string) (io.ReadCloser, *appbundle.File, error) {
+	// Remove the /download/ prefix if present
+	path = strings.TrimPrefix(path, "download/")
+	
+	// Clean the path to handle any remaining . or ..
+	path = filepath.Clean(path)
+	
+	// Handle root path
+	if path == "." || path == "/" {
+		path = "index.html"
+	}
+
 	file, exists := m.files[path]
 	if !exists {
 		return nil, nil, appbundle.ErrFileNotFound

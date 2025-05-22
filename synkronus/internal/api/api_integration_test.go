@@ -89,7 +89,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			// Read endpoints - accessible to all authenticated users
 			r.Get("/manifest", mockHandler.GetAppBundleManifest)
 			r.Get("/versions", mockHandler.GetAppBundleVersions)
-			r.Get("/{path}", mockHandler.GetAppBundleFile)
+			r.Get("/download/{path}", mockHandler.GetAppBundleFile)
 
 			// Write endpoints - require admin role
 			r.With(authmw.RequireRole(models.RoleAdmin)).Post("/push", mockHandler.PushAppBundle)
@@ -178,7 +178,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle File - Without Auth",
-			endpoint:       "/app-bundle/index.html",
+			endpoint:       "/app-bundle/download/index.html",
 			method:         http.MethodGet,
 			body:           nil,
 			withAuth:       false,
@@ -186,7 +186,23 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle File - With Auth",
-			endpoint:       "/app-bundle/index.html",
+			endpoint:       "/app-bundle/download/index.html",
+			method:         http.MethodGet,
+			body:           nil,
+			withAuth:       true,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Health Check - Without Auth",
+			endpoint:       "/health",
+			method:         http.MethodGet,
+			body:           nil,
+			withAuth:       false,
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "Health Check - With Auth",
+			endpoint:       "/health",
 			method:         http.MethodGet,
 			body:           nil,
 			withAuth:       true,
