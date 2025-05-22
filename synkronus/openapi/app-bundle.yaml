@@ -1,0 +1,471 @@
+paths:
+  /app-bundle/changes:
+    get:
+      summary: Get changes between two app bundle versions
+      description: Compares two versions of the app bundle and returns detailed changes
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: current
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The current version (defaults to latest)
+        - name: target
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The target version to compare against (defaults to previous version)
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: Successfully retrieved changes between versions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeLog'
+        '400':
+          description: Invalid version format or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: One or both versions not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /app-bundle/manifest:
+    get:
+      summary: Get the current custom app bundle manifest
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: Bundle file list
+          headers:
+            etag:
+              schema:
+                type: string
+              description: Hash of the manifest for caching
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppBundleManifest'
+
+  /app-bundle/{path}:
+    get:
+      summary: Get a specific file in the app bundle
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: path
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: preview
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: If true, returns the file from the latest version including unreleased changes
+        - name: if-none-match
+          in: header
+          schema:
+            type: string
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: File content
+          headers:
+            etag:
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '304':
+          description: Not Modified
+
+  /app-bundle/versions:
+    get:
+      summary: Get a list of available app bundle versions
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: List of available app bundle versions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppBundleVersions'
+
+  /app-bundle/push:
+    post:
+      summary: Upload a new app bundle (admin only)
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                bundle:
+                  type: string
+                  format: binary
+                  description: ZIP file containing the new app bundle
+      responses:
+        '200':
+          description: App bundle successfully uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppBundlePushResponse'
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '413':
+          description: File too large
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /app-bundle/switch/{version}:
+    post:
+      summary: Switch to a specific app bundle version (admin only)
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Version identifier to switch to
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: Successfully switched to the specified version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppBundleSwitchResponse'
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Version not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /app-bundle/switch/{version}:
+    post:
+      summary: Switch to a specific app bundle version (admin only)
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Version identifier to switch to
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      responses:
+        '200':
+          description: Successfully switched to the specified version
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Switched to app bundle version 20250507-123456"
+        '400':
+          description: Bad request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '403':
+          description: Forbidden - Admin role required
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+        '404':
+          description: Version not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+components:
+  schemas:
+    ChangeLog:
+      type: object
+      description: Represents changes between two versions of an app bundle
+      properties:
+        compare_version_a:
+          type: string
+          description: The first version being compared
+          example: "1.0.0"
+        compare_version_b:
+          type: string
+          description: The second version being compared
+          example: "1.1.0"
+        form_changes:
+          type: boolean
+          description: Whether there are any form changes
+          example: true
+        ui_changes:
+          type: boolean
+          description: Whether there are any UI changes
+          example: false
+        new_forms:
+          type: array
+          description: List of newly added forms
+          items:
+            $ref: '#/components/schemas/FormDiff'
+        removed_forms:
+          type: array
+          description: List of removed forms
+          items:
+            $ref: '#/components/schemas/FormDiff'
+        modified_forms:
+          type: array
+          description: List of modified forms with detailed changes
+          items:
+            $ref: '#/components/schemas/FormModification'
+
+    FormDiff:
+      type: object
+      description: Represents a form that was added or removed
+      properties:
+        form:
+          type: string
+          description: Name of the form
+          example: "user_profile"
+
+    FieldChange:
+      type: object
+      description: Represents a field that was added or removed
+      properties:
+        field:
+          type: string
+          description: Name of the field
+          example: "email"
+        type:
+          type: string
+          description: Type of the field
+          example: "string"
+
+    FormModification:
+      type: object
+      description: Represents changes to a form's schema or UI
+      properties:
+        form:
+          type: string
+          description: Name of the modified form
+          example: "user_profile"
+        schema_changed:
+          type: boolean
+          description: Whether the schema was modified
+          example: true
+        ui_changed:
+          type: boolean
+          description: Whether the UI was modified
+          example: false
+        core_changed:
+          type: boolean
+          description: Whether core fields were modified
+          example: false
+        added_fields:
+          type: array
+          description: List of added fields
+          items:
+            $ref: '#/components/schemas/FieldChange'
+        removed_fields:
+          type: array
+          description: List of removed fields
+          items:
+            $ref: '#/components/schemas/FieldChange'
+
+    AppBundleManifest:
+      type: object
+      required: [files, version, generatedAt, hash]
+      properties:
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppBundleFile'
+          description: List of files in the app bundle
+        version:
+          type: string
+          description: Version of the app bundle
+        generatedAt:
+          type: string
+          format: date-time
+          description: Timestamp when the manifest was generated
+        hash:
+          type: string
+          description: Hash of the entire manifest for ETag
+
+    AppBundleFile:
+      type: object
+      required: [path, size, hash, mimeType, modTime]
+      properties:
+        path:
+          type: string
+          description: Relative path of the file
+        size:
+          type: integer
+          description: Size of the file in bytes
+        hash:
+          type: string
+          description: Hash of the file content
+        mimeType:
+          type: string
+          description: MIME type of the file
+        modTime:
+          type: string
+          format: date-time
+          description: Last modification time
+
+    AppBundleVersions:
+      type: object
+      required: [versions]
+      properties:
+        versions:
+          type: array
+          items:
+            type: string
+          description: List of available app bundle versions (timestamp-based identifiers)
+
+    AppBundlePushResponse:
+      type: object
+      required: [message, manifest]
+      properties:
+        message:
+          type: string
+          example: "App bundle successfully pushed"
+        manifest:
+          $ref: '#/components/schemas/AppBundleManifest'
+
+    AppBundleSwitchResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Switched to app bundle version 20250507-123456"

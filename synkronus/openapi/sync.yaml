@@ -1,0 +1,235 @@
+paths:
+  /sync/pull:
+    post:
+      summary: Pull updated records since last sync
+      security:
+        - bearerAuth: [] # Scopes can be added here if needed, e.g., [read-only]
+      parameters:
+        - name: schemaType
+          in: query
+          schema:
+            type: string
+          description: Filter by schemaType
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 50
+          description: Maximum number of records to return
+        - name: page_token
+          in: query
+          schema:
+            type: string
+          description: Pagination token from previous response
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPullRequest'
+      responses:
+        '200':
+          description: Sync data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPullResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                $ref: 'synkronus.yaml#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: 'synkronus.yaml#/components/schemas/ProblemDetail'
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: 'synkronus.yaml#/components/schemas/ProblemDetail'
+
+  /sync/push:
+    post:
+      summary: Push new or updated records to the server
+      security:
+        - bearerAuth: [] # Scopes can be added here if needed, e.g., [read-write]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncPushRequest'
+      responses:
+        '200':
+          description: Sync result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPushResponse'
+        '400':
+          description: Bad Request
+          content:
+            application/problem+json:
+              schema:
+                $ref: 'synkronus.yaml#/components/schemas/ProblemDetail'
+        '401':
+          description: Unauthorized
+          content:
+            application/problem+json:
+              schema:
+                $ref: 'synkronus.yaml#/components/schemas/ProblemDetail'
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: 'synkronus.yaml#/components/schemas/ProblemDetail'
+
+components:
+  schemas:
+    SyncPullRequest:
+      type: object
+      required: [client_id]
+      properties:
+        client_id:
+          type: string
+          description: Unique identifier for the client
+        after_change_id:
+          type: integer
+          description: Return records with change_id greater than this value
+        schema_types:
+          type: array
+          items:
+            type: string
+          description: Optional filter to specific schema types
+
+    SyncPullResponse:
+      type: object
+      required: [server_time, records, change_cutoff]
+      properties:
+        server_time:
+          type: string
+          format: date-time
+          description: Server timestamp when this response was generated
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Record'
+          description: Array of changed records
+        change_cutoff:
+          type: integer
+          description: Highest change_id included in this response
+        next_page_token:
+          type: string
+          description: Token for retrieving the next page of results, if any
+        has_more:
+          type: boolean
+          description: Indicates if more records are available
+
+    SyncPushRequest:
+      type: object
+      required: [transmission_id, client_id, records]
+      properties:
+        transmission_id:
+          type: string
+          format: uuid
+          description: Unique identifier for this transmission (for idempotency)
+        client_id:
+          type: string
+          description: Unique identifier for the client
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Record'
+          description: Array of records to push
+
+    SyncPushResponse:
+      type: object
+      required: [server_time, success_count]
+      properties:
+        server_time:
+          type: string
+          format: date-time
+          description: Server timestamp when this response was generated
+        success_count:
+          type: integer
+          description: Number of records successfully processed
+        failed_records:
+          type: array
+          items:
+            type: object # Original definition from original.yaml
+          description: Records that failed to synchronize
+        warnings:
+          type: array
+          items:
+            type: object
+            required: [id, code, message]
+            properties:
+              id:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+          description: Warnings that didn't prevent synchronization
+
+    Record:
+      type: object
+      required: [id, schemaType, schemaVersion, data]
+      properties:
+        id:
+          type: string
+          description: Client-generated unique identifier
+        schemaType:
+          type: string
+          description: Type of record schema
+        schemaVersion:
+          type: string
+          description: Version of record schema
+        data:
+          type: object
+          additionalProperties: true
+          description: Record data conforming to schema
+        hash:
+          type: string
+          description: SHA-256 hash of the data (server will verify)
+        deleted:
+          type: boolean
+          description: Flag for soft-deleted records
+        change_id:
+          type: integer
+          description: Server-assigned change identifier (read-only)
+        last_modified:
+          type: string
+          format: date-time
+          description: Server-assigned timestamp (read-only)
+        last_modified_by:
+          type: string
+          description: Username who last modified the record (read-only)
+        origin_client_id:
+          type: string
+          description: Client that originally created the record (read-only)
