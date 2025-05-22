@@ -181,8 +181,8 @@ func (s *Service) GetLatestVersionFile(ctx context.Context, path string) (io.Rea
         return nil, nil, os.ErrNotExist
     }
     
-    // Get the latest version
-    latestVersion := versions[0]
+    // Get the latest version (remove asterisk if present)
+    latestVersion := strings.TrimSuffix(versions[0], " *")
     latestPath := filepath.Join(s.versionsPath, latestVersion, path)
     
     // Get file info
@@ -241,8 +241,8 @@ func (s *Service) GetFileHash(ctx context.Context, path string, useLatest bool) 
             return "", os.ErrNotExist
         }
         
-        // Get the latest version
-        latestVersion := versions[0]
+        // Get the latest version (remove asterisk if present)
+        latestVersion := strings.TrimSuffix(versions[0], " *")
         filePath = filepath.Join(s.versionsPath, latestVersion, path)
     } else {
         // Clean and validate the path

@@ -137,7 +137,10 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 	}, nil
 }
 
+
+
 // GetVersions returns a list of available app bundle versions
+// The current version is marked with an asterisk (*) at the end
 func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
 	// Read the versions directory
 	entries, err := os.ReadDir(s.versionsPath)
@@ -148,18 +151,48 @@ func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to read versions directory: %w", err)
 	}
 
-	// Filter directories and sort by name
+	// Get current version
+	currentVersion, err := s.getCurrentVersion()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current version: %w", err)
+	}
+
+	// Filter directories and collect versions
 	versions := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
-			versions = append(versions, entry.Name())
+			version := entry.Name()
+			// Mark current version with an asterisk
+			if version == currentVersion {
+				version = version + " *"
+			}
+			versions = append(versions, version)
 		}
 	}
 
 	// Sort versions in descending order (newest first)
-	sort.Sort(sort.Reverse(sort.StringSlice(versions)))
+	sort.Slice(versions, func(i, j int) bool {
+		// Remove asterisks for comparison
+		a := strings.TrimSuffix(versions[i], " *")
+		b := strings.TrimSuffix(versions[j], " *")
+		return a > b
+	})
 
 	return versions, nil
+}
+
+// getCurrentVersion returns the name of the currently active version
+func (s *Service) getCurrentVersion() (string, error) {
+	// Read the current version from the symlink
+	currentPath := filepath.Join(s.versionsPath, "current")
+	target, err := os.Readlink(currentPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil // No current version set
+		}
+		return "", fmt.Errorf("failed to read current version symlink: %w", err)
+	}
+	return filepath.Base(target), nil
 }
 
 // SwitchVersion switches to a specific app bundle version
@@ -347,8 +380,9 @@ func (s *Service) GetLatestAppInfo(ctx context.Context) (*AppInfo, error) {
 		return nil, fmt.Errorf("no versions available")
 	}
 
-	// Versions are returned in ascending order, so the last one is the latest
-	latestVersion := versions[len(versions)-1]
+	// Versions are returned in descending order, so the first one is the latest
+	// Remove asterisk from the version if present
+	latestVersion := strings.TrimSuffix(versions[0], " *")
 	return s.GetAppInfo(ctx, latestVersion)
 }
 
@@ -394,10 +428,12 @@ func (s *Service) cleanupOldVersions() error {
 
 	// Remove the oldest versions
 	for i := s.maxVersions; i < len(versions); i++ {
-		versionPath := filepath.Join(s.versionsPath, versions[i])
-		s.log.Info("Removing old app bundle version", "version", versions[i])
+		// Remove asterisk from the version if present
+		version := strings.TrimSuffix(versions[i], " *")
+		versionPath := filepath.Join(s.versionsPath, version)
+		s.log.Info("Removing old app bundle version", "version", version)
 		if err := os.RemoveAll(versionPath); err != nil {
-			return fmt.Errorf("failed to remove old version %s: %w", versions[i], err)
+			return fmt.Errorf("failed to remove old version %s: %w", version, err)
 		}
 	}
 

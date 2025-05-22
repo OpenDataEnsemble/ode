@@ -47,7 +47,9 @@ type AppBundleServiceInterface interface {
 	// PushBundle uploads a new app bundle from a zip file
 	PushBundle(ctx context.Context, zipReader io.Reader) (*Manifest, error)
 
+	// VersionInfo holds information about an app bundle version
 	// GetVersions returns a list of available app bundle versions
+	// The current version is marked with an asterisk (*) at the end
 	GetVersions(ctx context.Context) ([]string, error)
 
 	// SwitchVersion switches to a specific app bundle version
