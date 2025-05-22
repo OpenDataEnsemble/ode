@@ -39,10 +39,10 @@ func TestValidateBundleStructure(t *testing.T) {
 		{
 			name: "valid bundle",
 			files: map[string]string{
-				"app/index.html": "<html></html>",
+				"app/index.html":         "<html></html>",
 				"forms/user/schema.json": `{"core_id": "user", "fields": []}`,
-				"forms/user/ui.json": "{}",
-				"cells/button/cell.jsx": "export default function Button() {}",
+				"forms/user/ui.json":     "{}",
+				"cells/button/cell.jsx":  "export default function Button() {}",
 			},
 			wantErr: false,
 		},
@@ -50,7 +50,7 @@ func TestValidateBundleStructure(t *testing.T) {
 			name: "missing app/index.html",
 			files: map[string]string{
 				"forms/user/schema.json": "{}",
-				"cells/button/cell.jsx": "",
+				"cells/button/cell.jsx":  "",
 			},
 			wantErr: true,
 			err:     ErrMissingAppIndex,
@@ -58,7 +58,7 @@ func TestValidateBundleStructure(t *testing.T) {
 		{
 			name: "invalid top-level directory",
 			files: map[string]string{
-				"app/index.html": "<html></html>",
+				"app/index.html":       "<html></html>",
 				"invalid-dir/file.txt": "should not be here",
 			},
 			wantErr: true,
@@ -67,7 +67,7 @@ func TestValidateBundleStructure(t *testing.T) {
 		{
 			name: "invalid form structure - missing schema.json",
 			files: map[string]string{
-				"app/index.html": "<html></html>",
+				"app/index.html":     "<html></html>",
 				"forms/user/ui.json": "{}", // Missing schema.json
 			},
 			wantErr: true,
@@ -76,7 +76,7 @@ func TestValidateBundleStructure(t *testing.T) {
 		{
 			name: "invalid cell structure - wrong extension",
 			files: map[string]string{
-				"app/index.html": "<html></html>",
+				"app/index.html":       "<html></html>",
 				"cells/button/cell.js": "should be .jsx",
 			},
 			wantErr: true,
@@ -86,11 +86,9 @@ func TestValidateBundleStructure(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a test zip file
 			zipData, err := createTestZip(t, tt.files)
 			require.NoError(t, err, "failed to create test zip")
 
-			// Create a temporary file for the zip
 			tempFile, err := os.CreateTemp("", "test-bundle-*.zip")
 			require.NoError(t, err, "failed to create temp file")
 			defer os.Remove(tempFile.Name())
@@ -99,19 +97,16 @@ func TestValidateBundleStructure(t *testing.T) {
 			require.NoError(t, err, "failed to write zip data")
 			tempFile.Close()
 
-			// Open the zip file
 			zipFile, err := zip.OpenReader(tempFile.Name())
 			require.NoError(t, err, "failed to open zip file")
 			defer zipFile.Close()
 
-			// Create a test service
 			service := &Service{
 				bundlePath:   filepath.Join(t.TempDir(), "bundle"),
 				versionsPath: filepath.Join(t.TempDir(), "versions"),
 				maxVersions:  5,
 			}
 
-			// Test the validation
 			err = service.validateBundleStructure(&zipFile.Reader)
 
 			if tt.wantErr {
@@ -171,11 +166,9 @@ func TestValidateFormCellReferences(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a test zip file
 			zipData, err := createTestZip(t, tt.files)
 			require.NoError(t, err, "failed to create test zip")
 
-			// Create a temporary file for the zip
 			tempFile, err := os.CreateTemp("", "test-bundle-*.zip")
 			require.NoError(t, err, "failed to create temp file")
 			defer os.Remove(tempFile.Name())
@@ -184,19 +177,16 @@ func TestValidateFormCellReferences(t *testing.T) {
 			require.NoError(t, err, "failed to write zip data")
 			tempFile.Close()
 
-			// Open the zip file
 			zipFile, err := zip.OpenReader(tempFile.Name())
 			require.NoError(t, err, "failed to open zip file")
 			defer zipFile.Close()
 
-			// Create a test service
 			service := &Service{
 				bundlePath:   filepath.Join(t.TempDir(), "bundle"),
 				versionsPath: filepath.Join(t.TempDir(), "versions"),
 				maxVersions:  5,
 			}
 
-			// Test the validation
 			err = service.validateFormCellReferences(&zipFile.Reader)
 
 			if tt.wantErr {
@@ -213,10 +203,10 @@ func TestValidateFormCellReferences(t *testing.T) {
 
 func TestValidateCoreFields(t *testing.T) {
 	tests := []struct {
-		name        string
-		schema     string
+		name          string
+		schema        string
 		hasCoreFields bool
-		shouldError bool
+		shouldError   bool
 	}{
 		{
 			name: "no core fields",
@@ -226,7 +216,7 @@ func TestValidateCoreFields(t *testing.T) {
 				]
 			}`,
 			hasCoreFields: false,
-			shouldError: false,
+			shouldError:   false,
 		},
 		{
 			name: "with core fields",
@@ -236,7 +226,7 @@ func TestValidateCoreFields(t *testing.T) {
 				"fields": []
 			}`,
 			hasCoreFields: true,
-			shouldError: false,
+			shouldError:   false,
 		},
 	}
 
@@ -253,13 +243,11 @@ func TestValidateCoreFields(t *testing.T) {
 				assert.Empty(t, coreFields, "expected no core fields but found some")
 			}
 
-			// Test core field hashing
 			if tt.hasCoreFields {
 				hash1, err := hashCoreFields(coreFields)
 				require.NoError(t, err, "failed to hash core fields")
 				assert.NotEmpty(t, hash1, "hash should not be empty")
 
-				// Hash should be deterministic
 				coreFields2, _ := extractCoreFields(schema)
 				hash2, err := hashCoreFields(coreFields2)
 				require.NoError(t, err, "failed to hash core fields")
@@ -269,11 +257,182 @@ func TestValidateCoreFields(t *testing.T) {
 	}
 }
 
+func TestExtractFields(t *testing.T) {
+	tests := []struct {
+		name   string
+		schema map[string]interface{}
+		want   []FieldInfo
+	}{
+		{
+			name: "no fields",
+			schema: map[string]interface{}{
+				"$schema":    "http://json-schema.org/draft/2020-12/schema",
+				"type":       "object",
+				"properties": map[string]interface{}{},
+				"required":   []string{},
+			},
+			want: []FieldInfo{},
+		},
+		{
+			name: "single field",
+			schema: map[string]interface{}{
+				"$schema": "http://json-schema.org/draft/2020-12/schema",
+				"type":    "object",
+				"properties": map[string]interface{}{
+					"username": map[string]interface{}{
+						"type":       "string",
+						"x-cellType": "text",
+						"title":      "Username",
+					},
+				},
+				"required": []string{"username"},
+			},
+			want: []FieldInfo{{
+				Name:     "username",
+				Type:     "string",
+				CellType: "text",
+				Default:  nil,
+				Required: true,
+			}},
+		},
+		{
+			name: "single core field",
+			schema: map[string]interface{}{
+				"$schema": "http://json-schema.org/draft/2020-12/schema",
+				"type":    "object",
+				"properties": map[string]interface{}{
+					"username": map[string]interface{}{
+						"type":   "string",
+						"x-core": true,
+						"title":  "Username",
+					},
+				},
+				"required": []string{"username"},
+			},
+			want: []FieldInfo{{
+				Name:     "username",
+				Type:     "string",
+				Default:  nil,
+				Core:     true,
+				Required: true,
+			}},
+		},
+		{
+			name: "implicit core field",
+			schema: map[string]interface{}{
+				"$schema": "http://json-schema.org/draft/2020-12/schema",
+				"type":    "object",
+				"properties": map[string]interface{}{
+					"core_id": map[string]interface{}{
+						"type": "string",
+					},
+				},
+				"required": []string{"core_id"},
+			},
+			want: []FieldInfo{{
+				Name:     "core_id",
+				Type:     "string",
+				Default:  nil,
+				Core:     true,
+				Required: true,
+			}},
+		},
+		{
+			name: "multiple fields with defaults",
+			schema: map[string]interface{}{
+				"$schema": "http://json-schema.org/draft/2020-12/schema",
+				"type":    "object",
+				"properties": map[string]interface{}{
+					"age": map[string]interface{}{
+						"type":    "integer",
+						"title":   "Age",
+						"minimum": 0,
+						"maximum": 150,
+						"default": 30,
+					},
+					"active": map[string]interface{}{
+						"type":    "boolean",
+						"title":   "Active Status",
+						"default": true,
+					},
+				},
+				"required": []string{"age", "active"},
+			},
+			want: []FieldInfo{
+				{
+					Name:     "age",
+					Type:     "integer",
+					Default:  float64(30), // JSON numbers are unmarshaled as float64
+					Required: true,
+				},
+				{
+					Name:     "active",
+					Type:     "boolean",
+					Default:  true,
+					Required: true,
+				},
+			},
+		},
+		{
+			name: "nested fields structure",
+			schema: map[string]interface{}{
+				"$schema": "http://json-schema.org/draft/2020-12/schema",
+				"type":    "object",
+				"properties": map[string]interface{}{
+					"address": map[string]interface{}{
+						"type":  "object",
+						"title": "Mailing Address",
+						"properties": map[string]interface{}{
+							"street": map[string]interface{}{
+								"type":  "string",
+								"title": "Street Address",
+							},
+							"city": map[string]interface{}{
+								"type":  "string",
+								"title": "City",
+							},
+							"postalCode": map[string]interface{}{
+								"type":    "string",
+								"title":   "Postal Code",
+								"pattern": "^[0-9]{5}(-[0-9]{4})?$",
+							},
+						},
+						"required": []string{"street", "city", "postalCode"},
+					},
+				},
+			},
+			// Note: The current implementation doesn't handle nested fields,
+			// so we only expect the top-level field
+			want: []FieldInfo{{
+				Name:    "address",
+				Type:    "object",
+				Default: nil,
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert the schema to JSON and back to ensure it matches the expected format
+			jsonData, err := json.Marshal(tt.schema)
+			require.NoError(t, err, "failed to marshal test schema")
+
+			var schema map[string]interface{}
+			err = json.Unmarshal(jsonData, &schema)
+			require.NoError(t, err, "failed to unmarshal test schema")
+
+			got := extractFields(schema)
+
+			assert.ElementsMatch(t, tt.want, got, "extracted fields do not match expected")
+		})
+	}
+}
+
 func TestExtractCoreFields(t *testing.T) {
 	tests := []struct {
-		name     string
-		schema   map[string]interface{}
-		wantCore map[string]interface{}
+		name      string
+		schema    map[string]interface{}
+		wantCore  map[string]interface{}
 		wantPaths []string
 	}{
 		{
@@ -286,14 +445,14 @@ func TestExtractCoreFields(t *testing.T) {
 					},
 				},
 			},
-			wantCore: map[string]interface{}{},
+			wantCore:  map[string]interface{}{},
 			wantPaths: []string{},
 		},
 		{
 			name: "top level x-core",
 			schema: map[string]interface{}{
 				"x-core": true,
-				"type": "object",
+				"type":   "object",
 				"properties": map[string]interface{}{
 					"name": map[string]interface{}{
 						"type": "string",
@@ -337,7 +496,7 @@ func TestExtractCoreFields(t *testing.T) {
 				"type": "object",
 				"properties": map[string]interface{}{
 					"user": map[string]interface{}{
-						"type": "object",
+						"type":   "object",
 						"x-core": true,
 						"properties": map[string]interface{}{
 							"id": map[string]interface{}{
@@ -352,7 +511,7 @@ func TestExtractCoreFields(t *testing.T) {
 						"type": "object",
 						"properties": map[string]interface{}{
 							"createdAt": map[string]interface{}{
-								"type": "string",
+								"type":   "string",
 								"format": "date-time",
 							},
 						},
@@ -361,7 +520,7 @@ func TestExtractCoreFields(t *testing.T) {
 			},
 			wantCore: map[string]interface{}{
 				"user": map[string]interface{}{
-					"type": "object",
+					"type":   "object",
 					"x-core": true,
 					"properties": map[string]interface{}{
 						"id":   map[string]interface{}{"type": "string"},
@@ -390,7 +549,7 @@ func TestExtractCoreFields(t *testing.T) {
 func TestValidateFormSchema(t *testing.T) {
 	tests := []struct {
 		name    string
-		schema string
+		schema  string
 		isValid bool
 	}{
 		{
@@ -403,7 +562,7 @@ func TestValidateFormSchema(t *testing.T) {
 		},
 		{
 			name:    "invalid JSON",
-			schema: `{invalid: json}`,
+			schema:  `{invalid: json}`,
 			isValid: false,
 		},
 	}
@@ -412,9 +571,9 @@ func TestValidateFormSchema(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a test zip file with the schema
 			files := map[string]string{
-				"app/index.html": "<html></html>",
+				"app/index.html":         "<html></html>",
 				"forms/test/schema.json": tt.schema,
-				"forms/test/ui.json": "{}",
+				"forms/test/ui.json":     "{}",
 			}
 
 			zipData, err := createTestZip(t, files)

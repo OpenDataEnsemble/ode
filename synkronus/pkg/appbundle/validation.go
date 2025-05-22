@@ -336,10 +336,11 @@ func extractCoreFields(schema map[string]interface{}) (map[string]interface{}, [
 		}
 	}
 
-	// Also include any fields that start with "core_"
-	for k, v := range schema {
-		if strings.HasPrefix(k, "core_") {
-			addField(k, v)
+	if props, ok := schema["properties"].(map[string]interface{}); ok {
+		for k, v := range props {
+			if strings.HasPrefix(k, "core_") {
+				addField(k, v)
+			}
 		}
 	}
 
@@ -363,8 +364,6 @@ func hashCoreFields(fields map[string]interface{}) (string, error) {
 	hash := sha256.Sum256(jsonData)
 	return hex.EncodeToString(hash[:]), nil
 }
-
-
 
 // getCoreFieldsHash retrieves the stored hash for a form's core fields.
 // It returns the hash and a boolean indicating if the hash was found.

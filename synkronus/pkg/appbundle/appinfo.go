@@ -20,20 +20,21 @@ type AppInfo struct {
 
 // FormInfo contains information about a form
 type FormInfo struct {
-	CoreHash  string                 `json:"core_hash"`            // Hash of core_* fields
-	FormHash  string                 `json:"form_hash"`            // Hash of the entire form schema
-	UIHash    string                 `json:"ui_hash"`              // Hash of the UI schema
-	Fields    []FieldInfo            `json:"fields,omitempty"`     // List of all fields
-	CellTypes map[string]interface{} `json:"cell_types,omitempty"` // Map of cell types used in the form
+	CoreHash  string                 `json:"core_hash"`  // Hash of core_* fields
+	FormHash  string                 `json:"form_hash"`  // Hash of the entire form schema
+	UIHash    string                 `json:"ui_hash"`    // Hash of the UI schema
+	Fields    []FieldInfo            `json:"fields"`     // List of all fields
+	CellTypes map[string]interface{} `json:"cell_types"` // Map of cell types used in the form
 }
 
 // FieldInfo contains information about a form field
 type FieldInfo struct {
 	Name     string      `json:"name"`
-	Type     string      `json:"type,omitempty"`
-	Required bool        `json:"required,omitempty"`
-	CellType string      `json:"cell_type,omitempty"`
-	Default  interface{} `json:"default,omitempty"`
+	Type     string      `json:"type"`
+	Required bool        `json:"required"`
+	CellType string      `json:"cell_type"`
+	Default  interface{} `json:"default"`
+	Core     bool        `json:"core"`
 }
 
 // generateAppInfo generates the APP_INFO.json content for the bundle
@@ -145,21 +146,40 @@ func (s *Service) generateAppInfo(zipReader *zip.Reader, version string) ([]byte
 func extractFields(schema map[string]interface{}) []FieldInfo {
 	var fields []FieldInfo
 
-	if fieldsData, ok := schema["fields"].([]interface{}); ok {
-		for _, fieldData := range fieldsData {
-			if field, ok := fieldData.(map[string]interface{}); ok {
-				fieldInfo := FieldInfo{
-					Name:     getString(field, "name"),
-					Type:     getString(field, "type"),
-					CellType: getString(field, "cellType"),
-					Required: getBool(field, "required"),
-				}
-				if def, exists := field["default"]; exists {
-					fieldInfo.Default = def
-				}
-				fields = append(fields, fieldInfo)
+	// Get the properties map from the schema
+	props, _ := schema["properties"].(map[string]interface{})
+	if len(props) == 0 {
+		return []FieldInfo{} // Return empty slice for nil or empty properties
+	}
+
+	// Get the required fields list if it exists
+	requiredMap := make(map[string]bool)
+	if required, ok := schema["required"].([]interface{}); ok {
+		for _, r := range required {
+			if req, ok := r.(string); ok {
+				requiredMap[req] = true
 			}
 		}
+	}
+
+	// Iterate through each property
+	for fieldName, fieldData := range props {
+		field, ok := fieldData.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Initialize field info with all properties
+		fieldInfo := FieldInfo{
+			Name:     fieldName,
+			Type:     getString(field, "type"),
+			CellType: getString(field, "x-cellType"),
+			Required: requiredMap[fieldName],
+			Core:     getBool(field, "x-core") || strings.HasPrefix(fieldName, "core_"),
+			Default:  field["default"], // Will be nil if not specified
+		}
+
+		fields = append(fields, fieldInfo)
 	}
 
 	return fields
