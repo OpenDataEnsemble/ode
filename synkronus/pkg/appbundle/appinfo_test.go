@@ -247,6 +247,9 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	require.GreaterOrEqual(t, len(versions), 1, "Expected at least one version")
 	version1 := strings.TrimSuffix(versions[0], " *") // Remove the " *" if it's the current version
 
+	err = service.SwitchVersion(context.Background(), version1)
+	require.NoError(t, err, "Failed to switch to first version")
+
 	// Then upload the second bundle (valid_bundle02.zip)
 	bundle02Path := filepath.Join("..", "..", "testdata", "bundles", "valid_bundle02.zip")
 	bundle02File, err := os.Open(bundle02Path)
@@ -255,6 +258,16 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 
 	_, err = service.PushBundle(context.Background(), bundle02File)
 	require.NoError(t, err, "Failed to push second bundle")
+
+	// Switch to the second version
+	preVersions, err := service.GetVersions(context.Background())
+	require.NoError(t, err, "Failed to get versions")
+	require.GreaterOrEqual(t, len(preVersions), 2, "Expected at least two versions")
+	require.Contains(t, preVersions, "0001 *")
+	require.Contains(t, preVersions, "0002")
+
+	err = service.SwitchVersion(context.Background(), "0002")
+	require.NoError(t, err, "Failed to switch to second version")
 
 	// Get the version number of the second bundle
 	versions, err = service.GetVersions(context.Background())
@@ -288,7 +301,7 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	version2Num, _ := strconv.Atoi(version2)
 	compareVersionANum, _ := strconv.Atoi(changeLog.CompareVersionA)
 	compareVersionBNum, _ := strconv.Atoi(changeLog.CompareVersionB)
-	
+
 	assert.Equal(t, version1Num, compareVersionANum, "CompareVersionA should match the first version")
 	assert.Equal(t, version2Num, compareVersionBNum, "CompareVersionB should match the second version")
 	assert.True(t, changeLog.FormChanges, "Expected form changes between versions")

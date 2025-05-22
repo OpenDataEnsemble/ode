@@ -181,20 +181,43 @@ func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
 
 // getCurrentVersion returns the name of the currently active version
 func (s *Service) getCurrentVersion() (string, error) {
-	// Read the current version from the symlink
-	currentPath := filepath.Join(s.versionsPath, "current")
-	target, err := os.Readlink(currentPath)
+	s.versionMutex.Lock()
+	defer s.versionMutex.Unlock()
+	
+	// Read the current version from the version file
+	versionFile := filepath.Join(s.versionsPath, "CURRENT_VERSION")
+	data, err := os.ReadFile(versionFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", nil // No current version set
 		}
-		return "", fmt.Errorf("failed to read current version symlink: %w", err)
+		return "", fmt.Errorf("failed to read current version: %w", err)
 	}
-	return filepath.Base(target), nil
+	
+	// Clean and validate the version
+	version := strings.TrimSpace(string(data))
+	if version == "" {
+		return "", nil
+	}
+	
+	// Verify the version directory exists
+	versionPath := filepath.Join(s.versionsPath, version)
+	if _, err := os.Stat(versionPath); err != nil {
+		if os.IsNotExist(err) {
+			s.log.Warn("Current version directory not found", "version", version)
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to verify version directory: %w", err)
+	}
+	
+	return version, nil
 }
 
 // SwitchVersion switches to a specific app bundle version
 func (s *Service) SwitchVersion(ctx context.Context, version string) error {
+	s.versionMutex.Lock()
+	defer s.versionMutex.Unlock()
+	
 	// Validate the version
 	versionPath := filepath.Join(s.versionsPath, version)
 	if _, err := os.Stat(versionPath); err != nil {
@@ -214,14 +237,29 @@ func (s *Service) SwitchVersion(ctx context.Context, version string) error {
 		return fmt.Errorf("failed to copy version to bundle directory: %w", err)
 	}
 
-	// Update the current version
+	// Update the current version file atomically
+	versionFile := filepath.Join(s.versionsPath, "CURRENT_VERSION")
+	tempFile := versionFile + ".tmp"
+	
+	// Write to a temporary file first
+	if err := os.WriteFile(tempFile, []byte(version), 0644); err != nil {
+		return fmt.Errorf("failed to write version file: %w", err)
+	}
+	
+	// Atomic rename (works across all platforms)
+	if err := os.Rename(tempFile, versionFile); err != nil {
+		// Clean up temp file if rename fails
+		os.Remove(tempFile)
+		return fmt.Errorf("failed to update current version: %w", err)
+	}
+
+	// Update in-memory state
 	s.currentVersion = version
 	s.manifest = nil // Force regeneration of manifest
 
 	s.log.Info("Switched to app bundle version", "version", version)
 	return nil
 }
-
 // clearDirectory removes all files and subdirectories in a directory
 func (s *Service) clearDirectory(dir string) error {
 	// Read the directory
