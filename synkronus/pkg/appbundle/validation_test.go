@@ -39,18 +39,18 @@ func TestValidateBundleStructure(t *testing.T) {
 		{
 			name: "valid bundle",
 			files: map[string]string{
-				"app/index.html":         "<html></html>",
-				"forms/user/schema.json": `{"core_id": "user", "fields": []}`,
-				"forms/user/ui.json":     "{}",
-				"cells/button/cell.jsx":  "export default function Button() {}",
+				"app/index.html":                "<html></html>",
+				"forms/user/schema.json":        `{"core_id": "user", "fields": []}`,
+				"forms/user/ui.json":            "{}",
+				"renderers/button/renderer.jsx": "export default function Button() {}",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing app/index.html",
 			files: map[string]string{
-				"forms/user/schema.json": "{}",
-				"cells/button/cell.jsx":  "",
+				"forms/user/schema.json":        "{}",
+				"renderers/button/renderer.jsx": "",
 			},
 			wantErr: true,
 			err:     ErrMissingAppIndex,
@@ -74,10 +74,10 @@ func TestValidateBundleStructure(t *testing.T) {
 			err:     ErrInvalidFormStructure,
 		},
 		{
-			name: "invalid cell structure - wrong extension",
+			name: "invalid renderer structure - wrong extension",
 			files: map[string]string{
-				"app/index.html":       "<html></html>",
-				"cells/button/cell.js": "should be .jsx",
+				"app/index.html":               "<html></html>",
+				"renderers/button/renderer.js": "should be .jsx",
 			},
 			wantErr: true,
 			err:     ErrInvalidCellStructure,
@@ -121,7 +121,8 @@ func TestValidateBundleStructure(t *testing.T) {
 	}
 }
 
-func TestValidateFormCellReferences(t *testing.T) {
+// TODO: Fix this: The renderers are referenced in the ui json, not in the schema
+func TestValidateFormRendererReferences(t *testing.T) {
 	tests := []struct {
 		name    string
 		files   map[string]string
@@ -129,7 +130,7 @@ func TestValidateFormCellReferences(t *testing.T) {
 		err     error
 	}{
 		{
-			name: "valid cell reference",
+			name: "valid renderer reference",
 			files: map[string]string{
 				"app/index.html": "<html></html>",
 				"forms/user/schema.json": `{
@@ -137,30 +138,37 @@ func TestValidateFormCellReferences(t *testing.T) {
 					"fields": [
 						{
 							"name": "button",
-							"cellType": "button"
+							"renderer": "button"
 						}
 					]
 				}`,
-				"cells/button/cell.jsx": "export default function Button() {}",
+				"renderers/button/renderer.jsx": "export default function Button() {}",
 			},
 			wantErr: false,
 		},
 		{
-			name: "missing cell reference",
+			name: "missing renderer reference",
 			files: map[string]string{
 				"app/index.html": "<html></html>",
 				"forms/user/schema.json": `{
 					"core_id": "user",
+					"properties": map[string]interface{}{
+						"button": map[string]interface{}{
+							"type":            "string",
+							"x-question-type": "text",
+							"title":           "Username",
+						},
+					},
 					"fields": [
 						{
 							"name": "button",
-							"cellType": "missing-button"
+							"renderer": "missing-button"
 						}
 					]
 				}`,
 			},
 			wantErr: true,
-			err:     ErrMissingCellReference,
+			err:     ErrMissingRendererReference,
 		},
 	}
 
@@ -187,7 +195,7 @@ func TestValidateFormCellReferences(t *testing.T) {
 				maxVersions:  5,
 			}
 
-			err = service.validateFormCellReferences(&zipFile.Reader)
+			err = service.validateFormRendererReferences(&zipFile.Reader)
 
 			if tt.wantErr {
 				require.Error(t, err, "expected error but got none")
@@ -204,27 +212,49 @@ func TestValidateFormCellReferences(t *testing.T) {
 func TestValidateCoreFields(t *testing.T) {
 	tests := []struct {
 		name          string
-		schema        string
+		schema        json.RawMessage
 		hasCoreFields bool
 		shouldError   bool
 	}{
 		{
 			name: "no core fields",
-			schema: `{
-				"fields": [
-					{"name": "regularField", "type": "string"}
-				]
-			}`,
+			schema: json.RawMessage(`{
+                "properties": {
+                    "regularField": {
+                        "type": "string",
+                        "title": "Username"
+                    }
+                }
+            }`),
 			hasCoreFields: false,
 			shouldError:   false,
 		},
 		{
 			name: "with core fields",
-			schema: `{
-				"core_id": "test",
-				"core_version": 1,
-				"fields": []
-			}`,
+			schema: json.RawMessage(`{
+                "core_id": "test",
+                "core_version": 1,
+                "properties": {
+                    "an_field": {
+                        "type": "string",
+                        "x-core": true,
+                        "title": "Username"
+                    }
+                }
+            }`),
+			hasCoreFields: true,
+			shouldError:   false,
+		},
+		{
+			name: "core_ prefixed field",
+			schema: json.RawMessage(`{
+                "properties": {
+                    "core_username": {
+                        "type": "string",
+                        "title": "Username"
+                    }
+                }
+            }`),
 			hasCoreFields: true,
 			shouldError:   false,
 		},
@@ -233,10 +263,10 @@ func TestValidateCoreFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var schema map[string]interface{}
-			err := json.Unmarshal([]byte(tt.schema), &schema)
+			err := json.Unmarshal(tt.schema, &schema)
 			require.NoError(t, err, "failed to unmarshal test schema")
 
-			coreFields, _ := extractCoreFields(schema)
+			coreFields := extractCoreFields(schema)
 			if tt.hasCoreFields {
 				assert.NotEmpty(t, coreFields, "expected core fields but found none")
 			} else {
@@ -248,7 +278,9 @@ func TestValidateCoreFields(t *testing.T) {
 				require.NoError(t, err, "failed to hash core fields")
 				assert.NotEmpty(t, hash1, "hash should not be empty")
 
-				coreFields2, _ := extractCoreFields(schema)
+				var schema2 map[string]interface{}
+				json.Unmarshal(tt.schema, &schema2) // Safe to ignore error since we already validated
+				coreFields2 := extractCoreFields(schema2)
 				hash2, err := hashCoreFields(coreFields2)
 				require.NoError(t, err, "failed to hash core fields")
 				assert.Equal(t, hash1, hash2, "hashes should be equal for same input")
@@ -256,7 +288,6 @@ func TestValidateCoreFields(t *testing.T) {
 		})
 	}
 }
-
 func TestExtractFields(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -280,19 +311,19 @@ func TestExtractFields(t *testing.T) {
 				"type":    "object",
 				"properties": map[string]interface{}{
 					"username": map[string]interface{}{
-						"type":       "string",
-						"x-cellType": "text",
-						"title":      "Username",
+						"type":            "string",
+						"x-question-type": "text",
+						"title":           "Username",
 					},
 				},
 				"required": []string{"username"},
 			},
 			want: []FieldInfo{{
-				Name:     "username",
-				Type:     "string",
-				CellType: "text",
-				Default:  nil,
-				Required: true,
+				Name:         "username",
+				Type:         "string",
+				QuestionType: "text",
+				Default:      nil,
+				Required:     true,
 			}},
 		},
 		{
@@ -534,14 +565,32 @@ func TestExtractCoreFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotCore, gotPaths := extractCoreFields(tt.schema)
+			gotCore := extractCoreFields(tt.schema)
+
+			// Convert the result to the expected format for comparison
+			gotCoreMap := make(map[string]interface{})
+			for _, field := range gotCore {
+				fieldMap := map[string]interface{}{
+					"type":            field.Type,
+					"x-question-type": field.QuestionType,
+					"default":         field.Default,
+					"x-core":          true,
+				}
+				// Remove empty fields
+				if field.QuestionType == "" {
+					delete(fieldMap, "x-question-type")
+				}
+				if field.Default == nil {
+					delete(fieldMap, "default")
+				}
+				gotCoreMap[field.Name] = fieldMap
+			}
 
 			// Convert both maps to JSON for better comparison in test output
-			gotJSON, _ := json.MarshalIndent(gotCore, "", "  ")
+			gotJSON, _ := json.MarshalIndent(gotCoreMap, "", "  ")
 			wantJSON, _ := json.MarshalIndent(tt.wantCore, "", "  ")
 
 			assert.JSONEq(t, string(wantJSON), string(gotJSON), "core fields mismatch")
-			assert.ElementsMatch(t, tt.wantPaths, gotPaths, "field paths mismatch")
 		})
 	}
 }
@@ -556,7 +605,7 @@ func TestValidateFormSchema(t *testing.T) {
 			name: "valid schema",
 			schema: `{
 				"core_id": "test",
-				"fields": []
+				"properties": {}
 			}`,
 			isValid: true,
 		},

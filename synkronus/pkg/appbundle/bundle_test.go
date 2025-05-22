@@ -36,21 +36,21 @@ func TestBundleWithTestData(t *testing.T) {
 		require.NoError(t, err, "Bundle structure validation failed")
 	})
 
-	t.Run("ValidateFormCellReferences", func(t *testing.T) {
-		err := service.validateFormCellReferences(&zipFile.Reader)
-		require.NoError(t, err, "Form cell references validation failed")
+	t.Run("ValidateFormRendererReferences", func(t *testing.T) {
+		err := service.validateFormRendererReferences(&zipFile.Reader)
+		require.NoError(t, err, "Form renderer references validation failed")
 	})
 }
 
-// TestBundleWithoutCells tests that a bundle without a cells directory is valid
-func TestBundleWithoutCells(t *testing.T) {
+// TestBundleWithoutRenderers tests that a bundle without a renderers directory is valid
+func TestBundleWithoutRenderers(t *testing.T) {
 	service := &Service{
 		bundlePath:   t.TempDir(),
 		versionsPath: t.TempDir(),
 		maxVersions:  5,
 	}
 
-	// Create a bundle with app and forms but no cells
+	// Create a bundle with app and forms but no renderers
 	bundlePath, err := createTestBundle(t, true, true, false)
 	require.NoError(t, err, "Failed to create test bundle")
 	defer cleanupTestBundle(t, bundlePath)
@@ -62,7 +62,7 @@ func TestBundleWithoutCells(t *testing.T) {
 
 	t.Run("ValidateBundleStructure", func(t *testing.T) {
 		err := service.validateBundleStructure(&zipFile.Reader)
-		require.NoError(t, err, "Bundle without cells should be valid")
+		require.NoError(t, err, "Bundle without renderers should be valid")
 	})
 }
 
@@ -123,7 +123,7 @@ func TestInvalidBundles(t *testing.T) {
 // createFormSchema creates a form schema with the given fields
 func createFormSchema(fields map[string]interface{}) map[string]interface{} {
 	return map[string]interface{}{
-		"type": "object",
+		"type":       "object",
 		"properties": fields,
 	}
 }
@@ -250,7 +250,7 @@ func TestFormVersionChanges(t *testing.T) {
 				"type": "string",
 			},
 			"email": map[string]interface{}{
-				"type": "string",
+				"type":   "string",
 				"format": "email",
 			},
 		}),
@@ -273,7 +273,7 @@ func TestFormVersionChanges(t *testing.T) {
 		"user": createFormSchema(map[string]interface{}{
 			// name field is removed
 			"email": map[string]interface{}{
-				"type": "string",
+				"type":   "string",
 				"format": "email",
 			},
 		}),
@@ -295,7 +295,7 @@ func TestFormVersionChanges(t *testing.T) {
 	bundle4, err := createTestFormBundle(t, map[string]map[string]interface{}{
 		"user": createFormSchema(map[string]interface{}{
 			"email": map[string]interface{}{
-				"type": "string",
+				"type":   "string",
 				"format": "email",
 			},
 		}),
@@ -319,31 +319,31 @@ func TestFormVersionChanges(t *testing.T) {
 	})
 }
 
-// createFormWithCellReference creates a form schema that references a cell
-func createFormWithCellReference(cellName string) map[string]interface{} {
+// createFormWithRendererReference creates a form schema that references a renderer
+func createFormWithRendererReference(rendererName string) map[string]interface{} {
 	return map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
 			"field1": map[string]interface{}{
-				"type": "string",
-				"x-cell": cellName,
+				"type":       "string",
+				"x-renderer": rendererName,
 			},
 		},
 	}
 }
 
-// TestMissingCellReferences tests validation of forms with missing cell references
-func TestMissingCellReferences(t *testing.T) {
+// TestMissingRendererReferences tests validation of forms with missing renderer references
+func TestMissingRendererReferences(t *testing.T) {
 	service := &Service{
 		bundlePath:   t.TempDir(),
 		versionsPath: t.TempDir(),
 		maxVersions:  5,
 	}
 
-	t.Run("BuiltInCellReference", func(t *testing.T) {
-		// Create a bundle with a form that references a built-in cell
+	t.Run("BuiltInRendererReference", func(t *testing.T) {
+		// Create a bundle with a form that references a built-in renderer
 		bundle, err := createTestFormBundle(t, map[string]map[string]interface{}{
-			"user": createFormWithCellReference("builtin-text"),
+			"user": createFormWithRendererReference("builtin-text"),
 		})
 		require.NoError(t, err, "Failed to create test bundle")
 		defer cleanupTestBundle(t, bundle)
@@ -352,14 +352,14 @@ func TestMissingCellReferences(t *testing.T) {
 		require.NoError(t, err)
 		defer zipFile.Close()
 
-		err = service.validateFormCellReferences(&zipFile.Reader)
-		require.NoError(t, err, "Built-in cell reference should be valid")
+		err = service.validateFormRendererReferences(&zipFile.Reader)
+		require.NoError(t, err, "Built-in renderer reference should be valid")
 	})
 
-	t.Run("MissingCustomCellReference", func(t *testing.T) {
-		// Create a bundle with a form that references a non-existent custom cell
+	t.Run("MissingCustomRendererReference", func(t *testing.T) {
+		// Create a bundle with a form that references a non-existent custom renderer
 		bundle, err := createTestFormBundle(t, map[string]map[string]interface{}{
-			"user": createFormWithCellReference("custom-cell"),
+			"user": createFormWithRendererReference("custom-renderer"),
 		})
 		require.NoError(t, err, "Failed to create test bundle")
 		defer cleanupTestBundle(t, bundle)
@@ -368,12 +368,12 @@ func TestMissingCellReferences(t *testing.T) {
 		require.NoError(t, err)
 		defer zipFile.Close()
 
-		err = service.validateFormCellReferences(&zipFile.Reader)
-		require.Error(t, err, "Should fail with missing cell reference")
-		require.Contains(t, err.Error(), "references non-existent cell", "Error should mention missing cell")
+		err = service.validateFormRendererReferences(&zipFile.Reader)
+		require.Error(t, err, "Should fail with missing renderer reference")
+		require.Contains(t, err.Error(), "references non-existent renderer", "Error should mention missing renderer")
 	})
 
-	t.Run("ValidCustomCellReference", func(t *testing.T) {
+	t.Run("ValidCustomRendererReference", func(t *testing.T) {
 		// Create a temporary file for the zip
 		tmpFile, err := os.CreateTemp("", "test-bundle-*.zip")
 		require.NoError(t, err, "Failed to create temp file")
@@ -382,7 +382,7 @@ func TestMissingCellReferences(t *testing.T) {
 		w := zip.NewWriter(tmpFile)
 
 		// Add required directories
-		for _, dir := range []string{"app/", "forms/", "cells/custom-cell/"} {
+		for _, dir := range []string{"app/", "forms/", "renderers/custom-renderer/"} {
 			_, err := w.Create(dir)
 			require.NoError(t, err, "Failed to create directory")
 		}
@@ -392,8 +392,8 @@ func TestMissingCellReferences(t *testing.T) {
 		require.NoError(t, err, "Failed to create app/index.html")
 		fw.Write([]byte("<html><body>Test App</body></html>"))
 
-		// Add form with cell reference
-		formSchema := createFormWithCellReference("custom-cell")
+		// Add form with renderer reference
+		formSchema := createFormWithRendererReference("custom-renderer")
 		schemaData, err := json.Marshal(formSchema)
 		require.NoError(t, err, "Failed to marshal form schema")
 
@@ -406,10 +406,10 @@ func TestMissingCellReferences(t *testing.T) {
 		require.NoError(t, err, "Failed to create UI schema")
 		fw.Write([]byte(`{"ui:order":[]}`))
 
-		// Add cell implementation
-		fw, err = w.Create("cells/custom-cell/cell.jsx")
-		require.NoError(t, err, "Failed to create cell implementation")
-		fw.Write([]byte("export default function CustomCell() { return null; }"))
+		// Add renderer implementation
+		fw, err = w.Create("renderers/custom-renderer/renderer.jsx")
+		require.NoError(t, err, "Failed to create renderer implementation")
+		fw.Write([]byte("export default function CustomRenderer() { return null; }"))
 
 		require.NoError(t, w.Close(), "Failed to close zip writer")
 		require.NoError(t, tmpFile.Close(), "Failed to close temp file")
@@ -419,8 +419,8 @@ func TestMissingCellReferences(t *testing.T) {
 		require.NoError(t, err, "Failed to open test bundle")
 		defer zipFile.Close()
 
-		err = service.validateFormCellReferences(&zipFile.Reader)
-		require.NoError(t, err, "Valid custom cell reference should pass validation")
+		err = service.validateFormRendererReferences(&zipFile.Reader)
+		require.NoError(t, err, "Valid custom renderer reference should pass validation")
 	})
 }
 
@@ -443,10 +443,10 @@ func TestCoreFieldsValidation(t *testing.T) {
 		bundle1, err := createTestFormBundle(t, map[string]map[string]interface{}{
 			"user": {
 				"type": "object",
-				"x-core": true,
 				"properties": map[string]interface{}{
 					"id": map[string]interface{}{
-						"type": "string",
+						"type":   "string",
+						"x-core": true,
 					},
 				},
 			},
@@ -472,17 +472,16 @@ func TestCoreFieldsValidation(t *testing.T) {
 		bundle2, err := createTestFormBundle(t, map[string]map[string]interface{}{
 			"user": {
 				"type": "object",
-				"x-core": true,
 				"properties": map[string]interface{}{
 					"id": map[string]interface{}{
-						"type": "number", // Changed from string to number
+						"type":   "number", // Changed from string to number
+						"x-core": true,
 					},
 				},
 			},
 		})
 		require.NoError(t, err, "Failed to create second bundle")
 		defer cleanupTestBundle(t, bundle2)
-
 
 		// Process the second version
 		zip2, err := zip.OpenReader(bundle2)

@@ -24,7 +24,7 @@ func createTestBundleFromDir(t *testing.T, srcDir string) (string, error) {
 	w := zip.NewWriter(tmpFile)
 
 	// Create required top-level directories
-	for _, dir := range []string{"app/", "forms/", "cells/"} {
+	for _, dir := range []string{"app/", "forms/", "renderers/"} {
 		if _, err := w.Create(dir); err != nil {
 			return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
@@ -81,8 +81,8 @@ func createTestBundleFromDir(t *testing.T, srcDir string) (string, error) {
 		case strings.HasPrefix(relPath, "forms/"):
 			// Files from testdata/forms/ go to forms/ in the zip
 			zipPath = relPath
-		case strings.HasPrefix(relPath, "cells/"):
-			// Files from testdata/cells/ go to cells/ in the zip
+		case strings.HasPrefix(relPath, "renderers/"):
+			// Files from testdata/renderers/ go to renderers/ in the zip
 			zipPath = relPath
 		default:
 			// Skip files not in the expected directories
@@ -155,7 +155,7 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 			dirs = append(dirs, "forms/")
 		}
 		if includeCells {
-			dirs = append(dirs, "cells/")
+			dirs = append(dirs, "renderers/")
 		}
 		dirs = append(dirs, "app/")
 
@@ -189,16 +189,16 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 			fw.Write([]byte(`{"ui:order":["name"]}`))
 		}
 
-		// Add a sample cell if needed
+		// Add a sample renderer if needed
 		if includeCells {
-			fw, err := w.Create("cells/sample/cell.jsx")
+			fw, err := w.Create("renderers/sample/renderer.jsx")
 			if err != nil {
 				w.Close()
 				tmpFile.Close()
 				os.Remove(tmpFile.Name())
-				return "", fmt.Errorf("failed to create sample cell: %w", err)
+				return "", fmt.Errorf("failed to create sample renderer: %w", err)
 			}
-			fw.Write([]byte("export default function SampleCell() { return null; }"))
+			fw.Write([]byte("export default function SampleRenderer() { return null; }"))
 		}
 	}
 

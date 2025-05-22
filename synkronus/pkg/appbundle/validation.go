@@ -7,16 +7,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 )
 
 var (
-	ErrInvalidStructure     = errors.New("invalid app bundle structure")
-	ErrMissingAppIndex      = errors.New("missing app/index.html")
-	ErrInvalidFormStructure = errors.New("invalid form structure")
-	ErrInvalidCellStructure = errors.New("invalid cell structure")
-	ErrCoreFieldModified    = errors.New("core_* fields cannot be modified")
-	ErrMissingCellReference = errors.New("missing cell reference")
+	ErrInvalidStructure         = errors.New("invalid app bundle structure")
+	ErrMissingAppIndex          = errors.New("missing app/index.html")
+	ErrInvalidFormStructure     = errors.New("invalid form structure")
+	ErrInvalidCellStructure     = errors.New("invalid renderer structure")
+	ErrCoreFieldModified        = errors.New("core_* fields cannot be modified")
+	ErrMissingRendererReference = errors.New("missing renderer reference")
 )
 
 // validateBundleStructure validates the structure of the uploaded zip file
@@ -35,7 +36,7 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 		}
 
 		topDir := parts[0]
-		if topDir == "app" || topDir == "forms" || topDir == "cells" {
+		if topDir == "app" || topDir == "forms" || topDir == "renderers" {
 			topDirs[topDir] = true
 		} else if topDir != "" {
 			return fmt.Errorf("%w: unexpected top-level directory '%s'", ErrInvalidStructure, topDir)
@@ -60,7 +61,7 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 		return ErrMissingAppIndex
 	}
 
-	// Second pass: validate forms and cells structure
+	// Second pass: validate forms and renderers structure
 	hasFormSchema := make(map[string]bool)
 	hasFormUI := make(map[string]bool)
 
@@ -80,8 +81,8 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 					hasFormUI[formName] = true
 				}
 			}
-		} else if strings.HasPrefix(file.Name, "cells/") {
-			if err := s.validateCellFile(file); err != nil {
+		} else if strings.HasPrefix(file.Name, "renderers/") {
+			if err := s.validateRendererFile(file); err != nil {
 				return err
 			}
 		}
@@ -94,8 +95,8 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 		}
 	}
 
-	// Third pass: validate form references to cells
-	return s.validateFormCellReferences(zipReader)
+	// Third pass: validate form references to renderers
+	return s.validateFormRendererReferences(zipReader)
 }
 
 // validateFormFile validates a single form file
@@ -143,11 +144,11 @@ func (s *Service) validateFormSchema(file *zip.File) error {
 
 	// Check for core field modifications
 	if currentHash, exists := s.getCoreFieldsHash(formName); exists {
-		// Get current core fields and their paths
-		coreFields, fieldPaths := extractCoreFields(schema)
+		// Get current core fields
+		coreFields := extractCoreFields(schema)
 
 		// Check if any core fields exist
-		if len(fieldPaths) > 0 {
+		if len(coreFields) > 0 {
 			// Get the hash of the current core fields
 			newHash, err := hashCoreFields(coreFields)
 			if err != nil {
@@ -156,10 +157,15 @@ func (s *Service) validateFormSchema(file *zip.File) error {
 
 			// If the hash doesn't match, return the list of core fields that might have been modified
 			if newHash != currentHash {
-				// Since we can't get the old values, we'll list all core fields as potentially modified
+				// Get field names for the error message
+				fieldNames := make([]string, len(coreFields))
+				for i, field := range coreFields {
+					fieldNames[i] = field.Name
+				}
+
 				return fmt.Errorf("%w: the following core fields were modified: %s",
 					ErrCoreFieldModified,
-					strings.Join(fieldPaths, ", "))
+					strings.Join(fieldNames, ", "))
 			}
 		}
 	}
@@ -167,30 +173,30 @@ func (s *Service) validateFormSchema(file *zip.File) error {
 	return nil
 }
 
-// validateCellFile validates a single cell file
-func (s *Service) validateCellFile(file *zip.File) error {
+// validateRendererFile validates a single renderer file
+func (s *Service) validateRendererFile(file *zip.File) error {
 	// Skip directories
 	if file.FileInfo().IsDir() {
 		return nil
 	}
 
-	// Expected path format: cells/{cellName}/cell.jsx
+	// Expected path format: renderers/{rendererName}/renderer.jsx
 	parts := strings.Split(file.Name, "/")
-	if len(parts) != 3 || parts[2] != "cell.jsx" {
-		return fmt.Errorf("%w: invalid cell file path: %s", ErrInvalidCellStructure, file.Name)
+	if len(parts) != 3 || parts[2] != "renderer.jsx" {
+		return fmt.Errorf("%w: invalid renderer file path: %s", ErrInvalidCellStructure, file.Name)
 	}
 
 	return nil
 }
 
-// validateFormCellReferences validates that all cell references in forms exist
-func (s *Service) validateFormCellReferences(zipReader *zip.Reader) error {
-	// Build a set of available cells
+// validateFormRendererReferences validates that all renderer references in forms exist
+func (s *Service) validateFormRendererReferences(zipReader *zip.Reader) error {
+	// Build a set of available renderers
 	availableCells := make(map[string]bool)
 
-	// First, collect all available cells
+	// First, collect all available renderers
 	for _, file := range zipReader.File {
-		if strings.HasPrefix(file.Name, "cells/") && strings.HasSuffix(file.Name, "/cell.jsx") {
+		if strings.HasPrefix(file.Name, "renderers/") && strings.HasSuffix(file.Name, "/renderer.jsx") {
 			parts := strings.Split(file.Name, "/")
 			if len(parts) == 3 {
 				availableCells[parts[1]] = true
@@ -198,7 +204,7 @@ func (s *Service) validateFormCellReferences(zipReader *zip.Reader) error {
 		}
 	}
 
-	// Then check all form schemas for cell references
+	// Then check all form schemas for renderer references
 	for _, file := range zipReader.File {
 		if strings.HasSuffix(file.Name, "schema.json") {
 			// Open the file
@@ -215,9 +221,9 @@ func (s *Service) validateFormCellReferences(zipReader *zip.Reader) error {
 				return fmt.Errorf("failed to parse form schema: %w", err)
 			}
 
-			// Check for cell references in the schema
-			if err := checkCellReferences(schema, availableCells); err != nil {
-				return fmt.Errorf("%w: %v", ErrMissingCellReference, err)
+			// Check for renderer references in the schema
+			if err := checkRendererReferences(schema, availableCells); err != nil {
+				return fmt.Errorf("%w: %v", ErrMissingRendererReference, err)
 			}
 		}
 	}
@@ -225,8 +231,8 @@ func (s *Service) validateFormCellReferences(zipReader *zip.Reader) error {
 	return nil
 }
 
-// builtInCells is a slice of standard JSONForms renderers that don't need to be defined in the bundle
-var builtInCells = []string{
+// builtInRenderers is a slice of standard JSONForms renderers that don't need to be defined in the bundle
+var builtInRenderers = []string{
 	// Basic controls
 	"text",
 	"number",
@@ -267,35 +273,35 @@ var builtInCells = []string{
 	"qrcode",
 }
 
-// isBuiltInCell checks if a cell type is a built-in renderer
-func isBuiltInCell(cellType string) bool {
-	for _, builtIn := range builtInCells {
-		if builtIn == cellType {
+// isBuiltInRenderer checks if a renderer type is a built-in renderer
+func isBuiltInRenderer(rendererType string) bool {
+	for _, builtIn := range builtInRenderers {
+		if builtIn == rendererType {
 			return true
 		}
 	}
 	return false
 }
 
-// checkCellReferences recursively checks for cell references in the schema
-func checkCellReferences(data interface{}, availableCells map[string]bool) error {
+// checkRendererReferences recursively checks for renderer references in the schema
+func checkRendererReferences(data interface{}, availableRenderers map[string]bool) error {
 	switch v := data.(type) {
 	case map[string]interface{}:
-		// Check for cell type (both x-cell and cellType formats)
-		if cellType, ok := v["x-cell"].(string); ok {
-			if !availableCells[cellType] && !isBuiltInCell(cellType) {
-				return fmt.Errorf("references non-existent cell '%s' (x-cell)", cellType)
+		// Check for renderer type (both x-renderer and rendererType formats)
+		if rendererType, ok := v["x-renderer"].(string); ok {
+			if !availableRenderers[rendererType] && !isBuiltInRenderer(rendererType) {
+				return fmt.Errorf("references non-existent renderer '%s' (x-renderer)", rendererType)
 			}
 		}
-		if cellType, ok := v["cellType"].(string); ok {
-			if !availableCells[cellType] && !isBuiltInCell(cellType) {
-				return fmt.Errorf("references non-existent cell '%s' (cellType)", cellType)
+		if rendererType, ok := v["rendererType"].(string); ok {
+			if !availableRenderers[rendererType] && !isBuiltInRenderer(rendererType) {
+				return fmt.Errorf("references non-existent renderer '%s' (rendererType)", rendererType)
 			}
 		}
 
 		// Recursively check nested objects
 		for _, value := range v {
-			if err := checkCellReferences(value, availableCells); err != nil {
+			if err := checkRendererReferences(value, availableRenderers); err != nil {
 				return err
 			}
 		}
@@ -303,7 +309,7 @@ func checkCellReferences(data interface{}, availableCells map[string]bool) error
 	case []interface{}:
 		// Recursively check array elements
 		for _, item := range v {
-			if err := checkCellReferences(item, availableCells); err != nil {
+			if err := checkRendererReferences(item, availableRenderers); err != nil {
 				return err
 			}
 		}
@@ -312,47 +318,30 @@ func checkCellReferences(data interface{}, availableCells map[string]bool) error
 	return nil
 }
 
-// extractCoreFields extracts core fields from the schema.
-// Core fields are either marked with x-core: true or start with "core_".
-// It performs a deep copy of the values to ensure the original data isn't modified.
-// Returns a map of core fields and a slice of field paths.
-func extractCoreFields(schema map[string]interface{}) (map[string]interface{}, []string) {
-	coreFields := make(map[string]interface{})
-	var fieldPaths []string
+// extractCoreFields returns all core fields from the schema
+func extractCoreFields(schema map[string]any) []FieldInfo {
+	var coreFields []FieldInfo
 
-	// Helper function to add fields with their paths
-	addField := func(path string, value interface{}) {
-		coreFields[path] = deepCopyValue(value)
-		fieldPaths = append(fieldPaths, path)
-	}
-
-	// Check for x-core at the schema level
-	if isCore, ok := schema["x-core"].(bool); ok && isCore {
-		// If the entire schema is marked as core, include all properties
-		if props, ok := schema["properties"].(map[string]interface{}); ok {
-			for k, v := range props {
-				addField(k, v)
-			}
+	for _, field := range extractFields(schema) {
+		if field.Core {
+			coreFields = append(coreFields, field)
 		}
 	}
 
-	if props, ok := schema["properties"].(map[string]interface{}); ok {
-		for k, v := range props {
-			if strings.HasPrefix(k, "core_") {
-				addField(k, v)
-			}
-		}
-	}
-
-	return coreFields, fieldPaths
+	return coreFields
 }
 
-// hashCoreFields generates a deterministic hash for the core fields map.
-// It sorts map keys to ensure consistent ordering before hashing.
-func hashCoreFields(fields map[string]interface{}) (string, error) {
+// hashCoreFields generates a deterministic hash for the core fields.
+// It sorts the fields by name to ensure consistent ordering before hashing.
+func hashCoreFields(fields []FieldInfo) (string, error) {
 	if len(fields) == 0 {
 		return "", nil
 	}
+
+	// Sort fields by name for consistent ordering
+	sort.Slice(fields, func(i, j int) bool {
+		return fields[i].Name < fields[j].Name
+	})
 
 	// Convert to JSON for consistent hashing
 	jsonData, err := json.Marshal(fields)
