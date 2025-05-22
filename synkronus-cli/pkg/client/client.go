@@ -25,6 +25,36 @@ type AppBundleChanges struct {
 	Removed       []map[string]interface{} `json:"removed"`
 }
 
+// SystemVersionInfo represents the version information of the Synkronus server
+type SystemVersionInfo struct {
+	Server   ServerInfo   `json:"server"`
+	Database DatabaseInfo `json:"database"`
+	System   SystemInfo   `json:"system"`
+	Build    BuildInfo    `json:"build"`
+}
+
+type ServerInfo struct {
+	Version string `json:"version"`
+}
+
+type DatabaseInfo struct {
+	Type         string `json:"type"`
+	Version      string `json:"version"`
+	DatabaseName string `json:"database_name"`
+}
+
+type SystemInfo struct {
+	OS           string `json:"os"`
+	Architecture string `json:"architecture"`
+	CPUs        int    `json:"cpus"`
+}
+
+type BuildInfo struct {
+	Commit    string `json:"commit"`
+	BuildTime string `json:"build_time"`
+	GoVersion string `json:"go_version"`
+}
+
 // Client represents a Synkronus API client
 type Client struct {
 	BaseURL    string
@@ -44,6 +74,37 @@ func NewClient() *Client {
 }
 
 // doRequest performs an HTTP request with authentication
+// GetVersion retrieves version information from the Synkronus server
+func (c *Client) GetVersion() (*SystemVersionInfo, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/version", c.BaseURL), nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating version request: %w", err)
+	}
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("version request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errResp struct {
+			Error string `json:"error"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
+			return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		}
+		return nil, fmt.Errorf("version check failed: %s", errResp.Error)
+	}
+
+	var versionInfo SystemVersionInfo
+	if err := json.NewDecoder(resp.Body).Decode(&versionInfo); err != nil {
+		return nil, fmt.Errorf("error parsing version response: %w", err)
+	}
+
+	return &versionInfo, nil
+}
+
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 	// Add API version header
 	req.Header.Set("x-api-version", c.APIVersion)
