@@ -3,6 +3,50 @@ info:
   title: Synkronus API
   version: 1.0.0
 paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the current health status of the service
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current server time
+                  version:
+                    type: string
+                    description: Current API version
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [error]
+                    example: error
+                  error:
+                    type: string
+                    description: Description of the error
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Current server time
+
   /version:
     get:
       summary: Get server version and system information
