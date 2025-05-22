@@ -31,9 +31,10 @@ func TestPushAppBundle(t *testing.T) {
 	mockAppBundleService := mocks.NewMockAppBundleService()
 	mockSyncService := mocks.NewMockSyncService()
 	mockUserService := mocks.NewMockUserService()
+	mockVersionService := mocks.NewMockVersionService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mockUserService)
+	h := NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService)
 
 	// Create a temporary test file
 	tempDir := t.TempDir()
@@ -165,9 +166,10 @@ func TestGetAppBundleVersions(t *testing.T) {
 	mockAppBundleService := mocks.NewMockAppBundleService()
 	mockSyncService := mocks.NewMockSyncService()
 	mockUserService := mocks.NewMockUserService()
+	mockVersionService := mocks.NewMockVersionService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mockUserService)
+	h := NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService)
 
 	// Test cases
 	tests := []struct {
@@ -217,9 +219,10 @@ func TestSwitchAppBundleVersion(t *testing.T) {
 	mockAppBundleService := mocks.NewMockAppBundleService()
 	mockSyncService := mocks.NewMockSyncService()
 	mockUserService := mocks.NewMockUserService()
+	mockVersionService := mocks.NewMockVersionService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mockUserService)
+	h := NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService)
 
 	// Test cases
 	tests := []struct {

@@ -21,8 +21,18 @@ func TestNewRouter(t *testing.T) {
 	mockSyncService := mocks.NewMockSyncService()
 	mockUserService := mocks.NewMockUserService()
 
+	// Create a mock version service
+	mockVersionService := mocks.NewMockVersionService()
+
 	// Create a mock handler for testing
-	mockHandler := handlers.NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mockUserService)
+	mockHandler := handlers.NewHandler(
+		log,
+		mockAuthService,
+		mockAppBundleService,
+		mockSyncService,
+		mockUserService,
+		mockVersionService,
+	)
 
 	// Create a new router
 	router := NewRouter(log, mockHandler)

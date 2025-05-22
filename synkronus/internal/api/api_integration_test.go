@@ -29,9 +29,17 @@ func TestProtectedEndpoints(t *testing.T) {
 	mockAppBundleService := mocks.NewMockAppBundleService()
 	mockSyncService := mocks.NewMockSyncService()
 	mockUserService := mocks.NewMockUserService()
+	mockVersionService := mocks.NewMockVersionService()
 
 	// Create a mock handler for testing
-	mockHandler := handlers.NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mockUserService)
+	mockHandler := handlers.NewHandler(
+		log,
+		mockAuthService,
+		mockAppBundleService,
+		mockSyncService,
+		mockUserService,
+		mockVersionService,
+	)
 
 	// Create a new router with the handler
 	r := chi.NewRouter()

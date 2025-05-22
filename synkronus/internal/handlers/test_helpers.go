@@ -19,8 +19,18 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 	// Create a mock sync service
 	mockSyncService := mocks.NewMockSyncService()
 
+	// Create a mock version service
+	mockVersionService := mocks.NewMockVersionService()
+
 	// Create a new handler
-	h := NewHandler(log, mockAuthService, mockAppBundleService, mockSyncService, mocks.NewMockUserService())
+	h := NewHandler(
+		log,
+		mockAuthService,
+		mockAppBundleService,
+		mockSyncService,
+		mocks.NewMockUserService(),
+		mockVersionService,
+	)
 
 	return h, mockAppBundleService
 }

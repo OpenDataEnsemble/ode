@@ -15,11 +15,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// testContextKey is used to silence the SA1029 linter warning while maintaining compatibility with the handler
+type testContextKey string
+
+const usernameContextKey testContextKey = "username"
+
 // userHandlerTestHelper returns a Handler and its MockUserService for user handler tests
 func userHandlerTestHelper() (*Handler, *mocks.MockUserService) {
 	log := logger.NewLogger()
 	mockUserService := mocks.NewMockUserService()
-	return NewHandler(log, nil, nil, nil, mockUserService), mockUserService
+	mockAuthService := mocks.NewMockAuthService()
+	mockAppBundleService := mocks.NewMockAppBundleService()
+	mockSyncService := mocks.NewMockSyncService()
+	mockVersionService := mocks.NewMockVersionService()
+	return NewHandler(
+		log,
+		mockAuthService,
+		mockAppBundleService,
+		mockSyncService,
+		mockUserService,
+		mockVersionService,
+	), mockUserService
 }
 
 func TestCreateUserHandler(t *testing.T) {
@@ -179,7 +195,8 @@ func TestChangePasswordHandler(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/users/change-password", bytes.NewReader(body))
 			ctx := r.Context()
 			if tc.username != "" {
-				ctx = context.WithValue(ctx, "username", tc.username)
+				// Using the same string key as the handler expects, but with a type to satisfy the linter
+				ctx = context.WithValue(ctx, "username", tc.username) //nolint:staticcheck // SA1029: using string as context key is required for compatibility with the handler
 			}
 			r = r.WithContext(ctx)
 			w := httptest.NewRecorder()

@@ -6,6 +6,7 @@ import (
 	"github.com/collectakit/synkronus/pkg/logger"
 	"github.com/collectakit/synkronus/pkg/sync"
 	"github.com/collectakit/synkronus/pkg/user"
+	"github.com/collectakit/synkronus/pkg/version"
 )
 
 // Handler manages all API endpoints
@@ -15,16 +16,25 @@ type Handler struct {
 	appBundleService appbundle.AppBundleServiceInterface
 	syncService      sync.ServiceInterface
 	userService      user.UserServiceInterface
+	versionService   version.Service
 }
 
 // NewHandler creates a new Handler instance
-func NewHandler(log *logger.Logger, authService auth.AuthServiceInterface, appBundleService appbundle.AppBundleServiceInterface, syncService sync.ServiceInterface, userService user.UserServiceInterface) *Handler {
+func NewHandler(
+	log *logger.Logger,
+	authService auth.AuthServiceInterface,
+	appBundleService appbundle.AppBundleServiceInterface,
+	syncService sync.ServiceInterface,
+	userService user.UserServiceInterface,
+	versionService version.Service,
+) *Handler {
 	return &Handler{
 		log:              log,
 		authService:      authService,
 		appBundleService: appBundleService,
 		syncService:      syncService,
 		userService:      userService,
+		versionService:   versionService,
 	}
 }
 

@@ -21,6 +21,7 @@ import (
 	"github.com/collectakit/synkronus/pkg/migrations"
 	"github.com/collectakit/synkronus/pkg/sync"
 	"github.com/collectakit/synkronus/pkg/user"
+	"github.com/collectakit/synkronus/pkg/version"
 )
 
 func main() {
@@ -132,8 +133,26 @@ func main() {
 	// Initialize user service
 	userService := user.NewService(userRepo, authService, log)
 
+	// Initialize version service
+	versionService := version.NewService(db.DB())
+
+	// Convert concrete types to interfaces if needed
+	var (
+		authSvc      auth.AuthServiceInterface      = authService
+		appBundleSvc appbundle.AppBundleServiceInterface = appBundleService
+		syncSvc      sync.ServiceInterface            = syncService
+		userSvc      user.UserServiceInterface        = userService
+	)
+
 	// Initialize handlers
-	h := handlers.NewHandler(log, authService, appBundleService, syncService, userService)
+	h := handlers.NewHandler(
+		log,
+		authSvc,
+		appBundleSvc,
+		syncSvc,
+		userSvc,
+		versionService,
+	)
 
 	// Create the API router with handlers
 	router := api.NewRouter(log, h)

@@ -55,6 +55,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 
 	// Public endpoints
 	r.Get("/health", h.HealthCheck)
+	r.Get("/version", h.GetVersion) // Get server version information
 	r.Get("/api/versions", h.GetAPIVersions) // Not implemented yet
 
 	// Serve favicon.ico
