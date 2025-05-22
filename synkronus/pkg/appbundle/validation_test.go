@@ -246,7 +246,7 @@ func TestValidateCoreFields(t *testing.T) {
 			err := json.Unmarshal([]byte(tt.schema), &schema)
 			require.NoError(t, err, "failed to unmarshal test schema")
 
-			coreFields := extractCoreFields(schema)
+			coreFields, _ := extractCoreFields(schema)
 			if tt.hasCoreFields {
 				assert.NotEmpty(t, coreFields, "expected core fields but found none")
 			} else {
@@ -260,7 +260,7 @@ func TestValidateCoreFields(t *testing.T) {
 				assert.NotEmpty(t, hash1, "hash should not be empty")
 
 				// Hash should be deterministic
-				coreFields2 := extractCoreFields(schema)
+				coreFields2, _ := extractCoreFields(schema)
 				hash2, err := hashCoreFields(coreFields2)
 				require.NoError(t, err, "failed to hash core fields")
 				assert.Equal(t, hash1, hash2, "hashes should be equal for same input")

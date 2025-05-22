@@ -87,7 +87,7 @@ func (s *Service) generateAppInfo(zipReader *zip.Reader, version string) ([]byte
 		}
 
 		// Extract core fields and create hash
-		coreFields := extractCoreFields(schema)
+		coreFields, _ := extractCoreFields(schema)
 		coreHash := hashData(coreFields)
 
 		// Store the core hash in the service cache

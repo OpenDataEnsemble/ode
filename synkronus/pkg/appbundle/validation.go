@@ -143,13 +143,24 @@ func (s *Service) validateFormSchema(file *zip.File) error {
 
 	// Check for core field modifications
 	if currentHash, exists := s.getCoreFieldsHash(formName); exists {
-		coreFields := extractCoreFields(schema)
-		newHash, err := hashCoreFields(coreFields)
-		if err != nil {
-			return fmt.Errorf("failed to hash core fields: %w", err)
-		}
-		if newHash != currentHash {
-			return fmt.Errorf("%w: core field type or structure has been modified", ErrCoreFieldModified)
+		// Get current core fields and their paths
+		coreFields, fieldPaths := extractCoreFields(schema)
+
+		// Check if any core fields exist
+		if len(fieldPaths) > 0 {
+			// Get the hash of the current core fields
+			newHash, err := hashCoreFields(coreFields)
+			if err != nil {
+				return fmt.Errorf("failed to hash core fields: %w", err)
+			}
+
+			// If the hash doesn't match, return the list of core fields that might have been modified
+			if newHash != currentHash {
+				// Since we can't get the old values, we'll list all core fields as potentially modified
+				return fmt.Errorf("%w: the following core fields were modified: %s",
+					ErrCoreFieldModified,
+					strings.Join(fieldPaths, ", "))
+			}
 		}
 	}
 
@@ -214,18 +225,70 @@ func (s *Service) validateFormCellReferences(zipReader *zip.Reader) error {
 	return nil
 }
 
+// builtInCells is a slice of standard JSONForms renderers that don't need to be defined in the bundle
+var builtInCells = []string{
+	// Basic controls
+	"text",
+	"number",
+	"integer",
+	"boolean",
+	"date",
+	"time",
+	"datetime",
+	"range",
+
+	// Selection controls
+	"select",
+	"combo",
+	"radio",
+	"checkbox",
+	"toggle",
+
+	// Layout
+	"group",
+	"categorization",
+	"category",
+
+	// Specialized controls
+	"multiselect",
+	"textarea",
+	"slider",
+	"rating",
+
+	// Built-in aliases (test support)
+	"builtin-text",
+
+	// formulus controls
+	"image",
+	"signature",
+	"audio",
+	"video",
+	"file",
+	"qrcode",
+}
+
+// isBuiltInCell checks if a cell type is a built-in renderer
+func isBuiltInCell(cellType string) bool {
+	for _, builtIn := range builtInCells {
+		if builtIn == cellType {
+			return true
+		}
+	}
+	return false
+}
+
 // checkCellReferences recursively checks for cell references in the schema
 func checkCellReferences(data interface{}, availableCells map[string]bool) error {
 	switch v := data.(type) {
 	case map[string]interface{}:
 		// Check for cell type (both x-cell and cellType formats)
 		if cellType, ok := v["x-cell"].(string); ok {
-			if !availableCells[cellType] {
+			if !availableCells[cellType] && !isBuiltInCell(cellType) {
 				return fmt.Errorf("references non-existent cell '%s' (x-cell)", cellType)
 			}
 		}
 		if cellType, ok := v["cellType"].(string); ok {
-			if !availableCells[cellType] {
+			if !availableCells[cellType] && !isBuiltInCell(cellType) {
 				return fmt.Errorf("references non-existent cell '%s' (cellType)", cellType)
 			}
 		}
@@ -252,15 +315,23 @@ func checkCellReferences(data interface{}, availableCells map[string]bool) error
 // extractCoreFields extracts core fields from the schema.
 // Core fields are either marked with x-core: true or start with "core_".
 // It performs a deep copy of the values to ensure the original data isn't modified.
-func extractCoreFields(schema map[string]interface{}) map[string]interface{} {
+// Returns a map of core fields and a slice of field paths.
+func extractCoreFields(schema map[string]interface{}) (map[string]interface{}, []string) {
 	coreFields := make(map[string]interface{})
-	
+	var fieldPaths []string
+
+	// Helper function to add fields with their paths
+	addField := func(path string, value interface{}) {
+		coreFields[path] = deepCopyValue(value)
+		fieldPaths = append(fieldPaths, path)
+	}
+
 	// Check for x-core at the schema level
 	if isCore, ok := schema["x-core"].(bool); ok && isCore {
 		// If the entire schema is marked as core, include all properties
 		if props, ok := schema["properties"].(map[string]interface{}); ok {
 			for k, v := range props {
-				coreFields[k] = deepCopyValue(v)
+				addField(k, v)
 			}
 		}
 	}
@@ -268,12 +339,11 @@ func extractCoreFields(schema map[string]interface{}) map[string]interface{} {
 	// Also include any fields that start with "core_"
 	for k, v := range schema {
 		if strings.HasPrefix(k, "core_") {
-			// Create a deep copy of the value to avoid modifying the original
-			coreFields[k] = deepCopyValue(v)
+			addField(k, v)
 		}
 	}
 
-	return coreFields
+	return coreFields, fieldPaths
 }
 
 // hashCoreFields generates a deterministic hash for the core fields map.
@@ -293,6 +363,8 @@ func hashCoreFields(fields map[string]interface{}) (string, error) {
 	hash := sha256.Sum256(jsonData)
 	return hex.EncodeToString(hash[:]), nil
 }
+
+
 
 // getCoreFieldsHash retrieves the stored hash for a form's core fields.
 // It returns the hash and a boolean indicating if the hash was found.

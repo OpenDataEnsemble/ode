@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // PushBundle uploads a new app bundle from a zip file
@@ -51,19 +52,6 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 		return nil, fmt.Errorf("failed to get next version number: %w", err)
 	}
 
-	// Generate app info with the new version number
-	appInfoData, err := s.generateAppInfo(&zipFile.Reader, fmt.Sprint(versionNumber))
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate app info: %w", err)
-	}
-
-	// Create a new zip file with APP_INFO.json
-	tempZipFile, err = s.createBundleWithAppInfo(tempZipFile.Name(), appInfoData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create bundle with app info: %w", err)
-	}
-	defer os.Remove(tempZipFile.Name())
-
 	// Create version name with leading zeros for sorting (e.g., 0001, 0002, etc.)
 	versionName := fmt.Sprintf("%04d", versionNumber)
 	versionPath := filepath.Join(s.versionsPath, versionName)
@@ -74,20 +62,24 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 		return nil, fmt.Errorf("failed to create version directory: %w", err)
 	}
 
-	// Rewind the file again for extraction
+	// Generate app info with the new version number
+	appInfoData, err := s.generateAppInfo(&zipFile.Reader, fmt.Sprint(versionNumber))
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate app info: %w", err)
+	}
+
+	// Write APP_INFO.json directly to the version directory
+	appInfoPath := filepath.Join(versionPath, "APP_INFO.json")
+	if err := os.WriteFile(appInfoPath, appInfoData, 0644); err != nil {
+		return nil, fmt.Errorf("failed to write APP_INFO.json: %w", err)
+	}
+
+	// Rewind the zip file for extraction
 	if _, err := tempZipFile.Seek(0, 0); err != nil {
 		return nil, fmt.Errorf("failed to rewind temporary file: %w", err)
 	}
 
-	// Reopen the zip file for extraction
-	zipFile.Close()
-	zipFile, err = zip.OpenReader(tempZipFile.Name())
-	if err != nil {
-		return nil, fmt.Errorf("failed to reopen zip file: %w", err)
-	}
-	defer zipFile.Close()
-
-	// Extract the zip file to the version directory
+	// Extract the zip file to the version directory (using the original zip file)
 	for _, file := range zipFile.File {
 		// Skip directories and files with paths containing ".."
 		if file.FileInfo().IsDir() || strings.Contains(file.Name, "..") {
@@ -131,25 +123,18 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 		dstFile.Close()
 	}
 
-	// Switch to the new version
-	if err := s.SwitchVersion(ctx, versionName); err != nil {
-		return nil, fmt.Errorf("failed to switch to new version: %w", err)
-	}
-
-	// Clean up old versions
+	// Clean up old versions if needed
 	if err := s.cleanupOldVersions(); err != nil {
-		s.log.Warn("Failed to clean up old versions", "error", err)
-		// Continue anyway, this is not critical
+		s.log.Error("Failed to clean up old versions", "error", err)
+		// Continue even if cleanup fails
 	}
 
-	// Generate and return the new manifest
-	s.manifest = nil // Force regeneration
-	manifest, err := s.GetManifest(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate manifest for new version: %w", err)
-	}
-
-	return manifest, nil
+	// Return a minimal manifest with just the version
+	return &Manifest{
+		Version:     versionName,
+		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		// Files will be populated when the manifest is generated
+	}, nil
 }
 
 // GetVersions returns a list of available app bundle versions
@@ -163,7 +148,7 @@ func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to read versions directory: %w", err)
 	}
 
-	// Filter directories and sort by name (which is timestamp-based)
+	// Filter directories and sort by name
 	versions := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() {
@@ -285,104 +270,6 @@ func (s *Service) copyFile(src, dst string, mode os.FileMode) error {
 	}
 
 	return nil
-}
-
-// getNextVersionNumber gets the next version number by finding the highest existing version and incrementing it
-// createBundleWithAppInfo creates a new zip file with APP_INFO.json added
-func (s *Service) createBundleWithAppInfo(zipPath string, appInfoData []byte) (*os.File, error) {
-	// Create a new temporary file for the updated zip
-	dstFile, err := os.CreateTemp("", "appbundle-with-info-*.zip")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create temp file: %w", err)
-	}
-	defer dstFile.Close()
-
-	// Create a new zip writer
-	zipWriter := zip.NewWriter(dstFile)
-
-	// Open the source zip file
-	srcZip, err := zip.OpenReader(zipPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open source zip: %w", err)
-	}
-	defer srcZip.Close()
-
-	// Copy all files from source zip to new zip
-	for _, file := range srcZip.File {
-		// Skip if this is the APP_INFO.json we're about to add/update
-		if file.Name == "APP_INFO.json" {
-			continue
-		}
-
-		srcFile, err := file.Open()
-		if err != nil {
-			return nil, fmt.Errorf("failed to open source file %s: %w", file.Name, err)
-		}
-
-		dstFile, err := zipWriter.Create(file.Name)
-		if err != nil {
-			srcFile.Close()
-			return nil, fmt.Errorf("failed to create file in zip: %w", err)
-		}
-
-		_, err = io.Copy(dstFile, srcFile)
-		srcFile.Close()
-		if err != nil {
-			return nil, fmt.Errorf("failed to copy file %s: %w", file.Name, err)
-		}
-	}
-
-	// Add APP_INFO.json to the zip
-	infoFile, err := zipWriter.Create("APP_INFO.json")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create APP_INFO.json in zip: %w", err)
-	}
-
-	if _, err := infoFile.Write(appInfoData); err != nil {
-		return nil, fmt.Errorf("failed to write APP_INFO.json: %w", err)
-	}
-
-	// Close the zip writer
-	if err := zipWriter.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close zip writer: %w", err)
-	}
-
-	// Ensure all data is written to disk
-	if err := dstFile.Sync(); err != nil {
-		return nil, fmt.Errorf("failed to sync temp file: %w", err)
-	}
-
-	// Reopen the file for reading
-	dstPath := dstFile.Name()
-	if err := dstFile.Close(); err != nil {
-		return nil, fmt.Errorf("failed to close temp file: %w", err)
-	}
-
-	reopenedFile, err := os.Open(dstPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to reopen temp file: %w", err)
-	}
-
-	// Create a file that will be closed by the caller
-	resultFile, err := os.Create(dstPath)
-	if err != nil {
-		reopenedFile.Close()
-		return nil, fmt.Errorf("failed to create result file: %w", err)
-	}
-
-	if _, err := io.Copy(resultFile, reopenedFile); err != nil {
-		reopenedFile.Close()
-		resultFile.Close()
-		return nil, fmt.Errorf("failed to copy file content: %w", err)
-	}
-
-	reopenedFile.Close()
-	if _, err := resultFile.Seek(0, 0); err != nil {
-		resultFile.Close()
-		return nil, fmt.Errorf("failed to seek to start of file: %w", err)
-	}
-
-	return resultFile, nil
 }
 
 func (s *Service) getNextVersionNumber() (int, error) {
