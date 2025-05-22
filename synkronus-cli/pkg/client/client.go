@@ -156,10 +156,10 @@ func (c *Client) GetAppBundleChanges(currentVersion, targetVersion string) (*App
 // DownloadAppBundleFile downloads a specific file from the app bundle
 // If preview is true, adds ?preview=true to the request URL
 func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) error {
-	url := fmt.Sprintf("%s/app-bundle/download?path=%s", c.BaseURL, url.QueryEscape(path))
-	if preview {
-		url += "&preview=true"
-	}
+	url := fmt.Sprintf("%s/app-bundle/download/%s", c.BaseURL, url.PathEscape(path))
+if preview {
+	url += "?preview=true"
+}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

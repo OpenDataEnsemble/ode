@@ -54,13 +54,13 @@ synk logout
 
 ```bash
 # Get app bundle manifest
-synk app-bundle manifest
+synk /app-bundle/download/manifest
 
 # List available app bundle versions
 synk app-bundle versions
 
 # Download app bundle files
-synk app-bundle download --output ./app-bundle
+synk /app-bundle/download --output ./app-bundle
 
 # Download a specific file
 synk app-bundle download index.html
