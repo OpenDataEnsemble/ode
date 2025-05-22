@@ -269,6 +269,124 @@ func TestValidateCoreFields(t *testing.T) {
 	}
 }
 
+func TestExtractCoreFields(t *testing.T) {
+	tests := []struct {
+		name     string
+		schema   map[string]interface{}
+		wantCore map[string]interface{}
+		wantPaths []string
+	}{
+		{
+			name: "no core fields",
+			schema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"name": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+			wantCore: map[string]interface{}{},
+			wantPaths: []string{},
+		},
+		{
+			name: "top level x-core",
+			schema: map[string]interface{}{
+				"x-core": true,
+				"type": "object",
+				"properties": map[string]interface{}{
+					"name": map[string]interface{}{
+						"type": "string",
+					},
+					"age": map[string]interface{}{
+						"type": "integer",
+					},
+				},
+			},
+			wantCore: map[string]interface{}{
+				"name": map[string]interface{}{"type": "string"},
+				"age":  map[string]interface{}{"type": "integer"},
+			},
+			wantPaths: []string{"name", "age"},
+		},
+		{
+			name: "core_ prefixed fields",
+			schema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"core_id": map[string]interface{}{
+						"type": "string",
+					},
+					"core_name": map[string]interface{}{
+						"type": "string",
+					},
+					"regular_field": map[string]interface{}{
+						"type": "string",
+					},
+				},
+			},
+			wantCore: map[string]interface{}{
+				"core_id":   map[string]interface{}{"type": "string"},
+				"core_name": map[string]interface{}{"type": "string"},
+			},
+			wantPaths: []string{"core_id", "core_name"},
+		},
+		{
+			name: "nested properties with x-core",
+			schema: map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"user": map[string]interface{}{
+						"type": "object",
+						"x-core": true,
+						"properties": map[string]interface{}{
+							"id": map[string]interface{}{
+								"type": "string",
+							},
+							"name": map[string]interface{}{
+								"type": "string",
+							},
+						},
+					},
+					"metadata": map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"createdAt": map[string]interface{}{
+								"type": "string",
+								"format": "date-time",
+							},
+						},
+					},
+				},
+			},
+			wantCore: map[string]interface{}{
+				"user": map[string]interface{}{
+					"type": "object",
+					"x-core": true,
+					"properties": map[string]interface{}{
+						"id":   map[string]interface{}{"type": "string"},
+						"name": map[string]interface{}{"type": "string"},
+					},
+				},
+			},
+			wantPaths: []string{"user"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotCore, gotPaths := extractCoreFields(tt.schema)
+
+			// Convert both maps to JSON for better comparison in test output
+			gotJSON, _ := json.MarshalIndent(gotCore, "", "  ")
+			wantJSON, _ := json.MarshalIndent(tt.wantCore, "", "  ")
+
+			assert.JSONEq(t, string(wantJSON), string(gotJSON), "core fields mismatch")
+			assert.ElementsMatch(t, tt.wantPaths, gotPaths, "field paths mismatch")
+		})
+	}
+}
+
 func TestValidateFormSchema(t *testing.T) {
 	tests := []struct {
 		name    string
