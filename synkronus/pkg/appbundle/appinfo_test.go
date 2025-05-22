@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -214,6 +215,90 @@ func TestGenerateAppInfo_ErrorCases(t *testing.T) {
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.wantErr)
 		})
+	}
+}
+
+func TestBundleChanges_FieldAddition(t *testing.T) {
+	// Initialize the service with test configuration
+	tempDir := t.TempDir()
+	logger := logger.NewLogger()
+	service := NewService(Config{
+		BundlePath:   filepath.Join(tempDir, "bundle"),
+		VersionsPath: filepath.Join(tempDir, "versions"),
+		MaxVersions:  5,
+	}, logger)
+
+	// Initialize the service
+	err := service.Initialize(context.Background())
+	require.NoError(t, err, "Failed to initialize service")
+
+	// First, upload the initial bundle (valid_bundle01.zip)
+	bundle01Path := filepath.Join("..", "..", "testdata", "bundles", "valid_bundle01.zip")
+	bundle01File, err := os.Open(bundle01Path)
+	require.NoError(t, err, "Failed to open bundle01")
+	defer bundle01File.Close()
+
+	_, err = service.PushBundle(context.Background(), bundle01File)
+	require.NoError(t, err, "Failed to push initial bundle")
+
+	// Get the version number of the first bundle
+	versions, err := service.GetVersions(context.Background())
+	require.NoError(t, err, "Failed to get versions")
+	require.GreaterOrEqual(t, len(versions), 1, "Expected at least one version")
+	version1 := strings.TrimSuffix(versions[0], " *") // Remove the " *" if it's the current version
+
+	// Then upload the second bundle (valid_bundle02.zip)
+	bundle02Path := filepath.Join("..", "..", "testdata", "bundles", "valid_bundle02.zip")
+	bundle02File, err := os.Open(bundle02Path)
+	require.NoError(t, err, "Failed to open bundle02")
+	defer bundle02File.Close()
+
+	_, err = service.PushBundle(context.Background(), bundle02File)
+	require.NoError(t, err, "Failed to push second bundle")
+
+	// Get the version number of the second bundle
+	versions, err = service.GetVersions(context.Background())
+	require.NoError(t, err, "Failed to get versions")
+	require.GreaterOrEqual(t, len(versions), 2, "Expected at least two versions")
+	version2 := strings.TrimSuffix(versions[0], " *") // Get the latest version
+
+	// Compare the two versions
+	changeLog, err := service.CompareAppInfos(context.Background(), version1, version2)
+	require.NoError(t, err, "Failed to compare app infos")
+
+	// Verify that the changes include the addition of the "lastname" field
+	foundLastnameAddition := false
+	for _, modifiedForm := range changeLog.ModifiedForms {
+		for _, addedField := range modifiedForm.AddedFields {
+			if addedField.Name == "lastname" {
+				foundLastnameAddition = true
+				break
+			}
+		}
+		if foundLastnameAddition {
+			break
+		}
+	}
+
+	assert.True(t, foundLastnameAddition, "Expected to find 'lastname' field addition in changes")
+
+	// Verify the ChangeLog structure is as expected
+	// Convert version numbers to integers for comparison (e.g., "0001" -> 1, "0002" -> 2)
+	version1Num, _ := strconv.Atoi(version1)
+	version2Num, _ := strconv.Atoi(version2)
+	compareVersionANum, _ := strconv.Atoi(changeLog.CompareVersionA)
+	compareVersionBNum, _ := strconv.Atoi(changeLog.CompareVersionB)
+	
+	assert.Equal(t, version1Num, compareVersionANum, "CompareVersionA should match the first version")
+	assert.Equal(t, version2Num, compareVersionBNum, "CompareVersionB should match the second version")
+	assert.True(t, changeLog.FormChanges, "Expected form changes between versions")
+
+	// Verify we have exactly one modified form
+	assert.Len(t, changeLog.ModifiedForms, 1, "Expected exactly one modified form")
+	if len(changeLog.ModifiedForms) > 0 {
+		modifiedForm := changeLog.ModifiedForms[0]
+		assert.True(t, modifiedForm.SchemaChange, "Expected schema changes in the modified form")
+		assert.False(t, modifiedForm.CoreChange, "Did not expect core field changes")
 	}
 }
 
