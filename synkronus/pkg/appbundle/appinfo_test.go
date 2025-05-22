@@ -229,7 +229,7 @@ func TestPushBundleGeneratesAppInfo(t *testing.T) {
 			assertions: func(t *testing.T, appInfo *AppInfo) {
 				assert.NotEmpty(t, appInfo.Version, "Version should not be empty")
 				assert.NotEmpty(t, appInfo.Forms, "Should have forms")
-				// Add more specific assertions based on your bundle's expected content
+				assert.Equal(t, 7, len(appInfo.Forms["test_form"].Fields), "Should have 7 fields")
 			},
 		},
 		{
@@ -238,7 +238,7 @@ func TestPushBundleGeneratesAppInfo(t *testing.T) {
 			assertions: func(t *testing.T, appInfo *AppInfo) {
 				assert.NotEmpty(t, appInfo.Version, "Version should not be empty")
 				assert.NotEmpty(t, appInfo.Forms, "Should have forms")
-				// Add more specific assertions based on your bundle's expected content
+				assert.Equal(t, 8, len(appInfo.Forms["test_form"].Fields), "Should have 8 fields")
 			},
 		},
 	}

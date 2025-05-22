@@ -137,8 +137,6 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 	}, nil
 }
 
-
-
 // GetVersions returns a list of available app bundle versions
 // The current version is marked with an asterisk (*) at the end
 func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
@@ -357,6 +355,7 @@ func (s *Service) GetAppInfo(ctx context.Context, version string) (*AppInfo, err
 	if err := json.Unmarshal(data, &appInfo); err != nil {
 		return nil, fmt.Errorf("failed to parse APP_INFO.json: %w", err)
 	}
+	appInfo.Timestamp = time.Now().Format(time.RFC3339)
 
 	return &appInfo, nil
 }
