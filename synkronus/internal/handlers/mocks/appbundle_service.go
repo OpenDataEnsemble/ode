@@ -6,7 +6,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/collectakit/synkronus/pkg/appbundle"
+	"github.com/opendataensemble/synkronus/pkg/appbundle"
 )
 
 // MockAppBundleService is a mock implementation of the appbundle.AppBundleServiceInterface for testing

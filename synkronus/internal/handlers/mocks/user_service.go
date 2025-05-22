@@ -3,9 +3,9 @@ package mocks
 import (
 	"context"
 
-	"github.com/collectakit/synkronus/internal/models"
-	userPkg "github.com/collectakit/synkronus/pkg/user"
 	"github.com/google/uuid"
+	"github.com/opendataensemble/synkronus/internal/models"
+	userPkg "github.com/opendataensemble/synkronus/pkg/user"
 )
 
 // MockUserService is a mock implementation of the userPkg.UserServiceInterface for testing

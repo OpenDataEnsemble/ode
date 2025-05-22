@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/auth"
-	"github.com/collectakit/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/auth"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // AuthMiddleware creates a middleware that validates JWT tokens using the auth service interface

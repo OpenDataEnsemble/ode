@@ -5,12 +5,12 @@ import (
 	"errors"
 	"time"
 
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/internal/repository"
-	"github.com/collectakit/synkronus/internal/repository/mocks"
-	"github.com/collectakit/synkronus/pkg/auth"
-	"github.com/collectakit/synkronus/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/internal/repository"
+	"github.com/opendataensemble/synkronus/internal/repository/mocks"
+	"github.com/opendataensemble/synkronus/pkg/auth"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // MockAuthService is a mock implementation of the auth.ServiceInterface for testing

@@ -9,10 +9,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/collectakit/synkronus/internal/handlers"
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/logger"
-	"github.com/collectakit/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/internal/handlers"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 )
 
 // NewRouter creates a new router with all API routes configured
@@ -55,7 +55,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 
 	// Public endpoints
 	r.Get("/health", h.HealthCheck)
-	r.Get("/version", h.GetVersion) // Get server version information
+	r.Get("/version", h.GetVersion)          // Get server version information
 	r.Get("/api/versions", h.GetAPIVersions) // Not implemented yet
 
 	// Serve favicon.ico

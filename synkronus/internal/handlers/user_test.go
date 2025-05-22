@@ -8,10 +8,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/collectakit/synkronus/internal/handlers/mocks"
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/logger"
 	"github.com/go-chi/chi/v5"
+	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/collectakit/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/internal/models"
 )
 
 // Common errors for user service

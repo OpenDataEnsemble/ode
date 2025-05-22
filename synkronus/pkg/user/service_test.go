@@ -5,10 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/auth"
-	"github.com/collectakit/synkronus/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/auth"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

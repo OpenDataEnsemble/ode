@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/collectakit/synkronus/pkg/sync"
+	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
 // SyncPullRequest represents the sync pull request payload

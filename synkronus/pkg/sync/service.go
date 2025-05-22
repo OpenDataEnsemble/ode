@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/collectakit/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // Service provides synchronization functionality

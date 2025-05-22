@@ -8,8 +8,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/collectakit/synkronus/pkg/appbundle"
 	"github.com/go-chi/chi/v5"
+	"github.com/opendataensemble/synkronus/pkg/appbundle"
 )
 
 // GetAppBundleManifest handles the /app-bundle/manifest endpoint

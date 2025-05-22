@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"github.com/collectakit/synkronus/internal/handlers/mocks"
-	"github.com/collectakit/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // createTestHandler creates a handler with mock dependencies for testing

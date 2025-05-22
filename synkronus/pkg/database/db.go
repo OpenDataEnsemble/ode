@@ -7,9 +7,9 @@ import (
 	"io/fs"
 	"time"
 
-	"github.com/collectakit/synkronus/pkg/logger"
 	_ "github.com/lib/pq"           // PostgreSQL driver
 	_ "github.com/mattn/go-sqlite3" // SQLite driver
+	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/pressly/goose/v3"
 )
 

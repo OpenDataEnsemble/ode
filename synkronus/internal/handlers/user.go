@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/user"
 	"github.com/go-chi/chi/v5"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/user"
 )
 
 // UserCreateRequest represents the request body for creating a user

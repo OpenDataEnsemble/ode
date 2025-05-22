@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/collectakit/synkronus/pkg/logger"
-	"github.com/collectakit/synkronus/pkg/sync"
+	"github.com/opendataensemble/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
 // MockSyncService is a mock implementation of the sync.ServiceInterface for testing

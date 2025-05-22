@@ -3,7 +3,7 @@ package auth
 import (
 	"context"
 
-	"github.com/collectakit/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/internal/models"
 )
 
 // AuthServiceInterface defines the interface for authentication services

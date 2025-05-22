@@ -2,7 +2,7 @@ package: generated
 output-options:
   skip-prune: true
 import-mapping:
-  ./synkronus.yaml: github.com/collectakit/synkronus/openapi
+  ./synkronus.yaml: github.com/opendataensemble/synkronus/openapi
 generate:
   models: true
   echo-server: false

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"time"
 
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // MockUserRepository is a mock implementation of the repository.UserRepositoryInterface for testing

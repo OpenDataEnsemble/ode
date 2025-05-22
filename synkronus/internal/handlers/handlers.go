@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"github.com/collectakit/synkronus/pkg/appbundle"
-	"github.com/collectakit/synkronus/pkg/auth"
-	"github.com/collectakit/synkronus/pkg/logger"
-	"github.com/collectakit/synkronus/pkg/sync"
-	"github.com/collectakit/synkronus/pkg/user"
-	"github.com/collectakit/synkronus/pkg/version"
+	"github.com/opendataensemble/synkronus/pkg/appbundle"
+	"github.com/opendataensemble/synkronus/pkg/auth"
+	"github.com/opendataensemble/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/sync"
+	"github.com/opendataensemble/synkronus/pkg/user"
+	"github.com/opendataensemble/synkronus/pkg/version"
 )
 
 // Handler manages all API endpoints

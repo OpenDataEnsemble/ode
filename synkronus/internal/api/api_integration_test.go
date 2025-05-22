@@ -13,11 +13,11 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/collectakit/synkronus/internal/handlers"
-	"github.com/collectakit/synkronus/internal/handlers/mocks"
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/logger"
-	authmw "github.com/collectakit/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/internal/handlers"
+	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/logger"
+	authmw "github.com/opendataensemble/synkronus/pkg/middleware/auth"
 )
 
 func TestProtectedEndpoints(t *testing.T) {

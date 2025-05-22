@@ -3,7 +3,7 @@ package mocks
 import (
 	"context"
 
-	"github.com/collectakit/synkronus/pkg/version"
+	"github.com/opendataensemble/synkronus/pkg/version"
 	"github.com/stretchr/testify/mock"
 )
 

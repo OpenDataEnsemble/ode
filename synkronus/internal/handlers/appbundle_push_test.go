@@ -14,10 +14,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/collectakit/synkronus/internal/handlers/mocks"
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/logger"
-	authmw "github.com/collectakit/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/logger"
+	authmw "github.com/opendataensemble/synkronus/pkg/middleware/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

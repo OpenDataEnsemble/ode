@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/collectakit/synkronus/pkg/auth"
+	"github.com/opendataensemble/synkronus/pkg/auth"
 )
 
 // JWTAuth middleware authenticates requests using JWT tokens
@@ -83,7 +83,7 @@ func APIVersionCheck(next http.Handler) http.Handler {
 			// For now, just pass through
 			r = r.WithContext(ctx)
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

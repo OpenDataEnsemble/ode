@@ -1,4 +1,4 @@
-module github.com/collectakit/synkronus
+module github.com/opendataensemble/synkronus
 
 go 1.24.2
 

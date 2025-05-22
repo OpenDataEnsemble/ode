@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	"github.com/collectakit/synkronus/internal/models"
 	"github.com/google/uuid"
+	"github.com/opendataensemble/synkronus/internal/models"
 )
 
 // UserRepositoryInterface defines the interface for user repository operations

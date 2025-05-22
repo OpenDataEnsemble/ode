@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/collectakit/synkronus/internal/handlers"
-	"github.com/collectakit/synkronus/internal/handlers/mocks"
-	"github.com/collectakit/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/internal/handlers"
+	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 func TestNewRouter(t *testing.T) {

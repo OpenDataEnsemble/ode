@@ -42,7 +42,7 @@ synkronus/
 ### Installation
 
 ```
-go get github.com/collectakit/synkronus
+go get github.com/opendataensemble/synkronus
 ```
 
 ### Configuration

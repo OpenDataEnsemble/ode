@@ -10,18 +10,18 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/collectakit/synkronus/internal/api"
-	"github.com/collectakit/synkronus/internal/handlers"
-	"github.com/collectakit/synkronus/internal/repository"
-	"github.com/collectakit/synkronus/pkg/appbundle"
-	"github.com/collectakit/synkronus/pkg/auth"
-	"github.com/collectakit/synkronus/pkg/config"
-	"github.com/collectakit/synkronus/pkg/database"
-	"github.com/collectakit/synkronus/pkg/logger"
-	"github.com/collectakit/synkronus/pkg/migrations"
-	"github.com/collectakit/synkronus/pkg/sync"
-	"github.com/collectakit/synkronus/pkg/user"
-	"github.com/collectakit/synkronus/pkg/version"
+	"github.com/opendataensemble/synkronus/internal/api"
+	"github.com/opendataensemble/synkronus/internal/handlers"
+	"github.com/opendataensemble/synkronus/internal/repository"
+	"github.com/opendataensemble/synkronus/pkg/appbundle"
+	"github.com/opendataensemble/synkronus/pkg/auth"
+	"github.com/opendataensemble/synkronus/pkg/config"
+	"github.com/opendataensemble/synkronus/pkg/database"
+	"github.com/opendataensemble/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/migrations"
+	"github.com/opendataensemble/synkronus/pkg/sync"
+	"github.com/opendataensemble/synkronus/pkg/user"
+	"github.com/opendataensemble/synkronus/pkg/version"
 )
 
 func main() {
@@ -138,10 +138,10 @@ func main() {
 
 	// Convert concrete types to interfaces if needed
 	var (
-		authSvc      auth.AuthServiceInterface      = authService
+		authSvc      auth.AuthServiceInterface           = authService
 		appBundleSvc appbundle.AppBundleServiceInterface = appBundleService
-		syncSvc      sync.ServiceInterface            = syncService
-		userSvc      user.UserServiceInterface        = userService
+		syncSvc      sync.ServiceInterface               = syncService
+		userSvc      user.UserServiceInterface           = userService
 	)
 
 	// Initialize handlers

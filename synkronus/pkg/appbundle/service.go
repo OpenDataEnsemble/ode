@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/collectakit/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // Service provides app bundle functionality
@@ -28,7 +28,7 @@ type Service struct {
 	log            *logger.Logger
 	manifest       *Manifest
 	versionMutex   sync.Mutex
-	
+
 	// Core field tracking
 	coreFieldMutex  sync.RWMutex
 	coreFieldHashes map[string]string // formName -> hash
@@ -171,90 +171,90 @@ func (s *Service) GetFile(ctx context.Context, path string) (io.ReadCloser, *Fil
 
 // GetLatestVersionFile gets a file from the latest version
 func (s *Service) GetLatestVersionFile(ctx context.Context, path string) (io.ReadCloser, *File, error) {
-    // Get all versions
-    versions, err := s.GetVersions(ctx)
-    if err != nil {
-        return nil, nil, fmt.Errorf("failed to get versions: %w", err)
-    }
-    
-    if len(versions) == 0 {
-        return nil, nil, os.ErrNotExist
-    }
-    
-    // Get the latest version (remove asterisk if present)
-    latestVersion := strings.TrimSuffix(versions[0], " *")
-    latestPath := filepath.Join(s.versionsPath, latestVersion, path)
-    
-    // Get file info
-    fileInfo, err := os.Stat(latestPath)
-    if err != nil {
-        return nil, nil, err
-    }
-    
-    // Ensure it's a file, not a directory
-    if fileInfo.IsDir() {
-        return nil, nil, fmt.Errorf("path is a directory: %s", path)
-    }
-    
-    // Open the file
-    file, err := os.Open(latestPath)
-    if err != nil {
-        return nil, nil, fmt.Errorf("failed to open file: %w", err)
-    }
-    
-    // Get file hash
-    hash, err := s.hashFile(latestPath)
-    if err != nil {
-        file.Close()
-        return nil, nil, fmt.Errorf("failed to hash file: %w", err)
-    }
-    
-    // Determine MIME type
-    mimeType := mime.TypeByExtension(filepath.Ext(latestPath))
-    if mimeType == "" {
-        mimeType = "application/octet-stream"
-    }
-    
-    fileMetadata := &File{
-        Path:     path,
-        Size:     fileInfo.Size(),
-        Hash:     hash,
-        MimeType: mimeType,
-        ModTime:  fileInfo.ModTime(),
-    }
-    
-    return file, fileMetadata, nil
+	// Get all versions
+	versions, err := s.GetVersions(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get versions: %w", err)
+	}
+
+	if len(versions) == 0 {
+		return nil, nil, os.ErrNotExist
+	}
+
+	// Get the latest version (remove asterisk if present)
+	latestVersion := strings.TrimSuffix(versions[0], " *")
+	latestPath := filepath.Join(s.versionsPath, latestVersion, path)
+
+	// Get file info
+	fileInfo, err := os.Stat(latestPath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Ensure it's a file, not a directory
+	if fileInfo.IsDir() {
+		return nil, nil, fmt.Errorf("path is a directory: %s", path)
+	}
+
+	// Open the file
+	file, err := os.Open(latestPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open file: %w", err)
+	}
+
+	// Get file hash
+	hash, err := s.hashFile(latestPath)
+	if err != nil {
+		file.Close()
+		return nil, nil, fmt.Errorf("failed to hash file: %w", err)
+	}
+
+	// Determine MIME type
+	mimeType := mime.TypeByExtension(filepath.Ext(latestPath))
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	fileMetadata := &File{
+		Path:     path,
+		Size:     fileInfo.Size(),
+		Hash:     hash,
+		MimeType: mimeType,
+		ModTime:  fileInfo.ModTime(),
+	}
+
+	return file, fileMetadata, nil
 }
 
 // GetFileHash returns the hash for a specific file, optionally from the latest version
 func (s *Service) GetFileHash(ctx context.Context, path string, useLatest bool) (string, error) {
-    var filePath string
-    
-    if useLatest {
-        // Get all versions
-        versions, err := s.GetVersions(ctx)
-        if err != nil {
-            return "", fmt.Errorf("failed to get versions: %w", err)
-        }
-        
-        if len(versions) == 0 {
-            return "", os.ErrNotExist
-        }
-        
-        // Get the latest version (remove asterisk if present)
-        latestVersion := strings.TrimSuffix(versions[0], " *")
-        filePath = filepath.Join(s.versionsPath, latestVersion, path)
-    } else {
-        // Clean and validate the path
-        cleanPath := filepath.Clean(path)
-        if strings.Contains(cleanPath, "..") {
-            return "", fmt.Errorf("invalid path: %s", path)
-        }
-        filePath = filepath.Join(s.bundlePath, cleanPath)
-    }
-    
-    // Hash the file
-    return s.hashFile(filePath)
+	var filePath string
+
+	if useLatest {
+		// Get all versions
+		versions, err := s.GetVersions(ctx)
+		if err != nil {
+			return "", fmt.Errorf("failed to get versions: %w", err)
+		}
+
+		if len(versions) == 0 {
+			return "", os.ErrNotExist
+		}
+
+		// Get the latest version (remove asterisk if present)
+		latestVersion := strings.TrimSuffix(versions[0], " *")
+		filePath = filepath.Join(s.versionsPath, latestVersion, path)
+	} else {
+		// Clean and validate the path
+		cleanPath := filepath.Clean(path)
+		if strings.Contains(cleanPath, "..") {
+			return "", fmt.Errorf("invalid path: %s", path)
+		}
+		filePath = filepath.Join(s.bundlePath, cleanPath)
+	}
+
+	// Hash the file
+	return s.hashFile(filePath)
 }
 
 // generateManifest generates a new manifest for the app bundle

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/internal/repository"
-	"github.com/collectakit/synkronus/pkg/logger"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/internal/repository"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 

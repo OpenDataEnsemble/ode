@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/collectakit/synkronus/internal/models"
-	"github.com/collectakit/synkronus/pkg/database"
-	"github.com/collectakit/synkronus/pkg/logger"
 	"github.com/google/uuid"
+	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/database"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // UserRepository handles database operations for users

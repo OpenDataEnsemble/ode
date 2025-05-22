@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/collectakit/synkronus/internal/models"
-	authmw "github.com/collectakit/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/internal/models"
+	authmw "github.com/opendataensemble/synkronus/pkg/middleware/auth"
 )
 
 // PushAppBundle handles the /app-bundle/push endpoint
