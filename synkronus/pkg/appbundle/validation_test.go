@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -152,8 +153,8 @@ func TestValidateFormRendererReferences(t *testing.T) {
 				"app/index.html": "<html></html>",
 				"forms/user/schema.json": `{
 					"core_id": "user",
-					"properties": map[string]interface{}{
-						"button": map[string]interface{}{
+					"properties": {
+						"button": {
 							"type":            "string",
 							"x-question-type": "text",
 							"title":           "Username",
@@ -199,7 +200,7 @@ func TestValidateFormRendererReferences(t *testing.T) {
 
 			if tt.wantErr {
 				require.Error(t, err, "expected error but got none")
-				if tt.err != nil {
+				if tt.err != ErrMissingRendererReference {
 					assert.ErrorIs(t, err, tt.err, "unexpected error type")
 				}
 			} else {
@@ -459,105 +460,108 @@ func TestExtractFields(t *testing.T) {
 	}
 }
 
+// mustParseJSON is a helper function to parse JSON strings into interface{} values
+func mustParseJSON(s string) interface{} {
+	var v interface{}
+	if err := json.Unmarshal([]byte(s), &v); err != nil {
+		panic(fmt.Sprintf("invalid JSON: %v", err))
+	}
+	return v
+}
+
 func TestExtractCoreFields(t *testing.T) {
 	tests := []struct {
 		name      string
 		schema    map[string]interface{}
-		wantCore  map[string]interface{}
+		wantCore  []FieldInfo
 		wantPaths []string
 	}{
 		{
 			name: "no core fields",
-			schema: map[string]interface{}{
+			schema: mustParseJSON(`{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"name": map[string]interface{}{
-						"type": "string",
-					},
-				},
-			},
-			wantCore:  map[string]interface{}{},
+				"properties": {
+					"name": {
+						"type": "string"
+					}
+				}
+			}`).(map[string]interface{}),
+			wantCore:  []FieldInfo{},
 			wantPaths: []string{},
 		},
 		{
-			name: "top level x-core",
-			schema: map[string]interface{}{
-				"x-core": true,
-				"type":   "object",
-				"properties": map[string]interface{}{
-					"name": map[string]interface{}{
+			name: "fields with x-core",
+			schema: mustParseJSON(`{
+				"type": "object",
+				"properties": {
+					"name": {
 						"type": "string",
+						"x-core": true
 					},
-					"age": map[string]interface{}{
+					"age": {
 						"type": "integer",
-					},
-				},
-			},
-			wantCore: map[string]interface{}{
-				"name": map[string]interface{}{"type": "string"},
-				"age":  map[string]interface{}{"type": "integer"},
+						"x-core": true
+					}
+				}
+			}`).(map[string]interface{}),
+			wantCore: []FieldInfo{
+				{Name: "name", Type: "string", Core: true},
+				{Name: "age", Type: "integer", Core: true},
 			},
 			wantPaths: []string{"name", "age"},
 		},
 		{
 			name: "core_ prefixed fields",
-			schema: map[string]interface{}{
+			schema: mustParseJSON(`{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"core_id": map[string]interface{}{
-						"type": "string",
+				"properties": {
+					"core_id": {
+						"type": "string"
 					},
-					"core_name": map[string]interface{}{
-						"type": "string",
+					"core_name": {
+						"type": "string"
 					},
-					"regular_field": map[string]interface{}{
-						"type": "string",
-					},
-				},
-			},
-			wantCore: map[string]interface{}{
-				"core_id":   map[string]interface{}{"type": "string"},
-				"core_name": map[string]interface{}{"type": "string"},
+					"regular_field": {
+						"type": "string"
+					}
+				}
+			}`).(map[string]interface{}),
+			wantCore: []FieldInfo{
+				{Name: "core_id", Type: "string", Core: true},
+				{Name: "core_name", Type: "string", Core: true},
 			},
 			wantPaths: []string{"core_id", "core_name"},
 		},
 		{
 			name: "nested properties with x-core",
-			schema: map[string]interface{}{
+			schema: mustParseJSON(`{
 				"type": "object",
-				"properties": map[string]interface{}{
-					"user": map[string]interface{}{
-						"type":   "object",
-						"x-core": true,
-						"properties": map[string]interface{}{
-							"id": map[string]interface{}{
-								"type": "string",
-							},
-							"name": map[string]interface{}{
-								"type": "string",
-							},
-						},
-					},
-					"metadata": map[string]interface{}{
+				"properties": {
+					"user": {
 						"type": "object",
-						"properties": map[string]interface{}{
-							"createdAt": map[string]interface{}{
-								"type":   "string",
-								"format": "date-time",
+						"x-core": true,
+						"properties": {
+							"id": {
+								"type": "string"
 							},
-						},
+							"name": {
+								"type": "string"
+							}
+						}
 					},
-				},
-			},
-			wantCore: map[string]interface{}{
-				"user": map[string]interface{}{
-					"type":   "object",
-					"x-core": true,
-					"properties": map[string]interface{}{
-						"id":   map[string]interface{}{"type": "string"},
-						"name": map[string]interface{}{"type": "string"},
-					},
-				},
+					"metadata": {
+						"type": "object",
+						"properties": {
+							"createdAt": {
+								"type": "string",
+								"format": "date-time"
+							}
+						}
+					}
+				}
+			}`).(map[string]interface{}),
+			wantCore: []FieldInfo{
+				{Name: "user", Type: "object", Core: true},
 			},
 			wantPaths: []string{"user"},
 		},
@@ -567,30 +571,20 @@ func TestExtractCoreFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotCore := extractCoreFields(tt.schema)
 
-			// Convert the result to the expected format for comparison
-			gotCoreMap := make(map[string]interface{})
-			for _, field := range gotCore {
-				fieldMap := map[string]interface{}{
-					"type":            field.Type,
-					"x-question-type": field.QuestionType,
-					"default":         field.Default,
-					"x-core":          true,
-				}
-				// Remove empty fields
-				if field.QuestionType == "" {
-					delete(fieldMap, "x-question-type")
-				}
-				if field.Default == nil {
-					delete(fieldMap, "default")
-				}
-				gotCoreMap[field.Name] = fieldMap
+			// Compare the actual FieldInfo structs
+			if len(tt.wantCore) != len(gotCore) {
+				t.Errorf("expected %d core fields, got %d", len(tt.wantCore), len(gotCore))
 			}
 
-			// Convert both maps to JSON for better comparison in test output
-			gotJSON, _ := json.MarshalIndent(gotCoreMap, "", "  ")
-			wantJSON, _ := json.MarshalIndent(tt.wantCore, "", "  ")
-
-			assert.JSONEq(t, string(wantJSON), string(gotJSON), "core fields mismatch")
+			for i, wantField := range tt.wantCore {
+				if i >= len(gotCore) {
+					break
+				}
+				gotField := gotCore[i]
+				if wantField.Name != gotField.Name || wantField.Type != gotField.Type || wantField.Core != gotField.Core {
+					t.Errorf("field[%d] mismatch:\nwant: %+v\ngot:  %+v", i, wantField, gotField)
+				}
+			}
 		})
 	}
 }

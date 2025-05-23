@@ -261,7 +261,7 @@ func (s *Service) GetFileHash(ctx context.Context, path string, useLatest bool) 
 func (s *Service) generateManifest() (*Manifest, error) {
 	manifest := &Manifest{
 		Files:       []File{},
-		Version:     "1.0.0", // This could be dynamic in a real implementation
+		Version:     s.currentVersion,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -245,10 +246,25 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	versions, err := service.GetVersions(context.Background())
 	require.NoError(t, err, "Failed to get versions")
 	require.GreaterOrEqual(t, len(versions), 1, "Expected at least one version")
-	version1 := strings.TrimSuffix(versions[0], " *") // Remove the " *" if it's the current version
+	// Not "published" version yet
+	version1 := versions[0]
+	require.NotContains(t, version1, " *")
 
+	// Switch to the first version
 	err = service.SwitchVersion(context.Background(), version1)
 	require.NoError(t, err, "Failed to switch to first version")
+
+	// Now check that version 0001 is active (has asterisk)
+	versions, err = service.GetVersions(context.Background())
+	require.NoError(t, err, "Failed to get versions")
+	require.GreaterOrEqual(t, len(versions), 1, "Expected at least one version")
+	version1 = versions[0]
+	require.Contains(t, version1, " *")
+
+	// Verify current manifest is for version 1
+	manifest, err := service.GetManifest(context.Background())
+	require.NoError(t, err, "Failed to get manifest")
+	require.Equal(t, strings.TrimSuffix(version1, " *"), manifest.Version)
 
 	// Then upload the second bundle (valid_bundle02.zip)
 	bundle02Path := filepath.Join("..", "..", "testdata", "bundles", "valid_bundle02.zip")
@@ -258,6 +274,14 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 
 	_, err = service.PushBundle(context.Background(), bundle02File)
 	require.NoError(t, err, "Failed to push second bundle")
+
+	// Verify current manifest is still for version 1
+	manifest, err = service.GetManifest(context.Background())
+	require.NoError(t, err, "Failed to get manifest")
+	require.Equal(t, strings.TrimSuffix(version1, " *"), manifest.Version)
+	require.False(t, slices.ContainsFunc(manifest.Files, func(f File) bool {
+		return f.Path == "app/THIS_IS_VERSION_2.txt"
+	}), "Expected NOT to find file with path 'app/THIS_IS_VERSION_2.txt' in manifest")
 
 	// Switch to the second version
 	preVersions, err := service.GetVersions(context.Background())
@@ -275,8 +299,16 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	require.GreaterOrEqual(t, len(versions), 2, "Expected at least two versions")
 	version2 := strings.TrimSuffix(versions[0], " *") // Get the latest version
 
+	// Verify current manifest is for version 2
+	manifest, err = service.GetManifest(context.Background())
+	require.NoError(t, err, "Failed to get manifest")
+	require.Equal(t, strings.TrimSuffix(version2, " *"), manifest.Version)
+	require.True(t, slices.ContainsFunc(manifest.Files, func(f File) bool {
+		return f.Path == "app/THIS_IS_VERSION_2.txt"
+	}), "Expected to find file with path 'app/THIS_IS_VERSION_2.txt' in manifest")
+
 	// Compare the two versions
-	changeLog, err := service.CompareAppInfos(context.Background(), version1, version2)
+	changeLog, err := service.CompareAppInfos(context.Background(), strings.TrimSuffix(version1, " *"), strings.TrimSuffix(version2, " *"))
 	require.NoError(t, err, "Failed to compare app infos")
 
 	// Verify that the changes include the addition of the "lastname" field
@@ -297,8 +329,8 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 
 	// Verify the ChangeLog structure is as expected
 	// Convert version numbers to integers for comparison (e.g., "0001" -> 1, "0002" -> 2)
-	version1Num, _ := strconv.Atoi(version1)
-	version2Num, _ := strconv.Atoi(version2)
+	version1Num, _ := strconv.Atoi(strings.TrimSuffix(version1, " *"))
+	version2Num, _ := strconv.Atoi(strings.TrimSuffix(version2, " *"))
 	compareVersionANum, _ := strconv.Atoi(changeLog.CompareVersionA)
 	compareVersionBNum, _ := strconv.Atoi(changeLog.CompareVersionB)
 
