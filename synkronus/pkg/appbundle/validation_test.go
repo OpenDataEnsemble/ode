@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -571,18 +572,32 @@ func TestExtractCoreFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotCore := extractCoreFields(tt.schema)
 
-			// Compare the actual FieldInfo structs
+			// Compare the actual FieldInfo structs as sets (order doesn't matter)
 			if len(tt.wantCore) != len(gotCore) {
 				t.Errorf("expected %d core fields, got %d", len(tt.wantCore), len(gotCore))
 			}
 
-			for i, wantField := range tt.wantCore {
-				if i >= len(gotCore) {
-					break
+			// Create a map to track found fields
+			found := make(map[string]bool, len(tt.wantCore))
+			for _, wantField := range tt.wantCore {
+				found[fmt.Sprintf("%s:%s:%v", wantField.Name, wantField.Type, wantField.Core)] = false
+			}
+
+			// Check each got field against wanted fields
+			for _, gotField := range gotCore {
+				key := fmt.Sprintf("%s:%s:%v", gotField.Name, gotField.Type, gotField.Core)
+				if _, exists := found[key]; exists {
+					found[key] = true
+				} else {
+					t.Errorf("unexpected field: %+v", gotField)
 				}
-				gotField := gotCore[i]
-				if wantField.Name != gotField.Name || wantField.Type != gotField.Type || wantField.Core != gotField.Core {
-					t.Errorf("field[%d] mismatch:\nwant: %+v\ngot:  %+v", i, wantField, gotField)
+			}
+
+			// Check for any missing fields
+			for key, wasFound := range found {
+				if !wasFound {
+					parts := strings.Split(key, ":")
+					t.Errorf("missing expected field: Name=%s, Type=%s, Core=%s", parts[0], parts[1], parts[2])
 				}
 			}
 		})
