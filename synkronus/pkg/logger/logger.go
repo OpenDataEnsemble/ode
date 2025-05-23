@@ -10,7 +10,7 @@ import (
 )
 
 // Fields is a map of key-value pairs to include in log entries
-type Fields map[string]interface{}
+type Fields map[string]any
 
 // Level represents the log level
 type Level string
@@ -82,27 +82,27 @@ func NewLogger(opts ...Option) *Logger {
 }
 
 // Debug logs a debug message
-func (l *Logger) Debug(msg string, args ...interface{}) {
+func (l *Logger) Debug(msg string, args ...any) {
 	l.log(LevelDebug, msg, args...)
 }
 
 // Info logs an info message
-func (l *Logger) Info(msg string, args ...interface{}) {
+func (l *Logger) Info(msg string, args ...any) {
 	l.log(LevelInfo, msg, args...)
 }
 
 // Warn logs a warning message
-func (l *Logger) Warn(msg string, args ...interface{}) {
+func (l *Logger) Warn(msg string, args ...any) {
 	l.log(LevelWarn, msg, args...)
 }
 
 // Error logs an error message
-func (l *Logger) Error(msg string, args ...interface{}) {
+func (l *Logger) Error(msg string, args ...any) {
 	l.log(LevelError, msg, args...)
 }
 
 // Fatal logs a fatal message and exits
-func (l *Logger) Fatal(msg string, args ...interface{}) {
+func (l *Logger) Fatal(msg string, args ...any) {
 	l.log(LevelFatal, msg, args...)
 	os.Exit(1)
 }
@@ -116,27 +116,27 @@ func shouldLog(msgLevel, loggerLevel Level) bool {
 		LevelError: 3,
 		LevelFatal: 4,
 	}
-	
+
 	msgLevelValue, msgOk := levels[msgLevel]
 	loggerLevelValue, logOk := levels[loggerLevel]
-	
+
 	// If level not found, default to allowing the log
 	if !msgOk || !logOk {
 		return true
 	}
-	
+
 	return msgLevelValue >= loggerLevelValue
 }
 
 // log logs a message at the specified level with key-value pairs
-func (l *Logger) log(level Level, msg string, args ...interface{}) {
+func (l *Logger) log(level Level, msg string, args ...any) {
 	// Check if we should log this level
 	if !shouldLog(level, l.level) {
 		return
 	}
 
 	// Create a new entry
-	entry := map[string]interface{}{
+	entry := map[string]any{
 		"timestamp": time.Now().Format(time.RFC3339),
 		"level":     level.String(),
 		"message":   msg,

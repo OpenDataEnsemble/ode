@@ -121,15 +121,15 @@ func TestInvalidBundles(t *testing.T) {
 }
 
 // createFormSchema creates a form schema with the given fields
-func createFormSchema(fields map[string]interface{}) map[string]interface{} {
-	return map[string]interface{}{
+func createFormSchema(fields map[string]any) map[string]any {
+	return map[string]any{
 		"type":       "object",
 		"properties": fields,
 	}
 }
 
 // createTestFormBundle creates a test bundle with the specified form schemas
-func createTestFormBundle(t *testing.T, forms map[string]map[string]interface{}) (string, error) {
+func createTestFormBundle(t *testing.T, forms map[string]map[string]any) (string, error) {
 	t.Helper()
 
 	tmpFile, err := os.CreateTemp("", "test-bundle-*.zip")
@@ -224,9 +224,9 @@ func TestFormVersionChanges(t *testing.T) {
 	}
 
 	// Initial bundle with one form
-	bundle1, err := createTestFormBundle(t, map[string]map[string]interface{}{
-		"user": createFormSchema(map[string]interface{}{
-			"name": map[string]interface{}{
+	bundle1, err := createTestFormBundle(t, map[string]map[string]any{
+		"user": createFormSchema(map[string]any{
+			"name": map[string]any{
 				"type": "string",
 			},
 		}),
@@ -244,12 +244,12 @@ func TestFormVersionChanges(t *testing.T) {
 	require.NoError(t, err, "Initial bundle validation failed")
 
 	// Create a second version with an added field
-	bundle2, err := createTestFormBundle(t, map[string]map[string]interface{}{
-		"user": createFormSchema(map[string]interface{}{
-			"name": map[string]interface{}{
+	bundle2, err := createTestFormBundle(t, map[string]map[string]any{
+		"user": createFormSchema(map[string]any{
+			"name": map[string]any{
 				"type": "string",
 			},
-			"email": map[string]interface{}{
+			"email": map[string]any{
 				"type":   "string",
 				"format": "email",
 			},
@@ -269,10 +269,10 @@ func TestFormVersionChanges(t *testing.T) {
 	})
 
 	// Create a third version with a removed field
-	bundle3, err := createTestFormBundle(t, map[string]map[string]interface{}{
-		"user": createFormSchema(map[string]interface{}{
+	bundle3, err := createTestFormBundle(t, map[string]map[string]any{
+		"user": createFormSchema(map[string]any{
 			// name field is removed
-			"email": map[string]interface{}{
+			"email": map[string]any{
 				"type":   "string",
 				"format": "email",
 			},
@@ -292,15 +292,15 @@ func TestFormVersionChanges(t *testing.T) {
 	})
 
 	// Create a fourth version with a new form
-	bundle4, err := createTestFormBundle(t, map[string]map[string]interface{}{
-		"user": createFormSchema(map[string]interface{}{
-			"email": map[string]interface{}{
+	bundle4, err := createTestFormBundle(t, map[string]map[string]any{
+		"user": createFormSchema(map[string]any{
+			"email": map[string]any{
 				"type":   "string",
 				"format": "email",
 			},
 		}),
-		"profile": createFormSchema(map[string]interface{}{
-			"bio": map[string]interface{}{
+		"profile": createFormSchema(map[string]any{
+			"bio": map[string]any{
 				"type": "string",
 			},
 		}),
@@ -320,11 +320,11 @@ func TestFormVersionChanges(t *testing.T) {
 }
 
 // createFormWithRendererReference creates a form schema that references a renderer
-func createFormWithRendererReference(rendererName string) map[string]interface{} {
-	return map[string]interface{}{
+func createFormWithRendererReference(rendererName string) map[string]any {
+	return map[string]any{
 		"type": "object",
-		"properties": map[string]interface{}{
-			"field1": map[string]interface{}{
+		"properties": map[string]any{
+			"field1": map[string]any{
 				"type":       "string",
 				"x-renderer": rendererName,
 			},
@@ -342,7 +342,7 @@ func TestMissingRendererReferences(t *testing.T) {
 
 	t.Run("BuiltInRendererReference", func(t *testing.T) {
 		// Create a bundle with a form that references a built-in renderer
-		bundle, err := createTestFormBundle(t, map[string]map[string]interface{}{
+		bundle, err := createTestFormBundle(t, map[string]map[string]any{
 			"user": createFormWithRendererReference("builtin-text"),
 		})
 		require.NoError(t, err, "Failed to create test bundle")
@@ -358,7 +358,7 @@ func TestMissingRendererReferences(t *testing.T) {
 
 	t.Run("MissingCustomRendererReference", func(t *testing.T) {
 		// Create a bundle with a form that references a non-existent custom renderer
-		bundle, err := createTestFormBundle(t, map[string]map[string]interface{}{
+		bundle, err := createTestFormBundle(t, map[string]map[string]any{
 			"user": createFormWithRendererReference("custom-renderer"),
 		})
 		require.NoError(t, err, "Failed to create test bundle")
@@ -440,11 +440,11 @@ func TestCoreFieldsValidation(t *testing.T) {
 			maxVersions:  5,
 		}
 		// Initial bundle with a form containing core fields
-		bundle1, err := createTestFormBundle(t, map[string]map[string]interface{}{
+		bundle1, err := createTestFormBundle(t, map[string]map[string]any{
 			"user": {
 				"type": "object",
-				"properties": map[string]interface{}{
-					"id": map[string]interface{}{
+				"properties": map[string]any{
+					"id": map[string]any{
 						"type":   "string",
 						"x-core": true,
 					},
@@ -469,11 +469,11 @@ func TestCoreFieldsValidation(t *testing.T) {
 		require.NotEmpty(t, hash, "Core field hash should not be empty")
 
 		// Create a second version that modifies a core field
-		bundle2, err := createTestFormBundle(t, map[string]map[string]interface{}{
+		bundle2, err := createTestFormBundle(t, map[string]map[string]any{
 			"user": {
 				"type": "object",
-				"properties": map[string]interface{}{
-					"id": map[string]interface{}{
+				"properties": map[string]any{
+					"id": map[string]any{
 						"type":   "number", // Changed from string to number
 						"x-core": true,
 					},
@@ -502,11 +502,11 @@ func TestCoreFieldsValidation(t *testing.T) {
 		}
 
 		// Create a bundle with a non-core form
-		bundle, err := createTestFormBundle(t, map[string]map[string]interface{}{
+		bundle, err := createTestFormBundle(t, map[string]map[string]any{
 			"user": {
 				"type": "object",
-				"properties": map[string]interface{}{
-					"name": map[string]interface{}{
+				"properties": map[string]any{
+					"name": map[string]any{
 						"type": "string",
 					},
 				},

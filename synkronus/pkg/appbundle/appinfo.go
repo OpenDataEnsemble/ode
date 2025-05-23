@@ -82,7 +82,7 @@ func (s *Service) generateAppInfo(zipReader *zip.Reader, version string) ([]byte
 			return nil, fmt.Errorf("failed to read form schema %s: %w", formName, err)
 		}
 
-		var schema map[string]interface{}
+		var schema map[string]any
 		if err := json.Unmarshal(schemaData, &schema); err != nil {
 			return nil, fmt.Errorf("invalid JSON in form schema %s: %w", formName, err)
 		}
@@ -90,9 +90,9 @@ func (s *Service) generateAppInfo(zipReader *zip.Reader, version string) ([]byte
 		// Extract core fields and create hash
 		coreFields := extractCoreFields(schema)
 		// Convert core fields to a map for hashing
-		coreFieldsMap := make(map[string]interface{})
+		coreFieldsMap := make(map[string]any)
 		for _, field := range coreFields {
-			fieldMap := map[string]interface{}{
+			fieldMap := map[string]any{
 				"type":            field.Type,
 				"x-question-type": field.QuestionType,
 				"default":         field.Default,
@@ -206,10 +206,10 @@ func extractFields(schema map[string]any) []FieldInfo {
 
 // extractQuestionTypes extracts renderers (ie. question types) from UI schema
 // It looks for the standard JSON Forms format with options.format
-func extractQuestionTypes(uiSchema map[string]interface{}, rendererTypes map[string]interface{}, availableRenderers map[string]bool) {
+func extractQuestionTypes(uiSchema map[string]any, rendererTypes map[string]any, availableRenderers map[string]bool) {
 	// Check for standard JSON Forms format with options.format
 	if uiType, ok := uiSchema["type"].(string); ok && uiType == "Control" {
-		if options, ok := uiSchema["options"].(map[string]interface{}); ok {
+		if options, ok := uiSchema["options"].(map[string]any); ok {
 			if format, ok := options["format"].(string); ok && availableRenderers[format] {
 				rendererTypes[format] = struct{}{}
 			}
@@ -219,11 +219,11 @@ func extractQuestionTypes(uiSchema map[string]interface{}, rendererTypes map[str
 	// Recursively process nested objects and arrays
 	for _, value := range uiSchema {
 		switch v := value.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			extractQuestionTypes(v, rendererTypes, availableRenderers)
-		case []interface{}:
+		case []any:
 			for _, item := range v {
-				if m, ok := item.(map[string]interface{}); ok {
+				if m, ok := item.(map[string]any); ok {
 					extractQuestionTypes(m, rendererTypes, availableRenderers)
 				}
 			}
@@ -232,7 +232,7 @@ func extractQuestionTypes(uiSchema map[string]interface{}, rendererTypes map[str
 }
 
 // hashData generates a SHA-256 hash of any JSON-serializable data
-func hashData(data interface{}) string {
+func hashData(data any) string {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
 		return ""
@@ -252,14 +252,14 @@ func readZipFile(file *zip.File) ([]byte, error) {
 }
 
 // Helper functions for safe map access
-func getString(m map[string]interface{}, key string) string {
+func getString(m map[string]any, key string) string {
 	if val, ok := m[key].(string); ok {
 		return val
 	}
 	return ""
 }
 
-func getBool(m map[string]interface{}, key string) bool {
+func getBool(m map[string]any, key string) bool {
 	if val, ok := m[key].(bool); ok {
 		return val
 	}

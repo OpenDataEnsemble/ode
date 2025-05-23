@@ -17,9 +17,9 @@ type SyncPullRequest struct {
 
 // SyncPullResponse represents the sync pull response payload
 type SyncPullResponse struct {
-	Timestamp int64         `json:"timestamp"`
-	Data      []interface{} `json:"data"`
-	ETag      string        `json:"etag,omitempty"`
+	Timestamp int64  `json:"timestamp"`
+	Data      []any  `json:"data"`
+	ETag      string `json:"etag,omitempty"`
 }
 
 // Pull handles the /sync/pull endpoint
@@ -59,8 +59,8 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Convert sync items to interface{} for the response
-	responseData := make([]interface{}, len(data))
+	// Convert sync items to any for the response
+	responseData := make([]any, len(data))
 	for i, item := range data {
 		responseData[i] = item
 	}
@@ -80,9 +80,9 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 
 // SyncPushRequest represents the sync push request payload
 type SyncPushRequest struct {
-	DeviceID  string        `json:"deviceId"`
-	Timestamp int64         `json:"timestamp"`
-	Data      []interface{} `json:"data"`
+	DeviceID  string `json:"deviceId"`
+	Timestamp int64  `json:"timestamp"`
+	Data      []any  `json:"data"`
 }
 
 // SyncPushResponse represents the sync push response payload

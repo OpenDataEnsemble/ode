@@ -263,7 +263,7 @@ func TestValidateCoreFields(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var schema map[string]interface{}
+			var schema map[string]any
 			err := json.Unmarshal(tt.schema, &schema)
 			require.NoError(t, err, "failed to unmarshal test schema")
 
@@ -279,7 +279,7 @@ func TestValidateCoreFields(t *testing.T) {
 				require.NoError(t, err, "failed to hash core fields")
 				assert.NotEmpty(t, hash1, "hash should not be empty")
 
-				var schema2 map[string]interface{}
+				var schema2 map[string]any
 				json.Unmarshal(tt.schema, &schema2) // Safe to ignore error since we already validated
 				coreFields2 := extractCoreFields(schema2)
 				hash2, err := hashCoreFields(coreFields2)
@@ -292,26 +292,26 @@ func TestValidateCoreFields(t *testing.T) {
 func TestExtractFields(t *testing.T) {
 	tests := []struct {
 		name   string
-		schema map[string]interface{}
+		schema map[string]any
 		want   []FieldInfo
 	}{
 		{
 			name: "no fields",
-			schema: map[string]interface{}{
+			schema: map[string]any{
 				"$schema":    "http://json-schema.org/draft/2020-12/schema",
 				"type":       "object",
-				"properties": map[string]interface{}{},
+				"properties": map[string]any{},
 				"required":   []string{},
 			},
 			want: []FieldInfo{},
 		},
 		{
 			name: "single field",
-			schema: map[string]interface{}{
+			schema: map[string]any{
 				"$schema": "http://json-schema.org/draft/2020-12/schema",
 				"type":    "object",
-				"properties": map[string]interface{}{
-					"username": map[string]interface{}{
+				"properties": map[string]any{
+					"username": map[string]any{
 						"type":            "string",
 						"x-question-type": "text",
 						"title":           "Username",
@@ -329,11 +329,11 @@ func TestExtractFields(t *testing.T) {
 		},
 		{
 			name: "single core field",
-			schema: map[string]interface{}{
+			schema: map[string]any{
 				"$schema": "http://json-schema.org/draft/2020-12/schema",
 				"type":    "object",
-				"properties": map[string]interface{}{
-					"username": map[string]interface{}{
+				"properties": map[string]any{
+					"username": map[string]any{
 						"type":   "string",
 						"x-core": true,
 						"title":  "Username",
@@ -351,11 +351,11 @@ func TestExtractFields(t *testing.T) {
 		},
 		{
 			name: "implicit core field",
-			schema: map[string]interface{}{
+			schema: map[string]any{
 				"$schema": "http://json-schema.org/draft/2020-12/schema",
 				"type":    "object",
-				"properties": map[string]interface{}{
-					"core_id": map[string]interface{}{
+				"properties": map[string]any{
+					"core_id": map[string]any{
 						"type": "string",
 					},
 				},
@@ -371,18 +371,18 @@ func TestExtractFields(t *testing.T) {
 		},
 		{
 			name: "multiple fields with defaults",
-			schema: map[string]interface{}{
+			schema: map[string]any{
 				"$schema": "http://json-schema.org/draft/2020-12/schema",
 				"type":    "object",
-				"properties": map[string]interface{}{
-					"age": map[string]interface{}{
+				"properties": map[string]any{
+					"age": map[string]any{
 						"type":    "integer",
 						"title":   "Age",
 						"minimum": 0,
 						"maximum": 150,
 						"default": 30,
 					},
-					"active": map[string]interface{}{
+					"active": map[string]any{
 						"type":    "boolean",
 						"title":   "Active Status",
 						"default": true,
@@ -407,23 +407,23 @@ func TestExtractFields(t *testing.T) {
 		},
 		{
 			name: "nested fields structure",
-			schema: map[string]interface{}{
+			schema: map[string]any{
 				"$schema": "http://json-schema.org/draft/2020-12/schema",
 				"type":    "object",
-				"properties": map[string]interface{}{
-					"address": map[string]interface{}{
+				"properties": map[string]any{
+					"address": map[string]any{
 						"type":  "object",
 						"title": "Mailing Address",
-						"properties": map[string]interface{}{
-							"street": map[string]interface{}{
+						"properties": map[string]any{
+							"street": map[string]any{
 								"type":  "string",
 								"title": "Street Address",
 							},
-							"city": map[string]interface{}{
+							"city": map[string]any{
 								"type":  "string",
 								"title": "City",
 							},
-							"postalCode": map[string]interface{}{
+							"postalCode": map[string]any{
 								"type":    "string",
 								"title":   "Postal Code",
 								"pattern": "^[0-9]{5}(-[0-9]{4})?$",
@@ -449,7 +449,7 @@ func TestExtractFields(t *testing.T) {
 			jsonData, err := json.Marshal(tt.schema)
 			require.NoError(t, err, "failed to marshal test schema")
 
-			var schema map[string]interface{}
+			var schema map[string]any
 			err = json.Unmarshal(jsonData, &schema)
 			require.NoError(t, err, "failed to unmarshal test schema")
 
@@ -460,9 +460,9 @@ func TestExtractFields(t *testing.T) {
 	}
 }
 
-// mustParseJSON is a helper function to parse JSON strings into interface{} values
-func mustParseJSON(s string) interface{} {
-	var v interface{}
+// mustParseJSON is a helper function to parse JSON strings into any values
+func mustParseJSON(s string) any {
+	var v any
 	if err := json.Unmarshal([]byte(s), &v); err != nil {
 		panic(fmt.Sprintf("invalid JSON: %v", err))
 	}
@@ -472,7 +472,7 @@ func mustParseJSON(s string) interface{} {
 func TestExtractCoreFields(t *testing.T) {
 	tests := []struct {
 		name      string
-		schema    map[string]interface{}
+		schema    map[string]any
 		wantCore  []FieldInfo
 		wantPaths []string
 	}{
@@ -485,7 +485,7 @@ func TestExtractCoreFields(t *testing.T) {
 						"type": "string"
 					}
 				}
-			}`).(map[string]interface{}),
+			}`).(map[string]any),
 			wantCore:  []FieldInfo{},
 			wantPaths: []string{},
 		},
@@ -503,7 +503,7 @@ func TestExtractCoreFields(t *testing.T) {
 						"x-core": true
 					}
 				}
-			}`).(map[string]interface{}),
+			}`).(map[string]any),
 			wantCore: []FieldInfo{
 				{Name: "name", Type: "string", Core: true},
 				{Name: "age", Type: "integer", Core: true},
@@ -525,7 +525,7 @@ func TestExtractCoreFields(t *testing.T) {
 						"type": "string"
 					}
 				}
-			}`).(map[string]interface{}),
+			}`).(map[string]any),
 			wantCore: []FieldInfo{
 				{Name: "core_id", Type: "string", Core: true},
 				{Name: "core_name", Type: "string", Core: true},
@@ -559,7 +559,7 @@ func TestExtractCoreFields(t *testing.T) {
 						}
 					}
 				}
-			}`).(map[string]interface{}),
+			}`).(map[string]any),
 			wantCore: []FieldInfo{
 				{Name: "user", Type: "object", Core: true},
 			},

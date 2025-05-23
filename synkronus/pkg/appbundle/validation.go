@@ -130,7 +130,7 @@ func (s *Service) validateFormSchema(file *zip.File) error {
 	defer f.Close()
 
 	// Parse the schema
-	var schema map[string]interface{}
+	var schema map[string]any
 	if err := json.NewDecoder(f).Decode(&schema); err != nil {
 		return fmt.Errorf("invalid JSON in form schema: %w", err)
 	}
@@ -214,7 +214,7 @@ func (s *Service) validateFormRendererReferences(zipReader *zip.Reader) error {
 			}
 
 			// Parse the schema
-			var schema map[string]interface{}
+			var schema map[string]any
 			err = json.NewDecoder(f).Decode(&schema)
 			f.Close() // Close the file immediately after reading
 			if err != nil {
@@ -284,9 +284,9 @@ func isBuiltInRenderer(rendererType string) bool {
 }
 
 // checkRendererReferences recursively checks for renderer references in the schema
-func checkRendererReferences(data interface{}, availableRenderers map[string]bool) error {
+func checkRendererReferences(data any, availableRenderers map[string]bool) error {
 	switch v := data.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		// Check for renderer type (both x-renderer and rendererType formats)
 		if rendererType, ok := v["x-renderer"].(string); ok {
 			if !availableRenderers[rendererType] && !isBuiltInRenderer(rendererType) {
@@ -306,7 +306,7 @@ func checkRendererReferences(data interface{}, availableRenderers map[string]boo
 			}
 		}
 
-	case []interface{}:
+	case []any:
 		// Recursively check array elements
 		for _, item := range v {
 			if err := checkRendererReferences(item, availableRenderers); err != nil {
@@ -382,11 +382,11 @@ func (s *Service) setCoreFieldsHash(formName, hash string) {
 
 // deepCopyValue creates a deep copy of the given value.
 // It handles maps, slices, and primitive types.
-func deepCopyValue(v interface{}) interface{} {
+func deepCopyValue(v any) any {
 	switch v := v.(type) {
-	case map[string]interface{}:
+	case map[string]any:
 		return deepCopyMap(v)
-	case []interface{}:
+	case []any:
 		return deepCopySlice(v)
 	default:
 		// For primitive types, return as is (they're passed by value)
@@ -395,8 +395,8 @@ func deepCopyValue(v interface{}) interface{} {
 }
 
 // deepCopyMap creates a deep copy of a map.
-func deepCopyMap(m map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{}, len(m))
+func deepCopyMap(m map[string]any) map[string]any {
+	result := make(map[string]any, len(m))
 	for k, v := range m {
 		result[k] = deepCopyValue(v)
 	}
@@ -404,8 +404,8 @@ func deepCopyMap(m map[string]interface{}) map[string]interface{} {
 }
 
 // deepCopySlice creates a deep copy of a slice.
-func deepCopySlice(s []interface{}) []interface{} {
-	result := make([]interface{}, len(s))
+func deepCopySlice(s []any) []any {
+	result := make([]any, len(s))
 	for i, v := range s {
 		result[i] = deepCopyValue(v)
 	}

@@ -6,7 +6,7 @@ import (
 )
 
 // SendJSONResponse is a helper to send JSON responses
-func SendJSONResponse(w http.ResponseWriter, status int, data interface{}) {
+func SendJSONResponse(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
 	if data != nil {

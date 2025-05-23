@@ -40,10 +40,10 @@ func TestGetAppBundleManifest(t *testing.T) {
 
 	// Check response body structure
 	var manifest struct {
-		Files       []interface{} `json:"files"`
-		Version     string        `json:"version"`
-		GeneratedAt string        `json:"generatedAt"`
-		Hash        string        `json:"hash"`
+		Files       []any  `json:"files"`
+		Version     string `json:"version"`
+		GeneratedAt string `json:"generatedAt"`
+		Hash        string `json:"hash"`
 	}
 	err := json.NewDecoder(resp.Body).Decode(&manifest)
 	require.NoError(t, err, "Failed to decode response body")
@@ -332,7 +332,7 @@ func TestCompareAppBundleVersions(t *testing.T) {
 			assert.Equal(t, tc.expectedCode, resp.StatusCode)
 
 			// Verify response body is valid JSON
-			var respBody map[string]interface{}
+			var respBody map[string]any
 			err := json.NewDecoder(resp.Body).Decode(&respBody)
 			require.NoError(t, err, "Response should be valid JSON")
 

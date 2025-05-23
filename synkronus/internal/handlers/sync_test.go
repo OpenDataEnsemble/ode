@@ -118,7 +118,7 @@ func TestPush(t *testing.T) {
 			requestBody: SyncPushRequest{
 				DeviceID:  "test-device-id",
 				Timestamp: time.Now().Unix(),
-				Data:      []interface{}{map[string]interface{}{"id": "item1", "value": "test"}},
+				Data:      []any{map[string]any{"id": "item1", "value": "test"}},
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -127,7 +127,7 @@ func TestPush(t *testing.T) {
 			requestBody: SyncPushRequest{
 				DeviceID:  "test-device-id",
 				Timestamp: time.Now().Unix(),
-				Data:      []interface{}{},
+				Data:      []any{},
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -136,7 +136,7 @@ func TestPush(t *testing.T) {
 			requestBody: SyncPushRequest{
 				DeviceID:  "",
 				Timestamp: time.Now().Unix(),
-				Data:      []interface{}{map[string]interface{}{"id": "item1", "value": "test"}},
+				Data:      []any{map[string]any{"id": "item1", "value": "test"}},
 			},
 			expectedStatus: http.StatusBadRequest,
 		},

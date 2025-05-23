@@ -43,7 +43,7 @@ func TestCreateUserHandler(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		// Ensure the user does not exist (no setup needed)
-		payload := map[string]interface{}{"username": "testuser", "password": "password", "role": "read-only"}
+		payload := map[string]any{"username": "testuser", "password": "password", "role": "read-only"}
 		body, _ := json.Marshal(payload)
 		r := httptest.NewRequest(http.MethodPost, "/users/create", bytes.NewReader(body))
 		w := httptest.NewRecorder()
@@ -56,7 +56,7 @@ func TestCreateUserHandler(t *testing.T) {
 		// Pre-populate the user to simulate existing user
 		existingUser := &models.User{Username: "testuser", PasswordHash: "password", Role: models.RoleReadOnly}
 		mockUserService.AddUser(existingUser)
-		payload := map[string]interface{}{"username": "testuser", "password": "password", "role": "read-only"}
+		payload := map[string]any{"username": "testuser", "password": "password", "role": "read-only"}
 		body, _ := json.Marshal(payload)
 		r := httptest.NewRequest(http.MethodPost, "/users/create", bytes.NewReader(body))
 		w := httptest.NewRecorder()
@@ -121,22 +121,22 @@ func TestResetPasswordHandler(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		payload        map[string]interface{}
+		payload        map[string]any
 		expectedStatus int
 	}{
 		{
 			name:           "success",
-			payload:        map[string]interface{}{"username": "resetuser", "newPassword": "newpw"},
+			payload:        map[string]any{"username": "resetuser", "newPassword": "newpw"},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "user not found",
-			payload:        map[string]interface{}{"username": "nouser", "newPassword": "pw"},
+			payload:        map[string]any{"username": "nouser", "newPassword": "pw"},
 			expectedStatus: http.StatusNotFound,
 		},
 		{
 			name:           "missing fields",
-			payload:        map[string]interface{}{"username": ""},
+			payload:        map[string]any{"username": ""},
 			expectedStatus: http.StatusBadRequest,
 		},
 	}
@@ -160,31 +160,31 @@ func TestChangePasswordHandler(t *testing.T) {
 	tests := []struct {
 		name           string
 		username       string
-		payload        map[string]interface{}
+		payload        map[string]any
 		expectedStatus int
 	}{
 		{
 			name:           "success",
 			username:       "changepw",
-			payload:        map[string]interface{}{"currentPassword": "oldpw", "newPassword": "newpw"},
+			payload:        map[string]any{"currentPassword": "oldpw", "newPassword": "newpw"},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "wrong current password",
 			username:       "changepw",
-			payload:        map[string]interface{}{"currentPassword": "wrongpw", "newPassword": "newpw"},
+			payload:        map[string]any{"currentPassword": "wrongpw", "newPassword": "newpw"},
 			expectedStatus: http.StatusUnauthorized,
 		},
 		{
 			name:           "missing fields",
 			username:       "changepw",
-			payload:        map[string]interface{}{},
+			payload:        map[string]any{},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:           "unauthorized (no username in context)",
 			username:       "",
-			payload:        map[string]interface{}{"currentPassword": "oldpw", "newPassword": "newpw"},
+			payload:        map[string]any{"currentPassword": "oldpw", "newPassword": "newpw"},
 			expectedStatus: http.StatusUnauthorized,
 		},
 	}

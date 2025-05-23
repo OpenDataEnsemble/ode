@@ -18,15 +18,15 @@ func createTestFormInfo(schemaHash, uiHash, coreHash string, fields []FieldInfo)
 	return FormInfo{
 		FormHash: schemaHash,
 		UIHash:   uiHash,
-		CoreHash:  coreHash,
-		Fields:    fields,
+		CoreHash: coreHash,
+		Fields:   fields,
 	}
 }
 
 func TestCompareAppInfos_NewForm(t *testing.T) {
 	// Setup test data
 	oldInfo := createTestAppInfo("0001", map[string]FormInfo{})
-	
+
 	newForms := map[string]FormInfo{
 		"user": createTestFormInfo(
 			"schema1", "ui1", "core1",
@@ -88,8 +88,8 @@ func TestCompareAppInfos_ModifiedForm_FieldChanges(t *testing.T) {
 			"schema2", "ui1", "core1", // Schema changed, UI and core same
 			[]FieldInfo{
 				{Name: "username", Type: "string"}, // Same
-				{Name: "age", Type: "number"},       // Type changed
-				{Name: "email", Type: "string"},     // New field
+				{Name: "age", Type: "number"},      // Type changed
+				{Name: "email", Type: "string"},    // New field
 			},
 		),
 	}
@@ -97,7 +97,6 @@ func TestCompareAppInfos_ModifiedForm_FieldChanges(t *testing.T) {
 
 	// Execute
 	log, err := CompareAppInfos(oldInfo, newInfo)
-
 
 	// Verify
 	assert.NoError(t, err)
@@ -155,11 +154,11 @@ func TestCompareAppInfos_TypeChangeDetection(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, log.ModifiedForms, 1)
 	mod := log.ModifiedForms[0]
-	
+
 	// Should show price as both removed (string) and added (number)
 	assert.Len(t, mod.AddedFields, 1)
 	assert.Len(t, mod.RemovedFields, 1)
-	
+
 	assert.Equal(t, "price", mod.AddedFields[0].Name)
 	assert.Equal(t, "number", mod.AddedFields[0].Type)
 	assert.Equal(t, "price", mod.RemovedFields[0].Name)
@@ -174,7 +173,7 @@ func TestGenerateChangeLog_JSON(t *testing.T) {
 			"user": {
 				FormHash: "old_schema",
 				UIHash:   "ui1",
-				CoreHash:  "core1",
+				CoreHash: "core1",
 				Fields: []FieldInfo{
 					{Name: "username", Type: "string"},
 				},
@@ -188,7 +187,7 @@ func TestGenerateChangeLog_JSON(t *testing.T) {
 			"user": {
 				FormHash: "new_schema",
 				UIHash:   "ui1",
-				CoreHash:  "core1",
+				CoreHash: "core1",
 				Fields: []FieldInfo{
 					{Name: "username", Type: "string"},
 					{Name: "email", Type: "string"},
@@ -206,8 +205,8 @@ func TestGenerateChangeLog_JSON(t *testing.T) {
 
 	// Verify
 	assert.NoError(t, err)
-	
-	var result map[string]interface{}
+
+	var result map[string]any
 	err = json.Unmarshal(changeLogJSON, &result)
 	assert.NoError(t, err)
 
@@ -215,19 +214,19 @@ func TestGenerateChangeLog_JSON(t *testing.T) {
 	assert.Equal(t, "0001", result["compare_version_a"])
 	assert.Equal(t, "0002", result["compare_version_b"])
 	assert.True(t, result["form_changes"].(bool))
-	
+
 	// Check modified forms
-	modifiedForms := result["modified_forms"].([]interface{})
+	modifiedForms := result["modified_forms"].([]any)
 	assert.Len(t, modifiedForms, 1)
-	
-	userMod := modifiedForms[0].(map[string]interface{})
+
+	userMod := modifiedForms[0].(map[string]any)
 	assert.Equal(t, "user", userMod["form"])
 	assert.True(t, userMod["schema_changed"].(bool))
-	
+
 	// Check added fields
-	addedFields := userMod["added_fields"].([]interface{})
+	addedFields := userMod["added_fields"].([]any)
 	assert.Len(t, addedFields, 1)
-	addedField := addedFields[0].(map[string]interface{})
+	addedField := addedFields[0].(map[string]any)
 	assert.Equal(t, "email", addedField["field"])
 	assert.Equal(t, "string", addedField["type"])
 }

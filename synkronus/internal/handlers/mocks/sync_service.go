@@ -34,14 +34,14 @@ func NewMockSyncService() *MockSyncService {
 	// Add some test data
 	testDevice := "test-device-id"
 	testData := []sync.SyncItem{
-		map[string]interface{}{
+		map[string]any{
 			"id":        "item1",
 			"type":      "note",
 			"content":   "Test note content",
 			"createdAt": time.Now().Unix(),
 			"updatedAt": time.Now().Unix(),
 		},
-		map[string]interface{}{
+		map[string]any{
 			"id":        "item2",
 			"type":      "task",
 			"content":   "Test task content",

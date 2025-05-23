@@ -172,7 +172,7 @@ func (s *Service) GenerateRefreshToken(user *models.User) (string, error) {
 func (s *Service) ValidateToken(tokenString string) (*AuthClaims, error) {
 	claims := &AuthClaims{}
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}

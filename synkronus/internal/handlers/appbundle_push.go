@@ -51,7 +51,7 @@ func (h *Handler) PushAppBundle(w http.ResponseWriter, r *http.Request) {
 
 	// Return the new manifest
 	h.log.Info("App bundle successfully pushed", "user", user.Username)
-	SendJSONResponse(w, http.StatusOK, map[string]interface{}{
+	SendJSONResponse(w, http.StatusOK, map[string]any{
 		"message":  "App bundle successfully pushed",
 		"manifest": manifest,
 	})
@@ -71,7 +71,7 @@ func (h *Handler) GetAppBundleVersions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the versions
-	SendJSONResponse(w, http.StatusOK, map[string]interface{}{
+	SendJSONResponse(w, http.StatusOK, map[string]any{
 		"versions": versions,
 	})
 }
@@ -106,7 +106,7 @@ func (h *Handler) SwitchAppBundleVersion(w http.ResponseWriter, r *http.Request)
 
 	// Return success
 	h.log.Info("App bundle version switched", "version", version)
-	SendJSONResponse(w, http.StatusOK, map[string]interface{}{
+	SendJSONResponse(w, http.StatusOK, map[string]any{
 		"message": fmt.Sprintf("Switched to app bundle version %s", version),
 	})
 }

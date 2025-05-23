@@ -17,19 +17,19 @@ var (
 )
 
 // SyncItem represents an item to be synchronized
-type SyncItem interface{}
+type SyncItem any
 
 // ServiceInterface defines the interface for sync operations
 type ServiceInterface interface {
 	// GetDataSince retrieves data changes since the specified timestamp for a device
 	GetDataSince(ctx context.Context, lastSyncTimestamp int64, deviceID string) ([]SyncItem, string, error)
-	
+
 	// ProcessPushedData processes data pushed from a device
 	ProcessPushedData(ctx context.Context, data []SyncItem, deviceID string, timestamp int64) error
-	
+
 	// CheckETag checks if the data has changed since the ETag was generated
 	CheckETag(ctx context.Context, etag string, deviceID string) (bool, error)
-	
+
 	// Initialize initializes the sync service
 	Initialize(ctx context.Context) error
 }
@@ -38,10 +38,10 @@ type ServiceInterface interface {
 type Config struct {
 	// DataStorePath is the path to the data store
 	DataStorePath string
-	
+
 	// MaxItemsPerSync is the maximum number of items to return in a single sync
 	MaxItemsPerSync int
-	
+
 	// RetentionPeriod is how long to keep sync history
 	RetentionPeriod time.Duration
 }

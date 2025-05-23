@@ -10,18 +10,18 @@ import (
 func TestLogger(t *testing.T) {
 	// Create a buffer to capture log output
 	var buf bytes.Buffer
-	
+
 	// Create a new logger with the buffer as output
 	log := NewLogger(
 		WithOutputWriter(&buf),
 		WithLevel(LevelDebug),
 		WithPrettyPrint(false),
 	)
-	
+
 	// Test each log level
 	tests := []struct {
 		name     string
-		logFunc  func(string, ...interface{})
+		logFunc  func(string, ...any)
 		level    string
 		message  string
 		expected bool
@@ -31,15 +31,15 @@ func TestLogger(t *testing.T) {
 		{"Warn", log.Warn, "WARN", "warn message", true},
 		{"Error", log.Error, "ERROR", "error message", true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear the buffer
 			buf.Reset()
-			
+
 			// Call the log function
 			tt.logFunc(tt.message, "key", "value")
-			
+
 			// Check if log was written
 			output := buf.String()
 			if tt.expected {
@@ -55,14 +55,14 @@ func TestLogger(t *testing.T) {
 				if !strings.Contains(output, "value") {
 					t.Errorf("Expected output to contain 'value', got %s", output)
 				}
-				
+
 				// Verify it's valid JSON
-				var logEntry map[string]interface{}
+				var logEntry map[string]any
 				err := json.Unmarshal(buf.Bytes(), &logEntry)
 				if err != nil {
 					t.Errorf("Failed to unmarshal JSON: %v", err)
 				}
-				
+
 				// Check fields
 				if logEntry["level"] != tt.level {
 					t.Errorf("Expected level %s, got %s", tt.level, logEntry["level"])
@@ -85,19 +85,19 @@ func TestLogger(t *testing.T) {
 func TestLogLevelFiltering(t *testing.T) {
 	// Create a buffer to capture log output
 	var buf bytes.Buffer
-	
+
 	// Create a new logger with Info level
 	log := NewLogger(
 		WithOutputWriter(&buf),
 		WithLevel(LevelInfo),
 	)
-	
+
 	// Debug should not be logged
 	log.Debug("debug message")
 	if buf.String() != "" {
 		t.Errorf("Expected empty output for debug message, got %s", buf.String())
 	}
-	
+
 	// Info should be logged
 	buf.Reset()
 	log.Info("info message")
@@ -123,7 +123,7 @@ func TestShouldLog(t *testing.T) {
 		{LevelError, LevelWarn, true},
 		{LevelFatal, LevelError, true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(string(tt.msgLevel)+"_"+string(tt.loggerLevel), func(t *testing.T) {
 			result := shouldLog(tt.msgLevel, tt.loggerLevel)

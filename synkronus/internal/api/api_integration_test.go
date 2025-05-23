@@ -120,7 +120,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		name           string
 		endpoint       string
 		method         string
-		body           interface{}
+		body           any
 		withAuth       bool
 		invalidToken   bool
 		expiredToken   bool
@@ -132,7 +132,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Pull - Without Auth",
 			endpoint:       "/sync/pull",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "lastSyncTimestamp": 0},
+			body:           map[string]any{"deviceId": "test-device", "lastSyncTimestamp": 0},
 			withAuth:       false,
 			expectedStatus: http.StatusUnauthorized,
 		},
@@ -140,7 +140,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Pull - With Auth",
 			endpoint:       "/sync/pull",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "lastSyncTimestamp": 0},
+			body:           map[string]any{"deviceId": "test-device", "lastSyncTimestamp": 0},
 			withAuth:       true,
 			expectedStatus: http.StatusOK,
 		},
@@ -148,7 +148,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Push - Without Auth",
 			endpoint:       "/sync/push",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "timestamp": 0, "data": []interface{}{}},
+			body:           map[string]any{"deviceId": "test-device", "timestamp": 0, "data": []any{}},
 			withAuth:       false,
 			expectedStatus: http.StatusUnauthorized,
 		},
@@ -156,7 +156,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Push - With Auth",
 			endpoint:       "/sync/push",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "timestamp": 0, "data": []interface{}{}},
+			body:           map[string]any{"deviceId": "test-device", "timestamp": 0, "data": []any{}},
 			withAuth:       true,
 			expectedStatus: http.StatusOK,
 		},
@@ -212,7 +212,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Pull - With Invalid Token",
 			endpoint:       "/sync/pull",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "lastSyncTimestamp": 0},
+			body:           map[string]any{"deviceId": "test-device", "lastSyncTimestamp": 0},
 			withAuth:       true,
 			invalidToken:   true,
 			expectedStatus: http.StatusUnauthorized,
@@ -221,7 +221,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Push - With Expired Token",
 			endpoint:       "/sync/push",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "timestamp": 0, "data": []interface{}{}},
+			body:           map[string]any{"deviceId": "test-device", "timestamp": 0, "data": []any{}},
 			withAuth:       true,
 			expiredToken:   true,
 			expectedStatus: http.StatusUnauthorized,
@@ -239,7 +239,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Push - With Read-Only User",
 			endpoint:       "/sync/push",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "timestamp": 0, "data": []interface{}{}},
+			body:           map[string]any{"deviceId": "test-device", "timestamp": 0, "data": []any{}},
 			withAuth:       true,
 			readOnlyUser:   true,
 			expectedStatus: http.StatusForbidden,
@@ -248,7 +248,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Pull - With Read-Only User",
 			endpoint:       "/sync/pull",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "timestamp": 0, "data": []interface{}{}},
+			body:           map[string]any{"deviceId": "test-device", "timestamp": 0, "data": []any{}},
 			withAuth:       true,
 			readOnlyUser:   true,
 			expectedStatus: http.StatusOK,
@@ -257,7 +257,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			name:           "Sync Push - With Admin User",
 			endpoint:       "/sync/push",
 			method:         http.MethodPost,
-			body:           map[string]interface{}{"deviceId": "test-device", "timestamp": 0, "data": []interface{}{}},
+			body:           map[string]any{"deviceId": "test-device", "timestamp": 0, "data": []any{}},
 			withAuth:       true,
 			readOnlyUser:   false,
 			adminUser:      true,
