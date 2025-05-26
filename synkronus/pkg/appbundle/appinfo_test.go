@@ -283,6 +283,11 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 		return f.Path == "app/THIS_IS_VERSION_2.txt"
 	}), "Expected NOT to find file with path 'app/THIS_IS_VERSION_2.txt' in manifest")
 
+	// Try downloading app/THIS_IS_VERSION_2.txt - expect it to fail
+	nofile, _, err := service.GetFile(context.Background(), "app/THIS_IS_VERSION_2.txt")
+	require.Error(t, err, "Expected to fail to download file")
+	require.Empty(t, nofile)
+
 	// Switch to the second version
 	preVersions, err := service.GetVersions(context.Background())
 	require.NoError(t, err, "Failed to get versions")
@@ -306,6 +311,11 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	require.True(t, slices.ContainsFunc(manifest.Files, func(f File) bool {
 		return f.Path == "app/THIS_IS_VERSION_2.txt"
 	}), "Expected to find file with path 'app/THIS_IS_VERSION_2.txt' in manifest")
+
+	// Try downloading app/THIS_IS_VERSION_2.txt
+	file, _, err := service.GetFile(context.Background(), "app/THIS_IS_VERSION_2.txt")
+	require.NoError(t, err, "Failed to download file")
+	require.Equal(t, "THIS_IS_VERSION_2.txt", file)
 
 	// Compare the two versions
 	changeLog, err := service.CompareAppInfos(context.Background(), strings.TrimSuffix(version1, " *"), strings.TrimSuffix(version2, " *"))
