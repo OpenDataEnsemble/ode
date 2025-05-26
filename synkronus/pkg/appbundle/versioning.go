@@ -162,7 +162,7 @@ func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
 			version := entry.Name()
 			// Mark current version with an asterisk
 			if version == currentVersion {
-				version = version + " *"
+				version += " *"
 			}
 			versions = append(versions, version)
 		}
@@ -183,7 +183,7 @@ func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
 func (s *Service) getCurrentVersion() (string, error) {
 	s.versionMutex.Lock()
 	defer s.versionMutex.Unlock()
-	
+
 	// Read the current version from the version file
 	versionFile := filepath.Join(s.versionsPath, "CURRENT_VERSION")
 	data, err := os.ReadFile(versionFile)
@@ -193,13 +193,13 @@ func (s *Service) getCurrentVersion() (string, error) {
 		}
 		return "", fmt.Errorf("failed to read current version: %w", err)
 	}
-	
+
 	// Clean and validate the version
 	version := strings.TrimSpace(string(data))
 	if version == "" {
 		return "", nil
 	}
-	
+
 	// Verify the version directory exists
 	versionPath := filepath.Join(s.versionsPath, version)
 	if _, err := os.Stat(versionPath); err != nil {
@@ -209,7 +209,7 @@ func (s *Service) getCurrentVersion() (string, error) {
 		}
 		return "", fmt.Errorf("failed to verify version directory: %w", err)
 	}
-	
+
 	return version, nil
 }
 
@@ -217,7 +217,7 @@ func (s *Service) getCurrentVersion() (string, error) {
 func (s *Service) SwitchVersion(ctx context.Context, version string) error {
 	s.versionMutex.Lock()
 	defer s.versionMutex.Unlock()
-	
+
 	// Validate the version
 	versionPath := filepath.Join(s.versionsPath, version)
 	if _, err := os.Stat(versionPath); err != nil {
@@ -240,12 +240,12 @@ func (s *Service) SwitchVersion(ctx context.Context, version string) error {
 	// Update the current version file atomically
 	versionFile := filepath.Join(s.versionsPath, "CURRENT_VERSION")
 	tempFile := versionFile + ".tmp"
-	
+
 	// Write to a temporary file first
 	if err := os.WriteFile(tempFile, []byte(version), 0644); err != nil {
 		return fmt.Errorf("failed to write version file: %w", err)
 	}
-	
+
 	// Atomic rename (works across all platforms)
 	if err := os.Rename(tempFile, versionFile); err != nil {
 		// Clean up temp file if rename fails
@@ -260,6 +260,7 @@ func (s *Service) SwitchVersion(ctx context.Context, version string) error {
 	s.log.Info("Switched to app bundle version", "version", version)
 	return nil
 }
+
 // clearDirectory removes all files and subdirectories in a directory
 func (s *Service) clearDirectory(dir string) error {
 	// Read the directory

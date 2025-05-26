@@ -11,11 +11,11 @@ import (
 type ChangeLog struct {
 	CompareVersionA string             `json:"compare_version_a"`
 	CompareVersionB string             `json:"compare_version_b"`
-	FormChanges    bool               `json:"form_changes"`
-	UIChanges      bool               `json:"ui_changes"`
-	NewForms       []FormDiff         `json:"new_forms,omitempty"`
-	RemovedForms   []FormDiff         `json:"removed_forms,omitempty"`
-	ModifiedForms  []FormModification `json:"modified_forms,omitempty"`
+	FormChanges     bool               `json:"form_changes"`
+	UIChanges       bool               `json:"ui_changes"`
+	NewForms        []FormDiff         `json:"new_forms,omitempty"`
+	RemovedForms    []FormDiff         `json:"removed_forms,omitempty"`
+	ModifiedForms   []FormModification `json:"modified_forms,omitempty"`
 }
 
 // FormDiff represents a form that was added or removed
@@ -37,10 +37,10 @@ type FieldChange struct {
 
 // FormModification represents changes to a form's schema or UI
 type FormModification struct {
-	FormName      string       `json:"form"`
-	SchemaChange  bool         `json:"schema_changed"`
-	UIChange      bool         `json:"ui_changed"`
-	CoreChange    bool         `json:"core_changed"`
+	FormName      string        `json:"form"`
+	SchemaChange  bool          `json:"schema_changed"`
+	UIChange      bool          `json:"ui_changed"`
+	CoreChange    bool          `json:"core_changed"`
 	AddedFields   []FieldChange `json:"added_fields,omitempty"`
 	RemovedFields []FieldChange `json:"removed_fields,omitempty"`
 }

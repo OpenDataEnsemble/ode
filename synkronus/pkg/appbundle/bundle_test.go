@@ -157,7 +157,13 @@ func createTestFormBundle(t *testing.T, forms map[string]map[string]any) (string
 		os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to create app/index.html: %w", err)
 	}
-	fw.Write([]byte("<html><body>Test App</body></html>"))
+	_, err = fw.Write([]byte("<html><body>Test App</body></html>"))
+	if err != nil {
+		w.Close()
+		tmpFile.Close()
+		os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("failed to write app/index.html: %w", err)
+	}
 
 	// Add forms
 	for formName, schema := range forms {
@@ -187,7 +193,13 @@ func createTestFormBundle(t *testing.T, forms map[string]map[string]any) (string
 			os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to create schema.json: %w", err)
 		}
-		fw.Write(schemaData)
+		_, err = fw.Write(schemaData)
+		if err != nil {
+			w.Close()
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+			return "", fmt.Errorf("failed to write schema.json: %w", err)
+		}
 
 		// Add minimal ui.json
 		uiPath := fmt.Sprintf("forms/%s/ui.json", formName)
@@ -198,7 +210,13 @@ func createTestFormBundle(t *testing.T, forms map[string]map[string]any) (string
 			os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to create ui.json: %w", err)
 		}
-		fw.Write([]byte(`{"ui:order":[]}`))
+		_, err = fw.Write([]byte(`{"ui:order":[]}`))
+		if err != nil {
+			w.Close()
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+			return "", fmt.Errorf("failed to write ui.json: %w", err)
+		}
 	}
 
 	if err := w.Close(); err != nil {
@@ -390,7 +408,8 @@ func TestMissingRendererReferences(t *testing.T) {
 		// Add app/index.html
 		fw, err := w.Create("app/index.html")
 		require.NoError(t, err, "Failed to create app/index.html")
-		fw.Write([]byte("<html><body>Test App</body></html>"))
+		_, err = fw.Write([]byte("<html><body>Test App</body></html>"))
+		require.NoError(t, err, "Failed to write app/index.html")
 
 		// Add form with renderer reference
 		formSchema := createFormWithRendererReference("custom-renderer")
@@ -399,17 +418,20 @@ func TestMissingRendererReferences(t *testing.T) {
 
 		fw, err = w.Create("forms/user/schema.json")
 		require.NoError(t, err, "Failed to create form schema")
-		fw.Write(schemaData)
+		_, err = fw.Write(schemaData)
+		require.NoError(t, err, "Failed to write form schema")
 
 		// Add minimal ui.json
 		fw, err = w.Create("forms/user/ui.json")
 		require.NoError(t, err, "Failed to create UI schema")
-		fw.Write([]byte(`{"ui:order":[]}`))
+		_, err = fw.Write([]byte(`{"ui:order":[]}`))
+		require.NoError(t, err, "Failed to write UI schema")
 
 		// Add renderer implementation
 		fw, err = w.Create("renderers/custom-renderer/renderer.jsx")
 		require.NoError(t, err, "Failed to create renderer implementation")
-		fw.Write([]byte("export default function CustomRenderer() { return null; }"))
+		_, err = fw.Write([]byte("export default function CustomRenderer() { return null; }"))
+		require.NoError(t, err, "Failed to write renderer implementation")
 
 		require.NoError(t, w.Close(), "Failed to close zip writer")
 		require.NoError(t, tmpFile.Close(), "Failed to close temp file")

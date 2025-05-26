@@ -44,7 +44,9 @@ func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(UserResponse{Username: newUser.Username, Role: newUser.Role})
+	if err := json.NewEncoder(w).Encode(UserResponse{Username: newUser.Username, Role: newUser.Role}); err != nil {
+		h.log.Error("Failed to encode user response", "error", err)
+	}
 }
 
 // DeleteUserHandler handles DELETE /users/delete/{username} (admin only)
@@ -63,7 +65,9 @@ func (h *Handler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 		SendErrorResponse(w, http.StatusBadRequest, err, err.Error())
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{"message": "User deleted successfully"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "User deleted successfully"}); err != nil {
+		h.log.Error("Failed to encode delete response", "error", err)
+	}
 }
 
 // ResetPasswordRequest represents the request body for resetting a password
@@ -92,7 +96,9 @@ func (h *Handler) ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 		SendErrorResponse(w, http.StatusBadRequest, err, err.Error())
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{"message": "Password reset successfully"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Password reset successfully"}); err != nil {
+		h.log.Error("Failed to encode reset password response", "error", err)
+	}
 }
 
 // ListUsersHandler handles GET /users/list (admin only)
@@ -102,7 +108,9 @@ func (h *Handler) ListUsersHandler(w http.ResponseWriter, r *http.Request) {
 		SendErrorResponse(w, http.StatusBadRequest, err, err.Error())
 		return
 	}
-	json.NewEncoder(w).Encode(userList)
+	if err := json.NewEncoder(w).Encode(userList); err != nil {
+		h.log.Error("Failed to encode user list response", "error", err)
+	}
 }
 
 // ChangePasswordRequest represents the request body for changing password
@@ -133,5 +141,7 @@ func (h *Handler) ChangePasswordHandler(w http.ResponseWriter, r *http.Request) 
 		SendErrorResponse(w, http.StatusUnauthorized, err, err.Error())
 		return
 	}
-	json.NewEncoder(w).Encode(map[string]string{"message": "Password changed successfully"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"message": "Password changed successfully"}); err != nil {
+		h.log.Error("Failed to encode change password response", "error", err)
+	}
 }

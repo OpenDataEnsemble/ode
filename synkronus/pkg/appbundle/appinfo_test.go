@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -315,7 +316,10 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	// Try downloading app/THIS_IS_VERSION_2.txt
 	file, _, err := service.GetFile(context.Background(), "app/THIS_IS_VERSION_2.txt")
 	require.NoError(t, err, "Failed to download file")
-	require.Equal(t, "THIS_IS_VERSION_2.txt", file)
+	fileContent, err := io.ReadAll(file)
+	defer file.Close()
+	require.NoError(t, err, "Failed to read file content")
+	require.Equal(t, "Something...", string(fileContent))
 
 	// Compare the two versions
 	changeLog, err := service.CompareAppInfos(context.Background(), strings.TrimSuffix(version1, " *"), strings.TrimSuffix(version2, " *"))

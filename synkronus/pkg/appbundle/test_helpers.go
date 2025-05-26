@@ -147,7 +147,13 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 			os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to create app/index.html: %w", err)
 		}
-		fw.Write([]byte("<html><body>Test App</body></html>"))
+		_, err = fw.Write([]byte("<html><body>Test App</body></html>"))
+		if err != nil {
+			w.Close()
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+			return "", fmt.Errorf("failed to write app/index.html: %w", err)
+		}
 
 		// Create required directories
 		dirs := []string{}
@@ -177,7 +183,13 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 				os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to create sample form: %w", err)
 			}
-			fw.Write([]byte(`{"type":"object","properties":{"name":{"type":"string"}}}`))
+			_, err = fw.Write([]byte(`{"type":"object","properties":{"name":{"type":"string"}}}`))
+			if err != nil {
+				w.Close()
+				tmpFile.Close()
+				os.Remove(tmpFile.Name())
+				return "", fmt.Errorf("failed to write sample form: %w", err)
+			}
 
 			fw, err = w.Create("forms/sample/ui.json")
 			if err != nil {
@@ -186,7 +198,13 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 				os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to create sample UI: %w", err)
 			}
-			fw.Write([]byte(`{"ui:order":["name"]}`))
+			_, err = fw.Write([]byte(`{"ui:order":["name"]}`))
+			if err != nil {
+				w.Close()
+				tmpFile.Close()
+				os.Remove(tmpFile.Name())
+				return "", fmt.Errorf("failed to write sample UI: %w", err)
+			}
 		}
 
 		// Add a sample renderer if needed
@@ -198,7 +216,13 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 				os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to create sample renderer: %w", err)
 			}
-			fw.Write([]byte("export default function SampleRenderer() { return null; }"))
+			_, err = fw.Write([]byte("export default function SampleRenderer() { return null; }"))
+			if err != nil {
+				w.Close()
+				tmpFile.Close()
+				os.Remove(tmpFile.Name())
+				return "", fmt.Errorf("failed to write sample renderer: %w", err)
+			}
 		}
 	}
 

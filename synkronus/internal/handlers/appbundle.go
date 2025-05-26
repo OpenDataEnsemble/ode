@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 
@@ -41,8 +42,14 @@ func (h *Handler) GetAppBundleManifest(w http.ResponseWriter, r *http.Request) {
 
 // GetAppBundleFile handles the /app-bundle/{path} endpoint
 func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
-	// Get the file path from the URL
-	filePath := chi.URLParam(r, "path")
+	// Get and decode the file path from the URL
+	rawPath := chi.URLParam(r, "path")
+	filePath, escapeErr := url.PathUnescape(rawPath)
+	if escapeErr != nil {
+		h.log.Warn("Failed to decode file path", "error", escapeErr, "path", rawPath)
+		SendErrorResponse(w, http.StatusBadRequest, escapeErr, "Invalid file path encoding")
+		return
+	}
 	if filePath == "" {
 		SendErrorResponse(w, http.StatusBadRequest, nil, "File path is required")
 		return
@@ -51,10 +58,10 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 	// Check if we should get the preview version
 	preview := false
 	if previewParam := r.URL.Query().Get("preview"); previewParam != "" {
-		var err error
-		preview, err = strconv.ParseBool(previewParam)
-		if err != nil {
-			h.log.Warn("Invalid value for 'preview' parameter, using default (false)", "value", previewParam, "error", err)
+		var previewErr error
+		preview, previewErr = strconv.ParseBool(previewParam)
+		if previewErr != nil {
+			h.log.Warn("Invalid value for 'preview' parameter, using default (false)", "value", previewParam, "error", previewErr)
 		}
 	}
 

@@ -87,7 +87,9 @@ func NewMockAuthService(mockUserRepo ...repository.UserRepositoryInterface) *Moc
 // AddUser adds a user to the mock service
 func (m *MockAuthService) AddUser(user *models.User) {
 	// Use the repository to create the user
-	m.userRepository.Create(context.Background(), user)
+	if err := m.userRepository.Create(context.Background(), user); err != nil {
+		m.log.Error("Failed to add user to mock service", "error", err)
+	}
 }
 
 // GetTestUser returns a test user by username
@@ -219,16 +221,17 @@ func (m *MockAuthService) ValidateToken(tokenString string) (*auth.AuthClaims, e
 	}
 
 	// Extract username from token (assuming token format is "mock-jwt-token-for-{username}")
-	username := ""
-	if len(tokenString) > 18 && tokenString[:18] == "mock-jwt-token-for-" {
+	var username string
+	switch {
+	case len(tokenString) > 18 && tokenString[:18] == "mock-jwt-token-":
 		username = tokenString[18:]
-	} else if tokenString == "readOnlyToken" {
+	case tokenString == "readOnlyToken":
 		// Special case for read-only user testing
 		username = "readonly"
-	} else if tokenString == "adminToken" {
+	case tokenString == "adminToken":
 		// Special case for admin user testing
 		username = "admin"
-	} else {
+	default:
 		// For testing, accept any non-empty token that doesn't match the invalid pattern
 		username = "testuser"
 	}

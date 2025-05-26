@@ -281,7 +281,8 @@ func TestValidateCoreFields(t *testing.T) {
 				assert.NotEmpty(t, hash1, "hash should not be empty")
 
 				var schema2 map[string]any
-				json.Unmarshal(tt.schema, &schema2) // Safe to ignore error since we already validated
+				err = json.Unmarshal(tt.schema, &schema2)
+				require.NoError(t, err, "failed to unmarshal test schema")
 				coreFields2 := extractCoreFields(schema2)
 				hash2, err := hashCoreFields(coreFields2)
 				require.NoError(t, err, "failed to hash core fields")

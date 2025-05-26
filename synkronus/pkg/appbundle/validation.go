@@ -379,35 +379,3 @@ func (s *Service) setCoreFieldsHash(formName, hash string) {
 	}
 	s.coreFieldHashes[formName] = hash
 }
-
-// deepCopyValue creates a deep copy of the given value.
-// It handles maps, slices, and primitive types.
-func deepCopyValue(v any) any {
-	switch v := v.(type) {
-	case map[string]any:
-		return deepCopyMap(v)
-	case []any:
-		return deepCopySlice(v)
-	default:
-		// For primitive types, return as is (they're passed by value)
-		return v
-	}
-}
-
-// deepCopyMap creates a deep copy of a map.
-func deepCopyMap(m map[string]any) map[string]any {
-	result := make(map[string]any, len(m))
-	for k, v := range m {
-		result[k] = deepCopyValue(v)
-	}
-	return result
-}
-
-// deepCopySlice creates a deep copy of a slice.
-func deepCopySlice(s []any) []any {
-	result := make([]any, len(s))
-	for i, v := range s {
-		result[i] = deepCopyValue(v)
-	}
-	return result
-}

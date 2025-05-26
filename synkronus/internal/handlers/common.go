@@ -30,8 +30,10 @@ func SendErrorResponse(w http.ResponseWriter, status int, err error, message str
 	if err != nil {
 		errMsg = err.Error()
 	}
-	json.NewEncoder(w).Encode(ErrorResponse{
+	if encodeErr := json.NewEncoder(w).Encode(ErrorResponse{
 		Error:   errMsg,
 		Message: message,
-	})
+	}); encodeErr != nil {
+		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
+	}
 }

@@ -80,10 +80,10 @@ func (m *MockAppBundleService) GetManifest(ctx context.Context) (*appbundle.Mani
 func (m *MockAppBundleService) GetFile(ctx context.Context, path string) (io.ReadCloser, *appbundle.File, error) {
 	// Remove the /download/ prefix if present
 	path = strings.TrimPrefix(path, "download/")
-	
+
 	// Clean the path to handle any remaining . or ..
 	path = filepath.Clean(path)
-	
+
 	// Handle root path
 	if path == "." || path == "/" {
 		path = "index.html"
