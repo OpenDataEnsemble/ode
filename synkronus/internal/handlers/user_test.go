@@ -1,3 +1,5 @@
+//revive:disable:context-keys-type
+//nolint:gocritic,golint,staticcheck,revive
 package handlers
 
 import (
@@ -14,11 +16,6 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
-
-// testContextKey is used to silence the SA1029 linter warning while maintaining compatibility with the handler
-type testContextKey string
-
-const usernameContextKey testContextKey = "username"
 
 // userHandlerTestHelper returns a Handler and its MockUserService for user handler tests
 func userHandlerTestHelper() (*Handler, *mocks.MockUserService) {
@@ -195,8 +192,10 @@ func TestChangePasswordHandler(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/users/change-password", bytes.NewReader(body))
 			ctx := r.Context()
 			if tc.username != "" {
-				// Using the same string key as the handler expects, but with a type to satisfy the linter
-				ctx = context.WithValue(ctx, "username", tc.username) //nolint:staticcheck // SA1029: using string as context key is required for compatibility with the handler
+				// Using string as context key is required for test compatibility with the handler
+				//revive:disable-next-line:context-keys-type
+				//nolint:gocritic,golint,staticcheck,revive
+				ctx = context.WithValue(ctx, "username", tc.username) //nolint:staticcheck
 			}
 			r = r.WithContext(ctx)
 			w := httptest.NewRecorder()
