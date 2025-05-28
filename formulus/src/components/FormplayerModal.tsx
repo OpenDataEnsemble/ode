@@ -3,7 +3,10 @@ import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, Activ
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { appEvents } from '../webview/FormulusMessageHandlers';
-import { generateFormulusInjectionScript } from '../webview/FormulusInjectionScript';
+// Path to the generated injection script in the assets directory
+const INJECTION_SCRIPT_PATH = Platform.OS === 'ios' 
+  ? 'FormulusInjectionScript.js' 
+  : 'file:///android_asset/FormulusInjectionScript.js';
 import { 
   createFormulusMessageHandler, 
   sendFormInit, 
@@ -43,8 +46,25 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     ? 'file:///android_asset/formplayer_dist/index.html'
     : 'file:///formplayer_dist/index.html'; // Add iOS path
 
-  // Get the JavaScript interface for the Formplayer WebView from the shared injection script
-  const formplayerApi = generateFormulusInjectionScript();
+  // State to hold the injection script
+  const [injectionScript, setInjectionScript] = useState<string>('');
+
+  // Load the injection script when the component mounts
+  useEffect(() => {
+    const loadInjectionScript = async () => {
+      try {
+        const response = await fetch(INJECTION_SCRIPT_PATH);
+        const script = await response.text();
+        
+        // Console log forwarding is now included in the injection script
+        setInjectionScript(script);
+      } catch (error) {
+        console.error('Failed to load injection script:', error);
+      }
+    };
+
+    loadInjectionScript();
+  }, []);
   
   // Add console log forwarding script
   const consoleLogScript = `
@@ -378,7 +398,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
           onMessage={handleWebViewMessage}
           onError={handleError}
           onLoad={() => console.log('WebView loaded')}
-          injectedJavaScript={consoleLogScript + formplayerApi}
+          injectedJavaScript={injectionScript}
           javaScriptEnabled={true}
           domStorageEnabled={true}
         />

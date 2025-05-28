@@ -1,7 +1,12 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { generateFormulusInjectionScript } from '../webview/FormulusInjectionScript';
+import { Platform } from 'react-native';
+
+// Path to the generated injection script in the assets directory
+const INJECTION_SCRIPT_PATH = Platform.OS === 'ios' 
+  ? 'FormulusInjectionScript.js' 
+  : 'file:///android_asset/FormulusInjectionScript.js';
 import { 
   createFormulusMessageHandler, 
   sendFormInit, 
@@ -27,8 +32,23 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     webViewRef
   }));
   
-  // Get the JavaScript interface for the WebView from the shared injection script
-  const formulusApi = generateFormulusInjectionScript();
+  // State to hold the injection script
+  const [injectionScript, setInjectionScript] = useState<string>('');
+
+  // Load the injection script when the component mounts
+  useEffect(() => {
+    const loadInjectionScript = async () => {
+      try {
+        const response = await fetch(INJECTION_SCRIPT_PATH);
+        const script = await response.text();
+        setInjectionScript(script);
+      } catch (error) {
+        console.error('Failed to load injection script:', error);
+      }
+    };
+
+    loadInjectionScript();
+  }, []);
 
   useEffect(() => {
     console.log('Custom App WebView initialized, loading URL:', appUrl);
@@ -125,7 +145,7 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
         source={{ uri: appUrl }}
         style={styles.webview}
         onMessage={handleWebViewMessage}
-        injectedJavaScript={formulusApi}
+        injectedJavaScript={injectionScript}
         javaScriptEnabled={true}
         domStorageEnabled={true}
         allowFileAccess={true}
