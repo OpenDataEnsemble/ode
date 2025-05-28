@@ -68,27 +68,38 @@ function generateInjectionScript(interfaceFilePath: string): string {
       node.members.forEach((member) => {
         if (ts.isMethodSignature(member)) {
           const methodName = member.name.getText();
-          const returnType = member.type?.getText() || 'void';
+          const signature = typeChecker.getSignatureFromDeclaration(member);
+          const returnType = signature ? 
+            typeChecker.typeToString(signature.getReturnType()) : 'void';
           
-          const parameters: MethodParameter[] = member.parameters?.map((param) => {
-            const paramName = param.name.getText();
-            const paramType = typeChecker.typeToString(typeChecker.getTypeAtLocation(param));
-            return { 
-              name: paramName, 
-              type: paramType,
-              doc: `@param {${paramType}} ${paramName}`,
-              optional: !!param.questionToken
-            };
-          }) || [];
+          const parameters: MethodParameter[] = [];
+          
+          if (member.parameters) {
+            member.parameters.forEach((param) => {
+              const paramName = param.name.getText();
+              const paramType = typeChecker.typeToString(
+                typeChecker.getTypeAtLocation(param)
+              );
+              parameters.push({
+                name: paramName,
+                type: paramType,
+                doc: `@param {${paramType}} ${paramName}`,
+                optional: !!param.questionToken || param.initializer !== undefined
+              });
+            });
+          }
 
           // Skip if method already exists
           if (!methods.some(m => m.name === methodName)) {
+            const paramDocs = parameters.length > 0 ? 
+              `\n${parameters.map(p => ` * @param {${p.type}} ${p.name}${p.optional ? '?' : ''} - Parameter`).join('\n')}` : '';
+            
             methods.push({
               name: methodName,
               parameters,
               returnType,
               doc: `/**
-               * ${methodName}
+               * ${methodName}${paramDocs}
                * @returns {${returnType}}
                */`
             });

@@ -5,7 +5,7 @@
  * that's available in the WebView context as `window.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-05-28T13:03:31.631Z
+ * Last generated: 2025-05-28T14:44:54.501Z
  * 
  * @example
  * // In your JavaScript file:
@@ -17,9 +17,11 @@
  * });
  */
 
-/** @typedef {import('./types').FormInfo} FormInfo */
-/** @typedef {import('./types').FormObservation} FormObservation */
-/** @typedef {import('./types').AttachmentData} AttachmentData */
+// Type definitions for Formulus API
+
+/** @typedef {Object} FormInfo */
+/** @typedef {Object} FormObservation */
+/** @typedef {Object} AttachmentData */
 
 /**
  * Formulus API interface
@@ -27,141 +29,152 @@
  */
 const FormulusAPI = {
   /**
-   * Get the current version of the Formulus API
-   
-   * @returns {Promise<string> The API version}
-   */
+ * Get the current version of the Formulus API
+ * /
+ * @returns {Promise<string>} The API version
+ */
   getVersion: function() {},
 
   /**
-   * Get a list of available forms
-   
-   * @returns {Promise<FormInfo[]> Array of form information objects}
-   */
+ * Get a list of available forms
+ * /
+ * @returns {Promise<FormInfo[]>} Array of form information objects
+ */
   getAvailableForms: function() {},
 
   /**
-   * Open Formplayer with the specified form
-   * @param {string} formId - The ID of the form to open
-   * @param {Object} params - Additional parameters for form initialization
-   * @param {Object} savedData - Previously saved form data (for editing)
-   * @returns {void}
-   */
-  openFormplayer: function(formId: string, params: Object, savedData: Object) {},
+ * Open Formplayer with the specified form
+ * /
+ * @param {string} formId - The ID of the form to open
+ * @param {Object} params - Additional parameters for form initialization
+ * @param {Object} savedData - Previously saved form data (for editing)
+ * @returns {Promise<void>} 
+ */
+  openFormplayer: function(formId, params, savedData) {},
 
   /**
-   * Get observations for a specific form
-   * @param {string} formId - The ID of the form
-   * @param {boolean} isDraft - Whether to include draft observations
-   * @param {boolean} includeDeleted - Whether to include deleted observations
-   * @returns {Promise<FormObservation[]> Array of form observations}
-   */
-  getObservations: function(formId: string, isDraft: boolean, includeDeleted: boolean) {},
+ * Get observations for a specific form
+ * /
+ * @param {string} formId - The ID of the form
+ * @returns {Promise<FormObservation[]>} Array of form observations
+ */
+  getObservations: function(formId, isDraft, includeDeleted) {},
 
   /**
-   * Initialize a new form
-   
-   * @returns {void}
-   */
+ * Initialize a new form
+ * /
+ * @returns {Promise<void>} 
+ */
   initForm: function() {},
 
   /**
-   * Save partial form data
-   * @param {string} formId - The ID of the form
-   * @param {Object} data - The form data to save
-   * @returns {void}
-   */
-  savePartial: function(formId: string, data: Object) {},
+ * Save partial form data
+ * /
+ * @param {string} formId - The ID of the form
+ * @param {Object} data - The form data to save
+ * @returns {Promise<void>} 
+ */
+  savePartial: function(formId, data) {},
 
   /**
-   * Submit a completed form
-   * @param {string} formId - The ID of the form
-   * @param {Object} finalData - The final form data to submit
-   * @returns {void}
-   */
-  submitForm: function(formId: string, finalData: Object) {},
+ * Submit a completed form
+ * /
+ * @param {string} formId - The ID of the form
+ * @param {Object} finalData - The final form data to submit
+ * @returns {Promise<void>} 
+ */
+  submitForm: function(formId, finalData) {},
 
   /**
-   * Request camera access for a field
-   * @param {string} fieldId - The ID of the field
-   * @returns {void}
-   */
-  requestCamera: function(fieldId: string) {},
+ * Request camera access for a field
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @returns {Promise<void>} 
+ */
+  requestCamera: function(fieldId) {},
 
   /**
-   * Request location for a field
-   * @param {string} fieldId - The ID of the field
-   * @returns {void}
-   */
-  requestLocation: function(fieldId: string) {},
+ * Request location for a field
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @returns {Promise<void>} 
+ */
+  requestLocation: function(fieldId) {},
 
   /**
-   * Request file selection for a field
-   * @param {string} fieldId - The ID of the field
-   * @returns {void}
-   */
-  requestFile: function(fieldId: string) {},
+ * Request file selection for a field
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @returns {Promise<void>} 
+ */
+  requestFile: function(fieldId) {},
 
   /**
-   * Launch an external intent
-   * @param {string} fieldId - The ID of the field
-   * @param {Object} intentSpec - The intent specification
-   * @returns {void}
-   */
-  launchIntent: function(fieldId: string, intentSpec: Object) {},
+ * Launch an external intent
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @param {Object} intentSpec - The intent specification
+ * @returns {Promise<void>} 
+ */
+  launchIntent: function(fieldId, intentSpec) {},
 
   /**
-   * Call a subform
-   * @param {string} fieldId - The ID of the field
-   * @param {string} formId - The ID of the subform
-   * @param {Object} options - Additional options for the subform
-   * @returns {void}
-   */
-  callSubform: function(fieldId: string, formId: string, options: Object) {},
+ * Call a subform
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @param {string} formId - The ID of the subform
+ * @param {Object} options - Additional options for the subform
+ * @returns {Promise<void>} 
+ */
+  callSubform: function(fieldId, formId, options) {},
 
   /**
-   * Request audio recording for a field
-   * @param {string} fieldId - The ID of the field
-   * @returns {void}
-   */
-  requestAudio: function(fieldId: string) {},
+ * Request audio recording for a field
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @returns {Promise<void>} 
+ */
+  requestAudio: function(fieldId) {},
 
   /**
-   * Request signature for a field
-   * @param {string} fieldId - The ID of the field
-   * @returns {void}
-   */
-  requestSignature: function(fieldId: string) {},
+ * Request signature for a field
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @returns {Promise<void>} 
+ */
+  requestSignature: function(fieldId) {},
 
   /**
-   * Request biometric authentication
-   * @param {string} fieldId - The ID of the field
-   * @returns {void}
-   */
-  requestBiometric: function(fieldId: string) {},
+ * Request biometric authentication
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @returns {Promise<void>} 
+ */
+  requestBiometric: function(fieldId) {},
 
   /**
-   * Request the current connectivity status
-   
-   * @returns {void}
-   */
+ * Request the current connectivity status
+ * /
+ * @returns {Promise<void>} 
+ */
   requestConnectivityStatus: function() {},
 
   /**
-   * Request the current sync status
-   
-   * @returns {void}
-   */
+ * Request the current sync status
+ * /
+ * @returns {Promise<void>} 
+ */
   requestSyncStatus: function() {},
 
   /**
-   * Run a local ML model
-   * @param {string} fieldId - The ID of the field
-   * @param {string} modelId - The ID of the model to run
-   * @param {Object} input - The input data for the model
-   * @returns {void}
-   */
-  runLocalModel: function(fieldId: string, modelId: string, input: Object) {},
+ * Run a local ML model
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @param {string} modelId - The ID of the model to run
+ * @param {Object} input - The input data for the model
+ * @returns {Promise<void>} 
+ */
+  runLocalModel: function(fieldId, modelId, input) {},
 
 };
 
