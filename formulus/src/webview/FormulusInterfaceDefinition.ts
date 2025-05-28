@@ -23,16 +23,47 @@ export interface AttachmentData {
   [key: string]: any; // Additional properties based on type
 }
 
+export interface FormInfo {
+  formId: string;
+  name: string;
+  version: string;
+  coreFields: string[];
+  auxiliaryFields: string[];
+}
+
+export interface FormObservation {
+  observationId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  syncedAt: Date;
+  isDraft: boolean;
+  deleted: boolean;
+  formId: string;
+  formVersion: string;
+  dataPoints: DataPoint[];
+}
+
+export interface DataPoint {
+  fieldName: string;
+  fieldValue: any;
+  isCore: boolean;
+}
+
 /**
- * Interface for the Formulus app methods that will be injected into the WebView
+ * Interface for the Formulus app methods that will be injected into the WebViews for custom_app and FormPlayer
  */
 export interface FormulusInterface {
+  getVersion: () => string;
+  getAvailableForms: () => FormInfo[];
+  openFormplayer: (formId: string, params: Record<string, any>, savedData: Record<string, any>) => void;
+  getObservations: (formId: string, isDraft?: boolean, includeDeleted?: boolean) => FormObservation[]; // TODO: Update to support paging
+
   // Basic form operations
   initForm: () => void;
   savePartial: (formId: string, data: Record<string, any>) => void;
   submitForm: (formId: string, finalData: Record<string, any>) => void;
   
-  // Native feature calls
+  // Native feature calls // TODO: Clean-up
   requestCamera: (fieldId: string) => void;
   requestLocation: (fieldId: string) => void;
   requestFile: (fieldId: string) => void;

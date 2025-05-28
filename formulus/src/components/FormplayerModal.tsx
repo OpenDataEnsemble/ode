@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, ActivityIndicator } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { appEvents } from '../webview/formulusMessageHandlers';
+import { appEvents } from '../webview/FormulusMessageHandlers';
 import { generateFormulusInjectionScript } from '../webview/FormulusInjectionScript';
 import { 
   createFormulusMessageHandler, 

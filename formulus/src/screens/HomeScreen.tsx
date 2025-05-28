@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import RNFS from 'react-native-fs';
-import { appEvents, formulusMessageHandlers } from '../webview/formulusMessageHandlers';
+import { appEvents, FormulusMessageHandlers } from '../webview/FormulusMessageHandlers';
 import FormplayerModal from '../components/FormplayerModal';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 
@@ -122,7 +122,7 @@ const HomeScreen = ({ navigation }: any) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
       const { type, ...data } = message;
-      const handler = formulusMessageHandlers[type] || formulusMessageHandlers.__default__;
+      const handler = FormulusMessageHandlers[type] || FormulusMessageHandlers.__default__;
       
       // Ensure webViewRef exists before calling the handler
       if (customAppRef.current?.webViewRef) {

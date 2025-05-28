@@ -82,7 +82,7 @@ const sendAttachmentToFormplayer = (webViewRef: React.RefObject<WebView | null>,
   `);
 };
 
-export const formulusMessageHandlers: Record<string, Handler> = {
+export const FormulusMessageHandlers: Record<string, Handler> = {
   async getVersion({ webViewRef }) {
     try {
       const version = await NativeModules.UserAppModule.getVersion();
@@ -519,6 +519,6 @@ export const formulusMessageHandlers: Record<string, Handler> = {
 
   // Catch-all handler for unknown messages
   __default__({ data, webViewRef, event }) {
-    console.warn('[formulusMessageHandlers] Unhandled message:', { data, webViewRef, event });
+    console.warn('[FormulusMessageHandlers] Unhandled message:', { data, webViewRef, event });
   },
 };
