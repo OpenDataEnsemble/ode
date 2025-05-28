@@ -6,15 +6,23 @@
  * the Formulus interface and provides callbacks for specific message types.
  */
 
-import { WebViewMessageEvent } from 'react-native-webview';
-import { WebView } from 'react-native-webview';
+import { WebViewMessageEvent, WebView } from 'react-native-webview';
 
-// Types for message handlers
+// Types for message handling
 export interface FormInitData {
   formId: string;
   params: Record<string, any>;
   savedData: Record<string, any>;
 }
+
+interface PendingRequest {
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+  timeout: NodeJS.Timeout;
+}
+
+const PENDING_REQUESTS = new Map<string, PendingRequest>();
+const REQUEST_TIMEOUT = 30000; // 30 seconds timeout
 
 export interface FormulusMessageHandlers {
   onInitForm?: () => void;
@@ -41,6 +49,24 @@ export interface FormulusMessageHandlers {
  * @param handlers Callback handlers for different message types
  * @returns A function that can be passed to the WebView's onMessage prop
  */
+function handleResponse(message: any) {
+  // Handle Promise responses
+  if (message.type === 'response' && message.requestId) {
+    const pending = PENDING_REQUESTS.get(message.requestId);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      if (message.error) {
+        pending.reject(new Error(message.error));
+      } else {
+        pending.resolve(message.result);
+      }
+      PENDING_REQUESTS.delete(message.requestId);
+    }
+    return true;
+  }
+  return false;
+}
+
 export function createFormulusMessageHandler(
   webViewRef: React.RefObject<WebView>,
   handlers: FormulusMessageHandlers
@@ -49,6 +75,23 @@ export function createFormulusMessageHandler(
     try {
       const message = JSON.parse(event.nativeEvent.data);
       console.log('Received message from WebView:', message);
+      
+      // Handle Promise responses
+      if (message.type === 'response' && message.requestId) {
+        handleResponse(message);
+        return;
+      }
+      
+      // Handle callback responses
+      if (message.type === 'callback') {
+        // For now, just log the callback result
+        if (message.error) {
+          console.error('Callback error:', message.error);
+        } else {
+          console.log('Callback completed successfully');
+        }
+        return;
+      }
       
       switch (message.type) {
         case 'initForm':
@@ -174,93 +217,160 @@ export function createFormulusMessageHandler(
  * @param callbackName Name of the callback function to call
  * @param data Data to send to the WebView
  */
-export function sendToWebView(
+export function sendToWebView<T = void>(
   webViewRef: React.RefObject<WebView>,
   callbackName: string,
-  data: any
-): void {
-  if (webViewRef.current) {
-    console.log(`DEBUG: Sending data to WebView using callback: ${callbackName}`, {
-      dataKeys: Object.keys(data),
-      hasFormId: data.formId ? true : false,
-      hasParams: data.params ? true : false,
-      paramsKeys: data.params ? Object.keys(data.params) : [],
-      hasSavedData: data.savedData ? true : false,
-    });
-    
-    const script = `
-      console.log('DEBUG: Inside WebView, checking for callback: ${callbackName}');
-      if (typeof globalThis.${callbackName} === 'function') {
-        console.log('DEBUG: Found callback function, calling it now');
-        globalThis.${callbackName}(${JSON.stringify(data)});
-        console.log('DEBUG: Callback executed');
-      } else {
-        console.warn('DEBUG: WebView: ${callbackName} handler not found');
-      }
-      true;
-    `;
-    
-    try {
-      webViewRef.current.injectJavaScript(script);
-      console.log('DEBUG: Successfully injected JavaScript into WebView');
-    } catch (error) {
-      console.error('DEBUG: Error injecting JavaScript into WebView:', error);
-    }
-  } else {
-    console.error('DEBUG: WebView reference is null, cannot send data');
+  data: any = {},
+  isPromise: boolean = false
+): Promise<T> {
+  if (!webViewRef.current) {
+    const error = 'WebView ref is not available';
+    console.warn(error);
+    return Promise.reject(new Error(error));
   }
+
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const message = {
+    type: callbackName,
+    requestId: isPromise ? requestId : undefined,
+    ...data
+  };
+
+  if (!isPromise) {
+    // Non-Promise callback
+    return new Promise((resolve, reject) => {
+      try {
+        webViewRef.current?.injectJavaScript(`
+          (function() {
+            try {
+              if (window.${callbackName}) {
+                window.${callbackName}(${JSON.stringify(data)});
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'callback',
+                  requestId: '${Date.now()}_${Math.random().toString(36).substr(2, 9)}',
+                  success: true
+                }));
+              } else {
+                console.warn('Callback ${callbackName} not found');
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'callback',
+                  requestId: '${Date.now()}_${Math.random().toString(36).substr(2, 9)}',
+                  error: 'Callback ${callbackName} not found'
+                }));
+              }
+            } catch (error) {
+              console.error('Error in ${callbackName}:', error);
+              window.ReactNativeWebView.postMessage(JSON.stringify({
+                type: 'callback',
+                requestId: '${Date.now()}_${Math.random().toString(36).substr(2, 9)}',
+                error: error?.message || 'Unknown error in callback'
+              }));
+            }
+          })();
+          true; // Always return true to prevent warnings
+        `);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // Promise-based response
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      PENDING_REQUESTS.delete(requestId);
+      reject(new Error('Request timed out'));
+    }, REQUEST_TIMEOUT);
+
+    PENDING_REQUESTS.set(requestId, {
+      resolve,
+      reject,
+      timeout
+    });
+
+    webViewRef.current.injectJavaScript(`
+      (function() {
+        try {
+          if (window.${callbackName}) {
+            Promise.resolve(window.${callbackName}(${JSON.stringify(data)}))
+              .then(result => ({
+                type: 'response',
+                requestId: '${requestId}',
+                result
+              }))
+              .catch(error => ({
+                type: 'response',
+                requestId: '${requestId}',
+                error: error?.message || String(error)
+              }))
+              .then(response => window.ReactNativeWebView.postMessage(JSON.stringify(response)));
+          } else {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'response',
+              requestId: '${requestId}',
+              error: 'Callback ${callbackName} not found'
+            }));
+          }
+        } catch (error) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'response',
+            requestId: '${requestId}',
+            error: error?.message || 'Unknown error'
+          }));
+        }
+      })();
+      true; // Always return true to prevent warnings
+    `);
+  });
 }
 
 /**
  * Send form initialization data to the WebView
  * @param webViewRef Reference to the WebView component
  * @param formData Form initialization data
+ * @returns Promise that resolves when the WebView has processed the initialization
  */
 export function sendFormInit(
   webViewRef: React.RefObject<WebView>,
   formData: FormInitData
-): void {
-  if (!webViewRef.current) {
-    console.error('Cannot send form initialization data: WebView reference is null');
-    return;
-  }
+): Promise<void> {
+  const { formId, params = {}, savedData = {} } = formData;
+  
+  console.log('Sending form init data to WebView:', {
+    formId,
+    paramsKeys: Object.keys(params),
+    hasSavedData: !!savedData,
+    savedDataKeys: savedData ? Object.keys(savedData) : []
+  });
 
-  // Extract form data components
-  const { formId, params, savedData } = formData;
-  
-  // Log initialization attempt
-  console.log(`Initializing form with ID: ${formId}`);
-  
-  // Use the direct callback pattern as defined in the interface
-  const script = `
-    if (typeof globalThis.onFormInit === 'function') {
-      // The FormulusClient expects these parameters to be passed separately
-      // and it will combine them into a single object internally
-      globalThis.onFormInit('${formId}', ${JSON.stringify(params)}, ${JSON.stringify(savedData)});
-      console.log('Form initialization data sent to formplayer');
-    } else {
-      console.error('Form initialization failed: onFormInit callback not found');
-    }
-    true;
-  `;
-  
-  try {
-    webViewRef.current.injectJavaScript(script);
-  } catch (error) {
-    console.error('Error sending form initialization data:', error);
-  }
+  return sendToWebView<void>(
+    webViewRef,
+    'onFormInit',
+    {
+      formId,
+      params,
+      savedData: savedData || {}
+    },
+    true // Enable Promise support
+  );
 }
 
 /**
  * Send attachment data to the WebView
  * @param webViewRef Reference to the WebView component
  * @param attachmentData Attachment data
+ * @returns Promise that resolves when the WebView has processed the attachment
  */
 export function sendAttachmentData(
   webViewRef: React.RefObject<WebView>,
   attachmentData: any
-): void {
-  sendToWebView(webViewRef, 'formulus.onAttachmentReady', attachmentData);
+): Promise<void> {
+  return sendToWebView<void>(
+    webViewRef,
+    'onAttachmentReady',
+    attachmentData,
+    true // Enable Promise support
+  );
 }
 
 /**
@@ -268,11 +378,17 @@ export function sendAttachmentData(
  * @param webViewRef Reference to the WebView component
  * @param formId Form ID
  * @param success Whether the save was successful
+ * @returns Promise that resolves when the WebView has processed the save status
  */
 export function sendSavePartialComplete(
   webViewRef: React.RefObject<WebView>,
   formId: string,
   success: boolean
-): void {
-  sendToWebView(webViewRef, 'formulus.onSavePartialComplete', { formId, success });
+): Promise<void> {
+  return sendToWebView<void>(
+    webViewRef,
+    'onSavePartialComplete',
+    { formId, success },
+    true // Enable Promise support
+  );
 }
