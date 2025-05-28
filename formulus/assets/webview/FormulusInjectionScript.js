@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-05-28T12:02:22.021Z
+// Last generated: 2025-05-28T13:03:30.690Z
 
 (function() {
   if (typeof globalThis.formulus !== 'undefined') {
