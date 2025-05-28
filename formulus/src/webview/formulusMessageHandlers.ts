@@ -1,3 +1,7 @@
+/*
+This is where the actual implementation of the methods happens on the React Native side. 
+It handles the messages received from the WebView and executes the corresponding native functionality.
+*/
 import { NativeModules } from 'react-native';
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
