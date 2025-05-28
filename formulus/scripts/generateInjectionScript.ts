@@ -255,7 +255,7 @@ if (require.main === module) {
     // Get the project root directory (one level up from scripts directory)
     const projectRoot = path.resolve(__dirname, '..');
     const interfacePath = path.join(projectRoot, 'src', 'webview', 'FormulusInterfaceDefinition.ts');
-    const outputPath = path.join(projectRoot, 'src', 'webview', 'FormulusInjectionScript.generated.ts');
+    const outputPath = path.join(projectRoot, 'assets', 'webview', 'FormulusInjectionScript.js');
     
     console.log('Project root:', projectRoot);
     console.log('Interface path:', interfacePath);
