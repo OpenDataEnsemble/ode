@@ -40,13 +40,7 @@ export interface FormObservation {
   deleted: boolean;
   formId: string;
   formVersion: string;
-  dataPoints: DataPoint[];
-}
-
-export interface DataPoint {
-  fieldName: string;
-  fieldValue: any;
-  isCore: boolean;
+  dataPoints: Record<string, any>;
 }
 
 /**
