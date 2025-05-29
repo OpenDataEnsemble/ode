@@ -3,7 +3,6 @@ import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, Activ
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { appEvents } from '../webview/FormulusMessageHandlers';
-// Import the file utility
 import { readFileAssets } from 'react-native-fs';
 
 const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
@@ -106,27 +105,6 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       };
     })();
   `;
-
-  // Load the injection script when the component mounts
-  useEffect(() => {
-    const loadScript = async () => {
-      try {
-        console.log('Loading injection script from:', INJECTION_SCRIPT_PATH);
-        const scriptContent = await readFileAssets(INJECTION_SCRIPT_PATH);
-        console.log('Successfully loaded injection script');
-        setInjectionScript(scriptContent);
-        return true;
-      } catch (error) {
-        console.error('Failed to load injection script:', error);
-        return false;
-      }
-    };
-
-    // Only load the script if we haven't already loaded it
-    if (!injectionScript) {
-      loadScript();
-    }
-  }, [injectionScript]);
 
   // Initialize the form when the modal becomes visible
   useEffect(() => {
