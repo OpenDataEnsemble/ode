@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,33 +7,74 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert
+  Alert,
+  ActivityIndicator
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SettingsScreen = () => {
   const [serverUrl, setServerUrl] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load settings when component mounts
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const settings = await AsyncStorage.getItem('@settings');
+        if (settings) {
+          const { serverUrl: savedUrl, username: savedUsername } = JSON.parse(settings);
+          setServerUrl(savedUrl || '');
+          setUsername(savedUsername || '');
+          // Note: We don't load password for security reasons
+        }
+      } catch (error) {
+        console.error('Failed to load settings', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadSettings();
+  }, []);
 
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Save settings to AsyncStorage
+      await AsyncStorage.setItem('@settings', JSON.stringify({
+        serverUrl,
+        username,
+        // Note: We don't save password for security reasons
+        // In a real app, you might want to use secure storage for sensitive data
+      }));
+      
       Alert.alert('Success', 'Settings saved successfully');
     } catch (error) {
+      console.error('Failed to save settings', error);
       Alert.alert('Error', 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={styles.sectionHeader}>Settings</Text>
         <View style={styles.divider} />
+        
         <View style={styles.section}>
           <Text style={styles.label}>Synkronus URL</Text>
           <TextInput
@@ -75,7 +116,10 @@ const SettingsScreen = () => {
         </View>
 
         <TouchableOpacity 
-          style={styles.button}
+          style={[
+            styles.button,
+            isSaving && styles.buttonDisabled
+          ]}
           onPress={handleSave}
           disabled={isSaving}
         >
@@ -137,6 +181,13 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#ccc',
     marginVertical: 16,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
 });
 
