@@ -48,9 +48,8 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     ? 'file:///android_asset/formplayer_dist/index.html'
     : 'file:///formplayer_dist/index.html'; // Add iOS path
 
-  // The injection script that will be injected into the WebView
-  // This is now loaded from the file system
-  const [injectionScript, setInjectionScript] = useState('');
+  
+  const [injectionScript, setInjectionScript] = useState<string>('');
 
   // Load the injection script when the component mounts
   useEffect(() => {
