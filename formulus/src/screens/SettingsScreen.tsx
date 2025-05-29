@@ -111,7 +111,10 @@ const SettingsScreen = () => {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="password"
+            textContentType="password"
           />
         </View>
 
