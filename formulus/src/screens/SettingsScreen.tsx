@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  Alert,
-  ActivityIndicator
-} from 'react-native';
+import {View,Text,TextInput,TouchableOpacity,StyleSheet,SafeAreaView,ScrollView,Alert,ActivityIndicator} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { login } from '../api/synkronus/Auth'
 
 const SettingsScreen = () => {
   const [serverUrl, setServerUrl] = useState('');
@@ -18,6 +9,7 @@ const SettingsScreen = () => {
   const [password, setPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Load settings when component mounts
   useEffect(() => {
@@ -40,6 +32,22 @@ const SettingsScreen = () => {
     loadSettings();
   }, []);
 
+  const handleLogin = async () => {
+    if (!username || !password) {
+      Alert.alert('Error', 'Username and password are required')
+      return
+    }
+    try {
+      setIsLoggingIn(true)
+      await login(username, password)
+      console.log('Logged in!')
+    } catch (err) {
+      console.error('Login failed', err)
+    } finally {
+      setIsLoggingIn(false)
+    }
+  }
+  
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -48,8 +56,9 @@ const SettingsScreen = () => {
       await AsyncStorage.setItem('@settings', JSON.stringify({
         serverUrl,
         username,
-        // Note: We don't save password for security reasons
-        // In a real app, you might want to use secure storage for sensitive data
+        password,
+        // Note: We shouldn't save password for security reasons
+        // Later we might want to use secure storage for sensitive data
       }));
       
       Alert.alert('Success', 'Settings saved successfully');
@@ -128,6 +137,19 @@ const SettingsScreen = () => {
         >
           <Text style={styles.buttonText}>
             {isSaving ? 'Saving...' : 'Save Settings'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[
+            styles.button,
+            isLoggingIn && styles.buttonDisabled
+          ]}
+          onPress={handleLogin}
+          disabled={isLoggingIn}
+        >
+          <Text style={styles.buttonText}>
+            {isLoggingIn ? 'Logging in...' : 'Login'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

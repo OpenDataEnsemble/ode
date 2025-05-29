@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  SafeAreaView,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import {View,Text,StyleSheet,SafeAreaView,ScrollView,TouchableOpacity,ActivityIndicator,Alert} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/NavigationTypes';
+import { getSynkronusApi } from '../api/synkronus';
 
 const SyncScreen = () => {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -21,17 +13,38 @@ const SyncScreen = () => {
   const handleSync = async () => {
     try {
       setIsSyncing(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const res = await doPull()
+      console.log('Sync result:', res)
       setLastSync(new Date().toLocaleTimeString());
-      Alert.alert('Success', 'Data synchronized successfully');
+      Alert.alert('Success', 'Data synchronized successfully: ' + res);
     } catch (error) {
       console.error('Sync failed:', error);
-      Alert.alert('Error', 'Failed to synchronize data');
+      Alert.alert('Error', 'Failed to synchronize data: ' + error);
     } finally {
       setIsSyncing(false);
     }
   };
+
+  const doPull = async () => {
+
+    try {
+      const api = await getSynkronusApi()
+      const res = await api.appBundleVersionsGet()
+      console.log('Pulled versions:', res)
+      // const res = await api.syncPullPost({
+      //   syncPullRequest: {
+      //     client_id: 'my-device-id',
+      //     after_change_id: 0,
+      //     schema_types: ['survey'],
+      //   },
+      // })
+      //console.log('Pulled records:', res.data.records)
+      return JSON.stringify(res)
+    } catch (err) {
+      console.error('Pull failed', err)
+      return JSON.stringify(err)
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
