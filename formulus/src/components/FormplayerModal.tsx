@@ -4,10 +4,11 @@ import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { appEvents } from '../webview/FormulusMessageHandlers';
 // Import the file utility
-import { readAssetFile } from '../utils/fileUtils';
 import { readFileAssets } from 'react-native-fs';
 
-const INJECTION_SCRIPT_PATH = 'FormulusInjectionScript.js';
+const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
+  ? 'webview/FormulusInjectionScript.js'
+  : 'FormulusInjectionScript.js';
 
 import { 
   createFormulusMessageHandler, 
@@ -56,9 +57,13 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
   useEffect(() => {
     const loadScript = async () => {
       try {
-        const script = await readFileAssets('webview/FormulusInjectionScript.js');
-        setInjectionScript(script);
-        console.log('Successfully loaded injection script');
+        const script = await readFileAssets(INJECTION_SCRIPT_PATH);
+        if (script?.length > 0) {
+          setInjectionScript(script);
+          console.log('Successfully loaded injection script from ', INJECTION_SCRIPT_PATH);
+        } else {
+          console.error('Failed to load injection script: script is empty');
+        }
       } catch (error) {
         console.error('Failed to load injection script:', error);
       }
@@ -107,16 +112,21 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     const loadScript = async () => {
       try {
         console.log('Loading injection script from:', INJECTION_SCRIPT_PATH);
-        const scriptContent = await readAssetFile(INJECTION_SCRIPT_PATH);
+        const scriptContent = await readFileAssets(INJECTION_SCRIPT_PATH);
         console.log('Successfully loaded injection script');
         setInjectionScript(scriptContent);
+        return true;
       } catch (error) {
         console.error('Failed to load injection script:', error);
+        return false;
       }
     };
 
-    loadScript();
-  }, []);
+    // Only load the script if we haven't already loaded it
+    if (!injectionScript) {
+      loadScript();
+    }
+  }, [injectionScript]);
 
   // Initialize the form when the modal becomes visible
   useEffect(() => {
@@ -415,18 +425,16 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
           onError={handleError}
           onLoadStart={() => {
             console.log('WebView starting to load URL:', formplayerUri);
-            console.log('Injection script path:', INJECTION_SCRIPT_PATH);
           }}
           onLoadEnd={() => {
             console.log('WebView finished loading');
-            // Get the current URL using injected JavaScript
           }}
-          onLoad={() => console.log('WebView loaded')}
           onHttpError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
             console.error('WebView HTTP error:', nativeEvent);
           }}
-          injectedJavaScript={injectionScript || 'console.log("Injection script not loaded yet");'}
+          injectedJavaScript={injectionScript || ''}
+          injectedJavaScriptBeforeContentLoaded={injectionScript}
           javaScriptEnabled={true}
           domStorageEnabled={true}
           allowFileAccess={true}
@@ -436,6 +444,12 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
             console.log('Loading URL:', request.url);
             return true;
           }}
+          startInLoadingState={true}
+          renderLoading={() => (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#007bff" />
+            </View>
+          )}
         />
         
         {/* Loading overlay */}
