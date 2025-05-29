@@ -58,7 +58,8 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       try {
         const script = await readFileAssets(INJECTION_SCRIPT_PATH);
         if (script?.length > 0) {
-          setInjectionScript(script);
+          const combinedScript = `${consoleLogScript}\n${script}`;
+          setInjectionScript(combinedScript);
           console.log('Successfully loaded injection script from ', INJECTION_SCRIPT_PATH);
         } else {
           console.error('Failed to load injection script: script is empty');
@@ -411,7 +412,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
             const { nativeEvent } = syntheticEvent;
             console.error('WebView HTTP error:', nativeEvent);
           }}
-          injectedJavaScript={injectionScript || ''}
+          //injectedJavaScript={injectionScript || ''}
           injectedJavaScriptBeforeContentLoaded={injectionScript}
           javaScriptEnabled={true}
           domStorageEnabled={true}
