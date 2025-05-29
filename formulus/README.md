@@ -82,6 +82,35 @@ You've successfully run and modified your React Native App. :partying_face:
 - If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
 - If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
 
+# WebView Assets Setup
+
+This project includes custom WebView assets that need to be available to the Android app. Here's how the setup works:
+
+## Asset Location
+- Source files are located in `assets/webview/`
+- These files are automatically copied during the build process
+
+## Android Configuration
+
+The Android build is configured to:
+1. Copy webview assets during the build process
+2. Make them available at `file:///android_asset/webview/` in the WebView
+
+## Accessing Assets in Code
+
+Reference the assets in your React Native code like this:
+
+```typescript
+const INJECTION_SCRIPT_PATH = Platform.OS === 'ios' 
+  ? 'FormulusInjectionScript.js' 
+  : 'file:///android_asset/webview/FormulusInjectionScript.js';
+```
+
+## Development Notes
+- When adding new files to `assets/webview/`, ensure they are included in the build by:
+  1. Running a clean build: `cd android && ./gradlew clean && cd ..`
+  2. Rebuilding the app: `npx react-native run-android`
+
 # Troubleshooting
 
 If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.

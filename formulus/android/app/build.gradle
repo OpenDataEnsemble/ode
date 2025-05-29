@@ -124,3 +124,29 @@ dependencies {
 
     implementation project(':watermelondb-jsi') // for watermelondb JSI fastness
 }
+
+// Custom task to copy webview assets
+task copyWebviewAssets(type: Copy) {
+    from "${rootDir}/../assets/webview"
+    into "${buildDir}/intermediates/merged_assets/debug/mergeDebugAssets/out/webview"
+    include '**/*.js'
+    
+    // Create the directory if it doesn't exist
+    doFirst {
+        file("${buildDir}/intermediates/merged_assets/debug/mergeDebugAssets/out/webview").mkdirs()
+    }
+}
+
+// Ensure the task runs before mergeDebugAssets
+tasks.whenTaskAdded { task ->
+    if (task.name == 'mergeDebugAssets' || task.name == 'mergeReleaseAssets') {
+        task.dependsOn(copyWebviewAssets)
+    }
+}
+
+// Also run the task during configuration to ensure it's available for the first build
+tasks.whenTaskAdded { task ->
+    if (task.name == 'preDebugBuild' || task.name == 'preReleaseBuild') {
+        task.dependsOn(copyWebviewAssets)
+    }
+}

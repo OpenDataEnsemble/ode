@@ -6,7 +6,7 @@ import { appEvents } from '../webview/FormulusMessageHandlers';
 // Path to the generated injection script in the assets directory
 const INJECTION_SCRIPT_PATH = Platform.OS === 'ios' 
   ? 'FormulusInjectionScript.js' 
-  : 'file:///android_asset/FormulusInjectionScript.js';
+  : 'file:///android_asset/webview/FormulusInjectionScript.js';
 import { 
   createFormulusMessageHandler, 
   sendFormInit, 
