@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, SafeAreaView, Alert } from 'react-native';
-
+import { RootStackParamList } from '../types/NavigationTypes';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
 
-type RootStackParamList = {
-  Welcome: undefined;
-  Settings: undefined;
-};
+
 
 type WelcomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Welcome'>;
 

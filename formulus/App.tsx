@@ -26,6 +26,13 @@ const NavigationButtons = ({ navigation }: { navigation: any }) => (
     >
       <Icon name="home" size={28} color="#333" />
     </TouchableOpacity>
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Settings')}
+      style={{ marginRight: 8 }}
+      accessibilityLabel="Go to Settings"
+    >
+      <Icon name="cog" size={28} color="#333" />
+    </TouchableOpacity>
   </View>
 );
 
