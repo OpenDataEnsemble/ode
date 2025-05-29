@@ -74,42 +74,48 @@ def enableProguardInReleaseBuilds = false
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
-    ndkVersion rootProject.ext.ndkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
-    compileSdk rootProject.ext.compileSdkVersion
+    ndkVersion = rootProject.ext.ndkVersion
+    buildToolsVersion = rootProject.ext.buildToolsVersion
+    compileSdk = rootProject.ext.compileSdkVersion
 
-    namespace "com.formulus"
+    namespace = "com.formulus"
+
     defaultConfig {
-        applicationId "com.formulus"
-        minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        applicationId = "com.formulus"
+        minSdk = rootProject.ext.minSdkVersion
+        targetSdk = rootProject.ext.targetSdkVersion
+        versionCode = 1
+        versionName = "1.0"
     }
+
     signingConfigs {
         debug {
-            storeFile file('debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+            storeFile = file('debug.keystore')
+            storePassword = 'android'
+            keyAlias = 'androiddebugkey'
+            keyPassword = 'android'
         }
     }
+
     buildTypes {
         debug {
-            signingConfig signingConfigs.debug
+            signingConfig = signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
-            minifyEnabled enableProguardInReleaseBuilds
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            signingConfig = signingConfigs.debug
+            minifyEnabled = enableProguardInReleaseBuilds
+            proguardFiles = [getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"]
         }
+    }
+
+    def assetsDir = file("$projectDir/src/main/assets")
+    if (!assetsDir.exists()) {
+        assetsDir.mkdirs()
     }
 
     packagingOptions {
-     pickFirst '**/libc++_shared.so' // for watermelondb JSI fastness
-  }
+        pickFirst '**/libc++_shared.so' // for watermelondb JSI fastness
+    }
 }
 
 dependencies {
@@ -125,28 +131,10 @@ dependencies {
     implementation project(':watermelondb-jsi') // for watermelondb JSI fastness
 }
 
-// Custom task to copy webview assets
+
 task copyWebviewAssets(type: Copy) {
     from "${rootDir}/../assets/webview"
-    into "${buildDir}/intermediates/merged_assets/debug/mergeDebugAssets/out/webview"
+    into "${projectDir}/src/main/assets/webview"
     include '**/*.js'
-    
-    // Create the directory if it doesn't exist
-    doFirst {
-        file("${buildDir}/intermediates/merged_assets/debug/mergeDebugAssets/out/webview").mkdirs()
-    }
 }
-
-// Ensure the task runs before mergeDebugAssets
-tasks.whenTaskAdded { task ->
-    if (task.name == 'mergeDebugAssets' || task.name == 'mergeReleaseAssets') {
-        task.dependsOn(copyWebviewAssets)
-    }
-}
-
-// Also run the task during configuration to ensure it's available for the first build
-tasks.whenTaskAdded { task ->
-    if (task.name == 'preDebugBuild' || task.name == 'preReleaseBuild') {
-        task.dependsOn(copyWebviewAssets)
-    }
-}
+preBuild.dependsOn(copyWebviewAssets)

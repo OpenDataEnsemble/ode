@@ -3,10 +3,12 @@ import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, Activ
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { appEvents } from '../webview/FormulusMessageHandlers';
-// Path to the generated injection script in the assets directory
-const INJECTION_SCRIPT_PATH = Platform.OS === 'ios' 
-  ? 'FormulusInjectionScript.js' 
-  : 'file:///android_asset/webview/FormulusInjectionScript.js';
+// Import the file utility
+import { readAssetFile } from '../utils/fileUtils';
+import { readFileAssets } from 'react-native-fs';
+
+const INJECTION_SCRIPT_PATH = 'FormulusInjectionScript.js';
+
 import { 
   createFormulusMessageHandler, 
   sendFormInit, 
@@ -33,7 +35,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
   const [currentFormId, setCurrentFormId] = useState<string | null>(null);
   const [formTypes, setFormTypes] = useState<FormType[]>([]);
   const [selectedFormTypeId, setSelectedFormTypeId] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Use a ref to track processed submissions with timestamps - this won't trigger re-renders
   const processedSubmissions = useRef<Map<string, number>>(new Map());
@@ -46,24 +48,22 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     ? 'file:///android_asset/formplayer_dist/index.html'
     : 'file:///formplayer_dist/index.html'; // Add iOS path
 
-  // State to hold the injection script
-  const [injectionScript, setInjectionScript] = useState<string>('');
+  // The injection script that will be injected into the WebView
+  // This is now loaded from the file system
+  const [injectionScript, setInjectionScript] = useState('');
 
   // Load the injection script when the component mounts
   useEffect(() => {
-    const loadInjectionScript = async () => {
+    const loadScript = async () => {
       try {
-        const response = await fetch(INJECTION_SCRIPT_PATH);
-        const script = await response.text();
-        
-        // Console log forwarding is now included in the injection script
+        const script = await readFileAssets('webview/FormulusInjectionScript.js');
         setInjectionScript(script);
+        console.log('Successfully loaded injection script');
       } catch (error) {
         console.error('Failed to load injection script:', error);
       }
     };
-
-    loadInjectionScript();
+    loadScript();
   }, []);
   
   // Add console log forwarding script
@@ -101,6 +101,22 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       };
     })();
   `;
+
+  // Load the injection script when the component mounts
+  useEffect(() => {
+    const loadScript = async () => {
+      try {
+        console.log('Loading injection script from:', INJECTION_SCRIPT_PATH);
+        const scriptContent = await readAssetFile(INJECTION_SCRIPT_PATH);
+        console.log('Successfully loaded injection script');
+        setInjectionScript(scriptContent);
+      } catch (error) {
+        console.error('Failed to load injection script:', error);
+      }
+    };
+
+    loadScript();
+  }, []);
 
   // Initialize the form when the modal becomes visible
   useEffect(() => {
@@ -397,10 +413,29 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
           style={styles.webview}
           onMessage={handleWebViewMessage}
           onError={handleError}
+          onLoadStart={() => {
+            console.log('WebView starting to load URL:', formplayerUri);
+            console.log('Injection script path:', INJECTION_SCRIPT_PATH);
+          }}
+          onLoadEnd={() => {
+            console.log('WebView finished loading');
+            // Get the current URL using injected JavaScript
+          }}
           onLoad={() => console.log('WebView loaded')}
-          injectedJavaScript={injectionScript}
+          onHttpError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.error('WebView HTTP error:', nativeEvent);
+          }}
+          injectedJavaScript={injectionScript || 'console.log("Injection script not loaded yet");'}
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          allowFileAccess={true}
+          allowUniversalAccessFromFileURLs={true}
+          allowFileAccessFromFileURLs={true}
+          onShouldStartLoadWithRequest={(request) => {
+            console.log('Loading URL:', request.url);
+            return true;
+          }}
         />
         
         {/* Loading overlay */}
