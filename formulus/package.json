@@ -9,6 +9,7 @@
     "start": "react-native start",
     "test": "jest",
     "generate": "ts-node --project scripts/tsconfig.json scripts/generateInjectionScript.ts",
+    "generate:api": "openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated --additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original",
     "prebuild": "npm run generate"
   },
   "dependencies": {
@@ -30,6 +31,7 @@
     "@babel/plugin-proposal-decorators": "^7.27.1",
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
+    "@openapitools/openapi-generator-cli": "^2.20.2",
     "@react-native-community/cli": "18.0.0",
     "@react-native-community/cli-platform-android": "18.0.0",
     "@react-native-community/cli-platform-ios": "18.0.0",
