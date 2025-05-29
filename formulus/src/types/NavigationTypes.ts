@@ -2,4 +2,5 @@
 export type RootStackParamList = {
     Welcome: undefined;  // The Welcome screen takes no parameters
     Settings: undefined; // The Settings screen takes no parameters
+    Sync: undefined;     // The Sync screen takes no parameters
 };

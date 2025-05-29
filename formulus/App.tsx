@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import SyncScreen from './src/screens/SyncScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import FormManagementScreen from './src/screens/FormManagementScreen';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -33,6 +34,13 @@ const NavigationButtons = ({ navigation }: { navigation: any }) => (
     >
       <Icon name="cog" size={28} color="#333" />
     </TouchableOpacity>
+    <TouchableOpacity
+      onPress={() => navigation.navigate('Sync')}
+      style={{ marginRight: 8 }}
+      accessibilityLabel="Sync Data"
+    >
+      <Icon name="sync" size={28} color="#333" />
+    </TouchableOpacity>
   </View>
 );
 
@@ -48,6 +56,7 @@ function App(): React.JSX.Element {
         <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
         <Stack.Screen name="Welcome" component={WelcomeScreen} options={{ title: 'Welcome' }} />
         <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+        <Stack.Screen name="Sync" component={SyncScreen} options={{ title: 'Sync Data' }} />
         <Stack.Screen name="FormManagement" component={FormManagementScreen} options={{ title: 'Form Management' }} />
       </Stack.Navigator>
     </NavigationContainer>
