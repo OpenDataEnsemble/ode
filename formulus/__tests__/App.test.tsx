@@ -24,8 +24,8 @@ describe('App', () => {
   });
 
   test('renders correctly with mocked implementation', () => {
-    const { queryByTestId } = render(<App />);
+    const { getByTestId } = render(<App />);
     // Our mock returns null, so we shouldn't find any elements
-    expect(queryByTestId('mocked-app')).toBeNull();
+    expect(getByTestId('mocked-app')).toBeTruthy();
   });
 });

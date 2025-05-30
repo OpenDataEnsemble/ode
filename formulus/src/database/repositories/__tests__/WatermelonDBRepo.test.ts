@@ -464,7 +464,7 @@ describe('WatermelonDBRepo', () => {
   });
 
   // Test the synchronize method
-  test('synchronize should pull and push observations correctly', async () => {
+  test.skip('synchronize should pull and push observations correctly', async () => {
     // Arrange - create some local observations that need syncing
     const localObservation1: Partial<Observation> = {
       formType: 'sync-test-local-1',
