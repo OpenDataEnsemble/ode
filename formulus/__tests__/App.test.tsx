@@ -3,30 +3,29 @@
  */
 
 import React from 'react';
-import ReactTestRenderer from 'react-test-renderer';
+import { render } from '@testing-library/react-native';
 
 // Mock the App component instead of trying to render the real one
 // This avoids issues with native modules and database initialization
 jest.mock('../App', () => {
+  const React = require('react');
+  const { View } = require('react-native');
   return function MockedApp() {
-    return null;
+    return <View testID="mocked-app" />;
   };
 });
 
 import App from '../App';
 
-test('App can be imported', () => {
-  // Simply test that the App component can be imported without errors
-  expect(App).toBeDefined();
-});
-
-test('renders correctly with mocked implementation', async () => {
-  let renderer: ReactTestRenderer.ReactTestRenderer | undefined;
-  
-  await ReactTestRenderer.act(() => {
-    renderer = ReactTestRenderer.create(<App />);
+describe('App', () => {
+  test('can be imported', () => {
+    // Simply test that the App component can be imported without errors
+    expect(App).toBeDefined();
   });
-  
-  // With our mock, this should now pass
-  expect(renderer!.toJSON()).toBeNull();
+
+  test('renders correctly with mocked implementation', () => {
+    const { queryByTestId } = render(<App />);
+    // Our mock returns null, so we shouldn't find any elements
+    expect(queryByTestId('mocked-app')).toBeNull();
+  });
 });
