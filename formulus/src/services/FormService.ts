@@ -23,17 +23,22 @@ export class FormService {
   private constructor() {
     // Initialize with some default form types
     // In a real implementation, these would likely be loaded from an API or local storage
-    this.formTypes = [
-      {
-        id: 'person',
-        name: 'Person',
-        description: 'Form for collecting person information',
-        schemaVersion: '1.0',
-        schema: require('../webview/personschema.json'),
-        uiSchema: require('../webview/personui.json')
-      },
-      // Add more form types as needed
-    ];
+    try {
+      this.formTypes = [
+        {
+          id: 'person',
+          name: 'Person',
+          description: 'Form for collecting person information',
+          schemaVersion: '1.0',
+          schema: require('../webview/personschema.json'),
+          uiSchema: require('../webview/personui.json')
+        },
+        // Add more form types as needed
+      ];
+    } catch (error) {
+      console.error('Failed to load default form types during FormService construction:', error);
+      this.formTypes = []; // Initialize with empty array if loading fails
+    }
   }
   
   /**
