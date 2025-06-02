@@ -7,6 +7,15 @@
  */
 
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
+import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
+
+// Add NodeJS type definitions
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace NodeJS {
+    interface Timeout {}
+  }
+}
 
 // Types for message handling
 export interface FormInitData {
@@ -19,6 +28,19 @@ interface PendingRequest {
   resolve: (value: any) => void;
   reject: (reason?: any) => void;
   timeout: NodeJS.Timeout;
+}
+
+interface MessageHandlerContext {
+  data: any;
+  webViewRef: React.RefObject<WebView | null>;
+  event: WebViewMessageEvent;
+}
+
+type MessageHandler = (context: MessageHandlerContext) => void;
+
+interface MessageHandlers {
+  [key: string]: MessageHandler;
+  __default__: MessageHandler;
 }
 
 const PENDING_REQUESTS = new Map<string, PendingRequest>();
@@ -50,11 +72,10 @@ export interface FormulusMessageHandlers {
  * @returns A function that can be passed to the WebView's onMessage prop
  */
 function handleResponse(message: any) {
-  // Handle Promise responses
   if (message.type === 'response' && message.requestId) {
     const pending = PENDING_REQUESTS.get(message.requestId);
     if (pending) {
-      clearTimeout(pending.timeout);
+      clearTimeout(pending.timeout as unknown as number);
       if (message.error) {
         pending.reject(new Error(message.error));
       } else {
@@ -67,145 +88,153 @@ function handleResponse(message: any) {
   return false;
 }
 
+/**
+ * Create a message handler for WebView messages
+ * @param webViewRef Reference to the WebView component
+ * @param handlers Callback handlers for different message types
+ * @returns A function that can be passed to the WebView's onMessage prop
+ */
 export function createFormulusMessageHandler(
-  webViewRef: React.RefObject<WebView>,
+  webViewRef: React.RefObject<WebView | null>,
   handlers: FormulusMessageHandlers
 ) {
-  return (event: WebViewMessageEvent) => {
+  // Create a map of message handlers
+  const messageHandlers: MessageHandlers = {
+    // Default handler for unknown message types
+    __default__: ({ data, event }) => {
+      console.warn('Unknown message type:', data.type, data);
+      if (handlers.onUnknownMessage) {
+        handlers.onUnknownMessage(data);
+      }
+    },
+
+    // Console log handlers
+    'console.log': ({ data }) => {
+      const logArgs = data.args || [];
+      console.log('[WebView]', ...logArgs);
+    },
+    'console.warn': ({ data }) => {
+      const logArgs = data.args || [];
+      console.warn('[WebView]', ...logArgs);
+    },
+    'console.error': ({ data }) => {
+      const logArgs = data.args || [];
+      console.error('[WebView]', ...logArgs);
+    },
+    'console.info': ({ data }) => {
+      const logArgs = data.args || [];
+      console.info('[WebView]', ...logArgs);
+    },
+    'console.debug': ({ data }) => {
+      const logArgs = data.args || [];
+      console.debug('[WebView]', ...logArgs);
+    },
+
+    // Form related handlers
+    'initForm': ({ webViewRef }) => {
+      if (handlers.onInitForm) {
+        handlers.onInitForm();
+      }
+    },
+    'savePartial': ({ data, webViewRef }) => {
+      if (handlers.onSavePartial && data.formId) {
+        handlers.onSavePartial(data.formId, data.data);
+      }
+    },
+    'submitForm': ({ data, webViewRef }) => {
+      if (handlers.onSubmitForm && data.formId) {
+        handlers.onSubmitForm(data.formId, data.finalData);
+      }
+    },
+    'requestCamera': ({ data, webViewRef }) => {
+      if (handlers.onRequestCamera && data.fieldId) {
+        handlers.onRequestCamera(data.fieldId);
+      }
+    },
+    'requestLocation': ({ data, webViewRef }) => {
+      if (handlers.onRequestLocation && data.fieldId) {
+        handlers.onRequestLocation(data.fieldId);
+      }
+    },
+    'requestFile': ({ data, webViewRef }) => {
+      if (handlers.onRequestFile && data.fieldId) {
+        handlers.onRequestFile(data.fieldId);
+      }
+    },
+    'launchIntent': ({ data, webViewRef }) => {
+      if (handlers.onLaunchIntent && data.fieldId && data.intentSpec) {
+        handlers.onLaunchIntent(data.fieldId, data.intentSpec);
+      }
+    },
+    'callSubform': ({ data, webViewRef }) => {
+      if (handlers.onCallSubform && data.fieldId && data.formId) {
+        handlers.onCallSubform(data.fieldId, data.formId, data.options || {});
+      }
+    },
+    'requestAudio': ({ data, webViewRef }) => {
+      if (handlers.onRequestAudio && data.fieldId) {
+        handlers.onRequestAudio(data.fieldId);
+      }
+    },
+    'requestSignature': ({ data, webViewRef }) => {
+      if (handlers.onRequestSignature && data.fieldId) {
+        handlers.onRequestSignature(data.fieldId);
+      }
+    },
+    'requestBiometric': ({ data, webViewRef }) => {
+      if (handlers.onRequestBiometric && data.fieldId) {
+        handlers.onRequestBiometric(data.fieldId);
+      }
+    },
+    'requestConnectivityStatus': ({ webViewRef }) => {
+      if (handlers.onRequestConnectivityStatus) {
+        handlers.onRequestConnectivityStatus();
+      }
+    },
+    'requestSyncStatus': ({ webViewRef }) => {
+      if (handlers.onRequestSyncStatus) {
+        handlers.onRequestSyncStatus();
+      }
+    },
+    'runLocalModel': ({ data, webViewRef }) => {
+      if (handlers.onRunLocalModel && data.fieldId && data.modelId) {
+        handlers.onRunLocalModel(data.fieldId, data.modelId, data.input || {});
+      }
+    },
+
+    // Handle Promise responses
+    'response': ({ data }) => {
+      handleResponse(data);
+    },
+    'callback': ({ data }) => {
+      if (data.error) {
+        console.error('Callback error:', data.error);
+      } else {
+        console.log('Callback completed successfully');
+      }
+    }
+  };
+
+  // Return the actual message handler function
+  return async (event: WebViewMessageEvent) => {
     try {
       const message = JSON.parse(event.nativeEvent.data);
-      console.log('Received message from WebView:', message);
+      console.log('Received message:', message);
+
+      const { type, ...data } = message;
+      // Get the appropriate handler or use the default one
+      const handler = messageHandlers[type] || messageHandlers.__default__;
       
-      // Handle Promise responses
-      if (message.type === 'response' && message.requestId) {
-        handleResponse(message);
-        return;
-      }
-      
-      // Handle callback responses
-      if (message.type === 'callback') {
-        // For now, just log the callback result
-        if (message.error) {
-          console.error('Callback error:', message.error);
-        } else {
-          console.log('Callback completed successfully');
-        }
-        return;
-      }
-      
-      switch (message.type) {
-        case 'initForm':
-          // WebView is requesting form initialization
-          if (handlers.onInitForm) {
-            handlers.onInitForm();
-          }
-          break;
-          
-        case 'savePartial':
-          // WebView is requesting to save partial form data
-          if (message.formId && message.data && handlers.onSavePartial) {
-            handlers.onSavePartial(message.formId, message.data);
-          }
-          break;
-          
-        case 'submitForm':
-          // WebView is requesting to submit the completed form
-          if (message.formId && message.finalData && handlers.onSubmitForm) {
-            handlers.onSubmitForm(message.formId, message.finalData);
-          }
-          break;
-          
-        case 'requestCamera':
-          // WebView is requesting camera access
-          if (message.fieldId && handlers.onRequestCamera) {
-            handlers.onRequestCamera(message.fieldId);
-          }
-          break;
-          
-        case 'requestLocation':
-          // WebView is requesting location
-          if (message.fieldId && handlers.onRequestLocation) {
-            handlers.onRequestLocation(message.fieldId);
-          }
-          break;
-          
-        case 'requestFile':
-          // WebView is requesting file picker
-          if (message.fieldId && handlers.onRequestFile) {
-            handlers.onRequestFile(message.fieldId);
-          }
-          break;
-          
-        case 'launchIntent':
-          // WebView is requesting to launch an Android intent
-          if (message.fieldId && message.intentSpec && handlers.onLaunchIntent) {
-            handlers.onLaunchIntent(message.fieldId, message.intentSpec);
-          }
-          break;
-          
-        case 'callSubform':
-          // WebView is requesting to call a subform
-          if (message.fieldId && message.formId && message.options && handlers.onCallSubform) {
-            handlers.onCallSubform(message.fieldId, message.formId, message.options);
-          }
-          break;
-          
-        case 'requestAudio':
-          // WebView is requesting audio recording
-          if (message.fieldId && handlers.onRequestAudio) {
-            handlers.onRequestAudio(message.fieldId);
-          }
-          break;
-          
-        case 'requestSignature':
-          // WebView is requesting signature capture
-          if (message.fieldId && handlers.onRequestSignature) {
-            handlers.onRequestSignature(message.fieldId);
-          }
-          break;
-          
-        case 'requestBiometric':
-          // WebView is requesting biometric authentication
-          if (message.fieldId && handlers.onRequestBiometric) {
-            handlers.onRequestBiometric(message.fieldId);
-          }
-          break;
-          
-        case 'requestConnectivityStatus':
-          // WebView is requesting connectivity status
-          if (handlers.onRequestConnectivityStatus) {
-            handlers.onRequestConnectivityStatus();
-          }
-          break;
-          
-        case 'requestSyncStatus':
-          // WebView is requesting sync status
-          if (handlers.onRequestSyncStatus) {
-            handlers.onRequestSyncStatus();
-          }
-          break;
-          
-        case 'runLocalModel':
-          // WebView is requesting to run a local ML model
-          if (message.fieldId && message.modelId && message.input && handlers.onRunLocalModel) {
-            handlers.onRunLocalModel(message.fieldId, message.modelId, message.input);
-          }
-          break;
-          
-        default:
-          // Unknown message type
-          if (handlers.onUnknownMessage) {
-            handlers.onUnknownMessage(message);
-          } else {
-            console.warn('Unknown message type from WebView:', message.type);
-          }
-      }
-    } catch (err) {
-      // Error handling
+      // Call the handler with the context
+      handler({
+        data,
+        webViewRef,
+        event
+      });
+    } catch (error) {
+      console.error('Failed to handle WebView message:', error);
       if (handlers.onError) {
-        handlers.onError(err instanceof Error ? err : new Error(String(err)));
-      } else {
-        console.error('Failed to handle WebView message:', err);
+        handlers.onError(error as Error);
       }
     }
   };
@@ -216,12 +245,13 @@ export function createFormulusMessageHandler(
  * @param webViewRef Reference to the WebView component
  * @param callbackName Name of the callback function to call
  * @param data Data to send to the WebView
+ * @param isPromise Whether to use promise-based response
  */
 export function sendToWebView<T = void>(
-  webViewRef: React.RefObject<WebView>,
+  webViewRef: React.RefObject<CustomAppWebViewHandle>,
   callbackName: string,
   data: any = {},
-  isPromise: boolean = false
+  isPromise: boolean = true
 ): Promise<T> {
   if (!webViewRef.current) {
     const error = 'WebView ref is not available';
@@ -331,7 +361,7 @@ export function sendToWebView<T = void>(
  * @returns Promise that resolves when the WebView has processed the initialization
  */
 export function sendFormInit(
-  webViewRef: React.RefObject<WebView>,
+  webViewRef: React.RefObject<CustomAppWebViewHandle>,
   formData: FormInitData
 ): Promise<void> {
   const { formId, params = {}, savedData = {} } = formData;
@@ -362,12 +392,12 @@ export function sendFormInit(
  * @returns Promise that resolves when the WebView has processed the attachment
  */
 export function sendAttachmentData(
-  webViewRef: React.RefObject<WebView>,
+  webViewRef: React.RefObject<CustomAppWebViewHandle>,
   attachmentData: any
 ): Promise<void> {
   return sendToWebView<void>(
     webViewRef,
-    'onAttachmentReady',
+    'onAttachmentData',
     attachmentData,
     true // Enable Promise support
   );
@@ -381,7 +411,7 @@ export function sendAttachmentData(
  * @returns Promise that resolves when the WebView has processed the save status
  */
 export function sendSavePartialComplete(
-  webViewRef: React.RefObject<WebView>,
+  webViewRef: React.RefObject<CustomAppWebViewHandle>,
   formId: string,
   success: boolean
 ): Promise<void> {

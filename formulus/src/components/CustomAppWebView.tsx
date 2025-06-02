@@ -1,32 +1,29 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Platform } from 'react-native';
 import { readFileAssets } from 'react-native-fs';
+import { createFormulusMessageHandler, sendFormInit, sendAttachmentData, sendSavePartialComplete } from '../webview/FormulusWebViewHandler';
 
-// Path to the generated injection script in the assets directory
+export interface CustomAppWebViewHandle {
+  reload: () => void;
+  goBack: () => void;
+  goForward: () => void;
+}
+
+interface CustomAppWebViewProps {
+  appUrl: string;
+}
+
 const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
   ? 'webview/FormulusInjectionScript.js'
   : 'FormulusInjectionScript.js';
 
-import { 
-  createFormulusMessageHandler, 
-  sendFormInit, 
-  sendAttachmentData, 
-  sendSavePartialComplete 
-} from '../webview/FormulusWebViewHandler';
-
-interface CustomAppWebViewProps {
-  appUrl: string;
-  onMessage?: (messageType: string, data: any) => void;
-}
-
-export interface CustomAppWebViewHandle {
-  webViewRef: React.RefObject<WebView | null>;
-}
-
 const consoleLogScript = `
     (function() {
+      console.debug("Initializing console log transport");
+      window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.log', args: ['Initializing console log transport']}));
+
       // Store original console methods
       const originalConsole = {
         log: console.log,
@@ -57,153 +54,70 @@ const consoleLogScript = `
         originalConsole.debug.apply(console, arguments);
         window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.debug', args: Array.from(arguments)}));
       };
+      console.debug("Log transport initialized");
     })();
   `;
 
-const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl, onMessage }, ref) => {
+const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl }, ref) => {
   const webViewRef = useRef<WebView | null>(null);
-  const [appId, setAppId] = useState<string | null>(null);
-  
-  // Expose the webViewRef to the parent component
-  useImperativeHandle(ref, () => ({
-    webViewRef
-  }));
-  
-  // State to hold the injection script
-  const [injectionScript, setInjectionScript] = useState<string>('');
 
+  // Expose imperative handle
+  useImperativeHandle(ref, () => ({
+    reload: () => webViewRef.current?.reload?.(),
+    goBack: () => webViewRef.current?.goBack?.(),
+    goForward: () => webViewRef.current?.goForward?.(),
+  }), []);
+
+  // JS injection: load script from assets and prepend consoleLogScript
+  const [injectionScript, setInjectionScript] = useState<string>(consoleLogScript);
   useEffect(() => {
     const loadScript = async () => {
       try {
         const script = await readFileAssets(INJECTION_SCRIPT_PATH);
-        if (script?.length > 0) {
-          const combinedScript = `${consoleLogScript}\n${script}`;
-          setInjectionScript(combinedScript);
-          console.log('Successfully loaded injection script from ', INJECTION_SCRIPT_PATH);
-        } else {
-          console.error('Failed to load injection script: script is empty');
-        }
-      } catch (error) {
-        console.error('Failed to load injection script:', error);
+        setInjectionScript(consoleLogScript + '\n' + script);
+      } catch (err) {
+        setInjectionScript(consoleLogScript); // fallback
+        console.warn('Failed to load injection script:', err);
       }
     };
     loadScript();
   }, []);
 
-  useEffect(() => {
-    console.log('Custom App WebView initialized, loading URL:', appUrl);
-  }, [appUrl]);
+  const handleError = (syntheticEvent: any) => {
+    const { nativeEvent } = syntheticEvent;
+    console.error('WebView error:', nativeEvent);
+  };
 
-  // Handle form initialization
-  const handleInitForm = () => {
-    // In a real implementation, you would get these values from your app state or storage
-    const formId = `app_${Date.now()}`;
-    const params = { locale: 'en', theme: 'default' };
-    const savedData = {}; // Any previously saved data for this app
-    
-    setAppId(formId);
-    
-    // Send the initialization data back to the Custom App
-    if (webViewRef.current) {
-      sendFormInit(webViewRef as React.RefObject<WebView>, {
-        formId,
-        params,
-        savedData
-      });
-    }
-    
-    console.log('App initialized with ID:', formId);
-    
-    // Notify parent component if callback provided
-    if (onMessage) {
-      onMessage('initForm', { formId });
-    }
-  };
-  
-  // Handle saving partial form data
-  const handleSavePartial = (formId: string, data: any) => {
-    // In a real implementation, you would save this data to your app's storage
-    console.log('Saving partial data for app:', formId, data);
-    
-    // Send a confirmation back to the Custom App
-    if (webViewRef.current) {
-      sendSavePartialComplete(webViewRef as React.RefObject<WebView>, formId, true);
-    }
-    
-    // Notify parent component if callback provided
-    if (onMessage) {
-      onMessage('savePartial', { formId, data });
-    }
-  };
-  
-  // Handle form submission
-  const handleSubmitForm = (formId: string, finalData: any) => {
-    // In a real implementation, you would process and store the final form data
-    console.log('App data submitted:', formId, finalData);
-    
-    // Notify parent component if callback provided
-    if (onMessage) {
-      onMessage('submitForm', { formId, finalData });
-    }
-  };
-  
-  // Handle camera request
-  const handleRequestCamera = (fieldId: string) => {
-    console.log('Camera requested for field:', fieldId);
-    
-    // Notify parent component if callback provided
-    if (onMessage) {
-      onMessage('requestCamera', { fieldId });
-    }
-  };
-  
-  // Handle location request
-  const handleRequestLocation = (fieldId: string) => {
-    console.log('Location requested for field:', fieldId);
-    
-    // Notify parent component if callback provided
-    if (onMessage) {
-      onMessage('requestLocation', { fieldId });
-    }
-  };
-  
-  // Create a message handler for the Custom App WebView using our reusable handler
-  const handleWebViewMessage = createFormulusMessageHandler(webViewRef as React.RefObject<WebView>, {
-    onInitForm: handleInitForm,
-    onSavePartial: handleSavePartial,
-    onSubmitForm: handleSubmitForm,
-    onRequestCamera: handleRequestCamera,
-    onRequestLocation: handleRequestLocation,
-    // Add handlers for other message types as needed
-    onError: (err) => console.error('Failed to handle Custom App WebView message:', err)
+  const handleWebViewMessage = createFormulusMessageHandler(webViewRef, {
+    onError: (err) => console.error('Formulus WebView error:', err)
   });
 
   return (
-    <View style={styles.container}>
-      <WebView
-        ref={webViewRef}
-        source={{ uri: appUrl }}
-        style={styles.webview}
-        onMessage={handleWebViewMessage}
-        //injectedJavaScript={injectionScript}
-        injectedJavaScriptBeforeContentLoaded={injectionScript}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        allowFileAccess={true}
-        allowFileAccessFromFileURLs={true}
-        originWhitelist={['file://*']}
-      />
-    </View>
+    <WebView
+      ref={webViewRef}
+      source={{ uri: appUrl }}
+      onMessage={handleWebViewMessage}
+      onError={handleError}
+      onLoadStart={() => console.log('CustomWebView starting to load URL:', appUrl)}
+      onLoadEnd={() => console.log('CustomWebView finished loading')}
+      onHttpError={(syntheticEvent) => {
+        const { nativeEvent } = syntheticEvent;
+        console.error('CustomWebView HTTP error:', nativeEvent);
+      }}
+      injectedJavaScriptBeforeContentLoaded={injectionScript}
+      javaScriptEnabled={true}
+      domStorageEnabled={true}
+      allowFileAccess={true}
+      allowUniversalAccessFromFileURLs={true}
+      allowFileAccessFromFileURLs={true}
+      startInLoadingState={true}
+      renderLoading={() => (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color="#007AFF" />
+        </View>
+      )}
+    />
   );
-});
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  webview: {
-    flex: 1,
-  },
 });
 
 export default CustomAppWebView;

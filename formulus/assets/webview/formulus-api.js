@@ -5,7 +5,7 @@
  * that's available in the WebView context as `window.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-05-29T07:05:19.598Z
+ * Last generated: 2025-06-02T14:02:13.994Z
  * 
  * @example
  * // In your JavaScript file:

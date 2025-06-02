@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, ActivityIndicator } from 'react-native';
-import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { appEvents } from '../webview/FormulusMessageHandlers';
 import { readFileAssets } from 'react-native-fs';
@@ -31,7 +31,7 @@ interface FormplayerModalProps {
 }
 
 const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservation }: FormplayerModalProps) => {
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<CustomAppWebViewHandle>(null);
   const [currentFormId, setCurrentFormId] = useState<string | null>(null);
   const [formTypes, setFormTypes] = useState<FormType[]>([]);
   const [selectedFormTypeId, setSelectedFormTypeId] = useState<string | null>(null);
@@ -48,64 +48,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     ? 'file:///android_asset/formplayer_dist/index.html'
     : 'file:///formplayer_dist/index.html'; // Add iOS path
 
-  
-  const [injectionScript, setInjectionScript] = useState<string>('');
-
-  // Load the injection script when the component mounts
-  useEffect(() => {
-    const loadScript = async () => {
-      try {
-        const script = await readFileAssets(INJECTION_SCRIPT_PATH);
-        if (script?.length > 0) {
-          const combinedScript = `${consoleLogScript}\n${script}`;
-          setInjectionScript(combinedScript);
-          console.log('Successfully loaded injection script from ', INJECTION_SCRIPT_PATH);
-        } else {
-          console.error('Failed to load injection script: script is empty');
-        }
-      } catch (error) {
-        console.error('Failed to load injection script:', error);
-      }
-    };
-    loadScript();
-  }, []);
-  
-  // Add console log forwarding script
-  const consoleLogScript = `
-    (function() {
-      // Store original console methods
-      const originalConsole = {
-        log: console.log,
-        warn: console.warn,
-        error: console.error,
-        info: console.info,
-        debug: console.debug
-      };
-
-      // Override console methods to forward logs to React Native
-      console.log = function() { 
-        originalConsole.log.apply(console, arguments);
-        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.log', args: Array.from(arguments)}));
-      };
-      console.warn = function() { 
-        originalConsole.warn.apply(console, arguments);
-        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.warn', args: Array.from(arguments)}));
-      };
-      console.error = function() { 
-        originalConsole.error.apply(console, arguments);
-        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.error', args: Array.from(arguments)}));
-      };
-      console.info = function() { 
-        originalConsole.info.apply(console, arguments);
-        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.info', args: Array.from(arguments)}));
-      };
-      console.debug = function() { 
-        originalConsole.debug.apply(console, arguments);
-        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.debug', args: Array.from(arguments)}));
-      };
-    })();
-  `;
-
+ 
   // Initialize the form when the modal becomes visible
   useEffect(() => {
     if (visible) {
@@ -347,33 +290,6 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     }
   }, [selectedFormTypeId, onClose, editObservation, isSubmitting]);
   
-  // Create a custom message handler that handles both formulus messages and console logs
-  const handleWebViewMessage = (event: WebViewMessageEvent) => {
-    try {
-      const message = JSON.parse(event.nativeEvent.data);
-      
-      // Handle console log messages
-      if (message.type && message.type.startsWith('console.')) {
-        const logType = message.type.split('.')[1];
-        console.log(`[WebView ${logType}]:`, ...message.args);
-        return;
-      }
-      
-      // Handle regular formulus messages using our reusable handler
-      const formulusHandler = createFormulusMessageHandler(webViewRef as React.RefObject<WebView<{}>>, {
-        onInitForm: () => handleWebViewLoad(),
-        onSavePartial: handleSavePartial,
-        onSubmitForm: handleSubmitForm,
-        // Add handlers for other message types as needed
-        onError: (err) => console.error('Failed to handle Formplayer WebView message:', err)
-      });
-      
-      formulusHandler(event);
-    } catch (error) {
-      console.error('Error handling WebView message:', error);
-    }
-  };
-
   return (
     <Modal
       animationType="slide"
@@ -395,39 +311,9 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
           <View style={{ width: 40 }} />
         </View>
         
-        <WebView
+        <CustomAppWebView 
           ref={webViewRef}
-          source={{ uri: formplayerUri }}
-          style={styles.webview}
-          onMessage={handleWebViewMessage}
-          onError={handleError}
-          onLoadStart={() => {
-            console.log('WebView starting to load URL:', formplayerUri);
-          }}
-          onLoadEnd={() => {
-            console.log('WebView finished loading');
-          }}
-          onHttpError={(syntheticEvent) => {
-            const { nativeEvent } = syntheticEvent;
-            console.error('WebView HTTP error:', nativeEvent);
-          }}
-          //injectedJavaScript={injectionScript || ''}
-          injectedJavaScriptBeforeContentLoaded={injectionScript}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          allowFileAccess={true}
-          allowUniversalAccessFromFileURLs={true}
-          allowFileAccessFromFileURLs={true}
-          onShouldStartLoadWithRequest={(request) => {
-            console.log('Loading URL:', request.url);
-            return true;
-          }}
-          startInLoadingState={true}
-          renderLoading={() => (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#007bff" />
-            </View>
-          )}
+          appUrl={formplayerUri}
         />
         
         {/* Loading overlay */}

@@ -1,56 +1,79 @@
 import React, { useState } from 'react';
-import {View,Text,StyleSheet,SafeAreaView,ScrollView,TouchableOpacity,ActivityIndicator,Alert} from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  Alert,
+  SafeAreaView,
+  ScrollView
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import RNFS from 'react-native-fs';
 import { RootStackParamList } from '../types/NavigationTypes';
-import { getSynkronusApi } from '../api/synkronus';
+import { synkronusApi } from '../api/synkronus';
 
 const SyncScreen = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>('Ready');
   const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'Sync'>>();
 
   const handleSync = async () => {
     try {
       setIsSyncing(true);
-      const res = await doPull()
-      console.log('Sync result:', res)
-      setLastSync(new Date().toLocaleTimeString());
-      Alert.alert('Success', 'Data synchronized successfully: ' + res);
+      setStatus('Starting sync...');
+      
+      // Get the manifest
+      setStatus('Fetching manifest...');
+      const manifest = await synkronusApi.getManifest();
+      console.log('Manifest:', manifest);
+
+      // Download form specs
+      setStatus('Downloading form specs...');
+      await synkronusApi.downloadFormSpecs(
+        manifest, 
+        RNFS.DocumentDirectoryPath, 
+        (progress) => {
+          setStatus(`Downloading form specs... ${progress}%`);
+        }
+      );
+      
+      // Download app files
+      setStatus('Downloading app files...');
+      await synkronusApi.downloadAppFiles(
+        manifest, 
+        RNFS.DocumentDirectoryPath, 
+        (progress) => {
+          setStatus(`Downloading app files... ${progress}%`);
+        }
+      );
+
+      // Update UI
+      const syncTime = new Date().toLocaleTimeString();
+      setLastSync(syncTime);
+      setStatus('Sync completed');
+      Alert.alert('Success', 'Data synchronized successfully');
     } catch (error) {
-      console.error('Sync failed:', error);
-      Alert.alert('Error', 'Failed to synchronize data: ' + error);
+      console.error('Sync failed', error);
+      setStatus('Sync failed');
+      Alert.alert('Error', 'Failed to sync data');
     } finally {
       setIsSyncing(false);
     }
   };
 
-  const doPull = async () => {
-
-    try {
-      const api = await getSynkronusApi()
-      const res = await api.appBundleVersionsGet()
-      console.log('Pulled versions:', res)
-      // const res = await api.syncPullPost({
-      //   syncPullRequest: {
-      //     client_id: 'my-device-id',
-      //     after_change_id: 0,
-      //     schema_types: ['survey'],
-      //   },
-      // })
-      //console.log('Pulled records:', res.data.records)
-      return JSON.stringify(res)
-    } catch (err) {
-      console.error('Pull failed', err)
-      return JSON.stringify(err)
-    }
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.title}>Synchronize Data</Text>
+        <Text style={styles.title}>Synchronization</Text>
         
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusLabel}>Status:</Text>
+          <Text style={styles.statusValue}>{status}</Text>
+        </View>
+
         <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>Last Sync:</Text>
           <Text style={styles.statusValue}>
@@ -59,18 +82,14 @@ const SyncScreen = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Available Actions</Text>
-          
           <TouchableOpacity 
             style={[styles.button, isSyncing && styles.buttonDisabled]}
             onPress={handleSync}
             disabled={isSyncing}
           >
-            {isSyncing ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Sync Now</Text>
-            )}
+            <Text style={styles.buttonText}>
+              {isSyncing ? 'Syncing...' : 'Sync Now'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -81,9 +100,9 @@ const SyncScreen = () => {
             <Text style={styles.detailValue}>Synkronus</Text>
           </View>
           <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Status:</Text>
+            <Text style={styles.detailLabel}>Last Updated:</Text>
             <Text style={styles.detailValue}>
-              {isSyncing ? 'Synchronizing...' : 'Ready to sync'}
+              {new Date().toLocaleDateString()}
             </Text>
           </View>
         </View>
@@ -98,6 +117,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   scrollContainer: {
+    flexGrow: 1,
     padding: 20,
   },
   title: {
@@ -108,15 +128,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   statusContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
+    marginBottom: 15,
+    padding: 15,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   statusLabel: {
     fontSize: 16,
@@ -124,13 +146,19 @@ const styles = StyleSheet.create({
   },
   statusValue: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#333',
   },
   section: {
-    backgroundColor: '#fff',
+    marginTop: 20,
+    backgroundColor: 'white',
     borderRadius: 8,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
     marginBottom: 20,
   },
   sectionHeader: {

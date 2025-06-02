@@ -3,6 +3,20 @@
   "compilerOptions": {
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "useDefineForClassFields": true
-  }
+    "useDefineForClassFields": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false
+  },
+  "exclude": [
+    "**/android/**",
+    "**/ios/**",
+    "**/node_modules/**",
+    "**/__tests__/**",
+    "**/babel.config.js",
+    "**/metro.config.js",
+    "**/jest.config.js",
+    "**/jest.setup.js",
+    "**/__mocks__/**"
+  ]
 }

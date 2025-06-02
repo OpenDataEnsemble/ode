@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Custom App Placeholder</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+      body { font-family: sans-serif; text-align: center; padding: 40px; }
+      h1 { color: #4A90E2; }
+    </style>
+  </head>
+  <body>
+    <h1>Your Custom App</h1>
+    <p>This is an placeholder. Your app will appear here after sync.</p>
+    <script>
+    console.log('Custom placeholder loaded');
+    function waitForFormulus(cb, tries = 49) {
+      console.log('Waiting for Formulus...');
+      if (globalThis.formulus && typeof globalThis.formulus.getVersion === 'function') {
+        cb();
+      } else if (tries > 0) {
+        setTimeout(() => waitForFormulus(cb, tries - 1), 100);
+      } else {
+        document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: unavailable</p>');
+      }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      waitForFormulus(function() {
+        const version = globalThis.formulus?.getVersion?.();
+        console.log('Formulus version:', version);
+        document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: ' + version + '</p>');
+      });
+    });
+    </script>
+  </body>
+</html>

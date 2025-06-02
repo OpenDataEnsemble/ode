@@ -1,93 +1,43 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text } from 'react-native';
-import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text, Platform } from 'react-native';
 import RNFS from 'react-native-fs';
-import { appEvents, FormulusMessageHandlers } from '../webview/FormulusMessageHandlers';
 import FormplayerModal from '../components/FormplayerModal';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 
-const PLACEHOLDER_HTML = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Custom App Placeholder</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      body { font-family: sans-serif; text-align: center; padding: 40px; }
-      h1 { color: #4A90E2; }
-    </style>
-  </head>
-  <body>
-    <h1>Your Custom App</h1>
-    <p>This is an placeholder. Your app will appear here after sync.</p>
-    <script>
-    function waitForFormulus(cb, tries = 50) {
-      if (window.formulus && typeof window.formulus.getVersion === 'function') {
-        cb();
-      } else if (tries > 0) {
-        setTimeout(() => waitForFormulus(cb, tries - 1), 100);
-      } else {
-        document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: unavailable</p>');
-      }
-    }
-    
-    document.addEventListener('DOMContentLoaded', function() {
-      waitForFormulus(function() {
-        const version = window.formulus?.getVersion?.();
-        console.log(version);
-        document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: ' + version + '</p>');
-      });
-    });
-    </script>
-  </body>
-</html>
-`;
 
 const HomeScreen = ({ navigation }: any) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [formplayerVisible, setFormplayerVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
-  const overwriteHtml = true;
 
   useEffect(() => {
     const setupPlaceholder = async () => {
       try {
-        const folderPath = `${RNFS.DocumentDirectoryPath}/user_app/payload`;
-        const filePath = `${folderPath}/index.html`;
-        // Ensure the directory exists
-        const folderExists = await RNFS.exists(folderPath);
-        if (!folderExists) {
-          await RNFS.mkdir(folderPath);
-        }
-        // Ensure the file exists
+        const filePath = `${RNFS.DocumentDirectoryPath}/app/index.html`;
         const fileExists = await RNFS.exists(filePath);
-        if (!fileExists || overwriteHtml) {
-          await RNFS.writeFile(filePath, PLACEHOLDER_HTML, 'utf8');
+        if (!fileExists || true) {
+          // USE PLACEHOLDER
+          const placeholderUri = Platform.OS === 'android' 
+            ? 'file:///android_asset/webview/placeholder_app.html'
+            : 'file:///webview/placeholder_app.html'; // Add iOS path
+          console.log('Using placeholder HTML at:', placeholderUri);
+          setLocalUri(placeholderUri);
+        } else {
+          console.log('Using custom app HTML at:', filePath);          
+          setLocalUri(`file://${filePath}`);
         }
-        setLocalUri(`file://${filePath}`);
       } catch (err) {
         console.warn('Failed to setup placeholder HTML:', err);
       }
     };
+   
     setupPlaceholder();
   }, []);
 
-  // Set up event listener for opening formplayer
-  useEffect(() => {
-    // Handler function for the openFormplayer event
-    const handleOpenFormplayer = () => {
-      setFormplayerVisible(true);
-    };
+  // Set up event listener for opening formplayer (removed legacy appEvents)
+  // If you need to trigger setFormplayerVisible(true), do so via another mechanism.
 
-    // Add event listener
-    appEvents.addListener('openFormplayer', handleOpenFormplayer);
-
-    // Clean up event listener on component unmount
-    return () => {
-      appEvents.removeListener('openFormplayer', handleOpenFormplayer);
-    };
-  }, []);
   
   // Update isLoading when localUri is set
   useEffect(() => {
@@ -104,42 +54,6 @@ const HomeScreen = ({ navigation }: any) => {
     );
   }
 
-  const handleCustomAppMessage = (messageType: string, data: any) => {
-    console.log('Received message from CustomAppWebView:', messageType, data);
-    
-    // Handle specific message types
-    switch (messageType) {
-      case 'openFormplayer':
-        setFormplayerVisible(true);
-        break;
-      // Add other message handlers as needed
-      default:
-        console.log('Unhandled message type:', messageType);
-    }
-  };
-
-  const handleWebViewMessage = async (event: WebViewMessageEvent) => {
-    try {
-      const message = JSON.parse(event.nativeEvent.data);
-      const { type, ...data } = message;
-      const handler = FormulusMessageHandlers[type] || FormulusMessageHandlers.__default__;
-      
-      // Ensure webViewRef exists before calling the handler
-      if (customAppRef.current?.webViewRef) {
-        handler({ 
-          data, 
-          webViewRef: customAppRef.current.webViewRef, 
-          event 
-        });
-      } else {
-        console.warn('WebView reference is not available');
-      }
-    } catch (err) {
-      console.warn('Failed to handle WebView message:', err);
-    }
-  };
-
-  // This useEffect was moved above the conditional return statement
 
   return (
     <View style={styles.container}>
@@ -150,7 +64,6 @@ const HomeScreen = ({ navigation }: any) => {
         <CustomAppWebView
           ref={customAppRef}
           appUrl={localUri || ''}
-          onMessage={handleCustomAppMessage}
         />
       )}
       

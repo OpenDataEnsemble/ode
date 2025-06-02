@@ -500,7 +500,13 @@ if (require.main === module) {
     
     // Generate and write the injection script
     console.log('Generating injection script...');
-    const injectionScript = generateInjectionScript(interfacePath);
+    let injectionScript = generateInjectionScript(interfacePath);
+
+    // Remove TypeScript interface declarations and type assertions
+    injectionScript = injectionScript
+      .replace(/interface\s+\w+\s*{[^}]*}/gs, '') // Remove interface blocks
+      .replace(/\s+as\s+\w+/g, '');              // Remove type assertions
+
     fs.writeFileSync(injectionScriptPath, injectionScript);
     console.log(`✅ Successfully generated injection script at ${injectionScriptPath}`);
     

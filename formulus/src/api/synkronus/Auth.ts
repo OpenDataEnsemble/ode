@@ -1,9 +1,9 @@
-import { getSynkronusApi } from './index'
+import { synkronusApi } from './index'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 export const login = async (username: string, password: string) => {
     console.log('Logging in with', username, password)
-    const api = await getSynkronusApi()
+    const api = await synkronusApi.getApi()
 
     const res = await api.authLoginPost({
         authLoginPostRequest: { username, password },

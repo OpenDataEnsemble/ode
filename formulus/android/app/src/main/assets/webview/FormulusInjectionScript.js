@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-05-29T07:05:18.248Z
+// Last generated: 2025-06-02T14:02:12.662Z
 
 (function() {
   if (typeof globalThis.formulus !== 'undefined') {
@@ -730,34 +730,15 @@
   }
   
   // Add TypeScript type information
-  interface FormulusInterface {
-        getVersion(): Promise<string>;
-    getAvailableForms(): Promise<FormInfo[]>;
-    openFormplayer(formId: string, params: Record<string, any>, savedData: Record<string, any>): Promise<void>;
-    getObservations(formId: string, isDraft?: boolean, includeDeleted?: boolean): Promise<FormObservation[]>;
-    initForm(): Promise<void>;
-    savePartial(formId: string, data: Record<string, any>): Promise<void>;
-    submitForm(formId: string, finalData: Record<string, any>): Promise<void>;
-    requestCamera(fieldId: string): Promise<void>;
-    requestLocation(fieldId: string): Promise<void>;
-    requestFile(fieldId: string): Promise<void>;
-    launchIntent(fieldId: string, intentSpec: Record<string, any>): Promise<void>;
-    callSubform(fieldId: string, formId: string, options: Record<string, any>): Promise<void>;
-    requestAudio(fieldId: string): Promise<void>;
-    requestSignature(fieldId: string): Promise<void>;
-    requestBiometric(fieldId: string): Promise<void>;
-    requestConnectivityStatus(): Promise<void>;
-    requestSyncStatus(): Promise<void>;
-    runLocalModel(fieldId: string, modelId: string, input: Record<string, any>): Promise<void>;
-  }
+  
   
   // Make the API available globally in browser environments
   if (typeof window !== 'undefined') {
-    window.formulus = globalThis.formulus as FormulusInterface;
+    window.formulus = globalThis.formulus;
   }
   
   // Export for CommonJS/Node.js environments
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = globalThis.formulus as FormulusInterface;
+    module.exports = globalThis.formulus;
   }
 })();
