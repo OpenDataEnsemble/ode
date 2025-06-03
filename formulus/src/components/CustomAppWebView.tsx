@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
+import { useIsFocused } from '@react-navigation/native';
 import { Platform } from 'react-native';
 import { readFileAssets } from 'react-native-fs';
 import { createFormulusMessageHandler, sendFormInit, sendAttachmentData, sendSavePartialComplete } from '../webview/FormulusWebViewHandler';
@@ -91,6 +92,29 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     console.error('WebView error:', nativeEvent);
   };
 
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    // Ensure webViewRef.current and injectionScript (the fully prepared script) are available.
+    if (isFocused && webViewRef.current && injectionScript !== consoleLogScript) { // Check injectionScript is loaded, not just the fallback
+      const reInjectionWrapper = `
+        (function() {
+          if (typeof window.formulus === 'undefined') {
+            console.log('[CustomAppWebView/FocusEffect] window.formulus is undefined. Re-injecting main script content.');
+            // This injects the entire 'injectionScript' (consoleLogScript + your INJECTION_SCRIPT_PATH content)
+            ${injectionScript}
+            console.log('[CustomAppWebView/FocusEffect] Main script content re-injected.');
+          } else {
+            console.log('[CustomAppWebView/FocusEffect] window.formulus already exists on focus.');
+            // Optionally, you can call a function on window.formulus to notify it of focus, e.g.:
+            // if (typeof window.formulus.onAppFocus === 'function') { window.formulus.onAppFocus(); }
+          }
+          return true; // Return true to prevent potential errors in some WebView versions
+        })();
+      `;
+      webViewRef.current.injectJavaScript(reInjectionWrapper);
+    }
+  }, [isFocused, injectionScript]); // Depend on injectionScript to use the latest version
 
   const handleWebViewMessage = createFormulusMessageHandler(webViewRef, appName);
   // If appName is undefined, createFormulusMessageHandler will use its default 'WebView'
@@ -127,7 +151,9 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
       allowFileAccess={true}
       allowUniversalAccessFromFileURLs={true}
       allowFileAccessFromFileURLs={true}
+      allowingReadAccessToURL={Platform.OS === 'ios' ? 'file:///...' : undefined}
       startInLoadingState={true}
+      originWhitelist={['*']}
       renderLoading={() => (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color="#007AFF" />

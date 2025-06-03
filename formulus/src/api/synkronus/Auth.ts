@@ -17,3 +17,19 @@ export const login = async (username: string, password: string) => {
 
     return true
 }
+
+// Function to retrieve the auth token from AsyncStorage
+export const getApiAuthToken = async (): Promise<string | undefined> => {
+  try {
+    const token = await AsyncStorage.getItem('@token');
+    if (token) {
+      console.log('[Auth.getApiAuthToken] Token retrieved from AsyncStorage.');
+      return token;
+    }
+    console.warn('[Auth.getApiAuthToken] No token found in AsyncStorage.');
+    return undefined;
+  } catch (error) {
+    console.error('[Auth.getApiAuthToken] Error retrieving token from AsyncStorage:', error);
+    return undefined;
+  }
+};

@@ -42,23 +42,27 @@ const SyncScreen = () => {
       
       // Download app files
       setStatus('Downloading app files...');
-      await synkronusApi.downloadAppFiles(
+      const results = await synkronusApi.downloadAppFiles(
         manifest, 
         RNFS.DocumentDirectoryPath, 
         (progress) => {
           setStatus(`Downloading app files... ${progress}%`);
         }
       );
-
+      console.log('Download results:', results);
       // Update UI
       const syncTime = new Date().toLocaleTimeString();
       setLastSync(syncTime);
       setStatus('Sync completed');
-      Alert.alert('Success', 'Data synchronized successfully');
+      if (results.some(r => !r.success)) {
+        Alert.alert('Error', 'Failed to sync!\n' + results.filter(r => !r.success).map(r => r.message).join('\n'));
+      } else {
+        Alert.alert('Success', 'Data synchronized successfully');
+      }
     } catch (error) {
       console.error('Sync failed', error);
       setStatus('Sync failed');
-      Alert.alert('Error', 'Failed to sync data');
+      Alert.alert('Error', 'Failed to sync!\n' + error);
     } finally {
       setIsSyncing(false);
     }
