@@ -165,7 +165,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onOpenFormplayer: async (formId: string, params?: Record<string, any>, savedData?: Record<string, any>) => {
       console.log('FormulusMessageHandlers: onOpenFormplayer handler invoked.', { formId, params, savedData });
-      // TODO: Implement logic to open formplayer, perhaps navigate to a new screen or display a modal
+      appEvents.emit('openFormplayerRequested', { formId, params, savedData });
       return Promise.resolve();
     },
     onFormulusReady: () => {

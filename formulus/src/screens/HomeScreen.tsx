@@ -3,11 +3,13 @@ import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text, Platform }
 import RNFS from 'react-native-fs';
 import FormplayerModal from '../components/FormplayerModal';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
+import { appEvents } from '../webview/FormulusMessageHandlers'; // Import appEvents
 
 
 const HomeScreen = ({ navigation }: any) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [formplayerVisible, setFormplayerVisible] = useState(false);
+  const [formplayerConfig, setFormplayerConfig] = useState<any>(null); // State to hold formplayer launch config
   const [isLoading, setIsLoading] = useState(true);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
 
@@ -16,7 +18,7 @@ const HomeScreen = ({ navigation }: any) => {
       try {
         const filePath = `${RNFS.DocumentDirectoryPath}/app/index.html`;
         const fileExists = await RNFS.exists(filePath);
-        if (!fileExists || true) {
+        if (!fileExists) {
           // USE PLACEHOLDER
           const placeholderUri = Platform.OS === 'android' 
             ? 'file:///android_asset/webview/placeholder_app.html'
@@ -35,8 +37,19 @@ const HomeScreen = ({ navigation }: any) => {
     setupPlaceholder();
   }, []);
 
-  // Set up event listener for opening formplayer (removed legacy appEvents)
-  // If you need to trigger setFormplayerVisible(true), do so via another mechanism.
+  useEffect(() => {
+    const handleOpenFormplayer = (config: any) => {
+      console.log('HomeScreen: openFormplayerRequested event received', config);
+      setFormplayerConfig(config); // Store the config (formId, params, savedData)
+      setFormplayerVisible(true);   // Show the modal
+    };
+
+    appEvents.addListener('openFormplayerRequested', handleOpenFormplayer);
+
+    return () => {
+      appEvents.removeListener('openFormplayerRequested', handleOpenFormplayer);
+    };
+  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
 
   
   // Update isLoading when localUri is set
@@ -81,7 +94,11 @@ const HomeScreen = ({ navigation }: any) => {
       {/* Formplayer Modal */}
       <FormplayerModal 
         visible={formplayerVisible} 
-        onClose={() => setFormplayerVisible(false)} 
+        onClose={() => {
+          setFormplayerVisible(false);
+          setFormplayerConfig(null); // Clear config when closing
+        }} 
+        initialConfig={formplayerConfig} // Pass the config to the modal
       />
     </View>
   );

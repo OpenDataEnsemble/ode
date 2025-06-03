@@ -27,6 +27,7 @@ interface FormplayerModalProps {
     formType: string; // Form type of the observation being edited
     observation: Observation; // Updated to use the Observation interface
   };
+  initialConfig?: any; // Config passed when opening formplayer via event (formId, params, savedData)
 }
 
 const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservation }: FormplayerModalProps) => {
