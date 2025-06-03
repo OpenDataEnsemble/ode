@@ -35,8 +35,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "build:rn": "npm run build && npm run copy-to-rn",
-    "clean-rn-assets": "powershell -Command \"Remove-Item -Path '../formulus/android/app/src/main/assets/formplayer_dist' -Recurse -Force -ErrorAction SilentlyContinue; mkdir -Force -Path '../formulus/android/app/src/main/assets/formplayer_dist'\"",
-    "copy-to-rn": "npm run clean-rn-assets && powershell -Command \"Copy-Item -Path './build/*' -Destination '../formulus/android/app/src/main/assets/formplayer_dist' -Recurse -Force\"",
+    "clean-rn-assets": "powershell -NoProfile -Command \"Remove-Item -Path '../formulus/android/app/src/main/assets/formplayer_dist' -Recurse -Force -ErrorAction SilentlyContinue; mkdir -Force -Path '../formulus/android/app/src/main/assets/formplayer_dist'\"",
+    "copy-to-rn": "npm run clean-rn-assets && powershell -NoProfile -Command \"Copy-Item -Path './build/*' -Destination '../formulus/android/app/src/main/assets/formplayer_dist' -Recurse -Force\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
