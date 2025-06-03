@@ -64,6 +64,7 @@ const HomeScreen = ({ navigation }: any) => {
         <CustomAppWebView
           ref={customAppRef}
           appUrl={localUri || ''}
+          appName="custom_app"
         />
       )}
       

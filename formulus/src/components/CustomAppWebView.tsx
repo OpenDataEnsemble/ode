@@ -14,6 +14,7 @@ export interface CustomAppWebViewHandle {
 
 interface CustomAppWebViewProps {
   appUrl: string;
+  appName?: string; // To identify the source of logs
 }
 
 const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
@@ -59,7 +60,7 @@ const consoleLogScript = `
     })();
   `;
 
-const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl }, ref) => {
+const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl, appName }, ref) => {
   const webViewRef = useRef<WebView | null>(null);
 
   // Expose imperative handle
@@ -91,7 +92,8 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
   };
 
 
-  const handleWebViewMessage = createFormulusMessageHandler(webViewRef);
+  const handleWebViewMessage = createFormulusMessageHandler(webViewRef, appName);
+  // If appName is undefined, createFormulusMessageHandler will use its default 'WebView'
 
   return (
     <WebView

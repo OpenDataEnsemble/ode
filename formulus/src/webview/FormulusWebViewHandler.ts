@@ -80,7 +80,8 @@ function handleResponse(message: any) {
  * @returns A function that can be passed to the WebView's onMessage prop
  */
 export function createFormulusMessageHandler(
-  webViewRef: React.RefObject<WebView | null>
+  webViewRef: React.RefObject<WebView | null>,
+  logSourceName: string = 'WebView' // Default to 'WebView' if not provided
 ) {
   const nativeSideHandlers = createFormulusMessageHandlers();
 
@@ -140,12 +141,12 @@ export function createFormulusMessageHandler(
       }
     },
 
-    // Console log handlers (remain unchanged, they don't use messageId for response)
-    'console.log': ({ data }) => { console.log('[WebView]', ...(data.args || [])); },
-    'console.warn': ({ data }) => { console.warn('[WebView]', ...(data.args || [])); },
-    'console.error': ({ data }) => { console.error('[WebView]', ...(data.args || [])); },
-    'console.info': ({ data }) => { console.info('[WebView]', ...(data.args || [])); },
-    'console.debug': ({ data }) => { console.debug('[WebView]', ...(data.args || [])); },
+    // Console log handlers (now use logSourceName)
+    'console.log': ({ data }) => { console.log(`[${logSourceName}]`, ...(data.args || [])); },
+    'console.warn': ({ data }) => { console.warn(`[${logSourceName}]`, ...(data.args || [])); },
+    'console.error': ({ data }) => { console.error(`[${logSourceName}]`, ...(data.args || [])); },
+    'console.info': ({ data }) => { console.info(`[${logSourceName}]`, ...(data.args || [])); },
+    'console.debug': ({ data }) => { console.debug(`[${logSourceName}]`, ...(data.args || [])); },
 
     'onFormulusReady': async ({ type, messageId }) => { // messageId will likely be undefined
       await _callHandlerAndRespond(nativeSideHandlers.onFormulusReady, [], type, messageId, webViewRef);

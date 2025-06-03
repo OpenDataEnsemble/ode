@@ -10,7 +10,6 @@ const INJECTION_SCRIPT_PATH = Platform.OS === 'android'
   : 'FormulusInjectionScript.js';
 
 import { 
-  createFormulusMessageHandler, 
   sendFormInit, 
   sendAttachmentData, 
   sendSavePartialComplete 
@@ -314,6 +313,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
         <CustomAppWebView 
           ref={webViewRef}
           appUrl={formplayerUri}
+          appName="Formplayer"
         />
         
         {/* Loading overlay */}
