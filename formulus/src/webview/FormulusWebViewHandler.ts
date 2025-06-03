@@ -20,8 +20,10 @@ declare global {
 // Types for message handling
 export interface FormInitData {
   formId: string;
-  params: Record<string, any>;
-  savedData: Record<string, any>;
+  params?: Record<string, any>;
+  savedData?: Record<string, any>;
+  formSchema?: any; // Optional: The JSON schema for the form
+  uiSchema?: any;   // Optional: The UI schema for the form
 }
 
 interface PendingRequest {
@@ -396,13 +398,15 @@ export function sendFormInit(
   webViewRef: React.RefObject<CustomAppWebViewHandle>,
   formData: FormInitData
 ): Promise<void> {
-  const { formId, params = {}, savedData = {} } = formData;
+  const { formId, params = {}, savedData = {}, formSchema, uiSchema } = formData;
   
   console.log('Sending form init data to WebView:', {
     formId,
-    paramsKeys: Object.keys(params),
+    paramsKeys: Object.keys(params ?? {}),
     hasSavedData: !!savedData,
-    savedDataKeys: savedData ? Object.keys(savedData) : []
+    savedDataKeys: Object.keys(savedData ?? {}),
+    hasFormSchema: !!formSchema,
+    hasUiSchema: !!uiSchema
   });
 
   return sendToWebView<void>(
@@ -411,7 +415,9 @@ export function sendFormInit(
     {
       formId,
       params,
-      savedData: savedData || {}
+      savedData: savedData || {},
+      formSchema,
+      uiSchema
     },
     true // Enable Promise support
   );

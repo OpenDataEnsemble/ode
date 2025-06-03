@@ -15,7 +15,7 @@ import {
   sendSavePartialComplete 
 } from '../webview/FormulusWebViewHandler';
 import { databaseService } from '../database';
-import { FormService, FormType } from '../services';
+import { FormType } from '../services'; // FormService will be imported directly
 import { Observation } from '../database/repositories/LocalRepoInterface';
 
 interface FormplayerModalProps {
@@ -30,18 +30,18 @@ interface FormplayerModalProps {
   initialConfig?: any; // Config passed when opening formplayer via event (formId, params, savedData)
 }
 
-const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservation }: FormplayerModalProps) => {
+import { FormService } from '../services/FormService'; // Import FormService
+
+const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservation, initialConfig }: FormplayerModalProps) => {
   const webViewRef = useRef<CustomAppWebViewHandle>(null);
   const [currentFormId, setCurrentFormId] = useState<string | null>(null);
   const [formTypes, setFormTypes] = useState<FormType[]>([]);
   const [selectedFormTypeId, setSelectedFormTypeId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formService = FormService.getInstance(); // Get FormService instance
   
   // Use a ref to track processed submissions with timestamps - this won't trigger re-renders
   const processedSubmissions = useRef<Map<string, number>>(new Map());
-  
-  // Get the form service instance
-  const formService = FormService.getInstance();
   
   // Path to the formplayer dist folder in assets
   const formplayerUri = Platform.OS === 'android' 
@@ -49,25 +49,51 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     : 'file:///formplayer_dist/index.html'; // Add iOS path
 
  
-  // Initialize the form when the modal becomes visible
+  // Initialize form based on initialConfig (when opened from an event) or for new/edit scenarios
   useEffect(() => {
-    if (visible) {
-      console.log('Formplayer WebView opened, loading URI:', formplayerUri);
-      
-      // Load form types when the modal becomes visible
+    if (visible && initialConfig && webViewRef.current) {
+      console.log('FormplayerModal: Initializing form with initialConfig:', initialConfig);
+      //TODO: shouldn't we load the form json schema and ui here?
+      const { formId, params, savedData } = initialConfig;
+      if (formId) {
+        const formDefinition = formService.getFormTypeById(formId);
+        if (formDefinition) {
+          console.log('FormplayerModal: Found form definition for', formId, 'sending schema and uiSchema');
+          sendFormInit(webViewRef as React.RefObject<CustomAppWebViewHandle>, {
+            formId,
+            params,
+            savedData,
+            formSchema: formDefinition.schema,
+            uiSchema: formDefinition.uiSchema,
+          });
+        } else {
+          console.warn('FormplayerModal: Form definition not found for formId:', formId);
+          // Optionally, handle the case where form definition is not found (e.g., show an error)
+          sendFormInit(webViewRef as React.RefObject<CustomAppWebViewHandle>, { formId, params, savedData }); // Send without schemas as fallback
+        }
+        setCurrentFormId(formId);
+        // Potentially clear other form selection states if initialConfig takes precedence
+        setSelectedFormTypeId(null); // Example: clear form type selection if opening a specific instance
+      }
+    } else if (visible && !initialConfig) {
+      // This block handles the existing logic for new forms or editing observations
+      // when initialConfig is NOT present.
+      // The original logic from the useEffect above might need to be moved or adapted here
+      // if it shouldn't run when initialConfig is present.
+      // For now, assuming the existing useEffect for form types and editObservation
+      // should only run if initialConfig is not provided.
+      // This might need further refinement based on desired precedence.
+      console.log('FormplayerModal: Initializing for new/edit (no initialConfig)');
       const loadedFormTypes = formService.getFormTypes();
       setFormTypes(loadedFormTypes);
-      
-      // If editing an existing observation, set the form type
       if (editObservation && loadedFormTypes.length > 0) {
-        const formType = loadedFormTypes.find(ft => ft.id === editObservation.formType);
-        if (formType) {
-          console.log('Editing existing observation for form type:', formType.id);
-          setSelectedFormTypeId(formType.id);
+        const ft = loadedFormTypes.find(f => f.id === editObservation.formType);
+        if (ft) {
+          setSelectedFormTypeId(ft.id);
         }
       }
     }
-  }, [visible, formplayerUri, formService, editObservation]);
+  }, [visible, initialConfig, webViewRef, formService, editObservation]); // Added initialConfig and webViewRef to dependencies
 
   // Listen for the closeFormplayer event
   useEffect(() => {
