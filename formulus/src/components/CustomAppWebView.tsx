@@ -77,7 +77,7 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     const loadScript = async () => {
       try {
         const script = await readFileAssets(INJECTION_SCRIPT_PATH);
-        setInjectionScript(consoleLogScript + '\n' + script);
+        setInjectionScript(consoleLogScript + '\n' + script + '\n(function() {console.debug("Injection scripts initialized");}())');
       } catch (err) {
         setInjectionScript(consoleLogScript); // fallback
         console.warn('Failed to load injection script:', err);
@@ -101,8 +101,22 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
       source={{ uri: appUrl }}
       onMessage={handleWebViewMessage}
       onError={handleError}
-      onLoadStart={() => console.log('CustomWebView starting to load URL:', appUrl)}
-      onLoadEnd={() => console.log('CustomWebView finished loading')}
+      onLoadStart={() => console.log(`[CustomAppWebView - ${appName || 'Default'}] Starting to load URL:`, appUrl)}
+      onLoadEnd={() => {
+        console.log(`[CustomAppWebView - ${appName || 'Default'}] Finished loading URL: ${appUrl}`);
+        if (webViewRef.current) {
+          // Call window.onFormulusReady if it exists in the WebView
+          const scriptToNotifyReady = `
+            if (typeof window.onFormulusReady === 'function') {
+              console.log('[CustomAppWebView Native] Calling window.onFormulusReady() in WebView.');
+              window.onFormulusReady();
+            } else {
+              console.debug('[CustomAppWebView Native] window.onFormulusReady is not defined in WebView. The custom_app might not initialize correctly.');
+            }
+          `;
+          webViewRef.current.injectJavaScript(scriptToNotifyReady);
+        }
+      }}
       onHttpError={(syntheticEvent) => {
         const { nativeEvent } = syntheticEvent;
         console.error('CustomWebView HTTP error:', nativeEvent);

@@ -58,7 +58,7 @@ export interface FormulusInterface {
    * Get a list of available forms
    * @returns {Promise<FormInfo[]>} Array of form information objects
    */
-  getAvailableForms(): Promise<FormInfo[]>;
+  getAvailableForms(): Promise<FormInfo[]>;o
 
   /**
    * Open Formplayer with the specified form
@@ -194,7 +194,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = "1.0.0";
+export const FORMULUS_INTERFACE_VERSION = "1.0.1";
 
 /**
  * Check if the current interface version is compatible with the required version

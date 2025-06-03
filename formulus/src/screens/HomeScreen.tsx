@@ -67,6 +67,19 @@ const HomeScreen = ({ navigation }: any) => {
     );
   }
 
+  const handleClick = () => {
+    console.log('HomeScreen: handleClick event received');
+    setFormplayerVisible(true);
+    const bgPath = "file:///data/user/0/com.formulus/files/app/assets/sapiens-Dt1gTJ5Q.jpg";
+    // Check if bgPath exists
+    RNFS.exists(bgPath).then((exists) => {
+      if (exists) {
+        console.log('Background image exists at:', bgPath);
+      } else {
+        console.log('Background image does not exist at:', bgPath);
+      }
+    });
+  };
 
   return (
     <View style={styles.container}>
@@ -84,7 +97,7 @@ const HomeScreen = ({ navigation }: any) => {
       {/* Test button to open formplayer (can be removed in production) */}
       <TouchableOpacity 
         style={styles.testButton} 
-        onPress={() => setFormplayerVisible(true)}
+        onPress={() => handleClick()}
       >
         <Text style={styles.testButtonText}>Open Formplayer</Text>
       </TouchableOpacity>
