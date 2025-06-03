@@ -1,3 +1,4 @@
+// Run with: npx ts-node generateInjectionScript.ts
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -155,7 +156,17 @@ function generateInjectionScript(interfaceFilePath: string): string {
           ${!isVoidReturn ? `
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('${method.name} callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('${method.name} callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === '${method.name}_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -165,7 +176,8 @@ function generateInjectionScript(interfaceFilePath: string): string {
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'${method.name}' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -218,7 +230,15 @@ function generateInjectionScript(interfaceFilePath: string): string {
   // Global function to handle responses from React Native
   function handleMessage(event) {
     try {
-      const data = JSON.parse(event.data);
+      let data;
+      if (typeof event.data === 'string') {
+        data = JSON.parse(event.data);
+      } else if (typeof event.data === 'object' && event.data !== null) {
+        data = event.data; // Already an object
+      } else {
+        // console.warn('Global handleMessage: Received message with unexpected data type:', typeof event.data, event.data);
+        return; // Or handle as an error, but for now, just return to avoid breaking others.
+      }
       
       // Handle callbacks
       if (data.type === 'callback' && data.callbackId && callbacks[data.callbackId]) {
@@ -239,7 +259,7 @@ function generateInjectionScript(interfaceFilePath: string): string {
         handleCallback(globalThis.formulusCallbacks.onFormulusReady);
       }
     } catch (e) {
-      console.error('Error handling message:', e);
+      console.error('Global handleMessage: Error processing message:', e, 'Raw event.data:', event.data);
     }
   }
   

@@ -9,6 +9,7 @@ export interface CustomAppWebViewHandle {
   reload: () => void;
   goBack: () => void;
   goForward: () => void;
+  injectJavaScript: (script: string) => void;
 }
 
 interface CustomAppWebViewProps {
@@ -66,6 +67,7 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     reload: () => webViewRef.current?.reload?.(),
     goBack: () => webViewRef.current?.goBack?.(),
     goForward: () => webViewRef.current?.goForward?.(),
+    injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
   }), []);
 
   // JS injection: load script from assets and prepend consoleLogScript
@@ -88,9 +90,8 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     console.error('WebView error:', nativeEvent);
   };
 
-  const handleWebViewMessage = createFormulusMessageHandler(webViewRef, {
-    onError: (err) => console.error('Formulus WebView error:', err)
-  });
+
+  const handleWebViewMessage = createFormulusMessageHandler(webViewRef);
 
   return (
     <WebView

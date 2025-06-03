@@ -31,12 +31,14 @@ interface PendingRequest {
 }
 
 interface MessageHandlerContext {
-  data: any;
+  data: any; // This is now the payload part of the message (message content excluding type and messageId)
   webViewRef: React.RefObject<WebView | null>;
-  event: WebViewMessageEvent;
+  event: WebViewMessageEvent; // Original WebView event
+  type: string; // Original message type from the WebView message
+  messageId?: string; // Original messageId from the WebView message, if present
 }
 
-type MessageHandler = (context: MessageHandlerContext) => void;
+type MessageHandler = (context: MessageHandlerContext) => Promise<void> | void;
 
 interface MessageHandlers {
   [key: string]: MessageHandler;
@@ -46,24 +48,7 @@ interface MessageHandlers {
 const PENDING_REQUESTS = new Map<string, PendingRequest>();
 const REQUEST_TIMEOUT = 30000; // 30 seconds timeout
 
-export interface FormulusMessageHandlers {
-  onInitForm?: () => void;
-  onSavePartial?: (formId: string, data: Record<string, any>) => void;
-  onSubmitForm?: (formId: string, finalData: Record<string, any>) => void;
-  onRequestCamera?: (fieldId: string) => void;
-  onRequestLocation?: (fieldId: string) => void;
-  onRequestFile?: (fieldId: string) => void;
-  onLaunchIntent?: (fieldId: string, intentSpec: Record<string, any>) => void;
-  onCallSubform?: (fieldId: string, formId: string, options: Record<string, any>) => void;
-  onRequestAudio?: (fieldId: string) => void;
-  onRequestSignature?: (fieldId: string) => void;
-  onRequestBiometric?: (fieldId: string) => void;
-  onRequestConnectivityStatus?: () => void;
-  onRequestSyncStatus?: () => void;
-  onRunLocalModel?: (fieldId: string, modelId: string, input: Record<string, any>) => void;
-  onUnknownMessage?: (message: any) => void;
-  onError?: (error: Error) => void;
-}
+import { createFormulusMessageHandlers } from './FormulusMessageHandlers';
 
 /**
  * Create a message handler for WebView messages
@@ -95,116 +80,142 @@ function handleResponse(message: any) {
  * @returns A function that can be passed to the WebView's onMessage prop
  */
 export function createFormulusMessageHandler(
-  webViewRef: React.RefObject<WebView | null>,
-  handlers: FormulusMessageHandlers
+  webViewRef: React.RefObject<WebView | null>
 ) {
-  // Create a map of message handlers
+  const nativeSideHandlers = createFormulusMessageHandlers();
+
+  // Helper function to call native handlers and send responses
+  async function _callHandlerAndRespond(
+    handlerMethod: ((...args: any[]) => Promise<any> | any) | undefined,
+    handlerArgs: any[],
+    messageType: string, // The original 'type' from the WebView message
+    messageId: string | undefined, // The 'messageId' from the WebView message, if any
+    currentWebViewRef: React.RefObject<WebView | null>
+  ) {
+    if (!handlerMethod) {
+      console.warn(`Native Host: No method found in FormulusMessageHandlers for message type '${messageType}'.`);
+      if (messageId && currentWebViewRef.current) {
+        const errorResponse = { type: `${messageType}_response`, messageId, error: `Handler for ${messageType} not implemented on native side.` };
+        const script = `window.postMessage(${JSON.stringify(errorResponse)}, '*');`;
+        currentWebViewRef.current.injectJavaScript(script);
+      }
+      return;
+    }
+
+    try {
+      const result = await handlerMethod(...handlerArgs);
+
+      if (messageId && currentWebViewRef.current) {
+        const response = { type: `${messageType}_response`, messageId, result };
+        const script = `window.postMessage(${JSON.stringify(response)}, '*');`;
+        // console.log(`Native Host (${messageType}): Sending response:`, response); // Optional: for debugging
+        currentWebViewRef.current.injectJavaScript(script);
+      } else if (messageId) {
+        // This case means messageId was present, but webViewRef.current was null when trying to respond.
+        console.error(`Native Host (${messageType}): Cannot send response. WebView ref missing.`, { messageId, result });
+      }
+      // If no messageId, it's treated as a fire-and-forget, or the handler itself manages responses via other means.
+    } catch (e: any) {
+      console.error(`Native Host (${messageType}): Error in handler:`, e);
+      if (messageId && currentWebViewRef.current) {
+        const errorResponse = { type: `${messageType}_response`, messageId, error: e.message || `Unknown error in ${messageType} handler` };
+        const script = `window.postMessage(${JSON.stringify(errorResponse)}, '*');`;
+        currentWebViewRef.current.injectJavaScript(script);
+      }
+    }
+  }
+
   const messageHandlers: MessageHandlers = {
     // Default handler for unknown message types
-    __default__: ({ data, event }) => {
-      console.warn('Unknown message type:', data.type, data);
-      if (handlers.onUnknownMessage) {
-        handlers.onUnknownMessage(data);
+    __default__: async ({ data, event, type, messageId }) => { // Added type, messageId from context
+      console.warn(`Native Host: Unhandled message type '${type}':`, data, event);
+      if (nativeSideHandlers.onUnknownMessage) {
+        // Pass the full original message structure if onUnknownMessage expects it
+        nativeSideHandlers.onUnknownMessage({ type, messageId, ...data });
+      }
+      if (messageId && webViewRef.current) { // Ensure webViewRef is used from the outer scope
+        const errorResponse = { type: `${type}_response`, messageId, error: `Unhandled message type: ${type}` };
+        const script = `window.postMessage(${JSON.stringify(errorResponse)}, '*');`;
+        webViewRef.current.injectJavaScript(script);
       }
     },
 
-    // Console log handlers
-    'console.log': ({ data }) => {
-      const logArgs = data.args || [];
-      console.log('[WebView]', ...logArgs);
-    },
-    'console.warn': ({ data }) => {
-      const logArgs = data.args || [];
-      console.warn('[WebView]', ...logArgs);
-    },
-    'console.error': ({ data }) => {
-      const logArgs = data.args || [];
-      console.error('[WebView]', ...logArgs);
-    },
-    'console.info': ({ data }) => {
-      const logArgs = data.args || [];
-      console.info('[WebView]', ...logArgs);
-    },
-    'console.debug': ({ data }) => {
-      const logArgs = data.args || [];
-      console.debug('[WebView]', ...logArgs);
+    // Console log handlers (remain unchanged, they don't use messageId for response)
+    'console.log': ({ data }) => { console.log('[WebView]', ...(data.args || [])); },
+    'console.warn': ({ data }) => { console.warn('[WebView]', ...(data.args || [])); },
+    'console.error': ({ data }) => { console.error('[WebView]', ...(data.args || [])); },
+    'console.info': ({ data }) => { console.info('[WebView]', ...(data.args || [])); },
+    'console.debug': ({ data }) => { console.debug('[WebView]', ...(data.args || [])); },
+
+    'onFormulusReady': async ({ type, messageId }) => { // messageId will likely be undefined
+      await _callHandlerAndRespond(nativeSideHandlers.onFormulusReady, [], type, messageId, webViewRef);
     },
 
-    // Form related handlers
-    'initForm': ({ webViewRef }) => {
-      if (handlers.onInitForm) {
-        handlers.onInitForm();
-      }
+    // --- Formulus API Handlers (using _callHandlerAndRespond) ---
+    // Note: 'data' in context is the payload part of the message (message content excluding type and messageId)
+    // 'type' and 'messageId' are directly from the context.
+
+    'getVersion': async ({ type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onGetVersion, [], type, messageId, webViewRef);
     },
-    'savePartial': ({ data, webViewRef }) => {
-      if (handlers.onSavePartial && data.formId) {
-        handlers.onSavePartial(data.formId, data.data);
-      }
+    'initForm': async ({ type, messageId }) => { // Assuming onInitForm might be async or we want to signal completion
+      await _callHandlerAndRespond(nativeSideHandlers.onInitForm, [], type, messageId, webViewRef);
     },
-    'submitForm': ({ data, webViewRef }) => {
-      if (handlers.onSubmitForm && data.formId) {
-        handlers.onSubmitForm(data.formId, data.finalData);
-      }
+    'savePartial': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onSavePartial, [data.formId, data.data], type, messageId, webViewRef);
     },
-    'requestCamera': ({ data, webViewRef }) => {
-      if (handlers.onRequestCamera && data.fieldId) {
-        handlers.onRequestCamera(data.fieldId);
-      }
+    'submitForm': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onSubmitForm, [data.formId, data.finalData], type, messageId, webViewRef);
     },
-    'requestLocation': ({ data, webViewRef }) => {
-      if (handlers.onRequestLocation && data.fieldId) {
-        handlers.onRequestLocation(data.fieldId);
-      }
+    'requestCamera': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRequestCamera, [data.fieldId], type, messageId, webViewRef);
     },
-    'requestFile': ({ data, webViewRef }) => {
-      if (handlers.onRequestFile && data.fieldId) {
-        handlers.onRequestFile(data.fieldId);
-      }
+    'requestLocation': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRequestLocation, [data.fieldId], type, messageId, webViewRef);
     },
-    'launchIntent': ({ data, webViewRef }) => {
-      if (handlers.onLaunchIntent && data.fieldId && data.intentSpec) {
-        handlers.onLaunchIntent(data.fieldId, data.intentSpec);
-      }
+    'requestFile': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRequestFile, [data.fieldId], type, messageId, webViewRef);
     },
-    'callSubform': ({ data, webViewRef }) => {
-      if (handlers.onCallSubform && data.fieldId && data.formId) {
-        handlers.onCallSubform(data.fieldId, data.formId, data.options || {});
-      }
+    'launchIntent': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onLaunchIntent, [data.fieldId, data.intentSpec], type, messageId, webViewRef);
     },
-    'requestAudio': ({ data, webViewRef }) => {
-      if (handlers.onRequestAudio && data.fieldId) {
-        handlers.onRequestAudio(data.fieldId);
-      }
+    'callSubform': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onCallSubform, [data.fieldId, data.formId, data.options || {}], type, messageId, webViewRef);
     },
-    'requestSignature': ({ data, webViewRef }) => {
-      if (handlers.onRequestSignature && data.fieldId) {
-        handlers.onRequestSignature(data.fieldId);
-      }
+    'requestAudio': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRequestAudio, [data.fieldId], type, messageId, webViewRef);
     },
-    'requestBiometric': ({ data, webViewRef }) => {
-      if (handlers.onRequestBiometric && data.fieldId) {
-        handlers.onRequestBiometric(data.fieldId);
-      }
+    'requestSignature': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRequestSignature, [data.fieldId], type, messageId, webViewRef);
     },
-    'requestConnectivityStatus': ({ webViewRef }) => {
-      if (handlers.onRequestConnectivityStatus) {
-        handlers.onRequestConnectivityStatus();
-      }
+    'requestBiometric': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRequestBiometric, [data.fieldId], type, messageId, webViewRef);
     },
-    'requestSyncStatus': ({ webViewRef }) => {
-      if (handlers.onRequestSyncStatus) {
-        handlers.onRequestSyncStatus();
-      }
+    'requestConnectivityStatus': async ({ type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRequestConnectivityStatus, [], type, messageId, webViewRef);
     },
-    'runLocalModel': ({ data, webViewRef }) => {
-      if (handlers.onRunLocalModel && data.fieldId && data.modelId) {
-        handlers.onRunLocalModel(data.fieldId, data.modelId, data.input || {});
-      }
+    'requestSyncStatus': async ({ type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRequestSyncStatus, [], type, messageId, webViewRef);
+    },
+    'runLocalModel': async ({ data, type, messageId }) => {
+      await _callHandlerAndRespond(nativeSideHandlers.onRunLocalModel, [data.fieldId, data.modelId, data.input || {}], type, messageId, webViewRef);
+    },
+    // getAvailableForms was missing from the original, adding it based on common patterns
+    'getAvailableForms': async ({ type, messageId }) => {
+       await _callHandlerAndRespond(nativeSideHandlers.onGetAvailableForms, [], type, messageId, webViewRef);
+    },
+    // getObservations was missing, adding based on common patterns
+    'getObservations': async ({ data, type, messageId }) => {
+       await _callHandlerAndRespond(nativeSideHandlers.onGetObservations, [data.formId, data.isDraft, data.includeDeleted], type, messageId, webViewRef);
+    },
+    // openFormplayer was missing, adding based on common patterns
+    'openFormplayer': async ({ data, type, messageId }) => {
+       await _callHandlerAndRespond(nativeSideHandlers.onOpenFormplayer, [data.formId, data.params, data.savedData], type, messageId, webViewRef);
     },
 
-    // Handle Promise responses
+    // Special handlers (kept as is, assuming they manage their own specific logic)
     'response': ({ data }) => {
-      handleResponse(data);
+      handleResponse(data); // Assumes handleResponse is defined elsewhere and handles these specific 'response' messages
     },
     'callback': ({ data }) => {
       if (data.error) {
@@ -215,26 +226,46 @@ export function createFormulusMessageHandler(
     }
   };
 
-  // Return the actual message handler function
+  // Return the actual message handler function to be used by WebView's onMessage prop
   return async (event: WebViewMessageEvent) => {
+    let message;
     try {
-      const message = JSON.parse(event.nativeEvent.data);
-      console.log('Received message:', message);
+      // Ensure event.nativeEvent.data is a string before parsing
+      if (typeof event.nativeEvent.data === 'string') {
+        message = JSON.parse(event.nativeEvent.data);
+      } else {
+        console.error('Native Host: Received non-string data from WebView', event.nativeEvent.data);
+        return; // Cannot process non-string data
+      }
+      // console.log('Native Host: Received message:', message); // Optional: for debugging
 
-      const { type, ...data } = message;
-      // Get the appropriate handler or use the default one
+      const { type, messageId, ...payload } = message; // Destructure type, messageId, and the rest as payload
+
       const handler = messageHandlers[type] || messageHandlers.__default__;
       
-      // Call the handler with the context
-      handler({
-        data,
-        webViewRef,
-        event
+      // Call the handler with the necessary context
+      // The context now includes 'type' and 'messageId' directly, and 'data' is the payload
+      await handler({ 
+        data: payload, 
+        webViewRef, 
+        event, 
+        type, 
+        messageId 
       });
+
     } catch (error) {
-      console.error('Failed to handle WebView message:', error);
-      if (handlers.onError) {
-        handlers.onError(error as Error);
+      console.error('Native Host: Failed to handle WebView message:', error, 'Raw data:', event.nativeEvent.data);
+      // Attempt to send an error back to the WebView if a messageId was part of the unparsable message
+      if (message && message.messageId && message.type && webViewRef.current) {
+        const errorResponse = { 
+          type: `${message.type}_response`, 
+          messageId: message.messageId, 
+          error: 'Native host failed to process message: ' + (error instanceof Error ? error.message : String(error))
+        };
+        const script = `window.postMessage(${JSON.stringify(errorResponse)}, '*');`;
+        webViewRef.current.injectJavaScript(script);
+      } else if (nativeSideHandlers.onError) {
+        nativeSideHandlers.onError(error as Error);
       }
     }
   };

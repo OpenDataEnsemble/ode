@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-06-02T14:02:12.662Z
+// Last generated: 2025-06-03T08:28:55.148Z
 
 (function() {
   if (typeof globalThis.formulus !== 'undefined') {
@@ -25,7 +25,15 @@
   // Global function to handle responses from React Native
   function handleMessage(event) {
     try {
-      const data = JSON.parse(event.data);
+      let data;
+      if (typeof event.data === 'string') {
+        data = JSON.parse(event.data);
+      } else if (typeof event.data === 'object' && event.data !== null) {
+        data = event.data; // Already an object
+      } else {
+        // console.warn('Global handleMessage: Received message with unexpected data type:', typeof event.data, event.data);
+        return; // Or handle error, but for now, just return to avoid breaking others.
+      }
       
       // Handle callbacks
       if (data.type === 'callback' && data.callbackId && callbacks[data.callbackId]) {
@@ -46,7 +54,7 @@
         handleCallback(globalThis.formulusCallbacks.onFormulusReady);
       }
     } catch (e) {
-      console.error('Error handling message:', e);
+      console.error('Global handleMessage: Error processing message:', e, 'Raw event.data:', event.data);
     }
   }
   
@@ -65,7 +73,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('getVersion callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('getVersion callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'getVersion_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -75,7 +93,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'getVersion' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -101,7 +120,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('getAvailableForms callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('getAvailableForms callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'getAvailableForms_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -111,7 +140,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'getAvailableForms' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -137,7 +167,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('openFormplayer callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('openFormplayer callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'openFormplayer_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -147,7 +187,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'openFormplayer' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -175,7 +216,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('getObservations callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('getObservations callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'getObservations_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -185,7 +236,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'getObservations' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -213,7 +265,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('initForm callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('initForm callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'initForm_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -223,7 +285,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'initForm' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -249,7 +312,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('savePartial callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('savePartial callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'savePartial_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -259,7 +332,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'savePartial' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -286,7 +360,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('submitForm callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('submitForm callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'submitForm_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -296,7 +380,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'submitForm' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -323,7 +408,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestCamera callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestCamera callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'requestCamera_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -333,7 +428,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'requestCamera' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -359,7 +455,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestLocation callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestLocation callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'requestLocation_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -369,7 +475,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'requestLocation' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -395,7 +502,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestFile callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestFile callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'requestFile_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -405,7 +522,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'requestFile' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -431,7 +549,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('launchIntent callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('launchIntent callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'launchIntent_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -441,7 +569,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'launchIntent' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -468,7 +597,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('callSubform callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('callSubform callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'callSubform_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -478,7 +617,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'callSubform' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -506,7 +646,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestAudio callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestAudio callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'requestAudio_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -516,7 +666,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'requestAudio' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -542,7 +693,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestSignature callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestSignature callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'requestSignature_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -552,7 +713,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'requestSignature' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -578,7 +740,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestBiometric callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestBiometric callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'requestBiometric_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -588,7 +760,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'requestBiometric' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -614,7 +787,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestConnectivityStatus callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestConnectivityStatus callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'requestConnectivityStatus_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -624,7 +807,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'requestConnectivityStatus' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -650,7 +834,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestSyncStatus callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestSyncStatus callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'requestSyncStatus_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -660,7 +854,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'requestSyncStatus' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };
@@ -686,7 +881,17 @@
           
           const callback = (event) => {
             try {
-              const data = JSON.parse(event.data);
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('runLocalModel callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('runLocalModel callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
               if (data.type === 'runLocalModel_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
@@ -696,7 +901,8 @@
                 }
               }
             } catch (e) {
-              console.error('Error handling response:', e);
+              console.error("'runLocalModel' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
           };

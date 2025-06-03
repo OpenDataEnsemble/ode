@@ -182,7 +182,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     
     // Send a confirmation back to the Formplayer
     if (webViewRef.current) {
-      sendSavePartialComplete(webViewRef as React.RefObject<WebView>, formId, true);
+      sendSavePartialComplete(webViewRef as React.RefObject<CustomAppWebViewHandle>, formId, true);
     }
   };
   
