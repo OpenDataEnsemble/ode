@@ -28,25 +28,32 @@ sequenceDiagram
     participant Formplayer as Formplayer (WebView JS)
     participant Formulus as Formulus (React Native)
 
-    %% Initialization
-    Formplayer->>Formulus: initForm()
-    Formulus-->>Formplayer: { formId, params, savedData }
+    %% Initialization (Formulus Initiated when FormplayerModal becomes visible with initialConfig)
+    Note over Formulus,Formplayer: FormplayerModal becomes visible (e.g., triggered by CustomAppWebView message)
+    Formulus->>Formplayer: Calls window.onFormInit({ formId, params, savedData, formSchema, uiSchema })
+    Note right of Formplayer: Formplayer's onFormInit handler receives schemas & data, then renders the form UI.
+    Formplayer-->>Formulus: (Optional) formplayerInitialized (message to confirm init)
 
-    %% Form interaction
-    Formplayer->>Formulus: savePartial(formId, data)
+    %% Form Interaction (these can leverage the promise-based communication)
+    Note over Formplayer,Formulus: User interacts with the form in Formplayer
+    Formplayer->>Formulus: savePartial({ type: 'savePartial', payload: {formId, data} }) (using postMessageWithPromise)
+    Formulus-->>Formplayer: { success: true/false, message?: string } (Promise resolved/rejected to savePartial call)
+    Note right of Formplayer: Called on field change/autosave
 
-    %% Native feature calls (can happen anytime)
+    Formplayer->>Formulus: submitForm({ type: 'submitForm', payload: {formId, finalData} }) (using postMessageWithPromise)
+    Formulus-->>Formplayer: { submissionId?: string, error?: string } (Promise resolved/rejected to submitForm call)
+    Note right of Formplayer: Called on explicit form submission
+
+    %% Native feature calls (can happen anytime, example)
     alt Camera
-        Formplayer->>Formulus: requestCamera(fieldId)
-        Formulus->>Formulus: Open camera
-        Formulus->>Formplayer: onAttachmentReady({ fieldId, type: "image", uri })
-    end
+        Formplayer->>Formulus: requestCamera({ type: 'requestCamera', payload: {fieldId} }) (using postMessageWithPromise)
+        Formulus->>Formulus: Open camera, handle permissions
+        Formulus-->>Formplayer: { fieldId, type: "image", uri } (Promise resolved to requestCamera call)
 
-    alt Location
-        Formplayer->>Formulus: requestLocation(fieldId)
-        Formulus->>Formulus: Get GPS coords
-        Formulus->>Formplayer: onAttachmentReady({ fieldId, type: "location", coords })
-    end
+    %% Form Close (can be initiated by either side)
+    Formplayer->>Formulus: requestCloseForm({ type: 'requestClose' }) (using postMessageWithPromise)
+    Formulus-->>Formplayer: { status: 'closing' } (Promise resolved)
+    Note over Formulus,Formplayer: Formulus closes the FormplayerModal
 
     alt File Picker
         Formplayer->>Formulus: requestFile(fieldId)
