@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {View,Text,TextInput,TouchableOpacity,StyleSheet,SafeAreaView,ScrollView,Alert,ActivityIndicator} from 'react-native';
+import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login } from '../api/synkronus/Auth'
 
@@ -17,15 +18,18 @@ const SettingsScreen = () => {
       try {
         const settings = await AsyncStorage.getItem('@settings');
         if (settings) {
-          const { serverUrl: savedUrl, username: savedUsername } = JSON.parse(settings);
-          setServerUrl(savedUrl || '');
-          setUsername(savedUsername || '');
-          // Note: We don't load password for security reasons
+          const { serverUrl: savedUrl } = JSON.parse(settings);
+          setServerUrl(savedUrl || '');          
         }
       } catch (error) {
         console.error('Failed to load settings', error);
       } finally {
         setIsLoading(false);
+      }
+      const credentials = await loadCredentials();
+      if (credentials) {
+        setUsername(credentials.username);
+        setPassword(credentials.password);
       }
     };
 
@@ -47,6 +51,40 @@ const SettingsScreen = () => {
       setIsLoggingIn(false)
     }
   }
+
+  async function resetCredentials() {
+    try {
+      await Keychain.resetGenericPassword();
+      console.log('Credentials reset successfully.');
+    } catch (error) {
+      console.error('Keychain couldn\'t be accessed!', error);
+    }
+  }
+
+  async function loadCredentials(): Promise<{ username: string, password: string } | null> {
+    try {
+      const credentials = await Keychain.getGenericPassword();
+      if (credentials) {
+        console.log('Credentials loaded successfully:', credentials.username, credentials.password);
+        return {username: credentials.username, password: credentials.password};
+      } else {
+        console.log('No credentials stored.');
+        return null;
+      }
+    } catch (error) {
+      console.error('Keychain couldn\'t be accessed!', error);
+      return null;
+    }
+  }
+  async function saveCredentials(username: string, password: string) {
+    try {
+      await Keychain.setGenericPassword(username, password);
+      console.log('Credentials saved successfully!');
+    } catch (error) {
+      console.error('Keychain couldn\'t be accessed!', error);
+      throw new Error('Keychain couldn\'t be accessed for safe credential storage!');
+    }
+  }
   
   const handleSave = async () => {
     try {
@@ -54,12 +92,11 @@ const SettingsScreen = () => {
       
       // Save settings to AsyncStorage
       await AsyncStorage.setItem('@settings', JSON.stringify({
-        serverUrl,
-        username,
-        password,
-        // Note: We shouldn't save password for security reasons
-        // Later we might want to use secure storage for sensitive data
+        serverUrl
       }));
+
+      // Save username and password in keychain
+      await saveCredentials(username, password);
       
       Alert.alert('Success', 'Settings saved successfully');
     } catch (error) {
