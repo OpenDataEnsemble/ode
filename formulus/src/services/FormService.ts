@@ -1,10 +1,11 @@
 import { databaseService } from '../database';
 import { Observation } from '../database/repositories/LocalRepoInterface';
+import RNFS from 'react-native-fs';
 
 /**
  * Interface representing a form type
  */
-export interface FormType {
+export interface FormSpec {
   id: string;
   name: string;
   description: string;
@@ -18,26 +19,70 @@ export interface FormType {
  */
 export class FormService {
   private static instance: FormService;
-  private formTypes: FormType[] = [];
+  private formSpecs: FormSpec[] = [];
   
   private constructor() {
-    // Initialize with some default form types
-    // In a real implementation, these would likely be loaded from an API or local storage
     try {
-      this.formTypes = [
-        {
-          id: 'person',
-          name: 'Person',
-          description: 'Form for collecting person information',
-          schemaVersion: '1.0',
-          schema: require('../webview/personschema.json'),
-          uiSchema: require('../webview/personui.json')
-        },
-        // Add more form types as needed
-      ];
+      this.getFormspecsFromStorage().then((formSpecs) => {
+        this.formSpecs = formSpecs;
+        console.log(`${formSpecs.length} form specs loaded successfully`);
+      });
     } catch (error) {
       console.error('Failed to load default form types during FormService construction:', error);
-      this.formTypes = []; // Initialize with empty array if loading fails
+      this.formSpecs = []; // Initialize with empty array if loading fails
+    }
+  }
+
+  private async loadFormspec(formDir: RNFS.ReadDirItem): Promise<FormSpec | null> {
+    if (!formDir.isDirectory()) {
+      console.log('Skipping non-directory:', formDir.name);
+      return null;
+    }
+    console.log('Loading form spec:', formDir.path);
+    let schema: any;
+    try {
+      const filePath = formDir.path + '/schema.json';
+      const fileContent = await RNFS.readFile(filePath, 'utf8');
+      schema = JSON.parse(fileContent);
+    } catch (error) {
+      console.error('Failed to load schema for form spec:', formDir.name, error);
+      return null;
+    }
+    let uiSchema: any;
+    try {
+      const uiSchemaPath = formDir.path + '/ui.json';
+      const uiSchemaContent = await RNFS.readFile(uiSchemaPath, 'utf8');
+      uiSchema = JSON.parse(uiSchemaContent);
+    } catch (error) {
+      console.error('Failed to load uiSchema for form spec:', formDir.name, error);
+      return null;
+    }
+    return {
+      id: formDir.name,
+      name: formDir.name,
+      description: 'Form for collecting ' + formDir.name + ' observations',
+      schemaVersion: '1.0', //TODO: Fix this
+      schema: schema,
+      uiSchema: uiSchema
+    };
+  }
+
+  private async getFormspecsFromStorage(): Promise<FormSpec[]> {
+    try {
+      const formSpecsDir = RNFS.DocumentDirectoryPath + '/forms';
+      const formSpecFolders = await RNFS.readDir(formSpecsDir);
+      console.log('FormSpec folders:', formSpecFolders.map(f => f.name));
+      const formSpecs = await Promise.all(formSpecFolders.map(async formDir => {
+        return this.loadFormspec(formDir);
+      }));
+      var errorCount = formSpecs.length !== formSpecFolders.length;
+      if (errorCount) {
+        console.warn(`${errorCount} form specs did not load correctly!`);
+      }
+      return formSpecs.filter((s): s is FormSpec => s !== null);
+    } catch (error) {
+      console.error('Failed to load form types from storage:', error);
+      return [];
     }
   }
   
@@ -55,38 +100,8 @@ export class FormService {
    * Get all available form types
    * @returns Array of form types
    */
-  public getFormTypes(): FormType[] {
-    // ===== BEGIN TEMPORARY CODE =====
-    // This code will be removed once we have the sync implemented
-    // It ensures we always have at least one form type available for testing
-    if (this.formTypes.length === 0) {
-      try {
-        // Try to load the person schema and UI schema from the JSON files
-        const personSchema = require('../webview/personschema.json');
-        const personUiSchema = require('../webview/personui.json');
-        const personData = require('../webview/personData.json');
-        
-        // Create a person form type
-        const personFormType: FormType = {
-          id: 'person',
-          name: 'Person',
-          description: 'Form for collecting person information',
-          schemaVersion: '1.0',
-          schema: personSchema,
-          uiSchema: personUiSchema
-        };
-        
-        // Add the person form type
-        this.addFormType(personFormType);
-        
-        console.log('Temporary form type created:', personFormType.id);
-      } catch (error) {
-        console.error('Error creating temporary form type:', error);
-      }
-    }
-    // ===== END TEMPORARY CODE =====
-    
-    return this.formTypes;
+  public getFormSpecs(): FormSpec[] {
+    return this.formSpecs;
   }
   
   /**
@@ -94,8 +109,8 @@ export class FormService {
    * @param id Form type ID
    * @returns Form type or undefined if not found
    */
-  public getFormTypeById(id: string): FormType | undefined {
-    return this.formTypes.find(formType => formType.id === id);
+  public getFormSpecById(id: string): FormSpec | undefined {
+    return this.formSpecs.find(formSpec => formSpec.id === id);
   }
   
   /**
@@ -130,11 +145,11 @@ export class FormService {
     
     try {
       // Get all observations across all form types
-      const allFormTypes = this.getFormTypes();
+      const allFormSpecs = this.getFormSpecs();
       let allObservations: any[] = [];
       
-      for (const formType of allFormTypes) {
-        const observations = await localRepo.getObservationsByFormId(formType.id);
+      for (const formSpec of allFormSpecs) {
+        const observations = await localRepo.getObservationsByFormId(formSpec.id);
         allObservations = [...allObservations, ...observations];
       }
       
@@ -186,16 +201,16 @@ export class FormService {
    * Add a new form type
    * @param formType Form type to add
    */
-  public addFormType(formType: FormType): void {
+  public addFormSpec(formSpec: FormSpec): void {
     // Check if form type with same ID already exists
-    const existingIndex = this.formTypes.findIndex(ft => ft.id === formType.id);
+    const existingIndex = this.formSpecs.findIndex(ft => ft.id === formSpec.id);
     
     if (existingIndex >= 0) {
       // Replace existing form type
-      this.formTypes[existingIndex] = formType;
+      this.formSpecs[existingIndex] = formSpec;
     } else {
       // Add new form type
-      this.formTypes.push(formType);
+      this.formSpecs.push(formSpec);
     }
   }
   
@@ -204,10 +219,10 @@ export class FormService {
    * @param id Form type ID to remove
    * @returns True if form type was removed, false otherwise
    */
-  public removeFormType(id: string): boolean {
-    const initialLength = this.formTypes.length;
-    this.formTypes = this.formTypes.filter(formType => formType.id !== id);
-    return this.formTypes.length < initialLength;
+  public removeFormSpec(id: string): boolean {
+    const initialLength = this.formSpecs.length;
+    this.formSpecs = this.formSpecs.filter(formSpec => formSpec.id !== id);
+    return this.formSpecs.length < initialLength;
   }
 
 }

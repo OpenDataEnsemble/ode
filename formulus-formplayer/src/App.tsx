@@ -166,6 +166,11 @@ function App() {
 
   // Register for attachment ready events
   useEffect(() => {
+    console.log('Formplayer: Executing initialization code');
+    window.onFormulusReady = () => {
+      console.log('Formplayer: onFormulusReady called');
+    };
+
     formulusClient.current.onAttachmentReady((attachmentData) => {
       console.log('%c Attachment ready:', 'background: #FF9800; color: white; padding: 2px 5px; border-radius: 2px;', attachmentData);
       

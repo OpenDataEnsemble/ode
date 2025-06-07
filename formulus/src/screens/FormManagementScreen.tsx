@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Alert
 } from 'react-native';
-import { FormService, FormType } from '../services';
+import { FormService, FormSpec } from '../services';
 import { Observation } from '../database/repositories/LocalRepoInterface';
 import FormplayerModal from '../components/FormplayerModal';
 
@@ -17,11 +17,11 @@ import FormplayerModal from '../components/FormplayerModal';
  * Screen for managing forms and observations (admin only)
  */
 const FormManagementScreen = ({ navigation }: any) => {
-  const [formTypes, setFormTypes] = useState<FormType[]>([]);
+  const [formTypes, setFormTypes] = useState<FormSpec[]>([]);
   const [observations, setObservations] = useState<Record<string, Observation[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [formModalVisible, setFormModalVisible] = useState<boolean>(false);
-  const [selectedFormType, setSelectedFormType] = useState<FormType | null>(null);
+  const [selectedFormType, setSelectedFormType] = useState<FormSpec | null>(null);
   const [editingObservation, setEditingObservation] = useState<Observation | null>(null);
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
   
@@ -59,14 +59,14 @@ const FormManagementScreen = ({ navigation }: any) => {
   };
   
   // Handle adding a new observation
-  const handleAddObservation = (formType: FormType) => {
+  const handleAddObservation = (formType: FormSpec) => {
     setSelectedFormType(formType);
     setEditingObservation(null);
     setFormModalVisible(true);
   };
   
   // Handle editing an observation
-  const handleEditObservation = (formType: FormType, observation: Observation) => {
+  const handleEditObservation = (formType: FormSpec, observation: Observation) => {
     setSelectedFormType(formType);
     setEditingObservation(observation);
     setFormModalVisible(true);
@@ -189,7 +189,7 @@ const FormManagementScreen = ({ navigation }: any) => {
   };
   
   // Render a form type item
-  const renderFormTypeItem = ({ item }: { item: FormType }) => {
+  const renderFormTypeItem = ({ item }: { item: FormSpec }) => {
     const formObservations = observations[item.id] || [];
     const isExpanded = expandedFormId === item.id;
     

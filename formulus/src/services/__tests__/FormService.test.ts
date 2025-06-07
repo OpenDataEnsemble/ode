@@ -1,4 +1,4 @@
-import { FormService as FormServiceType, FormType } from '../FormService';
+import { FormService as FormServiceType, FormSpec } from '../FormService';
 import { Observation } from '../../database/repositories/LocalRepoInterface';
 
 // Mock JSON schema files
@@ -85,9 +85,19 @@ describe('FormService', () => {
 
   describe('getFormTypeById', () => {
     test('should return the correct form type for a valid ID', () => {
-      const formType = formServiceInstance.getFormTypeById('person');
-      expect(formType).toBeDefined();
-      expect(formType?.id).toBe('person');
+      formServiceInstance.addFormType({
+        id: 'person',
+        name: 'Person',
+        description: 'Form for collecting person information',
+        schemaVersion: '1.0',
+        schema: require('./personschema.json'),
+        uiSchema: require('./personui.json')
+      });
+      const formSpec = formServiceInstance.getFormTypeById('person');
+      expect(formSpec).toBeDefined();
+      expect(formSpec?.schema).toBeDefined();
+      expect(formSpec?.uiSchema).toBeDefined();
+      expect(formSpec?.id).toBe('person');
     });
 
     test('should return undefined for a non-existent ID', () => {
@@ -97,7 +107,7 @@ describe('FormService', () => {
   });
 
   describe('addFormType', () => {
-    const newFormType: FormType = {
+    const newFormType: FormSpec = {
       id: 'testForm',
       name: 'Test Form',
       description: 'A test form',
@@ -119,7 +129,7 @@ describe('FormService', () => {
     });
 
     test('should update an existing form type if ID matches', () => {
-      const updatedPersonForm: FormType = {
+      const updatedPersonForm: FormSpec = {
         id: 'person',
         name: 'Updated Person Form',
         description: 'Updated description',

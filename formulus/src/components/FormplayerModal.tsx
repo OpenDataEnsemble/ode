@@ -15,7 +15,7 @@ import {
   sendSavePartialComplete 
 } from '../webview/FormulusWebViewHandler';
 import { databaseService } from '../database';
-import { FormType } from '../services'; // FormService will be imported directly
+import { FormSpec } from '../services'; // FormService will be imported directly
 import { Observation } from '../database/repositories/LocalRepoInterface';
 
 interface FormplayerModalProps {
@@ -35,8 +35,8 @@ import { FormService } from '../services/FormService'; // Import FormService
 const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservation, initialConfig }: FormplayerModalProps) => {
   const webViewRef = useRef<CustomAppWebViewHandle>(null);
   const [currentFormId, setCurrentFormId] = useState<string | null>(null);
-  const [formTypes, setFormTypes] = useState<FormType[]>([]);
-  const [selectedFormTypeId, setSelectedFormTypeId] = useState<string | null>(null);
+  const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
+  const [selectedFormSpecId, setSelectedFormSpecId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const formService = FormService.getInstance(); // Get FormService instance
   
@@ -53,10 +53,10 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
   useEffect(() => {
     if (visible && initialConfig && webViewRef.current) {
       console.log('FormplayerModal: Initializing form with initialConfig:', initialConfig);
-      //TODO: shouldn't we load the form json schema and ui here?
+      
       const { formId, params, savedData } = initialConfig;
       if (formId) {
-        const formDefinition = formService.getFormTypeById(formId);
+        const formDefinition = formService.getFormSpecById(formId);
         if (formDefinition) {
           console.log('FormplayerModal: Found form definition for', formId, 'sending schema and uiSchema');
           sendFormInit(webViewRef as React.RefObject<CustomAppWebViewHandle>, {
@@ -73,7 +73,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
         }
         setCurrentFormId(formId);
         // Potentially clear other form selection states if initialConfig takes precedence
-        setSelectedFormTypeId(null); // Example: clear form type selection if opening a specific instance
+        setSelectedFormSpecId(null); // Example: clear form spec selection if opening a specific instance
       }
     } else if (visible && !initialConfig) {
       // This block handles the existing logic for new forms or editing observations
@@ -84,12 +84,12 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       // should only run if initialConfig is not provided.
       // This might need further refinement based on desired precedence.
       console.log('FormplayerModal: Initializing for new/edit (no initialConfig)');
-      const loadedFormTypes = formService.getFormTypes();
-      setFormTypes(loadedFormTypes);
-      if (editObservation && loadedFormTypes.length > 0) {
-        const ft = loadedFormTypes.find(f => f.id === editObservation.formType);
+      const loadedFormSpecs = formService.getFormSpecs();
+      setFormSpecs(loadedFormSpecs);
+      if (editObservation && loadedFormSpecs.length > 0) {
+        const ft = loadedFormSpecs.find(f => f.id === editObservation.formType);
         if (ft) {
-          setSelectedFormTypeId(ft.id);
+          setSelectedFormSpecId(ft.id);
         }
       }
     }
@@ -117,7 +117,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       setTimeout(() => {
         processedSubmissions.current.clear();
         setCurrentFormId(null);
-        setSelectedFormTypeId(null);
+        setSelectedFormSpecId(null);
       }, 300); // Small delay to ensure modal is fully closed
     }
   }, [visible]);
@@ -133,22 +133,22 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     console.log('WebView loaded successfully');
     
     // If editing an existing observation
-    if (editObservation && formTypes.length > 0) {
-      const formType = formTypes.find(ft => ft.id === editObservation.formType);
-      if (formType) {
-        initializeForm(formType, editObservation.observation.data);
+    if (editObservation && formSpecs.length > 0) {
+      const formSpec = formSpecs.find(fs => fs.id === editObservation.formType);
+      if (formSpec) {
+        initializeForm(formSpec, editObservation.observation.data);
       }
     }
     // Otherwise initialize with the first available form type
-    else if (formTypes.length > 0) {
-      const initialFormType = formTypes[0];
-      setSelectedFormTypeId(initialFormType.id);
-      initializeForm(initialFormType);
+    else if (formSpecs.length > 0) {
+      const initialFormSpec = formSpecs[0];
+      setSelectedFormSpecId(initialFormSpec.id);
+      initializeForm(initialFormSpec);
     }
   };
 
   // Initialize a form with the given form type and optional existing data
-  const initializeForm = (formType: FormType, existingData: any = {}) => {
+  const initializeForm = (formType: FormSpec, existingData: any = {}) => {
     // Generate a unique form ID
     const formId = `form_${Date.now()}`;
     setCurrentFormId(formId);
@@ -314,7 +314,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       Alert.alert('Error', 'Failed to save your form. Please try again.');
       setIsSubmitting(false);
     }
-  }, [selectedFormTypeId, onClose, editObservation, isSubmitting]);
+  }, [selectedFormSpecId, onClose, editObservation, isSubmitting]);
   
   return (
     <Modal
