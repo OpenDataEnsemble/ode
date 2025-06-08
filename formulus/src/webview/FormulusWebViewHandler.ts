@@ -180,32 +180,35 @@ export class FormulusWebViewMessageManager {
         return;
       }
 
-      console.log(`${this.logPrefix} Received message from WebView: type=${type}, messageId=${messageId}`, payload);
-
       if (type === 'formplayerReadyToReceiveInit') {
         this.handleReadySignal(payload);
-      } else if (type === 'response' && messageId) {
-        this.handleResponse(messageId, payload.result, payload.error);
+      } else if (type === 'response') {
+        const actualRequestId = messageId || payload.requestId;
+        if (actualRequestId) {
+          this.handleResponse(actualRequestId, payload.result, payload.error);
+        } else {
+          console.warn(`${this.logPrefix} Received 'response' message without a requestId in messageId or payload:`, eventData);
+        }
       } else if (type.startsWith('console.')) {
         const logLevel = type.substring('console.'.length) as keyof Console;
         const logArgs = payload.args || []; // payload is {args: Array(1)}
         if (typeof console[logLevel] === 'function') {
           (console[logLevel] as (...data: any[]) => void)(
-            `${this.logPrefix} [WebView Console]`, ...logArgs
+            `${this.logPrefix} [WebView]`, ...logArgs
           );
         } else {
           // Fallback if the extracted level is not a valid console method
-          console.log(`${this.logPrefix} [WebView Console - Unknown Level: ${logLevel}]`, ...logArgs);
+          console.log(`${this.logPrefix} [WebView]`, ...logArgs);
         }
       } else if (type === 'console') { // Keep existing handler for type === 'console' as fallback
         // Handle console messages from WebView if type is exactly 'console' and level is in payload
         const { level, args } = payload;
         if (level && args && typeof console[level as keyof Console] === 'function') {
           (console[level as keyof Console] as (...data: any[]) => void)(
-            `${this.logPrefix} [WebView Console]`, ...args
+            `${this.logPrefix} [WebView]`, ...args
           );
         } else {
-          console.log(`${this.logPrefix} [WebView Console]`, ...args);
+          console.log(`${this.logPrefix} [WebView]`, ...args);
         }
       } else {
         this.handleIncomingAction(type, payload, messageId);

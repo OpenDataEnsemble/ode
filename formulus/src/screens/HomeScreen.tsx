@@ -38,6 +38,7 @@ const HomeScreen = ({ navigation }: any) => {
   }, []);
 
   useEffect(() => {
+    console.log('HomeScreen: MOUNTED'); // Added for debugging mount/unmount
     const handleOpenFormplayer = (config: any) => {
       console.log('HomeScreen: openFormplayerRequested event received', config);
       setFormplayerConfig(config); // Store the config (formId, params, savedData)
@@ -47,6 +48,7 @@ const HomeScreen = ({ navigation }: any) => {
     appEvents.addListener('openFormplayerRequested', handleOpenFormplayer);
 
     return () => {
+      console.log('HomeScreen: UNMOUNTING'); // Added for debugging mount/unmount
       appEvents.removeListener('openFormplayerRequested', handleOpenFormplayer);
     };
   }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount

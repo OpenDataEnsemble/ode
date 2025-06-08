@@ -151,7 +151,17 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
 
   // Handle WebView load complete
   const handleWebViewLoad = () => {
-    console.log('WebView loaded successfully');
+    console.log('FormplayerModal: handleWebViewLoad CALLED. initialConfig is:', initialConfig ? 'PRESENT' : 'ABSENT or FALSY');
+    console.log('FormplayerModal: WebView loaded successfully (onLoadEnd)'); // More specific log
+
+    // If initialConfig was provided and handled by the useEffect,
+    // the form is already being initialized. Don't re-initialize here.
+    if (initialConfig) {
+      console.log('FormplayerModal: initialConfig was present, skipping form init in onLoadEnd.');
+      return; 
+    }
+    
+    // Original logic for new/edit when initialConfig is NOT present:
     
     // If editing an existing observation
     if (editObservation && formSpecs.length > 0) {
@@ -359,6 +369,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
           ref={webViewRef}
           appUrl={formplayerUri}
           appName="Formplayer"
+          onLoadEndProp={handleWebViewLoad}
         />
         
         {/* Loading overlay */}

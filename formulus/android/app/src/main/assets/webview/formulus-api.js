@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-06-03T08:28:56.548Z
+ * Last generated: 2025-06-08T11:01:00.321Z
  * 
  * @example
  * // In your JavaScript file:
@@ -180,7 +180,7 @@ const FormulusAPI = {
 
 // Make the API available globally in browser environments
 if (typeof window !== 'undefined') {
-  globalThis.formulus = FormulusAPI;
+  window.formulus = FormulusAPI;
 }
 
 // Export for CommonJS/Node.js environments

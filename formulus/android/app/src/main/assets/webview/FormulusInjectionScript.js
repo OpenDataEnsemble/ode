@@ -1,10 +1,10 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-06-03T08:28:55.148Z
+// Last generated: 2025-06-08T11:00:59.029Z
 
 (function() {
   if (typeof globalThis.formulus !== 'undefined') {
-    console.warn('Formulus interface already exists. Skipping injection.');
+    //console.debug('Formulus interface already exists. Skipping injection.');
     return;
   }
 

@@ -19,6 +19,7 @@ export interface CustomAppWebViewHandle {
 interface CustomAppWebViewProps {
   appUrl: string;
   appName?: string; // To identify the source of logs
+  onLoadEndProp?: () => void; // Propagate WebView's onLoadEnd event
 }
 
 const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
@@ -63,8 +64,9 @@ const consoleLogScript = `
     })();
   `;
 
-const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl, appName }, ref) => {
+const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl, appName, onLoadEndProp }, ref) => {
   const webViewRef = useRef<WebView | null>(null);
+  const hasLoadedOnceRef = useRef(false);
   const messageManager = useMemo(() => {
     return new FormulusWebViewMessageManager(webViewRef, appName);
   }, [appName]);
@@ -103,15 +105,15 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
   const isFocused = useIsFocused();
 
   useEffect(() => {
-    // Ensure webViewRef.current and injectionScript (the fully prepared script) are available.
-    if (isFocused && webViewRef.current && injectionScript !== consoleLogScript) { // Check injectionScript is loaded, not just the fallback
+    // Ensure webViewRef.current and injectionScript (the fully prepared script) are available, and initial load has completed.
+    if (isFocused && webViewRef.current && injectionScript !== consoleLogScript && hasLoadedOnceRef.current) { // Check injectionScript is loaded and initial load done
       const reInjectionWrapper = `
         (function() {
           if (typeof window.formulus === 'undefined' && typeof globalThis.formulus === 'undefined') {
-            console.debug('[CustomAppWebView/FocusEffect] window.formulus is undefined. Re-injecting main script content.');
+            console.debug('[CustomAppWebView/FocusEffect] window.formulus is undefined AFTER LOAD. Re-injecting main script content.');
             // This injects the entire 'injectionScript' (consoleLogScript + your INJECTION_SCRIPT_PATH content)
             ${injectionScript}
-            console.debug('[CustomAppWebView/FocusEffect] Main script content re-injected.');
+            console.debug('[CustomAppWebView/FocusEffect] Main script content re-injected AFTER LOAD.');
           } else {
             if (typeof window !== 'undefined') {
               window.formulus = globalThis.formulus;
@@ -150,6 +152,11 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
             }
           `;
           webViewRef.current.injectJavaScript(scriptToNotifyReady);
+        }
+        // Call the propagated onLoadEnd prop if it exists
+        hasLoadedOnceRef.current = true; // Mark that initial load has finished
+        if (onLoadEndProp) {
+          onLoadEndProp();
         }
       }}
       onHttpError={(syntheticEvent) => {

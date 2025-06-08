@@ -79,6 +79,7 @@ export interface FormulusInterface {
   getObservations(formId: string, isDraft?: boolean, includeDeleted?: boolean): Promise<FormObservation[]>;
 
   /**
+   * DEPRECATED: TODO: Remove
    * Initialize a new form
    * @returns {Promise<void>}
    */

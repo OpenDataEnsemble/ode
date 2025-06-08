@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef } from "react";
 import { JsonFormsDispatch, withJsonFormsControlProps } from "@jsonforms/react";
-import { ControlProps } from "@jsonforms/core";
+import { ControlProps, rankWith, uiTypeIs, isGroup, RankedTester } from "@jsonforms/core";
 import { useSwipeable } from "react-swipeable";
 import { Button, Box } from "@mui/material";
 import FormulusClient from "./FormulusInterface";
@@ -9,6 +9,23 @@ interface SwipeLayoutProps extends ControlProps {
   currentPage: number;
   onPageChange: (page: number) => void;
 }
+
+// Tester for SwipeLayout elements (explicitly defined)
+export const swipeLayoutTester: RankedTester = rankWith(
+  3, // Higher rank for explicit SwipeLayout
+  uiTypeIs('SwipeLayout')
+);
+
+// Custom tester for Group elements that should be rendered as SwipeLayout
+const isGroupElement = (uischema: any): boolean => {
+  return uischema && uischema.type === 'Group';
+};
+
+// Tester for Group elements that should be rendered as SwipeLayout
+export const groupAsSwipeLayoutTester: RankedTester = rankWith(
+  2, // Lower rank than explicit SwipeLayout
+  isGroupElement
+);
 
 const SwipeLayoutRenderer = ({ 
   schema, 
@@ -23,7 +40,16 @@ const SwipeLayoutRenderer = ({
   onPageChange
 }: SwipeLayoutProps) => {
   const [isNavigating, setIsNavigating] = useState(false);
-  const layouts = (uischema as any).elements || [];
+  
+  // Handle both SwipeLayout and Group elements
+  // Use type assertion to avoid TypeScript errors
+  const uiType = (uischema as any).type;
+  const isExplicitSwipeLayout = uiType === 'SwipeLayout';
+  
+  // For SwipeLayout, use elements directly; for Group, wrap the group in an array
+  const layouts = isExplicitSwipeLayout
+    ? (uischema as any).elements || []
+    : [uischema]; // For Group, treat the entire group as a single page
 
   if (typeof handleChange !== "function") {
     console.warn("Property 'handleChange'<function>  was not supplied to SwipeLayoutRenderer");

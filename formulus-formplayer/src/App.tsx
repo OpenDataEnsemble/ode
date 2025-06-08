@@ -11,7 +11,7 @@ import addFormats from 'ajv-formats';
 // Import the FormulusInterface client
 import FormulusClient from "./FormulusInterface";
 
-import SwipeLayoutRenderer from "./SwipeLayoutRenderer";
+import SwipeLayoutRenderer, { swipeLayoutTester, groupAsSwipeLayoutTester } from "./SwipeLayoutRenderer";
 import { finalizeRenderer } from "./FinalizeRenderer";
 import { RankedTester } from "@jsonforms/core";
 
@@ -43,11 +43,10 @@ export interface FormInitData {
   uiSchema?: FormUISchema; // Assuming FormUISchema is already defined
 }
 
-export const swipeLayoutTester: RankedTester = (uischema) => uischema.type === "SwipeLayout" ? 3 : -1;
-
 const customRenderers = [
   ...materialRenderers,
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
+  { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   finalizeRenderer
 ];
 
@@ -70,11 +69,10 @@ function App() {
     console.log('Received onFormInit event with data:', initData);
 
     try {
-      const { formId: receivedFormId, params, savedData } = initData;
-      const { formSchema: receivedFormSchema, uiSchema: receivedUiSchema } = params || {};
-      
+      const { formId: receivedFormId, params, savedData, formSchema, uiSchema } = initData;
+
       if (!receivedFormId) {
-        console.error('Formplayer (WebView): formId is crucial and was not provided in onFormInit. Cannot proceed.');
+        console.error('formId is crucial and was not provided in onFormInit. Cannot proceed.');
         setLoadError('Form ID is missing. Cannot initialize form.');
         if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formplayerError', formId: receivedFormId, message: 'formId missing in onFormInit' }));
@@ -83,23 +81,23 @@ function App() {
       }
       setFormId(receivedFormId);
 
-      if (!receivedFormSchema) {
-        console.warn('Formplayer (WebView): formSchema was not provided. Form rendering might fail or be incomplete.');
+      if (!formSchema) {
+        console.warn('formSchema was not provided. Form rendering might fail or be incomplete.');
         setLoadError('Form schema is missing. Form rendering might fail or be incomplete.');
         setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
         // uiSchema might also need a default or be cleared
         setUISchema({} as FormUISchema);
       } else {
-        setSchema(receivedFormSchema as FormSchema);
-        setUISchema(receivedUiSchema || {} as FormUISchema); // Fallback to empty object if uiSchema is undefined
+        setSchema(formSchema as FormSchema);
+        setUISchema(uiSchema || {} as FormUISchema); // Fallback to empty object if uiSchema is undefined
       }
 
       if (savedData && Object.keys(savedData).length > 0) {
-        console.log('Using saved data:', savedData);
+        console.log('Preloading saved data:', savedData);
         setData(savedData as FormData);
       } else {
         const defaultData = params?.defaultData || {};
-        console.log('Using default data:', defaultData);
+        console.log('Preloading initialization form values:', defaultData);
         setData(defaultData);
       }
 
@@ -114,7 +112,7 @@ function App() {
         }));
       }
     } catch (error) {
-      console.error('Formplayer (WebView): Error processing onFormInit data:', error);
+      console.error('Error processing onFormInit data:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error during form initialization';
       setLoadError(`Error processing form data: ${errorMessage}`);
       if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
@@ -136,17 +134,17 @@ function App() {
     setIsLoading(true);
     isLoadingRef.current = true;
 
-    console.log('Formplayer (WebView): Registering window.onFormInit handler.');
+    console.log('Registering window.onFormInit handler.');
     (window as any).onFormInit = handleFormInitByNative;
 
     // Signal to native that the WebView is ready to receive onFormInit
-    console.log('Formplayer (WebView): Signaling readiness to native host (formplayerReadyToReceiveInit).');
+    console.log('Signaling readiness to native host (formplayerReadyToReceiveInit).');
     if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'formplayerReadyToReceiveInit'
       }));
     } else {
-      console.warn('Formplayer (WebView): ReactNativeWebView.postMessage not available. Cannot signal readiness.');
+      console.warn('ReactNativeWebView.postMessage not available. Cannot signal readiness.');
       // Potentially set an error or handle standalone mode if WebView context isn't available
       // For example, if running in a standard browser for development
       if (isLoadingRef.current) { // Avoid setting error if already handled by timeout or success
@@ -159,13 +157,13 @@ function App() {
     // Timeout logic: if onFormInit is not called by native side
     const initTimeout = setTimeout(() => {
       if (isLoadingRef.current) { // Check ref to see if still loading
-        console.warn('Formplayer (WebView): onFormInit was not called within timeout period (10s).');
+        console.warn('onFormInit was not called within timeout period (10s).');
         setLoadError('Failed to initialize form: No data received from native host. Please try again.');
         setIsLoading(false);
         isLoadingRef.current = false;
         if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
           window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'formplayerError',
+            type: 'error',
             message: 'Initialization timeout in WebView: onFormInit not called.'
           }));
         }
@@ -177,7 +175,7 @@ function App() {
       clearTimeout(initTimeout);
       if ((window as any).onFormInit === handleFormInitByNative) {
         (window as any).onFormInit = undefined;
-        console.log('Formplayer (WebView): Unregistered window.onFormInit handler.');
+        console.log('Unregistered window.onFormInit handler.');
       }
     };
   }, [handleFormInitByNative]); // Dependency: re-run if handleFormInitByNative changes
@@ -185,12 +183,17 @@ function App() {
   // Register for attachment ready events
   useEffect(() => {
     console.log('Formplayer: Executing initialization code');
+    // Check if Formplayer has already been initialized in this WebView session
+    if ((window as any).__formplayerAppInitialized) {
+      console.log('Already initialized by this instance, skipping effect.');
+      return;
+    }
     window.onFormulusReady = () => {
       console.log('Formplayer: onFormulusReady called');
     };
 
     formulusClient.current.onAttachmentReady((attachmentData) => {
-      console.log('%c Attachment ready:', 'background: #FF9800; color: white; padding: 2px 5px; border-radius: 2px;', attachmentData);
+      console.debug('%c Attachment ready:', 'background: #FF9800; color: white; padding: 2px 5px; border-radius: 2px;', attachmentData);
       
       try {
         // Validate attachment data
@@ -252,6 +255,10 @@ function App() {
         console.error('Error processing attachment data:', error);
       }
     });
+
+    // Set the flag to indicate initialization is complete for this session
+    (window as any).__formplayerAppInitialized = true;
+    console.log('__formplayerAppInitialized flag set to true.');
   }, []);
 
   // Set up event listeners for navigation and finalization
@@ -297,7 +304,7 @@ function App() {
       window.removeEventListener('navigateToError', handleNavigateToError as EventListener);
       window.removeEventListener('finalizeForm', handleFinalizeForm as EventListener);
     };
-  }, [data, formId, uischema]);  // Include all dependencies
+  }, [data, formId, uischema, schema]);  // Include all dependencies
 
   const handleDataChange = useCallback(({ data }: { data: FormData }) => {
     setData(data);
@@ -351,12 +358,12 @@ function App() {
   
   // Log render with current state
   console.log('%c Rendering form with:', 'background: #9C27B0; color: white; padding: 2px 5px; border-radius: 2px;', {
-    schemaType: schema?.type,
-    uiSchemaType: uischema?.type,
+    schemaType: schema?.type || "MISSING",
+    uiSchemaType: uischema?.type || "MISSING",
     dataKeys: Object.keys(data),
     formId
-  });
-  
+  });  
+
   return (
     <div className="App">
       <JsonForms

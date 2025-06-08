@@ -57,7 +57,7 @@ class FormulusClient {
    * Initialize the interface with the Formulus RN app
    */
   public initForm(): void {
-    console.log('Initializing form and requesting form data from Formulus RN app');
+    console.error('SHOUD NOT BE CALLED: Initializing form and requesting form data from Formulus RN app');
     
     // Check if the Formulus interface is available in the global scope
     if (globalThis.formulus) {
@@ -80,11 +80,11 @@ class FormulusClient {
    */
   public savePartial(data: Record<string, any>): void {
     if (!this.formData) {
-      console.error('Cannot save partial data: Form not initialized');
+      console.debug('Cannot save partial data: No form data to save yet');
       return;
     }
 
-    console.log('Saving partial form data', data);
+    console.debug('Saving partial form data', data);
     
     if (this.formulus) {
       this.formulus.savePartial(this.formData.formId, data);
