@@ -2,17 +2,17 @@
  * Formulus API Interface (JavaScript Version)
  * 
  * This file provides type information and documentation for the Formulus API
- * that's available in the WebView context as `window.formulus`.
+ * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-06-03T08:28:56.548Z
+ * Last generated: 2025-06-08T11:01:00.321Z
  * 
  * @example
  * // In your JavaScript file:
  * /// <reference path="./formulus-api.js" />
  * 
  * // Now you'll get autocompletion and type hints in IDEs that support JSDoc
- * window.formulus.getVersion().then(version => {
+ * globalThis.formulus.getVersion().then(version => {
  *   console.log('Formulus version:', version);
  * });
  */

@@ -88,8 +88,8 @@ const sendAttachmentToFormplayer = (webViewRef: React.RefObject<WebView | null>,
 };
 
 import { FormulusMessageHandlers } from './FormulusMessageHandlers.types';
+import { FormInitData } from './FormulusInterfaceDefinition';
 
-// ...existing imports and helpers remain above
 
 export function createFormulusMessageHandlers(): FormulusMessageHandlers {
   return {
@@ -163,8 +163,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // TODO: Implement logic to fetch observations
       return Promise.resolve([]); // Example: return empty array
     },
-    onOpenFormplayer: async (formId: string, params?: Record<string, any>, savedData?: Record<string, any>) => {
-      console.log('FormulusMessageHandlers: onOpenFormplayer handler invoked.', { formId, params, savedData });
+    onOpenFormplayer: async (data: FormInitData) => {
+      const { formId, params, savedData } = data;
+      console.log('FormulusMessageHandlers: onOpenFormplayer handler invoked with data:', data);
       appEvents.emit('openFormplayerRequested', { formId, params, savedData });
       return Promise.resolve();
     },
