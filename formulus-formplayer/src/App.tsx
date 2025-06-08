@@ -139,6 +139,23 @@ function App() {
     console.log('Formplayer (WebView): Registering window.onFormInit handler.');
     (window as any).onFormInit = handleFormInitByNative;
 
+    // Signal to native that the WebView is ready to receive onFormInit
+    console.log('Formplayer (WebView): Signaling readiness to native host (formplayerReadyToReceiveInit).');
+    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'formplayerReadyToReceiveInit'
+      }));
+    } else {
+      console.warn('Formplayer (WebView): ReactNativeWebView.postMessage not available. Cannot signal readiness.');
+      // Potentially set an error or handle standalone mode if WebView context isn't available
+      // For example, if running in a standard browser for development
+      if (isLoadingRef.current) { // Avoid setting error if already handled by timeout or success
+          setLoadError('Cannot communicate with native host. Formplayer might be running in a standalone browser.');
+          setIsLoading(false);
+          isLoadingRef.current = false;
+      }
+    }
+
     // Timeout logic: if onFormInit is not called by native side
     const initTimeout = setTimeout(() => {
       if (isLoadingRef.current) { // Check ref to see if still loading
