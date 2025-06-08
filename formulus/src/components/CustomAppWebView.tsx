@@ -24,8 +24,7 @@ const INJECTION_SCRIPT_PATH = Platform.OS === 'android'
 
 const consoleLogScript = `
     (function() {
-      console.debug("Initializing console log transport");
-      window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.log', args: ['Initializing console log transport']}));
+      //window.ReactNativeWebView.postMessage(JSON.stringify({type: 'console.log', args: ['Initializing console log transport']}));
 
       // Store original console methods
       const originalConsole = {
@@ -99,13 +98,16 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     if (isFocused && webViewRef.current && injectionScript !== consoleLogScript) { // Check injectionScript is loaded, not just the fallback
       const reInjectionWrapper = `
         (function() {
-          if (typeof window.formulus === 'undefined') {
-            console.log('[CustomAppWebView/FocusEffect] window.formulus is undefined. Re-injecting main script content.');
+          if (typeof window.formulus === 'undefined' && typeof globalThis.formulus === 'undefined') {
+            console.debug('[CustomAppWebView/FocusEffect] window.formulus is undefined. Re-injecting main script content.');
             // This injects the entire 'injectionScript' (consoleLogScript + your INJECTION_SCRIPT_PATH content)
             ${injectionScript}
-            console.log('[CustomAppWebView/FocusEffect] Main script content re-injected.');
+            console.debug('[CustomAppWebView/FocusEffect] Main script content re-injected.');
           } else {
-            console.log('[CustomAppWebView/FocusEffect] window.formulus already exists on focus.');
+            if (typeof window !== 'undefined') {
+              window.formulus = globalThis.formulus;
+            }
+            //console.debug('[CustomAppWebView/FocusEffect] window.formulus already exists on focus.');
             // Optionally, you can call a function on window.formulus to notify it of focus, e.g.:
             // if (typeof window.formulus.onAppFocus === 'function') { window.formulus.onAppFocus(); }
           }

@@ -71,17 +71,7 @@ class FormulusClient {
         console.error('formulus.initForm is not a function');
       }
     } else {
-      console.warn('Formulus interface not found. Running in standalone mode or development environment.');
-      // For development/testing, you might want to use mock data
-      setTimeout(() => {
-        this.handleFormInit({
-          formId: 'test-form',
-          formType: 'test-form-type',
-          formVersion: '1.0',
-          params: {},
-          savedData: {}
-        });
-      }, 500);
+      console.error('Formulus interface not found. Running in standalone mode or development environment.');
     }
   }
 
@@ -333,8 +323,8 @@ class FormulusClient {
    */
   private setupEventListeners(): void {
     // Set up the global callbacks that will be called by the Formulus RN app
-    globalThis.onFormInit = (formId: string, params: Record<string, any>, savedData: Record<string, any>, formType?: string, formVersion?: string) => {
-      this.handleFormInit({ formId, params, savedData, formType, formVersion });
+    globalThis.onFormInit = (formId: string, params: Record<string, any>, savedData: Record<string, any>) => {
+      this.handleFormInit({ formId, params, savedData });
     };
     
     globalThis.onAttachmentReady = (data: AttachmentData) => {

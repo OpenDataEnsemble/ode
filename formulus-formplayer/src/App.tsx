@@ -67,11 +67,12 @@ function App() {
 
   // Handler for data received via window.onFormInit
   const handleFormInitByNative = useCallback((initData: FormInitData) => {
-    console.log('Formplayer (WebView): Received onFormInit event with data:', initData);
+    console.log('Received onFormInit event with data:', initData);
 
     try {
-      const { formId: receivedFormId, params, savedData, formSchema: receivedFormSchema, uiSchema: receivedUiSchema } = initData;
-
+      const { formId: receivedFormId, params, savedData } = initData;
+      const { formSchema: receivedFormSchema, uiSchema: receivedUiSchema } = params || {};
+      
       if (!receivedFormId) {
         console.error('Formplayer (WebView): formId is crucial and was not provided in onFormInit. Cannot proceed.');
         setLoadError('Form ID is missing. Cannot initialize form.');

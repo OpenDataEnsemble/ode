@@ -284,8 +284,7 @@ export function createFormulusMessageHandler(
 export function sendToWebView<T = void>(
   webViewRef: React.RefObject<CustomAppWebViewHandle>,
   callbackName: string,
-  data: any = {},
-  isPromise: boolean = true
+  data: any = {}
 ): Promise<T> {
   if (!webViewRef.current) {
     const error = 'WebView ref is not available';
@@ -294,50 +293,6 @@ export function sendToWebView<T = void>(
   }
 
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const message = {
-    type: callbackName,
-    requestId: isPromise ? requestId : undefined,
-    ...data
-  };
-
-  if (!isPromise) {
-    // Non-Promise callback
-    return new Promise((resolve, reject) => {
-      try {
-        webViewRef.current?.injectJavaScript(`
-          (function() {
-            try {
-              if (window.${callbackName}) {
-                window.${callbackName}(${JSON.stringify(data)});
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'callback',
-                  requestId: '${Date.now()}_${Math.random().toString(36).substr(2, 9)}',
-                  success: true
-                }));
-              } else {
-                console.warn('Callback ${callbackName} not found');
-                window.ReactNativeWebView.postMessage(JSON.stringify({
-                  type: 'callback',
-                  requestId: '${Date.now()}_${Math.random().toString(36).substr(2, 9)}',
-                  error: 'Callback ${callbackName} not found'
-                }));
-              }
-            } catch (error) {
-              console.error('Error in ${callbackName}:', error);
-              window.ReactNativeWebView.postMessage(JSON.stringify({
-                type: 'callback',
-                requestId: '${Date.now()}_${Math.random().toString(36).substr(2, 9)}',
-                error: error?.message || 'Unknown error in callback'
-              }));
-            }
-          })();
-          true; // Always return true to prevent warnings
-        `);
-      } catch (error) {
-        reject(error);
-      }
-    });
-  }
 
   // Promise-based response
   return new Promise((resolve, reject) => {
@@ -354,6 +309,7 @@ export function sendToWebView<T = void>(
 
     webViewRef.current.injectJavaScript(`
       (function() {
+        console.debug("Injecting script for callback ${callbackName}");
         try {
           if (window.${callbackName}) {
             Promise.resolve(window.${callbackName}(${JSON.stringify(data)}))
@@ -418,8 +374,7 @@ export function sendFormInit(
       savedData: savedData || {},
       formSchema,
       uiSchema
-    },
-    true // Enable Promise support
+    }
   );
 }
 
@@ -436,8 +391,7 @@ export function sendAttachmentData(
   return sendToWebView<void>(
     webViewRef,
     'onAttachmentData',
-    attachmentData,
-    true // Enable Promise support
+    attachmentData
   );
 }
 
@@ -456,7 +410,6 @@ export function sendSavePartialComplete(
   return sendToWebView<void>(
     webViewRef,
     'onSavePartialComplete',
-    { formId, success },
-    true // Enable Promise support
+    { formId, success }
   );
 }

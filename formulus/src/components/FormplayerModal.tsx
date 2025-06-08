@@ -38,11 +38,30 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
   const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
   const [selectedFormSpecId, setSelectedFormSpecId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const formService = FormService.getInstance(); // Get FormService instance
+  const [formService, setFormService] = useState<FormService | null>(null);
+  const [isFormServiceLoading, setIsFormServiceLoading] = useState(true);
   
   // Use a ref to track processed submissions with timestamps - this won't trigger re-renders
   const processedSubmissions = useRef<Map<string, number>>(new Map());
   
+  // Initialize FormService
+  useEffect(() => {
+    const initFormService = async () => {
+      try {
+        const service = await FormService.getInstance();
+        setFormService(service);
+        setFormSpecs(service.getFormSpecs());
+        setIsFormServiceLoading(false);
+        console.log('FormService initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize FormService:', error);
+        setIsFormServiceLoading(false);
+      }
+    };
+    
+    initFormService();
+  }, []);
+
   // Path to the formplayer dist folder in assets
   const formplayerUri = Platform.OS === 'android' 
     ? 'file:///android_asset/formplayer_dist/index.html'
@@ -51,6 +70,10 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
  
   // Initialize form based on initialConfig (when opened from an event) or for new/edit scenarios
   useEffect(() => {
+    if (!formService || isFormServiceLoading) {
+      // Wait for FormService to initialize
+      return;
+    }
     if (visible && initialConfig && webViewRef.current) {
       console.log('FormplayerModal: Initializing form with initialConfig:', initialConfig);
       

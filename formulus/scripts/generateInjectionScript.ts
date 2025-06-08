@@ -209,7 +209,7 @@ function generateInjectionScript(interfaceFilePath: string): string {
 
 (function() {
   if (typeof globalThis.formulus !== 'undefined') {
-    console.warn('Formulus interface already exists. Skipping injection.');
+    //console.debug('Formulus interface already exists. Skipping injection.');
     return;
   }
 
@@ -324,7 +324,7 @@ function generateJSDocInterface(interfacePath: string): string {
  * Formulus API Interface (JavaScript Version)
  * 
  * This file provides type information and documentation for the Formulus API
- * that's available in the WebView context as \`window.formulus\`.
+ * that's available in the WebView context as \`globalThis.formulus\`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
  * Last generated: ${new Date().toISOString()}
@@ -334,7 +334,7 @@ function generateJSDocInterface(interfacePath: string): string {
  * /// <reference path="./formulus-api.js" />
  * 
  * // Now you'll get autocompletion and type hints in IDEs that support JSDoc
- * window.formulus.getVersion().then(version => {
+ * globalThis.formulus.getVersion().then(version => {
  *   console.log('Formulus version:', version);
  * });
  */

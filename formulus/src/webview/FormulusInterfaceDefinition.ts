@@ -7,7 +7,7 @@
  * NOTE: This file should be manually copied to client projects that need to interact with the Formulus app.
  * TODO: Package this interface into a shared npm package for better maintainability and versioning.
  * 
- * Current Version: 1.0.0
+ * Current Version: 1.0.16
  */
 
 // Type definitions for the interface
@@ -58,7 +58,7 @@ export interface FormulusInterface {
    * Get a list of available forms
    * @returns {Promise<FormInfo[]>} Array of form information objects
    */
-  getAvailableForms(): Promise<FormInfo[]>;o
+  getAvailableForms(): Promise<FormInfo[]>;
 
   /**
    * Open Formplayer with the specified form

@@ -20,13 +20,18 @@ export interface FormSpec {
 export class FormService {
   private static instance: FormService;
   private formSpecs: FormSpec[] = [];
+  private static initializationPromise: Promise<void> | null = null;
   
   private constructor() {
+    console.log('FormService: Instance created - use await getInstance() to access singleton instance');
+  }
+
+  private async _initialize(): Promise<void> {
+    console.log('FormService: Starting initialization...');
     try {
-      this.getFormspecsFromStorage().then((formSpecs) => {
-        this.formSpecs = formSpecs;
-        console.log(`${formSpecs.length} form specs loaded successfully`);
-      });
+      const specs = await this.getFormspecsFromStorage();
+      this.formSpecs = specs;
+      console.log(`FormService: ${specs.length} form specs loaded successfully`);
     } catch (error) {
       console.error('Failed to load default form types during FormService construction:', error);
       this.formSpecs = []; // Initialize with empty array if loading fails
@@ -88,14 +93,26 @@ export class FormService {
   
   /**
    * Get the singleton instance of the FormService
+   * @returns Promise that resolves with the FormService instance
    */
-  public static getInstance(): FormService {
+   public static async getInstance(): Promise<FormService> {
     if (!FormService.instance) {
       FormService.instance = new FormService();
     }
+
+    if (!FormService.initializationPromise) {
+      console.log('FormService: Starting initialization...');
+      FormService.initializationPromise = FormService.instance._initialize().catch(error => {
+        // Reset initializationPromise on error to allow retry
+        FormService.initializationPromise = null;
+        throw error;
+      });
+    }
+
+    await FormService.initializationPromise;
     return FormService.instance;
   }
-  
+
   /**
    * Get all available form types
    * @returns Array of form types
@@ -110,7 +127,14 @@ export class FormService {
    * @returns Form type or undefined if not found
    */
   public getFormSpecById(id: string): FormSpec | undefined {
-    return this.formSpecs.find(formSpec => formSpec.id === id);
+    const found = this.formSpecs.find(formSpec => formSpec.id === id);
+    if (found) {
+      console.log('FormService: Found form spec for', id, 'sending schema and uiSchema');
+    } else {
+      console.warn('FormService: Form spec not found for', id);
+      console.debug('FormService: Form specs:', this.formSpecs);
+    }
+    return found;
   }
   
   /**

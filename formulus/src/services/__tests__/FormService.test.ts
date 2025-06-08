@@ -39,14 +39,14 @@ describe('FormService', () => {
   let formServiceInstance: FormServiceType;
   let ActualFormServiceClass: typeof FormServiceType;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset modules to ensure a fresh instance of FormService for each test,
     // as it's a singleton and we are also resetting its internal state (formTypes) via API.
     jest.resetModules();
     // Re-require FormService after resetting modules to get the new instance and class
     const FormServiceModule = require('../FormService');
     ActualFormServiceClass = FormServiceModule.FormService; // Capture the fresh class
-    formServiceInstance = ActualFormServiceClass.getInstance(); // Use it to get instance
+    formServiceInstance = await ActualFormServiceClass.getInstance(); // Use it to get instance
 
     // Clear all mock implementations and calls
     mockGetObservationsByFormId.mockClear();
@@ -74,18 +74,18 @@ describe('FormService', () => {
 
   describe('constructor and getFormTypes (initial state)', () => {
     test('should initialize with a default "person" form type', () => {
-      const formTypes = formServiceInstance.getFormTypes();
-      expect(formTypes.length).toBeGreaterThan(0);
-      const personForm = formTypes.find(ft => ft.id === 'person');
+      const formSpecs = formServiceInstance.getFormSpecs();
+      expect(formSpecs.length).toBeGreaterThan(0);
+      const personForm = formSpecs.find(ft => ft.id === 'person');
       expect(personForm).toBeDefined();
       expect(personForm?.name).toBe('Person');
       expect(personForm?.schema).toEqual({ type: 'object', properties: { name: { type: 'string' }, age: { type: 'number' } }, required: ['name'] });
     });
   });
 
-  describe('getFormTypeById', () => {
+  describe('getFormSpecById', () => {
     test('should return the correct form type for a valid ID', () => {
-      formServiceInstance.addFormType({
+      formServiceInstance.addFormSpec({
         id: 'person',
         name: 'Person',
         description: 'Form for collecting person information',
@@ -93,7 +93,7 @@ describe('FormService', () => {
         schema: require('./personschema.json'),
         uiSchema: require('./personui.json')
       });
-      const formSpec = formServiceInstance.getFormTypeById('person');
+      const formSpec = formServiceInstance.getFormSpecById('person');
       expect(formSpec).toBeDefined();
       expect(formSpec?.schema).toBeDefined();
       expect(formSpec?.uiSchema).toBeDefined();
@@ -101,12 +101,12 @@ describe('FormService', () => {
     });
 
     test('should return undefined for a non-existent ID', () => {
-      const formType = formServiceInstance.getFormTypeById('nonexistent');
-      expect(formType).toBeUndefined();
+      const formSpec = formServiceInstance.getFormSpecById('nonexistent');
+      expect(formSpec).toBeUndefined();
     });
   });
 
-  describe('addFormType', () => {
+  describe('addFormSpec', () => {
     const newFormType: FormSpec = {
       id: 'testForm',
       name: 'Test Form',
@@ -117,15 +117,15 @@ describe('FormService', () => {
     };
 
     test('should add a new form type', () => {
-      formServiceInstance.addFormType(newFormType);
-      const formTypes = formServiceInstance.getFormTypes();
-      expect(formTypes.find(ft => ft.id === 'testForm')).toEqual(newFormType);
+      formServiceInstance.addFormSpec(newFormType);
+      const formSpecs = formServiceInstance.getFormSpecs();
+      expect(formSpecs.find(ft => ft.id === 'testForm')).toEqual(newFormType);
       // The default 'person' form + the new 'testForm'
-      // However, the temporary block in getFormTypes might re-add 'person' if it was removed or if list was empty.
+      // However, the temporary block in getFormSpecs might re-add 'person' if it was removed or if list was empty.
       // For simplicity, let's check that our new form is present and the count increased if 'person' was there.
       // A more robust test would clear all forms first if possible, or account for the temporary block logic.
       // Given the current structure, if 'person' is always there, length becomes 2.
-      expect(formServiceInstance.getFormTypes().length).toBe(2);
+      expect(formServiceInstance.getFormSpecs().length).toBe(2);
     });
 
     test('should update an existing form type if ID matches', () => {
@@ -137,27 +137,27 @@ describe('FormService', () => {
         schema: { type: 'object', properties: { newField: { type: 'boolean' } } },
         uiSchema: { elements: [] },
       };
-      formServiceInstance.addFormType(updatedPersonForm);
-      const formType = formServiceInstance.getFormTypeById('person');
-      expect(formType?.name).toBe('Updated Person Form');
-      expect(formType?.schemaVersion).toBe('1.1');
-      const formTypes = formServiceInstance.getFormTypes();
-      expect(formTypes.length).toBe(1); // Still only person, but updated
+      formServiceInstance.addFormSpec(updatedPersonForm);
+      const formSpec = formServiceInstance.getFormSpecById('person');
+      expect(formSpec?.name).toBe('Updated Person Form');
+      expect(formSpec?.schemaVersion).toBe('1.1');
+      const formSpecs = formServiceInstance.getFormSpecs();
+      expect(formSpecs.length).toBe(1); // Still only person, but updated
     });
   });
 
-  describe('removeFormType', () => {
-    // Assuming removeFormType is implemented in FormService.ts as:
-    // public removeFormType(id: string): boolean {
-    //   const initialLength = this.formTypes.length;
-    //   this.formTypes = this.formTypes.filter(ft => ft.id !== id);
-    //   return this.formTypes.length < initialLength;
+  describe('removeFormSpec', () => {
+    // Assuming removeFormSpec is implemented in FormService.ts as:
+    // public removeFormSpec(id: string): boolean {
+    //   const initialLength = this.formSpecs.length;
+    //   this.formSpecs = this.formSpecs.filter(fs => fs.id !== id);
+    //   return this.formSpecs.length < initialLength;
     // }
 
     test('should remove an existing form type and return true, ensuring temporary block does not re-add', () => {
-      const result = formServiceInstance.removeFormType('person');
+      const result = formServiceInstance.removeFormSpec('person');
       expect(result).toBe(true);
-      expect(formServiceInstance.getFormTypeById('person')).toBeUndefined();
+      expect(formServiceInstance.getFormSpecById('person')).toBeUndefined();
 
       // Spy on console.error to ensure the temporary block's error path is hit
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -172,8 +172,8 @@ describe('FormService', () => {
       // The `doMock` calls should affect subsequent `require` calls from any module, including FormService's internals,
       // because jest.resetModules() in beforeEach clears the cache, and FormService instance is fresh.
       
-      const formTypes = formServiceInstance.getFormTypes(); // This call will trigger the temporary block with erroring mocks
-      expect(formTypes.length).toBe(0);
+      const formSpecs = formServiceInstance.getFormSpecs(); // This call will trigger the temporary block with erroring mocks
+      expect(formSpecs.length).toBe(0);
       expect(consoleErrorSpy).toHaveBeenCalled();
 
       // Restore console spy. No need to manually restore jest.doMock'd modules;
@@ -186,10 +186,10 @@ describe('FormService', () => {
     });
 
     test('should return false if form type ID does not exist', () => {
-      const initialLength = formServiceInstance.getFormTypes().length;
-      const result = formServiceInstance.removeFormType('nonexistent');
+      const initialLength = formServiceInstance.getFormSpecs().length;
+      const result = formServiceInstance.removeFormSpec('nonexistent');
       expect(result).toBe(false);
-      expect(formServiceInstance.getFormTypes().length).toBe(initialLength);
+      expect(formServiceInstance.getFormSpecs().length).toBe(initialLength);
     });
   });
 
@@ -218,7 +218,7 @@ describe('FormService', () => {
       const personObservations: Observation[] = [{ id: 'p_obs1', formType: 'person', data: {}, observationId: 'p_obs1', formVersion: '1', deleted: false, createdAt: new Date(), updatedAt: new Date(), syncedAt: new Date() }];
       const anotherObservations: Observation[] = [{ id: 'a_obs1', formType: 'another', data: {}, observationId: 'a_obs1', formVersion: '1', deleted: false, createdAt: new Date(), updatedAt: new Date(), syncedAt: new Date() }];
       
-      formServiceInstance.addFormType({
+      formServiceInstance.addFormSpec({
         id: 'another', name: 'Another', description: '', schemaVersion: '1.0', schema: {}, uiSchema: {}
       }); // Now 'person' and 'another' form types exist
 
@@ -282,7 +282,7 @@ describe('FormService', () => {
   // Test for the temporary block in getFormTypes if constructor fails to load initial form
   describe('getFormTypes temporary block', () => {
 
-    beforeEach(() => {
+    beforeEach(async () => {
       jest.resetModules(); // Important: reset modules before changing mocks
       // Simulate the constructor's require for personschema.json failing
       jest.doMock('../../webview/personschema.json', () => { 
@@ -305,11 +305,11 @@ describe('FormService', () => {
 
       const FormServiceModule = require('../FormService');
       ActualFormServiceClass = FormServiceModule.FormService; // Update the class reference
-      formServiceInstance = ActualFormServiceClass.getInstance(); // This instance will have an empty formTypes array initially
+      formServiceInstance = await ActualFormServiceClass.getInstance(); // This instance will have an empty formTypes array initially
     });
 
 
-    test('should load temporary person form if initial formTypes is empty due to constructor schema load failure', () => {
+    test('should load temporary person form if initial formTypes is empty due to constructor schema load failure', async () => {
       // formServiceInstance from the describe's beforeEach has formTypes = [] due to constructor mock failure.
 
       // These mocks are for the require() calls *inside* the getFormTypes() method of that instance.
@@ -327,12 +327,12 @@ describe('FormService', () => {
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
       
       // Call getFormTypes() on the instance that had its constructor fail.
-      const formTypes = formServiceInstance.getFormTypes(); 
+      const formSpecs = await formServiceInstance.getFormSpecs(); 
       
-      expect(formTypes.length).toBe(1);
-      expect(formTypes[0].id).toBe('person');
+      expect(formSpecs.length).toBe(1);
+      expect(formSpecs[0].id).toBe('person');
       // Schema should match the one mocked above for the temporary block's internal require
-      expect(formTypes[0].schema).toEqual({ type: 'object', properties: { tempName: { type: 'string' } } });
+      expect(formSpecs[0].schema).toEqual({ type: 'object', properties: { tempName: { type: 'string' } } });
       expect(consoleLogSpy).toHaveBeenCalledWith('Temporary form type created:', 'person');
       
       consoleLogSpy.mockRestore();
