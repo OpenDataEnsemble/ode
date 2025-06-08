@@ -182,7 +182,7 @@ export class FormulusWebViewMessageManager {
 
       console.log(`${this.logPrefix} Received message from WebView: type=${type}, messageId=${messageId}`, payload);
 
-      if (type === 'formulusReady' || type === 'onFormulusReady') {
+      if (type === 'formplayerReadyToReceiveInit') {
         this.handleReadySignal(payload);
       } else if (type === 'response' && messageId) {
         this.handleResponse(messageId, payload.result, payload.error);
