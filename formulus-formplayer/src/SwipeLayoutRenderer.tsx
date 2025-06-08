@@ -76,6 +76,7 @@ const SwipeLayoutRenderer = ({
   return (
     <Box sx={{ position: 'relative', height: '100%' }}>
       <div {...handlers} className="swipelayout_screen">
+        {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
         {layouts.length > 0 && (
           <JsonFormsDispatch 
             schema={schema}

@@ -97,9 +97,13 @@ class FormulusClient {
    * Submit the final form data to the Formulus RN app
    */
   public submitForm(finalData: Record<string, any>): void {
-    if (!this.formData) {
-      console.error('Cannot submit form: Form not initialized');
-      return;
+    if (!this.formData?.formId) {
+      console.debug('This is a new form instance');
+      this.formData = {
+        formId: finalData.formId || 'GENERATE-GUID-HERE',
+        params: {},
+        savedData: {}
+      };
     }
 
     console.log('Submitting final form data', finalData);
