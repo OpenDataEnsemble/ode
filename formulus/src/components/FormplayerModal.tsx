@@ -9,11 +9,6 @@ const INJECTION_SCRIPT_PATH = Platform.OS === 'android'
   ? 'webview/FormulusInjectionScript.js'
   : 'FormulusInjectionScript.js';
 
-import { 
-  sendFormInit, 
-  sendAttachmentData, 
-  sendSavePartialComplete 
-} from '../webview/FormulusWebViewHandler';
 import { databaseService } from '../database';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { Observation } from '../database/repositories/LocalRepoInterface';
@@ -78,11 +73,14 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       console.log('FormplayerModal: Initializing form with initialConfig:', initialConfig);
       
       const { formId, params, savedData } = initialConfig;
+      console.log('FormplayerModal: Initializing form with formId:', formId);
+      console.log('FormplayerModal: Initializing form with params:', params);
+      console.log('FormplayerModal: Initializing form with savedData:', savedData);
       if (formId) {
         const formDefinition = formService.getFormSpecById(formId);
         if (formDefinition) {
           console.log('FormplayerModal: Found form definition for', formId, 'sending schema and uiSchema');
-          sendFormInit(webViewRef as React.RefObject<CustomAppWebViewHandle>, {
+          webViewRef.current?.sendFormInit({
             formId,
             params,
             savedData,
@@ -92,7 +90,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
         } else {
           console.warn('FormplayerModal: Form definition not found for formId:', formId);
           // Optionally, handle the case where form definition is not found (e.g., show an error)
-          sendFormInit(webViewRef as React.RefObject<CustomAppWebViewHandle>, { formId, params, savedData }); // Send without schemas as fallback
+          webViewRef.current?.sendFormInit({ formId, params, savedData }); // Send without schemas as fallback
         }
         setCurrentFormId(formId);
         // Potentially clear other form selection states if initialConfig takes precedence
@@ -204,11 +202,8 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     
     // Send the initialization data back to the Formplayer
     if (webViewRef.current) {
-      // Create a non-null ref object to satisfy TypeScript
-      const safeRef = { current: webViewRef.current };
-      
       try {
-        sendFormInit(safeRef, {
+        webViewRef.current?.sendFormInit({
           formId,
           params,
           savedData
@@ -231,7 +226,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     
     // Send a confirmation back to the Formplayer
     if (webViewRef.current) {
-      sendSavePartialComplete(webViewRef as React.RefObject<CustomAppWebViewHandle>, formId, true);
+      webViewRef.current?.sendSavePartialComplete(formId, true);
     }
   };
   

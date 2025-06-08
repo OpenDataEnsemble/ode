@@ -8,6 +8,7 @@
 
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
+import { createFormulusMessageHandlers } from './FormulusMessageHandlers';
 
 // Add NodeJS type definitions
 declare global {
@@ -40,289 +41,92 @@ interface MessageHandlerContext {
   messageId?: string; // Original messageId from the WebView message, if present
 }
 
-type MessageHandler = (context: MessageHandlerContext) => Promise<void> | void;
-
-interface MessageHandlers {
-  [key: string]: MessageHandler;
-  __default__: MessageHandler;
-}
-
-const PENDING_REQUESTS = new Map<string, PendingRequest>();
-const REQUEST_TIMEOUT = 30000; // 30 seconds timeout
-
-import { createFormulusMessageHandlers } from './FormulusMessageHandlers';
 
 /**
- * Create a message handler for WebView messages
- * @param webViewRef Reference to the WebView component
- * @param handlers Callback handlers for different message types
- * @returns A function that can be passed to the WebView's onMessage prop
+ * FormulusWebViewMessageManager class
+ * Manages WebView communication with instance-specific state, designed for composition.
  */
-function handleResponse(message: any) {
-  if (message.type === 'response' && message.requestId) {
-    const pending = PENDING_REQUESTS.get(message.requestId);
-    if (pending) {
-      clearTimeout(pending.timeout as unknown as number);
-      if (message.error) {
-        pending.reject(new Error(message.error));
-      } else {
-        pending.resolve(message.result);
-      }
-      PENDING_REQUESTS.delete(message.requestId);
-    }
-    return true;
+export class FormulusWebViewMessageManager {
+  private static readonly REQUEST_TIMEOUT = 30000; // 30 seconds timeout
+
+  private webViewRef: React.RefObject<WebView | null>;
+  private appName: string;
+  private logPrefix: string;
+  private isWebViewReady: boolean = false;
+  private messageQueue: Array<{
+    callbackName: string;
+    data: any;
+    resolve: (value: any) => void;
+    reject: (reason?: any) => void;
+  }> = [];
+  private pendingRequests: Map<string, {
+    resolve: (value: any) => void;
+    reject: (reason?: any) => void;
+    timeout: NodeJS.Timeout;
+  }> = new Map();
+  private nativeSideHandlers: ReturnType<typeof createFormulusMessageHandlers>;
+
+  constructor(webViewRef: React.RefObject<WebView | null>, appName: string = 'WebView') {
+    this.webViewRef = webViewRef;
+    this.appName = appName;
+    this.logPrefix = `[${this.appName}]`;
+    this.nativeSideHandlers = createFormulusMessageHandlers(); // Initialize native handlers
+    console.log(`${this.logPrefix} FormulusWebViewMessageManager initialized`);
   }
-  return false;
-}
 
-/**
- * Create a message handler for WebView messages
- * @param webViewRef Reference to the WebView component
- * @param handlers Callback handlers for different message types
- * @returns A function that can be passed to the WebView's onMessage prop
- */
-export function createFormulusMessageHandler(
-  webViewRef: React.RefObject<WebView | null>,
-  logSourceName: string = 'WebView' // Default to 'WebView' if not provided
-) {
-  const nativeSideHandlers = createFormulusMessageHandlers();
+  public setWebViewReady(isReady: boolean): void {
+    this.isWebViewReady = isReady;
+    console.log(`${this.logPrefix} WebView readiness set to: ${isReady}`);
+    if (isReady) {
+      this.processMessageQueue();
+    }
+  }
 
-  // Helper function to call native handlers and send responses
-  async function _callHandlerAndRespond(
-    handlerMethod: ((...args: any[]) => Promise<any> | any) | undefined,
-    handlerArgs: any[],
-    messageType: string, // The original 'type' from the WebView message
-    messageId: string | undefined, // The 'messageId' from the WebView message, if any
-    currentWebViewRef: React.RefObject<WebView | null>
-  ) {
-    if (!handlerMethod) {
-      console.warn(`Native Host: No method found in FormulusMessageHandlers for message type '${messageType}'.`);
-      if (messageId && currentWebViewRef.current) {
-        const errorResponse = { type: `${messageType}_response`, messageId, error: `Handler for ${messageType} not implemented on native side.` };
-        const script = `window.postMessage(${JSON.stringify(errorResponse)}, '*');`;
-        currentWebViewRef.current.injectJavaScript(script);
+  private queueMessage(
+    callbackName: string,
+    data: any,
+    resolve: (value: any) => void,
+    reject: (reason?: any) => void
+  ): void {
+    console.log(`${this.logPrefix} Queuing message: ${callbackName}`, data);
+    this.messageQueue.push({ callbackName, data, resolve, reject });
+  }
+
+  private processMessageQueue(): void {
+    console.log(`${this.logPrefix} Processing ${this.messageQueue.length} queued messages`);
+    while (this.messageQueue.length > 0) {
+      const message = this.messageQueue.shift();
+      if (message) {
+        this.send(message.callbackName, message.data)
+          .then(message.resolve)
+          .catch(message.reject);
+      }
+    }
+  }
+
+  private sendToWebViewInternal<T = void>(
+    callbackName: string,
+    data: any = {},
+    requestId: string
+  ): void {
+    if (!this.webViewRef.current) {
+      console.error(`${this.logPrefix} WebView reference is null. Cannot send message: ${callbackName}`);
+      // Find the pending request and reject it
+      const request = this.pendingRequests.get(requestId);
+      if (request) {
+        request.reject(new Error('WebView reference is null'));
+        this.pendingRequests.delete(requestId);
       }
       return;
     }
-
-    try {
-      const result = await handlerMethod(...handlerArgs);
-
-      if (messageId && currentWebViewRef.current) {
-        const response = { type: `${messageType}_response`, messageId, result };
-        const script = `window.postMessage(${JSON.stringify(response)}, '*');`;
-        // console.log(`Native Host (${messageType}): Sending response:`, response); // Optional: for debugging
-        currentWebViewRef.current.injectJavaScript(script);
-      } else if (messageId) {
-        // This case means messageId was present, but webViewRef.current was null when trying to respond.
-        console.error(`Native Host (${messageType}): Cannot send response. WebView ref missing.`, { messageId, result });
-      }
-      // If no messageId, it's treated as a fire-and-forget, or the handler itself manages responses via other means.
-    } catch (e: any) {
-      console.error(`Native Host (${messageType}): Error in handler:`, e);
-      if (messageId && currentWebViewRef.current) {
-        const errorResponse = { type: `${messageType}_response`, messageId, error: e.message || `Unknown error in ${messageType} handler` };
-        const script = `window.postMessage(${JSON.stringify(errorResponse)}, '*');`;
-        currentWebViewRef.current.injectJavaScript(script);
-      }
-    }
-  }
-
-  const messageHandlers: MessageHandlers = {
-    // Default handler for unknown message types
-    __default__: async ({ data, event, type, messageId }) => { // Added type, messageId from context
-      console.warn(`Native Host: Unhandled message type '${type}':`, data, event);
-      if (nativeSideHandlers.onUnknownMessage) {
-        // Pass the full original message structure if onUnknownMessage expects it
-        nativeSideHandlers.onUnknownMessage({ type, messageId, ...data });
-      }
-      if (messageId && webViewRef.current) { // Ensure webViewRef is used from the outer scope
-        const errorResponse = { type: `${type}_response`, messageId, error: `Unhandled message type: ${type}` };
-        const script = `window.postMessage(${JSON.stringify(errorResponse)}, '*');`;
-        webViewRef.current.injectJavaScript(script);
-      }
-    },
-
-    // Console log handlers (now use logSourceName)
-    'console.log': ({ data }) => { console.log(`[${logSourceName}]`, ...(data.args || [])); },
-    'console.warn': ({ data }) => { console.warn(`[${logSourceName}]`, ...(data.args || [])); },
-    'console.error': ({ data }) => { console.error(`[${logSourceName}]`, ...(data.args || [])); },
-    'console.info': ({ data }) => { console.info(`[${logSourceName}]`, ...(data.args || [])); },
-    'console.debug': ({ data }) => { console.debug(`[${logSourceName}]`, ...(data.args || [])); },
-
-    'onFormulusReady': async ({ type, messageId }) => { // messageId will likely be undefined
-      await _callHandlerAndRespond(nativeSideHandlers.onFormulusReady, [], type, messageId, webViewRef);
-    },
-
-    // --- Formulus API Handlers (using _callHandlerAndRespond) ---
-    // Note: 'data' in context is the payload part of the message (message content excluding type and messageId)
-    // 'type' and 'messageId' are directly from the context.
-
-    'getVersion': async ({ type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onGetVersion, [], type, messageId, webViewRef);
-    },
-    'initForm': async ({ type, messageId }) => { // Assuming onInitForm might be async or we want to signal completion
-      await _callHandlerAndRespond(nativeSideHandlers.onInitForm, [], type, messageId, webViewRef);
-    },
-    'savePartial': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onSavePartial, [data.formId, data.data], type, messageId, webViewRef);
-    },
-    'submitForm': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onSubmitForm, [data.formId, data.finalData], type, messageId, webViewRef);
-    },
-    'requestCamera': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRequestCamera, [data.fieldId], type, messageId, webViewRef);
-    },
-    'requestLocation': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRequestLocation, [data.fieldId], type, messageId, webViewRef);
-    },
-    'requestFile': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRequestFile, [data.fieldId], type, messageId, webViewRef);
-    },
-    'launchIntent': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onLaunchIntent, [data.fieldId, data.intentSpec], type, messageId, webViewRef);
-    },
-    'callSubform': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onCallSubform, [data.fieldId, data.formId, data.options || {}], type, messageId, webViewRef);
-    },
-    'requestAudio': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRequestAudio, [data.fieldId], type, messageId, webViewRef);
-    },
-    'requestSignature': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRequestSignature, [data.fieldId], type, messageId, webViewRef);
-    },
-    'requestBiometric': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRequestBiometric, [data.fieldId], type, messageId, webViewRef);
-    },
-    'requestConnectivityStatus': async ({ type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRequestConnectivityStatus, [], type, messageId, webViewRef);
-    },
-    'requestSyncStatus': async ({ type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRequestSyncStatus, [], type, messageId, webViewRef);
-    },
-    'runLocalModel': async ({ data, type, messageId }) => {
-      await _callHandlerAndRespond(nativeSideHandlers.onRunLocalModel, [data.fieldId, data.modelId, data.input || {}], type, messageId, webViewRef);
-    },
-    // getAvailableForms was missing from the original, adding it based on common patterns
-    'getAvailableForms': async ({ type, messageId }) => {
-       await _callHandlerAndRespond(nativeSideHandlers.onGetAvailableForms, [], type, messageId, webViewRef);
-    },
-    // getObservations was missing, adding based on common patterns
-    'getObservations': async ({ data, type, messageId }) => {
-       await _callHandlerAndRespond(nativeSideHandlers.onGetObservations, [data.formId, data.isDraft, data.includeDeleted], type, messageId, webViewRef);
-    },
-    // openFormplayer was missing, adding based on common patterns
-    'openFormplayer': async ({ data, type, messageId }) => {
-       await _callHandlerAndRespond(nativeSideHandlers.onOpenFormplayer, [data.formId, data.params, data.savedData], type, messageId, webViewRef);
-    },
-
-    // Special handlers (kept as is, assuming they manage their own specific logic)
-    'response': ({ data }) => {
-      handleResponse(data); // Assumes handleResponse is defined elsewhere and handles these specific 'response' messages
-    },
-    'callback': ({ data }) => {
-      if (data.error) {
-        console.error('Callback error:', data.error);
-      } else {
-        console.log('Callback completed successfully');
-      }
-    }
-  };
-
-  // Return the actual message handler function to be used by WebView's onMessage prop
-  return async (event: WebViewMessageEvent) => {
-    let message;
-    try {
-      // Ensure event.nativeEvent.data is a string before parsing
-      if (typeof event.nativeEvent.data === 'string') {
-        message = JSON.parse(event.nativeEvent.data);
-      } else {
-        console.error('Native Host: Received non-string data from WebView', event.nativeEvent.data);
-        return; // Cannot process non-string data
-      }
-      // console.log('Native Host: Received message:', message); // Optional: for debugging
-
-      const { type, messageId, ...payload } = message; // Destructure type, messageId, and the rest as payload
-
-      const handler = messageHandlers[type] || messageHandlers.__default__;
-      
-      // Call the handler with the necessary context
-      // The context now includes 'type' and 'messageId' directly, and 'data' is the payload
-      await handler({ 
-        data: payload, 
-        webViewRef, 
-        event, 
-        type, 
-        messageId 
-      });
-
-    } catch (error) {
-      console.error('Native Host: Failed to handle WebView message:', error, 'Raw data:', event.nativeEvent.data);
-      // Attempt to send an error back to the WebView if a messageId was part of the unparsable message
-      if (message && message.messageId && message.type && webViewRef.current) {
-        const errorResponse = { 
-          type: `${message.type}_response`, 
-          messageId: message.messageId, 
-          error: 'Native host failed to process message: ' + (error instanceof Error ? error.message : String(error))
-        };
-        const script = `window.postMessage(${JSON.stringify(errorResponse)}, '*');`;
-        webViewRef.current.injectJavaScript(script);
-      } else if (nativeSideHandlers.onError) {
-        nativeSideHandlers.onError(error as Error);
-      }
-    }
-  };
-}
-
-/**
- * Send data to the WebView
- * @param webViewRef Reference to the WebView component
- * @param callbackName Name of the callback function to call
- * @param data Data to send to the WebView
- * @param isPromise Whether to use promise-based response
- */
-export function sendToWebView<T = void>(
-  webViewRef: React.RefObject<CustomAppWebViewHandle>,
-  callbackName: string,
-  data: any = {}
-): Promise<T> {
-  if (!webViewRef.current) {
-    const error = 'WebView ref is not available';
-    console.warn(error);
-    return Promise.reject(new Error(error));
-  }
-
-  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-  // Promise-based response
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      PENDING_REQUESTS.delete(requestId);
-      reject(new Error('Request timed out'));
-    }, REQUEST_TIMEOUT);
-
-    PENDING_REQUESTS.set(requestId, {
-      resolve,
-      reject,
-      timeout
-    });
-
-    webViewRef.current.injectJavaScript(`
+    const script = `
       (function() {
-        console.debug("Injecting script for callback ${callbackName}");
+        console.debug("[${this.appName}] Injecting script for callback ${callbackName}, requestId ${requestId}");
         try {
           if (window.${callbackName}) {
             Promise.resolve(window.${callbackName}(${JSON.stringify(data)}))
-              .then(result => ({
-                type: 'response',
-                requestId: '${requestId}',
-                result
-              }))
-              .catch(error => ({
-                type: 'response',
-                requestId: '${requestId}',
-                error: error?.message || String(error)
-              }))
+              .then(result => ({ type: 'response', requestId: '${requestId}', result }))
+              .catch(error => ({ type: 'response', requestId: '${requestId}', error: String(error) }))
               .then(response => window.ReactNativeWebView.postMessage(JSON.stringify(response)));
           } else {
             window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -335,81 +139,169 @@ export function sendToWebView<T = void>(
           window.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'response',
             requestId: '${requestId}',
-            error: error?.message || 'Unknown error'
+            error: String(error) || 'Unknown error in ${callbackName}'
           }));
         }
       })();
-      true; // Always return true to prevent warnings
-    `);
-  });
-}
+      true; // Return true to prevent iOS warning
+    `;
+    console.log(`${this.logPrefix} Sending to WebView (${callbackName}, ${requestId}):`, data);
+    this.webViewRef.current.injectJavaScript(script);
+  }
 
-/**
- * Send form initialization data to the WebView
- * @param webViewRef Reference to the WebView component
- * @param formData Form initialization data
- * @returns Promise that resolves when the WebView has processed the initialization
- */
-export function sendFormInit(
-  webViewRef: React.RefObject<CustomAppWebViewHandle>,
-  formData: FormInitData
-): Promise<void> {
-  const { formId, params = {}, savedData = {}, formSchema, uiSchema } = formData;
-  
-  console.log('Sending form init data to WebView:', {
-    formId,
-    paramsKeys: Object.keys(params ?? {}),
-    hasSavedData: !!savedData,
-    savedDataKeys: Object.keys(savedData ?? {}),
-    hasFormSchema: !!formSchema,
-    hasUiSchema: !!uiSchema
-  });
+  public send<T = void>(callbackName: string, data: any = {}): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+      if (!this.isWebViewReady) {
+        this.queueMessage(callbackName, data, resolve, reject);
+        return;
+      }
 
-  return sendToWebView<void>(
-    webViewRef,
-    'onFormInit',
-    {
-      formId,
-      params,
-      savedData: savedData || {},
-      formSchema,
-      uiSchema
+      const requestId = Math.random().toString(36).substring(2, 15) + Date.now();
+      const timeout = setTimeout(() => {
+        if (this.pendingRequests.has(requestId)) {
+          console.warn(`${this.logPrefix} Request timed out: ${callbackName}, ${requestId}`);
+          this.pendingRequests.get(requestId)?.reject(new Error(`Request timed out for ${callbackName}`));
+          this.pendingRequests.delete(requestId);
+        }
+      }, FormulusWebViewMessageManager.REQUEST_TIMEOUT);
+
+      this.pendingRequests.set(requestId, { resolve, reject, timeout });
+      this.sendToWebViewInternal(callbackName, data, requestId);
+    });
+  }
+
+  public handleWebViewMessage = (event: WebViewMessageEvent): void => {
+    try {
+      const eventData = JSON.parse(event.nativeEvent.data);
+      const { type, messageId, ...payload } = eventData;
+
+      if (!type) {
+        console.warn(`${this.logPrefix} Received WebView message without type:`, eventData);
+        return;
+      }
+
+      console.log(`${this.logPrefix} Received message from WebView: type=${type}, messageId=${messageId}`, payload);
+
+      if (type === 'formulusReady' || type === 'onFormulusReady') {
+        this.handleReadySignal(payload);
+      } else if (type === 'response' && messageId) {
+        this.handleResponse(messageId, payload.result, payload.error);
+      } else if (type.startsWith('console.')) {
+        const logLevel = type.substring('console.'.length) as keyof Console;
+        const logArgs = payload.args || []; // payload is {args: Array(1)}
+        if (typeof console[logLevel] === 'function') {
+          (console[logLevel] as (...data: any[]) => void)(
+            `${this.logPrefix} [WebView Console]`, ...logArgs
+          );
+        } else {
+          // Fallback if the extracted level is not a valid console method
+          console.log(`${this.logPrefix} [WebView Console - Unknown Level: ${logLevel}]`, ...logArgs);
+        }
+      } else if (type === 'console') { // Keep existing handler for type === 'console' as fallback
+        // Handle console messages from WebView if type is exactly 'console' and level is in payload
+        const { level, args } = payload;
+        if (level && args && typeof console[level as keyof Console] === 'function') {
+          (console[level as keyof Console] as (...data: any[]) => void)(
+            `${this.logPrefix} [WebView Console]`, ...args
+          );
+        } else {
+          console.log(`${this.logPrefix} [WebView Console]`, ...args);
+        }
+      } else {
+        this.handleIncomingAction(type, payload, messageId);
+      }
+    } catch (error) {
+      console.error(`${this.logPrefix} Error parsing WebView message:`, error, event.nativeEvent.data);
     }
-  );
+  }
+
+  private handleReadySignal(data?: any): void {
+    console.log(`${this.logPrefix} WebView is ready.`, data || '');
+    this.setWebViewReady(true);
+    // Optionally call native-side handler if it exists for onFormulusReady
+    if (this.nativeSideHandlers.onFormulusReady) {
+        try {
+            this.nativeSideHandlers.onFormulusReady();
+        } catch (error) {
+            console.error(`${this.logPrefix} Error in native onFormulusReady handler:`, error);
+        }
+    }
+  }
+
+  private handleResponse(messageId: string, result: any, error?: any): void {
+    const pendingRequest = this.pendingRequests.get(messageId);
+    if (!pendingRequest) {
+      console.warn(`${this.logPrefix} No pending request found for messageId:`, messageId);
+      return;
+    }
+    clearTimeout(pendingRequest.timeout as unknown as number); // Cast to number for clearTimeout
+    if (error) {
+      console.error(`${this.logPrefix} Received error for request ${messageId}:`, error);
+      pendingRequest.reject(new Error(String(error)));
+    } else {
+      console.log(`${this.logPrefix} Received result for request ${messageId}:`, result);
+      pendingRequest.resolve(result);
+    }
+    this.pendingRequests.delete(messageId);
+  }
+
+  private async handleIncomingAction(type: string, data: any, messageId?: string): Promise<void> {
+    console.log(`${this.logPrefix} Handling incoming action: type=${type}, messageId=${messageId}`, data);
+    const handlerName = `on${type.charAt(0).toUpperCase() + type.slice(1)}` as keyof typeof this.nativeSideHandlers;
+    let result: any;
+    let error: any;
+
+    try {
+      if (typeof this.nativeSideHandlers[handlerName] === 'function') {
+        result = await (this.nativeSideHandlers[handlerName] as Function)(data);
+      } else if (this.nativeSideHandlers.onUnknownMessage) {
+        console.warn(`${this.logPrefix} No specific handler for type '${type}'. Using onUnknownMessage.`);
+        result = await this.nativeSideHandlers.onUnknownMessage({ type, ...data, messageId });
+      } else {
+        console.warn(`${this.logPrefix} Unhandled WebView message type: ${type}. No default onUnknownMessage handler.`, data);
+        error = `No handler for message type ${type}`;
+      }
+    } catch (e) {
+      console.error(`${this.logPrefix} Error in native handler for ${type}:`, e);
+      error = String(e);
+    }
+
+    // If there was a messageId, it implies the WebView might be expecting a response for this action
+    if (messageId && this.webViewRef.current) {
+      const responsePayload = { type: 'response', requestId: messageId, result, error };
+      console.log(`${this.logPrefix} Sending response for incoming action ${type} (messageId: ${messageId}):`, responsePayload);
+      this.webViewRef.current.injectJavaScript(
+        `window.ReactNativeWebView.postMessage(${JSON.stringify(responsePayload)}); true;`
+      );
+    }
+  }
+
+  public reset(): void {
+    console.log(`${this.logPrefix} Resetting FormulusWebViewMessageManager state.`);
+    this.pendingRequests.forEach(request => {
+      clearTimeout(request.timeout as unknown as number); // Cast to number
+      request.reject(new Error('WebViewMessageManager reset'));
+    });
+    this.pendingRequests.clear();
+    this.messageQueue = [];
+    this.isWebViewReady = false;
+    console.log(`${this.logPrefix} State reset complete.`);
+  }
+
+  // Convenience methods for common actions (can be added in Phase 2/3)
+  public sendFormInit(formData: FormInitData): Promise<void> {
+    console.log(`${this.logPrefix} Sending form init:`, formData.formId);
+    return this.send<void>('onFormInit', formData);
+  }
+
+  public sendAttachmentData(attachmentData: any): Promise<void> {
+    console.log(`${this.logPrefix} Sending attachment data.`);
+    return this.send<void>('onAttachmentData', attachmentData);
+  }
+
+  public sendSavePartialComplete(formId: string, success: boolean): Promise<void> {
+    console.log(`${this.logPrefix} Sending save partial complete for ${formId}, success: ${success}`);
+    return this.send<void>('onSavePartialComplete', { formId, success });
+  }
 }
 
-/**
- * Send attachment data to the WebView
- * @param webViewRef Reference to the WebView component
- * @param attachmentData Attachment data
- * @returns Promise that resolves when the WebView has processed the attachment
- */
-export function sendAttachmentData(
-  webViewRef: React.RefObject<CustomAppWebViewHandle>,
-  attachmentData: any
-): Promise<void> {
-  return sendToWebView<void>(
-    webViewRef,
-    'onAttachmentData',
-    attachmentData
-  );
-}
-
-/**
- * Send save partial completion status to the WebView
- * @param webViewRef Reference to the WebView component
- * @param formId Form ID
- * @param success Whether the save was successful
- * @returns Promise that resolves when the WebView has processed the save status
- */
-export function sendSavePartialComplete(
-  webViewRef: React.RefObject<CustomAppWebViewHandle>,
-  formId: string,
-  success: boolean
-): Promise<void> {
-  return sendToWebView<void>(
-    webViewRef,
-    'onSavePartialComplete',
-    { formId, success }
-  );
-}

@@ -1,16 +1,19 @@
-import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import { useIsFocused } from '@react-navigation/native';
 import { Platform } from 'react-native';
 import { readFileAssets } from 'react-native-fs';
-import { createFormulusMessageHandler, sendFormInit, sendAttachmentData, sendSavePartialComplete } from '../webview/FormulusWebViewHandler';
+import { FormulusWebViewMessageManager, FormInitData } from '../webview/FormulusWebViewHandler';
 
 export interface CustomAppWebViewHandle {
   reload: () => void;
   goBack: () => void;
   goForward: () => void;
   injectJavaScript: (script: string) => void;
+  sendFormInit: (formData: FormInitData) => Promise<void>;
+  sendAttachmentData: (attachmentData: any) => Promise<void>;
+  sendSavePartialComplete: (formId: string, success: boolean) => Promise<void>;
 }
 
 interface CustomAppWebViewProps {
@@ -62,6 +65,9 @@ const consoleLogScript = `
 
 const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl, appName }, ref) => {
   const webViewRef = useRef<WebView | null>(null);
+  const messageManager = useMemo(() => {
+    return new FormulusWebViewMessageManager(webViewRef, appName);
+  }, [appName]);
 
   // Expose imperative handle
   useImperativeHandle(ref, () => ({
@@ -69,7 +75,10 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     goBack: () => webViewRef.current?.goBack?.(),
     goForward: () => webViewRef.current?.goForward?.(),
     injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
-  }), []);
+    sendFormInit: (formData: FormInitData) => messageManager.sendFormInit(formData),
+    sendAttachmentData: (attachmentData: any) => messageManager.sendAttachmentData(attachmentData),
+    sendSavePartialComplete: (formId: string, success: boolean) => messageManager.sendSavePartialComplete(formId, success),
+  }), [messageManager]);
 
   // JS injection: load script from assets and prepend consoleLogScript
   const [injectionScript, setInjectionScript] = useState<string>(consoleLogScript);
@@ -118,14 +127,14 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     }
   }, [isFocused, injectionScript]); // Depend on injectionScript to use the latest version
 
-  const handleWebViewMessage = createFormulusMessageHandler(webViewRef, appName);
+  // const handleWebViewMessage = createFormulusMessageHandler(webViewRef, appName); // Replaced by messageManager
   // If appName is undefined, createFormulusMessageHandler will use its default 'WebView'
 
   return (
     <WebView
       ref={webViewRef}
       source={{ uri: appUrl }}
-      onMessage={handleWebViewMessage}
+      onMessage={messageManager.handleWebViewMessage}
       onError={handleError}
       onLoadStart={() => console.log(`[CustomAppWebView - ${appName || 'Default'}] Starting to load URL:`, appUrl)}
       onLoadEnd={() => {
