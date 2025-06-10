@@ -12,7 +12,7 @@
 
 // Type definitions for the interface
 export interface FormInitData {
-  formId: string;
+  formType: string;
   params: Record<string, any>;
   savedData: Record<string, any>;
 }

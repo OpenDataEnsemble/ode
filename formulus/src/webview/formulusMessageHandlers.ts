@@ -43,22 +43,30 @@ export const appEvents = new SimpleEventEmitter();
 
 // Helper function to save form data to storage
 //TODO: SHOULD USE THE REPOSITORY OBVIOUSLY
-const saveFormData = async (formId: string, data: any, isPartial = true) => {
+const saveFormData = async (formType: string, data: any, isPartial = true) => {
+  console.log("Message Handler: Saving form data: ", formType, data, isPartial);
   try {
-    const directory = `${RNFS.DocumentDirectoryPath}/form_data`;
-    const exists = await RNFS.exists(directory);
-    if (!exists) {
-      await RNFS.mkdir(directory);
-    }
+    const observation: Partial<Observation> = {
+      formType,
+      data,
+      // id, observationId, createdAt, updatedAt, etc., will be handled by the repository/service
+    };
+
+    const formService =  await FormService.getInstance()
+    const id = await formService.addNewObservation(observation);
+    console.log("Saved observation with id: " + id);
+    return id;
+
+    // TODO: Handle attachments/files
+    // const directory = `${RNFS.DocumentDirectoryPath}/form_data`;
+    // const exists = await RNFS.exists(directory);
+    // if (!exists) {
+    //   await RNFS.mkdir(directory);
+    // }
     
-    const fileName = isPartial ? `${formId}_partial.json` : `${formId}_final.json`;
-    const filePath = `${directory}/${fileName}`;
-    await RNFS.writeFile(filePath, JSON.stringify(data), 'utf8');
-    console.log(`Form data saved to ${filePath}`);
-    return true;
   } catch (error) {
     console.error('Error saving form data:', error);
-    return false;
+    return null;
   }
 };
 
@@ -89,6 +97,9 @@ const sendAttachmentToFormplayer = (webViewRef: React.RefObject<WebView | null>,
 
 import { FormulusMessageHandlers } from './FormulusMessageHandlers.types';
 import { FormInitData } from './FormulusInterfaceDefinition';
+import { FormObservationRepository } from '../database/FormObservationRepository'; // User added this
+import { FormService } from '../services'; // User added this
+import { Observation } from '../database/models/Observation';
 
 
 export function createFormulusMessageHandlers(): FormulusMessageHandlers {
@@ -104,10 +115,14 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       return version;
     },
     onSavePartial: async (formId: string, data: Record<string, any>) => {
-      await saveFormData(formId, data, true);
+      console.log("FormulusMessageHandlers: onSavePartial handler invoked.", { formId, data });
+      //const id = await saveFormData(formId, data, true);
+      //return id;
     },
-    onSubmitForm: async (formId: string, finalData: Record<string, any>) => {
-      await saveFormData(formId, finalData, false);
+    onSubmitForm: async (formData: Record<string, any>) => {
+      console.log("FormulusMessageHandlers: onSubmitForm handler invoked.", { formData });
+      const id = await saveFormData(formData.formId, formData.finalData, false);
+      return id;
     },
     onRequestCamera: (fieldId: string) => {
       // TODO: implement camera request logic
@@ -160,8 +175,15 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onGetObservations: async (formId: string, isDraft?: boolean, includeDeleted?: boolean) => {
       console.log('FormulusMessageHandlers: onGetObservations handler invoked.', { formId, isDraft, includeDeleted });
-      // TODO: Implement logic to fetch observations
-      return Promise.resolve([]); // Example: return empty array
+      if (formId.hasOwnProperty('formId')) {
+        console.warn('FormulusMessageHandlers: onGetObservations handler invoked with formId object, expected string');
+        formId = (formId as any).formId;
+        isDraft = (formId as any).isDraft;
+        includeDeleted = (formId as any).includeDeleted;
+      }
+      const formService = await FormService.getInstance();
+      const observations = await formService.getObservationsByFormType(formId); //TODO: Handle deleted etc.
+      return observations;
     },
     onOpenFormplayer: async (data: FormInitData) => {
       const { formId, params, savedData } = data;

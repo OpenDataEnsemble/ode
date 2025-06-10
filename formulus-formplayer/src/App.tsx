@@ -292,7 +292,7 @@ function App() {
     const handleFinalizeForm = () => {
       // Submit the form data to the Formulus RN app
       if (formId) {
-        formulusClient.current.submitForm(data);
+        formulusClient.current.submitForm(formId, data);
       }
       setShowFinalizeMessage(true);
     };

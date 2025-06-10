@@ -1,5 +1,5 @@
 import { databaseService } from '../database';
-import { Observation } from '../database/repositories/LocalRepoInterface';
+import { Observation } from '../database/models/Observation';
 import RNFS from 'react-native-fs';
 
 /**
@@ -157,6 +157,42 @@ export class FormService {
     await localRepo.deleteObservation(observationId);
   }
   
+  /**
+   * Add a new observation
+   * @param observation Observation to save
+   * @returns Promise that resolves when the observation is saved returning the ID of the saved observation
+   */
+  public async addNewObservation(observation: Partial<Observation>): Promise<string> {
+    console.debug("Observation data: ", observation);
+    if (observation.formType === undefined) {
+      throw new Error('Form type is required to save observation');
+    }
+    if (observation.id) {
+      throw new Error("Observation already has an ID, not saving - did you mean to update?");
+    }
+    console.log("Saving observation of type: " + observation.formType);
+    const localRepo = databaseService.getLocalRepo();
+    return await localRepo.saveObservation(observation);
+  }
+
+  /**
+   * Update an observation
+   * @param observation Observation to update
+   * @returns Promise that resolves when the observation is updated
+   */
+  public async updateObservation(observation: Observation): Promise<void> {
+    console.debug("Observation data: ", observation);
+    if (observation.formType === undefined) {
+      throw new Error('Form type is required to update observation');
+    }
+    if (!observation.id) {
+      throw new Error("Observation does not have an ID, not updating - did you mean to add?");
+    }
+    console.log("Updating observation of type: " + observation.formType);
+    const localRepo = databaseService.getLocalRepo();
+    await localRepo.updateObservation(observation.id, observation);
+  }
+
   /**
    * Reset the database by deleting all observations
    * @returns Promise that resolves when the database is reset

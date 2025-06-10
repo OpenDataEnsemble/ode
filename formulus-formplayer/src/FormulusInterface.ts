@@ -87,7 +87,7 @@ class FormulusClient {
     console.debug('Saving partial form data', data);
     
     if (this.formulus) {
-      this.formulus.savePartial(this.formData.formId, data);
+      this.formulus.savePartial(this.formData.formType, data);
     } else {
       console.warn('Formulus interface not available for savePartial');
     }
@@ -96,20 +96,12 @@ class FormulusClient {
   /**
    * Submit the final form data to the Formulus RN app
    */
-  public submitForm(finalData: Record<string, any>): void {
-    if (!this.formData?.formId) {
-      console.debug('This is a new form instance');
-      this.formData = {
-        formId: finalData.formId || 'GENERATE-GUID-HERE',
-        params: {},
-        savedData: {}
-      };
-    }
-
-    console.log('Submitting final form data', finalData);
+  public submitForm(formType: string, finalData: Record<string, any>): void {
+    console.debug('Submitting final form data for form type', formType);
+    console.debug('Submitting final form data', finalData);
     
     if (this.formulus) {
-      this.formulus.submitForm(this.formData.formId, finalData);
+      this.formulus.submitForm(formType, finalData);
     } else {
       console.warn('Formulus interface not available for submitForm');
     }
@@ -119,7 +111,7 @@ class FormulusClient {
    * Request camera access from the Formulus RN app
    */
   public requestCamera(fieldId: string): void {
-    console.log('Requesting camera for field', fieldId);
+    console.debug('Requesting camera for field', fieldId);
     
     if (this.formulus) {
       this.formulus.requestCamera(fieldId);
@@ -328,7 +320,7 @@ class FormulusClient {
   private setupEventListeners(): void {
     // Set up the global callbacks that will be called by the Formulus RN app
     globalThis.onFormInit = (formId: string, params: Record<string, any>, savedData: Record<string, any>) => {
-      this.handleFormInit({ formId, params, savedData });
+      this.handleFormInit({ formType: formId, params, savedData });
     };
     
     globalThis.onAttachmentReady = (data: AttachmentData) => {
