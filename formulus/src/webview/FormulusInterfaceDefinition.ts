@@ -40,7 +40,7 @@ export interface FormObservation {
   deleted: boolean;
   formId: string;
   formVersion: string;
-  dataPoints: Record<string, any>;
+  data: Record<string, any>;
 }
 
 /**

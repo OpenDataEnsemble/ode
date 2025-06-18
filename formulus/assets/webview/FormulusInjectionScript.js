@@ -34,6 +34,10 @@
         // console.warn('Global handleMessage: Received message with unexpected data type:', typeof event.data, event.data);
         return; // Or handle error, but for now, just return to avoid breaking others.
       }
+
+      // [DEBUG LOGGING] Log every message received from the host
+      console.log('[FormulusInjectionScript] Global handler received message:', JSON.parse(JSON.stringify(data)));
+
       
       // Handle callbacks
       if (data.type === 'callback' && data.callbackId && callbacks[data.callbackId]) {

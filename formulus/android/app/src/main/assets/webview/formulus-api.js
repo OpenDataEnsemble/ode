@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-06-08T11:01:00.321Z
+ * Last generated: 2025-06-10T07:45:37.977Z
  * 
  * @example
  * // In your JavaScript file:
@@ -61,6 +61,7 @@ const FormulusAPI = {
   getObservations: function(formId, isDraft, includeDeleted) {},
 
   /**
+ * DEPRECATED: TODO: Remove
  * Initialize a new form
  * /
  * @returns {Promise<void>} 

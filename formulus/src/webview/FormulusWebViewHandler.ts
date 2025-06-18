@@ -269,12 +269,22 @@ export class FormulusWebViewMessageManager {
       error = String(e);
     }
 
-    // If there was a messageId, it implies the WebView might be expecting a response for this action
-    if (messageId && this.webViewRef.current) {
-      const responsePayload = { type: 'response', requestId: messageId, result, error };
+    // If the original message had a messageId, send a response back
+    if (messageId) {
+      const responsePayload = {
+        type: `${type}_response`,
+        messageId: messageId,
+        result: result,
+        error: error,
+      };
+
       console.log(`${this.logPrefix} Sending response for incoming action ${type} (messageId: ${messageId}):`, responsePayload);
-      this.webViewRef.current.injectJavaScript(
-        `window.ReactNativeWebView.postMessage(${JSON.stringify(responsePayload)}); true;`
+      
+      // Directly post a message to the webview, which will be caught by the event listeners
+      // in FormulusInjectionScript.js
+      this.webViewRef.current?.injectJavaScript(
+        `window.postMessage(${JSON.stringify(responsePayload)}, '*');
+        true;` // Return true to prevent iOS warning
       );
     }
   }
