@@ -316,11 +316,13 @@ const FormManagementScreen = ({ navigation }: any) => {
       <FormplayerModal
         visible={formModalVisible}
         onClose={handleFormModalClose}
-        formType={selectedFormSpec?.id} // Pass the selected form type ID for new forms
-        editObservation={editingObservation ? {
-          formType: selectedFormSpec?.id || '',
-          observation: editingObservation
-        } : undefined}
+        initialConfig={
+          selectedFormSpec ? {
+            formId: selectedFormSpec.id,
+            params: {},
+            savedData: editingObservation ? editingObservation.data : undefined
+          } : undefined
+        }
       />
     </View>
   );
