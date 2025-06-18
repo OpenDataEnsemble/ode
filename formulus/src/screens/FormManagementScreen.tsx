@@ -10,36 +10,58 @@ import {
   Alert
 } from 'react-native';
 import { FormService, FormSpec } from '../services';
-import { Observation } from '../database/repositories/LocalRepoInterface';
+import { Observation } from '../database/models/Observation';
 import FormplayerModal from '../components/FormplayerModal';
 
 /**
  * Screen for managing forms and observations (admin only)
  */
 const FormManagementScreen = ({ navigation }: any) => {
-  const [formTypes, setFormTypes] = useState<FormSpec[]>([]);
+  const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
   const [observations, setObservations] = useState<Record<string, Observation[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [formModalVisible, setFormModalVisible] = useState<boolean>(false);
-  const [selectedFormType, setSelectedFormType] = useState<FormSpec | null>(null);
+  const [selectedFormSpec, setSelectedFormSpec] = useState<FormSpec | null>(null);
   const [editingObservation, setEditingObservation] = useState<Observation | null>(null);
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
-  
-  const formService = FormService.getInstance();
+  const [formService, setFormService] = useState<FormService | null>(null);
   
   // Load form types and observations
   useEffect(() => {
-    loadData();
+    const initFormService = async () => {
+      try {
+        const service = await FormService.getInstance();
+        setFormService(service);
+        const specs = service.getFormSpecs();
+        console.log('FormSpecs:', specs);
+        setFormSpecs(specs);
+        console.log('FormService initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize FormService:', error);
+      }
+    };
+    
+    initFormService();
   }, []);
   
+  useEffect(() => {
+    if (formService) {
+      loadData();
+    }
+  }, [formService]);
+
   // Function to load form types and observations
   const loadData = async () => {
+    if (!formService) {
+      Alert.alert('Error', 'FormService is not initialized');
+      return;
+    }
     try {
       setLoading(true);
       
       // Get all form types
-      const types = formService.getFormTypes();
-      setFormTypes(types);
+      const types = await formService.getFormSpecs();
+      setFormSpecs(types);
       
       // Get observations for each form type
       const observationsMap: Record<string, Observation[]> = {};
@@ -60,20 +82,24 @@ const FormManagementScreen = ({ navigation }: any) => {
   
   // Handle adding a new observation
   const handleAddObservation = (formType: FormSpec) => {
-    setSelectedFormType(formType);
+    setSelectedFormSpec(formType);
     setEditingObservation(null);
     setFormModalVisible(true);
   };
   
   // Handle editing an observation
   const handleEditObservation = (formType: FormSpec, observation: Observation) => {
-    setSelectedFormType(formType);
+    setSelectedFormSpec(formType);
     setEditingObservation(observation);
     setFormModalVisible(true);
   };
   
   // Handle deleting an observation
   const handleDeleteObservation = async (formTypeId: string, observation: Observation) => {
+    if (!formService) {
+      Alert.alert('Error', 'FormService is not initialized');
+      return;
+    }
     try {
       Alert.alert(
         'Confirm Delete',
@@ -108,6 +134,10 @@ const FormManagementScreen = ({ navigation }: any) => {
   
   // Handle database reset
   const handleResetDatabase = async () => {
+    if (!formService) {
+      Alert.alert('Error', 'FormService is not initialized');
+      return;
+    }
     try {
       Alert.alert(
         'Reset Database',
@@ -147,10 +177,10 @@ const FormManagementScreen = ({ navigation }: any) => {
   const renderObservationItem = ({ item }: { item: Observation }) => {
     // For backward compatibility: if formTypeId is not set, use the parent form type
     const currentFormTypeId = item.formType;
-    const parentFormType = expandedFormId ? formTypes.find(ft => ft.id === expandedFormId) : null;
+    const parentFormType = expandedFormId ? formSpecs.find(ft => ft.id === expandedFormId) : null;
     
     // Use either the observation's formTypeId or the parent form type if we're in a specific form's context
-    const formType = formTypes.find(ft => ft.id === currentFormTypeId) || parentFormType;
+    const formType = formSpecs.find(ft => ft.id === currentFormTypeId) || parentFormType;
     
     console.log('Rendering observation:', item.id, 'formTypeId:', currentFormTypeId, 'formType found:', !!formType);
     
@@ -188,8 +218,8 @@ const FormManagementScreen = ({ navigation }: any) => {
     );
   };
   
-  // Render a form type item
-  const renderFormTypeItem = ({ item }: { item: FormSpec }) => {
+  // Render a form spec item
+  const renderFormSpecItem = ({ item }: { item: FormSpec }) => {
     const formObservations = observations[item.id] || [];
     const isExpanded = expandedFormId === item.id;
     
@@ -240,11 +270,11 @@ const FormManagementScreen = ({ navigation }: any) => {
       
       {loading ? (
         <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
-      ) : formTypes.length > 0 ? (
+      ) : formSpecs.length > 0 ? (
         <>
           <FlatList
-            data={formTypes}
-            renderItem={renderFormTypeItem}
+            data={formSpecs}
+            renderItem={renderFormSpecItem}
             keyExtractor={(item) => item.id}
             style={styles.formTypesList}
           />
@@ -260,6 +290,10 @@ const FormManagementScreen = ({ navigation }: any) => {
           <TouchableOpacity 
             style={[styles.resetButton, { marginTop: 10, backgroundColor: '#2196F3' }]}
             onPress={async () => {
+              if (!formService) {
+                Alert.alert('Error', 'FormService is not initialized');
+                return;
+              }
               try {
                 await formService.debugDatabase();
                 Alert.alert('Debug', 'Check console logs for debug information');
@@ -282,9 +316,9 @@ const FormManagementScreen = ({ navigation }: any) => {
       <FormplayerModal
         visible={formModalVisible}
         onClose={handleFormModalClose}
-        formType={selectedFormType?.id} // Pass the selected form type ID for new forms
+        formType={selectedFormSpec?.id} // Pass the selected form type ID for new forms
         editObservation={editingObservation ? {
-          formType: selectedFormType?.id || '',
+          formType: selectedFormSpec?.id || '',
           observation: editingObservation
         } : undefined}
       />

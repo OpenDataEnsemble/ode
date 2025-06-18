@@ -1,16 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-/**
- * Interface for the observation data structure
- */
-export interface Observation {
-  id: string;
-  formId: string;
-  data: any;
-  createdAt: Date;
-  updatedAt: Date;
-  synced: boolean;
-}
+import { Observation } from './models/Observation';
 
 /**
  * Repository interface for form observations
@@ -34,11 +23,11 @@ export class FormObservationRepository implements LocalRepoInterface {
 
   /**
    * Save a completed form observation
-   * @param formId The unique identifier for the form
+   * @param formType The unique identifier for the form
    * @param data The form data to be saved
    * @returns Promise resolving to the ID of the saved observation
    */
-  async saveObservation(formId: string, data: any): Promise<string> {
+  async saveObservation(formType: string, data: any): Promise<string> {
     try {
       // Generate a unique ID for the observation
       const id = `obs_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -46,11 +35,13 @@ export class FormObservationRepository implements LocalRepoInterface {
       // Create the observation object
       const observation: Observation = {
         id,
-        formId,
-        data,
+        formType,
+        formVersion: '',
         createdAt: new Date(),
         updatedAt: new Date(),
-        synced: false
+        syncedAt: null,
+        deleted: false,
+        data,
       };
       
       // Save the observation to AsyncStorage
@@ -60,7 +51,7 @@ export class FormObservationRepository implements LocalRepoInterface {
       );
       
       // Update the index
-      await this.addToIndex(id, formId);
+      await this.addToIndex(id, formType);
       
       return id;
     } catch (error) {
@@ -97,17 +88,17 @@ export class FormObservationRepository implements LocalRepoInterface {
 
   /**
    * Get all observations for a specific form
-   * @param formId The unique identifier for the form
+   * @param formType The unique identifier for the form
    * @returns Promise resolving to an array of observations
    */
-  async getObservationsByFormId(formId: string): Promise<Observation[]> {
+  async getObservationsByFormId(formType: string): Promise<Observation[]> {
     try {
       // Get the index
       const index = await this.getIndex();
       
-      // Filter observations by formId
+      // Filter observations by formType
       const observationIds = Object.entries(index)
-        .filter(([_, indexFormId]) => indexFormId === formId)
+        .filter(([_, indexFormType]) => indexFormType === formType)
         .map(([id]) => id);
       
       // Get all observations
@@ -145,7 +136,7 @@ export class FormObservationRepository implements LocalRepoInterface {
       // Update the observation
       observation.data = data;
       observation.updatedAt = new Date();
-      observation.synced = false;
+      observation.syncedAt = null;
       
       // Save the updated observation
       await AsyncStorage.setItem(
@@ -202,7 +193,7 @@ export class FormObservationRepository implements LocalRepoInterface {
       }
       
       // Update the sync status
-      observation.synced = true;
+      observation.syncedAt = new Date();
       
       // Save the updated observation
       await AsyncStorage.setItem(

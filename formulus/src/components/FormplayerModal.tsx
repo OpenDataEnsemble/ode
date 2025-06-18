@@ -11,7 +11,7 @@ const INJECTION_SCRIPT_PATH = Platform.OS === 'android'
 
 import { databaseService } from '../database';
 import { FormSpec } from '../services'; // FormService will be imported directly
-import { Observation } from '../database/repositories/LocalRepoInterface';
+import { Observation } from '../database/models/Observation';
 
 interface FormplayerModalProps {
   visible: boolean;
