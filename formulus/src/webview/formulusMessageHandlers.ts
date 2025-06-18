@@ -195,6 +195,10 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       console.log('FormulusMessageHandlers: onFormulusReady handler invoked. WebView is ready.');
       // TODO: Perform any actions needed when the WebView content signals it's ready
     },
+    onReceiveFocus: () => {
+      console.log('FormulusMessageHandlers: onReceiveFocus handler invoked. WebView is ready.');
+      // TODO: Perform any actions needed when the WebView content signals it's ready
+    },
     onUnknownMessage: (message: any) => {
       console.warn('Unknown message received:', message);
     },

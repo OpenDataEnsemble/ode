@@ -231,6 +231,18 @@ export class FormulusWebViewMessageManager {
     }
   }
 
+  public handleReceiveFocus(): void {
+    console.log(`${this.logPrefix} WebView is receiving focus.`);
+    // Optionally call native-side handler if it exists for onReceiveFocus
+    if (this.nativeSideHandlers.onReceiveFocus) {
+        try {
+            this.nativeSideHandlers.onReceiveFocus();
+        } catch (error) {
+            console.error(`${this.logPrefix} Error in native onReceiveFocus handler:`, error);
+        }
+    }
+  }
+
   private handleResponse(messageId: string, result: any, error?: any): void {
     const pendingRequest = this.pendingRequests.get(messageId);
     if (!pendingRequest) {
@@ -317,4 +329,3 @@ export class FormulusWebViewMessageManager {
     return this.send<void>('onSavePartialComplete', { formId, success });
   }
 }
-

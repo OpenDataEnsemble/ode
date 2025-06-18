@@ -190,6 +190,7 @@ export interface FormulusCallbacks {
   onAttachmentReady?: (data: AttachmentData) => void;
   onSavePartialComplete?: (formId: string, success: boolean) => void;
   onFormulusReady?: () => void;
+  onReceiveFocus?: () => void;
 }
 
 /**
@@ -212,4 +213,5 @@ declare global {
   var onAttachmentReady: FormulusCallbacks['onAttachmentReady'];
   var onSavePartialComplete: FormulusCallbacks['onSavePartialComplete'];
   var onFormulusReady: FormulusCallbacks['onFormulusReady'];
+  var onReceiveFocus: FormulusCallbacks['onReceiveFocus'];
 }

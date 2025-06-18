@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle, useMemo } from 'react';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, AppState } from 'react-native';
 import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
 import { useIsFocused } from '@react-navigation/native';
 import { Platform } from 'react-native';
@@ -128,6 +128,25 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
       webViewRef.current.injectJavaScript(reInjectionWrapper);
     }
   }, [isFocused, injectionScript]); // Depend on injectionScript to use the latest version
+
+  // AppState listener to detect when app regains focus and trigger handleReceiveFocus
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        console.log('[CustomAppWebView] App became active, triggering handleReceiveFocus');
+        // Call handleReceiveFocus on the messageManager when app becomes active
+        if (messageManager && typeof messageManager.handleReceiveFocus === 'function') {
+          messageManager.handleReceiveFocus();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+    };
+  }, [messageManager]);
 
   // const handleWebViewMessage = createFormulusMessageHandler(webViewRef, appName); // Replaced by messageManager
   // If appName is undefined, createFormulusMessageHandler will use its default 'WebView'
