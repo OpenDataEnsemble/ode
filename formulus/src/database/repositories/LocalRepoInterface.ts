@@ -1,5 +1,5 @@
 import { Observation } from '../models/Observation';
-
+//TODO: Clean this mess up. Should formType be part of observation or not.. make up your mind!
 /**
  * Interface for local data repository operations
  * This allows us to abstract the storage implementation for testability

@@ -42,19 +42,29 @@ class SimpleEventEmitter {
 export const appEvents = new SimpleEventEmitter();
 
 // Helper function to save form data to storage
-//TODO: SHOULD USE THE REPOSITORY OBVIOUSLY
-const saveFormData = async (formType: string, data: any, isPartial = true) => {
-  console.log("Message Handler: Saving form data: ", formType, data, isPartial);
+const saveFormData = async (formType: string, data: any, observationId: string | null, isPartial = true) => {
+  const isUpdate = observationId !== null;
+  console.log(`Message Handler: Saving form data: ${isUpdate ? 'Update' : 'New'} observation`, formType, data, observationId, isPartial);
   try {
-    const observation: Partial<Observation> = {
+    let observation: Partial<Observation> = {
       formType,
       data,
-      // id, observationId, createdAt, updatedAt, etc., will be handled by the repository/service
     };
 
+    if (isUpdate) {
+      observation.id = observationId;
+      observation.updatedAt = new Date();
+    } else {
+      observation.createdAt = new Date();
+    }
+    
     const formService =  await FormService.getInstance()
-    const id = await formService.addNewObservation(observation);
-    console.log("Saved observation with id: " + id);
+    
+    const id = isUpdate 
+      ? await formService.updateObservation(observation)
+      : await formService.addNewObservation(observation);
+    
+    console.log(`${isUpdate ? 'Updated' : 'Saved'} observation with id: ${id}`);
     return id;
 
     // TODO: Handle attachments/files
@@ -116,17 +126,19 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onSavePartial: async (formType: string, data: Record<string, any>) => {
       console.log("FormulusMessageHandlers: onSavePartial handler invoked.", { formType, data });
-      //const id = await saveFormData(formType, data, true);
-      //return id;
+      console.warn("TODO: implement onSavePartial logic");
+      return("draft - not implemented");
     },
-    onSubmitObservation: async (formType: string, finalData: Record<string, any>) => {
+    onSubmitObservation: async (data: { formType: string; finalData: Record<string, any> }) => {
+      const { formType, finalData } = data;
       console.log("FormulusMessageHandlers: onSubmitObservation handler invoked.", { formType, finalData });
-      const id = await saveFormData(formType, finalData, false);
+      const id = await saveFormData(formType, finalData, null, false);
       return id;
     },
-    onUpdateObservation: async (observationId: string, formType: string, finalData: Record<string, any>) => {
+    onUpdateObservation: async (data: { observationId: string; formType: string; finalData: Record<string, any> }) => {
+      const { observationId, formType, finalData } = data;
       console.log("FormulusMessageHandlers: onUpdateObservation handler invoked.", { observationId, formType, finalData });
-      const id = await saveFormData(formType, finalData, false);
+      const id = await saveFormData(formType, finalData, observationId, false);
       return id;
     },
     onRequestCamera: (fieldId: string) => {

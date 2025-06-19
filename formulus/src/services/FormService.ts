@@ -172,15 +172,15 @@ export class FormService {
     }
     console.log("Saving observation of type: " + observation.formType);
     const localRepo = databaseService.getLocalRepo();
-    return await localRepo.saveObservation(observation);
+    return await localRepo.saveObservation(observation.formType, observation.data);
   }
 
   /**
    * Update an observation
    * @param observation Observation to update
-   * @returns Promise that resolves when the observation is updated
+   * @returns Promise that resolves when the observation is updated returning the ID of the updated observation
    */
-  public async updateObservation(observation: Observation): Promise<void> {
+  public async updateObservation(observation: Partial<Observation>): Promise<string> {
     console.debug("Observation data: ", observation);
     if (observation.formType === undefined) {
       throw new Error('Form type is required to update observation');
@@ -190,7 +190,8 @@ export class FormService {
     }
     console.log("Updating observation of type: " + observation.formType);
     const localRepo = databaseService.getLocalRepo();
-    await localRepo.updateObservation(observation.id, observation);
+    await localRepo.updateObservation(observation.id, observation.data);
+    return observation.id;
   }
 
   /**

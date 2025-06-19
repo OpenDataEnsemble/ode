@@ -11,8 +11,8 @@ export interface FormulusMessageHandlers {
    */
   onGetVersion?: () => Promise<string>;
   onSavePartial?: (formId: string, data: Record<string, any>) => void;
-  onSubmitObservation?: (formType: string, finalData: Record<string, any>) => void;
-  onUpdateObservation?: (observationId: string, formType: string, finalData: Record<string, any>) => void;
+  onSubmitObservation?: (data: { formType: string; finalData: Record<string, any> }) => void;
+  onUpdateObservation?: (data: { observationId: string; formType: string; finalData: Record<string, any> }) => void;
   onRequestCamera?: (fieldId: string) => void;
   onRequestLocation?: (fieldId: string) => void;
   onRequestFile?: (fieldId: string) => void;
