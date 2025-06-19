@@ -63,11 +63,18 @@ const HomeScreen = ({ navigation }: any) => {
       );
     };
 
+    const handleCloseFormplayer = (data: any) => {
+      console.log('HomeScreen: closeFormplayer event received', data);
+      setFormplayerVisible(false);
+    };
+
     appEvents.addListener('openFormplayerRequested', handleOpenFormplayer);
+    appEvents.addListener('closeFormplayer', handleCloseFormplayer);
 
     return () => {
       console.log('HomeScreen: UNMOUNTING'); // Added for debugging mount/unmount
       appEvents.removeListener('openFormplayerRequested', handleOpenFormplayer);
+      appEvents.removeListener('closeFormplayer', handleCloseFormplayer);
     };
   }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
 

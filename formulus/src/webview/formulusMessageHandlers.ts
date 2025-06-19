@@ -65,6 +65,10 @@ const saveFormData = async (formType: string, data: any, observationId: string |
       : await formService.addNewObservation(formType, data);
     
     console.log(`${isUpdate ? 'Updated' : 'Saved'} observation with id: ${id}`);
+    
+    // Emit event to close the FormplayerModal after successful save
+    appEvents.emit('closeFormplayer', { observationId: id, isUpdate });
+    
     return id;
 
     // TODO: Handle attachments/files

@@ -12,6 +12,7 @@ import {
 import { FormService, FormSpec } from '../services';
 import { Observation } from '../database/models/Observation';
 import FormplayerModal, { FormplayerModalHandle } from '../components/FormplayerModal';
+import { appEvents } from '../webview/FormulusMessageHandlers';
 
 /**
  * Screen for managing forms and observations (admin only)
@@ -48,6 +49,16 @@ const FormManagementScreen = ({ navigation }: any) => {
       loadData();
     }
   }, [formService]);
+
+  useEffect(() => {
+    const closeFormplayerModal = () => {
+      setFormModalVisible(false);
+    };
+    appEvents.addListener('closeFormplayer', closeFormplayerModal);
+    return () => {
+      appEvents.removeListener('closeFormplayer', closeFormplayerModal);
+    };
+  }, []);
 
   // Function to load form types and observations
   const loadData = async () => {
