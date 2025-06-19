@@ -100,6 +100,7 @@ class FormulusClient {
     console.debug('Submitting final form data for form type', formType);
     console.debug('Submitting final form data', finalData);
     
+    //TODO: Update if we are editing an existing form!
     if (this.formulus) {
       this.formulus.submitForm(formType, finalData);
     } else {
@@ -279,10 +280,10 @@ class FormulusClient {
   /**
    * Register a callback for when a save partial operation completes
    */
-  public onSavePartialComplete(callback: (formId: string, success: boolean) => void): void {
+  public onSavePartialComplete(callback: (formId: string, observationId: string | null, success: boolean) => void): void {
     // Set up a global callback that will be called by the Formulus RN app
-    globalThis.onSavePartialComplete = (formId: string, success: boolean) => {
-      callback(formId, success);
+    globalThis.onSavePartialComplete = (formId: string, observationId: string | null, success: boolean) => {
+      callback(formId, observationId, success);
     };
   }
 
@@ -319,8 +320,8 @@ class FormulusClient {
    */
   private setupEventListeners(): void {
     // Set up the global callbacks that will be called by the Formulus RN app
-    globalThis.onFormInit = (formId: string, params: Record<string, any>, savedData: Record<string, any>) => {
-      this.handleFormInit({ formType: formId, params, savedData });
+    globalThis.onFormInit = (formId: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => {
+      this.handleFormInit({ formType: formId, observationId, params, savedData });
     };
     
     globalThis.onAttachmentReady = (data: AttachmentData) => {
