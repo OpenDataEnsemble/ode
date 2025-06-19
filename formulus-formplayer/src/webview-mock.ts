@@ -5,10 +5,23 @@ interface MockWebView {
   postMessage: (message: string) => void;
 }
 
+interface MockFormulus {
+  submitForm: (formId: string, finalData: Record<string, any>) => Promise<void>;
+  savePartial: (formId: string, data: Record<string, any>) => Promise<void>;
+  requestCamera: (fieldId: string) => Promise<void>;
+  requestLocation: (fieldId: string) => Promise<void>;
+  requestFile: (fieldId: string) => Promise<void>;
+  launchIntent: (fieldId: string, intentSpec: Record<string, any>) => Promise<void>;
+}
+
 type MockWindow = Window & {
   ReactNativeWebView?: MockWebView;
   onFormInit?: (data: FormInitData) => void;
 }
+
+type MockGlobalThis = typeof globalThis & {
+  formulus?: MockFormulus;
+};
 
 class WebViewMock {
   private messageListeners: ((message: any) => void)[] = [];
@@ -46,6 +59,7 @@ class WebViewMock {
     }
     
     const mockWindow = window as MockWindow;
+    const mockGlobal = globalThis as MockGlobalThis;
     console.log('[WebView Mock] Checking if ReactNativeWebView exists:', !!mockWindow.ReactNativeWebView);
     
     // Only initialize if ReactNativeWebView doesn't already exist
@@ -53,11 +67,58 @@ class WebViewMock {
       mockWindow.ReactNativeWebView = {
         postMessage: this.postMessage
       };
-      this.isActive = true;
       console.log('[WebView Mock] Initialized mock ReactNativeWebView interface');
     } else {
       console.log('[WebView Mock] ReactNativeWebView already exists, not initializing mock');
     }
+
+    // Also mock the globalThis.formulus interface
+    if (!mockGlobal.formulus) {
+      // Create a partial mock that captures the methods we care about
+      mockGlobal.formulus = {
+        submitForm: (formId: string, data: Record<string, any>): Promise<void> => {
+          const message = { type: 'submitForm', formId, data };
+          console.log('[WebView Mock] Received submitForm call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          return Promise.resolve();
+        },
+        savePartial: (formId: string, data: Record<string, any>): Promise<void> => {
+          const message = { type: 'savePartial', formId, data };
+          console.log('[WebView Mock] Received savePartial call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          return Promise.resolve();
+        },
+        requestCamera: (fieldId: string): Promise<void> => {
+          const message = { type: 'requestCamera', fieldId };
+          console.log('[WebView Mock] Received requestCamera call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          return Promise.resolve();
+        },
+        requestLocation: (fieldId: string): Promise<void> => {
+          const message = { type: 'requestLocation', fieldId };
+          console.log('[WebView Mock] Received requestLocation call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          return Promise.resolve();
+        },
+        requestFile: (fieldId: string): Promise<void> => {
+          const message = { type: 'requestFile', fieldId };
+          console.log('[WebView Mock] Received requestFile call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          return Promise.resolve();
+        },
+        launchIntent: (fieldId: string, intentData: Record<string, any>): Promise<void> => {
+          const message = { type: 'launchIntent', fieldId, intentData };
+          console.log('[WebView Mock] Received launchIntent call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          return Promise.resolve();
+        }
+      } as any; // Use 'as any' to avoid full interface implementation
+      console.log('[WebView Mock] Initialized mock globalThis.formulus interface');
+    } else {
+      console.log('[WebView Mock] globalThis.formulus already exists, not initializing mock');
+    }
+
+    this.isActive = true;
   }
 
   // Add a listener for messages from the app
@@ -159,17 +220,13 @@ export const sampleFormData = {
                 "IT",
                 "JP",
                 "US",
+                "RU",
                 "Other"
             ]
         },
         "personalData": {
             "type": "object",
             "properties": {
-                "name": {
-                    "type": "string",
-                    "minLength": 3,
-                    "description": "Please enter your name"
-                },
                 "age": {
                     "type": "integer",
                     "description": "Please enter your age.",
@@ -194,11 +251,14 @@ export const sampleFormData = {
         "occupation": {
             "type": "string",
             "enum": [
+                "Accountant",
+                "Engineer",
+                "Freelancer",
+                "Journalism",
+                "Physician",
                 "Student",
-                "Employee",
-                "Self-employed",
-                "Retired",
-                "Unemployed"
+                "Teacher",
+                "Other"
             ]
         },
         "postalCode": {
@@ -221,10 +281,11 @@ export const sampleFormData = {
                 "salary": {
                     "type": "number",
                     "minimum": 0,
-                    "maximum": 999999999,
-                    "errorMessage": {
-                        "maximum": "Salary must be less than 100.000 when age is below 40"
-                    }
+                    "maximum": 999999999
+                },
+                "startDate": {
+                    "type": "string",
+                    "format": "date"
                 }
             },
             "required": []
@@ -250,103 +311,6 @@ export const sampleFormData = {
     },
     "required": [
         "name"
-    ],
-    "allOf": [
-        {
-            "if": {
-                "type": "object",
-                "properties": {
-                    "occupation": {
-                        "type": "string",
-                        "enum": ["Student"]
-                    }
-                }
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "personalData": {
-                        "type": "object",
-                        "properties": {
-                            "age": {
-                                "type": "integer",
-                                "maximum": 30
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        {
-            "if": {
-                "type": "object",
-                "properties": {
-                    "nationality": {
-                        "type": "string",
-                        "enum": ["DE"]
-                    }
-                }
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "postalCode": {
-                        "type": "string",
-                        "pattern": "^[0-9]{5}$"
-                    }
-                }
-            }
-        },
-        {
-            "if": {
-                "type": "object",
-                "properties": {
-                    "nationality": {
-                        "type": "string",
-                        "enum": ["US"]
-                    }
-                }
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "postalCode": {
-                        "type": "string",
-                        "pattern": "^[0-9]{5}(-[0-9]{4})?$"
-                    }
-                }
-            }
-        },
-        {
-            "if": {
-                "type": "object",
-                "properties": {
-                    "personalData": {
-                        "type": "object",
-                        "properties": {
-                            "age": {
-                                "type": "integer",
-                                "maximum": 40
-                            }
-                        }
-                    }
-                }
-            },
-            "then": {
-                "type": "object",
-                "properties": {
-                    "employmentDetails": {
-                        "type": "object",
-                        "properties": {
-                            "salary": {
-                                "type": "number",
-                                "maximum": 100000
-                            }
-                        }
-                    }
-                }
-            }
-        }
     ]
   },
   uiSchema: {
@@ -389,21 +353,17 @@ export const sampleFormData = {
                     "elements": [
                         {
                             "type": "Control",
-                            "scope": "#/properties/personalData/properties/name"
-                        },
-                        {
-                            "type": "Control",
                             "scope": "#/properties/personalData/properties/age"
                         },
                         {
                             "type": "Control",
                             "scope": "#/properties/personalData/properties/height"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/personalData/properties/drivingSkill"
                         }
                     ]
-                },
-                {
-                    "type": "Control",
-                    "scope": "#/properties/personalData/properties/drivingSkill"
                 },
                 {
                     "type": "Control",
