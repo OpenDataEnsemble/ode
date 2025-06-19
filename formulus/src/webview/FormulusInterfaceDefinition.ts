@@ -101,7 +101,7 @@ export interface FormulusInterface {
 
   /**
    * Open Formplayer with the specified form
-   * @param {string} formType - The ID of the form to open
+   * @param {string} formType - The identifier of the formtype to open
    * @param {Object} params - Additional parameters for form initialization
    * @param {Object} savedData - Previously saved form data (for editing)
    * @returns {Promise<void>}
@@ -110,7 +110,7 @@ export interface FormulusInterface {
 
   /**
    * Get observations for a specific form
-   * @param {string} formType - The ID of the form
+   * @param {string} formType - The identifier of the formtype
    * @param {boolean} [isDraft=false] - Whether to include draft observations
    * @param {boolean} [includeDeleted=false] - Whether to include deleted observations
    * @returns {Promise<FormObservation[]>} Array of form observations
@@ -118,15 +118,8 @@ export interface FormulusInterface {
   getObservations(formType: string, isDraft?: boolean, includeDeleted?: boolean): Promise<FormObservation[]>;
 
   /**
-   * DEPRECATED: TODO: Remove
-   * Initialize a new form
-   * @returns {Promise<void>}
-   */
-  initForm(): Promise<void>;
-
-  /**
    * Save partial form data
-   * @param {string} formType - The ID of the form
+   * @param {string} formType - The identifier of the formtype
    * @param {Object} data - The form data to save
    * @returns {Promise<void>}
    */
@@ -134,11 +127,20 @@ export interface FormulusInterface {
 
   /**
    * Submit a completed form
-   * @param {string} formType - The ID of the form
+   * @param {string} formType - The identifier of the formtype
    * @param {Object} finalData - The final form data to submit
-   * @returns {Promise<void>}
+   * @returns {Promise<string>} The observationId of the submitted form
    */
-  submitForm(formType: string, finalData: Record<string, any>): Promise<void>;
+  submitObservation(formType: string, finalData: Record<string, any>): Promise<string>;
+
+  /**
+   * Update an existing form
+   * @param {string} observationId - The identifier of the observation
+   * @param {string} formType - The identifier of the formtype
+   * @param {Object} finalData - The final form data to update
+   * @returns {Promise<string>} The observationId of the updated form
+   */
+  updateObservation(observationId: string, formType: string, finalData: Record<string, any>): Promise<string>;
 
   /**
    * Request camera access for a field
