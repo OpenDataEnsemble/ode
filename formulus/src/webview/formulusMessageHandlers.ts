@@ -119,9 +119,14 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       //const id = await saveFormData(formType, data, true);
       //return id;
     },
-    onSubmitForm: async (formData: Record<string, any>) => {
-      console.log("FormulusMessageHandlers: onSubmitForm handler invoked.", { formData });
-      const id = await saveFormData(formData.formType, formData.finalData, false);
+    onSubmitObservation: async (formType: string, finalData: Record<string, any>) => {
+      console.log("FormulusMessageHandlers: onSubmitObservation handler invoked.", { formType, finalData });
+      const id = await saveFormData(formType, finalData, false);
+      return id;
+    },
+    onUpdateObservation: async (observationId: string, formType: string, finalData: Record<string, any>) => {
+      console.log("FormulusMessageHandlers: onUpdateObservation handler invoked.", { observationId, formType, finalData });
+      const id = await saveFormData(formType, finalData, false);
       return id;
     },
     onRequestCamera: (fieldId: string) => {

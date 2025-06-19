@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { FormService, FormSpec } from '../services';
 import { Observation } from '../database/models/Observation';
-import FormplayerModal from '../components/FormplayerModal';
+import FormplayerModal, { FormplayerModalHandle } from '../components/FormplayerModal';
 
 /**
  * Screen for managing forms and observations (admin only)
@@ -25,6 +25,7 @@ const FormManagementScreen = ({ navigation }: any) => {
   const [editingObservation, setEditingObservation] = useState<Observation | null>(null);
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
   const [formService, setFormService] = useState<FormService | null>(null);
+  const formplayerModalRef = useRef<FormplayerModalHandle>(null);
   
   // Load form types and observations
   useEffect(() => {
@@ -85,6 +86,7 @@ const FormManagementScreen = ({ navigation }: any) => {
     setSelectedFormSpec(formType);
     setEditingObservation(null);
     setFormModalVisible(true);
+    formplayerModalRef.current?.initializeForm(formType, null, null);
   };
   
   // Handle editing an observation
@@ -92,6 +94,7 @@ const FormManagementScreen = ({ navigation }: any) => {
     setSelectedFormSpec(formType);
     setEditingObservation(observation);
     setFormModalVisible(true);
+    formplayerModalRef.current?.initializeForm(formType, observation.id, observation.data);
   };
   
   // Handle deleting an observation
@@ -313,6 +316,7 @@ const FormManagementScreen = ({ navigation }: any) => {
       )}
       
       <FormplayerModal
+        ref={formplayerModalRef}
         visible={formModalVisible}
         onClose={handleFormModalClose}
       />

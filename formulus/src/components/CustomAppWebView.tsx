@@ -4,7 +4,8 @@ import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-we
 import { useIsFocused } from '@react-navigation/native';
 import { Platform } from 'react-native';
 import { readFileAssets } from 'react-native-fs';
-import { FormulusWebViewMessageManager, FormInitData } from '../webview/FormulusWebViewHandler';
+import { FormulusWebViewMessageManager } from '../webview/FormulusWebViewHandler';
+import { FormInitData } from '../webview/FormulusInterfaceDefinition';
 
 export interface CustomAppWebViewHandle {
   reload: () => void;
@@ -13,7 +14,7 @@ export interface CustomAppWebViewHandle {
   injectJavaScript: (script: string) => void;
   sendFormInit: (formData: FormInitData) => Promise<void>;
   sendAttachmentData: (attachmentData: any) => Promise<void>;
-  sendSavePartialComplete: (formId: string, success: boolean) => Promise<void>;
+  sendSavePartialComplete: (formType: string, success: boolean) => Promise<void>;
 }
 
 interface CustomAppWebViewProps {
@@ -79,7 +80,7 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
     sendFormInit: (formData: FormInitData) => messageManager.sendFormInit(formData),
     sendAttachmentData: (attachmentData: any) => messageManager.sendAttachmentData(attachmentData),
-    sendSavePartialComplete: (formId: string, success: boolean) => messageManager.sendSavePartialComplete(formId, success),
+    sendSavePartialComplete: (formType: string, success: boolean) => messageManager.sendSavePartialComplete(formType, success),
   }), [messageManager]);
 
   // JS injection: load script from assets and prepend consoleLogScript

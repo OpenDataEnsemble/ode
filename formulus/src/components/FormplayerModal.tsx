@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, ActivityIndicator } from 'react-native';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -19,15 +19,32 @@ interface FormplayerModalProps {
   onClose: () => void;
 }
 
+export interface FormplayerModalHandle {
+  initializeForm: (formType: FormSpec, observationId: string | null, existingObservationData: Record<string, any> | null) => void;
+}
+
 import { FormService } from '../services/FormService'; // Import FormService
 
-const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
+const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(({ visible, onClose }, ref) => {
   const webViewRef = useRef<CustomAppWebViewHandle>(null);
   const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
   const [selectedFormSpecId, setSelectedFormSpecId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formService, setFormService] = useState<FormService | null>(null);
   const [isFormServiceLoading, setIsFormServiceLoading] = useState(true);
+  
+  // Internal state to track current form and observation data
+  const [currentFormType, setCurrentFormType] = useState<string | null>(null);
+  const [currentObservationId, setCurrentObservationId] = useState<string | null>(null);
+  const [currentObservationData, setCurrentObservationData] = useState<Record<string, any> | null>(null);
+  
+  // State to track pending form initialization
+  const [pendingFormInit, setPendingFormInit] = useState<{
+    formType: FormSpec;
+    observationId: string | null;
+    existingObservationData: Record<string, any> | null;
+  } | null>(null);
+  const [isWebViewReady, setIsWebViewReady] = useState(false);
   
   // Use a ref to track processed submissions with timestamps - this won't trigger re-renders
   const processedSubmissions = useRef<Map<string, number>>(new Map());
@@ -65,15 +82,8 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
 
     const loadedFormSpecs = formService.getFormSpecs();
     setFormSpecs(loadedFormSpecs);
-    if (editObservation && loadedFormSpecs.length > 0) {
-      console.log('FormplayerModal: Editing observation with formType and observationID:', editObservation.formType, editObservation.observation.id);
-      const ft = loadedFormSpecs.find(f => f.id === editObservation.formType);
-      if (ft) {
-        setSelectedFormSpecId(ft.id);
-      }
-    }
     
-  }, [visible, webViewRef, formService, editObservation]);
+  }, [visible, webViewRef, formService]);
 
   // Listen for the closeFormplayer event
   useEffect(() => {
@@ -97,6 +107,11 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
       setTimeout(() => {
         processedSubmissions.current.clear();
         setSelectedFormSpecId(null);
+        setCurrentFormType(null);
+        setCurrentObservationId(null);
+        setCurrentObservationData(null);
+        setPendingFormInit(null);
+        setIsWebViewReady(false);
       }, 300); // Small delay to ensure modal is fully closed
     }
   }, [visible]);
@@ -109,59 +124,64 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
 
   // Handle WebView load complete
   const handleWebViewLoad = () => {
-    console.log('FormplayerModal: WebView loaded successfully (onLoadEnd)');
-    
-    // Original logic for new/edit when initialConfig is NOT present:
-    
-    // If editing an existing observation
-    if (editObservation && formSpecs.length > 0) {
-      const formSpec = formSpecs.find(fs => fs.id === editObservation.formType);
-      if (formSpec) {
-        initializeForm(formSpec, editObservation.observation.data);
-      }
-    }
-    // Otherwise initialize with the first available form type
-    else if (formSpecs.length > 0) {
-      const initialFormSpec = formSpecs[0];
-      setSelectedFormSpecId(initialFormSpec.id);
-      initializeForm(initialFormSpec);
-    }
+    console.log('FormplayerModal: WebView loaded successfully (onLoadEnd) - ready to initialize form');    
+    setIsWebViewReady(true);
   };
 
   // Initialize a form with the given form type and optional existing data
-  const initializeForm = (formType: FormSpec, existingData: any = {}) => {
+  const initializeForm = (formType: FormSpec, observationId: string | null, existingObservationData: Record<string, any> | null) => {
     
-    // Create the parameters for the form
-    const params = {
-      locale: 'en'
-    };
+    // Set internal state for the current form and observation
+    setCurrentFormType(formType.id);
+    setCurrentObservationId(observationId);
+    setCurrentObservationData(existingObservationData);
+    setSelectedFormSpecId(formType.id);
     
-    // Log the form initialization
-    const formInitData = {
-      formType: formType.id,
-      observationId: editObservation?.observation?.id || null,
-      params: params,
-      savedData: existingData,
-      formSchema: formType.schema,
-      uiSchema: formType.uiSchema
-    };
-      
-    console.log('Initializing form with:', formInitData);
-    
-    // Send the initialization data back to the Formplayer
-    if (webViewRef.current) {
-      try {
-        webViewRef.current?.sendFormInit(formInitData);
-        console.log('DEBUG: Form initialization data sent successfully');
-      } catch (error) {
-        console.error('DEBUG: Error sending form initialization data:', error);
-      }
-    } else {
-      console.error('DEBUG: WebView reference is null, cannot send form initialization data');
-    }
-    
-    console.log('Form initialized with formType:', formInitData.formType);
+    // Store the form initialization data
+    setPendingFormInit({
+      formType,
+      observationId,
+      existingObservationData,
+    });
   };
+
+  useEffect(() => {
+    if (isWebViewReady && pendingFormInit) {
+      const { formType, observationId, existingObservationData } = pendingFormInit;
+      
+      // Create the parameters for the form
+      const params = {
+        locale: 'en', 
+        theme: 'default',
+        schema: formType.schema,
+        uischema: formType.uiSchema
+      };
+      
+      // Log the form initialization
+      const formInitData = {
+        formType: formType.id,
+        observationId: observationId,
+        params: params,
+        savedData: existingObservationData || {},
+        formSchema: formType.schema,
+        uiSchema: formType.uiSchema
+      };
+      
+      console.log('Initializing form with:', formInitData);
+      
+      // Send the initialization data back to the Formplayer
+      if (webViewRef.current) {
+        try {
+          webViewRef.current?.sendFormInit(formInitData);
+        } catch (error) {
+          console.error('Error sending form init data:', error);
+        }
+      }
+      
+      // Clear the pending form initialization state
+      setPendingFormInit(null);
+    }
+  }, [isWebViewReady, pendingFormInit]);
 
   // Handle saving partial form data
   const handleSavePartial = (formId: string, data: any) => {
@@ -227,7 +247,13 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
     
     try {
       // Determine the form type from props
-      const activeFormType = editObservation?.formType || formType || 'unknown';
+      const activeFormType = currentFormType;
+      if (!activeFormType) {
+        console.error(`[${submissionId}] Active form type is null`);
+        Alert.alert('Error', 'Invalid form type. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
       console.log(`[${submissionId}] Using form type:`, activeFormType);
       
       // Ensure form data is properly structured before saving
@@ -236,9 +262,9 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
         : finalData;
       
       // Save the observation to the database
-      if (editObservation && editObservation.observation) {
-        console.log(`[${submissionId}] Updating existing observation:`, editObservation.observation.id);
-        const updateSuccess = await localRepo.updateObservation(editObservation.observation.id, {
+      if (currentObservationId) {
+        console.log(`[${submissionId}] Updating existing observation:`, currentObservationId);
+        const updateSuccess = await localRepo.updateObservation(currentObservationId, {
           data: processedData
         });
         
@@ -256,7 +282,7 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
       }
       
       // Show success message
-      const successMessage = editObservation
+      const successMessage = currentObservationId
         ? 'Observation updated successfully!'
         : 'Form submitted successfully!';
       
@@ -271,8 +297,10 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
       Alert.alert('Error', 'Failed to save your form. Please try again.');
       setIsSubmitting(false);
     }
-  }, [selectedFormSpecId, onClose, editObservation, isSubmitting]);
-  
+  }, [selectedFormSpecId, onClose, currentFormType, currentObservationId, isSubmitting]);
+
+  useImperativeHandle(ref, () => ({ initializeForm }));
+
   return (
     <Modal
       animationType="slide"
@@ -289,7 +317,7 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
             <Icon name="close" size={24} color={isSubmitting ? '#ccc' : '#000'} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
-            {editObservation ? 'Edit Observation' : 'New Observation'}
+            {currentObservationId ? 'Edit Observation' : 'New Observation'}
           </Text>
           <View style={{ width: 40 }} />
         </View>
@@ -313,7 +341,7 @@ const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
       </View>
     </Modal>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {
