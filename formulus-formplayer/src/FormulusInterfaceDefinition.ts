@@ -5,14 +5,15 @@
  * It serves as the single source of truth for the interface definition.
  * 
  * NOTE: This file should be manually copied to client projects that need to interact with the Formulus app.
- * TODO: Package this interface into a shared npm package for better maintainability and versioning.
+ * If you've checked out the monorepo use: 
+ * cp ..\formulus\src\webview\FormulusInterfaceDefinition.ts .\src\FormulusInterfaceDefinition.ts
  * 
  * Current Version: 1.0.16
  */
 
 // Type definitions for the interface
 export interface FormInitData {
-  formType: string;
+  formId: string;
   params: Record<string, any>;
   savedData: Record<string, any>;
 }
@@ -40,7 +41,7 @@ export interface FormObservation {
   deleted: boolean;
   formId: string;
   formVersion: string;
-  dataPoints: Record<string, any>;
+  data: Record<string, any>;
 }
 
 /**
@@ -79,6 +80,7 @@ export interface FormulusInterface {
   getObservations(formId: string, isDraft?: boolean, includeDeleted?: boolean): Promise<FormObservation[]>;
 
   /**
+   * DEPRECATED: TODO: Remove
    * Initialize a new form
    * @returns {Promise<void>}
    */
@@ -189,6 +191,7 @@ export interface FormulusCallbacks {
   onAttachmentReady?: (data: AttachmentData) => void;
   onSavePartialComplete?: (formId: string, success: boolean) => void;
   onFormulusReady?: () => void;
+  onReceiveFocus?: () => void;
 }
 
 /**
@@ -211,4 +214,5 @@ declare global {
   var onAttachmentReady: FormulusCallbacks['onAttachmentReady'];
   var onSavePartialComplete: FormulusCallbacks['onSavePartialComplete'];
   var onFormulusReady: FormulusCallbacks['onFormulusReady'];
+  var onReceiveFocus: FormulusCallbacks['onReceiveFocus'];
 }
