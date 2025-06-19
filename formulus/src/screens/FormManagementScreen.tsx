@@ -21,8 +21,6 @@ const FormManagementScreen = ({ navigation }: any) => {
   const [observations, setObservations] = useState<Record<string, Observation[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [formModalVisible, setFormModalVisible] = useState<boolean>(false);
-  const [selectedFormSpec, setSelectedFormSpec] = useState<FormSpec | null>(null);
-  const [editingObservation, setEditingObservation] = useState<Observation | null>(null);
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
   const [formService, setFormService] = useState<FormService | null>(null);
   const formplayerModalRef = useRef<FormplayerModalHandle>(null);
@@ -83,16 +81,12 @@ const FormManagementScreen = ({ navigation }: any) => {
   
   // Handle adding a new observation
   const handleAddObservation = (formType: FormSpec) => {
-    setSelectedFormSpec(formType);
-    setEditingObservation(null);
     setFormModalVisible(true);
     formplayerModalRef.current?.initializeForm(formType, null, null);
   };
   
   // Handle editing an observation
   const handleEditObservation = (formType: FormSpec, observation: Observation) => {
-    setSelectedFormSpec(formType);
-    setEditingObservation(observation);
     setFormModalVisible(true);
     formplayerModalRef.current?.initializeForm(formType, observation.id, observation.data);
   };
