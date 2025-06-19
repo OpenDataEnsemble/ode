@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-06-10T07:45:37.977Z
+ * Last generated: 2025-06-19T11:45:53.737Z
  * 
  * @example
  * // In your JavaScript file:
@@ -45,46 +45,48 @@ const FormulusAPI = {
   /**
  * Open Formplayer with the specified form
  * /
- * @param {string} formId - The ID of the form to open
+ * @param {string} formType - The identifier of the formtype to open
  * @param {Object} params - Additional parameters for form initialization
  * @param {Object} savedData - Previously saved form data (for editing)
  * @returns {Promise<void>} 
  */
-  openFormplayer: function(formId, params, savedData) {},
+  openFormplayer: function(formType, params, savedData) {},
 
   /**
  * Get observations for a specific form
  * /
- * @param {string} formId - The ID of the form
+ * @param {string} formType - The identifier of the formtype
  * @returns {Promise<FormObservation[]>} Array of form observations
  */
-  getObservations: function(formId, isDraft, includeDeleted) {},
-
-  /**
- * DEPRECATED: TODO: Remove
- * Initialize a new form
- * /
- * @returns {Promise<void>} 
- */
-  initForm: function() {},
+  getObservations: function(formType, isDraft, includeDeleted) {},
 
   /**
  * Save partial form data
  * /
- * @param {string} formId - The ID of the form
+ * @param {string} formType - The identifier of the formtype
  * @param {Object} data - The form data to save
  * @returns {Promise<void>} 
  */
-  savePartial: function(formId, data) {},
+  savePartial: function(formType, data) {},
 
   /**
  * Submit a completed form
  * /
- * @param {string} formId - The ID of the form
+ * @param {string} formType - The identifier of the formtype
  * @param {Object} finalData - The final form data to submit
- * @returns {Promise<void>} 
+ * @returns {Promise<string>} The observationId of the submitted form
  */
-  submitForm: function(formId, finalData) {},
+  submitObservation: function(formType, finalData) {},
+
+  /**
+ * Update an existing form
+ * /
+ * @param {string} observationId - The identifier of the observation
+ * @param {string} formType - The identifier of the formtype
+ * @param {Object} finalData - The final form data to update
+ * @returns {Promise<string>} The observationId of the updated form
+ */
+  updateObservation: function(observationId, formType, finalData) {},
 
   /**
  * Request camera access for a field
@@ -123,11 +125,11 @@ const FormulusAPI = {
  * Call a subform
  * /
  * @param {string} fieldId - The ID of the field
- * @param {string} formId - The ID of the subform
+ * @param {string} formType - The ID of the subform
  * @param {Object} options - Additional options for the subform
  * @returns {Promise<void>} 
  */
-  callSubform: function(fieldId, formId, options) {},
+  callSubform: function(fieldId, formType, options) {},
 
   /**
  * Request audio recording for a field
