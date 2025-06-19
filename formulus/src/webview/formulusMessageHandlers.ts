@@ -61,8 +61,8 @@ const saveFormData = async (formType: string, data: any, observationId: string |
     const formService =  await FormService.getInstance()
     
     const id = isUpdate 
-      ? await formService.updateObservation(observation)
-      : await formService.addNewObservation(observation);
+      ? await formService.updateObservation(observationId, data)
+      : await formService.addNewObservation(formType, data);
     
     console.log(`${isUpdate ? 'Updated' : 'Saved'} observation with id: ${id}`);
     return id;

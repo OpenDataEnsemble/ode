@@ -1,6 +1,7 @@
 import { Database, Q, Collection } from '@nozbe/watermelondb';
 import { ObservationModel } from '../models/ObservationModel';
-import { LocalRepoInterface, Observation } from './LocalRepoInterface';
+import { LocalRepoInterface } from './LocalRepoInterface';
+import { Observation, NewObservationInput, UpdateObservationInput } from '../models/Observation';
 import { nullValue } from '@nozbe/watermelondb/RawRecord';
 
 /**
@@ -17,18 +18,18 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   }
 
   /**
-   * Save a completed form observation
-   * @param observation The observation data to be saved
+   * Save a new observation
+   * @param input The observation data to be saved (formType and data)
    * @returns Promise resolving to the ID of the saved observation
    */
-  async saveObservation(observation: Partial<Observation>): Promise<string> {
+  async saveObservation(input: NewObservationInput): Promise<string> {
     try {
-      console.log('Saving observation:', observation);
+      console.log('Saving observation:', input);
       
       // Ensure data is properly stringified
-      const stringifiedData = typeof observation.data === 'string' 
-        ? observation.data 
-        : JSON.stringify(observation.data);
+      const stringifiedData = typeof input.data === 'string' 
+        ? input.data 
+        : JSON.stringify(input.data);
       
       // Generate a unique observation ID
       const observationId = `obs_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
@@ -40,11 +41,11 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         newRecord = await this.observationsCollection.create(record => {
           // Store our custom observationId for reference
           record.observationId = observationId;
-          record.formType = observation.formType || '';
-          record.formVersion = observation.formVersion || '1.0';
+          record.formType = input.formType;
+          record.formVersion = input.formVersion || '1.0';
           record.data = stringifiedData;
-          record.deleted = observation.deleted || false;
-          record.syncedAt = observation.syncedAt || new Date();
+          record.deleted = false; // New observations are never deleted
+          record.syncedAt = new Date(); // Set initial sync time
         });
       });
       
@@ -151,20 +152,19 @@ export class WatermelonDBRepo implements LocalRepoInterface {
 
   /**
    * Update an existing observation
-   * @param id The unique identifier for the observation
-   * @param observation The updated observation data
+   * @param input The observation ID and new data
    * @returns Promise resolving to a boolean indicating success
    */
-  async updateObservation(id: string, observation: Partial<Observation>): Promise<boolean> {
+  async updateObservation(input: UpdateObservationInput): Promise<boolean> {
     try {
-      console.log('Updating observation with ID:', id);
+      console.log('Updating observation with ID:', input.id);
       
       // Find the observation to update
       let record: ObservationModel | null = null;
       
       // Try to find by direct ID first
       try {
-        record = await this.observationsCollection.find(id);
+        record = await this.observationsCollection.find(input.id);
       } catch (error) {
         console.log(`Direct lookup by ID failed, trying by observationId: ${(error as Error).message}`);
       }
@@ -172,7 +172,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       // If not found by ID, try to find by observationId field
       if (!record) {
         const observations = await this.observationsCollection
-          .query(Q.where('observation_id', id))
+          .query(Q.where('observation_id', input.id))
           .fetch();
           
         if (observations.length > 0) {
@@ -182,7 +182,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       }
       
       if (!record) {
-        console.error('Observation not found with ID:', id);
+        console.error('Observation not found with ID:', input.id);
         return false;
       }
       
@@ -190,22 +190,15 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       let success = false;
       await this.database.write(async () => {
         await record!.update(rec => {
-          if (observation.formType !== undefined) rec.formType = observation.formType;
-          if (observation.formVersion !== undefined) rec.formVersion = observation.formVersion;
-          if (observation.deleted !== undefined) rec.deleted = observation.deleted;
+          // Handle data update - this is the main field we update
+          const stringifiedData = typeof input.data === 'string' 
+            ? input.data 
+            : JSON.stringify(input.data);
+          rec.data = stringifiedData;
           
-          // Handle data update
-          if (observation.data !== undefined) {
-            const stringifiedData = typeof observation.data === 'string' 
-              ? observation.data 
-              : JSON.stringify(observation.data);
-            rec.data = stringifiedData;
-          }
-          
-          // Handle syncedAt update
-          if (observation.syncedAt !== undefined) {
-            rec.syncedAt = new Date(observation.syncedAt);
-          }
+          // Update the updatedAt timestamp (handled automatically by WatermelonDB)
+          // Note: We don't update formType, formVersion, deleted, or syncedAt 
+          // as these are metadata fields not included in UpdateObservationInput
         });
         success = true;
       });
@@ -459,8 +452,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     console.log(`Mapping model to interface. ID: ${model.id}, ObservationID: ${model.observationId}`);
     
     return {
-      id: model.id,
-      observationId: model.observationId,
+      id: model.observationId, // Use the custom observationId as the public ID
       formType: model.formType,
       formVersion: model.formVersion,
       data: parsedData,

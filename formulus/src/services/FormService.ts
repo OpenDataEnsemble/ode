@@ -1,5 +1,5 @@
-import { databaseService } from '../database';
-import { Observation } from '../database/models/Observation';
+import { databaseService } from '../database/DatabaseService';
+import { Observation, NewObservationInput, UpdateObservationInput } from '../database/models/Observation';
 import RNFS from 'react-native-fs';
 
 /**
@@ -158,40 +158,53 @@ export class FormService {
   }
   
   /**
-   * Add a new observation
-   * @param observation Observation to save
-   * @returns Promise that resolves when the observation is saved returning the ID of the saved observation
+   * Add a new observation to the database
+   * @param formType The form type identifier
+   * @param data The observation data
+   * @returns Promise that resolves to the ID of the saved observation
    */
-  public async addNewObservation(observation: Partial<Observation>): Promise<string> {
-    console.debug("Observation data: ", observation);
-    if (observation.formType === undefined) {
+  public async addNewObservation(formType: string, data: Record<string, any>): Promise<string> {
+    const input: NewObservationInput = {
+      formType,
+      data,
+      formVersion: "1.0" // Default version
+    };
+    
+    console.debug("Observation input: ", input);
+    if (input.formType === undefined) {
       throw new Error('Form type is required to save observation');
     }
-    if (observation.id) {
-      throw new Error("Observation already has an ID, not saving - did you mean to update?");
+    if (input.data === undefined) {
+      throw new Error('Data is required to save observation');
     }
-    console.log("Saving observation of type: " + observation.formType);
+    console.log("Saving observation of type: " + input.formType);
     const localRepo = databaseService.getLocalRepo();
-    return await localRepo.saveObservation(observation.formType, observation.data);
+    return await localRepo.saveObservation(input);
   }
 
   /**
-   * Update an observation
-   * @param observation Observation to update
-   * @returns Promise that resolves when the observation is updated returning the ID of the updated observation
+   * Update an existing observation
+   * @param observationId The ID of the observation to update
+   * @param data The new observation data
+   * @returns Promise that resolves to the ID of the updated observation
    */
-  public async updateObservation(observation: Partial<Observation>): Promise<string> {
-    console.debug("Observation data: ", observation);
-    if (observation.formType === undefined) {
-      throw new Error('Form type is required to update observation');
+  public async updateObservation(observationId: string, data: Record<string, any>): Promise<string> {
+    const input: UpdateObservationInput = {
+      id: observationId,
+      data
+    };
+    
+    console.debug("Observation update input: ", input);
+    if (input.id === undefined) {
+      throw new Error('Observation ID is required to update observation');
     }
-    if (!observation.id) {
-      throw new Error("Observation does not have an ID, not updating - did you mean to add?");
+    if (input.data === undefined) {
+      throw new Error('Data is required to update observation');
     }
-    console.log("Updating observation of type: " + observation.formType);
+    console.log("Updating observation with ID: " + input.id);
     const localRepo = databaseService.getLocalRepo();
-    await localRepo.updateObservation(observation.id, observation.data);
-    return observation.id;
+    await localRepo.updateObservation(input);
+    return input.id;
   }
 
   /**
