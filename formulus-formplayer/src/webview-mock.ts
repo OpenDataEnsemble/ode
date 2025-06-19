@@ -167,7 +167,7 @@ export const webViewMock = new WebViewMock();
 
 // Sample form data for testing
 export const sampleFormData = {
-  formId: 'TestForm', 
+  formType: 'TestForm', 
   params: {
     defaultData: {
       name: 'John Doe',

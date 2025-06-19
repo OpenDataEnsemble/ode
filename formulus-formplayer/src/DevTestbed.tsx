@@ -40,7 +40,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
   const handleQuickTest = () => {
     // Quick test with minimal data
     const quickData: FormInitData = {
-      formId: 'quick-test',
+      formType: 'quick-test',
       params: {
         defaultData: { message: 'Hello from testbed!' }
       },

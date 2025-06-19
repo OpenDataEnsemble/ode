@@ -37,7 +37,7 @@ interface FormUISchema {
 
 // Interface for the data structure passed to window.onFormInit
 export interface FormInitData {
-  formId: string;
+  formType: string;
   params?: {
     defaultData?: FormData;
     [key: string]: any; // Other params that might be passed
@@ -69,7 +69,7 @@ function App() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showFinalizeMessage, setShowFinalizeMessage] = useState(false);
-  const [formId, setFormId] = useState<string | null>(null);
+  const [formType, setFormType] = useState<string | null>(null);
   
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -80,17 +80,17 @@ function App() {
     console.log('Received onFormInit event with data:', initData);
 
     try {
-      const { formId: receivedFormId, params, savedData, formSchema, uiSchema } = initData;
+      const { formType: receivedFormType, params, savedData, formSchema, uiSchema } = initData;
 
-      if (!receivedFormId) {
-        console.error('formId is crucial and was not provided in onFormInit. Cannot proceed.');
+      if (!receivedFormType) {
+        console.error('formType is crucial and was not provided in onFormInit. Cannot proceed.');
         setLoadError('Form ID is missing. Cannot initialize form.');
         if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formplayerError', formId: receivedFormId, message: 'formId missing in onFormInit' }));
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formplayerError', formType: receivedFormType, message: 'formType missing in onFormInit' }));
         }
         return; // Exit early
       }
-      setFormId(receivedFormId);
+      setFormType(receivedFormType);
 
       if (!formSchema) {
         console.warn('formSchema was not provided. Form rendering might fail or be incomplete.');
@@ -118,7 +118,7 @@ function App() {
       if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'formplayerInitialized',
-          formId: receivedFormId,
+          formType: receivedFormType,
           status: 'success'
         }));
       }
@@ -129,7 +129,7 @@ function App() {
       if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'formplayerError',
-          formId: initData?.formId, // Attempt to include formId if available
+          formType: initData?.formType,
           status: 'error',
           message: errorMessage
         }));
@@ -138,7 +138,7 @@ function App() {
       setIsLoading(false);
       isLoadingRef.current = false;
     }
-  }, [setFormId, setSchema, setUISchema, setData, setLoadError, setIsLoading]); // isLoadingRef is a ref, not needed in deps
+  }, [setFormType, setSchema, setUISchema, setData, setLoadError, setIsLoading]); // isLoadingRef is a ref, not needed in deps
 
   // Effect for initializing form via window.onFormInit
   useEffect(() => {
@@ -312,8 +312,8 @@ function App() {
 
     const handleFinalizeForm = () => {
       // Submit the form data to the Formulus RN app
-      if (formId) {
-        formulusClient.current.submitForm(formId, data);
+      if (formType) {
+        formulusClient.current.submitForm(formType, data);
       }
       setShowFinalizeMessage(true);
     };
@@ -325,16 +325,16 @@ function App() {
       window.removeEventListener('navigateToError', handleNavigateToError as EventListener);
       window.removeEventListener('finalizeForm', handleFinalizeForm as EventListener);
     };
-  }, [data, formId, uischema, schema]);  // Include all dependencies
+  }, [data, formType, uischema, schema]);  // Include all dependencies
 
   const handleDataChange = useCallback(({ data }: { data: FormData }) => {
     setData(data);
     
     // Save partial data to the Formulus RN app whenever data changes
-    if (formId) {
+    if (formType) {
       formulusClient.current.savePartial(data);
     }
-  }, [formId]);
+  }, [formType]);
 
   const ajv = new Ajv({ allErrors: true });
   addErrors(ajv);
@@ -382,7 +382,7 @@ function App() {
     schemaType: schema?.type || "MISSING",
     uiSchemaType: uischema?.type || "MISSING",
     dataKeys: Object.keys(data),
-    formId
+    formId: formType
   });  
 
   return (
