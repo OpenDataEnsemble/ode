@@ -57,12 +57,6 @@ const FinalizeRenderer = ({
       // Submit the form data directly using the FormulusClient
       console.log('Submitting form data:', data);
       formulusClient.current.submitForm("TODO: formId", data);
-      
-      // Still dispatch the event for any other components that might be listening
-      const event = new CustomEvent('finalizeForm', { 
-        detail: { data } 
-      });
-      window.dispatchEvent(event);
     }
   };
 
