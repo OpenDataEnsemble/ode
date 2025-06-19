@@ -5,7 +5,8 @@
  * It serves as the single source of truth for the interface definition.
  * 
  * NOTE: This file should be manually copied to client projects that need to interact with the Formulus app.
- * TODO: Package this interface into a shared npm package for better maintainability and versioning.
+ * If you've checked out the monorepo use: 
+ * cp ..\formulus\src\webview\FormulusInterfaceDefinition.ts .\src\FormulusInterfaceDefinition.ts
  * 
  * Current Version: 1.0.16
  */
