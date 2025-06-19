@@ -60,13 +60,9 @@ const FinalizeRenderer = ({
       return;
     }
     if (!hasErrors) {
-      // Submit the form data directly using the FormulusClient
       console.log('Submitting form data:', data);
       console.log('Using formInitData from context:', formInitData);
-      
-      //TODO: Submit or update?
-      formulusClient.current.submitForm(formInitData.formType, data);
-      
+      formulusClient.current.submitObservationWithContext(formInitData, data);
     }
   };
 

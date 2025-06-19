@@ -34,7 +34,23 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
   };
 
   const handleLoadSampleData = () => {
-    setCustomFormData(JSON.stringify(sampleFormData, null, 2));
+    // Create a deep copy for "create" mode - new form without saved data
+    const modifiedData: FormInitData = {
+      ...sampleFormData,
+      observationId: null, // New form
+      savedData: {}, // Empty saved data for new form
+    };
+    setCustomFormData(JSON.stringify(modifiedData, null, 2));
+  };
+
+  const handleLoadSampleDataEditmode = () => {
+    // Create a deep copy for "edit" mode - existing form with saved data
+    const modifiedData: FormInitData = {
+      ...sampleFormData,
+      observationId: "1234567890", // Existing observation ID
+      // Keep the existing savedData from sampleFormData
+    };
+    setCustomFormData(JSON.stringify(modifiedData, null, 2));
   };
 
   const handleQuickTest = () => {
@@ -143,7 +159,20 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
               fontSize: '12px'
             }}
           >
-            Load Sample
+            Load Sample (new)
+          </button><button
+            onClick={handleLoadSampleDataEditmode}
+            style={{
+              padding: '8px 12px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            Load Sample (edit)
           </button>
           <button
             onClick={handleQuickTest}

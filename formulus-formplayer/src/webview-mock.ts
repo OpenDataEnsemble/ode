@@ -6,7 +6,8 @@ interface MockWebView {
 }
 
 interface MockFormulus {
-  submitForm: (formType: string, finalData: Record<string, any>) => Promise<void>;
+  submitObservation: (formType: string, finalData: Record<string, any>) => Promise<void>;
+  updateObservation: (observationId: string, formType: string, finalData: Record<string, any>) => Promise<void>;
   savePartial: (formType: string, data: Record<string, any>) => Promise<void>;
   requestCamera: (fieldId: string) => Promise<void>;
   requestLocation: (fieldId: string) => Promise<void>;
@@ -76,9 +77,15 @@ class WebViewMock {
     if (!mockGlobal.formulus) {
       // Create a partial mock that captures the methods we care about
       mockGlobal.formulus = {
-        submitForm: (formType: string, data: Record<string, any>): Promise<void> => {
-          const message = { type: 'submitForm', formType, data };
-          console.log('[WebView Mock] Received submitForm call:', message);
+        submitObservation: (formType: string, data: Record<string, any>): Promise<void> => {
+          const message = { type: 'submitObservation', formType, data };
+          console.log('[WebView Mock] Received submitObservation call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          return Promise.resolve();
+        },
+        updateObservation: (observationId: string, formType: string, data: Record<string, any>): Promise<void> => {
+          const message = { type: 'updateObservation', observationId, formType, data };
+          console.log('[WebView Mock] Received updateObservation call:', message);
           this.messageListeners.forEach(listener => listener(message));
           return Promise.resolve();
         },

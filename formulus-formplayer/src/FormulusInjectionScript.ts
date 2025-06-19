@@ -37,9 +37,9 @@ export function generateFormulusInjectionScript(): string {
         },
         
         // Called by Formplayer to submit the completed form
-        submitForm: function(formId, finalData) {
+        submitObservation: function(formId, finalData) {
           globalThis.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'submitForm',
+            type: 'submitObservation',
             formId: formId,
             finalData: finalData
           }));

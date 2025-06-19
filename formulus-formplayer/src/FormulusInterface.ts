@@ -30,7 +30,7 @@ class FormulusClient {
   private formulus: FormulusInterface | null = null;
   private formData: FormInitData | null = null;
   private onFormInitCallbacks: Array<(data: FormInitData) => void> = [];
-  private onAttachmentReadyCallbacks: Array<(data: AttachmentData) => void> = [];
+  private onAttachmentReadyCallbacks: Array<(data: AttachmentData) => void> = [];  
 
   private constructor() {
     // Initialize and set up event listeners
@@ -54,28 +54,6 @@ class FormulusClient {
   }
 
   /**
-   * Initialize the interface with the Formulus RN app
-   */
-  public initForm(): void {
-    console.error('SHOUD NOT BE CALLED: Initializing form and requesting form data from Formulus RN app');
-    
-    // Check if the Formulus interface is available in the global scope
-    if (globalThis.formulus) {
-      this.formulus = globalThis.formulus || null;
-      
-      // Call the native initForm method if it exists
-      if (this.formulus && typeof this.formulus.initForm === 'function') {
-        // The RN app will call back with form data
-        this.formulus.initForm();
-      } else {
-        console.error('formulus.initForm is not a function');
-      }
-    } else {
-      console.error('Formulus interface not found. Running in standalone mode or development environment.');
-    }
-  }
-
-  /**
    * Save partial form data to the Formulus RN app
    */
   public savePartial(data: Record<string, any>): void {
@@ -94,17 +72,25 @@ class FormulusClient {
   }
 
   /**
-   * Submit the final form data to the Formulus RN app
+   * Submit form data with proper create/update logic based on context
+   * @param formInitData - The form initialization data containing observationId and formType
+   * @param finalData - The final form data to submit
    */
-  public submitForm(formType: string, finalData: Record<string, any>): void {
-    console.debug('Submitting final form data for form type', formType);
-    console.debug('Submitting final form data', finalData);
+  public submitObservationWithContext(formInitData: FormInitData, finalData: Record<string, any>): void {
+    console.debug('Submitting form with context:', formInitData);
+    console.debug('Final form data:', finalData);
     
-    //TODO: Update if we are editing an existing form!
-    if (this.formulus) {
-      this.formulus.submitForm(formType, finalData);
+    if (!this.formulus) {
+      console.warn('Formulus interface not available for form submission');
+      return;
+    }
+
+    if (formInitData.observationId) {
+      console.debug('Updating existing form with observationId:', formInitData.observationId);
+      this.formulus.updateObservation(formInitData.observationId, formInitData.formType, finalData);
     } else {
-      console.warn('Formulus interface not available for submitForm');
+      console.debug('Creating new form of type:', formInitData.formType);
+      this.formulus.submitObservation(formInitData.formType, finalData);
     }
   }
 

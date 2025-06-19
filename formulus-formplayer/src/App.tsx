@@ -316,7 +316,8 @@ function App() {
     const handleFinalizeForm = () => {
       // Submit the form data to the Formulus RN app
       if (formInitData) {
-        formulusClient.current.submitForm(formInitData.formType, data);
+        console.log('[App.tsx] Submitting form data:', data);
+        formulusClient.current.submitObservationWithContext(formInitData, data);
       }
       setShowFinalizeMessage(true);
     };
