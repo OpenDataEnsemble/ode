@@ -1,5 +1,5 @@
 // Mock implementation of ReactNativeWebView for development testing
-import { FormInitData } from './App';
+import { FormInitData } from './FormulusInterfaceDefinition';
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -168,6 +168,7 @@ export const webViewMock = new WebViewMock();
 // Sample form data for testing
 export const sampleFormData = {
   formType: 'TestForm', 
+  observationId: null, // New form, no observation ID yet
   params: {
     defaultData: {
       name: 'John Doe',

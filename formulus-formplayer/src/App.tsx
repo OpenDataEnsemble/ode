@@ -10,6 +10,7 @@ import addFormats from 'ajv-formats';
 
 // Import the FormulusInterface client
 import FormulusClient from "./FormulusInterface";
+import { FormInitData } from "./FormulusInterfaceDefinition";
 
 import SwipeLayoutRenderer, { swipeLayoutTester, groupAsSwipeLayoutTester } from "./SwipeLayoutRenderer";
 import { finalizeRenderer } from "./FinalizeRenderer";
@@ -36,24 +37,15 @@ interface FormUISchema {
 }
 
 // Interface for the data structure passed to window.onFormInit
-export interface FormInitData {
-  formType: string;
-  params?: {
-    defaultData?: FormData;
-    [key: string]: any; // Other params that might be passed
-  };
-  savedData?: FormData;
-  formSchema: FormSchema; // Assuming FormSchema is already defined from @jsonforms/core or similar
-  uiSchema?: FormUISchema; // Assuming FormUISchema is already defined
-}
+// Removed local definition, importing from FormulusInterfaceDefinition.ts
 
 // Create context for sharing form metadata with renderers
 interface FormContextType {
-  formType: string | null;
+  formInitData: FormInitData | null;
 }
 
 export const FormContext = createContext<FormContextType>({
-  formType: null
+  formInitData: null
 });
 
 export const useFormContext = () => useContext(FormContext);
@@ -80,7 +72,7 @@ function App() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showFinalizeMessage, setShowFinalizeMessage] = useState(false);
-  const [formType, setFormType] = useState<string | null>(null);
+  const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
   
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -101,7 +93,7 @@ function App() {
         }
         return; // Exit early
       }
-      setFormType(receivedFormType);
+      setFormInitData(initData);
 
       if (!formSchema) {
         console.warn('formSchema was not provided. Form rendering might fail or be incomplete.');
@@ -149,7 +141,7 @@ function App() {
       setIsLoading(false);
       isLoadingRef.current = false;
     }
-  }, [setFormType, setSchema, setUISchema, setData, setLoadError, setIsLoading]); // isLoadingRef is a ref, not needed in deps
+  }, [setFormInitData, setSchema, setUISchema, setData, setLoadError, setIsLoading]); // isLoadingRef is a ref, not needed in deps
 
   // Effect for initializing form via window.onFormInit
   useEffect(() => {
@@ -302,7 +294,7 @@ function App() {
       const field = path.split('/').pop();
       const screens = uischema.elements;
       
-      for (let i = 0; i < screens.length; i++) {
+      for (let i = 0; i <screens.length; i++) {
         const screen = screens[i];
         // Skip the Finalize screen
         if (screen.type === 'Finalize') continue;
@@ -323,8 +315,8 @@ function App() {
 
     const handleFinalizeForm = () => {
       // Submit the form data to the Formulus RN app
-      if (formType) {
-        formulusClient.current.submitForm(formType, data);
+      if (formInitData) {
+        formulusClient.current.submitForm(formInitData.formType, data);
       }
       setShowFinalizeMessage(true);
     };
@@ -336,16 +328,16 @@ function App() {
       window.removeEventListener('navigateToError', handleNavigateToError as EventListener);
       window.removeEventListener('finalizeForm', handleFinalizeForm as EventListener);
     };
-  }, [data, formType, uischema, schema]);  // Include all dependencies
+  }, [data, formInitData, uischema, schema]);  // Include all dependencies
 
   const handleDataChange = useCallback(({ data }: { data: FormData }) => {
     setData(data);
     
     // Save partial data to the Formulus RN app whenever data changes
-    if (formType) {
+    if (formInitData) {
       formulusClient.current.savePartial(data);
     }
-  }, [formType]);
+  }, [formInitData]);
 
   const ajv = new Ajv({ allErrors: true });
   addErrors(ajv);
@@ -393,11 +385,11 @@ function App() {
     schemaType: schema?.type || "MISSING",
     uiSchemaType: uischema?.type || "MISSING",
     dataKeys: Object.keys(data),
-    formType: formType
+    formType: formInitData?.formType
   });  
 
   return (
-    <FormContext.Provider value={{ formType }}>
+    <FormContext.Provider value={{ formInitData }}>
       <div className="App" style={{ 
         display: 'flex', 
         height: '100vh',

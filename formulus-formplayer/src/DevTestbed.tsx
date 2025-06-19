@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { webViewMock, sampleFormData } from './webview-mock';
-import { FormInitData } from './App';
+import { FormInitData } from './FormulusInterfaceDefinition';
 
 interface DevTestbedProps {
   isVisible: boolean;
@@ -40,15 +40,19 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
   const handleQuickTest = () => {
     // Quick test with minimal data
     const quickData: FormInitData = {
-      formType: 'quick-test',
+      formType: "TestForm",
+      observationId: null, // New form, no observation ID yet
       params: {
-        defaultData: { message: 'Hello from testbed!' }
+        defaultData: { message: "Hello from Quick Test!" }
       },
-      savedData: { message: 'Hello from testbed!' },
+      savedData: { message: "Hello from Quick Test!" },
       formSchema: {
-        type: 'object',
+        type: "object",
         properties: {
-          message: { type: 'string', title: 'Test Message' }
+          message: {
+            type: "string",
+            title: "Message"
+          }
         }
       }
     };

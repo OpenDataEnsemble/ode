@@ -20,7 +20,7 @@ const FinalizeRenderer = ({
   const { core } = useJsonForms();
   const errors = core?.errors || [];
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
-  const { formType } = useFormContext();
+  const { formInitData } = useFormContext();
   
   // Log the props to inspect their structure
   console.log('JsonForms props:', { errors, data, path, cells, schema });
@@ -55,16 +55,18 @@ const FinalizeRenderer = ({
   };
 
   const handleFinalize = () => {
+    if (!formInitData) {
+      console.error('formInitData is not available from context, cannot submit form');
+      return;
+    }
     if (!hasErrors) {
       // Submit the form data directly using the FormulusClient
       console.log('Submitting form data:', data);
-      console.log('Using formType from context:', formType);
+      console.log('Using formInitData from context:', formInitData);
       
-      if (formType) {
-        formulusClient.current.submitForm(formType, data);
-      } else {
-        console.warn('formType is not available from context, cannot submit form');
-      }
+      //TODO: Submit or update?
+      formulusClient.current.submitForm(formInitData.formType, data);
+      
     }
   };
 
