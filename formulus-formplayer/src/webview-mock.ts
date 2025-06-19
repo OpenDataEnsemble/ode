@@ -115,57 +115,356 @@ export const sampleFormData = {
     }
   },
   savedData: {
-    name: 'John Doe',
-    email: 'john@example.com',
-    age: 30
+      "name": "John Doe",
+      "vegetarian": false,
+      "birthDate": "1985-06-02",
+      "nationality": "US",
+      "personalData": {
+          "age": 34,
+          "height": 180,
+          "drivingSkill": 8
+      },
+      "occupation": "Employee",
+      "postalCode": "12345",
+      "employmentDetails": {
+          "companyName": "Tech Corp",
+          "yearsOfExperience": 10,
+          "salary": 75000
+      },
+      "contactInfo": {
+          "email": "john.doe@example.com",
+          "phone": "1234567890",
+          "address": "123 Main Street, City, State"
+      }
   },
   formSchema: {
-    type: 'object',
-    properties: {
-      name: {
-        type: 'string',
-        title: 'Full Name'
-      },
-      email: {
-        type: 'string',
-        title: 'Email Address',
-        format: 'email'
-      },
-      age: {
-        type: 'integer',
-        title: 'Age',
-        minimum: 0,
-        maximum: 120
-      },
-      bio: {
-        type: 'string',
-        title: 'Biography'
-      }
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+            "minLength": 3,
+            "description": "Please enter your name"
+        },
+        "vegetarian": {
+            "type": "boolean"
+        },
+        "birthDate": {
+            "type": "string",
+            "format": "date"
+        },
+        "nationality": {
+            "type": "string",
+            "enum": [
+                "DE",
+                "IT",
+                "JP",
+                "US",
+                "Other"
+            ]
+        },
+        "personalData": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "minLength": 3,
+                    "description": "Please enter your name"
+                },
+                "age": {
+                    "type": "integer",
+                    "description": "Please enter your age.",
+                    "minimum": 18,
+                    "maximum": 120
+                },
+                "height": {
+                    "type": "number",
+                    "minimum": 50,
+                    "maximum": 250,
+                    "description": "Height in centimeters"
+                },
+                "drivingSkill": {
+                    "type": "number",
+                    "maximum": 10,
+                    "minimum": 1,
+                    "default": 7
+                }
+            },
+            "required": []
+        },
+        "occupation": {
+            "type": "string",
+            "enum": [
+                "Student",
+                "Employee",
+                "Self-employed",
+                "Retired",
+                "Unemployed"
+            ]
+        },
+        "postalCode": {
+            "type": "string",
+            "maxLength": 5,
+            "pattern": "^[0-9]{5}$"
+        },
+        "employmentDetails": {
+            "type": "object",
+            "properties": {
+                "companyName": {
+                    "type": "string",
+                    "minLength": 2
+                },
+                "yearsOfExperience": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 50
+                },
+                "salary": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 999999999,
+                    "errorMessage": {
+                        "maximum": "Salary must be less than 100.000 when age is below 40"
+                    }
+                }
+            },
+            "required": []
+        },
+        "contactInfo": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "format": "email"
+                },
+                "phone": {
+                    "type": "string",
+                    "pattern": "^[0-9]{10}$"
+                },
+                "address": {
+                    "type": "string",
+                    "minLength": 5
+                }
+            },
+            "required": []
+        }
     },
-    required: ['name', 'email']
+    "required": [
+        "name"
+    ],
+    "allOf": [
+        {
+            "if": {
+                "type": "object",
+                "properties": {
+                    "occupation": {
+                        "type": "string",
+                        "enum": ["Student"]
+                    }
+                }
+            },
+            "then": {
+                "type": "object",
+                "properties": {
+                    "personalData": {
+                        "type": "object",
+                        "properties": {
+                            "age": {
+                                "type": "integer",
+                                "maximum": 30
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "if": {
+                "type": "object",
+                "properties": {
+                    "nationality": {
+                        "type": "string",
+                        "enum": ["DE"]
+                    }
+                }
+            },
+            "then": {
+                "type": "object",
+                "properties": {
+                    "postalCode": {
+                        "type": "string",
+                        "pattern": "^[0-9]{5}$"
+                    }
+                }
+            }
+        },
+        {
+            "if": {
+                "type": "object",
+                "properties": {
+                    "nationality": {
+                        "type": "string",
+                        "enum": ["US"]
+                    }
+                }
+            },
+            "then": {
+                "type": "object",
+                "properties": {
+                    "postalCode": {
+                        "type": "string",
+                        "pattern": "^[0-9]{5}(-[0-9]{4})?$"
+                    }
+                }
+            }
+        },
+        {
+            "if": {
+                "type": "object",
+                "properties": {
+                    "personalData": {
+                        "type": "object",
+                        "properties": {
+                            "age": {
+                                "type": "integer",
+                                "maximum": 40
+                            }
+                        }
+                    }
+                }
+            },
+            "then": {
+                "type": "object",
+                "properties": {
+                    "employmentDetails": {
+                        "type": "object",
+                        "properties": {
+                            "salary": {
+                                "type": "number",
+                                "maximum": 100000
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
   },
   uiSchema: {
-    type: 'VerticalLayout',
-    elements: [
-      {
-        type: 'Control',
-        scope: '#/properties/name'
-      },
-      {
-        type: 'Control',
-        scope: '#/properties/email'
-      },
-      {
-        type: 'Control',
-        scope: '#/properties/age'
-      },
-      {
-        type: 'Control',
-        scope: '#/properties/bio',
-        options: {
-          multi: true
+    "type": "SwipeLayout",
+    "elements": [
+        {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Basic Information"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/name"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/birthDate"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/nationality"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/vegetarian"
+                }
+            ]
+        },
+        {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Personal Details"
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/personalData/properties/name"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/personalData/properties/age"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/personalData/properties/height"
+                        }
+                    ]
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/personalData/properties/drivingSkill"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/occupation"
+                }
+            ]
+        },
+        {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Employment Information"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/employmentDetails/properties/companyName"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/employmentDetails/properties/yearsOfExperience"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/employmentDetails/properties/salary"
+                }
+            ]
+        },
+        {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Contact Information"
+                },
+                {
+                    "type": "HorizontalLayout",
+                    "elements": [
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/contactInfo/properties/email"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/contactInfo/properties/phone"
+                        },
+                        {
+                            "type": "Control",
+                            "scope": "#/properties/contactInfo/properties/address"
+                        }
+                    ]
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/postalCode"
+                }
+            ]
+        },
+        {
+            "type": "Finalize"
         }
-      }
     ]
   }
 };
