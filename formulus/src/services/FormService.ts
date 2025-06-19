@@ -144,7 +144,7 @@ export class FormService {
    */
   public async getObservationsByFormType(formTypeId: string): Promise<Observation[]> {
     const localRepo = databaseService.getLocalRepo();
-    return await localRepo.getObservationsByFormId(formTypeId);
+    return await localRepo.getObservationsByFormType(formTypeId);
   }
   
   /**
@@ -209,7 +209,7 @@ export class FormService {
       let allObservations: any[] = [];
       
       for (const formSpec of allFormSpecs) {
-        const observations = await localRepo.getObservationsByFormId(formSpec.id);
+        const observations = await localRepo.getObservationsByFormType(formSpec.id);
         allObservations = [...allObservations, ...observations];
       }
       

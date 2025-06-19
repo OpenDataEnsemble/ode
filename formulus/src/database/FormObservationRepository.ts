@@ -5,12 +5,12 @@ import { Observation } from './models/Observation';
  * Repository interface for form observations
  */
 export interface LocalRepoInterface {
-  saveObservation(formId: string, data: any): Promise<string>;
-  getObservation(id: string): Promise<Observation | null>;
-  getObservationsByFormId(formId: string): Promise<Observation[]>;
-  updateObservation(id: string, data: any): Promise<boolean>;
-  deleteObservation(id: string): Promise<boolean>;
-  markObservationAsSynced(id: string): Promise<boolean>;
+  saveObservation(formType: string, data: any): Promise<string>;
+  getObservation(observationId: string): Promise<Observation | null>;
+  getObservationsByFormType(formType: string): Promise<Observation[]>;
+  updateObservation(observationId: string, data: any): Promise<boolean>;
+  deleteObservation(observationId: string): Promise<boolean>;
+  markObservationAsSynced(observationId: string): Promise<boolean>;
 }
 
 /**
@@ -91,7 +91,7 @@ export class FormObservationRepository implements LocalRepoInterface {
    * @param formType The unique identifier for the form
    * @returns Promise resolving to an array of observations
    */
-  async getObservationsByFormId(formType: string): Promise<Observation[]> {
+  async getObservationsByFormType(formType: string): Promise<Observation[]> {
     try {
       // Get the index
       const index = await this.getIndex();

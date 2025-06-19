@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-06-10T07:45:36.667Z
+// Last generated: 2025-06-19T11:45:52.372Z
 
 (function() {
   if (typeof globalThis.formulus !== 'undefined') {
@@ -34,10 +34,6 @@
         // console.warn('Global handleMessage: Received message with unexpected data type:', typeof event.data, event.data);
         return; // Or handle error, but for now, just return to avoid breaking others.
       }
-
-      // [DEBUG LOGGING] Log every message received from the host
-      console.log('[FormulusInjectionScript] Global handler received message:', JSON.parse(JSON.stringify(data)));
-
       
       // Handle callbacks
       if (data.type === 'callback' && data.callbackId && callbacks[data.callbackId]) {
@@ -162,8 +158,8 @@
           });
         },
 
-        // openFormplayer: formId: string, params: Record<string, any>, savedData: Record<string, any> => Promise<void>
-        openFormplayer: function(formId, params, savedData) {
+        // openFormplayer: formType: string, params: Record<string, any>, savedData: Record<string, any> => Promise<void>
+        openFormplayer: function(formType, params, savedData) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
           
@@ -203,7 +199,7 @@
           globalThis.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'openFormplayer',
             messageId,
-                        formId: formId,
+                        formType: formType,
             params: params,
             savedData: savedData
           }));
@@ -211,8 +207,8 @@
           });
         },
 
-        // getObservations: formId: string, isDraft: boolean, includeDeleted: boolean => Promise<FormObservation[]>
-        getObservations: function(formId, isDraft, includeDeleted) {
+        // getObservations: formType: string, isDraft: boolean, includeDeleted: boolean => Promise<FormObservation[]>
+        getObservations: function(formType, isDraft, includeDeleted) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
           
@@ -252,7 +248,7 @@
           globalThis.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'getObservations',
             messageId,
-                        formId: formId,
+                        formType: formType,
             isDraft: isDraft,
             includeDeleted: includeDeleted
           }));
@@ -260,55 +256,8 @@
           });
         },
 
-        // initForm:  => Promise<void>
-        initForm: function() {
-          return new Promise((resolve, reject) => {
-          const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-          
-          // Add response handler for methods that return values
-          
-          const callback = (event) => {
-            try {
-              let data;
-              if (typeof event.data === 'string') {
-                data = JSON.parse(event.data);
-              } else if (typeof event.data === 'object' && event.data !== null) {
-                data = event.data; // Already an object
-              } else {
-                // console.warn('initForm callback: Received response with unexpected data type:', typeof event.data, event.data);
-                window.removeEventListener('message', callback); // Clean up listener
-                reject(new Error('initForm callback: Received response with unexpected data type. Raw: ' + String(event.data)));
-                return;
-              }
-              if (data.type === 'initForm_response' && data.messageId === messageId) {
-                window.removeEventListener('message', callback);
-                if (data.error) {
-                  reject(new Error(data.error));
-                } else {
-                  resolve(data.result);
-                }
-              }
-            } catch (e) {
-              console.error("'initForm' callback: Error processing response:" , e, "Raw event.data:", event.data);
-              window.removeEventListener('message', callback); // Ensure listener is removed on error too
-              reject(e);
-            }
-          };
-          window.addEventListener('message', callback);
-          
-          
-          // Send the message to React Native
-          globalThis.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'initForm',
-            messageId,
-            
-          }));
-          
-          });
-        },
-
-        // savePartial: formId: string, data: Record<string, any> => Promise<void>
-        savePartial: function(formId, data) {
+        // savePartial: formType: string, data: Record<string, any> => Promise<void>
+        savePartial: function(formType, data) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
           
@@ -348,15 +297,15 @@
           globalThis.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'savePartial',
             messageId,
-                        formId: formId,
+                        formType: formType,
             data: data
           }));
           
           });
         },
 
-        // submitForm: formId: string, finalData: Record<string, any> => Promise<void>
-        submitForm: function(formId, finalData) {
+        // submitObservation: formType: string, finalData: Record<string, any> => Promise<string>
+        submitObservation: function(formType, finalData) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
           
@@ -370,12 +319,12 @@
               } else if (typeof event.data === 'object' && event.data !== null) {
                 data = event.data; // Already an object
               } else {
-                // console.warn('submitForm callback: Received response with unexpected data type:', typeof event.data, event.data);
+                // console.warn('submitObservation callback: Received response with unexpected data type:', typeof event.data, event.data);
                 window.removeEventListener('message', callback); // Clean up listener
-                reject(new Error('submitForm callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                reject(new Error('submitObservation callback: Received response with unexpected data type. Raw: ' + String(event.data)));
                 return;
               }
-              if (data.type === 'submitForm_response' && data.messageId === messageId) {
+              if (data.type === 'submitObservation_response' && data.messageId === messageId) {
                 window.removeEventListener('message', callback);
                 if (data.error) {
                   reject(new Error(data.error));
@@ -384,7 +333,7 @@
                 }
               }
             } catch (e) {
-              console.error("'submitForm' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              console.error("'submitObservation' callback: Error processing response:" , e, "Raw event.data:", event.data);
               window.removeEventListener('message', callback); // Ensure listener is removed on error too
               reject(e);
             }
@@ -394,9 +343,58 @@
           
           // Send the message to React Native
           globalThis.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'submitForm',
+            type: 'submitObservation',
             messageId,
-                        formId: formId,
+                        formType: formType,
+            finalData: finalData
+          }));
+          
+          });
+        },
+
+        // updateObservation: observationId: string, formType: string, finalData: Record<string, any> => Promise<string>
+        updateObservation: function(observationId, formType, finalData) {
+          return new Promise((resolve, reject) => {
+          const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+          
+          // Add response handler for methods that return values
+          
+          const callback = (event) => {
+            try {
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('updateObservation callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('updateObservation callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
+              if (data.type === 'updateObservation_response' && data.messageId === messageId) {
+                window.removeEventListener('message', callback);
+                if (data.error) {
+                  reject(new Error(data.error));
+                } else {
+                  resolve(data.result);
+                }
+              }
+            } catch (e) {
+              console.error("'updateObservation' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
+              reject(e);
+            }
+          };
+          window.addEventListener('message', callback);
+          
+          
+          // Send the message to React Native
+          globalThis.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'updateObservation',
+            messageId,
+                        observationId: observationId,
+            formType: formType,
             finalData: finalData
           }));
           
@@ -592,8 +590,8 @@
           });
         },
 
-        // callSubform: fieldId: string, formId: string, options: Record<string, any> => Promise<void>
-        callSubform: function(fieldId, formId, options) {
+        // callSubform: fieldId: string, formType: string, options: Record<string, any> => Promise<void>
+        callSubform: function(fieldId, formType, options) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
           
@@ -634,7 +632,7 @@
             type: 'callSubform',
             messageId,
                         fieldId: fieldId,
-            formId: formId,
+            formType: formType,
             options: options
           }));
           

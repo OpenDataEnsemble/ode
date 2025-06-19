@@ -9,6 +9,7 @@
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import { createFormulusMessageHandlers } from './FormulusMessageHandlers';
+import { FormInitData } from './FormulusInterfaceDefinition';
 
 // Add NodeJS type definitions
 declare global {
@@ -16,15 +17,6 @@ declare global {
   namespace NodeJS {
     interface Timeout {}
   }
-}
-
-// Types for message handling
-export interface FormInitData {
-  formId: string;
-  params?: Record<string, any>;
-  savedData?: Record<string, any>;
-  formSchema?: any; // Optional: The JSON schema for the form
-  uiSchema?: any;   // Optional: The UI schema for the form
 }
 
 interface PendingRequest {
@@ -315,7 +307,10 @@ export class FormulusWebViewMessageManager {
 
   // Convenience methods for common actions (can be added in Phase 2/3)
   public sendFormInit(formData: FormInitData): Promise<void> {
-    console.log(`${this.logPrefix} Sending form init:`, formData.formId);
+    if (!formData.formType) {
+      throw new Error('Form type is required for form init');
+    }
+    console.log(`${this.logPrefix} Sending form init:`, formData.formType);
     return this.send<void>('onFormInit', formData);
   }
 
@@ -324,8 +319,8 @@ export class FormulusWebViewMessageManager {
     return this.send<void>('onAttachmentData', attachmentData);
   }
 
-  public sendSavePartialComplete(formId: string, success: boolean): Promise<void> {
-    console.log(`${this.logPrefix} Sending save partial complete for ${formId}, success: ${success}`);
-    return this.send<void>('onSavePartialComplete', { formId, success });
+  public sendSavePartialComplete(formType: string, success: boolean): Promise<void> {
+    console.log(`${this.logPrefix} Sending save partial complete for ${formType}, success: ${success}`);
+    return this.send<void>('onSavePartialComplete', { formType, success });
   }
 }

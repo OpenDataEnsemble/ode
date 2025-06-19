@@ -4,6 +4,7 @@ import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAp
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { appEvents } from '../webview/FormulusMessageHandlers';
 import { readFileAssets } from 'react-native-fs';
+import { FormInitData } from '../webview/FormulusInterfaceDefinition';
 
 const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
   ? 'webview/FormulusInjectionScript.js'
@@ -16,20 +17,12 @@ import { Observation } from '../database/models/Observation';
 interface FormplayerModalProps {
   visible: boolean;
   onClose: () => void;
-  formType?: string; // Form type for new forms
-  formVersion?: string; // Form version for new forms
-  editObservation?: {
-    formType: string; // Form type of the observation being edited
-    observation: Observation; // Updated to use the Observation interface
-  };
-  initialConfig?: any; // Config passed when opening formplayer via event (formId, params, savedData)
 }
 
 import { FormService } from '../services/FormService'; // Import FormService
 
-const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservation, initialConfig }: FormplayerModalProps) => {
+const FormplayerModal = ({ visible, onClose }: FormplayerModalProps) => {
   const webViewRef = useRef<CustomAppWebViewHandle>(null);
-  const [currentFormId, setCurrentFormId] = useState<string | null>(null);
   const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
   const [selectedFormSpecId, setSelectedFormSpecId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -63,58 +56,24 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
     : 'file:///formplayer_dist/index.html'; // Add iOS path
 
  
-  // Initialize form based on initialConfig (when opened from an event) or for new/edit scenarios
+
   useEffect(() => {
     if (!formService || isFormServiceLoading) {
       // Wait for FormService to initialize
       return;
     }
-    if (visible && initialConfig && webViewRef.current) {
-      console.log('FormplayerModal: Initializing form with initialConfig:', initialConfig);
-      
-      const { formId, params, savedData } = initialConfig;
-      console.log('FormplayerModal: Initializing form with formId:', formId);
-      console.log('FormplayerModal: Initializing form with params:', params);
-      console.log('FormplayerModal: Initializing form with savedData:', savedData);
-      if (formId) {
-        const formDefinition = formService.getFormSpecById(formId);
-        if (formDefinition) {
-          console.log('FormplayerModal: Found form definition for', formId, 'sending schema and uiSchema');
-          webViewRef.current?.sendFormInit({
-            formId,
-            params,
-            savedData,
-            formSchema: formDefinition.schema,
-            uiSchema: formDefinition.uiSchema,
-          });
-        } else {
-          console.warn('FormplayerModal: Form definition not found for formId:', formId);
-          // Optionally, handle the case where form definition is not found (e.g., show an error)
-          webViewRef.current?.sendFormInit({ formId, params, savedData }); // Send without schemas as fallback
-        }
-        setCurrentFormId(formId);
-        // Potentially clear other form selection states if initialConfig takes precedence
-        setSelectedFormSpecId(null); // Example: clear form spec selection if opening a specific instance
-      }
-    } else if (visible && !initialConfig) {
-      // This block handles the existing logic for new forms or editing observations
-      // when initialConfig is NOT present.
-      // The original logic from the useEffect above might need to be moved or adapted here
-      // if it shouldn't run when initialConfig is present.
-      // For now, assuming the existing useEffect for form types and editObservation
-      // should only run if initialConfig is not provided.
-      // This might need further refinement based on desired precedence.
-      console.log('FormplayerModal: Initializing for new/edit (no initialConfig)');
-      const loadedFormSpecs = formService.getFormSpecs();
-      setFormSpecs(loadedFormSpecs);
-      if (editObservation && loadedFormSpecs.length > 0) {
-        const ft = loadedFormSpecs.find(f => f.id === editObservation.formType);
-        if (ft) {
-          setSelectedFormSpecId(ft.id);
-        }
+
+    const loadedFormSpecs = formService.getFormSpecs();
+    setFormSpecs(loadedFormSpecs);
+    if (editObservation && loadedFormSpecs.length > 0) {
+      console.log('FormplayerModal: Editing observation with formType and observationID:', editObservation.formType, editObservation.observation.id);
+      const ft = loadedFormSpecs.find(f => f.id === editObservation.formType);
+      if (ft) {
+        setSelectedFormSpecId(ft.id);
       }
     }
-  }, [visible, initialConfig, webViewRef, formService, editObservation]); // Added initialConfig and webViewRef to dependencies
+    
+  }, [visible, webViewRef, formService, editObservation]);
 
   // Listen for the closeFormplayer event
   useEffect(() => {
@@ -137,7 +96,6 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       // Reset form state when modal is closed
       setTimeout(() => {
         processedSubmissions.current.clear();
-        setCurrentFormId(null);
         setSelectedFormSpecId(null);
       }, 300); // Small delay to ensure modal is fully closed
     }
@@ -151,15 +109,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
 
   // Handle WebView load complete
   const handleWebViewLoad = () => {
-    console.log('FormplayerModal: handleWebViewLoad CALLED. initialConfig is:', initialConfig ? 'PRESENT' : 'ABSENT or FALSY');
-    console.log('FormplayerModal: WebView loaded successfully (onLoadEnd)'); // More specific log
-
-    // If initialConfig was provided and handled by the useEffect,
-    // the form is already being initialized. Don't re-initialize here.
-    if (initialConfig) {
-      console.log('FormplayerModal: initialConfig was present, skipping form init in onLoadEnd.');
-      return; 
-    }
+    console.log('FormplayerModal: WebView loaded successfully (onLoadEnd)');
     
     // Original logic for new/edit when initialConfig is NOT present:
     
@@ -180,44 +130,28 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
 
   // Initialize a form with the given form type and optional existing data
   const initializeForm = (formType: FormSpec, existingData: any = {}) => {
-    // Generate a unique form ID
-    const formId = `form_${Date.now()}`;
-    setCurrentFormId(formId);
-    
-    // Get the form schema and UI schema from the form type
-    const schema = formType.schema;
-    const uiSchema = formType.uiSchema;
     
     // Create the parameters for the form
     const params = {
-      locale: 'en', 
-      theme: 'default',
-      schema: schema,
-      uischema: uiSchema
+      locale: 'en'
     };
     
-    // Use existing data if provided, otherwise empty object
-    const savedData = existingData || {};
-    
     // Log the form initialization
-    console.log('Initializing form with:', {
-      formId: formId,
+    const formInitData = {
       formType: formType.id,
+      observationId: editObservation?.observation?.id || null,
       params: params,
-      schemaType: typeof params.schema,
-      uiSchemaType: typeof params.uischema,
-      savedData: savedData,
-      isEdit: Object.keys(existingData).length > 0
-    });
+      savedData: existingData,
+      formSchema: formType.schema,
+      uiSchema: formType.uiSchema
+    };
+      
+    console.log('Initializing form with:', formInitData);
     
     // Send the initialization data back to the Formplayer
     if (webViewRef.current) {
       try {
-        webViewRef.current?.sendFormInit({
-          formId,
-          params,
-          savedData
-        });
+        webViewRef.current?.sendFormInit(formInitData);
         console.log('DEBUG: Form initialization data sent successfully');
       } catch (error) {
         console.error('DEBUG: Error sending form initialization data:', error);
@@ -226,7 +160,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
       console.error('DEBUG: WebView reference is null, cannot send form initialization data');
     }
     
-    console.log('Form initialized with ID:', formId, 'using schema and data');
+    console.log('Form initialized with formType:', formInitData.formType);
   };
 
   // Handle saving partial form data
@@ -313,12 +247,7 @@ const FormplayerModal = ({ visible, onClose, formType, formVersion, editObservat
         }
       } else {
         console.log(`[${submissionId}] Creating new observation for form type:`, activeFormType);
-        const newId = await localRepo.saveObservation({
-          formType: activeFormType,
-          formVersion: formVersion || '1.0', // Use provided formVersion or default to '1.0'
-          data: processedData,
-          deleted: false
-        });
+        const newId = await localRepo.saveObservation(activeFormType, processedData);
         
         if (!newId) {
           throw new Error('Failed to save new observation');

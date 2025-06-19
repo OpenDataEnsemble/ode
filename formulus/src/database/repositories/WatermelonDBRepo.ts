@@ -124,7 +124,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    * @param formId The unique identifier for the form type
    * @returns Promise resolving to an array of observations
    */
-  async getObservationsByFormId(formId: string): Promise<Observation[]> {
+  async getObservationsByFormType(formId: string): Promise<Observation[]> {
     try {
       console.log('Fetching observations for form type ID:', formId);
       

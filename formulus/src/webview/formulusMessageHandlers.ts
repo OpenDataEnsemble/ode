@@ -71,9 +71,9 @@ const saveFormData = async (formType: string, data: any, isPartial = true) => {
 };
 
 // Helper function to load form data from storage
-const loadFormData = async (formId: string) => {
+const loadFormData = async (formType: string) => {
   try {
-    const filePath = `${RNFS.DocumentDirectoryPath}/form_data/${formId}_partial.json`;
+    const filePath = `${RNFS.DocumentDirectoryPath}/form_data/${formType}_partial.json`;
     const exists = await RNFS.exists(filePath);
     if (!exists) {
       return null;
@@ -114,14 +114,14 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const version = "0.1.0-native"; // Example version
       return version;
     },
-    onSavePartial: async (formId: string, data: Record<string, any>) => {
-      console.log("FormulusMessageHandlers: onSavePartial handler invoked.", { formId, data });
-      //const id = await saveFormData(formId, data, true);
+    onSavePartial: async (formType: string, data: Record<string, any>) => {
+      console.log("FormulusMessageHandlers: onSavePartial handler invoked.", { formType, data });
+      //const id = await saveFormData(formType, data, true);
       //return id;
     },
     onSubmitForm: async (formData: Record<string, any>) => {
       console.log("FormulusMessageHandlers: onSubmitForm handler invoked.", { formData });
-      const id = await saveFormData(formData.formId, formData.finalData, false);
+      const id = await saveFormData(formData.formType, formData.finalData, false);
       return id;
     },
     onRequestCamera: (fieldId: string) => {
@@ -140,9 +140,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // TODO: implement launch intent logic
       console.log('Launch intent handler called', fieldId, intentSpec);
     },
-    onCallSubform: (fieldId: string, formId: string, options: Record<string, any>) => {
+    onCallSubform: (fieldId: string, formType: string, options: Record<string, any>) => {
       // TODO: implement call subform logic
-      console.log('Call subform handler called', fieldId, formId, options);
+      console.log('Call subform handler called', fieldId, formType, options);
     },
     onRequestAudio: (fieldId: string) => {
       // TODO: implement audio request logic
@@ -173,22 +173,22 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // TODO: Implement logic to fetch available forms
       return Promise.resolve([]); // Example: return empty array
     },
-    onGetObservations: async (formId: string, isDraft?: boolean, includeDeleted?: boolean) => {
-      console.log('FormulusMessageHandlers: onGetObservations handler invoked.', { formId, isDraft, includeDeleted });
-      if (formId.hasOwnProperty('formId')) {
-        console.warn('FormulusMessageHandlers: onGetObservations handler invoked with formId object, expected string');
-        formId = (formId as any).formId;
-        isDraft = (formId as any).isDraft;
-        includeDeleted = (formId as any).includeDeleted;
+    onGetObservations: async (formType: string, isDraft?: boolean, includeDeleted?: boolean) => {
+      console.log('FormulusMessageHandlers: onGetObservations handler invoked.', { formType, isDraft, includeDeleted });
+      if (formType.hasOwnProperty('formType')) {
+        console.warn('FormulusMessageHandlers: onGetObservations handler invoked with formType object, expected string');
+        formType = (formType as any).formType;
+        isDraft = (formType as any).isDraft;
+        includeDeleted = (formType as any).includeDeleted;
       }
       const formService = await FormService.getInstance();
-      const observations = await formService.getObservationsByFormType(formId); //TODO: Handle deleted etc.
+      const observations = await formService.getObservationsByFormType(formType); //TODO: Handle deleted etc.
       return observations;
     },
     onOpenFormplayer: async (data: FormInitData) => {
-      const { formId, params, savedData } = data;
+      const { formType, params, savedData } = data;
       console.log('FormulusMessageHandlers: onOpenFormplayer handler invoked with data:', data);
-      appEvents.emit('openFormplayerRequested', { formId, params, savedData });
+      appEvents.emit('openFormplayerRequested', { formType, params, savedData });
       return Promise.resolve();
     },
     onFormulusReady: () => {

@@ -165,11 +165,11 @@ const FormManagementScreen = ({ navigation }: any) => {
   };
   
   // Toggle expanded state for a form
-  const toggleExpanded = (formId: string) => {
-    if (expandedFormId === formId) {
+  const toggleExpanded = (formType: string) => {
+    if (expandedFormId === formType) {
       setExpandedFormId(null);
     } else {
-      setExpandedFormId(formId);
+      setExpandedFormId(formType);
     }
   };
   
@@ -312,17 +312,9 @@ const FormManagementScreen = ({ navigation }: any) => {
         <Text style={styles.noForms}>No form types available</Text>
       )}
       
-      {/* Form Modal */}
       <FormplayerModal
         visible={formModalVisible}
         onClose={handleFormModalClose}
-        initialConfig={
-          selectedFormSpec ? {
-            formId: selectedFormSpec.id,
-            params: {},
-            savedData: editingObservation ? editingObservation.data : undefined
-          } : undefined
-        }
       />
     </View>
   );
