@@ -15,6 +15,10 @@ import SwipeLayoutRenderer, { swipeLayoutTester, groupAsSwipeLayoutTester } from
 import { finalizeRenderer } from "./FinalizeRenderer";
 import { RankedTester } from "@jsonforms/core";
 
+import { webViewMock } from "./webview-mock";
+import DevTestbed from "./DevTestbed";
+import ErrorBoundary from "./ErrorBoundary";
+
 // Define interfaces for our form data structure
 interface FormData {
   [key: string]: any;
@@ -51,6 +55,13 @@ const customRenderers = [
 ];
 
 function App() {
+  // Initialize WebView mock immediately in development mode
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Development mode detected, initializing WebView mock...');
+    webViewMock.init();
+    console.log('WebView mock initialized, isActive:', webViewMock.isActiveMock());
+  }
+
   // State for form data, schema, and UI schema
   const [data, setData] = useState<FormData>({});
   const [schema, setSchema] = useState<FormSchema | null>(null);
@@ -145,12 +156,22 @@ function App() {
       }));
     } else {
       console.warn('ReactNativeWebView.postMessage not available. Cannot signal readiness.');
+      console.log('Debug - NODE_ENV:', process.env.NODE_ENV);
+      console.log('Debug - webViewMock.isActiveMock():', webViewMock.isActiveMock());
+      console.log('Debug - isLoadingRef.current:', isLoadingRef.current);
+      
       // Potentially set an error or handle standalone mode if WebView context isn't available
       // For example, if running in a standard browser for development
       if (isLoadingRef.current) { // Avoid setting error if already handled by timeout or success
+        if (process.env.NODE_ENV === 'development' && webViewMock.isActiveMock()) {
+          console.log('Development mode: WebView mock is active, continuing without error');
+          // Don't set error in development mode when mock is active
+        } else {
+          console.log('Setting error message because mock is not active or not in development');
           setLoadError('Cannot communicate with native host. Formplayer might be running in a standalone browser.');
           setIsLoading(false);
           isLoadingRef.current = false;
+        }
       }
     }
 
@@ -365,26 +386,68 @@ function App() {
   });  
 
   return (
-    <div className="App">
-      <JsonForms
-        schema={schema}
-        uischema={uischema}
-        data={data}
-        renderers={customRenderers}
-        cells={materialCells}
-        onChange={handleDataChange}
-        validationMode="ValidateAndShow"
-        ajv={ajv}
-      />
-      <Snackbar 
-        open={showFinalizeMessage} 
-        autoHideDuration={6000} 
-        onClose={() => setShowFinalizeMessage(false)}
-      >
-        <Alert onClose={() => setShowFinalizeMessage(false)} severity="info">
-          Form submitted successfully!
-        </Alert>
-      </Snackbar>
+    <div className="App" style={{ 
+      display: 'flex', 
+      height: '100vh',
+      width: '100%'
+    }}>
+      {/* Main app content - 60% width in development mode */}
+      <div style={{ 
+        width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
+        overflow: 'auto',
+        padding: '20px',
+        boxSizing: 'border-box'
+      }}>
+        <ErrorBoundary>
+          {loadError ? (
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: '#ffebee', 
+              border: '1px solid #f44336', 
+              borderRadius: '4px',
+              color: '#c62828'
+            }}>
+              <h3>Error Loading Form</h3>
+              <p>{loadError}</p>
+            </div>
+          ) : (
+            <>
+              <JsonForms
+                schema={schema}
+                uischema={uischema}
+                data={data}
+                renderers={customRenderers}
+                cells={materialCells}
+                onChange={handleDataChange}
+                validationMode="ValidateAndShow"
+                ajv={ajv}
+              />
+              <Snackbar 
+                open={showFinalizeMessage} 
+                autoHideDuration={6000} 
+                onClose={() => setShowFinalizeMessage(false)}
+              >
+                <Alert onClose={() => setShowFinalizeMessage(false)} severity="info">
+                  Form submitted successfully!
+                </Alert>
+              </Snackbar>
+            </>
+          )}
+        </ErrorBoundary>
+      </div>
+
+      {/* Development testbed - 40% width in development mode */}
+      {process.env.NODE_ENV === 'development' && (
+        <div style={{ 
+          width: '40%',
+          borderLeft: '2px solid #e0e0e0',
+          backgroundColor: '#fafafa'
+        }}>
+          <ErrorBoundary>
+            <DevTestbed isVisible={true} />
+          </ErrorBoundary>
+        </div>
+      )}
     </div>
   );
 }
