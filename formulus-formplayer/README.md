@@ -21,9 +21,9 @@ The javascript interface made available to the custom app is as follows:
 
 ```javascript
 window.formulus.formplayer = {
-   addObservation(formId, initializationData)
-   editObservation(formId, observationId)
-   ~~~deleteObservation(formId, observationId)~~~ // TODO: Will be implemented in formulus core interface
+   addObservation(formType, initializationData)
+   editObservation(formType, observationId)
+   ~~~deleteObservation(formType, observationId)~~~ // TODO: Will be implemented in formulus core interface
    ...
 }
 ```
@@ -31,27 +31,27 @@ window.formulus.formplayer = {
 ### addObservation
 
 ```javascript
-window.formulus.addObservation(formId, initializationData)
+window.formulus.addObservation(formType, initializationData)
 ```
-formId: The id of the form to be rendered. Notice that formulus will always use the latest version of a form to render the form.
+formType: The type of the form to be rendered. Notice that formulus will always use the latest version of a form to render the form.
 initializationData: An object containing any initialization data that should be passed to the form
 
 
 ### editObservation
 
 ```javascript
-window.formulus.editObservation(formId, observationId)
+window.formulus.editObservation(formType, observationId)
 ```
-formId: The id of the form to be rendered. Editing an existing observation will always use the version of the form that was used to create the observation.
+formType: The type of the form to be rendered. Editing an existing observation will always use the version of the form that was used to create the observation.
 observationId: The id of the observation to be edited
 
 
 ### deleteObservation
 
 ```javascript
-window.formulus.deleteObservation(formId, observationId)
+window.formulus.deleteObservation(formType, observationId)
 ```
-formId: The id of the form to be rendered
+formType: The type of the form to be rendered
 observationId: The id of the observation to be deleted
 
 ## Initialization
@@ -81,7 +81,7 @@ config: An object containing the configuration for the formulus formplayer objec
     - qr code cell
     - location cell
 Any other cells, either custom developed or provided by the community, will be included as well once they are downloaded from synkronus as part of the normal sync process.
-- formSpecs: An array of jsonform formSpecs to be used by the formplayer wrapped in an envelope object: `{formId: string, version: string, spec: any}`
+- formSpecs: An array of jsonform formSpecs to be used by the formplayer wrapped in an envelope object: `{formType: string, version: string, spec: any}`
 
 
 

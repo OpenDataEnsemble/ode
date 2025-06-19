@@ -6,8 +6,8 @@ interface MockWebView {
 }
 
 interface MockFormulus {
-  submitForm: (formId: string, finalData: Record<string, any>) => Promise<void>;
-  savePartial: (formId: string, data: Record<string, any>) => Promise<void>;
+  submitForm: (formType: string, finalData: Record<string, any>) => Promise<void>;
+  savePartial: (formType: string, data: Record<string, any>) => Promise<void>;
   requestCamera: (fieldId: string) => Promise<void>;
   requestLocation: (fieldId: string) => Promise<void>;
   requestFile: (fieldId: string) => Promise<void>;
@@ -76,14 +76,14 @@ class WebViewMock {
     if (!mockGlobal.formulus) {
       // Create a partial mock that captures the methods we care about
       mockGlobal.formulus = {
-        submitForm: (formId: string, data: Record<string, any>): Promise<void> => {
-          const message = { type: 'submitForm', formId, data };
+        submitForm: (formType: string, data: Record<string, any>): Promise<void> => {
+          const message = { type: 'submitForm', formType, data };
           console.log('[WebView Mock] Received submitForm call:', message);
           this.messageListeners.forEach(listener => listener(message));
           return Promise.resolve();
         },
-        savePartial: (formId: string, data: Record<string, any>): Promise<void> => {
-          const message = { type: 'savePartial', formId, data };
+        savePartial: (formType: string, data: Record<string, any>): Promise<void> => {
+          const message = { type: 'savePartial', formType, data };
           console.log('[WebView Mock] Received savePartial call:', message);
           this.messageListeners.forEach(listener => listener(message));
           return Promise.resolve();

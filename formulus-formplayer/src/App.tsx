@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect, useRef, createContext, useContext } from "react";
 import "./App.css";
 import { JsonForms } from "@jsonforms/react";
 import { materialRenderers, materialCells } from "@jsonforms/material-renderers";
@@ -46,6 +46,17 @@ export interface FormInitData {
   formSchema: FormSchema; // Assuming FormSchema is already defined from @jsonforms/core or similar
   uiSchema?: FormUISchema; // Assuming FormUISchema is already defined
 }
+
+// Create context for sharing form metadata with renderers
+interface FormContextType {
+  formType: string | null;
+}
+
+export const FormContext = createContext<FormContextType>({
+  formType: null
+});
+
+export const useFormContext = () => useContext(FormContext);
 
 const customRenderers = [
   ...materialRenderers,
@@ -378,77 +389,79 @@ function App() {
   }
   
   // Log render with current state
-  console.log('%c Rendering form with:', 'background: #9C27B0; color: white; padding: 2px 5px; border-radius: 2px;', {
+  console.log('Rendering form with:', {
     schemaType: schema?.type || "MISSING",
     uiSchemaType: uischema?.type || "MISSING",
     dataKeys: Object.keys(data),
-    formId: formType
+    formType: formType
   });  
 
   return (
-    <div className="App" style={{ 
-      display: 'flex', 
-      height: '100vh',
-      width: '100%'
-    }}>
-      {/* Main app content - 60% width in development mode */}
-      <div style={{ 
-        width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
-        overflow: 'auto',
-        padding: '20px',
-        boxSizing: 'border-box'
+    <FormContext.Provider value={{ formType }}>
+      <div className="App" style={{ 
+        display: 'flex', 
+        height: '100vh',
+        width: '100%'
       }}>
-        <ErrorBoundary>
-          {loadError ? (
-            <div style={{ 
-              padding: '20px', 
-              backgroundColor: '#ffebee', 
-              border: '1px solid #f44336', 
-              borderRadius: '4px',
-              color: '#c62828'
-            }}>
-              <h3>Error Loading Form</h3>
-              <p>{loadError}</p>
-            </div>
-          ) : (
-            <>
-              <JsonForms
-                schema={schema}
-                uischema={uischema}
-                data={data}
-                renderers={customRenderers}
-                cells={materialCells}
-                onChange={handleDataChange}
-                validationMode="ValidateAndShow"
-                ajv={ajv}
-              />
-              <Snackbar 
-                open={showFinalizeMessage} 
-                autoHideDuration={6000} 
-                onClose={() => setShowFinalizeMessage(false)}
-              >
-                <Alert onClose={() => setShowFinalizeMessage(false)} severity="info">
-                  Form submitted successfully!
-                </Alert>
-              </Snackbar>
-            </>
-          )}
-        </ErrorBoundary>
-      </div>
-
-      {/* Development testbed - 40% width in development mode */}
-      {process.env.NODE_ENV === 'development' && (
+        {/* Main app content - 60% width in development mode */}
         <div style={{ 
-          width: '40%',
-          borderLeft: '2px solid #e0e0e0',
-          backgroundColor: '#fafafa'
+          width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
+          overflow: 'auto',
+          padding: '20px',
+          boxSizing: 'border-box'
         }}>
           <ErrorBoundary>
-            <DevTestbed isVisible={true} />
+            {loadError ? (
+              <div style={{ 
+                padding: '20px', 
+                backgroundColor: '#ffebee', 
+                border: '1px solid #f44336', 
+                borderRadius: '4px',
+                color: '#c62828'
+              }}>
+                <h3>Error Loading Form</h3>
+                <p>{loadError}</p>
+              </div>
+            ) : (
+              <>
+                <JsonForms
+                  schema={schema}
+                  uischema={uischema}
+                  data={data}
+                  renderers={customRenderers}
+                  cells={materialCells}
+                  onChange={handleDataChange}
+                  validationMode="ValidateAndShow"
+                  ajv={ajv}
+                />
+                <Snackbar 
+                  open={showFinalizeMessage} 
+                  autoHideDuration={6000} 
+                  onClose={() => setShowFinalizeMessage(false)}
+                >
+                  <Alert onClose={() => setShowFinalizeMessage(false)} severity="info">
+                    Form submitted successfully!
+                  </Alert>
+                </Snackbar>
+              </>
+            )}
           </ErrorBoundary>
         </div>
-      )}
-    </div>
+
+        {/* Development testbed - 40% width in development mode */}
+        {process.env.NODE_ENV === 'development' && (
+          <div style={{ 
+            width: '40%',
+            borderLeft: '2px solid #e0e0e0',
+            backgroundColor: '#fafafa'
+          }}>
+            <ErrorBoundary>
+              <DevTestbed isVisible={true} />
+            </ErrorBoundary>
+          </div>
+        )}
+      </div>
+    </FormContext.Provider>
   );
 }
 

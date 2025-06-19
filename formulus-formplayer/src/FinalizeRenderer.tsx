@@ -5,6 +5,7 @@ import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import { ControlProps } from '@jsonforms/core';
 import { ErrorObject } from 'ajv';
 import FormulusClient from './FormulusInterface';
+import { useFormContext } from './App';
 
 const FinalizeRenderer = ({ 
   schema, 
@@ -19,6 +20,7 @@ const FinalizeRenderer = ({
   const { core } = useJsonForms();
   const errors = core?.errors || [];
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
+  const { formType } = useFormContext();
   
   // Log the props to inspect their structure
   console.log('JsonForms props:', { errors, data, path, cells, schema });
@@ -56,7 +58,13 @@ const FinalizeRenderer = ({
     if (!hasErrors) {
       // Submit the form data directly using the FormulusClient
       console.log('Submitting form data:', data);
-      formulusClient.current.submitForm("TODO: formType", data);
+      console.log('Using formType from context:', formType);
+      
+      if (formType) {
+        formulusClient.current.submitForm(formType, data);
+      } else {
+        console.warn('formType is not available from context, cannot submit form');
+      }
     }
   };
 
