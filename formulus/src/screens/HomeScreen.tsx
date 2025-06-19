@@ -1,17 +1,17 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text, Platform } from 'react-native';
+import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text, Platform, Alert } from 'react-native';
 import RNFS from 'react-native-fs';
-import FormplayerModal from '../components/FormplayerModal';
+import FormplayerModal, { FormplayerModalHandle } from '../components/FormplayerModal';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import { appEvents } from '../webview/FormulusMessageHandlers'; // Import appEvents
-
+import { FormService } from '../services/FormService';
 
 const HomeScreen = ({ navigation }: any) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [formplayerVisible, setFormplayerVisible] = useState(false);
-  const [formplayerConfig, setFormplayerConfig] = useState<any>(null); // State to hold formplayer launch config
   const [isLoading, setIsLoading] = useState(true);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
+  const formplayerModalRef = useRef<FormplayerModalHandle>(null);
 
   useEffect(() => {
     const setupPlaceholder = async () => {
@@ -39,10 +39,28 @@ const HomeScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     console.log('HomeScreen: MOUNTED'); // Added for debugging mount/unmount
-    const handleOpenFormplayer = (config: any) => {
+    const handleOpenFormplayer = async (config: any) => {
       console.log('HomeScreen: openFormplayerRequested event received', config);
-      setFormplayerConfig(config); // Store the config (formId, params, savedData)
-      setFormplayerVisible(true);   // Show the modal
+
+      const { formType, observationId, params, savedData } = config;
+      
+      setFormplayerVisible(true);
+      // Use the ref-based approach to initialize the form
+      const formService = await FormService.getInstance();
+      const forms = formService.getFormSpecs();
+      const formSpec = forms.find((form) => form.id === formType);
+      if (!formSpec) {
+        Alert.alert('Error', `Form ${formType} not found`);
+        console.warn(`Form ${formType} not found`);
+        return;
+      }
+      //TODO: Handle edit mode
+      formplayerModalRef.current?.initializeForm(
+        formSpec,
+        params || null, // params if any
+        observationId || null, // observation ID for edit mode
+        savedData || null // Saved data if any
+      );
     };
 
     appEvents.addListener('openFormplayerRequested', handleOpenFormplayer);
@@ -53,7 +71,6 @@ const HomeScreen = ({ navigation }: any) => {
     };
   }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
 
-  
   // Update isLoading when localUri is set
   useEffect(() => {
     if (localUri) {
@@ -108,12 +125,11 @@ const HomeScreen = ({ navigation }: any) => {
       
       {/* Formplayer Modal */}
       <FormplayerModal 
+        ref={formplayerModalRef}
         visible={formplayerVisible} 
         onClose={() => {
           setFormplayerVisible(false);
-          setFormplayerConfig(null); // Clear config when closing
-        }} 
-        initialConfig={formplayerConfig} // Pass the config to the modal
+        }}
       />
     </View>
   );

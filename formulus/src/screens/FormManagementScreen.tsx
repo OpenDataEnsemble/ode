@@ -82,13 +82,13 @@ const FormManagementScreen = ({ navigation }: any) => {
   // Handle adding a new observation
   const handleAddObservation = (formType: FormSpec) => {
     setFormModalVisible(true);
-    formplayerModalRef.current?.initializeForm(formType, null, null);
+    formplayerModalRef.current?.initializeForm(formType, null, null, null);
   };
   
   // Handle editing an observation
   const handleEditObservation = (formType: FormSpec, observation: Observation) => {
     setFormModalVisible(true);
-    formplayerModalRef.current?.initializeForm(formType, observation.id, observation.data);
+    formplayerModalRef.current?.initializeForm(formType, null, observation.id, observation.data);
   };
   
   // Handle deleting an observation

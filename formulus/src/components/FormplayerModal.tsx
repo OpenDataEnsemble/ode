@@ -20,7 +20,7 @@ interface FormplayerModalProps {
 }
 
 export interface FormplayerModalHandle {
-  initializeForm: (formType: FormSpec, observationId: string | null, existingObservationData: Record<string, any> | null) => void;
+  initializeForm: (formType: FormSpec, params: Record<string, any> | null, observationId: string | null, existingObservationData: Record<string, any> | null) => void;
 }
 
 import { FormService } from '../services/FormService'; // Import FormService
@@ -37,10 +37,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   const [currentFormType, setCurrentFormType] = useState<string | null>(null);
   const [currentObservationId, setCurrentObservationId] = useState<string | null>(null);
   const [currentObservationData, setCurrentObservationData] = useState<Record<string, any> | null>(null);
+  const [currentParams, setCurrentParams] = useState<Record<string, any> | null>(null);
   
   // State to track pending form initialization
   const [pendingFormInit, setPendingFormInit] = useState<{
     formType: FormSpec;
+    params: Record<string, any> | null;
     observationId: string | null;
     existingObservationData: Record<string, any> | null;
   } | null>(null);
@@ -129,17 +131,19 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   };
 
   // Initialize a form with the given form type and optional existing data
-  const initializeForm = (formType: FormSpec, observationId: string | null, existingObservationData: Record<string, any> | null) => {
+  const initializeForm = (formType: FormSpec, params: Record<string, any> | null, observationId: string | null, existingObservationData: Record<string, any> | null) => {
     
     // Set internal state for the current form and observation
     setCurrentFormType(formType.id);
     setCurrentObservationId(observationId);
     setCurrentObservationData(existingObservationData);
+    setCurrentParams(params);
     setSelectedFormSpecId(formType.id);
     
     // Store the form initialization data
     setPendingFormInit({
       formType,
+      params,
       observationId,
       existingObservationData,
     });
@@ -147,21 +151,22 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
   useEffect(() => {
     if (isWebViewReady && pendingFormInit) {
-      const { formType, observationId, existingObservationData } = pendingFormInit;
+      const { formType, params, observationId, existingObservationData } = pendingFormInit;
       
       // Create the parameters for the form
-      const params = {
+      const formParams = {
         locale: 'en', 
         theme: 'default',
-        schema: formType.schema,
-        uischema: formType.uiSchema
+        //schema: formType.schema,
+        //uischema: formType.uiSchema,
+        ...params
       };
       
       // Log the form initialization
       const formInitData = {
         formType: formType.id,
         observationId: observationId,
-        params: params,
+        params: formParams,
         savedData: existingObservationData || {},
         formSchema: formType.schema,
         uiSchema: formType.uiSchema
@@ -264,16 +269,14 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       // Save the observation to the database
       if (currentObservationId) {
         console.log(`[${submissionId}] Updating existing observation:`, currentObservationId);
-        const updateSuccess = await localRepo.updateObservation(currentObservationId, {
-          data: processedData
-        });
+        const updateSuccess = await localRepo.updateObservation({id:currentObservationId, data: processedData});
         
         if (!updateSuccess) {
           throw new Error('Failed to update observation');
         }
       } else {
         console.log(`[${submissionId}] Creating new observation for form type:`, activeFormType);
-        const newId = await localRepo.saveObservation(activeFormType, processedData);
+        const newId = await localRepo.saveObservation({formType:activeFormType, data: processedData});
         
         if (!newId) {
           throw new Error('Failed to save new observation');
