@@ -34,22 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_observations_deleted ON observations(deleted);
 CREATE INDEX IF NOT EXISTS idx_observations_updated_at ON observations(updated_at);
 
 -- Create function to auto-increment version on changes
-CREATE OR REPLACE FUNCTION increment_sync_version()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Increment the global sync version
-    UPDATE sync_version SET 
-        current_version = current_version + 1,
-        updated_at = NOW()
-    WHERE id = 1;
-    
-    -- Set the version on the record
-    NEW.version = (SELECT current_version FROM sync_version WHERE id = 1);
-    NEW.updated_at = NOW();
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION increment_sync_version() RETURNS TRIGGER AS 'BEGIN UPDATE sync_version SET current_version = current_version + 1, updated_at = NOW() WHERE id = 1; NEW.version = (SELECT current_version FROM sync_version WHERE id = 1); NEW.updated_at = NOW(); RETURN NEW; END;' LANGUAGE plpgsql;
 
 -- Create triggers to auto-increment version on insert/update
 CREATE TRIGGER observations_version_trigger
