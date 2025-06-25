@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/opendataensemble/synkronus/pkg/logger"
 	_ "github.com/lib/pq"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // TestService_VersionIncrement tests that database operations correctly increment current_version

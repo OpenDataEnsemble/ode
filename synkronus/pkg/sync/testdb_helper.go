@@ -77,8 +77,10 @@ func SetupTestDatabase(t *testing.T) (*sql.DB, func()) {
 	}
 
 	cleanup := func() {
-		ResetTestData(db)
-		db.Close()
+		if db != nil {
+			ResetTestData(db)
+			db.Close()
+		}
 	}
 
 	return db, cleanup

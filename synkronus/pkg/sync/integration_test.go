@@ -2,7 +2,6 @@ package sync
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sync"
 	"testing"
@@ -265,8 +264,6 @@ func TestDatabaseIntegration_ConcurrentAccess(t *testing.T) {
 		t.Fatalf("Expected %d results, got %d", numGoroutines, len(allResults))
 	}
 
-
-
 	totalSuccessful := 0
 	maxVersion := initialVersion
 	for i, result := range allResults {
@@ -362,9 +359,4 @@ func TestDatabaseIntegration_VersionConsistency(t *testing.T) {
 	if finalIncrement != numOperations {
 		t.Errorf("Expected total version increment of %d, got %d", numOperations, finalIncrement)
 	}
-}
-
-// setupIntegrationDB creates a test database connection for integration tests
-func setupIntegrationDB(t *testing.T) (*sql.DB, func()) {
-	return SetupTestDatabase(t)
 }
