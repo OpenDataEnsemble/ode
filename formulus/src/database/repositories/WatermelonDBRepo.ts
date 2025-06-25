@@ -31,15 +31,17 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         ? input.data 
         : JSON.stringify(input.data);
       
-      // Generate a unique observation ID
+      // Generate a unique observation ID that will be used as the WatermelonDB record ID
       const observationId = `obs_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
       
-      // Simple, straightforward creation with a single transaction
+      // Create the record with our observationId as the primary key
       let newRecord: ObservationModel | null = null;
       
       await this.database.write(async () => {
         newRecord = await this.observationsCollection.create(record => {
-          // Store our custom observationId for reference
+          // Use our observationId as the WatermelonDB record ID
+          record._raw.id = observationId;
+          // Also store it in the observationId field for consistency
           record.observationId = observationId;
           record.formType = input.formType;
           record.formVersion = input.formVersion || '1.0';
@@ -53,7 +55,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         throw new Error('Failed to create observation record');
       }
       
-      console.log('Successfully created observation with ID:', (newRecord as ObservationModel).id, 'and observationId:', observationId);
+      console.log('Successfully created observation with ID:', observationId);
       
       // Return the observationId as the public identifier
       return observationId;
@@ -159,27 +161,8 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     try {
       console.log('Updating observation with ID:', input.id);
       
-      // Find the observation to update
-      let record: ObservationModel | null = null;
-      
-      // Try to find by direct ID first
-      try {
-        record = await this.observationsCollection.find(input.id);
-      } catch (error) {
-        console.log(`Direct lookup by ID failed, trying by observationId: ${(error as Error).message}`);
-      }
-      
-      // If not found by ID, try to find by observationId field
-      if (!record) {
-        const observations = await this.observationsCollection
-          .query(Q.where('observation_id', input.id))
-          .fetch();
-          
-        if (observations.length > 0) {
-          record = observations[0];
-          console.log(`Found observation via observationId query: ${record.id}`);
-        }
-      }
+      // Find the observation by ID (which is now the observationId)
+      const record = await this.observationsCollection.find(input.id);
       
       if (!record) {
         console.error('Observation not found with ID:', input.id);
@@ -228,29 +211,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    */
   async deleteObservation(id: string): Promise<boolean> {
     try {
-      console.log(`Marking observation as deleted: ${id}`);
+      console.log('Deleting observation with ID:', id);
       
-      // Find the observation using our improved lookup approach
-      let record: ObservationModel | null = null;
-      
-      // Try to find by direct ID first
-      try {
-        record = await this.observationsCollection.find(id);
-      } catch (error) {
-        console.log(`Direct lookup by ID failed, trying by observationId: ${(error as Error).message}`);
-      }
-      
-      // If not found by ID, try to find by observationId field
-      if (!record) {
-        const observations = await this.observationsCollection
-          .query(Q.where('observation_id', id))
-          .fetch();
-          
-        if (observations.length > 0) {
-          record = observations[0];
-          console.log(`Found observation via observationId query: ${record.id}`);
-        }
-      }
+      // Find the observation by ID (which is now the observationId)
+      const record = await this.observationsCollection.find(id);
       
       if (!record) {
         console.error('Observation not found with ID:', id);
@@ -449,10 +413,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   // Helper method to map WatermelonDB model to our interface
   private mapObservationModelToInterface(model: ObservationModel): Observation {
     const parsedData = model.getParsedData();
-    console.log(`Mapping model to interface. ID: ${model.id}, ObservationID: ${model.observationId}`);
+    console.log(`Mapping model to interface. ID: ${model.id}`);
     
     return {
-      id: model.observationId, // Use the custom observationId as the public ID
+      id: model.id, // Now model.id is the same as observationId
       formType: model.formType,
       formVersion: model.formVersion,
       data: parsedData,
