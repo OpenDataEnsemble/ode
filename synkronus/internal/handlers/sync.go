@@ -4,50 +4,37 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+
+	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
 // SyncPullRequest represents the sync pull request payload according to OpenAPI spec
 type SyncPullRequest struct {
-	ClientID    string                 `json:"client_id"`
-	Since       *SyncPullRequestSince  `json:"since,omitempty"`
-	SchemaTypes []string               `json:"schema_types,omitempty"`
+	ClientID    string                `json:"client_id"`
+	Since       *SyncPullRequestSince `json:"since,omitempty"`
+	SchemaTypes []string              `json:"schema_types,omitempty"`
 }
 
-// SyncPullRequestSince represents the pagination cursor
+// SyncPullRequestSince represents the pagination cursor in sync pull request
 type SyncPullRequestSince struct {
-	Version int    `json:"version"`
+	Version int64  `json:"version"`
 	ID      string `json:"id"`
 }
 
 // SyncPullResponse represents the sync pull response payload according to OpenAPI spec
 type SyncPullResponse struct {
-	CurrentVersion    int           `json:"current_version"`
-	Records           []Observation `json:"records"`
-	ChangeCutoff      int           `json:"change_cutoff"`
-	NextPageToken     *string       `json:"next_page_token,omitempty"`
-	HasMore           *bool         `json:"has_more,omitempty"`
-	SyncFormatVersion *string       `json:"sync_format_version,omitempty"`
-}
-
-// Observation represents an observation record according to OpenAPI spec
-type Observation struct {
-	ObservationID string  `json:"observation_id"`
-	FormType      string  `json:"form_type"`
-	FormVersion   string  `json:"form_version"`
-	Data          string  `json:"data"`
-	CreatedAt     string  `json:"created_at"`
-	UpdatedAt     string  `json:"updated_at"`
-	SyncedAt      *string `json:"synced_at"`
-	Deleted       bool    `json:"deleted"`
+	CurrentVersion    int64                `json:"current_version"`
+	Records           []sync.Observation   `json:"records"`
+	ChangeCutoff      int64                `json:"change_cutoff"`
+	NextPageToken     *string              `json:"next_page_token,omitempty"`
+	HasMore           *bool                `json:"has_more,omitempty"`
+	SyncFormatVersion *string              `json:"sync_format_version,omitempty"`
 }
 
 // Pull handles the /sync/pull endpoint
 func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 	var req SyncPullRequest
-
-	// Decode request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.log.Error("Failed to decode sync pull request", "error", err)
 		SendErrorResponse(w, http.StatusBadRequest, err, "Invalid request format")
 		return
 	}
@@ -59,67 +46,89 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse query parameters
-	schemaType := r.URL.Query().Get("schemaType")
 	limitStr := r.URL.Query().Get("limit")
-	pageToken := r.URL.Query().Get("page_token")
-	apiVersion := r.Header.Get("x-api-version")
-
-	// Parse limit with default value
-	limit := 50 // default
+	limit := 100 // default limit
 	if limitStr != "" {
-		if parsedLimit, err := strconv.Atoi(limitStr); err == nil {
-			if parsedLimit >= 1 && parsedLimit <= 500 {
-				limit = parsedLimit
-			}
+		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
+			limit = parsedLimit
 		}
 	}
 
-	// For now, return a dummy but valid response matching the OpenAPI spec
-	// TODO: Implement actual running number-based sync logic
-	syncFormatVersion := "1.0"
-	hasMore := false
+	pageToken := r.URL.Query().Get("page_token")
+	schemaType := r.URL.Query().Get("schemaType")
+	apiVersion := r.Header.Get("x-api-version")
+
+	// Determine schema types to filter by
+	var schemaTypes []string
+	if schemaType != "" {
+		schemaTypes = append(schemaTypes, schemaType)
+	}
+	if len(req.SchemaTypes) > 0 {
+		schemaTypes = append(schemaTypes, req.SchemaTypes...)
+	}
+
+	// Determine starting version and cursor
+	var sinceVersion int64 = 0
+	var cursor *sync.SyncPullCursor
 	
+	if req.Since != nil {
+		sinceVersion = req.Since.Version
+		cursor = &sync.SyncPullCursor{
+			Version: req.Since.Version,
+			ID:      req.Since.ID,
+		}
+	}
+
+	// Call the sync service to get records
+	result, err := h.syncService.GetRecordsSinceVersion(r.Context(), sinceVersion, req.ClientID, schemaTypes, limit, cursor)
+	if err != nil {
+		h.log.Error("Failed to get records since version", "error", err)
+		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to retrieve sync data")
+		return
+	}
+
+	// Build response
+	syncFormatVersion := "1.0"
 	response := SyncPullResponse{
-		CurrentVersion:    1,                // Dummy version number
-		Records:           []Observation{}, // Empty array as requested
-		ChangeCutoff:      0,               // Dummy value
-		NextPageToken:     nil,             // No pagination for dummy response
-		HasMore:           &hasMore,
+		CurrentVersion:    result.CurrentVersion,
+		Records:           result.Records,
+		ChangeCutoff:      result.ChangeCutoff,
+		HasMore:           &result.HasMore,
 		SyncFormatVersion: &syncFormatVersion,
 	}
 
-	h.log.Info("Sync pull request processed", 
-		"clientId", req.ClientID, 
-		"schemaType", schemaType,
-		"limit", limit,
-		"pageToken", pageToken,
-		"apiVersion", apiVersion,
-		"since", req.Since)
+	// Set next page token if there are more records
+	if result.HasMore && len(result.Records) > 0 {
+		lastRecord := result.Records[len(result.Records)-1]
+		nextPageToken := strconv.FormatInt(lastRecord.Version, 10) + ":" + lastRecord.ID
+		response.NextPageToken = &nextPageToken
+	}
 
-	// Send response
+	h.log.Info("Sync pull request processed", 
+		"clientId", req.ClientID,
+		"sinceVersion", sinceVersion,
+		"currentVersion", result.CurrentVersion,
+		"recordCount", len(result.Records),
+		"hasMore", result.HasMore,
+		"apiVersion", apiVersion,
+		"pageToken", pageToken)
+
 	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // SyncPushRequest represents the sync push request payload according to OpenAPI spec
 type SyncPushRequest struct {
-	TransmissionID string        `json:"transmission_id"`
-	ClientID       string        `json:"client_id"`
-	Records        []Observation `json:"records"`
+	TransmissionID string             `json:"transmission_id"`
+	ClientID       string             `json:"client_id"`
+	Records        []sync.Observation `json:"records"`
 }
 
 // SyncPushResponse represents the sync push response payload according to OpenAPI spec
 type SyncPushResponse struct {
-	CurrentVersion int                      `json:"current_version"`
-	SuccessCount   int                      `json:"success_count"`
-	FailedRecords  []map[string]interface{} `json:"failed_records,omitempty"`
-	Warnings       []SyncWarning            `json:"warnings,omitempty"`
-}
-
-// SyncWarning represents a warning in the sync push response
-type SyncWarning struct {
-	ID      string `json:"id"`
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	CurrentVersion int64                      `json:"current_version"`
+	SuccessCount   int                        `json:"success_count"`
+	FailedRecords  []map[string]interface{}   `json:"failed_records,omitempty"`
+	Warnings       []sync.SyncWarning         `json:"warnings,omitempty"`
 }
 
 // Push handles the /sync/push endpoint
@@ -150,49 +159,30 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 	// Parse API version header
 	apiVersion := r.Header.Get("x-api-version")
 
-	// Validate each record (basic validation for dummy implementation)
-	var warnings []SyncWarning
-	var failedRecords []map[string]interface{}
-	successCount := 0
-
-	for i, record := range req.Records {
-		// Basic validation
-		if record.ObservationID == "" {
-			failedRecords = append(failedRecords, map[string]interface{}{
-				"index": i,
-				"error": "observation_id is required",
-				"record": record,
-			})
-			continue
-		}
-		if record.FormType == "" {
-			warnings = append(warnings, SyncWarning{
-				ID:      record.ObservationID,
-				Code:    "MISSING_FORM_TYPE",
-				Message: "form_type is empty but record was processed",
-			})
-		}
-		
-		// For dummy implementation, assume all valid records succeed
-		successCount++
+	// Process the records using the sync service
+	result, err := h.syncService.ProcessPushedRecords(r.Context(), req.Records, req.ClientID, req.TransmissionID)
+	if err != nil {
+		h.log.Error("Failed to process pushed records", "error", err)
+		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to process sync data")
+		return
 	}
 
-	// For now, return a dummy but valid response
-	// TODO: Implement actual record processing logic with database operations
+	// Build response from service result
 	response := SyncPushResponse{
-		CurrentVersion: 2,                    // Dummy version number after processing (incremented)
-		SuccessCount:   successCount,
-		FailedRecords:  failedRecords,
-		Warnings:       warnings,
+		CurrentVersion: result.CurrentVersion,
+		SuccessCount:   result.SuccessCount,
+		FailedRecords:  result.FailedRecords,
+		Warnings:       result.Warnings,
 	}
 
 	h.log.Info("Sync push request processed", 
 		"transmissionId", req.TransmissionID,
 		"clientId", req.ClientID, 
 		"recordCount", len(req.Records),
-		"successCount", successCount,
-		"failedCount", len(failedRecords),
-		"warningCount", len(warnings),
+		"successCount", result.SuccessCount,
+		"failedCount", len(result.FailedRecords),
+		"warningCount", len(result.Warnings),
+		"currentVersion", result.CurrentVersion,
 		"apiVersion", apiVersion)
 
 	// Send response

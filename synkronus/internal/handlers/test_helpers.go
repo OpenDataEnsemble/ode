@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+
 	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 )
@@ -10,14 +12,15 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 	// Create a logger for testing
 	log := logger.NewLogger()
 
-	// Create a mock auth service
+	// Create mock services
 	mockAuthService := mocks.NewMockAuthService()
-
-	// Create a mock app bundle service
 	mockAppBundleService := mocks.NewMockAppBundleService()
-
-	// Create a mock sync service
 	mockSyncService := mocks.NewMockSyncService()
+
+	// Initialize the mock sync service
+	if err := mockSyncService.Initialize(context.Background()); err != nil {
+		panic("Failed to initialize mock sync service: " + err.Error())
+	}
 
 	// Create a mock version service
 	mockVersionService := mocks.NewMockVersionService()

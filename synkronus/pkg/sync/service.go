@@ -2,199 +2,278 @@ package sync
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
+	"database/sql"
 	"fmt"
-	"os"
-	"sync"
-	"time"
+	"strconv"
+	"strings"
 
 	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
-// Service provides synchronization functionality
+// Service provides version-based synchronization functionality with PostgreSQL
 type Service struct {
-	config      Config
-	log         *logger.Logger
-	dataStore   map[string][]SyncItem
-	deviceData  map[string]DeviceData
-	mutex       sync.RWMutex
-	initialized bool
+	db     *sql.DB
+	config Config
+	log    *logger.Logger
 }
 
-// DeviceData holds information about a device's sync state
-type DeviceData struct {
-	LastSyncTimestamp int64
-	ETag              string
-	DeviceID          string
-}
-
-// NewService creates a new sync service
-func NewService(config Config, log *logger.Logger) *Service {
+// NewService creates a new version-based sync service
+func NewService(db *sql.DB, config Config, log *logger.Logger) *Service {
 	return &Service{
-		config:     config,
-		log:        log,
-		dataStore:  make(map[string][]SyncItem),
-		deviceData: make(map[string]DeviceData),
-		mutex:      sync.RWMutex{},
+		db:     db,
+		config: config,
+		log:    log,
 	}
 }
 
 // DefaultConfig returns a default configuration
 func DefaultConfig() Config {
 	return Config{
-		DataStorePath:   "./data/sync",
-		MaxItemsPerSync: 1000,
-		RetentionPeriod: 30 * 24 * time.Hour, // 30 days
+		MaxRecordsPerSync: 1000,
+		DefaultLimit:      100,
 	}
 }
 
 // Initialize initializes the sync service
 func (s *Service) Initialize(ctx context.Context) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// Create data directory if it doesn't exist
-	if err := os.MkdirAll(s.config.DataStorePath, 0755); err != nil {
-		s.log.Error("Failed to create data directory", "error", err)
-		return err
-	}
-
-	// Load existing data from disk if available
-	if err := s.loadData(); err != nil {
-		s.log.Error("Failed to load sync data", "error", err)
-		return err
-	}
-
-	s.initialized = true
-	s.log.Info("Sync service initialized")
+	s.log.Info("Sync service initialized with version-based operations")
 	return nil
 }
 
-// GetDataSince retrieves data changes since the specified timestamp for a device
-func (s *Service) GetDataSince(ctx context.Context, lastSyncTimestamp int64, deviceID string) ([]SyncItem, string, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+// GetCurrentVersion returns the current database version
+func (s *Service) GetCurrentVersion(ctx context.Context) (int64, error) {
+	var version int64
+	query := "SELECT version FROM sync_version WHERE id = 1"
 
-	if !s.initialized {
-		return nil, "", fmt.Errorf("sync service not initialized")
-	}
-
-	// Get data for the device
-	items, exists := s.dataStore[deviceID]
-	if !exists {
-		// If no data exists for this device, return empty array
-		items = []SyncItem{}
-		s.dataStore[deviceID] = items
-	}
-
-	// Filter items based on timestamp
-	var result []SyncItem
-	for _, item := range items {
-		// In a real implementation, you would check the timestamp of each item
-		// For this example, we'll just return all items
-		result = append(result, item)
-	}
-
-	// Limit the number of items
-	if len(result) > s.config.MaxItemsPerSync {
-		result = result[:s.config.MaxItemsPerSync]
-	}
-
-	// Generate ETag for the data
-	etag := s.generateETag(result)
-
-	// Update device data
-	s.deviceData[deviceID] = DeviceData{
-		LastSyncTimestamp: time.Now().Unix(),
-		ETag:              etag,
-		DeviceID:          deviceID,
-	}
-
-	return result, etag, nil
-}
-
-// ProcessPushedData processes data pushed from a device
-func (s *Service) ProcessPushedData(ctx context.Context, data []SyncItem, deviceID string, timestamp int64) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	if !s.initialized {
-		return fmt.Errorf("sync service not initialized")
-	}
-
-	// Validate data
-	if len(data) == 0 {
-		return nil // Nothing to process
-	}
-
-	// Process and store the data
-	// In a real implementation, you would merge the data with existing data
-	s.dataStore[deviceID] = data
-
-	// Update device data
-	s.deviceData[deviceID] = DeviceData{
-		LastSyncTimestamp: timestamp,
-		ETag:              s.generateETag(data),
-		DeviceID:          deviceID,
-	}
-
-	// Save data to disk
-	if err := s.saveData(); err != nil {
-		s.log.Error("Failed to save sync data", "error", err)
-		return err
-	}
-
-	return nil
-}
-
-// CheckETag checks if the data has changed since the ETag was generated
-func (s *Service) CheckETag(ctx context.Context, etag string, deviceID string) (bool, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if !s.initialized {
-		return false, fmt.Errorf("sync service not initialized")
-	}
-
-	// Get device data
-	deviceData, exists := s.deviceData[deviceID]
-	if !exists {
-		return false, nil // No data for this device, so ETag doesn't match
-	}
-
-	// Check if ETag matches
-	return deviceData.ETag == etag, nil
-}
-
-// generateETag generates an ETag for the given data
-func (s *Service) generateETag(data []SyncItem) string {
-	// Convert data to JSON
-	jsonData, err := json.Marshal(data)
+	err := s.db.QueryRowContext(ctx, query).Scan(&version)
 	if err != nil {
-		s.log.Error("Failed to marshal data for ETag generation", "error", err)
-		return ""
+		s.log.Error("Failed to get current version", "error", err)
+		return 0, fmt.Errorf("failed to get current version: %w", err)
 	}
 
-	// Generate SHA-256 hash
-	hash := sha256.Sum256(jsonData)
-	return hex.EncodeToString(hash[:])
+	return version, nil
 }
 
-// loadData loads sync data from disk
-func (s *Service) loadData() error {
-	// In a real implementation, you would load data from disk
-	// For this example, we'll just initialize empty data
-	s.dataStore = make(map[string][]SyncItem)
-	s.deviceData = make(map[string]DeviceData)
-	return nil
+// GetRecordsSinceVersion retrieves records that have changed since the specified version
+func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64, clientID string, schemaTypes []string, limit int, cursor *SyncPullCursor) (*SyncResult, error) {
+	// Get current version first
+	currentVersion, err := s.GetCurrentVersion(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set default limit if not specified
+	if limit <= 0 {
+		limit = s.config.DefaultLimit
+	}
+
+	// Enforce maximum limit
+	if limit > s.config.MaxRecordsPerSync {
+		limit = s.config.MaxRecordsPerSync
+	}
+
+	// Build query with optional filters
+	var queryBuilder strings.Builder
+	var args []interface{}
+	argIndex := 1
+
+	queryBuilder.WriteString(`
+		SELECT id, observation_id, form_type, form_version, data, 
+		       created_at, updated_at, synced_at, deleted, version
+		FROM observations 
+		WHERE version > $`)
+	queryBuilder.WriteString(strconv.Itoa(argIndex))
+	args = append(args, sinceVersion)
+	argIndex++
+
+	// Add schema type filter if specified
+	if len(schemaTypes) > 0 {
+		queryBuilder.WriteString(" AND form_type = ANY($")
+		queryBuilder.WriteString(strconv.Itoa(argIndex))
+		queryBuilder.WriteString(")")
+		args = append(args, schemaTypes)
+		argIndex++
+	}
+
+	// Add cursor pagination if provided
+	if cursor != nil {
+		queryBuilder.WriteString(" AND (version > $")
+		queryBuilder.WriteString(strconv.Itoa(argIndex))
+		queryBuilder.WriteString(" OR (version = $")
+		queryBuilder.WriteString(strconv.Itoa(argIndex))
+		queryBuilder.WriteString(" AND id > $")
+		queryBuilder.WriteString(strconv.Itoa(argIndex + 1))
+		queryBuilder.WriteString("))")
+		args = append(args, cursor.Version, cursor.Version, cursor.ID)
+		argIndex += 3
+	}
+
+	// Order by version and ID for consistent pagination
+	queryBuilder.WriteString(" ORDER BY version ASC, id ASC")
+
+	// Add limit + 1 to check if there are more records
+	queryBuilder.WriteString(" LIMIT $")
+	queryBuilder.WriteString(strconv.Itoa(argIndex))
+	args = append(args, limit+1)
+
+	// Execute query
+	rows, err := s.db.QueryContext(ctx, queryBuilder.String(), args...)
+	if err != nil {
+		s.log.Error("Failed to query observations", "error", err)
+		return nil, fmt.Errorf("failed to query observations: %w", err)
+	}
+	defer rows.Close()
+
+	var records []Observation
+	for rows.Next() {
+		var obs Observation
+		var syncedAt sql.NullString
+
+		err := rows.Scan(
+			&obs.ID, &obs.ObservationID, &obs.FormType, &obs.FormVersion,
+			&obs.Data, &obs.CreatedAt, &obs.UpdatedAt, &syncedAt,
+			&obs.Deleted, &obs.Version,
+		)
+		if err != nil {
+			s.log.Error("Failed to scan observation row", "error", err)
+			return nil, fmt.Errorf("failed to scan observation: %w", err)
+		}
+
+		if syncedAt.Valid {
+			obs.SyncedAt = &syncedAt.String
+		}
+
+		records = append(records, obs)
+	}
+
+	if err := rows.Err(); err != nil {
+		s.log.Error("Error iterating observation rows", "error", err)
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	// Check if there are more records
+	hasMore := len(records) > limit
+	if hasMore {
+		records = records[:limit] // Remove the extra record
+	}
+
+	// Determine change cutoff (version of the last record returned)
+	var changeCutoff int64 = sinceVersion
+	if len(records) > 0 {
+		changeCutoff = records[len(records)-1].Version
+	}
+
+	result := &SyncResult{
+		CurrentVersion: currentVersion,
+		Records:        records,
+		ChangeCutoff:   changeCutoff,
+		HasMore:        hasMore,
+	}
+
+	s.log.Info("Retrieved records since version",
+		"sinceVersion", sinceVersion,
+		"currentVersion", currentVersion,
+		"recordCount", len(records),
+		"hasMore", hasMore,
+		"changeCutoff", changeCutoff,
+		"clientId", clientID)
+
+	return result, nil
 }
 
-// saveData saves sync data to disk
-func (s *Service) saveData() error {
-	// In a real implementation, you would save data to disk
-	// For this example, we'll just log that data was saved
-	s.log.Info("Sync data saved")
-	return nil
+// ProcessPushedRecords processes records pushed from a client
+func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observation, clientID string, transmissionID string) (*SyncPushResult, error) {
+	var successCount int
+	var failedRecords []map[string]interface{}
+	var warnings []SyncWarning
+
+	// Begin transaction for atomic processing
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		s.log.Error("Failed to begin transaction", "error", err)
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	for i, record := range records {
+		// Validate required fields
+		if record.ObservationID == "" {
+			failedRecords = append(failedRecords, map[string]interface{}{
+				"index":  i,
+				"error":  "observation_id is required",
+				"record": record,
+			})
+			continue
+		}
+
+		// Generate warnings for missing optional fields
+		if record.FormType == "" {
+			warnings = append(warnings, SyncWarning{
+				ID:      record.ObservationID,
+				Code:    "MISSING_FORM_TYPE",
+				Message: "form_type is empty but record was processed",
+			})
+		}
+
+		// Insert or update the observation
+		query := `
+			INSERT INTO observations (observation_id, form_type, form_version, data, created_at, updated_at, deleted)
+			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (observation_id) 
+			DO UPDATE SET 
+				form_type = EXCLUDED.form_type,
+				form_version = EXCLUDED.form_version,
+				data = EXCLUDED.data,
+				updated_at = EXCLUDED.updated_at,
+				deleted = EXCLUDED.deleted
+		`
+
+		_, err := tx.ExecContext(ctx, query,
+			record.ObservationID, record.FormType, record.FormVersion,
+			record.Data, record.CreatedAt, record.UpdatedAt, record.Deleted)
+
+		if err != nil {
+			s.log.Error("Failed to insert/update observation", "error", err, "observationId", record.ObservationID)
+			failedRecords = append(failedRecords, map[string]interface{}{
+				"index":  i,
+				"error":  fmt.Sprintf("database error: %v", err),
+				"record": record,
+			})
+			continue
+		}
+
+		successCount++
+	}
+
+	// Get the current version WITHIN the transaction to ensure consistency
+	var currentVersion int64
+	err = tx.QueryRowContext(ctx, "SELECT version FROM sync_version ORDER BY id DESC LIMIT 1").Scan(&currentVersion)
+	if err != nil {
+		s.log.Error("Failed to get current version within transaction", "error", err)
+		return nil, fmt.Errorf("failed to get current version: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		s.log.Error("Failed to commit transaction", "error", err)
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	result := &SyncPushResult{
+		CurrentVersion: currentVersion,
+		SuccessCount:   successCount,
+		FailedRecords:  failedRecords,
+		Warnings:       warnings,
+	}
+
+	s.log.Info("Processed pushed records",
+		"transmissionId", transmissionID,
+		"clientId", clientID,
+		"totalRecords", len(records),
+		"successCount", successCount,
+		"failedCount", len(failedRecords),
+		"warningCount", len(warnings),
+		"currentVersion", currentVersion)
+
+	return result, nil
 }

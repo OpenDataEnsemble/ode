@@ -116,13 +116,8 @@ func main() {
 
 	// Initialize sync service
 	syncConfig := sync.DefaultConfig()
-	// We can still use environment variables for sync config
-	// as it's not part of our main configuration yet
-	if dataStorePath := os.Getenv("SYNC_DATA_STORE_PATH"); dataStorePath != "" {
-		syncConfig.DataStorePath = dataStorePath
-	}
-
-	syncService := sync.NewService(syncConfig, log)
+	
+	syncService := sync.NewService(db.DB(), syncConfig, log)
 
 	// Initialize the sync service
 	if err := syncService.Initialize(ctx); err != nil {

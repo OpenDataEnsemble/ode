@@ -2,63 +2,25 @@ package mocks
 
 import (
 	"context"
-	"errors"
-	"time"
+	"fmt"
 
-	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
 // MockSyncService is a mock implementation of the sync.ServiceInterface for testing
 type MockSyncService struct {
-	log         *logger.Logger
-	dataStore   map[string][]sync.SyncItem
-	deviceData  map[string]mockDeviceData
-	initialized bool
-}
-
-type mockDeviceData struct {
-	LastSyncTimestamp int64
-	ETag              string
-	DeviceID          string
+	currentVersion int64
+	observations   []sync.Observation
+	initialized    bool
 }
 
 // NewMockSyncService creates a new mock sync service
 func NewMockSyncService() *MockSyncService {
-	mock := &MockSyncService{
-		log:        logger.NewLogger(),
-		dataStore:  make(map[string][]sync.SyncItem),
-		deviceData: make(map[string]mockDeviceData),
+	return &MockSyncService{
+		currentVersion: 1,
+		observations:   make([]sync.Observation, 0), // Initialize as empty slice, not nil
+		initialized:    false,
 	}
-
-	// Add some test data
-	testDevice := "test-device-id"
-	testData := []sync.SyncItem{
-		map[string]any{
-			"id":        "item1",
-			"type":      "note",
-			"content":   "Test note content",
-			"createdAt": time.Now().Unix(),
-			"updatedAt": time.Now().Unix(),
-		},
-		map[string]any{
-			"id":        "item2",
-			"type":      "task",
-			"content":   "Test task content",
-			"completed": false,
-			"createdAt": time.Now().Unix(),
-			"updatedAt": time.Now().Unix(),
-		},
-	}
-	mock.dataStore[testDevice] = testData
-	mock.deviceData[testDevice] = mockDeviceData{
-		LastSyncTimestamp: time.Now().Unix(),
-		ETag:              "test-etag-value",
-		DeviceID:          testDevice,
-	}
-
-	mock.initialized = true
-	return mock
 }
 
 // Initialize mocks the initialization process
@@ -67,69 +29,106 @@ func (m *MockSyncService) Initialize(ctx context.Context) error {
 	return nil
 }
 
-// GetDataSince mocks retrieving data changes since the specified timestamp for a device
-func (m *MockSyncService) GetDataSince(ctx context.Context, lastSyncTimestamp int64, deviceID string) ([]sync.SyncItem, string, error) {
+// GetCurrentVersion returns the current mock version
+func (m *MockSyncService) GetCurrentVersion(ctx context.Context) (int64, error) {
 	if !m.initialized {
-		return nil, "", errors.New("sync service not initialized")
+		return 0, fmt.Errorf("sync service not initialized")
+	}
+	return m.currentVersion, nil
+}
+
+// GetRecordsSinceVersion mocks retrieving records that have changed since the specified version
+func (m *MockSyncService) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64, clientID string, schemaTypes []string, limit int, cursor *sync.SyncPullCursor) (*sync.SyncResult, error) {
+	if !m.initialized {
+		return nil, fmt.Errorf("sync service not initialized")
 	}
 
-	// Validate device ID
-	if deviceID == "" {
-		return nil, "", sync.ErrDeviceNotFound
-	}
-
-	// Get data for the device
-	items, exists := m.dataStore[deviceID]
-	if !exists {
-		// If no data exists for this device, return empty array
-		return []sync.SyncItem{}, "empty-etag", nil
-	}
-
-	// Get device data
-	deviceData, exists := m.deviceData[deviceID]
-	if !exists {
-		deviceData = mockDeviceData{
-			LastSyncTimestamp: time.Now().Unix(),
-			ETag:              "new-etag-value",
-			DeviceID:          deviceID,
+	// Filter observations by version
+	var filteredRecords []sync.Observation
+	for _, obs := range m.observations {
+		if obs.Version > sinceVersion {
+			// Apply schema type filter if specified
+			if len(schemaTypes) > 0 {
+				found := false
+				for _, schemaType := range schemaTypes {
+					if obs.FormType == schemaType {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
+				}
+			}
+			filteredRecords = append(filteredRecords, obs)
 		}
-		m.deviceData[deviceID] = deviceData
 	}
 
-	return items, deviceData.ETag, nil
+	// Ensure filteredRecords is never nil - initialize as empty slice if no records found
+	if filteredRecords == nil {
+		filteredRecords = make([]sync.Observation, 0)
+	}
+
+	// Apply limit
+	if limit > 0 && len(filteredRecords) > limit {
+		filteredRecords = filteredRecords[:limit]
+	}
+
+	// Determine change cutoff
+	var changeCutoff int64 = sinceVersion
+	if len(filteredRecords) > 0 {
+		changeCutoff = filteredRecords[len(filteredRecords)-1].Version
+	}
+
+	return &sync.SyncResult{
+		CurrentVersion: m.currentVersion,
+		Records:        filteredRecords,
+		ChangeCutoff:   changeCutoff,
+		HasMore:        false, // Mock always returns all data
+	}, nil
 }
 
-// ProcessPushedData mocks processing data pushed from a device
-func (m *MockSyncService) ProcessPushedData(ctx context.Context, data []sync.SyncItem, deviceID string, timestamp int64) error {
+// ProcessPushedRecords mocks processing records pushed from a client
+func (m *MockSyncService) ProcessPushedRecords(ctx context.Context, records []sync.Observation, clientID string, transmissionID string) (*sync.SyncPushResult, error) {
 	if !m.initialized {
-		return errors.New("sync service not initialized")
+		return nil, fmt.Errorf("sync service not initialized")
 	}
 
-	// Store the data
-	m.dataStore[deviceID] = data
+	var successCount int
+	var failedRecords []map[string]interface{}
+	var warnings []sync.SyncWarning
 
-	// Update device data
-	m.deviceData[deviceID] = mockDeviceData{
-		LastSyncTimestamp: timestamp,
-		ETag:              "updated-etag-value",
-		DeviceID:          deviceID,
+	for i, record := range records {
+		// Basic validation
+		if record.ObservationID == "" {
+			failedRecords = append(failedRecords, map[string]interface{}{
+				"index": i,
+				"error": "observation_id is required",
+				"record": record,
+			})
+			continue
+		}
+
+		// Generate warnings for missing optional fields
+		if record.FormType == "" {
+			warnings = append(warnings, sync.SyncWarning{
+				ID:      record.ObservationID,
+				Code:    "MISSING_FORM_TYPE",
+				Message: "form_type is empty but record was processed",
+			})
+		}
+
+		// Mock successful processing - add to observations
+		record.Version = m.currentVersion + 1
+		m.observations = append(m.observations, record)
+		m.currentVersion++
+		successCount++
 	}
 
-	return nil
-}
-
-// CheckETag mocks checking if the data has changed since the ETag was generated
-func (m *MockSyncService) CheckETag(ctx context.Context, etag string, deviceID string) (bool, error) {
-	if !m.initialized {
-		return false, errors.New("sync service not initialized")
-	}
-
-	// Get device data
-	deviceData, exists := m.deviceData[deviceID]
-	if !exists {
-		return false, nil // No data for this device, so ETag doesn't match
-	}
-
-	// Check if ETag matches
-	return deviceData.ETag == etag, nil
+	return &sync.SyncPushResult{
+		CurrentVersion: m.currentVersion,
+		SuccessCount:   successCount,
+		FailedRecords:  failedRecords,
+		Warnings:       warnings,
+	}, nil
 }

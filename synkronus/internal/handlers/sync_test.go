@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
 func TestPull(t *testing.T) {
@@ -91,8 +93,18 @@ func TestPull(t *testing.T) {
 				if pullResp.ChangeCutoff < 0 {
 					t.Error("Expected change_cutoff to be non-negative")
 				}
+				// Records should be initialized as an empty slice, not nil
 				if pullResp.Records == nil {
-					t.Error("Expected records array to be initialized")
+					t.Error("Expected records array to be initialized (not nil)")
+				}
+				// Verify optional fields are present
+				if pullResp.HasMore == nil {
+					t.Error("Expected has_more field to be present")
+				}
+				if pullResp.SyncFormatVersion == nil {
+					t.Error("Expected sync_format_version field to be present")
+				} else if *pullResp.SyncFormatVersion != "1.0" {
+					t.Errorf("Expected sync_format_version to be '1.0', got '%s'", *pullResp.SyncFormatVersion)
 				}
 			}
 		})
@@ -115,7 +127,7 @@ func TestPush(t *testing.T) {
 			requestBody: SyncPushRequest{
 				TransmissionID: "test-transmission-123",
 				ClientID:       "test-client-id",
-				Records: []Observation{
+				Records: []sync.Observation{
 					{
 						ObservationID: "obs-1",
 						FormType:      "survey",
@@ -134,7 +146,7 @@ func TestPush(t *testing.T) {
 			requestBody: SyncPushRequest{
 				TransmissionID: "test-transmission-124",
 				ClientID:       "test-client-id",
-				Records:        []Observation{},
+				Records:        []sync.Observation{},
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -143,7 +155,7 @@ func TestPush(t *testing.T) {
 			requestBody: SyncPushRequest{
 				TransmissionID: "",
 				ClientID:       "test-client-id",
-				Records: []Observation{
+				Records: []sync.Observation{
 					{
 						ObservationID: "obs-1",
 						FormType:      "survey",
@@ -162,7 +174,7 @@ func TestPush(t *testing.T) {
 			requestBody: SyncPushRequest{
 				TransmissionID: "test-transmission-125",
 				ClientID:       "",
-				Records: []Observation{
+				Records: []sync.Observation{
 					{
 						ObservationID: "obs-1",
 						FormType:      "survey",
@@ -181,7 +193,7 @@ func TestPush(t *testing.T) {
 			requestBody: SyncPushRequest{
 				TransmissionID: "test-transmission-126",
 				ClientID:       "test-client-id",
-				Records: []Observation{
+				Records: []sync.Observation{
 					{
 						ObservationID: "", // Missing observation_id
 						FormType:      "survey",
