@@ -51,7 +51,7 @@ func main() {
 		logger.WithPrettyPrint(true),
 	)
 
-	log.Info("Starting Synkronus API server", "version", "1.0.0")
+	log.Info("Starting Synkronus API server", "version", "1.0.22")
 	log.Info("Configuration loaded from", "source", cfg.Source)
 	log.Debug("Configuration details", "port", cfg.Port, "logLevel", cfg.LogLevel, "appBundlePath", cfg.AppBundlePath)
 
@@ -61,18 +61,21 @@ func main() {
 	dbConfig.ConnectionString = cfg.DatabaseURL
 	dbConfig.MigrationsFS = migrations.GetFS()
 
+	log.Info("Initializing database connection", "connection_string", cfg.DatabaseURL)
 	db, err := database.New(dbConfig, log)
 	if err != nil {
-		log.Error("Failed to initialize database", "error", err)
+		log.Error("Failed to initialize database", "error", err, "error_type", fmt.Sprintf("%T", err), "error_string", err.Error(), "connection_string", cfg.DatabaseURL)
 		os.Exit(1)
 	}
 	defer db.Close()
 
 	// Run database migrations
+	log.Info("Starting database migrations...")
 	if err := db.Migrate(); err != nil {
-		log.Error("Failed to run database migrations", "error", err)
+		log.Error("Failed to run database migrations", "error", err, "error_type", fmt.Sprintf("%T", err), "error_string", err.Error())
 		os.Exit(1)
 	}
+	log.Info("Database migrations completed successfully")
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db, log)
@@ -116,7 +119,7 @@ func main() {
 
 	// Initialize sync service
 	syncConfig := sync.DefaultConfig()
-	
+
 	syncService := sync.NewService(db.DB(), syncConfig, log)
 
 	// Initialize the sync service
