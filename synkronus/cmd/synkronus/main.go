@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -24,6 +25,20 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/version"
 )
 
+func redactPassword(dsn string) string {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		return dsn // fallback: log original string if it can't parse
+	}
+
+	if u.User != nil {
+		if _, hasPwd := u.User.Password(); hasPwd {
+			u.User = url.UserPassword(u.User.Username(), "**REDACTED**")
+		}
+	}
+
+	return u.String()
+}
 func main() {
 	// Load configuration
 	cfg, err := config.Load()
@@ -61,10 +76,10 @@ func main() {
 	dbConfig.ConnectionString = cfg.DatabaseURL
 	dbConfig.MigrationsFS = migrations.GetFS()
 
-	log.Info("Initializing database connection", "connection_string", cfg.DatabaseURL)
+	log.Info("Initializing database connection", "connection_string", redactPassword(cfg.DatabaseURL))
 	db, err := database.New(dbConfig, log)
 	if err != nil {
-		log.Error("Failed to initialize database", "error", err, "error_type", fmt.Sprintf("%T", err), "error_string", err.Error(), "connection_string", cfg.DatabaseURL)
+		log.Error("Failed to initialize database", "error", err, "error_type", fmt.Sprintf("%T", err), "error_string", err.Error(), "connection_string", redactPassword(cfg.DatabaseURL))
 		os.Exit(1)
 	}
 	defer db.Close()
