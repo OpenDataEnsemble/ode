@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Synkronus API
-  version: 1.0.0
+  version: 1.0.2
 paths:
   /health:
     get:
@@ -771,6 +771,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SyncPushResponse'
+
 components:
   schemas:
     SystemVersionInfo:
@@ -967,7 +968,7 @@ components:
         expiresAt:
           type: integer
           format: int64
-    UserResponse:
+    UserResponse:    
       type: object
       required: [username, role, createdAt]
       properties:
@@ -979,6 +980,122 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    SyncPullRequest:
+      type: object
+      required: [client_id]
+      properties:
+        client_id:
+          type: string
+        since:
+          type: object
+          description: Optional pagination cursor indicating the last seen change
+          properties:
+            version:
+              type: integer
+            id:
+              type: string
+        schema_types:
+          type: array
+          items:
+            type: string
+
+    SyncPullResponse:
+      type: object
+      required: [current_version, records, change_cutoff]
+      properties:
+        current_version:
+          type: integer
+          description: Current database version number that increments with each update
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Observation'
+        change_cutoff:
+          type: integer
+          description: Version number of the last change included in this response
+        next_page_token:
+          type: string
+        has_more:
+          type: boolean
+        sync_format_version:
+          type: string
+          example: "1.0"
+
+    SyncPushRequest:
+      type: object
+      required: [transmission_id, client_id, records]
+      properties:
+        transmission_id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/Observation'
+
+    SyncPushResponse:
+      type: object
+      required: [current_version, success_count]
+      properties:
+        current_version:
+          type: integer
+          description: Current database version number after processing the push
+        success_count:
+          type: integer
+        failed_records:
+          type: array
+          items:
+            type: object
+        warnings:
+          type: array
+          items:
+            type: object
+            required: [id, code, message]
+            properties:
+              id:
+                type: string
+              code:
+                type: string
+              message:
+                type: string
+
+    Observation:
+      type: object
+      required:
+        - observation_id
+        - form_type
+        - form_version
+        - data
+        - created_at
+        - updated_at
+        - deleted
+      properties:
+        observation_id:
+          type: string
+        form_type:
+          type: string
+        form_version:
+          type: string
+        data:
+          type: string
+          description: JSON stringified data object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        synced_at:
+          type: string
+          format: date-time
+          nullable: true
+        deleted:
+          type: boolean
+
+
     ProblemDetail:
       type: object
       required: [type, title, status, detail]
@@ -1004,99 +1121,7 @@ components:
                 type: string
               message:
                 type: string
-    SyncPullRequest:
-      type: object
-      required: [client_id]
-      properties:
-        client_id:
-          type: string
-        after_change_id:
-          type: integer
-        schema_types:
-          type: array
-          items:
-            type: string
-    SyncPullResponse:
-      type: object
-      required: [server_time, records, change_cutoff]
-      properties:
-        server_time:
-          type: string
-          format: date-time
-        records:
-          type: array
-          items:
-            $ref: '#/components/schemas/Record'
-        change_cutoff:
-          type: integer
-        next_page_token:
-          type: string
-        has_more:
-          type: boolean
-    SyncPushRequest:
-      type: object
-      required: [transmission_id, client_id, records]
-      properties:
-        transmission_id:
-          type: string
-          format: uuid
-        client_id:
-          type: string
-        records:
-          type: array
-          items:
-            $ref: '#/components/schemas/Record'
-    SyncPushResponse:
-      type: object
-      required: [server_time, success_count]
-      properties:
-        server_time:
-          type: string
-          format: date-time
-        success_count:
-          type: integer
-        failed_records:
-          type: array
-          items:
-            type: object
-        warnings:
-          type: array
-          items:
-            type: object
-            required: [id, code, message]
-            properties:
-              id:
-                type: string
-              code:
-                type: string
-              message:
-                type: string
-    Record:
-      type: object
-      required: [id, schemaType, schemaVersion, data]
-      properties:
-        id:
-          type: string
-        schemaType:
-          type: string
-        schemaVersion:
-          type: string
-        data:
-          type: object
-          additionalProperties: true
-        hash:
-          type: string
-        deleted:
-          type: boolean
-        change_id:
-          type: integer
-        last_modified:
-          type: string
-          format: date-time
-        last_modified_by:
-          type: string
-        origin_client_id:
-          type: string
+
   securitySchemes:
     bearerAuth:
       type: http

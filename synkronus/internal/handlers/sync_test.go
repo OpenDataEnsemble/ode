@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 )
 
 func TestPull(t *testing.T) {
@@ -23,26 +22,27 @@ func TestPull(t *testing.T) {
 		{
 			name: "Valid pull request",
 			requestBody: SyncPullRequest{
-				LastSyncTimestamp: time.Now().Add(-24 * time.Hour).Unix(),
-				DeviceID:          "test-device-id",
-				Metadata:          map[string]string{"version": "1.0.0"},
+				ClientID: "test-client-id",
+				Since: &SyncPullRequestSince{
+					Version: 1,
+					ID:      "test-id",
+				},
+				SchemaTypes: []string{"observation"},
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Pull with ETag (not modified)",
+			name: "Pull without since parameter",
 			requestBody: SyncPullRequest{
-				LastSyncTimestamp: time.Now().Add(-24 * time.Hour).Unix(),
-				DeviceID:          "test-device-id",
+				ClientID:    "test-client-id",
+				SchemaTypes: []string{"observation"},
 			},
-			etagHeader:     "example-etag-value", // This would match the ETag in the handler
-			expectedStatus: http.StatusOK,        // Should be NotModified in real implementation
+			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Missing device ID",
+			name: "Missing client ID",
 			requestBody: SyncPullRequest{
-				LastSyncTimestamp: time.Now().Add(-24 * time.Hour).Unix(),
-				DeviceID:          "",
+				ClientID: "",
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -85,17 +85,14 @@ func TestPull(t *testing.T) {
 				}
 
 				// Verify response fields
-				if pullResp.Timestamp == 0 {
-					t.Error("Expected timestamp to be non-zero")
+				if pullResp.CurrentVersion <= 0 {
+					t.Error("Expected current_version to be positive")
 				}
-				if pullResp.ETag == "" {
-					t.Error("Expected ETag to be non-empty")
+				if pullResp.ChangeCutoff < 0 {
+					t.Error("Expected change_cutoff to be non-negative")
 				}
-
-				// Check ETag header
-				etagHeader := resp.Header.Get("ETag")
-				if etagHeader == "" {
-					t.Error("Expected ETag header to be set")
+				if pullResp.Records == nil {
+					t.Error("Expected records array to be initialized")
 				}
 			}
 		})
@@ -116,29 +113,87 @@ func TestPush(t *testing.T) {
 		{
 			name: "Valid push request",
 			requestBody: SyncPushRequest{
-				DeviceID:  "test-device-id",
-				Timestamp: time.Now().Unix(),
-				Data:      []any{map[string]any{"id": "item1", "value": "test"}},
+				TransmissionID: "test-transmission-123",
+				ClientID:       "test-client-id",
+				Records: []Observation{
+					{
+						ObservationID: "obs-1",
+						FormType:      "survey",
+						FormVersion:   "1.0",
+						Data:          `{"question1": "answer1"}`,
+						CreatedAt:     "2025-06-25T12:00:00Z",
+						UpdatedAt:     "2025-06-25T12:00:00Z",
+						Deleted:       false,
+					},
+				},
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Empty data array",
+			name: "Empty records array",
 			requestBody: SyncPushRequest{
-				DeviceID:  "test-device-id",
-				Timestamp: time.Now().Unix(),
-				Data:      []any{},
+				TransmissionID: "test-transmission-124",
+				ClientID:       "test-client-id",
+				Records:        []Observation{},
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "Missing device ID",
+			name: "Missing transmission ID",
 			requestBody: SyncPushRequest{
-				DeviceID:  "",
-				Timestamp: time.Now().Unix(),
-				Data:      []any{map[string]any{"id": "item1", "value": "test"}},
+				TransmissionID: "",
+				ClientID:       "test-client-id",
+				Records: []Observation{
+					{
+						ObservationID: "obs-1",
+						FormType:      "survey",
+						FormVersion:   "1.0",
+						Data:          `{"question1": "answer1"}`,
+						CreatedAt:     "2025-06-25T12:00:00Z",
+						UpdatedAt:     "2025-06-25T12:00:00Z",
+						Deleted:       false,
+					},
+				},
 			},
 			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Missing client ID",
+			requestBody: SyncPushRequest{
+				TransmissionID: "test-transmission-125",
+				ClientID:       "",
+				Records: []Observation{
+					{
+						ObservationID: "obs-1",
+						FormType:      "survey",
+						FormVersion:   "1.0",
+						Data:          `{"question1": "answer1"}`,
+						CreatedAt:     "2025-06-25T12:00:00Z",
+						UpdatedAt:     "2025-06-25T12:00:00Z",
+						Deleted:       false,
+					},
+				},
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name: "Record with missing observation_id",
+			requestBody: SyncPushRequest{
+				TransmissionID: "test-transmission-126",
+				ClientID:       "test-client-id",
+				Records: []Observation{
+					{
+						ObservationID: "", // Missing observation_id
+						FormType:      "survey",
+						FormVersion:   "1.0",
+						Data:          `{"question1": "answer1"}`,
+						CreatedAt:     "2025-06-25T12:00:00Z",
+						UpdatedAt:     "2025-06-25T12:00:00Z",
+						Deleted:       false,
+					},
+				},
+			},
+			expectedStatus: http.StatusOK, // Should still return OK but with failed records
 		},
 		// Add more test cases as needed
 	}
@@ -176,11 +231,21 @@ func TestPush(t *testing.T) {
 				}
 
 				// Verify response fields
-				if !pushResp.Success {
-					t.Error("Expected success to be true")
+				if pushResp.CurrentVersion <= 0 {
+					t.Error("Expected current_version to be positive")
 				}
-				if pushResp.Timestamp == 0 {
-					t.Error("Expected timestamp to be non-zero")
+				if pushResp.SuccessCount < 0 {
+					t.Error("Expected success_count to be non-negative")
+				}
+				
+				// Check specific test case expectations
+				if tc.name == "Record with missing observation_id" {
+					if len(pushResp.FailedRecords) == 0 {
+						t.Error("Expected failed_records to contain the invalid record")
+					}
+					if pushResp.SuccessCount != 0 {
+						t.Error("Expected success_count to be 0 for invalid records")
+					}
 				}
 			}
 		})
