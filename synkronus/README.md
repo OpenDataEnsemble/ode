@@ -135,7 +135,7 @@ API documentation is generated from the OpenAPI specification in `openapi/synkro
 MIT
 
 ## Dev. notes
-Build with: `go build -o bin/synkronus cmd/synkronus/main.go`
-Run with: `./bin/synkronus` or `go run cmd/synkronus/main.go`
+Build with: `go build -o bin/synkronus.exe cmd/synkronus/main.go`
+Run with: `./bin/synkronus.exe` or `go run cmd/synkronus/main.go`
 
 Icon: configured in versioninfo.json and built with goversioninfo `goversioninfo -o cmd/synkronus/resource.syso` to create a syso file next to main go file.

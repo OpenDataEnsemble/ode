@@ -80,7 +80,8 @@ func main() {
 	db, err := database.New(dbConfig, log)
 	if err != nil {
 		log.Error("Failed to initialize database", "error", err, "error_type", fmt.Sprintf("%T", err), "error_string", err.Error(), "connection_string", redactPassword(cfg.DatabaseURL))
-		os.Exit(1)
+		log.Info("Exiting due to database initialization error")
+		return
 	}
 	defer db.Close()
 
@@ -88,7 +89,8 @@ func main() {
 	log.Info("Starting database migrations...")
 	if err := db.Migrate(); err != nil {
 		log.Error("Failed to run database migrations", "error", err, "error_type", fmt.Sprintf("%T", err), "error_string", err.Error())
-		os.Exit(1)
+		log.Info("Exiting due to database migration error")
+		return
 	}
 	log.Info("Database migrations completed successfully")
 
@@ -115,7 +117,8 @@ func main() {
 	defer cancel()
 	if err := authService.Initialize(ctx); err != nil {
 		log.Error("Failed to initialize auth service", "error", err)
-		os.Exit(1)
+		log.Info("Exiting due to auth service initialization error")
+		return
 	}
 
 	// Initialize app bundle service
@@ -129,7 +132,8 @@ func main() {
 	// Initialize the app bundle service
 	if err := appBundleService.Initialize(ctx); err != nil {
 		log.Error("Failed to initialize app bundle service", "error", err)
-		os.Exit(1)
+		log.Info("Exiting due to app bundle service initialization error")
+		return
 	}
 
 	// Initialize sync service
@@ -140,7 +144,8 @@ func main() {
 	// Initialize the sync service
 	if err := syncService.Initialize(ctx); err != nil {
 		log.Error("Failed to initialize sync service", "error", err)
-		os.Exit(1)
+		log.Info("Exiting due to sync service initialization error")
+		return
 	}
 
 	// Initialize user service
@@ -192,7 +197,8 @@ func main() {
 		log.Info("Server listening", "port", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Error("Server failed to start", "error", err.Error())
-			os.Exit(1)
+			log.Info("Exiting due to server start error")
+			return
 		}
 	}()
 

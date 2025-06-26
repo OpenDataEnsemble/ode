@@ -43,7 +43,7 @@ func (s *Service) Initialize(ctx context.Context) error {
 // GetCurrentVersion returns the current database version
 func (s *Service) GetCurrentVersion(ctx context.Context) (int64, error) {
 	var version int64
-	query := "SELECT version FROM sync_version WHERE id = 1"
+	query := "SELECT current_version FROM sync_version WHERE id = 1"
 
 	err := s.db.QueryRowContext(ctx, query).Scan(&version)
 	if err != nil {
@@ -247,7 +247,7 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 
 	// Get the current version WITHIN the transaction to ensure consistency
 	var currentVersion int64
-	err = tx.QueryRowContext(ctx, "SELECT version FROM sync_version ORDER BY id DESC LIMIT 1").Scan(&currentVersion)
+	err = tx.QueryRowContext(ctx, "SELECT current_version FROM sync_version ORDER BY id DESC LIMIT 1").Scan(&currentVersion)
 	if err != nil {
 		s.log.Error("Failed to get current version within transaction", "error", err)
 		return nil, fmt.Errorf("failed to get current version: %w", err)
