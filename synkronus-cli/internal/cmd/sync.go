@@ -60,7 +60,7 @@ func init() {
 			}
 
 			c := client.NewClient()
-			response, err := c.SyncPull(clientID, afterChangeID, schemaTypesStr, limit, pageToken)
+			response, err := c.SyncPull(clientID, int64(afterChangeID), schemaTypesStr, limit, pageToken)
 			if err != nil {
 				return fmt.Errorf("sync pull failed: %w", err)
 			}

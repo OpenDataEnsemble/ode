@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/auth"
@@ -20,9 +21,9 @@ import (
 type AppBundleChanges struct {
 	CurrentVersion string                   `json:"current_version"`
 	TargetVersion  string                   `json:"target_version"`
-	Added         []map[string]interface{} `json:"added"`
-	Modified      []map[string]interface{} `json:"modified"`
-	Removed       []map[string]interface{} `json:"removed"`
+	Added          []map[string]interface{} `json:"added"`
+	Modified       []map[string]interface{} `json:"modified"`
+	Removed        []map[string]interface{} `json:"removed"`
 }
 
 // SystemVersionInfo represents the version information of the Synkronus server
@@ -46,7 +47,7 @@ type DatabaseInfo struct {
 type SystemInfo struct {
 	OS           string `json:"os"`
 	Architecture string `json:"architecture"`
-	CPUs        int    `json:"cpus"`
+	CPUs         int    `json:"cpus"`
 }
 
 type BuildInfo struct {
@@ -179,7 +180,7 @@ func (c *Client) GetAppBundleVersions() (map[string]interface{}, error) {
 // GetAppBundleChanges gets the changes between two app bundle versions
 func (c *Client) GetAppBundleChanges(currentVersion, targetVersion string) (*AppBundleChanges, error) {
 	url := fmt.Sprintf("%s/app-bundle/changes", c.BaseURL)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
@@ -218,9 +219,9 @@ func (c *Client) GetAppBundleChanges(currentVersion, targetVersion string) (*App
 // If preview is true, adds ?preview=true to the request URL
 func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) error {
 	url := fmt.Sprintf("%s/app-bundle/download/%s", c.BaseURL, url.PathEscape(path))
-if preview {
-	url += "?preview=true"
-}
+	if preview {
+		url += "?preview=true"
+	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -351,28 +352,43 @@ func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{},
 }
 
 // SyncPull pulls updated records from the server
-func (c *Client) SyncPull(clientID string, afterChangeID int, schemaTypes []string, limit int, pageToken string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/sync/pull", c.BaseURL)
+func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []string, limit int, pageToken string) (map[string]interface{}, error) {
+	requestURL := fmt.Sprintf("%s/sync/pull", c.BaseURL)
 
-	// Add query parameters
+	// Build query parameters
+	var queryParams []string
 	if limit > 0 {
-		url = fmt.Sprintf("%s?limit=%d", url, limit)
+		queryParams = append(queryParams, fmt.Sprintf("limit=%d", limit))
 	}
-
 	if pageToken != "" {
-		url = fmt.Sprintf("%s&page_token=%s", url, pageToken)
+		queryParams = append(queryParams, fmt.Sprintf("page_token=%s", url.QueryEscape(pageToken)))
+	}
+	if len(schemaTypes) == 1 {
+		// Single schemaType can be passed as query parameter
+		queryParams = append(queryParams, fmt.Sprintf("schemaType=%s", url.QueryEscape(schemaTypes[0])))
+	}
+	
+	if len(queryParams) > 0 {
+		requestURL = fmt.Sprintf("%s?%s", requestURL, strings.Join(queryParams, "&"))
 	}
 
-	// Prepare request body
+	// Prepare request body according to SyncPullRequest schema
 	reqBody := map[string]interface{}{
 		"client_id": clientID,
 	}
 
-	if afterChangeID > 0 {
-		reqBody["after_change_id"] = afterChangeID
+	// Add 'since' object if currentVersion is provided
+	if currentVersion > 0 {
+		reqBody["since"] = map[string]interface{}{
+			"version": currentVersion,
+		}
 	}
 
-	if len(schemaTypes) > 0 {
+	// Add schema_types array if multiple types are specified
+	if len(schemaTypes) > 1 {
+		reqBody["schema_types"] = schemaTypes
+	} else if len(schemaTypes) == 1 && pageToken == "" {
+		// If not added as query param, add to body
 		reqBody["schema_types"] = schemaTypes
 	}
 
@@ -382,12 +398,17 @@ func (c *Client) SyncPull(clientID string, afterChangeID int, schemaTypes []stri
 	}
 
 	// Create request
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+
+	// Add API version header
+	if c.APIVersion != "" {
+		req.Header.Set("x-api-version", c.APIVersion)
+	}
 
 	// Send request
 	resp, err := c.doRequest(req)
