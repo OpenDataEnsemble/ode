@@ -1,0 +1,36 @@
+{
+  "transmission_id": "550e8400-e29b-41d4-a716-446655440004",
+  "client_id": "test-client-001",
+  "records": [
+    {
+      "observation_id": "obs_001",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
+      "data": {
+        "first_name": "Johnny",
+        "last_name": "Depp",
+        "email": "johnny.depp@example.com",
+        "phone": "+1-555-0101",
+        "date_of_birth": "1990-01-15",
+        "gender": "male",
+        "address": {
+          "street": "123 Main St",
+          "city": "Springfield",
+          "state": "IL",
+          "zip_code": "62701",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Lea Depp",
+          "relationship": "spouse",
+          "phone": "+1-555-0102"
+        },
+        "registration_date": "2024-01-15T10:30:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2025-06-27T10:55:58Z"
+    }
+  ]
+}

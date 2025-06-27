@@ -1,10 +1,12 @@
 {
-  "transmission_id": "550e8400-e29b-41d4-a716-446655440000",
+  "transmission_id": "550e8400-e29b-41d4-a716-446655440003",
   "client_id": "test-client-001",
   "records": [
     {
-      "id": "obs_001",
-      "schemaType": "person_registration",
+      "observation_id": "obs_001",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "John",
         "last_name": "Doe",
@@ -31,8 +33,10 @@
       "updated_at": "2024-01-15T10:30:00Z"
     },
     {
-      "id": "obs_002",
-      "schemaType": "person_registration",
+      "observation_id": "obs_002",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Alice",
         "last_name": "Smith",
@@ -59,8 +63,10 @@
       "updated_at": "2024-01-16T14:15:00Z"
     },
     {
-      "id": "obs_003",
-      "schemaType": "person_registration",
+      "observation_id": "obs_003",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Michael",
         "last_name": "Johnson",
@@ -87,8 +93,10 @@
       "updated_at": "2024-01-17T09:45:00Z"
     },
     {
-      "id": "obs_004",
-      "schemaType": "person_registration",
+      "observation_id": "obs_004",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Emily",
         "last_name": "Davis",
@@ -115,8 +123,10 @@
       "updated_at": "2024-01-18T16:20:00Z"
     },
     {
-      "id": "obs_005",
-      "schemaType": "person_registration",
+      "observation_id": "obs_005",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Robert",
         "last_name": "Wilson",
@@ -143,8 +153,10 @@
       "updated_at": "2024-01-19T11:10:00Z"
     },
     {
-      "id": "obs_006",
-      "schemaType": "person_registration",
+      "observation_id": "obs_006",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Jessica",
         "last_name": "Brown",
@@ -171,8 +183,10 @@
       "updated_at": "2024-01-20T13:35:00Z"
     },
     {
-      "id": "obs_007",
-      "schemaType": "person_registration",
+      "observation_id": "obs_007",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Christopher",
         "last_name": "Taylor",
@@ -199,8 +213,10 @@
       "updated_at": "2024-01-21T08:50:00Z"
     },
     {
-      "id": "obs_008",
-      "schemaType": "person_registration",
+      "observation_id": "obs_008",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Amanda",
         "last_name": "Martinez",
@@ -227,8 +243,10 @@
       "updated_at": "2024-01-22T15:25:00Z"
     },
     {
-      "id": "obs_009",
-      "schemaType": "person_registration",
+      "observation_id": "obs_009",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Daniel",
         "last_name": "Anderson",
@@ -255,8 +273,10 @@
       "updated_at": "2024-01-23T12:40:00Z"
     },
     {
-      "id": "obs_010",
-      "schemaType": "person_registration",
+      "observation_id": "obs_010",
+      "form_type": "person_registration",
+      "form_version": "1.0.0",
+      "deleted": false,
       "data": {
         "first_name": "Sarah",
         "last_name": "Thomas",
