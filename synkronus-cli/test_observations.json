@@ -1,0 +1,286 @@
+{
+  "transmission_id": "550e8400-e29b-41d4-a716-446655440000",
+  "client_id": "test-client-001",
+  "records": [
+    {
+      "id": "obs_001",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "John",
+        "last_name": "Doe",
+        "email": "john.doe@example.com",
+        "phone": "+1-555-0101",
+        "date_of_birth": "1990-01-15",
+        "gender": "male",
+        "address": {
+          "street": "123 Main St",
+          "city": "Springfield",
+          "state": "IL",
+          "zip_code": "62701",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Jane Doe",
+          "relationship": "spouse",
+          "phone": "+1-555-0102"
+        },
+        "registration_date": "2024-01-15T10:30:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-01-15T10:30:00Z"
+    },
+    {
+      "id": "obs_002",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Alice",
+        "last_name": "Smith",
+        "email": "alice.smith@example.com",
+        "phone": "+1-555-0201",
+        "date_of_birth": "1985-03-22",
+        "gender": "female",
+        "address": {
+          "street": "456 Oak Ave",
+          "city": "Madison",
+          "state": "WI",
+          "zip_code": "53703",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Bob Smith",
+          "relationship": "husband",
+          "phone": "+1-555-0202"
+        },
+        "registration_date": "2024-01-16T14:15:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-16T14:15:00Z",
+      "updated_at": "2024-01-16T14:15:00Z"
+    },
+    {
+      "id": "obs_003",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Michael",
+        "last_name": "Johnson",
+        "email": "michael.johnson@example.com",
+        "phone": "+1-555-0301",
+        "date_of_birth": "1992-07-08",
+        "gender": "male",
+        "address": {
+          "street": "789 Pine Rd",
+          "city": "Austin",
+          "state": "TX",
+          "zip_code": "73301",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Sarah Johnson",
+          "relationship": "sister",
+          "phone": "+1-555-0302"
+        },
+        "registration_date": "2024-01-17T09:45:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-17T09:45:00Z",
+      "updated_at": "2024-01-17T09:45:00Z"
+    },
+    {
+      "id": "obs_004",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Emily",
+        "last_name": "Davis",
+        "email": "emily.davis@example.com",
+        "phone": "+1-555-0401",
+        "date_of_birth": "1988-11-30",
+        "gender": "female",
+        "address": {
+          "street": "321 Elm St",
+          "city": "Denver",
+          "state": "CO",
+          "zip_code": "80202",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "David Davis",
+          "relationship": "father",
+          "phone": "+1-555-0402"
+        },
+        "registration_date": "2024-01-18T16:20:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-18T16:20:00Z",
+      "updated_at": "2024-01-18T16:20:00Z"
+    },
+    {
+      "id": "obs_005",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Robert",
+        "last_name": "Wilson",
+        "email": "robert.wilson@example.com",
+        "phone": "+1-555-0501",
+        "date_of_birth": "1975-05-12",
+        "gender": "male",
+        "address": {
+          "street": "654 Maple Dr",
+          "city": "Seattle",
+          "state": "WA",
+          "zip_code": "98101",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Linda Wilson",
+          "relationship": "wife",
+          "phone": "+1-555-0502"
+        },
+        "registration_date": "2024-01-19T11:10:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-19T11:10:00Z",
+      "updated_at": "2024-01-19T11:10:00Z"
+    },
+    {
+      "id": "obs_006",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Jessica",
+        "last_name": "Brown",
+        "email": "jessica.brown@example.com",
+        "phone": "+1-555-0601",
+        "date_of_birth": "1993-09-25",
+        "gender": "female",
+        "address": {
+          "street": "987 Cedar Ln",
+          "city": "Miami",
+          "state": "FL",
+          "zip_code": "33101",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Mark Brown",
+          "relationship": "brother",
+          "phone": "+1-555-0602"
+        },
+        "registration_date": "2024-01-20T13:35:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-20T13:35:00Z",
+      "updated_at": "2024-01-20T13:35:00Z"
+    },
+    {
+      "id": "obs_007",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Christopher",
+        "last_name": "Taylor",
+        "email": "christopher.taylor@example.com",
+        "phone": "+1-555-0701",
+        "date_of_birth": "1987-12-03",
+        "gender": "male",
+        "address": {
+          "street": "147 Birch Ave",
+          "city": "Portland",
+          "state": "OR",
+          "zip_code": "97201",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Amanda Taylor",
+          "relationship": "wife",
+          "phone": "+1-555-0702"
+        },
+        "registration_date": "2024-01-21T08:50:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-21T08:50:00Z",
+      "updated_at": "2024-01-21T08:50:00Z"
+    },
+    {
+      "id": "obs_008",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Amanda",
+        "last_name": "Martinez",
+        "email": "amanda.martinez@example.com",
+        "phone": "+1-555-0801",
+        "date_of_birth": "1991-04-18",
+        "gender": "female",
+        "address": {
+          "street": "258 Spruce St",
+          "city": "Phoenix",
+          "state": "AZ",
+          "zip_code": "85001",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Carlos Martinez",
+          "relationship": "husband",
+          "phone": "+1-555-0802"
+        },
+        "registration_date": "2024-01-22T15:25:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-22T15:25:00Z",
+      "updated_at": "2024-01-22T15:25:00Z"
+    },
+    {
+      "id": "obs_009",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Daniel",
+        "last_name": "Anderson",
+        "email": "daniel.anderson@example.com",
+        "phone": "+1-555-0901",
+        "date_of_birth": "1989-08-14",
+        "gender": "male",
+        "address": {
+          "street": "369 Willow Way",
+          "city": "Boston",
+          "state": "MA",
+          "zip_code": "02101",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "Michelle Anderson",
+          "relationship": "mother",
+          "phone": "+1-555-0902"
+        },
+        "registration_date": "2024-01-23T12:40:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-23T12:40:00Z",
+      "updated_at": "2024-01-23T12:40:00Z"
+    },
+    {
+      "id": "obs_010",
+      "schemaType": "person_registration",
+      "data": {
+        "first_name": "Sarah",
+        "last_name": "Thomas",
+        "email": "sarah.thomas@example.com",
+        "phone": "+1-555-1001",
+        "date_of_birth": "1994-02-28",
+        "gender": "female",
+        "address": {
+          "street": "741 Poplar Pl",
+          "city": "Atlanta",
+          "state": "GA",
+          "zip_code": "30301",
+          "country": "USA"
+        },
+        "emergency_contact": {
+          "name": "James Thomas",
+          "relationship": "father",
+          "phone": "+1-555-1002"
+        },
+        "registration_date": "2024-01-24T17:55:00Z",
+        "status": "active"
+      },
+      "created_at": "2024-01-24T17:55:00Z",
+      "updated_at": "2024-01-24T17:55:00Z"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/HelloSapiens/collectivus/synkronus-cli/pkg/client"
 	"github.com/google/uuid"
@@ -21,10 +22,17 @@ func init() {
 
 	// Pull command
 	pullCmd := &cobra.Command{
-		Use:   "pull",
+		Use:   "pull [output_file]",
 		Short: "Pull data from the server",
-		Long:  `Pull updated records from the Synkronus API server.`,
+		Long:  `Pull updated records from the Synkronus API server and save the response to a file.
+
+Examples:
+  synk sync pull output.json --client-id my-client
+  synk sync pull data.json --client-id my-client --current-version 123 --limit 100`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			outputFile := args[0]
+
 			clientID, err := cmd.Flags().GetString("client-id")
 			if err != nil {
 				return err
@@ -34,7 +42,7 @@ func init() {
 				return fmt.Errorf("client-id is required")
 			}
 
-			afterChangeID, err := cmd.Flags().GetInt("after-change-id")
+			currentVersion, err := cmd.Flags().GetInt64("current-version")
 			if err != nil {
 				return err
 			}
@@ -54,80 +62,61 @@ func init() {
 				return err
 			}
 
-			outputFile, err := cmd.Flags().GetString("output")
-			if err != nil {
-				return err
+			fmt.Printf("Pulling data from Synkronus API...\n")
+			fmt.Printf("Client ID: %s\n", clientID)
+			if currentVersion > 0 {
+				fmt.Printf("Current Version: %d\n", currentVersion)
+			}
+			if len(schemaTypesStr) > 0 {
+				fmt.Printf("Schema Types: %s\n", strings.Join(schemaTypesStr, ", "))
+			}
+			if limit > 0 {
+				fmt.Printf("Limit: %d\n", limit)
+			}
+			if pageToken != "" {
+				fmt.Printf("Page Token: %s\n", pageToken)
 			}
 
 			c := client.NewClient()
-			response, err := c.SyncPull(clientID, int64(afterChangeID), schemaTypesStr, limit, pageToken)
+			response, err := c.SyncPull(clientID, currentVersion, schemaTypesStr, limit, pageToken)
 			if err != nil {
 				return fmt.Errorf("sync pull failed: %w", err)
 			}
 
-			// Format output as JSON
-			jsonOutput, err := cmd.Flags().GetBool("json")
+			// Save response to file
+			jsonData, err := json.MarshalIndent(response, "", "  ")
 			if err != nil {
-				return err
+				return fmt.Errorf("error formatting JSON: %w", err)
 			}
 
-			if jsonOutput {
-				jsonData, err := json.MarshalIndent(response, "", "  ")
-				if err != nil {
-					return fmt.Errorf("error formatting JSON: %w", err)
-				}
-				
-				if outputFile != "" {
-					if err := os.WriteFile(outputFile, jsonData, 0644); err != nil {
-						return fmt.Errorf("error writing to file: %w", err)
-					}
-					fmt.Printf("Response written to %s\n", outputFile)
-				} else {
-					fmt.Println(string(jsonData))
-				}
-				return nil
+			if err := os.WriteFile(outputFile, jsonData, 0644); err != nil {
+				return fmt.Errorf("error writing to file: %w", err)
 			}
 
-			// Display formatted output
-			fmt.Println("Sync Pull Results:")
-			fmt.Printf("Server Time: %s\n", response["server_time"])
-			fmt.Printf("Change Cutoff: %v\n", response["change_cutoff"])
-			
-			records, ok := response["records"].([]interface{})
-			if ok {
-				fmt.Printf("Records: %d\n", len(records))
-				for i, record := range records {
-					if i >= 5 && !cmd.Flags().Changed("all") {
-						fmt.Printf("... and %d more records (use --all to show all)\n", len(records)-5)
-						break
-					}
-					
-					recordMap, ok := record.(map[string]interface{})
-					if ok {
-						fmt.Printf("  - ID: %s, Type: %s, Version: %s\n", 
-							recordMap["id"], 
-							recordMap["schemaType"], 
-							recordMap["schemaVersion"])
-					}
+			fmt.Printf("\nSync pull completed successfully!\n")
+			fmt.Printf("Response saved to: %s\n", outputFile)
+
+			// Display summary information
+			if currentVersionResp, ok := response["current_version"]; ok {
+				fmt.Printf("Current Version: %v\n", currentVersionResp)
+			}
+			if records, ok := response["records"].([]interface{}); ok {
+				fmt.Printf("Records Retrieved: %d\n", len(records))
+			}
+			if hasMore, ok := response["has_more"].(bool); ok && hasMore {
+				if nextPageToken, ok := response["next_page_token"].(string); ok {
+					fmt.Printf("More data available. Use --page-token=%s for next page\n", nextPageToken)
 				}
 			}
-			
-			if nextPageToken, ok := response["next_page_token"].(string); ok && nextPageToken != "" {
-				fmt.Printf("\nNext Page Token: %s\n", nextPageToken)
-				fmt.Println("Use this token with --page-token to get the next page of results")
-			}
-			
+
 			return nil
 		},
 	}
 	pullCmd.Flags().String("client-id", "", "Client ID for synchronization (required)")
-	pullCmd.Flags().Int("after-change-id", 0, "Only return records with change_id greater than this value")
-	pullCmd.Flags().StringSlice("schema-types", []string{}, "Filter by schema types")
-	pullCmd.Flags().Int("limit", 50, "Maximum number of records to return")
+	pullCmd.Flags().Int64("current-version", 0, "Current version number for incremental sync")
+	pullCmd.Flags().StringSlice("schema-types", []string{}, "Comma-separated list of schema types to filter")
+	pullCmd.Flags().Int("limit", 0, "Maximum number of records to return")
 	pullCmd.Flags().String("page-token", "", "Pagination token from previous response")
-	pullCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
-	pullCmd.Flags().Bool("all", false, "Show all records in response")
-	pullCmd.Flags().StringP("output", "o", "", "Write response to file instead of stdout")
 	pullCmd.MarkFlagRequired("client-id")
 	syncCmd.AddCommand(pullCmd)
 
