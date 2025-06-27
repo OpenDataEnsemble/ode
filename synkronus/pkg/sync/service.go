@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lib/pq"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
@@ -91,7 +92,7 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 		queryBuilder.WriteString(" AND form_type = ANY($")
 		queryBuilder.WriteString(strconv.Itoa(argIndex))
 		queryBuilder.WriteString(")")
-		args = append(args, schemaTypes)
+		args = append(args, pq.Array(schemaTypes))
 		argIndex++
 	}
 
@@ -117,7 +118,9 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 	args = append(args, limit+1)
 
 	// Execute query
-	rows, err := s.db.QueryContext(ctx, queryBuilder.String(), args...)
+	sqlStmt := queryBuilder.String()
+	s.log.Debug("SQL query", "sql", sqlStmt, "args", args)
+	rows, err := s.db.QueryContext(ctx, sqlStmt, args...)
 	if err != nil {
 		s.log.Error("Failed to query observations", "error", err)
 		return nil, fmt.Errorf("failed to query observations: %w", err)
@@ -193,7 +196,11 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 		s.log.Error("Failed to begin transaction", "error", err)
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			s.log.Error("Failed to rollback transaction", "error", err)
+		}
+	}()
 
 	for i, record := range records {
 		// Validate required fields

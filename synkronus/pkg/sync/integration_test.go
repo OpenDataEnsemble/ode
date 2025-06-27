@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"testing"
@@ -40,7 +41,7 @@ func TestDatabaseIntegration_VersionIncrement(t *testing.T) {
 		ObservationID: "test-obs-version-1",
 		FormType:      "survey",
 		FormVersion:   "1.0",
-		Data:          `{"field1": "value1"}`,
+		Data:          json.RawMessage(`{"field1": "value1"}`),
 		CreatedAt:     time.Now().Format(time.RFC3339),
 		UpdatedAt:     time.Now().Format(time.RFC3339),
 		Deleted:       false,
@@ -75,7 +76,7 @@ func TestDatabaseIntegration_VersionIncrement(t *testing.T) {
 
 	// Test update operation also increments version
 	updateRecord := testRecord
-	updateRecord.Data = `{"field1": "updated_value"}`
+	updateRecord.Data = json.RawMessage(`{"field1": "updated_value"}`)
 	updateRecord.UpdatedAt = time.Now().Format(time.RFC3339)
 
 	updateResult, err := service.ProcessPushedRecords(ctx, []Observation{updateRecord}, "test-client", "test-transmission-2")
@@ -119,7 +120,7 @@ func TestDatabaseIntegration_TransactionRollback(t *testing.T) {
 			ObservationID: "valid-obs-rollback",
 			FormType:      "survey",
 			FormVersion:   "1.0",
-			Data:          `{"field1": "value1"}`,
+			Data:          json.RawMessage(`{"field1": "value1"}`),
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			UpdatedAt:     time.Now().Format(time.RFC3339),
 			Deleted:       false,
@@ -128,7 +129,7 @@ func TestDatabaseIntegration_TransactionRollback(t *testing.T) {
 			ObservationID: "", // Invalid - empty ID should cause validation error
 			FormType:      "survey",
 			FormVersion:   "1.0",
-			Data:          `{"field1": "value1"}`,
+			Data:          json.RawMessage(`{"field1": "value1"}`),
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			UpdatedAt:     time.Now().Format(time.RFC3339),
 			Deleted:       false,
@@ -212,7 +213,7 @@ func TestDatabaseIntegration_ConcurrentAccess(t *testing.T) {
 					ObservationID: fmt.Sprintf("concurrent-obs-%d-%d", id, j),
 					FormType:      "survey",
 					FormVersion:   "1.0",
-					Data:          fmt.Sprintf(`{"goroutine": %d, "record": %d}`, id, j),
+					Data:          json.RawMessage(fmt.Sprintf(`{"goroutine": %d, "record": %d}`, id, j)),
 					CreatedAt:     time.Now().Format(time.RFC3339),
 					UpdatedAt:     time.Now().Format(time.RFC3339),
 					Deleted:       false,
@@ -324,7 +325,7 @@ func TestDatabaseIntegration_VersionConsistency(t *testing.T) {
 			ObservationID: fmt.Sprintf("consistency-obs-%d", i),
 			FormType:      "survey",
 			FormVersion:   "1.0",
-			Data:          fmt.Sprintf(`{"operation": %d}`, i),
+			Data:          json.RawMessage(fmt.Sprintf(`{"operation": %d}`, i)),
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			UpdatedAt:     time.Now().Format(time.RFC3339),
 			Deleted:       false,

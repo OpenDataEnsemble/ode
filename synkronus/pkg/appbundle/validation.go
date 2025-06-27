@@ -75,9 +75,10 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 			parts := strings.Split(file.Name, "/")
 			if len(parts) >= 3 {
 				formName := parts[1]
-				if parts[2] == "schema.json" {
+				switch parts[2] {
+				case "schema.json":
 					hasFormSchema[formName] = true
-				} else if parts[2] == "ui.json" {
+				case "ui.json":
 					hasFormUI[formName] = true
 				}
 			}

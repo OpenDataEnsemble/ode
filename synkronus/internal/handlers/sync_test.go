@@ -132,7 +132,7 @@ func TestPush(t *testing.T) {
 						ObservationID: "obs-1",
 						FormType:      "survey",
 						FormVersion:   "1.0",
-						Data:          `{"question1": "answer1"}`,
+						Data:          json.RawMessage(`{"question1": "answer1"}`),
 						CreatedAt:     "2025-06-25T12:00:00Z",
 						UpdatedAt:     "2025-06-25T12:00:00Z",
 						Deleted:       false,
@@ -160,7 +160,7 @@ func TestPush(t *testing.T) {
 						ObservationID: "obs-1",
 						FormType:      "survey",
 						FormVersion:   "1.0",
-						Data:          `{"question1": "answer1"}`,
+						Data:          json.RawMessage(`{"question1": "answer1"}`),
 						CreatedAt:     "2025-06-25T12:00:00Z",
 						UpdatedAt:     "2025-06-25T12:00:00Z",
 						Deleted:       false,
@@ -179,7 +179,7 @@ func TestPush(t *testing.T) {
 						ObservationID: "obs-1",
 						FormType:      "survey",
 						FormVersion:   "1.0",
-						Data:          `{"question1": "answer1"}`,
+						Data:          json.RawMessage(`{"question1": "answer1"}`),
 						CreatedAt:     "2025-06-25T12:00:00Z",
 						UpdatedAt:     "2025-06-25T12:00:00Z",
 						Deleted:       false,
@@ -198,7 +198,7 @@ func TestPush(t *testing.T) {
 						ObservationID: "", // Missing observation_id
 						FormType:      "survey",
 						FormVersion:   "1.0",
-						Data:          `{"question1": "answer1"}`,
+						Data:          json.RawMessage(`{"question1": "answer1"}`),
 						CreatedAt:     "2025-06-25T12:00:00Z",
 						UpdatedAt:     "2025-06-25T12:00:00Z",
 						Deleted:       false,
@@ -249,7 +249,7 @@ func TestPush(t *testing.T) {
 				if pushResp.SuccessCount < 0 {
 					t.Error("Expected success_count to be non-negative")
 				}
-				
+
 				// Check specific test case expectations
 				if tc.name == "Record with missing observation_id" {
 					if len(pushResp.FailedRecords) == 0 {

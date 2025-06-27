@@ -101,7 +101,7 @@ func TestSyncE2E_PartialFailure(t *testing.T) {
 				ObservationID: "valid-record",
 				FormType:      "observation",
 				FormVersion:   "1.0",
-				Data:          `{"field1": "value1"}`,
+				Data:          json.RawMessage(`{"field1": "value1"}`),
 				CreatedAt:     "2024-01-01T00:00:00Z",
 				UpdatedAt:     "2024-01-01T00:00:00Z",
 			},
@@ -109,7 +109,7 @@ func TestSyncE2E_PartialFailure(t *testing.T) {
 				ObservationID: "", // Invalid - empty ID
 				FormType:      "observation",
 				FormVersion:   "1.0",
-				Data:          `{"field2": "value2"}`,
+				Data:          json.RawMessage(`{"field2": "value2"}`),
 				CreatedAt:     "2024-01-01T00:00:00Z",
 				UpdatedAt:     "2024-01-01T00:00:00Z",
 			},
@@ -174,7 +174,7 @@ func TestSyncE2E_SchemaTypeFiltering(t *testing.T) {
 				ObservationID: "survey-record",
 				FormType:      "survey",
 				FormVersion:   "1.0",
-				Data:          `{"question": "How are you?"}`,
+				Data:          json.RawMessage(`{"question": "How are you?"}`),
 				CreatedAt:     "2024-01-01T00:00:00Z",
 				UpdatedAt:     "2024-01-01T00:00:00Z",
 			},
@@ -280,7 +280,7 @@ func createTestServerWithDB(t *testing.T, db *sql.DB) *httptest.Server {
 
 	// Create router with authentication middleware
 	mux := http.NewServeMux()
-	
+
 	// Wrap sync endpoints with auth middleware
 	authMiddleware := authmw.AuthMiddleware(&mockAuthService{}, log)
 	mux.Handle("/sync/pull", authMiddleware(http.HandlerFunc(handler.Pull)))
@@ -296,18 +296,20 @@ func (m *mockAuthService) Config() auth.Config { return auth.Config{} }
 func (m *mockAuthService) Authenticate(ctx context.Context, username, password string) (*models.User, error) {
 	return &models.User{ID: uuid.New(), Username: username, Role: models.RoleReadWrite}, nil
 }
-func (m *mockAuthService) GenerateToken(user *models.User) (string, error)        { return "token", nil }
-func (m *mockAuthService) GenerateRefreshToken(user *models.User) (string, error) { return "refresh", nil }
+func (m *mockAuthService) GenerateToken(user *models.User) (string, error) { return "token", nil }
+func (m *mockAuthService) GenerateRefreshToken(user *models.User) (string, error) {
+	return "refresh", nil
+}
 func (m *mockAuthService) RefreshToken(ctx context.Context, refreshToken string) (string, string, error) {
 	return "new-token", "new-refresh", nil
 }
 func (m *mockAuthService) ValidateToken(tokenString string) (*auth.AuthClaims, error) {
 	return &auth.AuthClaims{Username: "test", Role: models.RoleReadWrite}, nil
 }
-func (m *mockAuthService) Initialize(ctx context.Context) error                   { return nil }
-func (m *mockAuthService) HashPassword(password string) (string, error)          { return "hash", nil }
-func (m *mockAuthService) CheckPasswordHash(password, hash string) bool          { return true }
-func (m *mockAuthService) VerifyPassword(password, hash string) bool             { return true }
+func (m *mockAuthService) Initialize(ctx context.Context) error         { return nil }
+func (m *mockAuthService) HashPassword(password string) (string, error) { return "hash", nil }
+func (m *mockAuthService) CheckPasswordHash(password, hash string) bool { return true }
+func (m *mockAuthService) VerifyPassword(password, hash string) bool    { return true }
 
 type mockAppBundleService struct{}
 

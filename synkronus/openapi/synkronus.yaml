@@ -1080,8 +1080,8 @@ components:
         form_version:
           type: string
         data:
-          type: string
-          description: JSON stringified data object
+          type: object
+          description: Arbitrary JSON object containing form data
         created_at:
           type: string
           format: date-time

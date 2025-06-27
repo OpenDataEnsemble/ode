@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 )
 
@@ -19,16 +20,16 @@ var (
 
 // Observation represents a synchronized observation record
 type Observation struct {
-	ID            string  `json:"id" db:"id"`
-	ObservationID string  `json:"observation_id" db:"observation_id"`
-	FormType      string  `json:"form_type" db:"form_type"`
-	FormVersion   string  `json:"form_version" db:"form_version"`
-	Data          string  `json:"data" db:"data"`
-	CreatedAt     string  `json:"created_at" db:"created_at"`
-	UpdatedAt     string  `json:"updated_at" db:"updated_at"`
-	SyncedAt      *string `json:"synced_at,omitempty" db:"synced_at"`
-	Deleted       bool    `json:"deleted" db:"deleted"`
-	Version       int64   `json:"version" db:"version"`
+	ID            string          `json:"id" db:"id"`
+	ObservationID string          `json:"observation_id" db:"observation_id"`
+	FormType      string          `json:"form_type" db:"form_type"`
+	FormVersion   string          `json:"form_version" db:"form_version"`
+	Data          json.RawMessage `json:"data" db:"data"`
+	CreatedAt     string          `json:"created_at" db:"created_at"`
+	UpdatedAt     string          `json:"updated_at" db:"updated_at"`
+	SyncedAt      *string         `json:"synced_at,omitempty" db:"synced_at"`
+	Deleted       bool            `json:"deleted" db:"deleted"`
+	Version       int64           `json:"version" db:"version"`
 }
 
 // SyncPullCursor represents pagination cursor for sync pull operations
@@ -47,10 +48,10 @@ type SyncResult struct {
 
 // SyncPushResult represents the result of a sync push operation
 type SyncPushResult struct {
-	CurrentVersion int64                      `json:"current_version"`
-	SuccessCount   int                        `json:"success_count"`
-	FailedRecords  []map[string]interface{}   `json:"failed_records,omitempty"`
-	Warnings       []SyncWarning              `json:"warnings,omitempty"`
+	CurrentVersion int64                    `json:"current_version"`
+	SuccessCount   int                      `json:"success_count"`
+	FailedRecords  []map[string]interface{} `json:"failed_records,omitempty"`
+	Warnings       []SyncWarning            `json:"warnings,omitempty"`
 }
 
 // SyncWarning represents a warning during sync operations

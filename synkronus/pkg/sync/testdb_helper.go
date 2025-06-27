@@ -78,7 +78,9 @@ func SetupTestDatabase(t *testing.T) (*sql.DB, func()) {
 
 	cleanup := func() {
 		if db != nil {
-			ResetTestData(db)
+			if err := ResetTestData(db); err != nil {
+				t.Errorf("Failed to reset test data: %v", err)
+			}
 			db.Close()
 		}
 	}
@@ -122,7 +124,7 @@ func ensureTestSchema(db *sql.DB) error {
 	syncVersionSQL := `
 		CREATE TABLE sync_version (
 			id SERIAL PRIMARY KEY,
-			version BIGINT NOT NULL DEFAULT 1,
+			current_version BIGINT NOT NULL DEFAULT 1,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
 	`
@@ -131,23 +133,29 @@ func ensureTestSchema(db *sql.DB) error {
 	}
 
 	// Insert initial version
-	if _, err := db.Exec("INSERT INTO sync_version (version) VALUES (1)"); err != nil {
+	if _, err := db.Exec("INSERT INTO sync_version (current_version) VALUES (1)"); err != nil {
 		return fmt.Errorf("failed to insert initial version: %w", err)
+	}
+
+	// Enable UUID extension
+	_, err := db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`)
+	if err != nil {
+		return fmt.Errorf("failed to enable uuid-ossp extension: %w", err)
 	}
 
 	// Create observations table
 	observationsSQL := `
 		CREATE TABLE observations (
-			id SERIAL PRIMARY KEY,
+			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
 			observation_id VARCHAR(255) UNIQUE NOT NULL,
-			form_type VARCHAR(100),
-			form_version VARCHAR(50),
-			data TEXT,
-			created_at TIMESTAMP,
-			updated_at TIMESTAMP,
-			synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			deleted BOOLEAN DEFAULT FALSE,
-			version BIGINT DEFAULT 0
+			form_type VARCHAR(255) NOT NULL,
+			form_version VARCHAR(50) NOT NULL,
+			data JSONB NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+			synced_at TIMESTAMP WITH TIME ZONE,
+			deleted BOOLEAN NOT NULL DEFAULT FALSE,
+			version BIGINT NOT NULL DEFAULT 1
 		)
 	`
 	if _, err := db.Exec(observationsSQL); err != nil {
@@ -158,8 +166,8 @@ func ensureTestSchema(db *sql.DB) error {
 	triggerFunctionSQL := `
 		CREATE OR REPLACE FUNCTION update_sync_version() RETURNS TRIGGER AS $$
 		BEGIN
-			UPDATE sync_version SET version = version + 1, updated_at = CURRENT_TIMESTAMP;
-			NEW.version = (SELECT version FROM sync_version ORDER BY id DESC LIMIT 1);
+			UPDATE sync_version SET current_version = current_version + 1, updated_at = CURRENT_TIMESTAMP;
+			NEW.version = (SELECT current_version FROM sync_version ORDER BY id DESC LIMIT 1);
 			RETURN NEW;
 		END;
 		$$ LANGUAGE plpgsql;
@@ -189,7 +197,7 @@ func ResetTestData(db *sql.DB) error {
 	}
 
 	// Reset sync version
-	if _, err := db.Exec("UPDATE sync_version SET version = 1, updated_at = CURRENT_TIMESTAMP"); err != nil {
+	if _, err := db.Exec("UPDATE sync_version SET current_version = 1, updated_at = CURRENT_TIMESTAMP"); err != nil {
 		return fmt.Errorf("failed to reset sync version: %w", err)
 	}
 

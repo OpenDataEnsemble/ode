@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -40,7 +41,7 @@ func TestService_VersionIncrement(t *testing.T) {
 		ObservationID: "test-obs-1",
 		FormType:      "survey",
 		FormVersion:   "1.0",
-		Data:          `{"field1": "value1"}`,
+		Data:          json.RawMessage(`{"field1": "value1"}`),
 		CreatedAt:     time.Now().Format(time.RFC3339),
 		UpdatedAt:     time.Now().Format(time.RFC3339),
 		Deleted:       false,
@@ -99,7 +100,7 @@ func TestService_TransactionRollback(t *testing.T) {
 			ObservationID: "valid-obs",
 			FormType:      "survey",
 			FormVersion:   "1.0",
-			Data:          `{"field1": "value1"}`,
+			Data:          json.RawMessage(`{"field1": "value1"}`),
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			UpdatedAt:     time.Now().Format(time.RFC3339),
 			Deleted:       false,
@@ -108,7 +109,7 @@ func TestService_TransactionRollback(t *testing.T) {
 			ObservationID: "", // Invalid - empty ID
 			FormType:      "survey",
 			FormVersion:   "1.0",
-			Data:          `{"field1": "value1"}`,
+			Data:          json.RawMessage(`{"field1": "value1"}`),
 			CreatedAt:     time.Now().Format(time.RFC3339),
 			UpdatedAt:     time.Now().Format(time.RFC3339),
 			Deleted:       false,
@@ -170,7 +171,7 @@ func TestService_ConcurrentAccess(t *testing.T) {
 					ObservationID: fmt.Sprintf("concurrent-obs-%d-%d", id, j),
 					FormType:      "survey",
 					FormVersion:   "1.0",
-					Data:          `{"goroutine": ` + fmt.Sprintf("%d", id) + `, "record": ` + fmt.Sprintf("%d", j) + `}`,
+					Data:          json.RawMessage(fmt.Sprintf(`{"goroutine": %d, "record": %d}`, id, j)),
 					CreatedAt:     time.Now().Format(time.RFC3339),
 					UpdatedAt:     time.Now().Format(time.RFC3339),
 					Deleted:       false,
