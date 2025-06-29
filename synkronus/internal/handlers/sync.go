@@ -100,7 +100,7 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 	// Set next page token if there are more records
 	if result.HasMore && len(result.Records) > 0 {
 		lastRecord := result.Records[len(result.Records)-1]
-		nextPageToken := strconv.FormatInt(lastRecord.Version, 10) + ":" + lastRecord.ID
+		nextPageToken := strconv.FormatInt(lastRecord.Version, 10) + ":" + lastRecord.ObservationID
 		response.NextPageToken = &nextPageToken
 	}
 

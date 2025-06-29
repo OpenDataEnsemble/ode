@@ -79,7 +79,7 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 	argIndex := 1
 
 	queryBuilder.WriteString(`
-		SELECT id, observation_id, form_type, form_version, data, 
+		SELECT observation_id, form_type, form_version, data, 
 		       created_at, updated_at, synced_at, deleted, version
 		FROM observations 
 		WHERE version > $`)
@@ -102,15 +102,15 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 		queryBuilder.WriteString(strconv.Itoa(argIndex))
 		queryBuilder.WriteString(" OR (version = $")
 		queryBuilder.WriteString(strconv.Itoa(argIndex))
-		queryBuilder.WriteString(" AND id > $")
+		queryBuilder.WriteString(" AND observation_id > $")
 		queryBuilder.WriteString(strconv.Itoa(argIndex + 1))
 		queryBuilder.WriteString("))")
 		args = append(args, cursor.Version, cursor.Version, cursor.ID)
 		argIndex += 3
 	}
 
-	// Order by version and ID for consistent pagination
-	queryBuilder.WriteString(" ORDER BY version ASC, id ASC")
+	// Order by version and observation_id for consistent pagination
+	queryBuilder.WriteString(" ORDER BY version ASC, observation_id ASC")
 
 	// Add limit + 1 to check if there are more records
 	queryBuilder.WriteString(" LIMIT $")
@@ -133,7 +133,7 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 		var syncedAt sql.NullString
 
 		err := rows.Scan(
-			&obs.ID, &obs.ObservationID, &obs.FormType, &obs.FormVersion,
+			&obs.ObservationID, &obs.FormType, &obs.FormVersion,
 			&obs.Data, &obs.CreatedAt, &obs.UpdatedAt, &syncedAt,
 			&obs.Deleted, &obs.Version,
 		)
@@ -232,7 +232,8 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 				form_version = EXCLUDED.form_version,
 				data = EXCLUDED.data,
 				updated_at = EXCLUDED.updated_at,
-				deleted = EXCLUDED.deleted
+				deleted = EXCLUDED.deleted,
+				version = observations.version + 1
 		`
 
 		_, err := tx.ExecContext(ctx, query,

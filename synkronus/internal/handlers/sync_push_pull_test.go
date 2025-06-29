@@ -20,24 +20,22 @@ func TestPushThenPull(t *testing.T) {
 			ClientID:       "test-client",
 			Records: []sync.Observation{
 				{
-					ID:            "test-obs-1",
 					ObservationID: "test-obs-1",
-					FormType:      "test_form",
-					FormVersion:   "1.0",
-					Data:          json.RawMessage(`{"field1":"value1"}`),
-					CreatedAt:     "2025-06-25T12:00:00Z",
-					UpdatedAt:     "2025-06-25T12:00:00Z",
-					Deleted:       false,
+					FormType:     "test_form",
+					FormVersion:  "1.0",
+					Data:         json.RawMessage(`{"field1":"value1"}`),
+					CreatedAt:    "2025-06-25T12:00:00Z",
+					UpdatedAt:    "2025-06-25T12:00:00Z",
+					Deleted:      false,
 				},
 				{
-					ID:            "test-obs-2",
 					ObservationID: "test-obs-2",
-					FormType:      "test_form",
-					FormVersion:   "1.0",
-					Data:          json.RawMessage(`{"field2":"value2"}`),
-					CreatedAt:     "2025-06-25T12:00:00Z",
-					UpdatedAt:     "2025-06-25T12:00:00Z",
-					Deleted:       false,
+					FormType:     "test_form",
+					FormVersion:  "1.0",
+					Data:         json.RawMessage(`{"field2":"value2"}`),
+					CreatedAt:    "2025-06-25T12:00:00Z",
+					UpdatedAt:    "2025-06-25T12:00:00Z",
+					Deleted:      false,
 				},
 			},
 		}
@@ -126,14 +124,13 @@ func TestPushThenPull(t *testing.T) {
 					ClientID:       "test-client",
 					Records: []sync.Observation{
 						{
-							ID:            "test-obs-1",
 							ObservationID: "test-obs-1",
-							FormType:      "test_form",
-							FormVersion:   "1.0",
-							Data:          json.RawMessage(`{"field1":"updated_value1"}`),
-							CreatedAt:     "2025-06-25T12:00:00Z",
-							UpdatedAt:     "2025-06-25T12:05:00Z", // Updated time
-							Deleted:       false,
+							FormType:     "test_form",
+							FormVersion:  "1.0",
+							Data:         json.RawMessage(`{"field1":"updated_value1"}`),
+							CreatedAt:    "2025-06-25T12:00:00Z",
+							UpdatedAt:    "2025-06-25T12:05:00Z", // Updated time
+							Deleted:      false,
 						},
 					},
 				}

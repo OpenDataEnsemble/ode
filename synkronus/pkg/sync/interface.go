@@ -20,8 +20,8 @@ var (
 
 // Observation represents a synchronized observation record
 type Observation struct {
-	ID            string          `json:"id" db:"id"`
-	ObservationID string          `json:"observation_id" db:"observation_id"`
+	// ObservationID is the unique identifier for the observation and is used as the primary key
+	ObservationID string          `json:"observation_id" db:"observation_id,primarykey"`
 	FormType      string          `json:"form_type" db:"form_type"`
 	FormVersion   string          `json:"form_version" db:"form_version"`
 	Data          json.RawMessage `json:"data" db:"data"`
