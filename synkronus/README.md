@@ -130,6 +130,62 @@ Synkronus is designed to be deployed as a single Docker container with multiple 
 
 API documentation is generated from the OpenAPI specification in `openapi/synkronus.yaml`.
 
+## Sync protocol
+
+Attachments (e.g. photos, audio recordings) are **binary blobs** referenced by observations. They are stored and transferred separately from the observation metadata to simplify synchronization, improve offline support, and reduce conflicts.
+
+### Core design principles
+
+- **Immutable attachments**  
+  - Once an attachment is uploaded, it cannot be modified in place.  
+  - Any "update" requires creating a new attachment with a new unique ID (typically a GUID).
+
+- **Separation of concerns**  
+  - Observation records sync via `/sync/pull` and `/sync/push`.  
+  - Attachments are uploaded and downloaded via dedicated endpoints.  
+  - This design ensures simpler, smaller payloads and clearer transaction boundaries.
+
+- **Stateless server**  
+  - The server does not maintain per-client state about which attachments have been uploaded or downloaded.  
+  - Clients manage their own attachment sync state.
+
+### Conflict avoidance
+
+- Because attachment IDs are generated as GUIDs client-side, filename clashes are extremely unlikely.
+- The server can include a simple existence check to reject accidental overwrites.
+
+### Clean-up and maintenance
+
+- Server can run periodic jobs to:
+- Identify orphaned attachments (no observation references).
+- Prune old or unused files.
+- Enforce retention policies.
+
+### Security considerations
+
+- Require authentication (e.g. bearer tokens) for all attachment endpoints.
+- Validate file types and sizes on upload to prevent abuse.
+- Optionally scan files for malware.
+
+### Example implementation notes
+
+- Filesystem storage for MVP:
+- Simple to implement and inspect.
+- Suitable for single-server deployments.
+
+- Cloud object storage (e.g. S3, GCS) for future:
+- Supports presigned URLs for direct client upload/download.
+- Handles scalability and redundancy.
+- Reduces server load.
+
+### Advantages of this server design
+
+- Keeps observation data sync API simple and JSON-only.  
+- Supports large binary payloads without bloating /sync/push or /sync/pull requests.  
+- Encourages incremental, resumable, offline-friendly sync strategies.  
+- Leaves attachment sync policy (e.g. lazy, bulk, partial) up to the client.  
+- Scales from MVP file-system storage to cloud-native solutions.
+
 ## License
 
 MIT

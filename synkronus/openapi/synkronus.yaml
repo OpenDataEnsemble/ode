@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Synkronus API
-  version: 1.0.2
+  version: 1.0.3
 paths:
   /health:
     get:
@@ -771,6 +771,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SyncPushResponse'
+
+  /attachments/{attachment_id}:
+    put:
+      summary: Upload a new attachment with specified ID
+      security:
+        - bearerAuth: [read-write]
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "abc123.jpg"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The binary file to upload
+      responses:
+        '200':
+          description: Successful upload
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+        '400':
+          description: Bad request (missing or invalid file)
+        '401':
+          description: Unauthorized
+        '409':
+          description: Conflict (attachment already exists and cannot be overwritten)
+
+    get:
+      summary: Download an attachment by ID
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "abc123.jpg"
+      responses:
+        '200':
+          description: The binary attachment content
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '404':
+          description: Attachment not found
+
+    head:
+      summary: Check if an attachment exists
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: attachment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "abc123.jpg"
+      responses:
+        '200':
+          description: Attachment exists
+        '401':
+          description: Unauthorized
+        '404':
+          description: Attachment not found
 
 components:
   schemas:

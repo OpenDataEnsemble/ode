@@ -111,6 +111,110 @@ const INJECTION_SCRIPT_PATH = Platform.OS === 'ios'
   1. Running a clean build: `cd android && ./gradlew clean && cd ..`
   2. Rebuilding the app: `npx react-native run-android`
 
+## Synchronization considerations
+
+This section describes the design strategy for synchronizing both *observation records* and their associated *attachments* in the ODE sync protocol.
+
+The key principle is **decoupling metadata sync (observations) from binary payload sync (attachments)** to keep the protocol robust, offline-friendly, and simple to implement.
+
+---
+
+### Two-phase sync
+
+We separate sync into two distinct phases:
+
+- **Phase 1: Observation data sync**
+  - Uses the existing `/sync/pull` and `/sync/push` endpoints.
+  - Syncs only the observation records as JSON (including references to attachment IDs in their `data`).
+
+- **Phase 2: Attachment file sync**
+  - Upload or download attachment files *after* a successful observation sync.
+  - Handles binary data transfers independently.
+
+---
+
+### Immutable attachments
+
+- Attachments are **immutable**: once uploaded, they cannot change.
+- If an attachment needs to be updated, a new GUID/filename is generated and stored in the observation’s `data`.
+- This design prevents conflicts and simplifies syncing.
+
+---
+
+### Local attachment tracking table
+
+To optimize client sync and avoid repeatedly checking the entire observation database, the client maintains a **local table** (e.g. in SQLite or WatermelonDB):
+
+#### Suggested schema:
+
+| Column          | Type      | Description                                      |
+|------------------|-----------|--------------------------------------------------|
+| attachment_id    | String    | Unique ID (e.g. GUID + extension)                |
+| direction        | String    | Either `'upload'` or `'download'`                |
+| synced           | Boolean   | True if successfully uploaded/downloaded         |
+| last_attempt_at  | Timestamp | Optional, for retry logic                        |
+| error_message    | String    | Optional, records the last error if any          |
+
+This table is **client-local only**; the server remains agnostic about the client's attachment sync state.
+
+---
+
+### Upload flow
+
+- When a new observation is saved locally and references a new attachment:
+  - Insert a row in the attachment tracking table with `direction = 'upload'` and `synced = false`.
+
+- The client attachment uploader runs periodically:
+  - Queries for `direction = 'upload' AND synced = false`.
+  - For each record:
+    - Checks that the local file exists.
+    - Uploads it to the server.
+    - Marks `synced = true` on success.
+
+---
+
+### Download flow
+
+- After completing `/sync/pull`, the client receives new or updated observations.
+- It parses the `data` field of those records to extract referenced attachment IDs.
+- For each attachment ID:
+  - Checks if it's already present locally.
+  - If missing, inserts into the tracking table with `direction = 'download'` and `synced = false`.
+
+- The client attachment downloader runs periodically:
+  - Queries for `direction = 'download' AND synced = false`.
+  - For each record:
+    - Downloads the file from the server.
+    - Stores it locally.
+    - Marks `synced = true` on success.
+
+---
+
+### Advantages of this design
+
+- Keeps observation sync and attachment transfer logically separate.  
+- Allows partial or incremental attachment sync.  
+- Supports offline-first workflows.  
+- Minimizes redundant network checks (no repeated HEAD calls).  
+- Enables efficient batching and retry strategies.  
+- Server remains stateless regarding which attachments the client has.
+
+---
+
+### Future enhancements
+
+This approach can evolve to support:
+
+- Hash-based deduplication.  
+- Server-side manifests of missing attachments.  
+- Bucketed storage layout for server files.  
+- Presigned URLs for cloud storage.  
+- Attachment lifecycle policies (e.g. pruning old unused files).  
+- Per-table or per-schema-type attachment sync versions.
+
+This strategy ensures the MVP implementation is **simple yet robust** while leaving the door open for sophisticated future features.
+
+
 # Troubleshooting
 
 If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
