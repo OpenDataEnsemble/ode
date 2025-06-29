@@ -6,7 +6,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **client_id** | **string** |  | [default to undefined]
-**after_change_id** | **number** |  | [optional] [default to undefined]
+**since** | [**SyncPullRequestSince**](SyncPullRequestSince.md) |  | [optional] [default to undefined]
 **schema_types** | **Array&lt;string&gt;** |  | [optional] [default to undefined]
 
 ## Example
@@ -16,7 +16,7 @@ import { SyncPullRequest } from './api';
 
 const instance: SyncPullRequest = {
     client_id,
-    after_change_id,
+    since,
     schema_types,
 };
 ```

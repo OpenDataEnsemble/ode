@@ -7,7 +7,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **transmission_id** | **string** |  | [default to undefined]
 **client_id** | **string** |  | [default to undefined]
-**records** | [**Array&lt;Record&gt;**](Record.md) |  | [default to undefined]
+**records** | [**Array&lt;Observation&gt;**](Observation.md) |  | [default to undefined]
 
 ## Example
 

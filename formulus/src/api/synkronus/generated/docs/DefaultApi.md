@@ -10,6 +10,9 @@ All URIs are relative to *http://localhost*
 |[**appBundlePushPost**](#appbundlepushpost) | **POST** /app-bundle/push | Upload a new app bundle (admin only)|
 |[**appBundleSwitchVersionPost**](#appbundleswitchversionpost) | **POST** /app-bundle/switch/{version} | Switch to a specific app bundle version (admin only)|
 |[**appBundleVersionsGet**](#appbundleversionsget) | **GET** /app-bundle/versions | Get a list of available app bundle versions|
+|[**attachmentsAttachmentIdGet**](#attachmentsattachmentidget) | **GET** /attachments/{attachment_id} | Download an attachment by ID|
+|[**attachmentsAttachmentIdHead**](#attachmentsattachmentidhead) | **HEAD** /attachments/{attachment_id} | Check if an attachment exists|
+|[**attachmentsAttachmentIdPut**](#attachmentsattachmentidput) | **PUT** /attachments/{attachment_id} | Upload a new attachment with specified ID|
 |[**authLoginPost**](#authloginpost) | **POST** /auth/login | Authenticate with the API|
 |[**authRefreshPost**](#authrefreshpost) | **POST** /auth/refresh | Refresh authentication token|
 |[**syncPullPost**](#syncpullpost) | **POST** /sync/pull | Pull updated records since last sync|
@@ -352,6 +355,166 @@ const { status, data } = await apiInstance.appBundleVersionsGet(
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | List of available app bundle versions |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **attachmentsAttachmentIdGet**
+> File attachmentsAttachmentIdGet()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let attachmentId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.attachmentsAttachmentIdGet(
+    attachmentId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **attachmentId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+**File**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/octet-stream
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | The binary attachment content |  -  |
+|**401** | Unauthorized |  -  |
+|**404** | Attachment not found |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **attachmentsAttachmentIdHead**
+> attachmentsAttachmentIdHead()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let attachmentId: string; // (default to undefined)
+
+const { status, data } = await apiInstance.attachmentsAttachmentIdHead(
+    attachmentId
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **attachmentId** | [**string**] |  | defaults to undefined|
+
+
+### Return type
+
+void (empty response body)
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Attachment exists |  -  |
+|**401** | Unauthorized |  -  |
+|**404** | Attachment not found |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **attachmentsAttachmentIdPut**
+> AttachmentsAttachmentIdPut200Response attachmentsAttachmentIdPut()
+
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let attachmentId: string; // (default to undefined)
+let file: File; //The binary file to upload (default to undefined)
+
+const { status, data } = await apiInstance.attachmentsAttachmentIdPut(
+    attachmentId,
+    file
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **attachmentId** | [**string**] |  | defaults to undefined|
+| **file** | [**File**] | The binary file to upload | defaults to undefined|
+
+
+### Return type
+
+**AttachmentsAttachmentIdPut200Response**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: multipart/form-data
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Successful upload |  -  |
+|**400** | Bad request (missing or invalid file) |  -  |
+|**401** | Unauthorized |  -  |
+|**409** | Conflict (attachment already exists and cannot be overwritten) |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

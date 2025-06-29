@@ -5,11 +5,12 @@
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**server_time** | **string** |  | [default to undefined]
-**records** | [**Array&lt;Record&gt;**](Record.md) |  | [default to undefined]
-**change_cutoff** | **number** |  | [default to undefined]
+**current_version** | **number** | Current database version number that increments with each update | [default to undefined]
+**records** | [**Array&lt;Observation&gt;**](Observation.md) |  | [default to undefined]
+**change_cutoff** | **number** | Version number of the last change included in this response | [default to undefined]
 **next_page_token** | **string** |  | [optional] [default to undefined]
 **has_more** | **boolean** |  | [optional] [default to undefined]
+**sync_format_version** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -17,11 +18,12 @@ Name | Type | Description | Notes
 import { SyncPullResponse } from './api';
 
 const instance: SyncPullResponse = {
-    server_time,
+    current_version,
     records,
     change_cutoff,
     next_page_token,
     has_more,
+    sync_format_version,
 };
 ```
 

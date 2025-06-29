@@ -1,6 +1,5 @@
 .gitignore
 .npmignore
-.openapi-generator-ignore
 api.ts
 base.ts
 common.ts
@@ -11,6 +10,7 @@ docs/AppBundleManifest.md
 docs/AppBundlePushResponse.md
 docs/AppBundleSwitchVersionPost200Response.md
 docs/AppBundleVersions.md
+docs/AttachmentsAttachmentIdPut200Response.md
 docs/AuthLoginPostRequest.md
 docs/AuthRefreshPostRequest.md
 docs/AuthResponse.md
@@ -25,11 +25,12 @@ docs/FormModification.md
 docs/HealthApi.md
 docs/HealthGet200Response.md
 docs/HealthGet503Response.md
+docs/Observation.md
 docs/ProblemDetail.md
 docs/ProblemDetailErrorsInner.md
-docs/Record.md
 docs/ServerInfo.md
 docs/SyncPullRequest.md
+docs/SyncPullRequestSince.md
 docs/SyncPullResponse.md
 docs/SyncPushRequest.md
 docs/SyncPushResponse.md
