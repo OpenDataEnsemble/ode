@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/opendataensemble/synkronus/pkg/appbundle"
 	"github.com/opendataensemble/synkronus/pkg/auth"
+	"github.com/opendataensemble/synkronus/pkg/config"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 	"github.com/opendataensemble/synkronus/pkg/user"
@@ -12,6 +13,7 @@ import (
 // Handler manages all API endpoints
 type Handler struct {
 	log              *logger.Logger
+	config           *config.Config
 	authService      auth.AuthServiceInterface
 	appBundleService appbundle.AppBundleServiceInterface
 	syncService      sync.ServiceInterface
@@ -22,6 +24,7 @@ type Handler struct {
 // NewHandler creates a new Handler instance
 func NewHandler(
 	log *logger.Logger,
+	config *config.Config,
 	authService auth.AuthServiceInterface,
 	appBundleService appbundle.AppBundleServiceInterface,
 	syncService sync.ServiceInterface,
@@ -30,6 +33,7 @@ func NewHandler(
 ) *Handler {
 	return &Handler{
 		log:              log,
+		config:           config,
 		authService:      authService,
 		appBundleService: appBundleService,
 		syncService:      syncService,
@@ -41,4 +45,9 @@ func NewHandler(
 // GetAuthService returns the auth service
 func (h *Handler) GetAuthService() auth.AuthServiceInterface {
 	return h.authService
+}
+
+// GetConfig returns the application configuration
+func (h *Handler) GetConfig() *config.Config {
+	return h.config
 }

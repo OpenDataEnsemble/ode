@@ -30,10 +30,12 @@ func TestProtectedEndpoints(t *testing.T) {
 	mockSyncService := mocks.NewMockSyncService()
 	mockUserService := mocks.NewMockUserService()
 	mockVersionService := mocks.NewMockVersionService()
+	mockConfig := mocks.NewTestConfig()
 
 	// Create a mock handler for testing
 	mockHandler := handlers.NewHandler(
 		log,
+		mockConfig,
 		mockAuthService,
 		mockAppBundleService,
 		mockSyncService,

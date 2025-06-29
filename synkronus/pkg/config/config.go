@@ -23,6 +23,9 @@ type Config struct {
 	// Logging
 	LogLevel string
 
+	// File storage
+	DataDir string // Base directory for file storage (attachments, etc.)
+
 	// App Bundle settings
 	AppBundlePath   string
 	MaxVersionsKept int

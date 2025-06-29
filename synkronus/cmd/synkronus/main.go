@@ -165,6 +165,7 @@ func main() {
 	// Initialize handlers
 	h := handlers.NewHandler(
 		log,
+		cfg,
 		authSvc,
 		appBundleSvc,
 		syncSvc,

@@ -102,8 +102,8 @@ func (m *MockSyncService) ProcessPushedRecords(ctx context.Context, records []sy
 		// Basic validation
 		if record.ObservationID == "" {
 			failedRecords = append(failedRecords, map[string]interface{}{
-				"index": i,
-				"error": "observation_id is required",
+				"index":  i,
+				"error":  "observation_id is required",
 				"record": record,
 			})
 			continue

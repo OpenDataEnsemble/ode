@@ -20,6 +20,7 @@ import (
 // userHandlerTestHelper returns a Handler and its MockUserService for user handler tests
 func userHandlerTestHelper() (*Handler, *mocks.MockUserService) {
 	log := logger.NewLogger()
+	mockConfig := mocks.NewTestConfig()
 	mockUserService := mocks.NewMockUserService()
 	mockAuthService := mocks.NewMockAuthService()
 	mockAppBundleService := mocks.NewMockAppBundleService()
@@ -27,6 +28,7 @@ func userHandlerTestHelper() (*Handler, *mocks.MockUserService) {
 	mockVersionService := mocks.NewMockVersionService()
 	return NewHandler(
 		log,
+		mockConfig,
 		mockAuthService,
 		mockAppBundleService,
 		mockSyncService,

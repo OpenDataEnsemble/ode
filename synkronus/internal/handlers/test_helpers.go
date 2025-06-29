@@ -12,6 +12,9 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 	// Create a logger for testing
 	log := logger.NewLogger()
 
+	// Create test config
+	testConfig := mocks.NewTestConfig()
+
 	// Create mock services
 	mockAuthService := mocks.NewMockAuthService()
 	mockAppBundleService := mocks.NewMockAppBundleService()
@@ -28,6 +31,7 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 	// Create a new handler
 	h := NewHandler(
 		log,
+		testConfig,
 		mockAuthService,
 		mockAppBundleService,
 		mockSyncService,

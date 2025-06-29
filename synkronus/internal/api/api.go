@@ -11,6 +11,7 @@ import (
 
 	"github.com/opendataensemble/synkronus/internal/handlers"
 	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 )
@@ -25,7 +26,7 @@ func FileServer(r chi.Router, path string, root http.FileSystem) {
 	}
 	r.Get(path+"*", func(w http.ResponseWriter, r *http.Request) {
 		rctx := chi.RouteContext(r.Context())
-		pathPrefix := filepath.Join(rctx.RoutePattern())
+		pathPrefix := rctx.RoutePattern()
 		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
 		fs.ServeHTTP(w, r)
 	})
@@ -88,10 +89,22 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		r.Post("/refresh", h.RefreshToken)
 	})
 
+	// Create attachment service
+	attachmentService, err := attachment.NewService(h.GetConfig())
+	if err != nil {
+		log.Error("Failed to initialize attachment service", "error", err)
+	}
+
+	// Create attachment handler
+	attachmentHandler := handlers.NewAttachmentHandler(attachmentService)
+
 	// Protected routes - require authentication
 	r.Group(func(r chi.Router) {
 		// Add authentication middleware
 		r.Use(auth.AuthMiddleware(h.GetAuthService(), log))
+
+		// Register attachment routes
+		attachmentHandler.RegisterRoutes(r)
 
 		// Sync routes
 		r.Route("/sync", func(r chi.Router) {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
+	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
 	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/appbundle"
 	"github.com/opendataensemble/synkronus/pkg/auth"
@@ -261,7 +262,7 @@ func TestSyncE2E_SchemaTypeFiltering(t *testing.T) {
 // createTestServerWithDB creates a test HTTP server with proper middleware and routing
 func createTestServerWithDB(t *testing.T, db *sql.DB) *httptest.Server {
 	log := logger.NewLogger()
-
+	mockConfig := mocks.NewTestConfig()
 	// Create sync service with real database
 	syncService := sync.NewService(db, sync.DefaultConfig(), log)
 	if err := syncService.Initialize(context.Background()); err != nil {
@@ -271,6 +272,7 @@ func createTestServerWithDB(t *testing.T, db *sql.DB) *httptest.Server {
 	// Create handler with real sync service and mock other services
 	handler := NewHandler(
 		log,
+		mockConfig,
 		&mockAuthService{},
 		&mockAppBundleService{},
 		syncService,
