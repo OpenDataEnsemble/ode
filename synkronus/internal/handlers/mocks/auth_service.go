@@ -220,18 +220,37 @@ func (m *MockAuthService) ValidateToken(tokenString string) (*auth.AuthClaims, e
 		return nil, errors.New("token is expired")
 	}
 
+	// Special case for admin token
+	if tokenString == "adminToken" {
+		// Get the admin user from the repository
+		user, err := m.userRepository.GetByUsername(context.Background(), "admin")
+		if err != nil || user == nil {
+			return nil, errors.New("admin user not found")
+		}
+		return &auth.AuthClaims{
+			Username: user.Username,
+			Role:     user.Role,
+		}, nil
+	}
+
+	// Special case for read-only token
+	if tokenString == "readOnlyToken" {
+		username := "readonly"
+		user, err := m.userRepository.GetByUsername(context.Background(), username)
+		if err != nil || user == nil {
+			return nil, errors.New("user not found")
+		}
+		return &auth.AuthClaims{
+			Username: user.Username,
+			Role:     user.Role,
+		}, nil
+	}
+
 	// Extract username from token (assuming token format is "mock-jwt-token-for-{username}")
 	var username string
-	switch {
-	case len(tokenString) > 18 && tokenString[:18] == "mock-jwt-token-":
+	if len(tokenString) > 18 && tokenString[:18] == "mock-jwt-token-" {
 		username = tokenString[18:]
-	case tokenString == "readOnlyToken":
-		// Special case for read-only user testing
-		username = "readonly"
-	case tokenString == "adminToken":
-		// Special case for admin user testing
-		username = "admin"
-	default:
+	} else {
 		// For testing, accept any non-empty token that doesn't match the invalid pattern
 		username = "testuser"
 	}

@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,6 +29,10 @@ func TestProtectedEndpoints(t *testing.T) {
 	mockAuthService := mocks.NewMockAuthService()
 	mockAppBundleService := mocks.NewMockAppBundleService()
 	mockSyncService := mocks.NewMockSyncService()
+	// Initialize the sync service
+	if err := mockSyncService.Initialize(context.Background()); err != nil {
+		t.Fatalf("Failed to initialize mock sync service: %v", err)
+	}
 	mockUserService := mocks.NewMockUserService()
 	mockVersionService := mocks.NewMockVersionService()
 	mockConfig := mocks.NewTestConfig()

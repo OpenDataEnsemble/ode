@@ -133,7 +133,17 @@ func (m *MockAppBundleService) GetVersions(ctx context.Context) ([]string, error
 
 // SwitchVersion switches to a specific app bundle version
 func (m *MockAppBundleService) SwitchVersion(ctx context.Context, version string) error {
-	// Not implemented in mock
+	// In a real implementation, this would switch to the specified version
+	// For the mock, we'll just update the manifest's version and timestamp
+	if m.manifest == nil {
+		m.manifest = &appbundle.Manifest{
+			Version:     version,
+			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+		}
+	} else {
+		m.manifest.Version = version
+		m.manifest.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
+	}
 	return nil
 }
 
