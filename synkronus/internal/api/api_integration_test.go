@@ -318,22 +318,12 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 	}
 
-	// Get a valid token for testing (read-write user)
-	readWriteUser := mockAuthService.GetTestUser("testuser")
-	validToken, err := mockAuthService.GenerateToken(&readWriteUser)
-	if err != nil {
-		t.Fatalf("Failed to generate token: %v", err)
-	}
-
-	// For read-only user testing, we'll use a special token that the mock service recognizes
-	readOnlyToken := "readOnlyToken"
-
-	// For admin user testing, we'll use a special token that the mock service recognizes
-	adminToken := "adminToken"
-
 	// For testing, we'll use specific token values that the mock service recognizes
-	invalidToken := "invalid-token" // The mock auth service is configured to reject this
-	expiredToken := "expired-token" // We'll handle this in the test execution
+	validToken := "mock-jwt-token-for-testuser" // Matches the format from GenerateToken
+	readOnlyToken := "readOnlyToken"            // Special token for read-only user
+	adminToken := "adminToken"                  // Special token for admin user
+	invalidToken := "invalid-token"             // The mock auth service is configured to reject this
+	expiredToken := "expired-token"             // We'll handle this in the test execution
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
