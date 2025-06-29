@@ -100,11 +100,11 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 	if cursor != nil {
 		queryBuilder.WriteString(" AND (version > $")
 		queryBuilder.WriteString(strconv.Itoa(argIndex))
-		queryBuilder.WriteString(" OR (version = $")
-		queryBuilder.WriteString(strconv.Itoa(argIndex))
-		queryBuilder.WriteString(" AND observation_id > $")
+		queryBuilder.WriteString("::BIGINT OR (version = $")
 		queryBuilder.WriteString(strconv.Itoa(argIndex + 1))
-		queryBuilder.WriteString("))")
+		queryBuilder.WriteString("::BIGINT AND observation_id > $")
+		queryBuilder.WriteString(strconv.Itoa(argIndex + 2))
+		queryBuilder.WriteString("::VARCHAR))")
 		args = append(args, cursor.Version, cursor.Version, cursor.ID)
 		argIndex += 3
 	}
@@ -113,8 +113,18 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 	queryBuilder.WriteString(" ORDER BY version ASC, observation_id ASC")
 
 	// Add limit + 1 to check if there are more records
+	// Calculate the correct parameter index based on whether we have schema types or not
+	limitParamIndex := 1 // for sinceVersion
+	if len(schemaTypes) > 0 {
+		limitParamIndex = 2 // for sinceVersion and schemaTypes
+	}
+	if cursor != nil {
+		limitParamIndex += 3 // for cursor.Version, cursor.Version, cursor.ID
+	}
+	limitParamIndex++ // for the limit parameter itself
+
 	queryBuilder.WriteString(" LIMIT $")
-	queryBuilder.WriteString(strconv.Itoa(argIndex))
+	queryBuilder.WriteString(strconv.Itoa(limitParamIndex))
 	args = append(args, limit+1)
 
 	// Execute query
