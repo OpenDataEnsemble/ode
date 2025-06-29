@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -13,52 +13,22 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import RNFS from 'react-native-fs';
 import { RootStackParamList } from '../types/NavigationTypes';
 import { synkronusApi } from '../api/synkronus';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SyncScreen = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Ready');
+  const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'Sync'>>();
 
-  const handleSync = async () => {
+  const handleSync = async ()  => {
+    console.log('Syncing...');
     try {
       setIsSyncing(true);
       setStatus('Starting sync...');
-      
-      // Get the manifest
-      setStatus('Fetching manifest...');
-      const manifest = await synkronusApi.getManifest();
-      console.log('Manifest:', manifest);
-
-      // Download form specs
-      setStatus('Downloading form specs...');
-      await synkronusApi.downloadFormSpecs(
-        manifest, 
-        RNFS.DocumentDirectoryPath, 
-        (progress) => {
-          setStatus(`Downloading form specs... ${progress}%`);
-        }
-      );
-      
-      // Download app files
-      setStatus('Downloading app files...');
-      const results = await synkronusApi.downloadAppFiles(
-        manifest, 
-        RNFS.DocumentDirectoryPath, 
-        (progress) => {
-          setStatus(`Downloading app files... ${progress}%`);
-        }
-      );
-      console.log('Download results:', results);
-      // Update UI
-      const syncTime = new Date().toLocaleTimeString();
-      setLastSync(syncTime);
-      setStatus('Sync completed');
-      if (results.some(r => !r.success)) {
-        Alert.alert('Error', 'Failed to sync!\n' + results.filter(r => !r.success).map(r => r.message).join('\n'));
-      } else {
-        Alert.alert('Success', 'Data synchronized successfully');
-      }
+      const version = await synkronusApi.pullObservations();
+      setStatus('Sync completed @ data version ' + version);
     } catch (error) {
       console.error('Sync failed', error);
       setStatus('Sync failed');
@@ -66,7 +36,77 @@ const SyncScreen = () => {
     } finally {
       setIsSyncing(false);
     }
+  }
+
+  const handleCustomAppUpdate = async () => {
+    try {
+      if (updateAvailable) {
+        setIsSyncing(true);
+        setStatus('Starting app bundle sync...');
+        await downloadAppBundle();
+      }
+      const syncTime = new Date().toLocaleTimeString();
+      setLastSync(syncTime);
+      setStatus('App bundle sync completed');
+    } catch (error) {
+      console.error('App sync failed', error);
+      setStatus('App sync failed');
+      Alert.alert('Error', 'Failed to sync app bundle!\n' + error);
+    } finally {
+      setIsSyncing(false);
+    }
   };
+
+  const checkForUpdates = async (force:boolean = false) => {
+    try {
+      const manifest = await synkronusApi.getManifest();
+      const updateAvailable = force || manifest.version !== await AsyncStorage.getItem('@appVersion');
+      setUpdateAvailable(updateAvailable);
+    } catch (error) {
+      console.error('Failed to check for updates', error);
+    }
+    if (updateAvailable) {
+      setStatus('Update available');
+    }
+  };
+
+  const downloadAppBundle = async () => {
+    try {
+      // Get the manifest
+      setStatus('Fetching manifest...');
+      const manifest = await synkronusApi.getManifest();
+      console.log('Manifest:', manifest);
+    
+      // Clean out the existing app bundle
+      await synkronusApi.removeAppBundleFiles();
+
+      // Download form specs
+      setStatus('Downloading form specs...');
+      const formResults = await synkronusApi.downloadFormSpecs(manifest, RNFS.DocumentDirectoryPath, (progress) => setStatus(`Downloading form specs... ${progress}%`));
+      
+      // Download app files
+      setStatus('Downloading app files...');
+      const appResults = await synkronusApi.downloadAppFiles(manifest, RNFS.DocumentDirectoryPath, (progress) => setStatus(`Downloading app files... ${progress}%`));
+
+      const results = [...formResults, ...appResults];
+      console.debug('Download results:', results);
+      if (results.some(r => !r.success)) {
+        Alert.alert('Error', 'Failed to sync!\n' + results.filter(r => !r.success).map(r => r.message).join('\n'));
+      } else {
+        Alert.alert('Success', 'Data synchronized successfully');
+      }
+    } catch (error) {
+      setStatus('Sync failed');
+      Alert.alert('Error', 'Failed to sync!\n' + error);
+    }
+  }
+
+  useEffect(() => {
+    checkForUpdates(true); // force "update available" during testing/development
+    AsyncStorage.setItem('@clientId', 'android-123'); //TODO: Set this is some initial setup routine
+    AsyncStorage.setItem('@last_seen_version', '0'); //TODO: Set this is some initial setup routine
+    AsyncStorage.setItem('@appVersion', '1.0.0'); //TODO: Set this is some initial setup routine
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -92,7 +132,17 @@ const SyncScreen = () => {
             disabled={isSyncing}
           >
             <Text style={styles.buttonText}>
-              {isSyncing ? 'Syncing...' : 'Sync Now'}
+              {isSyncing ? 'Syncing...' : 'Sync data + attachments'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.button, isSyncing  && styles.buttonDisabled]}
+            onPress={handleCustomAppUpdate}
+            disabled={isSyncing || !updateAvailable}
+          >
+            <Text style={styles.buttonText}>
+              {isSyncing ? 'Syncing...' : 'Update forms and custom app'}
             </Text>
           </TouchableOpacity>
         </View>
