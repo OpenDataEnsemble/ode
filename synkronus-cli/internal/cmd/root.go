@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -21,6 +20,49 @@ It provides functionality for authentication, sync operations, app bundle manage
 	}
 )
 
+// completionCmd represents the completion command
+var completionCmd = &cobra.Command{
+	Use:   "completion [bash|zsh|fish|powershell]",
+	Short: "Generate shell completion script",
+	Long: `To load completions for your current shell session, run:
+
+$ source <(synk completion zsh)  # for zsh
+$ source <(synk completion bash)  # for bash
+$ synk completion fish | source  # for fish
+
+To load completions for every new session, execute once:
+
+# Linux:
+$ synk completion bash > /etc/bash_completion.d/synk
+
+# macOS:
+$ synk completion bash > /usr/local/etc/bash_completion.d/synk
+
+# PowerShell:
+PS> synk completion powershell | Out-String | Invoke-Expression
+
+# PowerShell (permanent):
+PS> synk completion powershell > synk.ps1
+# Add this line to your PowerShell profile
+`,
+	DisableFlagsInUseLine: true,
+	ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+	Args:                  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		switch args[0] {
+		case "bash":
+			return cmd.Root().GenBashCompletion(os.Stdout)
+		case "zsh":
+			return cmd.Root().GenZshCompletion(os.Stdout)
+		case "fish":
+			return cmd.Root().GenFishCompletion(os.Stdout, true)
+		case "powershell":
+			return cmd.Root().GenPowerShellCompletionWithDesc(os.Stdout)
+		}
+		return nil
+	},
+}
+
 // Execute executes the root command.
 func Execute() error {
 	return rootCmd.Execute()
@@ -35,6 +77,9 @@ func init() {
 
 	viper.BindPFlag("api.url", rootCmd.PersistentFlags().Lookup("api-url"))
 	viper.BindPFlag("api.version", rootCmd.PersistentFlags().Lookup("api-version"))
+
+	// Add completion command
+	rootCmd.AddCommand(completionCmd)
 
 	// Apply colored help template
 	utils.SetupColoredHelp(rootCmd)
@@ -63,7 +108,7 @@ func initConfig() {
 
 	// If a config file is found, read it in
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Printf("Using config file: %s\n", viper.ConfigFileUsed())
+		//fmt.Printf("# Using config file: %s\n", viper.ConfigFileUsed())
 	} else {
 		// Create default config if it doesn't exist
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {

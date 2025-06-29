@@ -35,6 +35,61 @@ api:
   version: 1.0.0
 ```
 
+## Shell Completion
+
+The Synkronus CLI includes built-in support for shell completion in bash, zsh, fish, and PowerShell.
+Use `synk completion [bash|zsh|fish|powershell]` to generate the completion script. In powershell you can load it directly for the current session with:
+
+```powershell
+.\synk.exe completion powershell | Out-String | Invoke-Expression
+```
+
+### Enabling Shell Completion
+
+#### Bash
+
+```bash
+# For the current session:
+source <(synk completion bash)
+
+# For persistent use (Linux):
+sudo synk completion bash > /etc/bash_completion.d/synk
+
+# For persistent use (macOS):
+synk completion bash > /usr/local/etc/bash_completion.d/synk
+```
+
+#### Zsh
+
+```bash
+# For the current session:
+source <(synk completion zsh)
+
+# For persistent use:
+echo "[[ $commands[synk] ]] && synk completion zsh > "${fpath[1]}/_synk"" >> ~/.zshrc
+```
+
+#### Fish
+
+```bash
+# For the current session:
+synk completion fish | source
+
+# For persistent use:
+synk completion fish > ~/.config/fish/completions/synk.fish
+```
+
+#### PowerShell
+
+```powershell
+# For the current session:
+synk completion powershell | Out-String | Invoke-Expression
+
+# For persistent use (add to your PowerShell profile):
+Add-Content -Path $PROFILE -Value "# Synkronus CLI Completion"
+Add-Content -Path $PROFILE -Value "synk completion powershell | Out-String | Invoke-Expression"
+```
+
 ## Usage
 
 ### Authentication
