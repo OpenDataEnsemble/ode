@@ -66,7 +66,7 @@ func main() {
 		logger.WithPrettyPrint(true),
 	)
 
-	log.Info("Starting Synkronus API server", "version", "1.0.22")
+	log.Info("Starting Synkronus API server", "version", "1.0.23")
 	log.Info("Configuration loaded from", "source", cfg.Source)
 	log.Debug("Configuration details", "port", cfg.Port, "logLevel", cfg.LogLevel, "appBundlePath", cfg.AppBundlePath)
 

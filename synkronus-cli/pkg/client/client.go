@@ -19,11 +19,11 @@ import (
 
 // AppBundleChanges represents the changes between two app bundle versions
 type AppBundleChanges struct {
-	CurrentVersion string                   `json:"current_version"`
-	TargetVersion  string                   `json:"target_version"`
-	Added          []map[string]interface{} `json:"added"`
-	Modified       []map[string]interface{} `json:"modified"`
-	Removed        []map[string]interface{} `json:"removed"`
+	CurrentVersion string           `json:"current_version"`
+	TargetVersion  string           `json:"target_version"`
+	Added          []map[string]any `json:"added"`
+	Modified       []map[string]any `json:"modified"`
+	Removed        []map[string]any `json:"removed"`
 }
 
 // SystemVersionInfo represents the version information of the Synkronus server
@@ -367,7 +367,7 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 		// Single schemaType can be passed as query parameter
 		queryParams = append(queryParams, fmt.Sprintf("schemaType=%s", url.QueryEscape(schemaTypes[0])))
 	}
-	
+
 	if len(queryParams) > 0 {
 		requestURL = fmt.Sprintf("%s?%s", requestURL, strings.Join(queryParams, "&"))
 	}
