@@ -2,6 +2,7 @@ import { Configuration, DefaultApi, AppBundleManifest, AppBundleFile, Observatio
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { getApiAuthToken } from './Auth';
+import { databaseService } from '../../database/DatabaseService';
 
 interface DownloadResult {
   success: boolean;
@@ -219,7 +220,6 @@ class SynkronusApi {
     return results;
   }
 
-
   /**
    * Pull observations from the server. 
    * This method can be used to update the local database with the latest observations from the server.
@@ -233,7 +233,7 @@ class SynkronusApi {
     let since = Number(await AsyncStorage.getItem('@last_seen_version'));
     if (!since) since = 0;
 
-
+    const repo = databaseService.getLocalRepo();
     const api = await this.getApi();  
     const schemaTypes = undefined; // TODO: Feature: Maybe allow partial sync
     let res;
@@ -251,7 +251,10 @@ class SynkronusApi {
         });
       pageToken = res.data.next_page_token;
 
-      // TODO: *** we might want to split this up later - but for now just do everything in one go ***
+      // TODO: *** we might want to split this up later - but for now just do everything in one go ***      
+      const pulledChanges = await repo.applyServerChanges(res.data.records);
+      console.log(`Applied ${pulledChanges} changes to local database`);
+
       // TODO: ingest observations into WatermelonDB
 
       console.debug('Downloaded observations: ', res.data.records);

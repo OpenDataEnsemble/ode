@@ -159,13 +159,13 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    */
   async updateObservation(input: UpdateObservationInput): Promise<boolean> {
     try {
-      console.log('Updating observation with ID:', input.id);
+      console.log('Updating observation with ObservationId:', input.observationId);
       
       // Find the observation by ID (which is now the observationId)
-      const record = await this.observationsCollection.find(input.id);
+      const record = await this.observationsCollection.find(input.observationId);
       
       if (!record) {
-        console.error('Observation not found with ID:', input.id);
+        console.error('Observation not found with ID:', input.observationId);
         return false;
       }
       
@@ -211,7 +211,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    */
   async deleteObservation(id: string): Promise<boolean> {
     try {
-      console.log('Deleting observation with ID:', id);
+      console.log('Deleting observation with ObservationId:', id);
       
       // Find the observation by ID (which is now the observationId)
       const record = await this.observationsCollection.find(id);
@@ -312,12 +312,53 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   }
 
   /**
+   * Apply changes from the server to the local database
+   * @param changes Array of changes to apply
+   */
+  async applyServerChanges(changes: Observation[]): Promise<number> {
+    if (!changes.length) {
+      return 0;
+    }
+  
+    await this.database.write(async () => {
+      const existingRecords = await this.observationsCollection.query(Q.where('observation_id', Q.oneOf(changes.map(c => c.observationId)))).fetch();
+      const existingMap = new Map(existingRecords.map(record => [record.observationId, record]));
+      const batchOps = changes.map(change => {
+        const existing = existingMap.get(change.observationId);
+        if (existing) {
+          console.debug(`Preparing update for observation: ${existing.id}`);
+          return existing.prepareUpdate(record => {
+            record.formType = change.formType || record.formType;
+            record.formVersion = change.formVersion || record.formVersion;
+            record.data = typeof change.data === 'string' ? change.data : JSON.stringify(change.data);
+            record.deleted = change.deleted ?? record.deleted;
+            record.syncedAt = new Date();
+          });
+        } else {
+          console.debug(`Preparing create for new observation: ${change.observationId}`);
+          return this.observationsCollection.prepareCreate(record => {
+            record.observationId = change.observationId;
+            record.formType = change.formType || '';
+            record.formVersion = change.formVersion || '1.0';
+            record.data = typeof change.data === 'string' ? change.data : JSON.stringify(change.data);
+            record.deleted = change.deleted ?? false;
+            record.syncedAt = new Date();
+          });
+        }
+      });
+      await this.database.batch(...batchOps);
+      return batchOps.length;
+    });
+  }
+
+  /**
+   * TODO: This method is currently not used - instead use applyServerChanges..
    * Synchronize observations with the server
    * @param pullChanges Function to pull changes from the server
    * @param pushChanges Function to push local changes to the server
    */
   async synchronize(
-    pullChanges: () => Promise<any[]>,
+    pullChanges: () => Promise<Observation[]>,
     pushChanges: (observations: Observation[]) => Promise<void>
   ): Promise<void> {
     try {
@@ -328,45 +369,8 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       console.log(`Received ${serverChanges.length} changes from server`);
       
       // Step 2: Apply server changes to local database
-      if (serverChanges.length > 0) {
-        await this.database.write(async () => {
-          for (const change of serverChanges) {
-            try {
-              // Check if the observation already exists
-              const existingObservations = await this.observationsCollection
-                .query(Q.where('observation_id', change.observationId))
-                .fetch();
-              
-              if (existingObservations.length > 0) {
-                // Update existing observation
-                const existing = existingObservations[0];
-                await existing.update(record => {
-                  record.formType = change.formType || record.formType;
-                  record.formVersion = change.formVersion || record.formVersion;
-                  record.data = typeof change.data === 'string' ? change.data : JSON.stringify(change.data);
-                  record.deleted = change.deleted || record.deleted;
-                  record.syncedAt = new Date();
-                });
-                console.log(`Updated existing observation: ${existing.id}`);
-              } else {
-                // Create new observation
-                await this.observationsCollection.create(record => {
-                  record.observationId = change.observationId;
-                  record.formType = change.formType || '';
-                  record.formVersion = change.formVersion || '1.0';
-                  record.data = typeof change.data === 'string' ? change.data : JSON.stringify(change.data);
-                  record.deleted = change.deleted || false;
-                  record.syncedAt = new Date();
-                });
-                console.log(`Created new observation from server: ${change.observationId}`);
-              }
-            } catch (error) {
-              const typedError = error as Error;
-              console.error(`Error processing server change for ${change.observationId}:`, typedError.message);
-            }
-          }
-        });
-      }
+      const pulledChanges = await this.applyServerChanges(serverChanges);
+      console.log(`Applied ${pulledChanges} changes to local database`);
       
       // Step 3: Get local changes to push to server
       // Get all observations that haven't been synced or were updated after last sync
@@ -416,7 +420,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     console.log(`Mapping model to interface. ID: ${model.id}`);
     
     return {
-      id: model.id, // Now model.id is the same as observationId
+      observationId: model.id, // Now model.id is the same as observationId
       formType: model.formType,
       formVersion: model.formVersion,
       data: parsedData,

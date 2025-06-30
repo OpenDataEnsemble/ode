@@ -52,7 +52,7 @@ const saveFormData = async (formType: string, data: any, observationId: string |
     };
 
     if (isUpdate) {
-      observation.id = observationId;
+      observation.observationId = observationId;
       observation.updatedAt = new Date();
     } else {
       observation.createdAt = new Date();

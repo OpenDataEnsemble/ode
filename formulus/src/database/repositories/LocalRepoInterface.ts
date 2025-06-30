@@ -47,6 +47,14 @@ export interface LocalRepoInterface {
   markObservationAsSynced(observationId: string): Promise<boolean>;
   
   /**
+   * Apply changes to the local database
+   * @param changes Array of changes to apply
+   * @returns Promise resolving to the number of changes applied
+   */
+  applyServerChanges(changes: Observation[]): Promise<number>;
+
+  /**
+   * @deprecated Use applyChanges  instead
    * Synchronize observations with the server
    * This method can be integrated with your Synkronus API's pull/push functionality
    * @param pullChanges Function to pull changes from the server

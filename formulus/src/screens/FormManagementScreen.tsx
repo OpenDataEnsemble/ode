@@ -99,7 +99,7 @@ const FormManagementScreen = ({ navigation }: any) => {
   // Handle editing an observation
   const handleEditObservation = (formType: FormSpec, observation: Observation) => {
     setFormModalVisible(true);
-    formplayerModalRef.current?.initializeForm(formType, null, observation.id, observation.data);
+    formplayerModalRef.current?.initializeForm(formType, null, observation.observationId, observation.data);
   };
   
   // Handle deleting an observation
@@ -119,7 +119,7 @@ const FormManagementScreen = ({ navigation }: any) => {
             style: 'destructive',
             onPress: async () => {
               setLoading(true);
-              await formService.deleteObservation(observation.id);
+              await formService.deleteObservation(observation.observationId);
               // Reload data after deletion
               await loadData();
             }
@@ -190,11 +190,11 @@ const FormManagementScreen = ({ navigation }: any) => {
     // Use either the observation's formTypeId or the parent form type if we're in a specific form's context
     const formType = formSpecs.find(ft => ft.id === currentFormTypeId) || parentFormType;
     
-    console.log('Rendering observation:', item.id, 'formTypeId:', currentFormTypeId, 'formType found:', !!formType);
+    console.log('Rendering observation:', item.observationId, 'formTypeId:', currentFormTypeId, 'formType found:', !!formType);
     
     return (
       <View style={styles.observationItem}>
-        <Text style={styles.observationId}>ID: {item.id}</Text>
+        <Text style={styles.observationId}>ID: {item.observationId}</Text>
         <Text>Created: {item.createdAt.toLocaleString()}</Text>
         <Text>Synced: {item.syncedAt && item.syncedAt.getTime() > new Date('1980-01-01').getTime() ? 'Yes' : 'No'}</Text>
         
@@ -258,7 +258,7 @@ const FormManagementScreen = ({ navigation }: any) => {
         {isExpanded && formObservations.length > 0 && (
           <View style={styles.observationsWrapper}>
             {formObservations.map(observation => (
-              <React.Fragment key={observation.id}>
+              <React.Fragment key={observation.observationId}>
                 {renderObservationItem({ item: observation })}
               </React.Fragment>
             ))}  

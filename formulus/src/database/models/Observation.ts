@@ -1,7 +1,7 @@
 /**
  * Interface for the observation data structure
  *
- * @property {string} id The unique identifier for the observation
+ * @property {string} observationId The unique identifier for the observation
  * @property {string} formType The unique identifier for the form
  * @property {string} formVersion The version of the form
  * @property {ObservationData} data The form data
@@ -10,7 +10,7 @@
  * @property {Date|null} syncedAt The date-time when the observation was last synced with the server
  */
 export interface Observation {
-  id: string;
+  observationId: string;
   formType: string;
   formVersion: string;
   createdAt: Date;
@@ -41,6 +41,6 @@ export interface NewObservationInput {
  * Only requires the new data - metadata is preserved/updated automatically
  */
 export interface UpdateObservationInput {
-  id: string;
+  observationId: string;
   data: ObservationData;
 }

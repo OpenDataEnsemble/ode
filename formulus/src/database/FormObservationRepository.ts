@@ -34,7 +34,7 @@ export class FormObservationRepository implements LocalRepoInterface {
       
       // Create the observation object
       const observation: Observation = {
-        id,
+        observationId: id,
         formType,
         formVersion: '',
         createdAt: new Date(),

@@ -8,7 +8,7 @@ export class ObservationModel extends Model {
   static table = 'observations';
 
   // Define fields with decorators
-  @text('observation_id') observationId!: string;
+  @text('observation_id') observationId!: string; // Same as Model.id
   @text('form_type') formType!: string;
   @text('form_version') formVersion!: string;
   @field('deleted') deleted!: boolean;
