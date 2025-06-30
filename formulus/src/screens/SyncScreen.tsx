@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -8,107 +8,85 @@ import {
   SafeAreaView,
   ScrollView
 } from 'react-native';
-import RNFS from 'react-native-fs';
-import { synkronusApi } from '../api/synkronus';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { syncService } from '../services/SyncService';
 
 const SyncScreen = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState<string | null>(null);
-  const [status, setStatus] = useState<string>('Ready');
+  const [status, setStatus] = useState<string>('Loading...');
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [dataVersion, setDataVersion] = useState<number>(0);
-  // TODO: Move sync logic to a sync service
-  const handleSync = async ()  => {
-    console.log('Syncing...');
+
+  // Handle sync operations
+  const handleSync = useCallback(async () => {
     try {
       setIsSyncing(true);
-      setStatus('Starting sync...');
-      const includeAttachments = false;
-      const version = await synkronusApi.syncObservations(includeAttachments); // This will pull observations and update local db
+      const version = await syncService.syncObservations(false);
       setDataVersion(version);
-      setStatus('Sync completed @ data version ' + version);
     } catch (error) {
-      console.error('Sync failed', error);
-      setStatus('Sync failed');
-      Alert.alert('Error', 'Failed to sync!\n' + error);
+      Alert.alert('Error', 'Failed to sync!\n' + (error as Error).message);
     } finally {
       setIsSyncing(false);
     }
-  }
+  }, []);
 
-  // TODO: Move sync logic to a sync service
-  const handleCustomAppUpdate = async () => {
+  // Handle app updates
+  const handleCustomAppUpdate = useCallback(async () => {
     try {
-      if (updateAvailable) {
-        setIsSyncing(true);
-        setStatus('Starting app bundle sync...');
-        await downloadAppBundle();
-      }
-      const syncTime = new Date().toLocaleTimeString();
-      setLastSync(syncTime);
-      setStatus('App bundle sync completed');
+      setIsSyncing(true);
+      await syncService.updateAppBundle();
+      setLastSync(new Date().toLocaleTimeString());
+      setUpdateAvailable(false);
     } catch (error) {
-      console.error('App sync failed', error);
-      setStatus('App sync failed');
-      Alert.alert('Error', 'Failed to sync app bundle!\n' + error);
+      Alert.alert('Error', 'Failed to update app bundle!\n' + (error as Error).message);
     } finally {
       setIsSyncing(false);
     }
-  };
+  }, []);
 
-  // TODO: Move sync logic to a sync service
-  const checkForUpdates = async (force:boolean = false) => {
+  // Check for updates
+  const checkForUpdates = useCallback(async (force: boolean = false) => {
     try {
-      const manifest = await synkronusApi.getManifest();
-      const updateAvailable = force || manifest.version !== await AsyncStorage.getItem('@appVersion');
-      setUpdateAvailable(updateAvailable);
+      const hasUpdate = await syncService.checkForUpdates(force);
+      setUpdateAvailable(hasUpdate);
     } catch (error) {
       console.warn('Failed to check for updates', error);
     }
-    if (updateAvailable) {
-      setStatus(status + '(Update available)');
-    }
-  };
-
-  // TODO: Move sync logic to a sync service
-  const downloadAppBundle = async () => {
-    try {
-      // Get the manifest
-      setStatus('Fetching manifest...');
-      const manifest = await synkronusApi.getManifest();
-      console.log('Manifest:', manifest);
-    
-      // Clean out the existing app bundle
-      await synkronusApi.removeAppBundleFiles();
-
-      // Download form specs
-      setStatus('Downloading form specs...');
-      const formResults = await synkronusApi.downloadFormSpecs(manifest, RNFS.DocumentDirectoryPath, (progress) => setStatus(`Downloading form specs... ${progress}%`));
-      
-      // Download app files
-      setStatus('Downloading app files...');
-      const appResults = await synkronusApi.downloadAppFiles(manifest, RNFS.DocumentDirectoryPath, (progress) => setStatus(`Downloading app files... ${progress}%`));
-
-      const results = [...formResults, ...appResults];
-      console.debug('Download results:', results);
-      if (results.some(r => !r.success)) {
-        Alert.alert('Error', 'Failed to sync!\n' + results.filter(r => !r.success).map(r => r.message).join('\n'));
-      } else {
-        Alert.alert('Success', 'Data synchronized successfully');
-      }
-    } catch (error) {
-      setStatus('Sync failed');
-      Alert.alert('Error', 'Failed to sync!\n' + error);
-    }
-  }
-
-  useEffect(() => {
-    checkForUpdates(true); // force "update available" during testing/development
-    AsyncStorage.setItem('@clientId', 'android-123'); //TODO: Set this is some initial setup routine
-    AsyncStorage.getItem('@last_seen_version').then((version) => setDataVersion(parseInt(version ?? '0')));
-    AsyncStorage.setItem('@appVersion', '1.0.0'); //TODO: Set this is some initial setup routine
   }, []);
+
+  // Initialize component
+  useEffect(() => {
+    // Set up status updates
+    const unsubscribe = syncService.subscribeToStatusUpdates((newStatus) => {
+      setStatus(newStatus);
+    });
+
+    // Initialize sync service
+    const initialize = async () => {
+      await syncService.initialize();
+      await checkForUpdates(true); // Check for updates on initial load
+      
+      // Get last sync time
+      const lastSyncTime = await AsyncStorage.getItem('@lastSync');
+      if (lastSyncTime) {
+        setLastSync(lastSyncTime);
+      }
+      
+      // Get last seen version
+      const lastSeenVersion = await AsyncStorage.getItem('@last_seen_version');
+      if (lastSeenVersion) {
+        setDataVersion(parseInt(lastSeenVersion, 10));
+      }
+    };
+
+    initialize();
+
+    // Clean up subscription
+    return () => {
+      unsubscribe();
+    };
+  }, [checkForUpdates]);
 
   return (
     <SafeAreaView style={styles.container}>
