@@ -8,10 +8,7 @@ import {
   SafeAreaView,
   ScrollView
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import RNFS from 'react-native-fs';
-import { RootStackParamList } from '../types/NavigationTypes';
 import { synkronusApi } from '../api/synkronus';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -20,14 +17,16 @@ const SyncScreen = () => {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Ready');
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
-  const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'Sync'>>();
-
+  const [dataVersion, setDataVersion] = useState<number>(0);
+  // TODO: Move sync logic to a sync service
   const handleSync = async ()  => {
     console.log('Syncing...');
     try {
       setIsSyncing(true);
       setStatus('Starting sync...');
-      const version = await synkronusApi.pullObservations();
+      const includeAttachments = false;
+      const version = await synkronusApi.syncObservations(includeAttachments); // This will pull observations and update local db
+      setDataVersion(version);
       setStatus('Sync completed @ data version ' + version);
     } catch (error) {
       console.error('Sync failed', error);
@@ -38,6 +37,7 @@ const SyncScreen = () => {
     }
   }
 
+  // TODO: Move sync logic to a sync service
   const handleCustomAppUpdate = async () => {
     try {
       if (updateAvailable) {
@@ -57,6 +57,7 @@ const SyncScreen = () => {
     }
   };
 
+  // TODO: Move sync logic to a sync service
   const checkForUpdates = async (force:boolean = false) => {
     try {
       const manifest = await synkronusApi.getManifest();
@@ -66,10 +67,11 @@ const SyncScreen = () => {
       console.warn('Failed to check for updates', error);
     }
     if (updateAvailable) {
-      setStatus('Update available');
+      setStatus(status + '(Update available)');
     }
   };
 
+  // TODO: Move sync logic to a sync service
   const downloadAppBundle = async () => {
     try {
       // Get the manifest
@@ -104,7 +106,7 @@ const SyncScreen = () => {
   useEffect(() => {
     checkForUpdates(true); // force "update available" during testing/development
     AsyncStorage.setItem('@clientId', 'android-123'); //TODO: Set this is some initial setup routine
-    AsyncStorage.setItem('@last_seen_version', '0'); //TODO: Set this is some initial setup routine
+    AsyncStorage.getItem('@last_seen_version').then((version) => setDataVersion(parseInt(version ?? '0')));
     AsyncStorage.setItem('@appVersion', '1.0.0'); //TODO: Set this is some initial setup routine
   }, []);
 
@@ -121,7 +123,7 @@ const SyncScreen = () => {
         <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>Last Sync:</Text>
           <Text style={styles.statusValue}>
-            {lastSync || 'Never'}
+            {lastSync || 'Never'} @ version {dataVersion}
           </Text>
         </View>
 

@@ -5,6 +5,7 @@ import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { getApiAuthToken } from './Auth';
 import { databaseService } from '../../database/DatabaseService';
+import randomId from '@nozbe/watermelondb/utils/common/randomId';
 
 interface DownloadResult {
   success: boolean;
@@ -229,7 +230,7 @@ class SynkronusApi {
    *
    * @returns {Promise<number>} The current version of the observations pulled from the server
    */
-  async pullObservations() {
+  private async pullObservations(includeAttachments: boolean = false) {
     const clientId = await AsyncStorage.getItem('@clientId');
     if (!clientId) throw new Error('Missing client ID');
     let since = Number(await AsyncStorage.getItem('@last_seen_version'));
@@ -248,23 +249,26 @@ class SynkronusApi {
                   version: since
               },
               schema_types: schemaTypes,
+
             },
           pageToken: pageToken
         });
+      console.debug('Pull response: ', res.data);
       pageToken = res.data.next_page_token;
 
-      // TODO: *** we might want to split this up later - but for now just do everything in one go ***
-      const domainObservations = res.data.records.map(ObservationMapper.fromApi);
-      const pulledChanges = await repo.applyServerChanges(domainObservations);
-      console.log(`Applied ${pulledChanges} changes to local database`);
+      // 1. Pull and map changes from the API
+      const domainObservations = res.data.records ? res.data.records.map(ObservationMapper.fromApi) : [];
 
-      // TODO: ingest observations into WatermelonDB
+      // 2. Apply to local db (local dirty records will not be applied = last update wins)
+      const pulledChanges = await repo.applyServerChanges(domainObservations); // ingest observations into WatermelonDB      
+      console.debug(`Applied ${pulledChanges} changes to local database`);
 
-      console.debug('Downloaded observations: ', domainObservations);
-
-      const attachments = this.getAttachmentsDownloadManifest(domainObservations);      
-      await this.downloadAttachments(attachments);
+      if (includeAttachments) {
+        const attachments = this.getAttachmentsDownloadManifest(domainObservations);      
+        await this.downloadAttachments(attachments);
+      }
       
+      console.debug('Pulled observations: ', domainObservations);
 
     } while (res.data.has_more);
     
@@ -273,27 +277,59 @@ class SynkronusApi {
     return res.data.current_version;
   }
 
-  // /**
-  //  * Push observations to the server. This method should only be called immediately after pullObservations
-  //  */
-  // async pushObservations(observations: Observation[]) {
-  //   const api = await this.getApi();
-  //   const res = await api.observationPushChangesPost({
-  //     observationPushChangesPostRequest: {
-  //       changes: observations
-  //     }
-  //   });
-  //   return res.data;
-  // }
+  /**
+   * Push observations to the server. This method should only be called immediately after pullObservations
+   * @returns The current version of the data (if no records are pushed, the last seen version is returned)
+   */
+  async pushObservations(includeAttachments: boolean = false): Promise<number> {
+    const api = await this.getApi();
+    const transmissionId = randomId();
+    // 1. get pending changes from watermelondb
+    const repo = databaseService.getLocalRepo();
+    const localChanges = await repo.getPendingChanges();
+    console.debug(`Found ${localChanges.length} local changes to push`);
+    if (localChanges.length > 0) {
 
-  // /**
-  //  * Syncs Observations with the server using the pull/push functionality
-  //  */
-  // async syncObservations() {
-  //   const api = await this.getApi();
-  //   // Pull observations from the server
-    
-  // }
+      // 2. send to server
+      const syncPushRequest = {
+        client_id: (await AsyncStorage.getItem('@clientId')) ?? 'UNDEFINED',
+        records: localChanges.map(ObservationMapper.toApi),
+        transmission_id: transmissionId,
+      }
+      console.debug(`Pushing ${localChanges.length} observations: `, syncPushRequest);
+      const res = await api.syncPushPost({syncPushRequest});
+      console.debug(`Pushed ${localChanges.length} observations: `, res.data);
+      
+      // 2b. if includeAttachments, send attachments
+      if (includeAttachments) {
+        const attachments = this.getAttachmentsDownloadManifest(localChanges);      
+        await this.downloadAttachments(attachments);
+      }
+      
+      // 3. update local db with sync statuc
+      if (localChanges.length > 0) {        
+        await repo.markObservationsAsSynced(localChanges.map(record => record.observationId));
+        console.debug(`Marked ${localChanges.length} observations as synced`);
+      }
+      
+      // 4. update last seen version
+      await AsyncStorage.setItem('@last_seen_version', res.data.current_version.toString());
+      return res.data.current_version;
+    }
+    return Number(await AsyncStorage.getItem('@last_seen_version'));
+  }
+
+  /**
+   * Syncs Observations with the server using the pull/push functionality
+   */
+  async syncObservations(includeAttachments: boolean = false) {
+    console.debug(includeAttachments ? 'Syncing observations with attachments' : 'Syncing observations');
+    const version = await this.pullObservations(includeAttachments);
+    console.debug('Pull completed @ data version ' + version);
+    await this.pushObservations(includeAttachments);
+    console.debug('Push completed');
+    return version;
+  }
 }
 
 // Export a singleton instance

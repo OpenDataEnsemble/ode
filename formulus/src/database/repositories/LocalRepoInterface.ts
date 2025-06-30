@@ -41,10 +41,10 @@ export interface LocalRepoInterface {
   
   /**
    * Mark an observation as synced with the server
-   * @param observationId The unique identifier for the observation
+   * @param ids The unique identifiers for the observations
    * @returns Promise resolving to a boolean indicating success
    */
-  markObservationAsSynced(observationId: string): Promise<boolean>;
+  markObservationsAsSynced(ids: string[]): Promise<void>;
   
   /**
    * Apply changes to the local database
@@ -52,6 +52,12 @@ export interface LocalRepoInterface {
    * @returns Promise resolving to the number of changes applied
    */
   applyServerChanges(changes: Observation[]): Promise<number>;
+
+  /**
+   * Get pending changes from the local database
+   * @returns Promise resolving to an array of pending changes
+   */
+  getPendingChanges(): Promise<Observation[]>;
 
   /**
    * @deprecated Use applyChanges  instead

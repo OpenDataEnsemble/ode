@@ -186,6 +186,51 @@ Attachments (e.g. photos, audio recordings) are **binary blobs** referenced by o
 - Leaves attachment sync policy (e.g. lazy, bulk, partial) up to the client.  
 - Scales from MVP file-system storage to cloud-native solutions.
 
+## Minimal Sync Protocol Design
+
+This project uses a minimal sync approach for the `/sync/pull` and `/sync/push` endpoints that remains compatible with WatermelonDB's client-side helpers without requiring a full server-side change-tracking table.
+
+### Approach
+
+- Server stores a monotonic version number (via PostgreSQL trigger) for every observation change.
+- Each Observation record includes `created_at`, `updated_at`, and `deleted` fields.
+- Server simply returns all observations changed since the client's last known version.
+
+### Client-side adaptation
+
+- The client *infers* WatermelonDB's `_status`:
+  - `deleted` → `_status: "deleted"`
+  - `created_at == updated_at` → `_status: "created"`
+  - Else → `_status: "updated"`
+- `_changed` is hardcoded to `"data,deleted"` since most content is stored in the `data` JSON column.
+- The client wraps the server's flat `records` array into the expected WatermelonDB format:
+
+    ```json
+    {
+      "changes": {
+        "observations": [ ... ]
+      },
+      "timestamp": current_version
+    }
+    ```
+
+### Advantages
+
+- Requires no server-side schema changes or change-tracking tables.
+- Enables immediate shipping.
+- Compatible with WatermelonDB's `experimentalApplyRemoteChanges`.
+- Easy to side-load data or perform manual database edits on the server.
+
+### Trade-offs
+
+- Client carries responsibility for inferring `_status` and `_changed`.
+- Always sends/receives full `data` blobs.
+- Less granular change tracking.
+
+### Future Consideration
+
+This minimal approach is ideal for the current single-table use case. As requirements grow (e.g. multiple tables or better conflict resolution), the server can evolve to maintain an explicit changes log and deliver a richer sync protocol with exact `_status` and `_changed` values. See [WatermelonDB/Sync](https://watermelondb.dev/docs/Sync/Intro) for more details on how to align more closely with the WatermelonDB approach to sync.
+
 ## License
 
 MIT

@@ -3,6 +3,7 @@ import { ObservationModel } from '../models/ObservationModel';
 import { LocalRepoInterface } from './LocalRepoInterface';
 import { Observation, NewObservationInput, UpdateObservationInput } from '../models/Observation';
 import { nullValue } from '@nozbe/watermelondb/RawRecord';
+import { ObservationMapper } from '../../mappers/ObservationMapper';
 
 /**
  * WatermelonDB implementation of the LocalRepoInterface
@@ -327,6 +328,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         const existing = existingMap.get(change.observationId);
         if (existing) {
           console.debug(`Preparing update for observation: ${existing.id}`);
+          if (existing.updatedAt > existing.syncedAt) {
+            console.debug(`Skipping server change for ${existing.id} because it's locally dirty`);
+            return null; // skip applying server version (TODO: maybe include this information in the return value to be able to report it to the user)
+          }
           return existing.prepareUpdate(record => {
             record.formType = change.formType || record.formType;
             record.formVersion = change.formVersion || record.formVersion;
@@ -351,6 +356,44 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     });
     return count;
   }
+
+  /**
+   * Get pending changes from the local database
+   * @returns Promise resolving to an array of pending changes
+   */
+  getPendingChanges(): Promise<Observation[]> {
+    return this.observationsCollection
+      .query(
+        Q.or(
+          Q.where('synced_at', Q.eq(null)),
+          Q.where('updated_at', Q.gt(Q.column('synced_at')))
+        )
+      )
+      .fetch()
+      .then(records => records.map(record => ObservationMapper.fromDBModel(record)));
+  }
+
+  /**
+   * Mark observations as synced with the server
+   * @param ids The unique identifiers for the observations
+   */
+  async markObservationsAsSynced(ids: string[]): Promise<void> {
+    const now = new Date();
+    await this.database.write(async () => {
+      const records = await this.observationsCollection
+        .query(Q.where('id', Q.oneOf(ids)))
+        .fetch();
+  
+      const batchOps = records.map(record =>
+        record.prepareUpdate(rec => {
+          rec.syncedAt = rec.updatedAt > now ? rec.updatedAt : now;
+        })
+      );
+  
+      await this.database.batch(...batchOps);
+    });
+  }
+
 
   /**
    * TODO: This method is currently not used - instead use applyServerChanges..
