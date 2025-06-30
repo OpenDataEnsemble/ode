@@ -320,7 +320,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       return 0;
     }
   
-    await this.database.write(async () => {
+    var count = await this.database.write(async () => {
       const existingRecords = await this.observationsCollection.query(Q.where('observation_id', Q.oneOf(changes.map(c => c.observationId)))).fetch();
       const existingMap = new Map(existingRecords.map(record => [record.observationId, record]));
       const batchOps = changes.map(change => {
@@ -349,6 +349,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       await this.database.batch(...batchOps);
       return batchOps.length;
     });
+    return count;
   }
 
   /**

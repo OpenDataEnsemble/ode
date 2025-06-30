@@ -63,7 +63,7 @@ const SyncScreen = () => {
       const updateAvailable = force || manifest.version !== await AsyncStorage.getItem('@appVersion');
       setUpdateAvailable(updateAvailable);
     } catch (error) {
-      console.error('Failed to check for updates', error);
+      console.warn('Failed to check for updates', error);
     }
     if (updateAvailable) {
       setStatus('Update available');

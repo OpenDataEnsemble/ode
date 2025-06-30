@@ -1,4 +1,6 @@
-import { Configuration, DefaultApi, AppBundleManifest, AppBundleFile, Observation } from './generated';
+import { Configuration, DefaultApi, AppBundleManifest, AppBundleFile, Observation as ApiObservation } from './generated';
+import { Observation } from '../../database/models/Observation';
+import { ObservationMapper } from '../../mappers/ObservationMapper';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { getApiAuthToken } from './Auth';
@@ -251,15 +253,16 @@ class SynkronusApi {
         });
       pageToken = res.data.next_page_token;
 
-      // TODO: *** we might want to split this up later - but for now just do everything in one go ***      
-      const pulledChanges = await repo.applyServerChanges(res.data.records);
+      // TODO: *** we might want to split this up later - but for now just do everything in one go ***
+      const domainObservations = res.data.records.map(ObservationMapper.fromApi);
+      const pulledChanges = await repo.applyServerChanges(domainObservations);
       console.log(`Applied ${pulledChanges} changes to local database`);
 
       // TODO: ingest observations into WatermelonDB
 
-      console.debug('Downloaded observations: ', res.data.records);
+      console.debug('Downloaded observations: ', domainObservations);
 
-      const attachments = this.getAttachmentsDownloadManifest(res.data.records);      
+      const attachments = this.getAttachmentsDownloadManifest(domainObservations);      
       await this.downloadAttachments(attachments);
       
 

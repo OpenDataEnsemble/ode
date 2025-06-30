@@ -1,5 +1,5 @@
 /**
- * Interface for the observation data structure
+ * Interface for the observation data structure. This is
  *
  * @property {string} observationId The unique identifier for the observation
  * @property {string} formType The unique identifier for the form
