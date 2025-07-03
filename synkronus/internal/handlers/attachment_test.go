@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -74,7 +76,7 @@ func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 			tc.setupMocks(mockSvc)
 
 			// Create handler with mock service
-			handler := &AttachmentHandler{service: mockSvc}
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc)
 
 			// Create a test file
 			var b bytes.Buffer
@@ -142,7 +144,7 @@ func TestAttachmentHandler_DownloadAttachment(t *testing.T) {
 			tc.setupMocks(mockSvc)
 
 			// Create handler with mock service
-			handler := &AttachmentHandler{service: mockSvc}
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc)
 
 			// Create request
 			req := httptest.NewRequest("GET", "/attachments/"+tc.attachmentID, nil)
@@ -198,7 +200,7 @@ func TestAttachmentHandler_CheckAttachment(t *testing.T) {
 			tc.setupMocks(mockSvc)
 
 			// Create handler with mock service
-			handler := &AttachmentHandler{service: mockSvc}
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc)
 
 			// Create request
 			req := httptest.NewRequest("HEAD", "/attachments/"+tc.attachmentID, nil)
@@ -215,4 +217,29 @@ func TestAttachmentHandler_CheckAttachment(t *testing.T) {
 			assert.Equal(t, tc.expectedStatus, rr.Code)
 		})
 	}
+}
+
+type errReader struct{}
+
+func (errReader) Read(p []byte) (int, error) { return 0, errors.New("read error") }
+func (errReader) Close() error               { return nil }
+
+func TestDownloadAttachment_StreamingErrorLogged(t *testing.T) {
+	var buf bytes.Buffer
+	log := logger.NewLogger(logger.WithOutputWriter(&buf))
+
+	mockSvc := &mockAttachmentService{}
+	mockSvc.On("Exists", mock.Anything, "badfile").Return(true, nil)
+	mockSvc.On("Get", mock.Anything, "badfile").Return(io.NopCloser(errReader{}), nil)
+
+	handler := NewAttachmentHandler(log, mockSvc)
+
+	req := httptest.NewRequest("GET", "/attachments/badfile", nil)
+	rr := httptest.NewRecorder()
+	r := chi.NewRouter()
+	r.Get("/attachments/{attachment_id}", handler.DownloadAttachment)
+	r.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Contains(t, buf.String(), "Failed to stream attachment")
 }
