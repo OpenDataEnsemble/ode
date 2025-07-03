@@ -145,9 +145,8 @@ export class SyncService {
   }
 
   public getStatus(): string {
-    // This is a simple implementation - in a real app, you might want to track status more robustly
-    return this.statusCallbacks.size > 0 ? 
-      Array.from(this.statusCallbacks)[this.statusCallbacks.size - 1]('') : 
+    return this.isSyncing ? 
+      'Syncing...' : 
       'Ready';
   }
 }
