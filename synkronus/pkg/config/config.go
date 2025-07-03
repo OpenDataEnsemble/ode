@@ -1,12 +1,12 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	"github.com/joho/godotenv"
+	"github.com/opendataensemble/synkronus/pkg/logger"
 )
 
 // Config holds all configuration for the application
@@ -36,7 +36,7 @@ type Config struct {
 
 // Load loads the configuration from environment variables
 // and .env file if it exists
-func Load() (*Config, error) {
+func Load(log *logger.Logger) (*Config, error) {
 	// Try to load .env file from multiple locations
 	// 1. Current working directory
 	// 2. Executable directory
@@ -47,15 +47,23 @@ func Load() (*Config, error) {
 	// 1. Try current working directory first
 	cwd, _ := os.Getwd()
 	cwdEnvPath := filepath.Join(cwd, ".env")
-	fmt.Printf("Searching for .env file at: %s\n", cwdEnvPath)
+	if log != nil {
+		log.Debug("Searching for .env file", "path", cwdEnvPath)
+	}
 	if _, err := os.Stat(cwdEnvPath); err == nil {
-		fmt.Printf("Found .env file at: %s\n", cwdEnvPath)
+		if log != nil {
+			log.Debug("Found .env file", "path", cwdEnvPath)
+		}
 		if err := godotenv.Load(cwdEnvPath); err == nil {
 			loadedEnv = true
 			configSource = "file: " + cwdEnvPath
-			fmt.Printf("Successfully loaded .env file from: %s\n", cwdEnvPath)
+			if log != nil {
+				log.Info("Successfully loaded .env file", "path", cwdEnvPath)
+			}
 		} else {
-			fmt.Printf("Error loading .env file from %s: %v\n", cwdEnvPath, err)
+			if log != nil {
+				log.Error("Error loading .env file", "path", cwdEnvPath, "error", err)
+			}
 		}
 	}
 
@@ -65,19 +73,29 @@ func Load() (*Config, error) {
 		if err == nil {
 			exeDir := filepath.Dir(exePath)
 			envPath := filepath.Join(exeDir, ".env")
-			fmt.Printf("Searching for .env file at: %s\n", envPath)
+			if log != nil {
+				log.Debug("Searching for .env file", "path", envPath)
+			}
 			if _, err := os.Stat(envPath); err == nil {
-				fmt.Printf("Found .env file at: %s\n", envPath)
+				if log != nil {
+					log.Debug("Found .env file", "path", envPath)
+				}
 				if err := godotenv.Load(envPath); err == nil {
 					loadedEnv = true
 					configSource = "file: " + envPath
-					fmt.Printf("Successfully loaded .env file from: %s\n", envPath)
+					if log != nil {
+						log.Info("Successfully loaded .env file", "path", envPath)
+					}
 				} else {
-					fmt.Printf("Error loading .env file from %s: %v\n", envPath, err)
+					if log != nil {
+						log.Error("Error loading .env file", "path", envPath, "error", err)
+					}
 				}
 			}
 		} else {
-			fmt.Printf("Error getting executable path: %v\n", err)
+			if log != nil {
+				log.Error("Error getting executable path", "error", err)
+			}
 		}
 	}
 
@@ -88,21 +106,31 @@ func Load() (*Config, error) {
 			exeDir := filepath.Dir(exePath)
 			parentDir := filepath.Dir(exeDir)
 			envPath := filepath.Join(parentDir, ".env")
-			fmt.Printf("Searching for .env file at: %s\n", envPath)
+			if log != nil {
+				log.Debug("Searching for .env file", "path", envPath)
+			}
 			if _, err := os.Stat(envPath); err == nil {
-				fmt.Printf("Found .env file at: %s\n", envPath)
+				if log != nil {
+					log.Debug("Found .env file", "path", envPath)
+				}
 				if err := godotenv.Load(envPath); err == nil {
 					configSource = "file: " + envPath
-					fmt.Printf("Successfully loaded .env file from: %s\n", envPath)
+					if log != nil {
+						log.Info("Successfully loaded .env file", "path", envPath)
+					}
 				} else {
-					fmt.Printf("Error loading .env file from %s: %v\n", envPath, err)
+					if log != nil {
+						log.Error("Error loading .env file", "path", envPath, "error", err)
+					}
 				}
 			}
 		}
 	}
 
 	// Print a summary of where configuration was loaded from
-	fmt.Printf("Configuration loaded from: %s\n", configSource)
+	if log != nil {
+		log.Info("Configuration loaded", "source", configSource)
+	}
 
 	return &Config{
 		Port:            getEnvOrDefault("PORT", "8080"),
