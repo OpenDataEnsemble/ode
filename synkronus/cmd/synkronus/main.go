@@ -40,10 +40,17 @@ func redactPassword(dsn string) string {
 	return u.String()
 }
 func main() {
+	// Temporary logger for configuration loading
+	preLog := logger.NewLogger(
+		logger.WithOutputWriter(os.Stdout),
+		logger.WithLevel(logger.LevelInfo),
+		logger.WithPrettyPrint(true),
+	)
+
 	// Load configuration
-	cfg, err := config.Load()
+	cfg, err := config.Load(preLog)
 	if err != nil {
-		fmt.Printf("Error loading configuration: %v\n", err)
+		preLog.Error("Error loading configuration", "error", err)
 		os.Exit(1)
 	}
 
