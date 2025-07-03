@@ -13,11 +13,13 @@ import (
 
 type AttachmentHandler struct {
 	service attachment.Service
+	log     *logger.Logger
 }
 
-func NewAttachmentHandler(service attachment.Service) *AttachmentHandler {
+func NewAttachmentHandler(log *logger.Logger, service attachment.Service) *AttachmentHandler {
 	return &AttachmentHandler{
 		service: service,
+		log:     log,
 	}
 }
 
@@ -112,7 +114,7 @@ func (h *AttachmentHandler) DownloadAttachment(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		// Can't change status code here as we've already started writing the response
 		// Log the error instead
-		logger.NewLogger().Error("Failed to stream attachment", "error", err) //TODO: Clean up  logger usage
+		h.log.Error("Failed to stream attachment", "error", err)
 	}
 }
 

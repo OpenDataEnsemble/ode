@@ -96,7 +96,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	}
 
 	// Create attachment handler
-	attachmentHandler := handlers.NewAttachmentHandler(attachmentService)
+	attachmentHandler := handlers.NewAttachmentHandler(log, attachmentService)
 
 	// Protected routes - require authentication
 	r.Group(func(r chi.Router) {
