@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/opendataensemble/synkronus/internal/models"
 )
 
 var (
@@ -19,24 +20,10 @@ var (
 	ErrInsufficientPermissions = errors.New("insufficient permissions")
 )
 
-// Role represents a user role
-type Role string
-
-const (
-	// ReadOnly role can only read data
-	ReadOnly Role = "read-only"
-
-	// ReadWrite role can read and write data
-	ReadWrite Role = "read-write"
-
-	// Admin role has full access
-	Admin Role = "admin"
-)
-
 // Claims represents JWT claims
 type Claims struct {
-	Username string `json:"username"`
-	Role     Role   `json:"role"`
+	Username string      `json:"username"`
+	Role     models.Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
@@ -57,7 +44,7 @@ func NewTokenService(secretKey []byte, duration time.Duration) *TokenService {
 }
 
 // GenerateToken generates a new JWT token
-func (s *TokenService) GenerateToken(userID string, username string, role Role, duration time.Duration) (string, error) {
+func (s *TokenService) GenerateToken(userID string, username string, role models.Role, duration time.Duration) (string, error) {
 	now := time.Now()
 
 	claims := Claims{
@@ -106,14 +93,14 @@ func (s *TokenService) ValidateToken(tokenString string) (*Claims, error) {
 }
 
 // HasRole checks if the claims have at least the specified role
-func (claims *Claims) HasRole(requiredRole Role) bool {
+func (claims *Claims) HasRole(requiredRole models.Role) bool {
 	// ReadWrite users can do everything ReadOnly users can
-	if claims.Role == ReadWrite {
+	if claims.Role == models.RoleReadWrite {
 		return true
 	}
 
 	// ReadOnly users can only do ReadOnly operations
-	if claims.Role == ReadOnly && requiredRole == ReadOnly {
+	if claims.Role == models.RoleReadOnly && requiredRole == models.RoleReadOnly {
 		return true
 	}
 
