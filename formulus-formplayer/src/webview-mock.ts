@@ -99,6 +99,10 @@ class WebViewMock {
           const message = { type: 'requestCamera', fieldId };
           console.log('[WebView Mock] Received requestCamera call:', message);
           this.messageListeners.forEach(listener => listener(message));
+          
+          // Show interactive popup for camera simulation
+          this.showCameraSimulationPopup(fieldId);
+          
           return Promise.resolve();
         },
         requestLocation: (fieldId: string): Promise<void> => {
@@ -155,6 +159,175 @@ class WebViewMock {
   // Check if the mock is active
   public isActiveMock(): boolean {
     return this.isActive;
+  }
+
+  // Show interactive camera simulation popup
+  private showCameraSimulationPopup(fieldId: string): void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    `;
+
+    popup.innerHTML = `
+      <h3 style="margin: 0 0 16px 0; color: #333; font-size: 18px;">📸 Camera Simulation</h3>
+      <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Field: <code>${fieldId}</code></p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="mock-success" style="
+          padding: 12px 20px;
+          background: #4CAF50;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">✅ Take Photo (Success)</button>
+        
+        <button id="mock-cancel" style="
+          padding: 12px 20px;
+          background: #FF9800;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">❌ Cancel</button>
+        
+        <button id="mock-error" style="
+          padding: 12px 20px;
+          background: #f44336;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">⚠️ Camera Error</button>
+      </div>
+    `;
+
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+
+    // Add button event listeners
+    const successBtn = popup.querySelector('#mock-success');
+    const cancelBtn = popup.querySelector('#mock-cancel');
+    const errorBtn = popup.querySelector('#mock-error');
+
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+    };
+
+    successBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateSuccessResponse(fieldId);
+    });
+
+    cancelBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateCancelResponse(fieldId);
+    });
+
+    errorBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateErrorResponse(fieldId);
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        this.simulateCancelResponse(fieldId);
+      }
+    });
+  }
+
+  // Simulate successful camera response
+  private simulateSuccessResponse(fieldId: string): void {
+    const filename = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+    const mockImageBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
+    
+    const attachmentData = {
+      fieldId,
+      type: 'image' as const,
+      filename,
+      base64: mockImageBase64,
+      url: `data:image/jpeg;base64,${mockImageBase64}`,
+      timestamp: new Date().toISOString(),
+      metadata: {
+        width: 1920,
+        height: 1080,
+        size: 2048,
+        mimeType: 'image/jpeg',
+        source: 'camera_simulation',
+        quality: 0.8
+      }
+    };
+    
+    console.log('[WebView Mock] Simulating successful camera response:', attachmentData);
+    this.sendAttachmentData(attachmentData);
+  }
+
+  // Simulate camera cancellation
+  private simulateCancelResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating camera cancellation for field:', fieldId);
+    // Send a cancel event to reject the Promise
+    this.sendCameraEvent(fieldId, 'cancel', 'User cancelled camera operation');
+  }
+
+  // Simulate camera error
+  private simulateErrorResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating camera error for field:', fieldId);
+    // Send an error event to reject the Promise
+    this.sendCameraEvent(fieldId, 'error', 'Camera failed to open');
+  }
+
+  // Send camera event (cancel/error) to reject Promise
+  private sendCameraEvent(fieldId: string, eventType: 'cancel' | 'error', message: string): void {
+    if (typeof (globalThis as any).onCameraEvent === 'function') {
+      console.log(`[WebView Mock] Sending camera ${eventType} event:`, { fieldId, eventType, message });
+      (globalThis as any).onCameraEvent({ fieldId, eventType, message });
+    } else {
+      console.warn('[WebView Mock] globalThis.onCameraEvent is not available');
+    }
+  }
+
+  // Helper method to send attachment data
+  private sendAttachmentData(attachmentData: any): void {
+    if (typeof (globalThis as any).onAttachmentReady === 'function') {
+      console.log('[WebView Mock] Calling globalThis.onAttachmentReady with:', attachmentData);
+      (globalThis as any).onAttachmentReady(attachmentData);
+    } else {
+      console.warn('[WebView Mock] globalThis.onAttachmentReady is not available:', typeof (globalThis as any).onAttachmentReady);
+      console.log('[WebView Mock] Available globalThis properties:', Object.keys(globalThis).filter(k => k.includes('on') || k.includes('formulus')));
+    }
+  }
+
+  // Manually simulate a camera response for testing (keeping for DevTestbed)
+  public simulateCameraResponse(fieldId: string): void {
+    this.simulateSuccessResponse(fieldId);
   }
 
   // Clean up the mock
@@ -231,6 +404,12 @@ export const sampleFormData = {
                 "RU",
                 "Other"
             ]
+        },
+        "profilePhoto": {
+            "type": "string",
+            "format": "photo",
+            "title": "Profile Photo",
+            "description": "Take a photo for your profile"
         },
         "personalData": {
             "type": "object",
@@ -346,6 +525,10 @@ export const sampleFormData = {
                 {
                     "type": "Control",
                     "scope": "#/properties/vegetarian"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/profilePhoto"
                 }
             ]
         },

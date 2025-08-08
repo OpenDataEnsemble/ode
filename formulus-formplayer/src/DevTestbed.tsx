@@ -80,6 +80,30 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
     setMessages([]);
   };
 
+  const handleSimulateCameraResponse = () => {
+    console.log('[DevTestbed] Manually simulating camera response for profilePhoto');
+    webViewMock.simulateCameraResponse('profilePhoto');
+  };
+
+  const handleTestAttachmentCallback = () => {
+    console.log('[DevTestbed] Testing attachment callback directly');
+    const testAttachment = {
+      fieldId: 'profilePhoto',
+      type: 'image' as const,
+      filename: 'test_photo_manual.jpg',
+      base64: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=',
+      url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=',
+      timestamp: new Date().toISOString()
+    };
+    
+    if (typeof (globalThis as any).onAttachmentReady === 'function') {
+      console.log('[DevTestbed] Calling globalThis.onAttachmentReady directly');
+      (globalThis as any).onAttachmentReady(testAttachment);
+    } else {
+      console.warn('[DevTestbed] globalThis.onAttachmentReady not available');
+    }
+  };
+
   if (!isVisible) return null;
 
   return (
@@ -160,7 +184,8 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
             }}
           >
             Load Sample (new)
-          </button><button
+          </button>
+          <button
             onClick={handleLoadSampleDataEditmode}
             style={{
               padding: '8px 12px',
@@ -174,6 +199,44 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
           >
             Load Sample (edit)
           </button>
+        </div>
+        
+        {/* Camera Testing Section */}
+        <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#fff3cd', border: '1px solid #ffeaa7', borderRadius: '4px' }}>
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#856404' }}>Camera Testing</h4>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleSimulateCameraResponse}
+              style={{
+                padding: '6px 10px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px'
+              }}
+            >
+              Simulate Camera Response
+            </button>
+            <button
+              onClick={handleTestAttachmentCallback}
+              style={{
+                padding: '6px 10px',
+                backgroundColor: '#17a2b8',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px'
+              }}
+            >
+              Test Attachment Callback
+            </button>
+          </div>
+        </div>
+        
+        <div style={{ marginTop: '8px' }}>
           <button
             onClick={handleQuickTest}
             style={{
@@ -246,7 +309,8 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
         1. Modify the JSON data above<br/>
         2. Click "Send onFormInit" to simulate native host<br/>
         3. Watch messages from app below<br/>
-        4. Form should load with your data
+        4. Form should load with your data<br/>
+        5. Use camera testing buttons to simulate photo responses
       </div>
     </div>
   );

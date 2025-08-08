@@ -14,6 +14,7 @@ import { FormInitData } from "./FormulusInterfaceDefinition";
 
 import SwipeLayoutRenderer, { swipeLayoutTester, groupAsSwipeLayoutTester } from "./SwipeLayoutRenderer";
 import { finalizeRenderer } from "./FinalizeRenderer";
+import PhotoQuestionRenderer, { photoQuestionTester } from "./PhotoQuestionRenderer";
 import { RankedTester } from "@jsonforms/core";
 
 import { webViewMock } from "./webview-mock";
@@ -52,6 +53,7 @@ export const useFormContext = () => useContext(FormContext);
 
 const customRenderers = [
   ...materialRenderers,
+  { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   finalizeRenderer
@@ -343,6 +345,16 @@ function App() {
   const ajv = new Ajv({ allErrors: true });
   addErrors(ajv);
   addFormats(ajv);
+  
+  // Add custom format for photo fields
+  ajv.addFormat('photo', {
+    type: 'string',
+    validate: (data: string) => {
+      // Accept any string value for photo fields
+      // The actual validation will be handled by the PhotoQuestionRenderer
+      return typeof data === 'string';
+    }
+  });
   
   // Render loading state or error if needed
   if (isLoading) {
