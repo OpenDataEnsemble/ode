@@ -15,6 +15,9 @@ The formplayer is solely responsible for
 - submitting the forms to Formulus (either as draft or final)
 - (soft-)deleting observations
 
+## Building this project
+Use 'npm run build:rn' to build the project. This will build the project and copy the build to the formulus app. 
+
 ## Javascript interface
 
 The javascript interface made available to the custom app is as follows:

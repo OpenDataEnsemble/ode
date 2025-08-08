@@ -346,14 +346,24 @@ function App() {
   addErrors(ajv);
   addFormats(ajv);
   
-  // Add custom format for photo fields
-  ajv.addFormat('photo', {
-    type: 'string',
-    validate: (data: string) => {
-      // Accept any string value for photo fields
-      // The actual validation will be handled by the PhotoQuestionRenderer
-      return typeof data === 'string';
+  // Add custom format for photo fields - expects JSON objects only
+  ajv.addFormat('photo', (data: any) => {
+    // Accept null/undefined for empty photo fields
+    if (data === null || data === undefined) {
+      return true;
     }
+    
+    // Only accept objects (JSON photo data format)
+    if (typeof data === 'object' && data !== null) {
+      // Validate required properties for photo data
+      return (
+        typeof data.type === 'string' &&
+        typeof data.filename === 'string' &&
+        (typeof data.url === 'string' || typeof data.base64 === 'string')
+      );
+    }
+    
+    return false;
   });
   
   // Render loading state or error if needed

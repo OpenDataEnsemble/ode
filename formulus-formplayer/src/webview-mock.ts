@@ -406,7 +406,7 @@ export const sampleFormData = {
             ]
         },
         "profilePhoto": {
-            "type": "string",
+            "type": "object",
             "format": "photo",
             "title": "Profile Photo",
             "description": "Take a photo for your profile"

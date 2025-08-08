@@ -19,7 +19,7 @@ import { AttachmentData } from './FormulusInterfaceDefinition';
 export const photoQuestionTester = rankWith(
   5, // High priority for photo questions
   and(
-    schemaTypeIs('string'),
+    schemaTypeIs('object'),
     schemaMatches((schema) => schema.format === 'photo')
   )
 );
@@ -40,6 +40,23 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Safe error setter to prevent corruption
+  const setSafeError = useCallback((errorMessage: string | null) => {
+    console.log('setSafeError called with:', errorMessage, 'Type:', typeof errorMessage);
+    console.log('Stack trace:', new Error().stack);
+    if (errorMessage === null || errorMessage === undefined) {
+      console.log('Clearing error state');
+      setError(null);
+    } else if (typeof errorMessage === 'string' && errorMessage.length > 0) {
+      console.log('Setting valid error message:', errorMessage);
+      setError(errorMessage);
+    } else {
+      console.warn('Invalid error message detected:', errorMessage, 'Type:', typeof errorMessage);
+      console.log('Setting fallback error message');
+      setError('An unknown error occurred');
+    }
+  }, []);
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
   
   // Extract field ID from the path for use with the camera interface
@@ -65,7 +82,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     if (!enabled) return;
     
     setIsLoading(true);
-    setError(null);
+    setSafeError(null);
     
     try {
       console.log('Requesting camera for field:', fieldId);
@@ -112,7 +129,9 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
       await formulusClient.current.requestCamera(fieldId);
       
       // Wait for the attachment data
+      console.log('Waiting for attachment promise to resolve...');
       const attachment = await attachmentPromise;
+      console.log('Attachment promise resolved with:', attachment);
       
       // Create rich photo data object
       const photoData = {
@@ -123,30 +142,40 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
         timestamp: attachment.timestamp,
         metadata: attachment.metadata || {}
       };
+      console.log('Created photo data object:', photoData);
       
       // Update the form data with the photo data
+      console.log('Updating form data with photo data...');
       handleChange(path, photoData);
       
       // Set the photo URL for display
       const displayUrl = attachment.url || (attachment.base64 ? `data:image/jpeg;base64,${attachment.base64}` : null);
       if (displayUrl) {
+        console.log('Setting photo URL for display:', displayUrl.substring(0, 50) + '...');
         setPhotoUrl(displayUrl);
       }
+      
+      // Explicitly clear any previous errors on successful photo capture
+      console.log('Clearing error state after successful photo capture');
+      setSafeError(null);
       
       console.log('Photo captured successfully:', photoData);
       
     } catch (err: any) {
       console.error('Error during camera request:', err);
-      if (err.message.includes('cancelled')) {
+      if (err.message && err.message.includes('cancelled')) {
         // Don't show error for cancellation, just reset loading state
         console.log('Camera operation cancelled by user');
+        setSafeError(null); // Explicitly clear error on cancellation
       } else {
-        setError(err.message || 'Failed to capture photo. Please try again.');
+        const errorMessage = err?.message || err?.toString() || 'Failed to capture photo. Please try again.';
+        console.log('Setting error message:', errorMessage);
+        setSafeError(errorMessage);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [fieldId, enabled, handleChange, path]);
+  }, [fieldId, enabled, handleChange, path, setSafeError]);
 
 
   // Handle photo deletion
@@ -155,9 +184,9 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     
     setPhotoUrl(null);
     handleChange(path, undefined);
-    setError(null);
+    setSafeError(null);
     console.log('Photo deleted for field:', fieldId);
-  }, [fieldId, handleChange, path, enabled]);
+  }, [fieldId, handleChange, path, enabled, setSafeError]);
 
   // Get display label from schema or uischema
   const label = (uischema as any)?.label || schema.title || 'Photo';
@@ -165,7 +194,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   const isRequired = schema.required || false;
 
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box sx={{ mb: 2, width: '100%' }}>
       {/* Label and description */}
       <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
         {label}
@@ -178,17 +207,17 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
         </Typography>
       )}
 
-      {/* Error display */}
+      {/* Error display - full width, pushes content down */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ mb: 2, width: '100%', display: 'block' }}>
           {error}
         </Alert>
       )}
 
       {/* Form validation errors */}
       {errors && errors.length > 0 && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {errors[0]}
+        <Alert severity="error" sx={{ mb: 2, width: '100%' }}>
+          {String(errors[0])}
         </Alert>
       )}
 
