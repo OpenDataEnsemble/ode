@@ -228,8 +228,7 @@ export interface FormulusInterface {
  */
 export interface FormulusCallbacks {
   onFormInit?: (formType: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => void;
-  //DELETE THIS METHOD - onAttachmentReady is legacy, use Promise-based requestCamera/requestLocation/etc instead
-  onAttachmentReady?: (data: AttachmentData) => void;
+
   onSavePartialComplete?: (formType: string, observationId: string | null, success: boolean) => void;
   onFormulusReady?: () => void;
   onReceiveFocus?: () => void;
@@ -252,8 +251,7 @@ export function isCompatibleVersion(requiredVersion: string): boolean {
 declare global {
   var formulus: FormulusInterface | undefined;
   var onFormInit: FormulusCallbacks['onFormInit'];
-  //DELETE THIS METHOD - onAttachmentReady is legacy, use Promise-based requestCamera/requestLocation/etc instead
-  var onAttachmentReady: FormulusCallbacks['onAttachmentReady'];
+
   var onSavePartialComplete: FormulusCallbacks['onSavePartialComplete'];
   var onFormulusReady: FormulusCallbacks['onFormulusReady'];
   var onReceiveFocus: FormulusCallbacks['onReceiveFocus'];

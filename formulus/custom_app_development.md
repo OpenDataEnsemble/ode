@@ -159,11 +159,6 @@ The Formulus host can send event-like messages to your web app. You can listen f
     ```
 
 *   **Other Callbacks:**
-    ```javascript
-    globalThis.formulusCallbacks.onAttachmentReady = function(attachmentData) {
-      console.log('Attachment is ready:', attachmentData);
-    };
-    ```
     *   **Important:** Check `formulus-api.js` for the exact names and signatures of available callbacks.
 
 **4. Making API Calls**

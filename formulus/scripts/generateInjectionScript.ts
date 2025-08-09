@@ -246,10 +246,7 @@ function generateInjectionScript(interfaceFilePath: string): string {
         delete callbacks[data.callbackId];
       }
       
-      // Handle specific callbacks like onAttachmentReady, etc.
-      if (data.type === 'onAttachmentReady' && globalThis.formulusCallbacks?.onAttachmentReady) {
-        handleCallback(globalThis.formulusCallbacks.onAttachmentReady, data.data);
-      }
+      // Handle specific callbacks
       
       if (data.type === 'onSavePartialComplete' && globalThis.formulusCallbacks?.onSavePartialComplete) {
         handleCallback(globalThis.formulusCallbacks.onSavePartialComplete, data.success, data.formId);

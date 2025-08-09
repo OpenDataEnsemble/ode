@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-06-19T11:45:52.372Z
+// Last generated: 2025-08-09T13:22:36.314Z
 
 (function() {
   if (typeof globalThis.formulus !== 'undefined') {
@@ -41,10 +41,7 @@
         delete callbacks[data.callbackId];
       }
       
-      // Handle specific callbacks like onAttachmentReady, etc.
-      if (data.type === 'onAttachmentReady' && globalThis.formulusCallbacks?.onAttachmentReady) {
-        handleCallback(globalThis.formulusCallbacks.onAttachmentReady, data.data);
-      }
+      // Handle specific callbacks
       
       if (data.type === 'onSavePartialComplete' && globalThis.formulusCallbacks?.onSavePartialComplete) {
         handleCallback(globalThis.formulusCallbacks.onSavePartialComplete, data.success, data.formId);

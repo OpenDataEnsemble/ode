@@ -101,13 +101,7 @@ const loadFormData = async (formType: string) => {
   }
 };
 
-// Helper function to send attachment data back to Formplayer
-const sendAttachmentToFormplayer = (webViewRef: React.RefObject<WebView | null>, data: any) => {
-  webViewRef.current?.injectJavaScript(`
-    window.FormplayerBridge && window.FormplayerBridge.onAttachmentReady(${JSON.stringify(data)});
-    true;
-  `);
-};
+
 
 import { FormulusMessageHandlers } from './FormulusMessageHandlers.types';
 import { FormInitData } from './FormulusInterfaceDefinition';
