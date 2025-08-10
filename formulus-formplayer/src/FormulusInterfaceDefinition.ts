@@ -31,6 +31,100 @@ export interface FormInitData {
 }
 
 /**
+ * Generic result type for media/action requests (camera, audio, signature, etc.)
+ * @property {string} fieldId - The ID of the field that triggered the action
+ * @property {'success' | 'cancelled' | 'error'} status - The outcome status
+ * @property {string} [message] - Optional message (mainly for errors)
+ * @property {T} [data] - Action-specific result data (only present on success)
+ */
+export interface ActionResult<T = any> {
+  fieldId: string;
+  status: 'success' | 'cancelled' | 'error';
+  message?: string;
+  data?: T;
+}
+
+/**
+ * Camera-specific result data
+ * @property {'image'} type - Always 'image' for camera results
+ * @property {string} filename - Generated filename for the image
+ * @property {string} base64 - Base64 encoded image data
+ * @property {string} url - Data URL for the image
+ * @property {string} timestamp - ISO timestamp when image was captured
+ * @property {object} metadata - Image metadata (dimensions, size, etc.)
+ */
+export interface CameraResultData {
+  type: 'image';
+  filename: string;
+  base64: string;
+  url: string;
+  timestamp: string;
+  metadata: {
+    width: number;
+    height: number;
+    size: number;
+    mimeType: string;
+    source: string;
+    quality: number;
+  };
+}
+
+/**
+ * Audio-specific result data
+ * @property {'audio'} type - Always 'audio' for audio results
+ * @property {string} filename - Generated filename for the audio
+ * @property {string} base64 - Base64 encoded audio data
+ * @property {string} url - Data URL for the audio
+ * @property {string} timestamp - ISO timestamp when audio was recorded
+ * @property {object} metadata - Audio metadata (duration, format, etc.)
+ */
+export interface AudioResultData {
+  type: 'audio';
+  filename: string;
+  base64: string;
+  url: string;
+  timestamp: string;
+  metadata: {
+    duration: number;
+    format: string;
+    sampleRate: number;
+    channels: number;
+    size: number;
+  };
+}
+
+/**
+ * Signature-specific result data
+ * @property {'signature'} type - Always 'signature' for signature results
+ * @property {string} filename - Generated filename for the signature
+ * @property {string} base64 - Base64 encoded signature image data
+ * @property {string} url - Data URL for the signature
+ * @property {string} timestamp - ISO timestamp when signature was captured
+ * @property {object} metadata - Signature metadata (dimensions, etc.)
+ */
+export interface SignatureResultData {
+  type: 'signature';
+  filename: string;
+  base64: string;
+  url: string;
+  timestamp: string;
+  metadata: {
+    width: number;
+    height: number;
+    size: number;
+    strokeCount: number;
+  };
+}
+
+/**
+ * Type aliases for specific action results
+ */
+export type CameraResult = ActionResult<CameraResultData>;
+export type AudioResult = ActionResult<AudioResultData>;
+export type SignatureResult = ActionResult<SignatureResultData>;
+
+/**
+ * @deprecated Use ActionResult<CameraResultData> instead
  * Data passed to the Formulus app when an attachment is ready
  * @property {string} fieldId - The ID of the field
  * @property {string} type - The type of the attachment
@@ -145,9 +239,9 @@ export interface FormulusInterface {
   /**
    * Request camera access for a field
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<CameraResult>} Promise that resolves with camera result or rejects on error/cancellation
    */
-  requestCamera(fieldId: string): Promise<void>;
+  requestCamera(fieldId: string): Promise<CameraResult>;
 
   /**
    * Request location for a field
@@ -183,16 +277,16 @@ export interface FormulusInterface {
   /**
    * Request audio recording for a field
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<AudioResult>} Promise that resolves with audio result or rejects on error/cancellation
    */
-  requestAudio(fieldId: string): Promise<void>;
+  requestAudio(fieldId: string): Promise<AudioResult>;
 
   /**
    * Request signature for a field
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<SignatureResult>} Promise that resolves with signature result or rejects on error/cancellation
    */
-  requestSignature(fieldId: string): Promise<void>;
+  requestSignature(fieldId: string): Promise<SignatureResult>;
 
   /**
    * Request biometric authentication
@@ -228,7 +322,6 @@ export interface FormulusInterface {
  */
 export interface FormulusCallbacks {
   onFormInit?: (formType: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => void;
-  onAttachmentReady?: (data: AttachmentData) => void;
   onSavePartialComplete?: (formType: string, observationId: string | null, success: boolean) => void;
   onFormulusReady?: () => void;
   onReceiveFocus?: () => void;
@@ -251,7 +344,6 @@ export function isCompatibleVersion(requiredVersion: string): boolean {
 declare global {
   var formulus: FormulusInterface | undefined;
   var onFormInit: FormulusCallbacks['onFormInit'];
-  var onAttachmentReady: FormulusCallbacks['onAttachmentReady'];
   var onSavePartialComplete: FormulusCallbacks['onSavePartialComplete'];
   var onFormulusReady: FormulusCallbacks['onFormulusReady'];
   var onReceiveFocus: FormulusCallbacks['onReceiveFocus'];

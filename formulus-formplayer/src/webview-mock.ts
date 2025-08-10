@@ -1,5 +1,5 @@
 // Mock implementation of ReactNativeWebView for development testing
-import { FormInitData } from './FormulusInterfaceDefinition';
+import { FormInitData, CameraResult, AudioResult, SignatureResult } from './FormulusInterfaceDefinition';
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -9,7 +9,7 @@ interface MockFormulus {
   submitObservation: (formType: string, finalData: Record<string, any>) => Promise<void>;
   updateObservation: (observationId: string, formType: string, finalData: Record<string, any>) => Promise<void>;
   savePartial: (formType: string, data: Record<string, any>) => Promise<void>;
-  requestCamera: (fieldId: string) => Promise<void>;
+  requestCamera: (fieldId: string) => Promise<CameraResult>;
   requestLocation: (fieldId: string) => Promise<void>;
   requestFile: (fieldId: string) => Promise<void>;
   launchIntent: (fieldId: string, intentSpec: Record<string, any>) => Promise<void>;
@@ -27,6 +27,10 @@ type MockGlobalThis = typeof globalThis & {
 class WebViewMock {
   private messageListeners: ((message: any) => void)[] = [];
   private isActive = false;
+  private pendingCameraPromises: Map<string, {
+    resolve: (result: CameraResult) => void;
+    reject: (error: any) => void;
+  }> = new Map();
 
   // Mock the postMessage function that the app uses to send messages to native
   private postMessage = (message: string) => {
@@ -54,6 +58,13 @@ class WebViewMock {
   // Initialize the mock
   public init(): void {
     console.log('[WebView Mock] init() called, isActive:', this.isActive);
+    
+    // NEVER initialize in production - additional safeguard
+    if (process.env.NODE_ENV !== 'development') {
+      console.log('[WebView Mock] Production environment detected, refusing to initialize mock');
+      return;
+    }
+    
     if (this.isActive) {
       console.log('[WebView Mock] Already active, returning early');
       return;
@@ -95,15 +106,19 @@ class WebViewMock {
           this.messageListeners.forEach(listener => listener(message));
           return Promise.resolve();
         },
-        requestCamera: (fieldId: string): Promise<void> => {
+        requestCamera: (fieldId: string): Promise<CameraResult> => {
           const message = { type: 'requestCamera', fieldId };
           console.log('[WebView Mock] Received requestCamera call:', message);
           this.messageListeners.forEach(listener => listener(message));
           
-          // Show interactive popup for camera simulation
-          this.showCameraSimulationPopup(fieldId);
-          
-          return Promise.resolve();
+          // Return a Promise that will be resolved/rejected based on user interaction
+          return new Promise<CameraResult>((resolve, reject) => {
+            // Store the promise resolvers for this field
+            this.pendingCameraPromises.set(fieldId, { resolve, reject });
+            
+            // Show interactive popup for camera simulation
+            this.showCameraSimulationPopup(fieldId);
+          });
         },
         requestLocation: (fieldId: string): Promise<void> => {
           const message = { type: 'requestLocation', fieldId };
@@ -269,61 +284,79 @@ class WebViewMock {
     const filename = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
     const mockImageBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
     
-    const attachmentData = {
+    const cameraResult: CameraResult = {
       fieldId,
-      type: 'image' as const,
-      filename,
-      base64: mockImageBase64,
-      url: `data:image/jpeg;base64,${mockImageBase64}`,
-      timestamp: new Date().toISOString(),
-      metadata: {
-        width: 1920,
-        height: 1080,
-        size: 2048,
-        mimeType: 'image/jpeg',
-        source: 'camera_simulation',
-        quality: 0.8
+      status: 'success',
+      data: {
+        type: 'image',
+        filename,
+        base64: mockImageBase64,
+        url: `data:image/jpeg;base64,${mockImageBase64}`,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          width: 1920,
+          height: 1080,
+          size: 2048,
+          mimeType: 'image/jpeg',
+          source: 'camera_simulation',
+          quality: 0.8
+        }
       }
     };
     
-    console.log('[WebView Mock] Simulating successful camera response:', attachmentData);
-    this.sendAttachmentData(attachmentData);
+    console.log('[WebView Mock] Simulating successful camera response:', cameraResult);
+    
+    // Resolve the pending Promise for this field
+    const pendingPromise = this.pendingCameraPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.resolve(cameraResult);
+      this.pendingCameraPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending camera promise found for field:', fieldId);
+    }
   }
 
   // Simulate camera cancellation
   private simulateCancelResponse(fieldId: string): void {
     console.log('[WebView Mock] Simulating camera cancellation for field:', fieldId);
-    // Send a cancel event to reject the Promise
-    this.sendCameraEvent(fieldId, 'cancel', 'User cancelled camera operation');
+    
+    const cameraResult: CameraResult = {
+      fieldId,
+      status: 'cancelled',
+      message: 'User cancelled camera operation'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingCameraPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(cameraResult);
+      this.pendingCameraPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending camera promise found for field:', fieldId);
+    }
   }
 
   // Simulate camera error
   private simulateErrorResponse(fieldId: string): void {
     console.log('[WebView Mock] Simulating camera error for field:', fieldId);
-    // Send an error event to reject the Promise
-    this.sendCameraEvent(fieldId, 'error', 'Camera failed to open');
-  }
-
-  // Send camera event (cancel/error) to reject Promise
-  private sendCameraEvent(fieldId: string, eventType: 'cancel' | 'error', message: string): void {
-    if (typeof (globalThis as any).onCameraEvent === 'function') {
-      console.log(`[WebView Mock] Sending camera ${eventType} event:`, { fieldId, eventType, message });
-      (globalThis as any).onCameraEvent({ fieldId, eventType, message });
+    
+    const cameraResult: CameraResult = {
+      fieldId,
+      status: 'error',
+      message: 'Camera failed to open'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingCameraPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(cameraResult);
+      this.pendingCameraPromises.delete(fieldId);
     } else {
-      console.warn('[WebView Mock] globalThis.onCameraEvent is not available');
+      console.warn('[WebView Mock] No pending camera promise found for field:', fieldId);
     }
   }
 
-  // Helper method to send attachment data
-  private sendAttachmentData(attachmentData: any): void {
-    if (typeof (globalThis as any).onAttachmentReady === 'function') {
-      console.log('[WebView Mock] Calling globalThis.onAttachmentReady with:', attachmentData);
-      (globalThis as any).onAttachmentReady(attachmentData);
-    } else {
-      console.warn('[WebView Mock] globalThis.onAttachmentReady is not available:', typeof (globalThis as any).onAttachmentReady);
-      console.log('[WebView Mock] Available globalThis properties:', Object.keys(globalThis).filter(k => k.includes('on') || k.includes('formulus')));
-    }
-  }
+
 
   // Manually simulate a camera response for testing (keeping for DevTestbed)
   public simulateCameraResponse(fieldId: string): void {
@@ -336,6 +369,17 @@ class WebViewMock {
       const mockWindow = window as MockWindow;
       delete mockWindow.ReactNativeWebView;
       this.messageListeners = [];
+      
+      // Reject any pending camera promises
+      this.pendingCameraPromises.forEach((promise, fieldId) => {
+        promise.reject({
+          fieldId,
+          status: 'error',
+          message: 'WebView mock destroyed'
+        } as CameraResult);
+      });
+      this.pendingCameraPromises.clear();
+      
       this.isActive = false;
       console.log('[WebView Mock] Destroyed mock ReactNativeWebView interface');
     }

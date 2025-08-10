@@ -13,7 +13,10 @@ import {
 } from '@mui/material';
 import { PhotoCamera, Delete, Refresh } from '@mui/icons-material';
 import FormulusClient from './FormulusInterface';
-import { AttachmentData } from './FormulusInterfaceDefinition';
+import {
+  FormInitData,
+  CameraResult
+} from './FormulusInterfaceDefinition';
 
 // Tester function to identify photo question types
 export const photoQuestionTester = rankWith(
@@ -77,7 +80,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     }
   }, [currentPhotoData]);
 
-  // Handle camera request with Promise-based approach
+  // Handle camera request with new Promise-based approach
   const handleTakePhoto = useCallback(async () => {
     if (!enabled) return;
     
@@ -87,86 +90,63 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     try {
       console.log('Requesting camera for field:', fieldId);
       
-      // Create Promise that resolves when attachment is received or rejects on cancel/error
-      const attachmentPromise = new Promise<AttachmentData>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Camera request timed out after 30 seconds'));
-        }, 30000);
-        
-        const cleanup = () => {
-          clearTimeout(timeout);
-          // Clean up global callbacks
-          delete (globalThis as any).onAttachmentReady;
-          delete (globalThis as any).onCameraEvent;
+      // Use the new Promise-based camera API
+      const cameraResult: CameraResult = await formulusClient.current.requestCamera(fieldId);
+      
+      console.log('Camera result received:', cameraResult);
+      
+      // Check if the result was successful
+      if (cameraResult.status === 'success' && cameraResult.data) {
+        // Create rich photo data object from camera result
+        const photoData = {
+          type: cameraResult.data.type,
+          filename: cameraResult.data.filename,
+          url: cameraResult.data.url,
+          base64: cameraResult.data.base64,
+          timestamp: cameraResult.data.timestamp,
+          metadata: cameraResult.data.metadata || {}
         };
+        console.log('Created photo data object:', photoData);
         
-        const handleAttachmentReady = (attachmentData: AttachmentData) => {
-          if (attachmentData.fieldId === fieldId && attachmentData.type === 'image') {
-            cleanup();
-            console.log('Received attachment for field:', fieldId, attachmentData);
-            resolve(attachmentData);
-          }
-        };
+        // Update the form data with the photo data
+        console.log('Updating form data with photo data...');
+        handleChange(path, photoData);
         
-        const handleCameraEvent = (event: { fieldId: string; eventType: 'cancel' | 'error'; message: string }) => {
-          if (event.fieldId === fieldId) {
-            cleanup();
-            console.log('Received camera event for field:', fieldId, event);
-            if (event.eventType === 'cancel') {
-              reject(new Error('Camera operation was cancelled'));
-            } else if (event.eventType === 'error') {
-              reject(new Error(event.message || 'Camera error occurred'));
-            }
-          }
-        };
+        // Set the photo URL for display
+        const displayUrl = cameraResult.data.url || (cameraResult.data.base64 ? `data:image/jpeg;base64,${cameraResult.data.base64}` : null);
+        if (displayUrl) {
+          console.log('Setting photo URL for display:', displayUrl.substring(0, 50) + '...');
+          setPhotoUrl(displayUrl);
+        }
         
-        // Set up the global callbacks
-        (globalThis as any).onAttachmentReady = handleAttachmentReady;
-        (globalThis as any).onCameraEvent = handleCameraEvent;
-      });
-      
-      // Request camera from the injected interface
-      await formulusClient.current.requestCamera(fieldId);
-      
-      // Wait for the attachment data
-      console.log('Waiting for attachment promise to resolve...');
-      const attachment = await attachmentPromise;
-      console.log('Attachment promise resolved with:', attachment);
-      
-      // Create rich photo data object
-      const photoData = {
-        type: attachment.type,
-        filename: attachment.filename,
-        url: attachment.url,
-        base64: attachment.base64,
-        timestamp: attachment.timestamp,
-        metadata: attachment.metadata || {}
-      };
-      console.log('Created photo data object:', photoData);
-      
-      // Update the form data with the photo data
-      console.log('Updating form data with photo data...');
-      handleChange(path, photoData);
-      
-      // Set the photo URL for display
-      const displayUrl = attachment.url || (attachment.base64 ? `data:image/jpeg;base64,${attachment.base64}` : null);
-      if (displayUrl) {
-        console.log('Setting photo URL for display:', displayUrl.substring(0, 50) + '...');
-        setPhotoUrl(displayUrl);
+        // Clear any previous errors on successful photo capture
+        console.log('Clearing error state after successful photo capture');
+        setSafeError(null);
+        
+        console.log('Photo captured successfully:', photoData);
+      } else {
+        // Handle non-success results
+        const errorMessage = cameraResult.message || `Camera operation ${cameraResult.status}`;
+        throw new Error(errorMessage);
       }
-      
-      // Explicitly clear any previous errors on successful photo capture
-      console.log('Clearing error state after successful photo capture');
-      setSafeError(null);
-      
-      console.log('Photo captured successfully:', photoData);
       
     } catch (err: any) {
       console.error('Error during camera request:', err);
-      if (err.message && err.message.includes('cancelled')) {
-        // Don't show error for cancellation, just reset loading state
-        console.log('Camera operation cancelled by user');
-        setSafeError(null); // Explicitly clear error on cancellation
+      
+      // Handle different types of camera errors
+      if (err && typeof err === 'object' && 'status' in err) {
+        const cameraError = err as CameraResult;
+        if (cameraError.status === 'cancelled') {
+          // Don't show error for cancellation, just reset loading state
+          console.log('Camera operation cancelled by user');
+          setSafeError(null);
+        } else if (cameraError.status === 'error') {
+          const errorMessage = cameraError.message || 'Camera error occurred';
+          console.log('Setting camera error message:', errorMessage);
+          setSafeError(errorMessage);
+        } else {
+          setSafeError('Unknown camera error');
+        }
       } else {
         const errorMessage = err?.message || err?.toString() || 'Failed to capture photo. Please try again.';
         console.log('Setting error message:', errorMessage);

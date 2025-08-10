@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-08-09T13:22:37.646Z
+ * Last generated: 2025-08-09T17:04:10.661Z
  * 
  * @example
  * // In your JavaScript file:
@@ -92,7 +92,7 @@ const FormulusAPI = {
  * Request camera access for a field
  * /
  * @param {string} fieldId - The ID of the field
- * @returns {Promise<void>} 
+ * @returns {Promise<CameraResult>} Promise that resolves with camera result or rejects on error/cancellation
  */
   requestCamera: function(fieldId) {},
 
@@ -135,7 +135,7 @@ const FormulusAPI = {
  * Request audio recording for a field
  * /
  * @param {string} fieldId - The ID of the field
- * @returns {Promise<void>} 
+ * @returns {Promise<AudioResult>} Promise that resolves with audio result or rejects on error/cancellation
  */
   requestAudio: function(fieldId) {},
 
@@ -143,7 +143,7 @@ const FormulusAPI = {
  * Request signature for a field
  * /
  * @param {string} fieldId - The ID of the field
- * @returns {Promise<void>} 
+ * @returns {Promise<SignatureResult>} Promise that resolves with signature result or rejects on error/cancellation
  */
   requestSignature: function(fieldId) {},
 

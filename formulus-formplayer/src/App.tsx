@@ -17,9 +17,17 @@ import { finalizeRenderer } from "./FinalizeRenderer";
 import PhotoQuestionRenderer, { photoQuestionTester } from "./PhotoQuestionRenderer";
 import { RankedTester } from "@jsonforms/core";
 
-import { webViewMock } from "./webview-mock";
-import DevTestbed from "./DevTestbed";
 import ErrorBoundary from "./ErrorBoundary";
+
+// Only import development dependencies in development mode
+let webViewMock: any = null;
+let DevTestbed: any = null;
+
+if (process.env.NODE_ENV === 'development') {
+  const webViewMockModule = require("./webview-mock");
+  webViewMock = webViewMockModule.webViewMock;
+  DevTestbed = require("./DevTestbed").default;
+}
 
 // Define interfaces for our form data structure
 interface FormData {
@@ -60,11 +68,17 @@ const customRenderers = [
 ];
 
 function App() {
-  // Initialize WebView mock immediately in development mode
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Development mode detected, initializing WebView mock...');
+  // Initialize WebView mock ONLY in development mode and ONLY if ReactNativeWebView doesn't exist
+  if (process.env.NODE_ENV === 'development' && webViewMock && !window.ReactNativeWebView) {
+    console.log('Development mode detected and no ReactNativeWebView found, initializing WebView mock...');
     webViewMock.init();
     console.log('WebView mock initialized, isActive:', webViewMock.isActiveMock());
+  } else if (process.env.NODE_ENV !== 'development') {
+    console.log('Production mode detected, NOT initializing WebView mock');
+  } else if (window.ReactNativeWebView) {
+    console.log('ReactNativeWebView already exists, NOT initializing mock');
+  } else if (!webViewMock) {
+    console.log('WebView mock not available (production build)');
   }
 
   // State for form data, schema, and UI schema
@@ -218,69 +232,8 @@ function App() {
       console.log('Formplayer: onFormulusReady called');
     };
 
-    formulusClient.current.onAttachmentReady((attachmentData) => {
-      console.debug('%c Attachment ready:', 'background: #FF9800; color: white; padding: 2px 5px; border-radius: 2px;', attachmentData);
-      
-      try {
-        // Validate attachment data
-        if (!attachmentData) {
-          throw new Error('Attachment data is null or undefined');
-        }
-        
-        // Handle different types of attachments
-        const { fieldId, type, ...attachmentProps } = attachmentData;
-        
-        if (!fieldId) {
-          throw new Error('Field ID is missing in attachment data');
-        }
-        
-        if (!type) {
-          throw new Error('Attachment type is missing');
-        }
-      
-      // Update the form data with the attachment information
-      setData(prevData => {
-        // Create a new data object with the same structure
-        const newData = { ...prevData };
-        
-        // Handle the attachment data based on its type
-        // We'll use a type assertion here since we're dealing with dynamic field names
-        // that aren't part of the static type definition
-        const updatedData = newData as unknown as Record<string, any>;
-        
-        // Set the field value based on the attachment type
-        switch (type) {
-          case 'image':
-          case 'file':
-          case 'audio':
-          case 'signature':
-            updatedData[fieldId] = attachmentProps.uri;
-            break;
-          case 'location':
-            updatedData[fieldId] = attachmentProps.coords;
-            break;
-          case 'intent':
-          case 'subform':
-          case 'ml_result':
-            updatedData[fieldId] = attachmentProps.data;
-            break;
-          case 'biometric':
-            updatedData[fieldId] = attachmentProps.verified;
-            break;
-          // For connectivity and sync status, these might be handled differently
-          case 'connectivity':
-          case 'sync':
-            // These might update global state rather than form fields
-            break;
-        }
-        
-        // Convert back to the expected type
-        return newData as FormData;
-      });
-      } catch (error) {
-        console.error('Error processing attachment data:', error);
-      }
-    });
+    // Note: Attachment handling is now done directly in individual components
+    // using the Promise-based camera/audio/signature APIs
 
     // Set the flag to indicate initialization is complete for this session
     (window as any).__formplayerAppInitialized = true;
@@ -464,7 +417,7 @@ function App() {
         </div>
 
         {/* Development testbed - 40% width in development mode */}
-        {process.env.NODE_ENV === 'development' && (
+        {process.env.NODE_ENV === 'development' && DevTestbed && (
           <div style={{ 
             width: '40%',
             borderLeft: '2px solid #e0e0e0',

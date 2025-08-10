@@ -139,9 +139,107 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const id = await saveFormData(formType, finalData, observationId, false);
       return id;
     },
-    onRequestCamera: (fieldId: string) => {
-      // TODO: implement camera request logic
+    onRequestCamera: async (fieldId: string): Promise<any> => {
       console.log('Request camera handler called', fieldId);
+      
+      return new Promise((resolve, reject) => {
+        try {
+          // Import react-native-image-picker directly
+          const ImagePicker = require('react-native-image-picker');
+          
+          if (!ImagePicker || !ImagePicker.launchCamera) {
+            console.error('react-native-image-picker not available or not properly linked');
+            resolve({
+              fieldId,
+              status: 'error',
+              message: 'Camera functionality not available. Please ensure react-native-image-picker is properly installed and linked.'
+            });
+            return;
+          }
+          
+          // Camera options for react-native-image-picker
+          const options = {
+            mediaType: 'photo' as const,
+            quality: 0.8,
+            includeBase64: true,
+            maxWidth: 1920,
+            maxHeight: 1080,
+            storageOptions: {
+              skipBackup: true,
+              path: 'images',
+            },
+          };
+          
+          console.log('Launching camera with react-native-image-picker');
+          
+          ImagePicker.launchCamera(options, (response: any) => {
+            console.log('Camera response received:', response);
+            
+            if (response.didCancel) {
+              console.log('User cancelled camera');
+              resolve({
+                fieldId,
+                status: 'cancelled',
+                message: 'Camera operation cancelled by user'
+              });
+            } else if (response.errorCode || response.errorMessage) {
+              console.error('Camera error:', response.errorCode, response.errorMessage);
+              resolve({
+                fieldId,
+                status: 'error',
+                message: response.errorMessage || `Camera error: ${response.errorCode}`
+              });
+            } else if (response.assets && response.assets.length > 0) {
+              // Photo captured successfully
+              const asset = response.assets[0];
+              const filename = asset.fileName || `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
+              
+              console.log('Photo captured successfully:', {
+                filename,
+                width: asset.width,
+                height: asset.height,
+                size: asset.fileSize,
+                hasBase64: !!asset.base64
+              });
+              
+              resolve({
+                fieldId,
+                status: 'success',
+                data: {
+                  type: 'image',
+                  filename,
+                  base64: asset.base64,
+                  url: asset.uri || `data:image/jpeg;base64,${asset.base64}`,
+                  timestamp: new Date().toISOString(),
+                  metadata: {
+                    width: asset.width || 1920,
+                    height: asset.height || 1080,
+                    size: asset.fileSize || 0,
+                    mimeType: asset.type || 'image/jpeg',
+                    source: 'react-native-image-picker',
+                    quality: options.quality
+                  }
+                }
+              });
+            } else {
+              console.error('Unexpected camera response format:', response);
+              resolve({
+                fieldId,
+                status: 'error',
+                message: 'Unexpected camera response format'
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Error in native camera handler:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          resolve({
+            fieldId,
+            status: 'error',
+            message: `Camera error: ${errorMessage}`
+          });
+        }
+      });
     },
     onRequestLocation: (fieldId: string) => {
       // TODO: implement location request logic

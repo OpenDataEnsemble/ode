@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-08-09T13:22:36.314Z
+// Last generated: 2025-08-09T17:04:09.322Z
 
 (function() {
   if (typeof globalThis.formulus !== 'undefined') {
@@ -398,7 +398,7 @@
           });
         },
 
-        // requestCamera: fieldId: string => Promise<void>
+        // requestCamera: fieldId: string => Promise<CameraResult>
         requestCamera: function(fieldId) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -636,7 +636,7 @@
           });
         },
 
-        // requestAudio: fieldId: string => Promise<void>
+        // requestAudio: fieldId: string => Promise<AudioResult>
         requestAudio: function(fieldId) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -683,7 +683,7 @@
           });
         },
 
-        // requestSignature: fieldId: string => Promise<void>
+        // requestSignature: fieldId: string => Promise<SignatureResult>
         requestSignature: function(fieldId) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);

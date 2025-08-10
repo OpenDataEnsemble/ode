@@ -13,7 +13,10 @@ import {
   FormulusInterface,
   FormulusCallbacks,
   FORMULUS_INTERFACE_VERSION,
-  isCompatibleVersion
+  isCompatibleVersion,
+  CameraResult,
+  AudioResult,
+  SignatureResult
 } from './FormulusInterfaceDefinition';
 
 // Re-export the types for convenience
@@ -29,8 +32,7 @@ class FormulusClient {
   private static instance: FormulusClient;
   private formulus: FormulusInterface | null = null;
   private formData: FormInitData | null = null;
-  private onFormInitCallbacks: Array<(data: FormInitData) => void> = [];
-  private onAttachmentReadyCallbacks: Array<(data: AttachmentData) => void> = [];  
+  private onFormInitCallbacks: Array<(data: FormInitData) => void> = [];  
 
   private constructor() {
     // Initialize and set up event listeners
@@ -97,13 +99,18 @@ class FormulusClient {
   /**
    * Request camera access from the Formulus RN app
    */
-  public requestCamera(fieldId: string): void {
+  public requestCamera(fieldId: string): Promise<CameraResult> {
     console.debug('Requesting camera for field', fieldId);
     
     if (this.formulus) {
-      this.formulus.requestCamera(fieldId);
+      return this.formulus.requestCamera(fieldId);
     } else {
       console.warn('Formulus interface not available for requestCamera');
+      return Promise.reject({
+        fieldId,
+        status: 'error',
+        message: 'Formulus interface not available'
+      } as CameraResult);
     }
   }
 
@@ -162,26 +169,36 @@ class FormulusClient {
   /**
    * Request audio recording from the Formulus RN app
    */
-  public requestAudio(fieldId: string): void {
+  public requestAudio(fieldId: string): Promise<AudioResult> {
     console.log('Requesting audio for field', fieldId);
     
     if (this.formulus) {
-      this.formulus.requestAudio(fieldId);
+      return this.formulus.requestAudio(fieldId);
     } else {
       console.warn('Formulus interface not available for requestAudio');
+      return Promise.reject({
+        fieldId,
+        status: 'error',
+        message: 'Formulus interface not available'
+      } as AudioResult);
     }
   }
 
   /**
    * Request signature capture from the Formulus RN app
    */
-  public requestSignature(fieldId: string): void {
+  public requestSignature(fieldId: string): Promise<SignatureResult> {
     console.log('Requesting signature for field', fieldId);
     
     if (this.formulus) {
-      this.formulus.requestSignature(fieldId);
+      return this.formulus.requestSignature(fieldId);
     } else {
       console.warn('Formulus interface not available for requestSignature');
+      return Promise.reject({
+        fieldId,
+        status: 'error',
+        message: 'Formulus interface not available'
+      } as SignatureResult);
     }
   }
 
@@ -273,12 +290,7 @@ class FormulusClient {
     };
   }
 
-  /**
-   * Register a callback for when an attachment is ready
-   */
-  public onAttachmentReady(callback: (data: AttachmentData) => void): void {
-    this.onAttachmentReadyCallbacks.push(callback);
-  }
+
 
   /**
    * Handle form initialization data from the Formulus RN app
@@ -291,15 +303,7 @@ class FormulusClient {
     this.onFormInitCallbacks.forEach(callback => callback(data));
   }
 
-  /**
-   * Handle attachment ready event from the Formulus RN app
-   */
-  private handleAttachmentReady(data: AttachmentData): void {
-    console.log('Attachment ready', data);
-    
-    // Notify all registered callbacks
-    this.onAttachmentReadyCallbacks.forEach(callback => callback(data));
-  }
+
 
   /**
    * Set up event listeners for communication with the Formulus RN app
@@ -308,10 +312,6 @@ class FormulusClient {
     // Set up the global callbacks that will be called by the Formulus RN app
     globalThis.onFormInit = (formId: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => {
       this.handleFormInit({ formType: formId, observationId, params, savedData });
-    };
-    
-    globalThis.onAttachmentReady = (data: AttachmentData) => {
-      this.handleAttachmentReady(data);
     };
 
     // Check if the Formulus interface is already available
