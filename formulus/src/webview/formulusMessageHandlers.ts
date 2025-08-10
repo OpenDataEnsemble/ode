@@ -170,8 +170,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             },
           };
           
-          console.log('Launching camera with react-native-image-picker');
+          console.log('Launching camera with react-native-image-picker, options:', options);
           
+          // react-native-image-picker handles permissions automatically
           ImagePicker.launchCamera(options, (response: any) => {
             console.log('Camera response received:', response);
             
@@ -192,35 +193,106 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             } else if (response.assets && response.assets.length > 0) {
               // Photo captured successfully
               const asset = response.assets[0];
-              const filename = asset.fileName || `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
               
-              console.log('Photo captured successfully:', {
-                filename,
-                width: asset.width,
-                height: asset.height,
-                size: asset.fileSize,
-                hasBase64: !!asset.base64
+              // Generate GUID for the image
+              const generateGUID = () => {
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                  const r = Math.random() * 16 | 0;
+                  const v = c == 'x' ? r : (r & 0x3 | 0x8);
+                  return v.toString(16);
+                });
+              };
+              
+              const imageGuid = generateGUID();
+              const guidFilename = `${imageGuid}.jpg`;
+              
+              console.log('Photo captured, processing for persistent storage:', {
+                imageGuid,
+                guidFilename,
+                tempUri: asset.uri,
+                size: asset.fileSize
               });
               
-              resolve({
-                fieldId,
-                status: 'success',
-                data: {
-                  type: 'image',
-                  filename,
-                  base64: asset.base64,
-                  url: asset.uri || `data:image/jpeg;base64,${asset.base64}`,
-                  timestamp: new Date().toISOString(),
-                  metadata: {
-                    width: asset.width || 1920,
-                    height: asset.height || 1080,
-                    size: asset.fileSize || 0,
-                    mimeType: asset.type || 'image/jpeg',
-                    source: 'react-native-image-picker',
-                    quality: options.quality
-                  }
-                }
-              });
+              // Use react-native-fs for persistent storage
+              const RNFS = require('react-native-fs');
+              
+              // Create persistent storage path in app data folder
+              const imagesDir = `${RNFS.DocumentDirectoryPath}/images`;
+              const persistentPath = `${imagesDir}/${guidFilename}`;
+              
+              // Ensure images directory exists and copy file
+              RNFS.mkdir(imagesDir)
+                .then(() => {
+                  console.log('Images directory ensured, copying file:', asset.uri, '→', persistentPath);
+                  return RNFS.copyFile(asset.uri, persistentPath);
+                })
+                .then(() => {
+                  console.log('Image saved to persistent storage:', persistentPath);
+                  
+                  // Verify file was saved successfully
+                  return RNFS.stat(persistentPath);
+                })
+                .then((stats: any) => {
+                  console.log('Persistent image verified:', {
+                    path: persistentPath,
+                    size: stats.size,
+                    exists: true
+                  });
+                  
+                  // Return success with persistent file reference (no base64)
+                  resolve({
+                    fieldId,
+                    status: 'success',
+                    data: {
+                      type: 'image',
+                      id: imageGuid,
+                      filename: `${imageGuid}.jpg`,
+                      uri: persistentPath,
+                      url: `file://${persistentPath}`,
+                      timestamp: new Date().toISOString(),
+                      metadata: {
+                        width: response.width || 1920,
+                        height: response.height || 1080,
+                        size: stats.size,
+                        mimeType: 'image/jpeg',
+                        source: 'react-native-image-picker',
+                        quality: 0.8,
+                        originalFileName: response.fileName || `${imageGuid}.jpg`,
+                        persistentStorage: true,
+                        storageLocation: 'app_data/images'
+                      }
+                    }
+                  });
+                })
+                .catch((error: any) => {
+                  console.error('Error saving image to persistent storage:', error);
+                  
+                  // Fallback: return with temporary URI only
+                  console.log('[Camera Handler] Using fallback mode with temporary storage');
+                  resolve({
+                    fieldId,
+                    status: 'success',
+                    data: {
+                      type: 'image',
+                      id: imageGuid,
+                      filename: `${imageGuid}.jpg`,
+                      uri: response.uri || '',
+                      url: `file://${response.uri || ''}`,
+                      timestamp: new Date().toISOString(),
+                      metadata: {
+                        width: response.width || 1920,
+                        height: response.height || 1080,
+                        size: response.fileSize || 0,
+                        mimeType: 'image/jpeg',
+                        source: 'react-native-image-picker',
+                        quality: 0.8,
+                        originalFileName: response.fileName || `${imageGuid}.jpg`,
+                        persistentStorage: false,
+                        storageLocation: 'temp'
+                      }
+                    }
+                  });
+                });
             } else {
               console.error('Unexpected camera response format:', response);
               resolve({

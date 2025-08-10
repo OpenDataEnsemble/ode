@@ -97,27 +97,32 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
       
       // Check if the result was successful
       if (cameraResult.status === 'success' && cameraResult.data) {
-        // Create rich photo data object from camera result
+        // Store photo data in form - use file URI for display
+        const displayUrl = cameraResult.data.url;
+        
         const photoData = {
+          id: cameraResult.data.id,
           type: cameraResult.data.type,
           filename: cameraResult.data.filename,
-          url: cameraResult.data.url,
-          base64: cameraResult.data.base64,
+          uri: cameraResult.data.uri,
           timestamp: cameraResult.data.timestamp,
-          metadata: cameraResult.data.metadata || {}
+          metadata: cameraResult.data.metadata
         };
-        console.log('Created photo data object:', photoData);
+        console.log('Created photo data object for sync protocol:', {
+          id: photoData.id,
+          filename: photoData.filename,
+          uri: photoData.uri,
+          persistentStorage: photoData.metadata.persistentStorage,
+          size: photoData.metadata.size
+        });
         
         // Update the form data with the photo data
         console.log('Updating form data with photo data...');
         handleChange(path, photoData);
         
-        // Set the photo URL for display
-        const displayUrl = cameraResult.data.url || (cameraResult.data.base64 ? `data:image/jpeg;base64,${cameraResult.data.base64}` : null);
-        if (displayUrl) {
-          console.log('Setting photo URL for display:', displayUrl.substring(0, 50) + '...');
-          setPhotoUrl(displayUrl);
-        }
+        // Set the photo URL for display using the file URL
+        console.log('Setting photo URL for display:', displayUrl.substring(0, 50) + '...');
+        setPhotoUrl(displayUrl);
         
         // Clear any previous errors on successful photo capture
         console.log('Clearing error state after successful photo capture');

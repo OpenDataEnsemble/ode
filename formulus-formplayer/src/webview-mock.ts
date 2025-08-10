@@ -279,37 +279,49 @@ class WebViewMock {
     });
   }
 
-  // Simulate successful camera response
+  // Simulate successful camera response with GUID
   private simulateSuccessResponse(fieldId: string): void {
-    const filename = `photo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.jpg`;
-    const mockImageBase64 = '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
+    // Generate GUID for mock image
+    const generateGUID = () => {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    };
     
-    const cameraResult: CameraResult = {
+    const imageGuid = generateGUID();
+    const mockFilePath = `/mock/storage/images/${imageGuid}.jpg`;
+    
+    const mockCameraResult: CameraResult = {
       fieldId,
       status: 'success',
       data: {
         type: 'image',
-        filename,
-        base64: mockImageBase64,
-        url: `data:image/jpeg;base64,${mockImageBase64}`,
+        id: imageGuid,
+        filename: `${imageGuid}.jpg`,
+        uri: mockFilePath,
+        url: `file://${mockFilePath}`,
         timestamp: new Date().toISOString(),
         metadata: {
           width: 1920,
           height: 1080,
-          size: 2048,
+          size: 2048576,
           mimeType: 'image/jpeg',
-          source: 'camera_simulation',
-          quality: 0.8
+          source: 'webview_mock',
+          quality: 0.8,
+          persistentStorage: true,
+          storageLocation: 'mock/storage/images'
         }
       }
     };
     
-    console.log('[WebView Mock] Simulating successful camera response:', cameraResult);
+    console.log('[WebView Mock] Simulating successful camera response:', mockCameraResult);
     
     // Resolve the pending Promise for this field
     const pendingPromise = this.pendingCameraPromises.get(fieldId);
     if (pendingPromise) {
-      pendingPromise.resolve(cameraResult);
+      pendingPromise.resolve(mockCameraResult);
       this.pendingCameraPromises.delete(fieldId);
     } else {
       console.warn('[WebView Mock] No pending camera promise found for field:', fieldId);

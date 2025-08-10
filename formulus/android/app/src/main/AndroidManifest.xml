@@ -2,10 +2,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     
-    <!-- Camera permissions for react-native-image-picker -->
-    <uses-permission android:name="android.permission.CAMERA" />
-    
     <!-- Storage permissions for react-native-image-picker -->
+    <!-- Note: CAMERA permission is NOT needed - react-native-image-picker handles it automatically -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     

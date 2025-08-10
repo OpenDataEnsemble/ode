@@ -55,9 +55,10 @@ export interface ActionResult<T = any> {
  */
 export interface CameraResultData {
   type: 'image';
-  filename: string;
-  base64: string;
-  url: string;
+  id: string; // GUID for unique identification
+  filename: string; // GUID-based filename
+  uri: string; // Persistent file path for sync protocol
+  url: string; // File URL for display (file://)
   timestamp: string;
   metadata: {
     width: number;
@@ -66,6 +67,9 @@ export interface CameraResultData {
     mimeType: string;
     source: string;
     quality: number;
+    originalFileName?: string;
+    persistentStorage: boolean;
+    storageLocation: string;
   };
 }
 

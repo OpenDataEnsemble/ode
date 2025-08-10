@@ -48,15 +48,14 @@ export interface ActionResult<T = any> {
  * Camera-specific result data
  * @property {'image'} type - Always 'image' for camera results
  * @property {string} filename - Generated filename for the image
- * @property {string} base64 - Base64 encoded image data
- * @property {string} url - Data URL for the image
  * @property {string} timestamp - ISO timestamp when image was captured
  * @property {object} metadata - Image metadata (dimensions, size, etc.)
  */
 export interface CameraResultData {
   type: 'image';
+  id: string;
   filename: string;
-  base64: string;
+  uri: string;
   url: string;
   timestamp: string;
   metadata: {
@@ -66,6 +65,9 @@ export interface CameraResultData {
     mimeType: string;
     source: string;
     quality: number;
+    originalFileName?: string;
+    persistentStorage: boolean;
+    storageLocation: string;
   };
 }
 
