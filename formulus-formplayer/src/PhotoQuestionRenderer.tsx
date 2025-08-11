@@ -67,16 +67,17 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   
   // Get the current photo data from the form data (now JSON format)
   const currentPhotoData = data || null;
-  const currentPhotoFilename = currentPhotoData?.filename || null;
   
   // Set photo URL from stored data if available
   useEffect(() => {
+    console.log('Photo data changed:', currentPhotoData);
     if (currentPhotoData?.url) {
       // For WebView, we need to handle file:// URLs differently
       // In development/mock mode, file URLs might work, but in production we need a different approach
       console.log('Setting photo URL from stored data:', currentPhotoData.url);
       setPhotoUrl(currentPhotoData.url);
     } else {
+      console.log('No photo URL found, clearing photoUrl state');
       setPhotoUrl(null);
     }
   }, [currentPhotoData]);
@@ -208,7 +209,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
       )}
 
       {/* Photo display or camera button */}
-      {currentPhotoFilename && photoUrl ? (
+      {currentPhotoData && currentPhotoData.filename && photoUrl ? (
         <Card sx={{ maxWidth: 400, mb: 2 }}>
           <CardMedia
             component="img"
@@ -220,7 +221,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="body2" color="text.secondary">
-                File: {currentPhotoFilename}
+                File: {currentPhotoData.filename}
               </Typography>
               <Box>
                 <IconButton 
@@ -253,7 +254,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
         }}>
           <PhotoCamera sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
-            {currentPhotoFilename ? 'Photo taken' : 'No photo taken yet'}
+            {currentPhotoData?.filename ? 'Photo taken' : 'No photo taken yet'}
           </Typography>
           <Button
             variant="contained"
@@ -278,8 +279,12 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
               fieldId,
               path,
               currentPhotoData,
-              currentPhotoFilename,
+              hasPhotoData: !!currentPhotoData,
+              hasFilename: !!currentPhotoData?.filename,
+              hasUrl: !!currentPhotoData?.url,
+              photoUrl,
               hasPhotoUrl: !!photoUrl,
+              shouldShowThumbnail: !!(currentPhotoData && currentPhotoData.filename && photoUrl),
               isLoading,
               error
             }, null, 2)}
