@@ -72,9 +72,10 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   // Set photo URL from stored data if available
   useEffect(() => {
     if (currentPhotoData?.url) {
+      // For WebView, we need to handle file:// URLs differently
+      // In development/mock mode, file URLs might work, but in production we need a different approach
+      console.log('Setting photo URL from stored data:', currentPhotoData.url);
       setPhotoUrl(currentPhotoData.url);
-    } else if (currentPhotoData?.base64) {
-      setPhotoUrl(`data:image/jpeg;base64,${currentPhotoData.base64}`);
     } else {
       setPhotoUrl(null);
     }

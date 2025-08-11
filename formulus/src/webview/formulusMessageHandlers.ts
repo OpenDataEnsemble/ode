@@ -239,7 +239,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                     exists: true
                   });
                   
-                  // Return success with persistent file reference (no base64)
+                  
+                  const webViewUrl = `file://${persistentPath}`;
+                  
                   resolve({
                     fieldId,
                     status: 'success',
@@ -247,8 +249,8 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                       type: 'image',
                       id: imageGuid,
                       filename: `${imageGuid}.jpg`,
-                      uri: persistentPath,
-                      url: `file://${persistentPath}`,
+                      uri: persistentPath, // Persistent path for sync protocol
+                      url: webViewUrl, // WebView-accessible URL for display
                       timestamp: new Date().toISOString(),
                       metadata: {
                         width: response.width || 1920,
@@ -276,8 +278,8 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                       type: 'image',
                       id: imageGuid,
                       filename: `${imageGuid}.jpg`,
-                      uri: response.uri || '',
-                      url: `file://${response.uri || ''}`,
+                      uri: response.uri || '', // Temporary URI for sync protocol
+                      url: response.uri || '', // WebView-compatible URL for display
                       timestamp: new Date().toISOString(),
                       metadata: {
                         width: response.width || 1920,
