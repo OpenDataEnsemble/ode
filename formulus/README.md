@@ -143,7 +143,9 @@ We separate sync into two distinct phases:
 
 - **Phase 2: Attachment file sync**
   - Upload or download attachment files *after* a successful observation sync.
-  - Handles binary data transfers independently.
+  - Handles binary data transfers independently
+    - Download of attachment is done effeciently by requesting a manifest from the server describing changes since last sync (that included attachments)
+    - Upload of attachment is handled as simple as possible, by having a copy all un-synced attachment waiting to be synced in a "pending_uploads" folder within the app's storage. Once uploaded, the file will be removed from the "pending_uploads" folder.
 
 ---
 

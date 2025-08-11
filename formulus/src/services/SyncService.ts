@@ -1,14 +1,20 @@
 import { synkronusApi } from '../api/synkronus';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SyncProgress } from '../contexts/SyncContext';
+import { notificationService } from './NotificationService';
 
 type SyncProgressCallback = (progress: number) => void;
 type SyncStatusCallback = (status: string) => void;
+type SyncProgressDetailCallback = (progress: SyncProgress) => void;
 
 export class SyncService {
   private static instance: SyncService;
   private isSyncing: boolean = false;
   private statusCallbacks: Set<SyncStatusCallback> = new Set();
+  private progressCallbacks: Set<SyncProgressDetailCallback> = new Set();
+  private canCancel: boolean = false;
+  private shouldCancel: boolean = false;
 
   private constructor() {}
 
@@ -24,8 +30,36 @@ export class SyncService {
     return () => this.statusCallbacks.delete(callback);
   }
 
+  public subscribeToProgressUpdates(callback: SyncProgressDetailCallback): () => void {
+    this.progressCallbacks.add(callback);
+    return () => this.progressCallbacks.delete(callback);
+  }
+
   private updateStatus(status: string): void {
     this.statusCallbacks.forEach(callback => callback(status));
+  }
+
+  private updateProgress(progress: SyncProgress): void {
+    this.progressCallbacks.forEach(callback => callback(progress));
+    // Note: showSyncProgress is now async, but we don't await to avoid blocking sync
+    notificationService.showSyncProgress(progress).catch(error => 
+      console.warn('Failed to show sync progress notification:', error)
+    );
+  }
+
+  public cancelSync(): void {
+    if (this.canCancel) {
+      this.shouldCancel = true;
+      this.updateStatus('Cancelling sync...');
+    }
+  }
+
+  public getIsSyncing(): boolean {
+    return this.isSyncing;
+  }
+
+  public getCanCancel(): boolean {
+    return this.canCancel;
   }
 
   public async syncObservations(includeAttachments: boolean = false): Promise<number> {
@@ -34,19 +68,103 @@ export class SyncService {
     }
 
     this.isSyncing = true;
+    this.canCancel = true;
+    this.shouldCancel = false;
     this.updateStatus('Starting sync...');
 
+    // Clear any stale notifications before starting new sync
+    notificationService.clearAllSyncNotifications().catch(error => 
+      console.warn('Failed to clear stale notifications:', error)
+    );
+
     try {
-      const version = await synkronusApi.syncObservations(includeAttachments);
-      await AsyncStorage.setItem('@last_seen_version', version.toString());
-      this.updateStatus(`Sync completed @ data version ${version}`);
-      return version;
-    } catch (error) {
+      // Phase 1: Pull - Get manifest and download changes
+      this.updateProgress({
+        current: 0,
+        total: 4,
+        phase: 'pull',
+        details: 'Fetching manifest...'
+      });
+
+      if (this.shouldCancel) {
+        notificationService.showSyncCanceled().catch(error => 
+          console.warn('Failed to show sync canceled notification:', error)
+        );
+        throw new Error('Sync cancelled');
+      }
+
+      // Phase 2: Pull - Download observations
+      this.updateProgress({
+        current: 1,
+        total: 4,
+        phase: 'pull',
+        details: 'Downloading observations...'
+      });
+
+      if (this.shouldCancel) {
+        notificationService.showSyncCanceled().catch(error => 
+          console.warn('Failed to show sync canceled notification:', error)
+        );
+        throw new Error('Sync cancelled');
+      }
+
+      // Phase 3: Push - Upload local changes
+      this.updateProgress({
+        current: 2,
+        total: 4,
+        phase: 'push',
+        details: 'Uploading observations...'
+      });
+
+      if (this.shouldCancel) {
+        notificationService.showSyncCanceled().catch(error => 
+          console.warn('Failed to show sync canceled notification:', error)
+        );
+        throw new Error('Sync cancelled');
+      }
+
+      // Phase 4: Attachments (if enabled)
+      if (includeAttachments) {
+        this.updateProgress({
+          current: 3,
+          total: 4,
+          phase: 'attachments_upload',
+          details: 'Syncing attachments...'
+        });
+
+        if (this.shouldCancel) {
+          notificationService.showSyncCanceled().catch(error => 
+            console.warn('Failed to show sync canceled notification:', error)
+          );
+          throw new Error('Sync cancelled');
+        }
+      }
+
+      const finalVersion = await synkronusApi.syncObservations(includeAttachments);
+      
+      this.updateProgress({
+        current: 4,
+        total: 4,
+        phase: 'push',
+        details: 'Sync completed'
+      });
+      await AsyncStorage.setItem('@last_seen_version', finalVersion.toString());
+      
+      this.updateStatus(`Sync completed @ data version ${finalVersion}`);
+      await notificationService.showSyncComplete(true);
+      
+      return finalVersion;
+    } catch (error: any) {
       console.error('Sync failed', error);
-      this.updateStatus('Sync failed');
+      const errorMessage = error.message || 'Unknown error occurred';
+      this.updateStatus(`Sync failed: ${errorMessage}`);
+      await notificationService.showSyncComplete(false, errorMessage);
       throw error;
     } finally {
       this.isSyncing = false;
+      this.canCancel = false;
+      this.shouldCancel = false;
+      // Note: Don't call hideSyncProgress() here as showSyncComplete() already handles notification cleanup
     }
   }
 

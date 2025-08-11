@@ -6,22 +6,24 @@ import {
   TouchableOpacity, 
   Alert,
   SafeAreaView,
-  ScrollView
+  ScrollView,
+  AppState
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { syncService } from '../services/SyncService';
-import { synkronusApi } from '../api/synkronus';
-import { databaseService } from '../database/DatabaseService';
+import { useSyncContext } from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
+import { databaseService } from '../database/DatabaseService';
 
 const SyncScreen = () => {
-  const [isSyncing, setIsSyncing] = useState(false);
+  const { syncState, startSync, updateProgress, finishSync, cancelSync, clearError } = useSyncContext();
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Loading...');
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [dataVersion, setDataVersion] = useState<number>(0);
   const [pendingUploads, setPendingUploads] = useState<{count: number, sizeMB: number}>({count: 0, sizeMB: 0});
   const [pendingObservations, setPendingObservations] = useState<number>(0);
+  const [backgroundSyncEnabled, setBackgroundSyncEnabled] = useState<boolean>(false);
 
   // Get pending upload info
   const updatePendingUploads = useCallback(async () => {
@@ -60,33 +62,39 @@ const SyncScreen = () => {
 
   // Handle sync operations
   const handleSync = useCallback(async () => {
+    if (syncState.isActive) return; // Prevent multiple syncs
+    
     try {
-      setIsSyncing(true);
+      startSync(true); // Allow cancellation
       const version = await syncService.syncObservations(true);
       setDataVersion(version);
       // Update pending uploads and observations after sync
       await updatePendingUploads();
       await updatePendingObservations();
+      finishSync(); // Success
     } catch (error) {
-      Alert.alert('Error', 'Failed to sync!\n' + (error as Error).message);
-    } finally {
-      setIsSyncing(false);
+      const errorMessage = (error as Error).message;
+      finishSync(errorMessage); // Finish with error
+      Alert.alert('Error', 'Failed to sync!\n' + errorMessage);
     }
-  }, [updatePendingUploads]);
+  }, [updatePendingUploads, syncState.isActive, startSync, finishSync]);
 
   // Handle app updates
   const handleCustomAppUpdate = useCallback(async () => {
+    if (syncState.isActive) return; // Prevent multiple syncs
+    
     try {
-      setIsSyncing(true);
+      startSync(false); // App updates can't be cancelled easily
       await syncService.updateAppBundle();
       setLastSync(new Date().toLocaleTimeString());
       setUpdateAvailable(false);
+      finishSync(); // Success
     } catch (error) {
-      Alert.alert('Error', 'Failed to update app bundle!\n' + (error as Error).message);
-    } finally {
-      setIsSyncing(false);
+      const errorMessage = (error as Error).message;
+      finishSync(errorMessage); // Finish with error
+      Alert.alert('Error', 'Failed to update app bundle!\n' + errorMessage);
     }
-  }, []);
+  }, [syncState.isActive, startSync, finishSync]);
 
   // Check for updates
   const checkForUpdates = useCallback(async (force: boolean = false) => {
@@ -166,24 +174,66 @@ const SyncScreen = () => {
           </Text>
         </View>
 
+        {/* Sync Progress Display */}
+        {syncState.isActive && syncState.progress && (
+          <View style={styles.progressContainer}>
+            <Text style={styles.progressTitle}>Sync Progress</Text>
+            <Text style={styles.progressDetails}>
+              {syncState.progress.details || 'Syncing...'}
+            </Text>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${(syncState.progress.current / syncState.progress.total) * 100}%` }
+                ]} 
+              />
+            </View>
+            <Text style={styles.progressText}>
+              {syncState.progress.current}/{syncState.progress.total} - {Math.round((syncState.progress.current / syncState.progress.total) * 100)}%
+            </Text>
+            {syncState.canCancel && (
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={cancelSync}
+              >
+                <Text style={styles.cancelButtonText}>Cancel Sync</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Error Display */}
+        {syncState.error && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{syncState.error}</Text>
+            <TouchableOpacity 
+              style={styles.clearErrorButton}
+              onPress={clearError}
+            >
+              <Text style={styles.clearErrorText}>Dismiss</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.section}>
           <TouchableOpacity 
-            style={[styles.button, isSyncing && styles.buttonDisabled]}
+            style={[styles.button, syncState.isActive && styles.buttonDisabled]}
             onPress={handleSync}
-            disabled={isSyncing}
+            disabled={syncState.isActive}
           >
             <Text style={styles.buttonText}>
-              {isSyncing ? 'Syncing...' : 'Sync data + attachments'}
+              {syncState.isActive ? 'Syncing...' : 'Sync data + attachments'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.button, isSyncing  && styles.buttonDisabled]}
+            style={[styles.button, syncState.isActive && styles.buttonDisabled]}
             onPress={handleCustomAppUpdate}
-            disabled={isSyncing || !updateAvailable}
+            disabled={syncState.isActive || !updateAvailable}
           >
             <Text style={styles.buttonText}>
-              {isSyncing ? 'Syncing...' : 'Update forms and custom app'}
+              {syncState.isActive ? 'Syncing...' : 'Update forms and custom app'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -290,6 +340,80 @@ const styles = StyleSheet.create({
   detailValue: {
     color: '#333',
     fontSize: 15,
+    fontWeight: '500',
+  },
+  progressContainer: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: '#e3f2fd',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196f3',
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1976d2',
+    marginBottom: 8,
+  },
+  progressDetails: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 4,
+    marginBottom: 8,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#2196f3',
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  cancelButton: {
+    backgroundColor: '#f44336',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 4,
+    alignSelf: 'center',
+  },
+  cancelButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f44336',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#c62828',
+    marginBottom: 10,
+  },
+  clearErrorButton: {
+    backgroundColor: '#f44336',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    alignSelf: 'flex-end',
+  },
+  clearErrorText: {
+    color: 'white',
+    fontSize: 12,
     fontWeight: '500',
   },
 });

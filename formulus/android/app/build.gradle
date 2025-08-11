@@ -129,6 +129,22 @@ dependencies {
     }
 
     implementation project(':watermelondb-jsi') // for watermelondb JSI fastness
+    
+    implementation project(':notifee_react-native') // notifee notification support
+
+    // Explicitly include AndroidX dependencies to avoid conflicts
+    implementation 'androidx.core:core:1.9.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    
+    // Fix for react-native-push-notification duplicate class conflicts
+    configurations.all {
+        exclude group: 'com.android.support'
+        exclude group: 'androidx.legacy', module: 'legacy-support-v4'
+        resolutionStrategy {
+            force 'androidx.core:core:1.9.0'
+            force 'androidx.appcompat:appcompat:1.6.1'
+        }
+    }
 }
 
 
