@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { syncService } from '../services/SyncService';
+import { synkronusApi } from '../api/synkronus';
+import RNFS from 'react-native-fs';
 
 const SyncScreen = () => {
   const [isSyncing, setIsSyncing] = useState(false);
@@ -17,19 +19,45 @@ const SyncScreen = () => {
   const [status, setStatus] = useState<string>('Loading...');
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [dataVersion, setDataVersion] = useState<number>(0);
+  const [pendingUploads, setPendingUploads] = useState<{count: number, sizeMB: number}>({count: 0, sizeMB: 0});
+
+  // Get pending upload info
+  const updatePendingUploads = useCallback(async () => {
+    try {
+      const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+      
+      // Ensure directory exists
+      await RNFS.mkdir(pendingUploadDirectory);
+      
+      // Get all files in pending_upload directory
+      const files = await RNFS.readDir(pendingUploadDirectory);
+      const attachmentFiles = files.filter(file => file.isFile());
+      
+      const count = attachmentFiles.length;
+      const totalSizeBytes = attachmentFiles.reduce((sum, file) => sum + file.size, 0);
+      const sizeMB = totalSizeBytes / (1024 * 1024);
+      
+      setPendingUploads({ count, sizeMB });
+    } catch (error) {
+      console.error('Failed to get pending uploads info:', error);
+      setPendingUploads({ count: 0, sizeMB: 0 });
+    }
+  }, []);
 
   // Handle sync operations
   const handleSync = useCallback(async () => {
     try {
       setIsSyncing(true);
-      const version = await syncService.syncObservations(false);
+      const version = await syncService.syncObservations(true);
       setDataVersion(version);
+      // Update pending uploads after sync
+      await updatePendingUploads();
     } catch (error) {
       Alert.alert('Error', 'Failed to sync!\n' + (error as Error).message);
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [updatePendingUploads]);
 
   // Handle app updates
   const handleCustomAppUpdate = useCallback(async () => {
@@ -78,6 +106,9 @@ const SyncScreen = () => {
       if (lastSeenVersion) {
         setDataVersion(parseInt(lastSeenVersion, 10));
       }
+      
+      // Get pending uploads info
+      await updatePendingUploads();
     };
 
     initialize();
@@ -102,6 +133,13 @@ const SyncScreen = () => {
           <Text style={styles.statusLabel}>Last Sync:</Text>
           <Text style={styles.statusValue}>
             {lastSync || 'Never'} @ version {dataVersion}
+          </Text>
+        </View>
+
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusLabel}>Pending Uploads:</Text>
+          <Text style={styles.statusValue}>
+            {pendingUploads.count} files ({pendingUploads.sizeMB.toFixed(2)} MB)
           </Text>
         </View>
 
