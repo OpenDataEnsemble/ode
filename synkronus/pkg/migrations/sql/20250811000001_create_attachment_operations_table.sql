@@ -20,14 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_attachment_operations_attachment_id ON attachment
 CREATE INDEX IF NOT EXISTS idx_attachment_operations_version_client ON attachment_operations(version, client_id);
 
 -- Create function to auto-increment version for attachment operations
-CREATE OR REPLACE FUNCTION increment_attachment_sync_version() RETURNS TRIGGER AS $$
-BEGIN 
-    UPDATE sync_version SET current_version = current_version + 1, updated_at = NOW() WHERE id = 1; 
-    NEW.version = (SELECT current_version FROM sync_version WHERE id = 1); 
-    NEW.created_at = NOW(); 
-    RETURN NEW; 
-END;
-$$ LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION increment_attachment_sync_version() RETURNS TRIGGER AS 'BEGIN UPDATE sync_version SET current_version = current_version + 1, updated_at = NOW() WHERE id = 1; NEW.version = (SELECT current_version FROM sync_version WHERE id = 1); NEW.created_at = NOW(); RETURN NEW; END;' LANGUAGE plpgsql;
 
 -- Create trigger to auto-increment version on insert
 CREATE TRIGGER attachment_operations_version_trigger
