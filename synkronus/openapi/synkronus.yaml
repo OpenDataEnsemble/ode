@@ -772,6 +772,53 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncPushResponse'
 
+  /attachments/manifest:
+    post:
+      summary: Get attachment manifest for incremental sync
+      description: Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - name: x-api-version
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachmentManifestRequest'
+      responses:
+        '200':
+          description: Attachment manifest with changes since specified version
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentManifestResponse'
+        '400':
+          description: Invalid request parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /attachments/{attachment_id}:
     put:
       summary: Upload a new attachment with specified ID
@@ -1207,6 +1254,78 @@ components:
                 type: string
               message:
                 type: string
+
+    AttachmentManifestRequest:
+      type: object
+      required: [client_id, since_version]
+      properties:
+        client_id:
+          type: string
+          description: Unique identifier for the client requesting the manifest
+          example: "mobile-app-123"
+        since_version:
+          type: integer
+          description: Data version number from which to get attachment changes (0 for all attachments)
+          example: 42
+          minimum: 0
+
+    AttachmentManifestResponse:
+      type: object
+      required: [current_version, operations]
+      properties:
+        current_version:
+          type: integer
+          description: Current database version number
+          example: 45
+        operations:
+          type: array
+          description: List of attachment operations to perform
+          items:
+            $ref: '#/components/schemas/AttachmentOperation'
+        total_download_size:
+          type: integer
+          description: Total size in bytes of all attachments to download
+          example: 1048576
+        operation_count:
+          type: object
+          description: Count of operations by type
+          properties:
+            download:
+              type: integer
+              example: 3
+            delete:
+              type: integer
+              example: 1
+
+    AttachmentOperation:
+      type: object
+      required: [operation, attachment_id]
+      properties:
+        operation:
+          type: string
+          enum: [download, delete]
+          description: Operation to perform on the attachment
+        attachment_id:
+          type: string
+          description: Unique identifier for the attachment
+          example: "abc123-def4-5678-9012-345678901234.jpg"
+        download_url:
+          type: string
+          format: uri
+          description: URL to download the attachment (only present for download operations)
+          example: "https://api.example.com/attachments/abc123-def4-5678-9012-345678901234.jpg"
+        size:
+          type: integer
+          description: Size of the attachment in bytes (only present for download operations)
+          example: 524288
+        content_type:
+          type: string
+          description: MIME type of the attachment (only present for download operations)
+          example: "image/jpeg"
+        version:
+          type: integer
+          description: Version when this attachment was created/modified/deleted
+          example: 43
 
   securitySchemes:
     bearerAuth:

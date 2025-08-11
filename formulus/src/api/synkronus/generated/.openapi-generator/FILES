@@ -10,6 +10,10 @@ docs/AppBundleManifest.md
 docs/AppBundlePushResponse.md
 docs/AppBundleSwitchVersionPost200Response.md
 docs/AppBundleVersions.md
+docs/AttachmentManifestRequest.md
+docs/AttachmentManifestResponse.md
+docs/AttachmentManifestResponseOperationCount.md
+docs/AttachmentOperation.md
 docs/AttachmentsAttachmentIdPut200Response.md
 docs/AuthLoginPostRequest.md
 docs/AuthRefreshPostRequest.md

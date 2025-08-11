@@ -118,6 +118,13 @@ npm run generate
   1. Running a clean build: `cd android && ./gradlew clean && cd ..`
   2. Rebuilding the app: `npx react-native run-android`
 
+## The API client is auto generated based on the OpenAPI spec from synkronus
+To generate the API client, run the following command:
+
+```bash
+npm run generate:api
+```
+
 ## Synchronization considerations
 
 This section describes the design strategy for synchronizing both *observation records* and their associated *attachments* in the ODE sync protocol.

@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApiAuthToken } from './Auth';
 import { databaseService } from '../../database/DatabaseService';
 import randomId from '@nozbe/watermelondb/utils/common/randomId';
+import { Buffer } from 'buffer';
 
 interface DownloadResult {
   success: boolean;
@@ -96,10 +97,174 @@ class SynkronusApi {
 
 
   private getAttachmentsDownloadManifest(observations: Observation[]): string[] {
-    //const attachments = observations.flatMap(obs => obs.attachments);
-    //return attachments.map(attachment => attachment.path);
-    //TODO: Iterate over fields in data and identify fields with attachments - build array of paths to download
-    return [];
+    const attachmentPaths: string[] = [];
+    
+    for (const observation of observations) {
+      if (observation.data && typeof observation.data === 'object') {
+        // Recursively search for attachment fields in the observation data
+        this.extractAttachmentPaths(observation.data, attachmentPaths);
+      }
+    }
+    
+    return [...new Set(attachmentPaths)]; // Remove duplicates
+  }
+
+  /**
+   * Process attachment manifest operations (download/delete) based on server response
+   */
+  private async processAttachmentManifest(): Promise<void> {
+    try {
+      const lastAttachmentVersion = Number(await AsyncStorage.getItem('@last_attachment_version')) || 0;
+      const clientId = await AsyncStorage.getItem('@clientId');
+      
+      if (!clientId) {
+        console.warn('No client ID available, skipping attachment sync');
+        return;
+      }
+
+      console.debug(`Getting attachment manifest since version ${lastAttachmentVersion}`);
+      
+      const api = await this.getApi();
+      const response = await api.attachmentsManifestPost({
+        attachmentManifestRequest: {
+          client_id: clientId,
+          since_version: lastAttachmentVersion
+        }
+      });
+      
+      const manifest = response.data;
+      console.debug(`Received attachment manifest: ${manifest.operations.length} operations at version ${manifest.current_version}`);
+      
+      if (manifest.operations.length === 0) {
+        console.debug('No attachment operations to perform');
+        await AsyncStorage.setItem('@last_attachment_version', manifest.current_version.toString());
+        return;
+      }
+      
+      // Process operations
+      const downloadOps = manifest.operations.filter((op: any) => op.operation === 'download');
+      const deleteOps = manifest.operations.filter((op: any) => op.operation === 'delete');
+      
+      console.debug(`Processing ${downloadOps.length} downloads, ${deleteOps.length} deletions`);
+      
+      // Process deletions first
+      await this.processAttachmentDeletions(deleteOps);
+      
+      // Process downloads
+      await this.processAttachmentDownloads(downloadOps);
+      
+      // Update last processed version
+      await AsyncStorage.setItem('@last_attachment_version', manifest.current_version.toString());
+      console.debug(`Attachment sync completed at version ${manifest.current_version}`);
+      
+    } catch (error) {
+      console.error('Failed to process attachment manifest:', error);
+      // Don't throw - attachment sync is optional
+    }
+  }
+
+  /**
+   * Process attachment deletion operations
+   */
+  private async processAttachmentDeletions(deleteOps: any[]): Promise<void> {
+    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+    
+    for (const op of deleteOps) {
+      try {
+        const filePath = `${attachmentsDirectory}/${op.attachment_id}`;
+        const exists = await RNFS.exists(filePath);
+        
+        if (exists) {
+          await RNFS.unlink(filePath);
+          console.debug(`Deleted attachment: ${op.attachment_id}`);
+        } else {
+          console.debug(`Attachment already deleted: ${op.attachment_id}`);
+        }
+      } catch (error) {
+        console.error(`Failed to delete attachment ${op.attachment_id}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Process attachment download operations using manifest URLs
+   */
+  private async processAttachmentDownloads(downloadOps: any[]): Promise<void> {
+    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+    await RNFS.mkdir(attachmentsDirectory);
+    
+    const urls = downloadOps.map(op => op.download_url);
+    const localPaths = downloadOps.map(op => `${attachmentsDirectory}/${op.attachment_id}`);
+    
+    const results = await this.downloadRawFiles(urls, localPaths);
+    
+    results.forEach((result, index) => {
+      const op = downloadOps[index];
+      if (result.success) {
+        console.debug(`Downloaded attachment: ${op.attachment_id} (${result.bytesWritten} bytes)`);
+      } else {
+        console.error(`Failed to download attachment ${op.attachment_id}: ${result.message}`);
+      }
+    });
+  }
+
+  private async getAttachmentsUploadManifest(): Promise<string[]> {
+    // Simple approach: scan the pending_upload folder for files to upload
+    const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+    
+    try {
+      // Ensure directory exists
+      await RNFS.mkdir(pendingUploadDirectory);
+      
+      // Get all files in pending_upload directory
+      const files = await RNFS.readDir(pendingUploadDirectory);
+      const attachmentIds = files
+        .filter(file => file.isFile())
+        .map(file => file.name)
+        .filter(filename => this.isAttachmentPath(filename));
+      
+      return attachmentIds;
+    } catch (error) {
+      console.error('Failed to read pending_upload attachments directory:', error);
+      return [];
+    }
+  }
+
+  private extractAttachmentPaths(data: any, attachmentPaths: string[]): void {
+    if (!data || typeof data !== 'object') return;
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (typeof value === 'string') {
+        // Check if this looks like an attachment path (GUID-style filename)
+        // Based on PhotoQuestionRenderer pattern: GUID-style filenames
+        if (this.isAttachmentPath(value)) {
+          attachmentPaths.push(value);
+        }
+      } else if (Array.isArray(value)) {
+        // Handle arrays of attachments
+        for (const item of value) {
+          if (typeof item === 'string' && this.isAttachmentPath(item)) {
+            attachmentPaths.push(item);
+          } else if (typeof item === 'object') {
+            this.extractAttachmentPaths(item, attachmentPaths);
+          }
+        }
+      } else if (typeof value === 'object') {
+        // Recursively search nested objects
+        this.extractAttachmentPaths(value, attachmentPaths);
+      }
+    }
+  }
+
+  private isAttachmentPath(value: string): boolean {
+    // Check if the string looks like a GUID-style filename or attachment path
+    // GUID pattern: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+    const guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // Check for GUID with common image extensions
+    const guidWithExtension = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|gif|bmp|webp|pdf|doc|docx)$/i;
+    
+    return guidPattern.test(value) || guidWithExtension.test(value);
   }
 
   private fastGetToken_cachedToken: string | null = null;
@@ -210,6 +375,11 @@ class SynkronusApi {
   }
 
   private async downloadAttachments(attachments: string[]) {
+    if (attachments.length === 0) {
+      console.debug('No attachments to download');
+      return [];
+    }
+    
     console.debug('Starting attachments download...', attachments);
     const downloadDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
     await RNFS.mkdir(downloadDirectory);
@@ -221,6 +391,179 @@ class SynkronusApi {
     const results = await this.downloadRawFiles(urls, localFilePaths);
     console.debug('Attachments downloaded', results);
     return results;
+  }
+
+  private async uploadAttachments(attachments: string[]): Promise<DownloadResult[]> {
+    if (attachments.length === 0) {
+      console.debug('No attachments to upload');
+      return [];
+    }
+    
+    console.debug('Starting attachments upload...', attachments);
+    const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+    const api = await this.getApi();
+    const results: DownloadResult[] = [];
+    
+    // Ensure directories exist
+    await RNFS.mkdir(attachmentsDirectory);
+    
+    for (const attachmentId of attachments) {
+      const pendingFilePath = `${pendingUploadDirectory}/${attachmentId}`;
+      const mainFilePath = `${attachmentsDirectory}/${attachmentId}`;
+      
+      try {
+        // Check if file exists in pending_upload directory
+        const fileExists = await RNFS.exists(pendingFilePath);
+        if (!fileExists) {
+          console.warn(`Attachment file not found in pending_upload directory: ${pendingFilePath}`);
+          results.push({
+            success: false,
+            message: `File not found: ${pendingFilePath}`,
+            filePath: pendingFilePath,
+            bytesWritten: 0
+          });
+          continue;
+        }
+        
+        // Check if attachment already exists on server
+        try {
+          await api.attachmentsAttachmentIdHead({ attachmentId });
+          console.debug(`Attachment ${attachmentId} already exists on server, skipping upload`);
+          results.push({
+            success: true,
+            message: `Attachment already exists on server: ${attachmentId}`,
+            filePath: pendingFilePath,
+            bytesWritten: 0
+          });
+          continue;
+        } catch (headError: any) {
+          // If HEAD request fails with 404, the attachment doesn't exist and we should upload
+          if (headError.response?.status !== 404) {
+            console.error(`Error checking attachment existence: ${headError.message}`);
+            results.push({
+              success: false,
+              message: `Error checking attachment: ${headError.message}`,
+              filePath: pendingFilePath,
+              bytesWritten: 0
+            });
+            continue;
+          }
+        }
+        
+        // Read file and create File object for upload
+        const fileData = await RNFS.readFile(pendingFilePath, 'base64');
+        const fileStats = await RNFS.stat(pendingFilePath);
+        
+        // Convert base64 to blob/file for upload
+        // Use Buffer for React Native environment instead of atob
+        const buffer = Buffer.from(fileData, 'base64');
+        const byteArray = new Uint8Array(buffer);
+        
+        // Determine MIME type based on file extension
+        const mimeType = this.getMimeTypeFromFilename(attachmentId);
+        const file = new File([byteArray], attachmentId, { type: mimeType });
+        
+        // Upload the file
+        console.debug(`Uploading attachment: ${attachmentId} (${fileStats.size} bytes)`);
+        const uploadResponse = await api.attachmentsAttachmentIdPut({ attachmentId, file });
+        
+        // Remove file from pending_upload directory (upload complete)
+        // Note: File already exists in main attachments directory from when it was first saved
+        await RNFS.unlink(pendingFilePath);
+        
+        results.push({
+          success: true,
+          message: `Successfully uploaded attachment: ${attachmentId}`,
+          filePath: mainFilePath,
+          bytesWritten: fileStats.size
+        });
+        
+        console.debug(`Successfully uploaded attachment: ${attachmentId}`);
+        
+      } catch (error: any) {
+        console.error(`Failed to upload attachment ${attachmentId}:`, error);
+        results.push({
+          success: false,
+          message: `Upload failed: ${error.message}`,
+          filePath: pendingFilePath,
+          bytesWritten: 0
+        });
+      }
+    }
+    
+    console.debug('Attachments upload completed', results);
+    return results;
+  }
+  
+  private getMimeTypeFromFilename(filename: string): string {
+    const extension = filename.toLowerCase().split('.').pop();
+    const mimeTypes: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'bmp': 'image/bmp',
+      'webp': 'image/webp',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    };
+    
+    return mimeTypes[extension || ''] || 'application/octet-stream';
+  }
+
+  /**
+   * Save a new attachment for immediate use and queue it for upload
+   * This should be called when a new attachment is created (e.g., from camera)
+   * The file is saved to both the main attachments folder (for immediate use in forms)
+   * and the unsynced folder (as an upload queue)
+   */
+  async saveNewAttachment(attachmentId: string, fileData: string, isBase64: boolean = true): Promise<string> {
+    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+    const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+    
+    // Ensure both directories exist
+    await RNFS.mkdir(attachmentsDirectory);
+    await RNFS.mkdir(pendingUploadDirectory);
+    
+    const mainFilePath = `${attachmentsDirectory}/${attachmentId}`;
+    const pendingFilePath = `${pendingUploadDirectory}/${attachmentId}`;
+    const encoding = isBase64 ? 'base64' : 'utf8';
+    
+    // Save to both locations
+    await Promise.all([
+      RNFS.writeFile(mainFilePath, fileData, encoding),
+      RNFS.writeFile(pendingFilePath, fileData, encoding)
+    ]);
+    
+    console.debug(`Saved new attachment: ${attachmentId} (available immediately, queued for upload)`);
+    
+    // Return the path that should be stored in observation data
+    return mainFilePath;
+  }
+
+  /**
+   * Get the count of unsynced attachments pending upload
+   */
+  async getUnsyncedAttachmentCount(): Promise<number> {
+    const attachments = await this.getAttachmentsUploadManifest();
+    return attachments.length;
+  }
+
+  /**
+   * Check if a specific attachment exists in the main attachments folder and/or upload queue
+   */
+  async attachmentExists(attachmentId: string): Promise<{ available: boolean; pendingUpload: boolean }> {
+    const mainPath = `${RNFS.DocumentDirectoryPath}/attachments/${attachmentId}`;
+    const pendingUploadPath = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload/${attachmentId}`;
+    
+    const [available, pendingUpload] = await Promise.all([
+      RNFS.exists(mainPath),
+      RNFS.exists(pendingUploadPath)
+    ]);
+    
+    return { available, pendingUpload };
   }
 
   /**
@@ -264,8 +607,8 @@ class SynkronusApi {
       console.debug(`Applied ${pulledChanges} changes to local database`);
 
       if (includeAttachments) {
-        const attachments = this.getAttachmentsDownloadManifest(domainObservations);      
-        await this.downloadAttachments(attachments);
+        // Process attachment manifest for incremental sync
+        await this.processAttachmentManifest();
       }
       
       console.debug('Pulled observations: ', domainObservations);
@@ -279,44 +622,79 @@ class SynkronusApi {
 
   /**
    * Push observations to the server. This method should only be called immediately after pullObservations
+   * @param includeAttachments Whether to upload attachments associated with the observations
    * @returns The current version of the data (if no records are pushed, the last seen version is returned)
    */
   async pushObservations(includeAttachments: boolean = false): Promise<number> {
     const api = await this.getApi();
     const transmissionId = randomId();
-    // 1. get pending changes from watermelondb
-    const repo = databaseService.getLocalRepo();
-    const localChanges = await repo.getPendingChanges();
-    console.debug(`Found ${localChanges.length} local changes to push`);
-    if (localChanges.length > 0) {
+    
+    try {
+      // 1. Get pending changes from watermelondb
+      const repo = databaseService.getLocalRepo();
+      const localChanges = await repo.getPendingChanges();
+      console.debug(`Found ${localChanges.length} local changes to push`);
+      
+      if (localChanges.length === 0) {
+        console.debug('No local changes to push');
+        return Number(await AsyncStorage.getItem('@last_seen_version'));
+      }
 
-      // 2. send to server
+      // 2. Upload attachments first (if requested and available)
+      let attachmentUploadResults: DownloadResult[] = [];
+      if (includeAttachments) {
+        const attachments = await this.getAttachmentsUploadManifest();
+        console.debug(`Found ${attachments.length} pending attachments to upload:`, attachments);
+        
+        if (attachments.length > 0) {
+          attachmentUploadResults = await this.uploadAttachments(attachments);
+          
+          // Check for upload failures
+          const failedUploads = attachmentUploadResults.filter(result => !result.success);
+          if (failedUploads.length > 0) {
+            console.warn(`${failedUploads.length} attachment uploads failed:`, failedUploads);
+            // Continue with observation sync even if some attachments failed
+            // The server should handle missing attachments gracefully
+          }
+          
+          const successfulUploads = attachmentUploadResults.filter(result => result.success);
+          console.debug(`Successfully uploaded ${successfulUploads.length}/${attachments.length} attachments`);
+        }
+      }
+
+      // 3. Push observations to server
       const syncPushRequest = {
         client_id: (await AsyncStorage.getItem('@clientId')) ?? 'UNDEFINED',
         records: localChanges.map(ObservationMapper.toApi),
         transmission_id: transmissionId,
-      }
-      console.debug(`Pushing ${localChanges.length} observations: `, syncPushRequest);
+      };
+      
+      console.debug(`Pushing ${localChanges.length} observations with transmission ID: ${transmissionId}`);
       const res = await api.syncPushPost({syncPushRequest});
-      console.debug(`Pushed ${localChanges.length} observations: `, res.data);
+      console.debug(`Successfully pushed ${localChanges.length} observations. Server version: ${res.data.current_version}`);
       
-      // 2b. if includeAttachments, send attachments
-      if (includeAttachments) {
-        const attachments = this.getAttachmentsDownloadManifest(localChanges);      
-        await this.downloadAttachments(attachments);
-      }
+      // 4. Update local database sync status
+      await repo.markObservationsAsSynced(localChanges.map(record => record.observationId));
+      console.debug(`Marked ${localChanges.length} observations as synced`);
       
-      // 3. update local db with sync statuc
-      if (localChanges.length > 0) {        
-        await repo.markObservationsAsSynced(localChanges.map(record => record.observationId));
-        console.debug(`Marked ${localChanges.length} observations as synced`);
-      }
-      
-      // 4. update last seen version
+      // 5. Update last seen version
       await AsyncStorage.setItem('@last_seen_version', res.data.current_version.toString());
+      
+      // 6. Log summary
+      if (includeAttachments && attachmentUploadResults.length > 0) {
+        const successfulUploads = attachmentUploadResults.filter(result => result.success).length;
+        const totalUploads = attachmentUploadResults.length;
+        console.debug(`Push completed: ${localChanges.length} observations, ${successfulUploads}/${totalUploads} attachments uploaded`);
+      } else {
+        console.debug(`Push completed: ${localChanges.length} observations (attachments not included)`);
+      }
+      
       return res.data.current_version;
+      
+    } catch (error: any) {
+      console.error('Failed to push observations:', error);
+      throw new Error(`Push failed: ${error.message}`);
     }
-    return Number(await AsyncStorage.getItem('@last_seen_version'));
   }
 
   /**

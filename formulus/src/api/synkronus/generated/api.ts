@@ -188,6 +188,126 @@ export interface AppBundleVersions {
 /**
  * 
  * @export
+ * @interface AttachmentManifestRequest
+ */
+export interface AttachmentManifestRequest {
+    /**
+     * Unique identifier for the client requesting the manifest
+     * @type {string}
+     * @memberof AttachmentManifestRequest
+     */
+    'client_id': string;
+    /**
+     * Data version number from which to get attachment changes (0 for all attachments)
+     * @type {number}
+     * @memberof AttachmentManifestRequest
+     */
+    'since_version': number;
+}
+/**
+ * 
+ * @export
+ * @interface AttachmentManifestResponse
+ */
+export interface AttachmentManifestResponse {
+    /**
+     * Current database version number
+     * @type {number}
+     * @memberof AttachmentManifestResponse
+     */
+    'current_version': number;
+    /**
+     * List of attachment operations to perform
+     * @type {Array<AttachmentOperation>}
+     * @memberof AttachmentManifestResponse
+     */
+    'operations': Array<AttachmentOperation>;
+    /**
+     * Total size in bytes of all attachments to download
+     * @type {number}
+     * @memberof AttachmentManifestResponse
+     */
+    'total_download_size'?: number;
+    /**
+     * 
+     * @type {AttachmentManifestResponseOperationCount}
+     * @memberof AttachmentManifestResponse
+     */
+    'operation_count'?: AttachmentManifestResponseOperationCount;
+}
+/**
+ * Count of operations by type
+ * @export
+ * @interface AttachmentManifestResponseOperationCount
+ */
+export interface AttachmentManifestResponseOperationCount {
+    /**
+     * 
+     * @type {number}
+     * @memberof AttachmentManifestResponseOperationCount
+     */
+    'download'?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof AttachmentManifestResponseOperationCount
+     */
+    'delete'?: number;
+}
+/**
+ * 
+ * @export
+ * @interface AttachmentOperation
+ */
+export interface AttachmentOperation {
+    /**
+     * Operation to perform on the attachment
+     * @type {string}
+     * @memberof AttachmentOperation
+     */
+    'operation': AttachmentOperationOperationEnum;
+    /**
+     * Unique identifier for the attachment
+     * @type {string}
+     * @memberof AttachmentOperation
+     */
+    'attachment_id': string;
+    /**
+     * URL to download the attachment (only present for download operations)
+     * @type {string}
+     * @memberof AttachmentOperation
+     */
+    'download_url'?: string;
+    /**
+     * Size of the attachment in bytes (only present for download operations)
+     * @type {number}
+     * @memberof AttachmentOperation
+     */
+    'size'?: number;
+    /**
+     * MIME type of the attachment (only present for download operations)
+     * @type {string}
+     * @memberof AttachmentOperation
+     */
+    'content_type'?: string;
+    /**
+     * Version when this attachment was created/modified/deleted
+     * @type {number}
+     * @memberof AttachmentOperation
+     */
+    'version'?: number;
+}
+
+export const AttachmentOperationOperationEnum = {
+    Download: 'download',
+    Delete: 'delete'
+} as const;
+
+export type AttachmentOperationOperationEnum = typeof AttachmentOperationOperationEnum[keyof typeof AttachmentOperationOperationEnum];
+
+/**
+ * 
+ * @export
  * @interface AttachmentsAttachmentIdPut200Response
  */
 export interface AttachmentsAttachmentIdPut200Response {
@@ -1402,6 +1522,50 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+         * @summary Get attachment manifest for incremental sync
+         * @param {AttachmentManifestRequest} attachmentManifestRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        attachmentsManifestPost: async (attachmentManifestRequest: AttachmentManifestRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'attachmentManifestRequest' is not null or undefined
+            assertParamExists('attachmentsManifestPost', 'attachmentManifestRequest', attachmentManifestRequest)
+            const localVarPath = `/attachments/manifest`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(attachmentManifestRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Obtain a JWT token by providing username and password
          * @summary Authenticate with the API
          * @param {AuthLoginPostRequest} authLoginPostRequest 
@@ -1962,6 +2126,20 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+         * @summary Get attachment manifest for incremental sync
+         * @param {AttachmentManifestRequest} attachmentManifestRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async attachmentsManifestPost(attachmentManifestRequest: AttachmentManifestRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AttachmentManifestResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.attachmentsManifestPost(attachmentManifestRequest, xApiVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.attachmentsManifestPost']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Obtain a JWT token by providing username and password
          * @summary Authenticate with the API
          * @param {AuthLoginPostRequest} authLoginPostRequest 
@@ -2200,6 +2378,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         attachmentsAttachmentIdPut(requestParameters: DefaultApiAttachmentsAttachmentIdPutRequest, options?: RawAxiosRequestConfig): AxiosPromise<AttachmentsAttachmentIdPut200Response> {
             return localVarFp.attachmentsAttachmentIdPut(requestParameters.attachmentId, requestParameters.file, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+         * @summary Get attachment manifest for incremental sync
+         * @param {DefaultApiAttachmentsManifestPostRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        attachmentsManifestPost(requestParameters: DefaultApiAttachmentsManifestPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AttachmentManifestResponse> {
+            return localVarFp.attachmentsManifestPost(requestParameters.attachmentManifestRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
         },
         /**
          * Obtain a JWT token by providing username and password
@@ -2483,6 +2671,27 @@ export interface DefaultApiAttachmentsAttachmentIdPutRequest {
      * @memberof DefaultApiAttachmentsAttachmentIdPut
      */
     readonly file: File
+}
+
+/**
+ * Request parameters for attachmentsManifestPost operation in DefaultApi.
+ * @export
+ * @interface DefaultApiAttachmentsManifestPostRequest
+ */
+export interface DefaultApiAttachmentsManifestPostRequest {
+    /**
+     * 
+     * @type {AttachmentManifestRequest}
+     * @memberof DefaultApiAttachmentsManifestPost
+     */
+    readonly attachmentManifestRequest: AttachmentManifestRequest
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiAttachmentsManifestPost
+     */
+    readonly xApiVersion?: string
 }
 
 /**
@@ -2801,6 +3010,18 @@ export class DefaultApi extends BaseAPI {
      */
     public attachmentsAttachmentIdPut(requestParameters: DefaultApiAttachmentsAttachmentIdPutRequest, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).attachmentsAttachmentIdPut(requestParameters.attachmentId, requestParameters.file, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+     * @summary Get attachment manifest for incremental sync
+     * @param {DefaultApiAttachmentsManifestPostRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public attachmentsManifestPost(requestParameters: DefaultApiAttachmentsManifestPostRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).attachmentsManifestPost(requestParameters.attachmentManifestRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

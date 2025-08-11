@@ -13,6 +13,7 @@ All URIs are relative to *http://localhost*
 |[**attachmentsAttachmentIdGet**](#attachmentsattachmentidget) | **GET** /attachments/{attachment_id} | Download an attachment by ID|
 |[**attachmentsAttachmentIdHead**](#attachmentsattachmentidhead) | **HEAD** /attachments/{attachment_id} | Check if an attachment exists|
 |[**attachmentsAttachmentIdPut**](#attachmentsattachmentidput) | **PUT** /attachments/{attachment_id} | Upload a new attachment with specified ID|
+|[**attachmentsManifestPost**](#attachmentsmanifestpost) | **POST** /attachments/manifest | Get attachment manifest for incremental sync|
 |[**authLoginPost**](#authloginpost) | **POST** /auth/login | Authenticate with the API|
 |[**authRefreshPost**](#authrefreshpost) | **POST** /auth/refresh | Refresh authentication token|
 |[**syncPullPost**](#syncpullpost) | **POST** /sync/pull | Pull updated records since last sync|
@@ -515,6 +516,64 @@ const { status, data } = await apiInstance.attachmentsAttachmentIdPut(
 |**400** | Bad request (missing or invalid file) |  -  |
 |**401** | Unauthorized |  -  |
 |**409** | Conflict (attachment already exists and cannot be overwritten) |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
+# **attachmentsManifestPost**
+> AttachmentManifestResponse attachmentsManifestPost(attachmentManifestRequest)
+
+Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    AttachmentManifestRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let attachmentManifestRequest: AttachmentManifestRequest; //
+let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+
+const { status, data } = await apiInstance.attachmentsManifestPost(
+    attachmentManifestRequest,
+    xApiVersion
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **attachmentManifestRequest** | **AttachmentManifestRequest**|  | |
+| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined|
+
+
+### Return type
+
+**AttachmentManifestResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Attachment manifest with changes since specified version |  -  |
+|**400** | Invalid request parameters |  -  |
+|**401** | Unauthorized |  -  |
+|**500** | Internal server error |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
