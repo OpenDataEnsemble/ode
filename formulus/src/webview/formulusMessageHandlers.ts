@@ -213,34 +213,36 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                 size: asset.fileSize
               });
               
-              // Use react-native-fs for persistent storage
+              // Use RNFS to copy the camera image to both attachment locations
               const RNFS = require('react-native-fs');
+              const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+              const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
               
-              // Create persistent storage path in app data folder
-              const imagesDir = `${RNFS.DocumentDirectoryPath}/images`;
-              const persistentPath = `${imagesDir}/${guidFilename}`;
+              const mainFilePath = `${attachmentsDirectory}/${guidFilename}`;
+              const pendingFilePath = `${pendingUploadDirectory}/${guidFilename}`;
               
-              // Ensure images directory exists and copy file
-              RNFS.mkdir(imagesDir)
+              console.log('Copying camera image to attachment sync system:', {
+                source: asset.uri,
+                mainPath: mainFilePath,
+                pendingPath: pendingFilePath
+              });
+              
+              // Ensure both directories exist and copy file to both locations
+              Promise.all([
+                RNFS.mkdir(attachmentsDirectory),
+                RNFS.mkdir(pendingUploadDirectory)
+              ])
                 .then(() => {
-                  console.log('Images directory ensured, copying file:', asset.uri, '→', persistentPath);
-                  return RNFS.copyFile(asset.uri, persistentPath);
+                  // Copy to both locations simultaneously
+                  return Promise.all([
+                    RNFS.copyFile(asset.uri, mainFilePath),
+                    RNFS.copyFile(asset.uri, pendingFilePath)
+                  ]);
                 })
                 .then(() => {
-                  console.log('Image saved to persistent storage:', persistentPath);
+                  console.log('Image saved to attachment sync system:', mainFilePath);
                   
-                  // Verify file was saved successfully
-                  return RNFS.stat(persistentPath);
-                })
-                .then((stats: any) => {
-                  console.log('Persistent image verified:', {
-                    path: persistentPath,
-                    size: stats.size,
-                    exists: true
-                  });
-                  
-                  
-                  const webViewUrl = `file://${persistentPath}`;
+                  const webViewUrl = `file://${mainFilePath}`;
                   
                   resolve({
                     fieldId,
@@ -248,51 +250,31 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                     data: {
                       type: 'image',
                       id: imageGuid,
-                      filename: `${imageGuid}.jpg`,
-                      uri: persistentPath, // Persistent path for sync protocol
+                      filename: guidFilename,
+                      uri: mainFilePath, // Main attachment path for sync protocol
                       url: webViewUrl, // WebView-accessible URL for display
                       timestamp: new Date().toISOString(),
                       metadata: {
-                        width: response.width || 1920,
-                        height: response.height || 1080,
-                        size: stats.size,
+                        width: asset.width || 1920,
+                        height: asset.height || 1080,
+                        size: asset.fileSize || 0,
                         mimeType: 'image/jpeg',
                         source: 'react-native-image-picker',
                         quality: 0.8,
-                        originalFileName: response.fileName || `${imageGuid}.jpg`,
+                        originalFileName: asset.fileName || guidFilename,
                         persistentStorage: true,
-                        storageLocation: 'app_data/images'
+                        storageLocation: 'attachments_with_upload_queue',
+                        syncReady: true
                       }
                     }
                   });
                 })
                 .catch((error: any) => {
-                  console.error('Error saving image to persistent storage:', error);
-                  
-                  // Fallback: return with temporary URI only
-                  console.log('[Camera Handler] Using fallback mode with temporary storage');
+                  console.error('Error copying image to attachment sync system:', error);
                   resolve({
                     fieldId,
-                    status: 'success',
-                    data: {
-                      type: 'image',
-                      id: imageGuid,
-                      filename: `${imageGuid}.jpg`,
-                      uri: response.uri || '', // Temporary URI for sync protocol
-                      url: response.uri || '', // WebView-compatible URL for display
-                      timestamp: new Date().toISOString(),
-                      metadata: {
-                        width: response.width || 1920,
-                        height: response.height || 1080,
-                        size: response.fileSize || 0,
-                        mimeType: 'image/jpeg',
-                        source: 'react-native-image-picker',
-                        quality: 0.8,
-                        originalFileName: response.fileName || `${imageGuid}.jpg`,
-                        persistentStorage: false,
-                        storageLocation: 'temp'
-                      }
-                    }
+                    status: 'error',
+                    message: `Failed to save image: ${error.message}`
                   });
                 });
             } else {

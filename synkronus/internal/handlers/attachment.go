@@ -24,11 +24,17 @@ func NewAttachmentHandler(log *logger.Logger, service attachment.Service) *Attac
 }
 
 // RegisterRoutes registers the attachment routes
-func (h *AttachmentHandler) RegisterRoutes(r chi.Router) {
-	r.Route("/attachments/{attachment_id}", func(r chi.Router) {
-		r.Put("/", h.UploadAttachment)
-		r.Get("/", h.DownloadAttachment)
-		r.Head("/", h.CheckAttachment)
+func (h *AttachmentHandler) RegisterRoutes(r chi.Router, manifestHandler func(http.ResponseWriter, *http.Request)) {
+	r.Route("/attachments", func(r chi.Router) {
+		// Manifest endpoint
+		r.Post("/manifest", manifestHandler)
+		
+		// Individual attachment routes
+		r.Route("/{attachment_id}", func(r chi.Router) {
+			r.Put("/", h.UploadAttachment)
+			r.Get("/", h.DownloadAttachment)
+			r.Head("/", h.CheckAttachment)
+		})
 	})
 }
 

@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { syncService } from '../services/SyncService';
 import { synkronusApi } from '../api/synkronus';
+import { databaseService } from '../database/DatabaseService';
 import RNFS from 'react-native-fs';
 
 const SyncScreen = () => {
@@ -20,6 +21,7 @@ const SyncScreen = () => {
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [dataVersion, setDataVersion] = useState<number>(0);
   const [pendingUploads, setPendingUploads] = useState<{count: number, sizeMB: number}>({count: 0, sizeMB: 0});
+  const [pendingObservations, setPendingObservations] = useState<number>(0);
 
   // Get pending upload info
   const updatePendingUploads = useCallback(async () => {
@@ -44,14 +46,27 @@ const SyncScreen = () => {
     }
   }, []);
 
+  // Get pending observations count
+  const updatePendingObservations = useCallback(async () => {
+    try {
+      const repo = databaseService.getLocalRepo();
+      const pendingChanges = await repo.getPendingChanges();
+      setPendingObservations(pendingChanges.length);
+    } catch (error) {
+      console.error('Failed to get pending observations count:', error);
+      setPendingObservations(0);
+    }
+  }, []);
+
   // Handle sync operations
   const handleSync = useCallback(async () => {
     try {
       setIsSyncing(true);
       const version = await syncService.syncObservations(true);
       setDataVersion(version);
-      // Update pending uploads after sync
+      // Update pending uploads and observations after sync
       await updatePendingUploads();
+      await updatePendingObservations();
     } catch (error) {
       Alert.alert('Error', 'Failed to sync!\n' + (error as Error).message);
     } finally {
@@ -107,8 +122,9 @@ const SyncScreen = () => {
         setDataVersion(parseInt(lastSeenVersion, 10));
       }
       
-      // Get pending uploads info
+      // Get pending uploads and observations info
       await updatePendingUploads();
+      await updatePendingObservations();
     };
 
     initialize();
@@ -140,6 +156,13 @@ const SyncScreen = () => {
           <Text style={styles.statusLabel}>Pending Uploads:</Text>
           <Text style={styles.statusValue}>
             {pendingUploads.count} files ({pendingUploads.sizeMB.toFixed(2)} MB)
+          </Text>
+        </View>
+
+        <View style={styles.statusContainer}>
+          <Text style={styles.statusLabel}>Pending Observations:</Text>
+          <Text style={styles.statusValue}>
+            {pendingObservations} records
           </Text>
         </View>
 

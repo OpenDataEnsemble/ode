@@ -133,17 +133,20 @@ class SynkronusApi {
       });
       
       const manifest = response.data;
-      console.debug(`Received attachment manifest: ${manifest.operations.length} operations at version ${manifest.current_version}`);
       
-      if (manifest.operations.length === 0) {
+      // Handle null operations array (server returns null when no operations)
+      const operations = manifest.operations || [];
+      console.debug(`Received attachment manifest: ${operations.length} operations at version ${manifest.current_version}`);
+      
+      if (operations.length === 0) {
         console.debug('No attachment operations to perform');
         await AsyncStorage.setItem('@last_attachment_version', manifest.current_version.toString());
         return;
       }
       
       // Process operations
-      const downloadOps = manifest.operations.filter((op: any) => op.operation === 'download');
-      const deleteOps = manifest.operations.filter((op: any) => op.operation === 'delete');
+      const downloadOps = operations.filter((op: any) => op.operation === 'download');
+      const deleteOps = operations.filter((op: any) => op.operation === 'delete');
       
       console.debug(`Processing ${downloadOps.length} downloads, ${deleteOps.length} deletions`);
       
@@ -157,9 +160,9 @@ class SynkronusApi {
       await AsyncStorage.setItem('@last_attachment_version', manifest.current_version.toString());
       console.debug(`Attachment sync completed at version ${manifest.current_version}`);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to process attachment manifest:', error);
-      // Don't throw - attachment sync is optional
+      throw error; // Let the error bubble up so we can fix the root cause
     }
   }
 
@@ -451,18 +454,18 @@ class SynkronusApi {
           }
         }
         
-        // Read file and create File object for upload
-        const fileData = await RNFS.readFile(pendingFilePath, 'base64');
+        // Get file stats for logging
         const fileStats = await RNFS.stat(pendingFilePath);
-        
-        // Convert base64 to blob/file for upload
-        // Use Buffer for React Native environment instead of atob
-        const buffer = Buffer.from(fileData, 'base64');
-        const byteArray = new Uint8Array(buffer);
         
         // Determine MIME type based on file extension
         const mimeType = this.getMimeTypeFromFilename(attachmentId);
-        const file = new File([byteArray], attachmentId, { type: mimeType });
+        
+        // For React Native, create a file object with the file URI
+        const file = {
+          uri: `file://${pendingFilePath}`,
+          type: mimeType,
+          name: attachmentId
+        } as any; // Cast to any to satisfy TypeScript
         
         // Upload the file
         console.debug(`Uploading attachment: ${attachmentId} (${fileStats.size} bytes)`);
@@ -634,11 +637,6 @@ class SynkronusApi {
       const repo = databaseService.getLocalRepo();
       const localChanges = await repo.getPendingChanges();
       console.debug(`Found ${localChanges.length} local changes to push`);
-      
-      if (localChanges.length === 0) {
-        console.debug('No local changes to push');
-        return Number(await AsyncStorage.getItem('@last_seen_version'));
-      }
 
       // 2. Upload attachments first (if requested and available)
       let attachmentUploadResults: DownloadResult[] = [];
@@ -660,6 +658,19 @@ class SynkronusApi {
           const successfulUploads = attachmentUploadResults.filter(result => result.success);
           console.debug(`Successfully uploaded ${successfulUploads.length}/${attachments.length} attachments`);
         }
+      }
+      
+      // 3. Check if we have observations to push
+      if (localChanges.length === 0) {
+        console.debug('No local changes to push');
+        
+        // If we uploaded attachments, report that
+        if (includeAttachments && attachmentUploadResults.length > 0) {
+          const successfulUploads = attachmentUploadResults.filter(result => result.success);
+          console.debug(`Push completed: 0 observations, ${successfulUploads.length}/${attachmentUploadResults.length} attachments uploaded`);
+        }
+        
+        return Number(await AsyncStorage.getItem('@last_seen_version')) || 0;
       }
 
       // 3. Push observations to server

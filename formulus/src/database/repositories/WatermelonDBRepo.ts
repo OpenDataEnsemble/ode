@@ -48,7 +48,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           record.formVersion = input.formVersion || '1.0';
           record.data = stringifiedData;
           record.deleted = false; // New observations are never deleted
-          record.syncedAt = new Date(); // Set initial sync time
+          // Don't set syncedAt - let it be null so the observation is marked as pending sync
         });
       });
       

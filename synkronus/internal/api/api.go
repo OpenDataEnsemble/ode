@@ -103,8 +103,8 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		// Add authentication middleware
 		r.Use(auth.AuthMiddleware(h.GetAuthService(), log))
 
-		// Register attachment routes
-		attachmentHandler.RegisterRoutes(r)
+		// Register attachment routes (including manifest endpoint)
+		attachmentHandler.RegisterRoutes(r, h.AttachmentManifestHandler)
 
 		// Sync routes
 		r.Route("/sync", func(r chi.Router) {
@@ -126,12 +126,6 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 			// Write endpoints - require admin role
 			r.With(auth.RequireRole(models.RoleAdmin)).Post("/push", h.PushAppBundle)
 			r.With(auth.RequireRole(models.RoleAdmin)).Post("/switch/{version}", h.SwitchAppBundleVersion)
-		})
-
-		// Attachments routes
-		r.Route("/attachments", func(r chi.Router) {
-			r.Post("/manifest", h.AttachmentManifestHandler)
-			r.Get("/{id}", nil)     // Not implemented yet
 		})
 
 		// Form specifications routes
