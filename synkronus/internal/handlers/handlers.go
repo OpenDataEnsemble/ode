@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"github.com/opendataensemble/synkronus/pkg/appbundle"
+	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/auth"
 	"github.com/opendataensemble/synkronus/pkg/config"
 	"github.com/opendataensemble/synkronus/pkg/logger"
@@ -12,13 +13,14 @@ import (
 
 // Handler manages all API endpoints
 type Handler struct {
-	log              *logger.Logger
-	config           *config.Config
-	authService      auth.AuthServiceInterface
-	appBundleService appbundle.AppBundleServiceInterface
-	syncService      sync.ServiceInterface
-	userService      user.UserServiceInterface
-	versionService   version.Service
+	log                       *logger.Logger
+	config                    *config.Config
+	authService               auth.AuthServiceInterface
+	appBundleService          appbundle.AppBundleServiceInterface
+	syncService               sync.ServiceInterface
+	userService               user.UserServiceInterface
+	versionService            version.Service
+	attachmentManifestService attachment.ManifestService
 }
 
 // NewHandler creates a new Handler instance
@@ -30,15 +32,17 @@ func NewHandler(
 	syncService sync.ServiceInterface,
 	userService user.UserServiceInterface,
 	versionService version.Service,
+	attachmentManifestService attachment.ManifestService,
 ) *Handler {
 	return &Handler{
-		log:              log,
-		config:           config,
-		authService:      authService,
-		appBundleService: appBundleService,
-		syncService:      syncService,
-		userService:      userService,
-		versionService:   versionService,
+		log:                       log,
+		config:                    config,
+		authService:               authService,
+		appBundleService:          appBundleService,
+		syncService:               syncService,
+		userService:               userService,
+		versionService:            versionService,
+		attachmentManifestService: attachmentManifestService,
 	}
 }
 

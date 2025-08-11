@@ -130,7 +130,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 
 		// Attachments routes
 		r.Route("/attachments", func(r chi.Router) {
-			r.Get("/manifest", nil) // Not implemented yet
+			r.Post("/manifest", h.AttachmentManifestHandler)
 			r.Get("/{id}", nil)     // Not implemented yet
 		})
 

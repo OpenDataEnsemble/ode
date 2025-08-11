@@ -28,6 +28,9 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 	// Create a mock version service
 	mockVersionService := mocks.NewMockVersionService()
 
+	// Create mock attachment manifest service
+	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
+
 	// Create a new handler
 	h := NewHandler(
 		log,
@@ -37,6 +40,7 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 		mockSyncService,
 		mocks.NewMockUserService(),
 		mockVersionService,
+		mockAttachmentManifestService,
 	)
 
 	return h, mockAppBundleService

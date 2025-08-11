@@ -15,6 +15,7 @@ import (
 	"github.com/opendataensemble/synkronus/internal/handlers"
 	"github.com/opendataensemble/synkronus/internal/repository"
 	"github.com/opendataensemble/synkronus/pkg/appbundle"
+	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/auth"
 	"github.com/opendataensemble/synkronus/pkg/config"
 	"github.com/opendataensemble/synkronus/pkg/database"
@@ -161,6 +162,14 @@ func main() {
 	// Initialize version service
 	versionService := version.NewService(db.DB())
 
+	// Initialize attachment manifest service
+	attachmentManifestService := attachment.NewManifestService(db.DB(), cfg, log)
+	if err := attachmentManifestService.Initialize(ctx); err != nil {
+		log.Error("Failed to initialize attachment manifest service", "error", err)
+		log.Info("Exiting due to attachment manifest service initialization error")
+		return
+	}
+
 	// Convert concrete types to interfaces if needed
 	var (
 		authSvc      auth.AuthServiceInterface           = authService
@@ -178,6 +187,7 @@ func main() {
 		syncSvc,
 		userSvc,
 		versionService,
+		attachmentManifestService,
 	)
 
 	// Create the API router with handlers
