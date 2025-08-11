@@ -1,5 +1,5 @@
 // Mock implementation of ReactNativeWebView for development testing
-import { FormInitData, CameraResult, AudioResult, SignatureResult } from './FormulusInterfaceDefinition';
+import { FormInitData, CameraResult } from './FormulusInterfaceDefinition';
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -285,13 +285,14 @@ class WebViewMock {
     const generateGUID = () => {
       return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
-        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        const v = c === 'x' ? r : ((r & 0x3) | 0x8);
         return v.toString(16);
       });
     };
     
     const imageGuid = generateGUID();
-    const mockFilePath = `/mock/storage/images/${imageGuid}.jpg`;
+    // Use the actual dummy photo from public folder for browser testing
+    const dummyPhotoUrl = `${window.location.origin}/dummyphoto.png`;
     
     const mockCameraResult: CameraResult = {
       fieldId,
@@ -300,14 +301,14 @@ class WebViewMock {
         type: 'image',
         id: imageGuid,
         filename: `${imageGuid}.jpg`,
-        uri: mockFilePath,
-        url: `file://${mockFilePath}`,
+        uri: `/mock/storage/images/${imageGuid}.jpg`,
+        url: dummyPhotoUrl,
         timestamp: new Date().toISOString(),
         metadata: {
           width: 1920,
           height: 1080,
-          size: 2048576,
-          mimeType: 'image/jpeg',
+          size: 17982, // Approximate size of a small PNG
+          mimeType: 'image/png',
           source: 'webview_mock',
           quality: 0.8,
           persistentStorage: true,

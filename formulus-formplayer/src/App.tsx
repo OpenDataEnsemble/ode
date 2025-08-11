@@ -295,7 +295,10 @@ function App() {
     }
   }, [formInitData]);
 
-  const ajv = new Ajv({ allErrors: true });
+  const ajv = new Ajv({ 
+    allErrors: true,
+    strictTypes: false  // Allow custom formats without strict type checking
+  });
   addErrors(ajv);
   addFormats(ajv);
   

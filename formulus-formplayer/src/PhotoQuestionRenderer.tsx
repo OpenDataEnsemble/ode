@@ -14,7 +14,6 @@ import {
 import { PhotoCamera, Delete, Refresh } from '@mui/icons-material';
 import FormulusClient from './FormulusInterface';
 import {
-  FormInitData,
   CameraResult
 } from './FormulusInterfaceDefinition';
 
@@ -46,17 +45,12 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   
   // Safe error setter to prevent corruption
   const setSafeError = useCallback((errorMessage: string | null) => {
-    console.log('setSafeError called with:', errorMessage, 'Type:', typeof errorMessage);
-    console.log('Stack trace:', new Error().stack);
     if (errorMessage === null || errorMessage === undefined) {
-      console.log('Clearing error state');
       setError(null);
     } else if (typeof errorMessage === 'string' && errorMessage.length > 0) {
-      console.log('Setting valid error message:', errorMessage);
       setError(errorMessage);
     } else {
       console.warn('Invalid error message detected:', errorMessage, 'Type:', typeof errorMessage);
-      console.log('Setting fallback error message');
       setError('An unknown error occurred');
     }
   }, []);
@@ -107,6 +101,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           type: cameraResult.data.type,
           filename: cameraResult.data.filename,
           uri: cameraResult.data.uri,
+          url: cameraResult.data.url,
           timestamp: cameraResult.data.timestamp,
           metadata: cameraResult.data.metadata
         };
