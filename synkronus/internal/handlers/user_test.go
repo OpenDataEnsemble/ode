@@ -26,6 +26,7 @@ func userHandlerTestHelper() (*Handler, *mocks.MockUserService) {
 	mockAppBundleService := mocks.NewMockAppBundleService()
 	mockSyncService := mocks.NewMockSyncService()
 	mockVersionService := mocks.NewMockVersionService()
+	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
 	return NewHandler(
 		log,
 		mockConfig,
@@ -34,6 +35,7 @@ func userHandlerTestHelper() (*Handler, *mocks.MockUserService) {
 		mockSyncService,
 		mockUserService,
 		mockVersionService,
+		mockAttachmentManifestService,
 	), mockUserService
 }
 

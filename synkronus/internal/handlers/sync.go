@@ -26,7 +26,6 @@ type SyncPullResponse struct {
 	CurrentVersion    int64                `json:"current_version"`
 	Records           []sync.Observation   `json:"records"`
 	ChangeCutoff      int64                `json:"change_cutoff"`
-	NextPageToken     *string              `json:"next_page_token,omitempty"`
 	HasMore           *bool                `json:"has_more,omitempty"`
 	SyncFormatVersion *string              `json:"sync_format_version,omitempty"`
 }
@@ -54,7 +53,6 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	pageToken := r.URL.Query().Get("page_token")
 	schemaType := r.URL.Query().Get("schemaType")
 	apiVersion := r.Header.Get("x-api-version")
 
@@ -97,12 +95,7 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		SyncFormatVersion: &syncFormatVersion,
 	}
 
-	// Set next page token if there are more records
-	if result.HasMore && len(result.Records) > 0 {
-		lastRecord := result.Records[len(result.Records)-1]
-		nextPageToken := strconv.FormatInt(lastRecord.Version, 10) + ":" + lastRecord.ObservationID
-		response.NextPageToken = &nextPageToken
-	}
+	// Note: Clients should use change_cutoff as the next since.version for pagination
 
 	h.log.Info("Sync pull request processed", 
 		"clientId", req.ClientID,
@@ -110,8 +103,7 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		"currentVersion", result.CurrentVersion,
 		"recordCount", len(result.Records),
 		"hasMore", result.HasMore,
-		"apiVersion", apiVersion,
-		"pageToken", pageToken)
+		"apiVersion", apiVersion)
 
 	SendJSONResponse(w, http.StatusOK, response)
 }

@@ -701,6 +701,18 @@ paths:
   /sync/pull:
     post:
       summary: Pull updated records since last sync
+      description: |
+        Retrieves records that have changed since a specified version.
+        
+        **Pagination Pattern:**
+        1. Send initial request with `since.version` (or omit for all records)
+        2. Process returned records
+        3. If `has_more` is true, make next request using `change_cutoff` as the new `since.version`
+        4. Repeat until `has_more` is false
+        
+        Example pagination flow:
+        - Request 1: `since: {version: 100}` → Response: `change_cutoff: 150, has_more: true`
+        - Request 2: `since: {version: 150}` → Response: `change_cutoff: 200, has_more: false`
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
@@ -717,11 +729,7 @@ paths:
             maximum: 500
             default: 50
           description: Maximum number of records to return
-        - name: page_token
-          in: query
-          schema:
-            type: string
-          description: Pagination token from previous response
+
         - name: x-api-version
           in: header
           required: false
@@ -1146,11 +1154,10 @@ components:
             $ref: '#/components/schemas/Observation'
         change_cutoff:
           type: integer
-          description: Version number of the last change included in this response
-        next_page_token:
-          type: string
+          description: Version number of the last change included in this response. Use this as the next 'since.version' for pagination.
         has_more:
           type: boolean
+          description: Indicates if there are more records available beyond this response
         sync_format_version:
           type: string
           example: "1.0"

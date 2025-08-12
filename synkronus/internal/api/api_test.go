@@ -24,6 +24,9 @@ func TestNewRouter(t *testing.T) {
 	// Create a mock version service
 	mockVersionService := mocks.NewMockVersionService()
 
+	// Create a mock attachment manifest service
+	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
+
 	// Create a mock config
 	mockConfig := mocks.NewTestConfig()
 
@@ -36,6 +39,7 @@ func TestNewRouter(t *testing.T) {
 		mockSyncService,
 		mockUserService,
 		mockVersionService,
+		mockAttachmentManifestService,
 	)
 
 	// Create a new router
