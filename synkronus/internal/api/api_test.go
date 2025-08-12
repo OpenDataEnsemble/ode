@@ -31,6 +31,7 @@ func TestNewRouter(t *testing.T) {
 	mockConfig := mocks.NewTestConfig()
 
 	// Create a mock handler for testing
+	mockDataExportService := mocks.NewMockDataExportService()
 	mockHandler := handlers.NewHandler(
 		log,
 		mockConfig,
@@ -40,6 +41,7 @@ func TestNewRouter(t *testing.T) {
 		mockUserService,
 		mockVersionService,
 		mockAttachmentManifestService,
+		mockDataExportService,
 	)
 
 	// Create a new router

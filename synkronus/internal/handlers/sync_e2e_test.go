@@ -271,6 +271,7 @@ func createTestServerWithDB(t *testing.T, db *sql.DB) *httptest.Server {
 
 	// Create handler with real sync service and mock other services
 	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
+	mockDataExportService := mocks.NewMockDataExportService()
 	handler := NewHandler(
 		log,
 		mockConfig,
@@ -280,6 +281,7 @@ func createTestServerWithDB(t *testing.T, db *sql.DB) *httptest.Server {
 		&mockUserService{},
 		&mockVersionService{},
 		mockAttachmentManifestService,
+		mockDataExportService,
 	)
 
 	// Create router with authentication middleware

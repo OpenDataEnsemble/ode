@@ -5,6 +5,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/auth"
 	"github.com/opendataensemble/synkronus/pkg/config"
+	"github.com/opendataensemble/synkronus/pkg/dataexport"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 	"github.com/opendataensemble/synkronus/pkg/user"
@@ -21,6 +22,7 @@ type Handler struct {
 	userService               user.UserServiceInterface
 	versionService            version.Service
 	attachmentManifestService attachment.ManifestService
+	dataExportService         dataexport.Service
 }
 
 // NewHandler creates a new Handler instance
@@ -33,6 +35,7 @@ func NewHandler(
 	userService user.UserServiceInterface,
 	versionService version.Service,
 	attachmentManifestService attachment.ManifestService,
+	dataExportService dataexport.Service,
 ) *Handler {
 	return &Handler{
 		log:                       log,
@@ -43,6 +46,7 @@ func NewHandler(
 		userService:               userService,
 		versionService:            versionService,
 		attachmentManifestService: attachmentManifestService,
+		dataExportService:         dataExportService,
 	}
 }
 

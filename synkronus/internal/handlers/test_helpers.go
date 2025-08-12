@@ -31,6 +31,9 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 	// Create mock attachment manifest service
 	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
 
+	// Create mock data export service
+	mockDataExportService := mocks.NewMockDataExportService()
+
 	// Create a new handler
 	h := NewHandler(
 		log,
@@ -41,6 +44,7 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 		mocks.NewMockUserService(),
 		mockVersionService,
 		mockAttachmentManifestService,
+		mockDataExportService,
 	)
 
 	return h, mockAppBundleService

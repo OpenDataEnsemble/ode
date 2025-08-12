@@ -62,6 +62,7 @@ func TestAttachmentManifestHandler(t *testing.T) {
 	}
 
 	// Create a new handler
+	mockDataExportService := mocks.NewMockDataExportService()
 	h := NewHandler(
 		log,
 		testConfig,
@@ -71,6 +72,7 @@ func TestAttachmentManifestHandler(t *testing.T) {
 		mockUserService,
 		mockVersionService,
 		mockAttachmentManifestService,
+		mockDataExportService,
 	)
 
 	tests := []struct {

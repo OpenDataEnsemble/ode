@@ -34,9 +34,10 @@ func TestPushAppBundle(t *testing.T) {
 	mockVersionService := mocks.NewMockVersionService()
 	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
 	mockConfig := mocks.NewTestConfig()
+	mockDataExportService := mocks.NewMockDataExportService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService)
+	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService)
 
 	// Create a temporary test file
 	tempDir := t.TempDir()
@@ -171,9 +172,10 @@ func TestGetAppBundleVersions(t *testing.T) {
 	mockVersionService := mocks.NewMockVersionService()
 	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
 	mockConfig := mocks.NewTestConfig()
+	mockDataExportService := mocks.NewMockDataExportService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService)
+	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService)
 
 	// Test cases
 	tests := []struct {
@@ -226,9 +228,10 @@ func TestSwitchAppBundleVersion(t *testing.T) {
 	mockVersionService := mocks.NewMockVersionService()
 	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
 	mockConfig := mocks.NewTestConfig()
+	mockDataExportService := mocks.NewMockDataExportService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService)
+	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService)
 
 	// Test cases
 	tests := []struct {

@@ -19,6 +19,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/auth"
 	"github.com/opendataensemble/synkronus/pkg/config"
 	"github.com/opendataensemble/synkronus/pkg/database"
+	"github.com/opendataensemble/synkronus/pkg/dataexport"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/migrations"
 	"github.com/opendataensemble/synkronus/pkg/sync"
@@ -170,6 +171,10 @@ func main() {
 		return
 	}
 
+	// Initialize data export service
+	dataExportDB := dataexport.NewPostgresDB(db.DB())
+	dataExportService := dataexport.NewService(dataExportDB, cfg)
+
 	// Convert concrete types to interfaces if needed
 	var (
 		authSvc      auth.AuthServiceInterface           = authService
@@ -188,6 +193,7 @@ func main() {
 		userSvc,
 		versionService,
 		attachmentManifestService,
+		dataExportService,
 	)
 
 	// Create the API router with handlers

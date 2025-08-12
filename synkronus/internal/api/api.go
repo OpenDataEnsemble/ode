@@ -144,6 +144,12 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 			r.Post("/change-password", h.ChangePasswordHandler)
 		})
 
+		// Data export routes
+		r.Route("/dataexport", func(r chi.Router) {
+			// Parquet export - accessible to read-only users and above
+			r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/parquet", h.ParquetExportHandler)
+		})
+
 		// Version routes
 		r.Get("/version", h.GetVersion)
 		r.Get("/api/versions", h.GetAPIVersions) // Not implemented yet

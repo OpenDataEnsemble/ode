@@ -39,6 +39,7 @@ func TestProtectedEndpoints(t *testing.T) {
 	mockConfig := mocks.NewTestConfig()
 
 	// Create a mock handler for testing
+	mockDataExportService := mocks.NewMockDataExportService()
 	mockHandler := handlers.NewHandler(
 		log,
 		mockConfig,
@@ -48,6 +49,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		mockUserService,
 		mockVersionService,
 		mockAttachmentManifestService,
+		mockDataExportService,
 	)
 
 	// Create a new router with the handler
