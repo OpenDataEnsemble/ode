@@ -720,6 +720,49 @@ export interface Observation {
      * @memberof Observation
      */
     'deleted': boolean;
+    /**
+     * 
+     * @type {ObservationGeolocation}
+     * @memberof Observation
+     */
+    'geolocation'?: ObservationGeolocation | null;
+}
+/**
+ * Optional geolocation data for the observation
+ * @export
+ * @interface ObservationGeolocation
+ */
+export interface ObservationGeolocation {
+    /**
+     * Latitude in decimal degrees
+     * @type {number}
+     * @memberof ObservationGeolocation
+     */
+    'latitude'?: number;
+    /**
+     * Longitude in decimal degrees
+     * @type {number}
+     * @memberof ObservationGeolocation
+     */
+    'longitude'?: number;
+    /**
+     * Horizontal accuracy in meters
+     * @type {number}
+     * @memberof ObservationGeolocation
+     */
+    'accuracy'?: number;
+    /**
+     * Elevation in meters above sea level
+     * @type {number}
+     * @memberof ObservationGeolocation
+     */
+    'altitude'?: number | null;
+    /**
+     * Vertical accuracy in meters
+     * @type {number}
+     * @memberof ObservationGeolocation
+     */
+    'altitude_accuracy'?: number | null;
 }
 /**
  * 
@@ -1118,6 +1161,111 @@ export const UserResponseRoleEnum = {
 } as const;
 
 export type UserResponseRoleEnum = typeof UserResponseRoleEnum[keyof typeof UserResponseRoleEnum];
+
+
+/**
+ * DataExportApi - axios parameter creator
+ * @export
+ */
+export const DataExportApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
+         * @summary Download full Parquet export of all observations
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getParquetExport: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/dataexport/parquet`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * DataExportApi - functional programming interface
+ * @export
+ */
+export const DataExportApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = DataExportApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
+         * @summary Download full Parquet export of all observations
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getParquetExport(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getParquetExport(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DataExportApi.getParquetExport']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * DataExportApi - factory interface
+ * @export
+ */
+export const DataExportApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = DataExportApiFp(configuration)
+    return {
+        /**
+         * Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
+         * @summary Download full Parquet export of all observations
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getParquetExport(options?: RawAxiosRequestConfig): AxiosPromise<File> {
+            return localVarFp.getParquetExport(options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * DataExportApi - object-oriented interface
+ * @export
+ * @class DataExportApi
+ * @extends {BaseAPI}
+ */
+export class DataExportApi extends BaseAPI {
+    /**
+     * Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
+     * @summary Download full Parquet export of all observations
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DataExportApi
+     */
+    public getParquetExport(options?: RawAxiosRequestConfig) {
+        return DataExportApiFp(this.configuration).getParquetExport(options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
 
 
 /**

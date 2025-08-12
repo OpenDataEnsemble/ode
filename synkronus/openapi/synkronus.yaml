@@ -934,6 +934,32 @@ paths:
         '404':
           description: Attachment not found
 
+  /dataexport/parquet:
+    get:
+      summary: Download full Parquet export of all observations
+      description: >
+        Returns a Parquet file containing all observations flattened and ready for analysis.
+        Supports downloading the entire dataset as a single file.
+      operationId: getParquetExport
+      tags:
+        - DataExport
+      responses:
+        '200':
+          description: Parquet file stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: [read-only, read-write]
+
 components:
   schemas:
     SystemVersionInfo:
@@ -1255,6 +1281,39 @@ components:
           nullable: true
         deleted:
           type: boolean
+        geolocation:
+          type: object
+          nullable: true
+          description: Optional geolocation data for the observation
+          properties:
+            latitude:
+              type: number
+              format: double
+              minimum: -90
+              maximum: 90
+              description: Latitude in decimal degrees
+            longitude:
+              type: number
+              format: double
+              minimum: -180
+              maximum: 180
+              description: Longitude in decimal degrees
+            accuracy:
+              type: number
+              format: double
+              minimum: 0
+              description: Horizontal accuracy in meters
+            altitude:
+              type: number
+              format: double
+              nullable: true
+              description: Elevation in meters above sea level
+            altitude_accuracy:
+              type: number
+              format: double
+              nullable: true
+              minimum: 0
+              description: Vertical accuracy in meters
 
 
     ProblemDetail:

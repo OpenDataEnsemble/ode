@@ -19,6 +19,7 @@ docs/ChangeLog.md
 docs/ChangePassword200Response.md
 docs/ChangePasswordRequest.md
 docs/CreateUserRequest.md
+docs/DataExportApi.md
 docs/DatabaseInfo.md
 docs/DefaultApi.md
 docs/DeleteUser200Response.md
@@ -31,6 +32,7 @@ docs/GetHealth503Response.md
 docs/HealthApi.md
 docs/LoginRequest.md
 docs/Observation.md
+docs/ObservationGeolocation.md
 docs/ProblemDetail.md
 docs/ProblemDetailErrorsInner.md
 docs/RefreshTokenRequest.md

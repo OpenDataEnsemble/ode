@@ -13,6 +13,7 @@ Name | Type | Description | Notes
 **updated_at** | **string** |  | [default to undefined]
 **synced_at** | **string** |  | [optional] [default to undefined]
 **deleted** | **boolean** |  | [default to undefined]
+**geolocation** | [**ObservationGeolocation**](ObservationGeolocation.md) |  | [optional] [default to undefined]
 
 ## Example
 
@@ -28,6 +29,7 @@ const instance: Observation = {
     updated_at,
     synced_at,
     deleted,
+    geolocation,
 };
 ```
 
