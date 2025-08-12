@@ -4,6 +4,8 @@ import { LocalRepoInterface } from './LocalRepoInterface';
 import { Observation, NewObservationInput, UpdateObservationInput } from '../models/Observation';
 import { nullValue } from '@nozbe/watermelondb/RawRecord';
 import { ObservationMapper } from '../../mappers/ObservationMapper';
+import { geolocationService } from '../../services/GeolocationService';
+import { ToastService } from '../../services/ToastService';
 
 /**
  * WatermelonDB implementation of the LocalRepoInterface
@@ -19,7 +21,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   }
 
   /**
-   * Save a new observation
+   * Save a new observation with geolocation capture
    * @param input The observation data to be saved (formType and data)
    * @returns Promise resolving to the ID of the saved observation
    */
@@ -27,10 +29,29 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     try {
       console.log('Saving observation:', input);
       
+      // Attempt to capture geolocation (non-blocking)
+      let geolocation = null;
+      try {
+        geolocation = await geolocationService.getCurrentLocationForObservation();
+        if (geolocation) {
+          console.debug('Captured geolocation for observation');
+          ToastService.showGeolocationCaptured();
+        } else {
+          console.debug('No geolocation available for observation');
+          ToastService.showGeolocationUnavailable();
+        }
+      } catch (geoError) {
+        console.warn('Failed to capture geolocation for observation:', geoError);
+        ToastService.showGeolocationUnavailable();
+      }
+      
       // Ensure data is properly stringified
       const stringifiedData = typeof input.data === 'string' 
         ? input.data 
         : JSON.stringify(input.data);
+      
+      // Stringify geolocation for storage
+      const stringifiedGeolocation = geolocation ? JSON.stringify(geolocation) : '';
       
       // Generate a unique observation ID that will be used as the WatermelonDB record ID
       const observationId = `obs_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
@@ -47,6 +68,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           record.formType = input.formType;
           record.formVersion = input.formVersion || '1.0';
           record.data = stringifiedData;
+          record.geolocation = stringifiedGeolocation;
           record.deleted = false; // New observations are never deleted
           // Don't set syncedAt - let it be null so the observation is marked as pending sync
         });
@@ -463,6 +485,16 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     const parsedData = model.getParsedData();
     console.log(`Mapping model to interface. ID: ${model.id}`);
     
+    // Parse geolocation data if available
+    let geolocation = null;
+    if (model.geolocation && model.geolocation.trim()) {
+      try {
+        geolocation = JSON.parse(model.geolocation);
+      } catch (error) {
+        console.warn('Failed to parse geolocation data:', error);
+      }
+    }
+    
     return {
       observationId: model.id, // Now model.id is the same as observationId
       formType: model.formType,
@@ -471,7 +503,8 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
       syncedAt: model.syncedAt,
-      deleted: model.deleted
+      deleted: model.deleted,
+      geolocation
     };
   }
 }

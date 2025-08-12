@@ -1,3 +1,5 @@
+import { ObservationGeolocation } from '../../types/Geolocation';
+
 /**
  * Interface for the observation data structure. This is
  *
@@ -8,6 +10,7 @@
  * @property {Date} createdAt The date-time when the observation was created
  * @property {Date} updatedAt The date-time when the observation was last updated
  * @property {Date|null} syncedAt The date-time when the observation was last synced with the server
+ * @property {ObservationGeolocation|null} geolocation Optional geolocation data captured when the observation was created
  */
 export interface Observation {
   observationId: string;
@@ -18,6 +21,7 @@ export interface Observation {
   syncedAt: Date|null;
   deleted: boolean;
   data: ObservationData;
+  geolocation: ObservationGeolocation | null;
 }
 
 /**

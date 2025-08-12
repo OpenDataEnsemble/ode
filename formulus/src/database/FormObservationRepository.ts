@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Observation } from './models/Observation';
+import { geolocationService } from '../services/GeolocationService';
+import { ToastService } from '../services/ToastService';
 
 /**
  * Repository interface for form observations
@@ -22,7 +24,7 @@ export class FormObservationRepository implements LocalRepoInterface {
   private readonly INDEX_KEY = 'formulus:observations:index';
 
   /**
-   * Save a completed form observation
+   * Save a completed form observation with geolocation capture
    * @param formType The unique identifier for the form
    * @param data The form data to be saved
    * @returns Promise resolving to the ID of the saved observation
@@ -31,6 +33,22 @@ export class FormObservationRepository implements LocalRepoInterface {
     try {
       // Generate a unique ID for the observation
       const id = `obs_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      
+      // Attempt to capture geolocation (non-blocking)
+      let geolocation = null;
+      try {
+        geolocation = await geolocationService.getCurrentLocationForObservation();
+        if (geolocation) {
+          console.debug('Captured geolocation for observation:', id);
+          ToastService.showGeolocationCaptured();
+        } else {
+          console.debug('No geolocation available for observation:', id);
+          ToastService.showGeolocationUnavailable();
+        }
+      } catch (geoError) {
+        console.warn('Failed to capture geolocation for observation:', geoError);
+        ToastService.showGeolocationUnavailable();
+      }
       
       // Create the observation object
       const observation: Observation = {
@@ -42,6 +60,7 @@ export class FormObservationRepository implements LocalRepoInterface {
         syncedAt: null,
         deleted: false,
         data,
+        geolocation,
       };
       
       // Save the observation to AsyncStorage

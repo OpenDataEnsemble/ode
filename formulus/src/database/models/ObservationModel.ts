@@ -13,6 +13,7 @@ export class ObservationModel extends Model {
   @text('form_version') formVersion!: string;
   @field('deleted') deleted!: boolean;
   @text('data') data!: string;
+  @text('geolocation') geolocation!: string; // JSON string of ObservationGeolocation or null
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
   @date('synced_at') syncedAt!: Date;

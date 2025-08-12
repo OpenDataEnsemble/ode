@@ -15,6 +15,7 @@
 import { Observation as ApiObservation } from '../api/synkronus/generated';
 import { Observation as DomainObservation } from '../database/models/Observation';
 import { ObservationModel } from '../database/models/ObservationModel';
+import { ObservationGeolocation } from '../types/Geolocation';
 
 export class ObservationMapper {
   // API -> Domain
@@ -27,7 +28,8 @@ export class ObservationMapper {
       createdAt: new Date(apiObs.created_at),
       updatedAt: new Date(apiObs.updated_at),
       syncedAt: apiObs.synced_at ? new Date(apiObs.synced_at) : null,
-      deleted: apiObs.deleted || false
+      deleted: apiObs.deleted || false,
+      geolocation: apiObs.geolocation || null
     };
   }
 
@@ -41,7 +43,8 @@ export class ObservationMapper {
       created_at: domainObs.createdAt.toISOString(),
       updated_at: domainObs.updatedAt.toISOString(),
       synced_at: domainObs.syncedAt?.toISOString(),
-      deleted: domainObs.deleted
+      deleted: domainObs.deleted,
+      geolocation: domainObs.geolocation
     };
   }
 
@@ -52,6 +55,7 @@ export class ObservationMapper {
       formType: domainObs.formType,
       formVersion: domainObs.formVersion,
       data: typeof domainObs.data === 'string' ? domainObs.data : JSON.stringify(domainObs.data),
+      geolocation: domainObs.geolocation ? JSON.stringify(domainObs.geolocation) : '',
       deleted: domainObs.deleted,
       createdAt: domainObs.createdAt,
       updatedAt: domainObs.updatedAt,
@@ -61,6 +65,15 @@ export class ObservationMapper {
 
   // DB Model -> Domain
   static fromDBModel(model: ObservationModel): DomainObservation {
+    let geolocation: ObservationGeolocation | null = null;
+    if (model.geolocation && model.geolocation.trim()) {
+      try {
+        geolocation = JSON.parse(model.geolocation);
+      } catch (error) {
+        console.warn('Failed to parse geolocation data:', error);
+      }
+    }
+    
     return {
       observationId: model.id,
       formType: model.formType,
@@ -69,7 +82,8 @@ export class ObservationMapper {
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
       syncedAt: model.syncedAt,
-      deleted: model.deleted
+      deleted: model.deleted,
+      geolocation
     };
   }
 }
