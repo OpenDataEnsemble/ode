@@ -936,18 +936,19 @@ paths:
 
   /dataexport/parquet:
     get:
-      summary: Download full Parquet export of all observations
+      summary: Download a ZIP archive of Parquet exports
       description: >
-        Returns a Parquet file containing all observations flattened and ready for analysis.
-        Supports downloading the entire dataset as a single file.
-      operationId: getParquetExport
+        Returns a ZIP file containing multiple Parquet files,
+        each representing a flattened export of observations per form type.
+        Supports downloading the entire dataset as separate Parquet files bundled together.
+      operationId: getParquetExportZip
       tags:
         - DataExport
       responses:
         '200':
-          description: Parquet file stream
+          description: ZIP archive stream containing Parquet files
           content:
-            application/octet-stream:
+            application/zip:
               schema:
                 type: string
                 format: binary

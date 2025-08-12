@@ -1170,12 +1170,12 @@ export type UserResponseRoleEnum = typeof UserResponseRoleEnum[keyof typeof User
 export const DataExportApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
-         * Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
-         * @summary Download full Parquet export of all observations
+         * Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together. 
+         * @summary Download a ZIP archive of Parquet exports
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getParquetExport: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getParquetExportZip: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/dataexport/parquet`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1214,15 +1214,15 @@ export const DataExportApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = DataExportApiAxiosParamCreator(configuration)
     return {
         /**
-         * Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
-         * @summary Download full Parquet export of all observations
+         * Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together. 
+         * @summary Download a ZIP archive of Parquet exports
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getParquetExport(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getParquetExport(options);
+        async getParquetExportZip(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getParquetExportZip(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DataExportApi.getParquetExport']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DataExportApi.getParquetExportZip']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -1236,13 +1236,13 @@ export const DataExportApiFactory = function (configuration?: Configuration, bas
     const localVarFp = DataExportApiFp(configuration)
     return {
         /**
-         * Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
-         * @summary Download full Parquet export of all observations
+         * Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together. 
+         * @summary Download a ZIP archive of Parquet exports
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getParquetExport(options?: RawAxiosRequestConfig): AxiosPromise<File> {
-            return localVarFp.getParquetExport(options).then((request) => request(axios, basePath));
+        getParquetExportZip(options?: RawAxiosRequestConfig): AxiosPromise<File> {
+            return localVarFp.getParquetExportZip(options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -1255,14 +1255,14 @@ export const DataExportApiFactory = function (configuration?: Configuration, bas
  */
 export class DataExportApi extends BaseAPI {
     /**
-     * Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
-     * @summary Download full Parquet export of all observations
+     * Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together. 
+     * @summary Download a ZIP archive of Parquet exports
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DataExportApi
      */
-    public getParquetExport(options?: RawAxiosRequestConfig) {
-        return DataExportApiFp(this.configuration).getParquetExport(options).then((request) => request(this.axios, this.basePath));
+    public getParquetExportZip(options?: RawAxiosRequestConfig) {
+        return DataExportApiFp(this.configuration).getParquetExportZip(options).then((request) => request(this.axios, this.basePath));
     }
 }
 

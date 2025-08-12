@@ -4,12 +4,12 @@ All URIs are relative to *http://localhost*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
-|[**getParquetExport**](#getparquetexport) | **GET** /dataexport/parquet | Download full Parquet export of all observations|
+|[**getParquetExportZip**](#getparquetexportzip) | **GET** /dataexport/parquet | Download a ZIP archive of Parquet exports|
 
-# **getParquetExport**
-> File getParquetExport()
+# **getParquetExportZip**
+> File getParquetExportZip()
 
-Returns a Parquet file containing all observations flattened and ready for analysis. Supports downloading the entire dataset as a single file. 
+Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together. 
 
 ### Example
 
@@ -22,7 +22,7 @@ import {
 const configuration = new Configuration();
 const apiInstance = new DataExportApi(configuration);
 
-const { status, data } = await apiInstance.getParquetExport();
+const { status, data } = await apiInstance.getParquetExportZip();
 ```
 
 ### Parameters
@@ -40,13 +40,13 @@ This endpoint does not have any parameters.
 ### HTTP request headers
 
  - **Content-Type**: Not defined
- - **Accept**: application/octet-stream
+ - **Accept**: application/zip
 
 
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
-|**200** | Parquet file stream |  -  |
+|**200** | ZIP archive stream containing Parquet files |  -  |
 |**401** |  |  -  |
 |**403** |  |  -  |
 |**500** |  |  -  |
