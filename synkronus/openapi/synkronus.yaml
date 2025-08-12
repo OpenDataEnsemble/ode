@@ -5,6 +5,7 @@ info:
 paths:
   /health:
     get:
+      operationId: getHealth
       summary: Health check endpoint
       description: Returns the current health status of the service
       tags:
@@ -49,6 +50,7 @@ paths:
 
   /version:
     get:
+      operationId: getVersion
       summary: Get server version and system information
       description: Returns detailed version information about the server, including build information and system details
       responses:
@@ -67,6 +69,7 @@ paths:
 
   /app-bundle/changes:
     get:
+      operationId: getAppBundleChanges
       summary: Get changes between two app bundle versions
       description: Compares two versions of the app bundle and returns detailed changes
       security:
@@ -120,6 +123,7 @@ paths:
 
   /app-bundle/manifest:
     get:
+      operationId: getAppBundleManifest
       summary: Get the current custom app bundle manifest
       security:
         - bearerAuth: [read-only, read-write]
@@ -147,6 +151,7 @@ paths:
 
   /app-bundle/download/{path}:
     get:
+      operationId: downloadAppBundleFile
       summary: Download a specific file from the app bundle
       security:
         - bearerAuth: [read-only, read-write]
@@ -192,6 +197,7 @@ paths:
 
   /app-bundle/versions:
     get:
+      operationId: getAppBundleVersions
       summary: Get a list of available app bundle versions
       security:
         - bearerAuth: [read-only, read-write]
@@ -214,6 +220,7 @@ paths:
 
   /app-bundle/push:
     post:
+      operationId: pushAppBundle
       summary: Upload a new app bundle (admin only)
       security:
         - bearerAuth: [admin]
@@ -271,6 +278,7 @@ paths:
 
   /app-bundle/switch/{version}:
     post:
+      operationId: switchAppBundleVersion
       summary: Switch to a specific app bundle version (admin only)
       security:
         - bearerAuth: [admin]
@@ -327,7 +335,8 @@ paths:
 
   /auth/login:
     post:
-      summary: Authenticate with the API
+      operationId: login
+      summary: Authenticate user and return JWT tokens
       description: Obtain a JWT token by providing username and password
       parameters:
         - name: x-api-version
@@ -375,7 +384,8 @@ paths:
 
   /auth/refresh:
     post:
-      summary: Refresh authentication token
+      operationId: refreshToken
+      summary: Refresh JWT token
       description: Obtain a new JWT token using a refresh token
       parameters:
         - name: x-api-version
@@ -419,6 +429,7 @@ paths:
 
   /users/create:
     post:
+      operationId: createUser
       summary: Create a new user (admin only)
       description: Create a new user with specified username, password, and role
       security:
@@ -485,6 +496,7 @@ paths:
 
   /users:
     get:
+      operationId: listUsers
       summary: List all users (admin only)
       description: Retrieve a list of all users in the system. Admin access required.
       security:
@@ -522,6 +534,7 @@ paths:
 
   /users/{username}:
     delete:
+      operationId: deleteUser
       summary: Delete a user (admin only)
       description: Delete a user by username
       security:
@@ -579,7 +592,8 @@ paths:
 
   /users/reset-password:
     post:
-      summary: Reset a user's password (admin only)
+      operationId: resetUserPassword
+      summary: Reset user password (admin only)
       description: Reset password for a specified user
       security:
         - bearerAuth: [admin]
@@ -645,7 +659,8 @@ paths:
 
   /users/change-password:
     post:
-      summary: Change current user's password
+      operationId: changePassword
+      summary: Change user password (authenticated user)'s password
       description: Change password for the currently authenticated user
       security:
         - bearerAuth: [read-only, read-write, admin]
@@ -700,6 +715,7 @@ paths:
 
   /sync/pull:
     post:
+      operationId: syncPull
       summary: Pull updated records since last sync
       description: |
         Retrieves records that have changed since a specified version.
@@ -754,6 +770,7 @@ paths:
 
   /sync/push:
     post:
+      operationId: syncPush
       summary: Push new or updated records to the server
       security:
         - bearerAuth: [read-write]
@@ -782,6 +799,7 @@ paths:
 
   /attachments/manifest:
     post:
+      operationId: getAttachmentManifest
       summary: Get attachment manifest for incremental sync
       description: Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
       security:
@@ -829,6 +847,7 @@ paths:
 
   /attachments/{attachment_id}:
     put:
+      operationId: uploadAttachment
       summary: Upload a new attachment with specified ID
       security:
         - bearerAuth: [read-write]
@@ -871,6 +890,7 @@ paths:
           description: Conflict (attachment already exists and cannot be overwritten)
 
     get:
+      operationId: downloadAttachment
       summary: Download an attachment by ID
       security:
         - bearerAuth: [read-only, read-write]
@@ -895,6 +915,7 @@ paths:
           description: Attachment not found
 
     head:
+      operationId: checkAttachmentExists
       summary: Check if an attachment exists
       security:
         - bearerAuth: [read-only, read-write]
