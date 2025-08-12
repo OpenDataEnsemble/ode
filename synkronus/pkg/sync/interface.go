@@ -18,6 +18,15 @@ var (
 	ErrVersionConflict = errors.New("version conflict")
 )
 
+// Geolocation represents geographic coordinates and accuracy information
+type Geolocation struct {
+	Latitude         float64  `json:"latitude"`
+	Longitude        float64  `json:"longitude"`
+	Accuracy         float64  `json:"accuracy"`
+	Altitude         *float64 `json:"altitude,omitempty"`
+	AltitudeAccuracy *float64 `json:"altitude_accuracy,omitempty"`
+}
+
 // Observation represents a synchronized observation record
 type Observation struct {
 	// ObservationID is the unique identifier for the observation and is used as the primary key
@@ -28,8 +37,9 @@ type Observation struct {
 	CreatedAt     string          `json:"created_at" db:"created_at"`
 	UpdatedAt     string          `json:"updated_at" db:"updated_at"`
 	SyncedAt      *string         `json:"synced_at,omitempty" db:"synced_at"`
-	Deleted       bool            `json:"deleted" db:"deleted"`
-	Version       int64           `json:"version" db:"version"`
+	Deleted       bool         `json:"deleted" db:"deleted"`
+	Version       int64        `json:"version" db:"version"`
+	Geolocation   *Geolocation `json:"geolocation,omitempty" db:"geolocation,json"`
 }
 
 // SyncPullCursor represents pagination cursor for sync pull operations
