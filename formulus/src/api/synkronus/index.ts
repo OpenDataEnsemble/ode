@@ -91,7 +91,7 @@ class SynkronusApi {
    */
   async getManifest(): Promise<AppBundleManifest> {
     const api = await this.getApi();
-    const response = await api.appBundleManifestGet();
+    const response = await api.getAppBundleManifest();
     return response.data;
   }
 
@@ -125,14 +125,14 @@ class SynkronusApi {
       console.debug(`Getting attachment manifest since version ${lastAttachmentVersion}`);
       
       const api = await this.getApi();
-      const response = await api.attachmentsManifestPost({
+      const manifestResponse = await api.getAttachmentManifest({
         attachmentManifestRequest: {
           client_id: clientId,
           since_version: lastAttachmentVersion
         }
       });
       
-      const manifest = response.data;
+      const manifest = manifestResponse.data;
       
       // Handle null operations array (server returns null when no operations)
       const operations = manifest.operations || [];
@@ -429,30 +429,9 @@ class SynkronusApi {
           continue;
         }
         
-        // Check if attachment already exists on server
-        try {
-          await api.attachmentsAttachmentIdHead({ attachmentId });
-          console.debug(`Attachment ${attachmentId} already exists on server, skipping upload`);
-          results.push({
-            success: true,
-            message: `Attachment already exists on server: ${attachmentId}`,
-            filePath: pendingFilePath,
-            bytesWritten: 0
-          });
-          continue;
-        } catch (headError: any) {
-          // If HEAD request fails with 404, the attachment doesn't exist and we should upload
-          if (headError.response?.status !== 404) {
-            console.error(`Error checking attachment existence: ${headError.message}`);
-            results.push({
-              success: false,
-              message: `Error checking attachment: ${headError.message}`,
-              filePath: pendingFilePath,
-              bytesWritten: 0
-            });
-            continue;
-          }
-        }
+        // TODO: Check if attachment already exists on server
+        // This functionality needs to be implemented when the correct API method is available
+        console.debug(`Uploading attachment ${attachmentId}`);
         
         // Get file stats for logging
         const fileStats = await RNFS.stat(pendingFilePath);
@@ -469,7 +448,7 @@ class SynkronusApi {
         
         // Upload the file
         console.debug(`Uploading attachment: ${attachmentId} (${fileStats.size} bytes)`);
-        const uploadResponse = await api.attachmentsAttachmentIdPut({ attachmentId, file });
+        const uploadResponse = await api.uploadAttachment({ attachmentId, file });
         
         // Remove file from pending_upload directory (upload complete)
         // Note: File already exists in main attachments directory from when it was first saved
@@ -586,21 +565,20 @@ class SynkronusApi {
     const api = await this.getApi();  
     const schemaTypes = undefined; // TODO: Feature: Maybe allow partial sync
     let res;
+    let currentSince = since;
+    
     do {
-      let pageToken: string | undefined = undefined;
-        res = await api.syncPullPost({
-          syncPullRequest: {
-              client_id: clientId,
-              since: {
-                  version: since
-              },
-              schema_types: schemaTypes,
-
-            },
-          pageToken: pageToken
-        });
+      res = await api.syncPull({
+        syncPullRequest: {
+          client_id: clientId,
+          since: {
+            version: currentSince
+          },
+          schema_types: schemaTypes
+        }
+      });
+      
       console.debug('Pull response: ', res.data);
-      pageToken = res.data.next_page_token;
 
       // 1. Pull and map changes from the API
       const domainObservations = res.data.records ? res.data.records.map(ObservationMapper.fromApi) : [];
@@ -615,6 +593,12 @@ class SynkronusApi {
       }
       
       console.debug('Pulled observations: ', domainObservations);
+
+      // Update since version for next iteration using change_cutoff
+      if (res.data.has_more && res.data.change_cutoff) {
+        currentSince = res.data.change_cutoff;
+        console.debug(`Continuing pagination from version ${currentSince}`);
+      }
 
     } while (res.data.has_more);
     
@@ -681,7 +665,7 @@ class SynkronusApi {
       };
       
       console.debug(`Pushing ${localChanges.length} observations with transmission ID: ${transmissionId}`);
-      const res = await api.syncPushPost({syncPushRequest});
+      const res = await api.syncPush({ syncPushRequest });
       console.debug(`Successfully pushed ${localChanges.length} observations. Server version: ${res.data.current_version}`);
       
       // 4. Update local database sync status
