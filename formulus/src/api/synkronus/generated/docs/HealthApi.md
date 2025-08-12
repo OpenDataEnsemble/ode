@@ -4,10 +4,10 @@ All URIs are relative to *http://localhost*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
-|[**healthGet**](#healthget) | **GET** /health | Health check endpoint|
+|[**getHealth**](#gethealth) | **GET** /health | Health check endpoint|
 
-# **healthGet**
-> HealthGet200Response healthGet()
+# **getHealth**
+> GetHealth200Response getHealth()
 
 Returns the current health status of the service
 
@@ -22,7 +22,7 @@ import {
 const configuration = new Configuration();
 const apiInstance = new HealthApi(configuration);
 
-const { status, data } = await apiInstance.healthGet();
+const { status, data } = await apiInstance.getHealth();
 ```
 
 ### Parameters
@@ -31,7 +31,7 @@ This endpoint does not have any parameters.
 
 ### Return type
 
-**HealthGet200Response**
+**GetHealth200Response**
 
 ### Authorization
 

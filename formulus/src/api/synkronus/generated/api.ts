@@ -162,19 +162,6 @@ export interface AppBundlePushResponse {
 /**
  * 
  * @export
- * @interface AppBundleSwitchVersionPost200Response
- */
-export interface AppBundleSwitchVersionPost200Response {
-    /**
-     * 
-     * @type {string}
-     * @memberof AppBundleSwitchVersionPost200Response
-     */
-    'message'?: string;
-}
-/**
- * 
- * @export
  * @interface AppBundleVersions
  */
 export interface AppBundleVersions {
@@ -308,51 +295,6 @@ export type AttachmentOperationOperationEnum = typeof AttachmentOperationOperati
 /**
  * 
  * @export
- * @interface AttachmentsAttachmentIdPut200Response
- */
-export interface AttachmentsAttachmentIdPut200Response {
-    /**
-     * 
-     * @type {string}
-     * @memberof AttachmentsAttachmentIdPut200Response
-     */
-    'status'?: string;
-}
-/**
- * 
- * @export
- * @interface AuthLoginPostRequest
- */
-export interface AuthLoginPostRequest {
-    /**
-     * User\'s username
-     * @type {string}
-     * @memberof AuthLoginPostRequest
-     */
-    'username': string;
-    /**
-     * User\'s password
-     * @type {string}
-     * @memberof AuthLoginPostRequest
-     */
-    'password': string;
-}
-/**
- * 
- * @export
- * @interface AuthRefreshPostRequest
- */
-export interface AuthRefreshPostRequest {
-    /**
-     * Refresh token obtained from login or previous refresh
-     * @type {string}
-     * @memberof AuthRefreshPostRequest
-     */
-    'refreshToken': string;
-}
-/**
- * 
- * @export
  * @interface AuthResponse
  */
 export interface AuthResponse {
@@ -452,6 +394,72 @@ export interface ChangeLog {
 /**
  * 
  * @export
+ * @interface ChangePassword200Response
+ */
+export interface ChangePassword200Response {
+    /**
+     * 
+     * @type {string}
+     * @memberof ChangePassword200Response
+     */
+    'message'?: string;
+}
+/**
+ * 
+ * @export
+ * @interface ChangePasswordRequest
+ */
+export interface ChangePasswordRequest {
+    /**
+     * Current password for verification
+     * @type {string}
+     * @memberof ChangePasswordRequest
+     */
+    'currentPassword': string;
+    /**
+     * New password to set
+     * @type {string}
+     * @memberof ChangePasswordRequest
+     */
+    'newPassword': string;
+}
+/**
+ * 
+ * @export
+ * @interface CreateUserRequest
+ */
+export interface CreateUserRequest {
+    /**
+     * New user\'s username
+     * @type {string}
+     * @memberof CreateUserRequest
+     */
+    'username': string;
+    /**
+     * New user\'s password
+     * @type {string}
+     * @memberof CreateUserRequest
+     */
+    'password': string;
+    /**
+     * User\'s role
+     * @type {string}
+     * @memberof CreateUserRequest
+     */
+    'role': CreateUserRequestRoleEnum;
+}
+
+export const CreateUserRequestRoleEnum = {
+    ReadOnly: 'read-only',
+    ReadWrite: 'read-write',
+    Admin: 'admin'
+} as const;
+
+export type CreateUserRequestRoleEnum = typeof CreateUserRequestRoleEnum[keyof typeof CreateUserRequestRoleEnum];
+
+/**
+ * 
+ * @export
  * @interface DatabaseInfo
  */
 export interface DatabaseInfo {
@@ -473,6 +481,19 @@ export interface DatabaseInfo {
      * @memberof DatabaseInfo
      */
     'database_name'?: string;
+}
+/**
+ * 
+ * @export
+ * @interface DeleteUser200Response
+ */
+export interface DeleteUser200Response {
+    /**
+     * 
+     * @type {string}
+     * @memberof DeleteUser200Response
+     */
+    'message'?: string;
 }
 /**
  * 
@@ -565,67 +586,86 @@ export interface FormModification {
 /**
  * 
  * @export
- * @interface HealthGet200Response
+ * @interface GetHealth200Response
  */
-export interface HealthGet200Response {
+export interface GetHealth200Response {
     /**
      * 
      * @type {string}
-     * @memberof HealthGet200Response
+     * @memberof GetHealth200Response
      */
-    'status'?: HealthGet200ResponseStatusEnum;
+    'status'?: GetHealth200ResponseStatusEnum;
     /**
      * Current server time
      * @type {string}
-     * @memberof HealthGet200Response
+     * @memberof GetHealth200Response
      */
     'timestamp'?: string;
     /**
      * Current API version
      * @type {string}
-     * @memberof HealthGet200Response
+     * @memberof GetHealth200Response
      */
     'version'?: string;
 }
 
-export const HealthGet200ResponseStatusEnum = {
+export const GetHealth200ResponseStatusEnum = {
     Ok: 'ok'
 } as const;
 
-export type HealthGet200ResponseStatusEnum = typeof HealthGet200ResponseStatusEnum[keyof typeof HealthGet200ResponseStatusEnum];
+export type GetHealth200ResponseStatusEnum = typeof GetHealth200ResponseStatusEnum[keyof typeof GetHealth200ResponseStatusEnum];
 
 /**
  * 
  * @export
- * @interface HealthGet503Response
+ * @interface GetHealth503Response
  */
-export interface HealthGet503Response {
+export interface GetHealth503Response {
     /**
      * 
      * @type {string}
-     * @memberof HealthGet503Response
+     * @memberof GetHealth503Response
      */
-    'status'?: HealthGet503ResponseStatusEnum;
+    'status'?: GetHealth503ResponseStatusEnum;
     /**
      * Description of the error
      * @type {string}
-     * @memberof HealthGet503Response
+     * @memberof GetHealth503Response
      */
     'error'?: string;
     /**
      * Current server time
      * @type {string}
-     * @memberof HealthGet503Response
+     * @memberof GetHealth503Response
      */
     'timestamp'?: string;
 }
 
-export const HealthGet503ResponseStatusEnum = {
+export const GetHealth503ResponseStatusEnum = {
     Error: 'error'
 } as const;
 
-export type HealthGet503ResponseStatusEnum = typeof HealthGet503ResponseStatusEnum[keyof typeof HealthGet503ResponseStatusEnum];
+export type GetHealth503ResponseStatusEnum = typeof GetHealth503ResponseStatusEnum[keyof typeof GetHealth503ResponseStatusEnum];
 
+/**
+ * 
+ * @export
+ * @interface LoginRequest
+ */
+export interface LoginRequest {
+    /**
+     * User\'s username
+     * @type {string}
+     * @memberof LoginRequest
+     */
+    'username': string;
+    /**
+     * User\'s password
+     * @type {string}
+     * @memberof LoginRequest
+     */
+    'password': string;
+}
 /**
  * 
  * @export
@@ -746,6 +786,51 @@ export interface ProblemDetailErrorsInner {
 /**
  * 
  * @export
+ * @interface RefreshTokenRequest
+ */
+export interface RefreshTokenRequest {
+    /**
+     * Refresh token obtained from login or previous refresh
+     * @type {string}
+     * @memberof RefreshTokenRequest
+     */
+    'refreshToken': string;
+}
+/**
+ * 
+ * @export
+ * @interface ResetUserPassword200Response
+ */
+export interface ResetUserPassword200Response {
+    /**
+     * 
+     * @type {string}
+     * @memberof ResetUserPassword200Response
+     */
+    'message'?: string;
+}
+/**
+ * 
+ * @export
+ * @interface ResetUserPasswordRequest
+ */
+export interface ResetUserPasswordRequest {
+    /**
+     * Username of the user whose password is being reset
+     * @type {string}
+     * @memberof ResetUserPasswordRequest
+     */
+    'username': string;
+    /**
+     * New password for the user
+     * @type {string}
+     * @memberof ResetUserPasswordRequest
+     */
+    'newPassword': string;
+}
+/**
+ * 
+ * @export
  * @interface ServerInfo
  */
 export interface ServerInfo {
@@ -755,6 +840,19 @@ export interface ServerInfo {
      * @memberof ServerInfo
      */
     'version'?: string;
+}
+/**
+ * 
+ * @export
+ * @interface SwitchAppBundleVersion200Response
+ */
+export interface SwitchAppBundleVersion200Response {
+    /**
+     * 
+     * @type {string}
+     * @memberof SwitchAppBundleVersion200Response
+     */
+    'message'?: string;
 }
 /**
  * 
@@ -819,19 +917,13 @@ export interface SyncPullResponse {
      */
     'records': Array<Observation>;
     /**
-     * Version number of the last change included in this response
+     * Version number of the last change included in this response. Use this as the next \'since.version\' for pagination.
      * @type {number}
      * @memberof SyncPullResponse
      */
     'change_cutoff': number;
     /**
-     * 
-     * @type {string}
-     * @memberof SyncPullResponse
-     */
-    'next_page_token'?: string;
-    /**
-     * 
+     * Indicates if there are more records available beyond this response
      * @type {boolean}
      * @memberof SyncPullResponse
      */
@@ -983,6 +1075,19 @@ export interface SystemVersionInfo {
 /**
  * 
  * @export
+ * @interface UploadAttachment200Response
+ */
+export interface UploadAttachment200Response {
+    /**
+     * 
+     * @type {string}
+     * @memberof UploadAttachment200Response
+     */
+    'status'?: string;
+}
+/**
+ * 
+ * @export
  * @interface UserResponse
  */
 export interface UserResponse {
@@ -1014,117 +1119,6 @@ export const UserResponseRoleEnum = {
 
 export type UserResponseRoleEnum = typeof UserResponseRoleEnum[keyof typeof UserResponseRoleEnum];
 
-/**
- * 
- * @export
- * @interface UsersChangePasswordPost200Response
- */
-export interface UsersChangePasswordPost200Response {
-    /**
-     * 
-     * @type {string}
-     * @memberof UsersChangePasswordPost200Response
-     */
-    'message'?: string;
-}
-/**
- * 
- * @export
- * @interface UsersChangePasswordPostRequest
- */
-export interface UsersChangePasswordPostRequest {
-    /**
-     * Current password for verification
-     * @type {string}
-     * @memberof UsersChangePasswordPostRequest
-     */
-    'currentPassword': string;
-    /**
-     * New password to set
-     * @type {string}
-     * @memberof UsersChangePasswordPostRequest
-     */
-    'newPassword': string;
-}
-/**
- * 
- * @export
- * @interface UsersCreatePostRequest
- */
-export interface UsersCreatePostRequest {
-    /**
-     * New user\'s username
-     * @type {string}
-     * @memberof UsersCreatePostRequest
-     */
-    'username': string;
-    /**
-     * New user\'s password
-     * @type {string}
-     * @memberof UsersCreatePostRequest
-     */
-    'password': string;
-    /**
-     * User\'s role
-     * @type {string}
-     * @memberof UsersCreatePostRequest
-     */
-    'role': UsersCreatePostRequestRoleEnum;
-}
-
-export const UsersCreatePostRequestRoleEnum = {
-    ReadOnly: 'read-only',
-    ReadWrite: 'read-write',
-    Admin: 'admin'
-} as const;
-
-export type UsersCreatePostRequestRoleEnum = typeof UsersCreatePostRequestRoleEnum[keyof typeof UsersCreatePostRequestRoleEnum];
-
-/**
- * 
- * @export
- * @interface UsersResetPasswordPost200Response
- */
-export interface UsersResetPasswordPost200Response {
-    /**
-     * 
-     * @type {string}
-     * @memberof UsersResetPasswordPost200Response
-     */
-    'message'?: string;
-}
-/**
- * 
- * @export
- * @interface UsersResetPasswordPostRequest
- */
-export interface UsersResetPasswordPostRequest {
-    /**
-     * Username of the user whose password is being reset
-     * @type {string}
-     * @memberof UsersResetPasswordPostRequest
-     */
-    'username': string;
-    /**
-     * New password for the user
-     * @type {string}
-     * @memberof UsersResetPasswordPostRequest
-     */
-    'newPassword': string;
-}
-/**
- * 
- * @export
- * @interface UsersUsernameDelete200Response
- */
-export interface UsersUsernameDelete200Response {
-    /**
-     * 
-     * @type {string}
-     * @memberof UsersUsernameDelete200Response
-     */
-    'message'?: string;
-}
 
 /**
  * DefaultApi - axios parameter creator
@@ -1133,16 +1127,17 @@ export interface UsersUsernameDelete200Response {
 export const DefaultApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
-         * Compares two versions of the app bundle and returns detailed changes
-         * @summary Get changes between two app bundle versions
-         * @param {string} [current] The current version (defaults to latest)
-         * @param {string} [target] The target version to compare against (defaults to previous version)
+         * Change password for the currently authenticated user
+         * @summary Change user password (authenticated user)\'s password
+         * @param {ChangePasswordRequest} changePasswordRequest 
          * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        appBundleChangesGet: async (current?: string, target?: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/app-bundle/changes`;
+        changePassword: async (changePasswordRequest: ChangePasswordRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'changePasswordRequest' is not null or undefined
+            assertParamExists('changePassword', 'changePasswordRequest', changePasswordRequest)
+            const localVarPath = `/users/change-password`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -1150,7 +1145,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 baseOptions = configuration.baseOptions;
             }
 
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
@@ -1158,13 +1153,132 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             // http bearer authentication required
             await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
-            if (current !== undefined) {
-                localVarQueryParameter['current'] = current;
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(changePasswordRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
+         * @summary Check if an attachment exists
+         * @param {string} attachmentId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        checkAttachmentExists: async (attachmentId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'attachmentId' is not null or undefined
+            assertParamExists('checkAttachmentExists', 'attachmentId', attachmentId)
+            const localVarPath = `/attachments/{attachment_id}`
+                .replace(`{${"attachment_id"}}`, encodeURIComponent(String(attachmentId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
             }
 
-            if (target !== undefined) {
-                localVarQueryParameter['target'] = target;
+            const localVarRequestOptions = { method: 'HEAD', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Create a new user with specified username, password, and role
+         * @summary Create a new user (admin only)
+         * @param {CreateUserRequest} createUserRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createUser: async (createUserRequest: CreateUserRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'createUserRequest' is not null or undefined
+            assertParamExists('createUser', 'createUserRequest', createUserRequest)
+            const localVarPath = `/users/create`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
             }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createUserRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Delete a user by username
+         * @summary Delete a user (admin only)
+         * @param {string} username Username of the user to delete
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteUser: async (username: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'username' is not null or undefined
+            assertParamExists('deleteUser', 'username', username)
+            const localVarPath = `/users/{username}`
+                .replace(`{${"username"}}`, encodeURIComponent(String(username)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
 
     
@@ -1190,9 +1304,9 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        appBundleDownloadPathGet: async (path: string, preview?: boolean, ifNoneMatch?: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        downloadAppBundleFile: async (path: string, preview?: boolean, ifNoneMatch?: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'path' is not null or undefined
-            assertParamExists('appBundleDownloadPathGet', 'path', path)
+            assertParamExists('downloadAppBundleFile', 'path', path)
             const localVarPath = `/app-bundle/download/{path}`
                 .replace(`{${"path"}}`, encodeURIComponent(String(path)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
@@ -1233,12 +1347,98 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
+         * @summary Download an attachment by ID
+         * @param {string} attachmentId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        downloadAttachment: async (attachmentId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'attachmentId' is not null or undefined
+            assertParamExists('downloadAttachment', 'attachmentId', attachmentId)
+            const localVarPath = `/attachments/{attachment_id}`
+                .replace(`{${"attachment_id"}}`, encodeURIComponent(String(attachmentId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Compares two versions of the app bundle and returns detailed changes
+         * @summary Get changes between two app bundle versions
+         * @param {string} [current] The current version (defaults to latest)
+         * @param {string} [target] The target version to compare against (defaults to previous version)
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAppBundleChanges: async (current?: string, target?: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/app-bundle/changes`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (current !== undefined) {
+                localVarQueryParameter['current'] = current;
+            }
+
+            if (target !== undefined) {
+                localVarQueryParameter['target'] = target;
+            }
+
+
+    
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Get the current custom app bundle manifest
          * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        appBundleManifestGet: async (xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getAppBundleManifest: async (xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/app-bundle/manifest`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1271,13 +1471,203 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
+         * @summary Get a list of available app bundle versions
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAppBundleVersions: async (xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/app-bundle/versions`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+         * @summary Get attachment manifest for incremental sync
+         * @param {AttachmentManifestRequest} attachmentManifestRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAttachmentManifest: async (attachmentManifestRequest: AttachmentManifestRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'attachmentManifestRequest' is not null or undefined
+            assertParamExists('getAttachmentManifest', 'attachmentManifestRequest', attachmentManifestRequest)
+            const localVarPath = `/attachments/manifest`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(attachmentManifestRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns detailed version information about the server, including build information and system details
+         * @summary Get server version and system information
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getVersion: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/version`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Retrieve a list of all users in the system. Admin access required.
+         * @summary List all users (admin only)
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listUsers: async (xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            const localVarPath = `/users`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Obtain a JWT token by providing username and password
+         * @summary Authenticate user and return JWT tokens
+         * @param {LoginRequest} loginRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        login: async (loginRequest: LoginRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'loginRequest' is not null or undefined
+            assertParamExists('login', 'loginRequest', loginRequest)
+            const localVarPath = `/auth/login`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(loginRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * 
          * @summary Upload a new app bundle (admin only)
          * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {File} [bundle] ZIP file containing the new app bundle
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        appBundlePushPost: async (xApiVersion?: string, bundle?: File, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        pushAppBundle: async (xApiVersion?: string, bundle?: File, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/app-bundle/push`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1317,6 +1707,90 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Obtain a new JWT token using a refresh token
+         * @summary Refresh JWT token
+         * @param {RefreshTokenRequest} refreshTokenRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        refreshToken: async (refreshTokenRequest: RefreshTokenRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'refreshTokenRequest' is not null or undefined
+            assertParamExists('refreshToken', 'refreshTokenRequest', refreshTokenRequest)
+            const localVarPath = `/auth/refresh`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(refreshTokenRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Reset password for a specified user
+         * @summary Reset user password (admin only)
+         * @param {ResetUserPasswordRequest} resetUserPasswordRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        resetUserPassword: async (resetUserPasswordRequest: ResetUserPasswordRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'resetUserPasswordRequest' is not null or undefined
+            assertParamExists('resetUserPassword', 'resetUserPasswordRequest', resetUserPasswordRequest)
+            const localVarPath = `/users/reset-password`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(resetUserPasswordRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Switch to a specific app bundle version (admin only)
          * @param {string} version Version identifier to switch to
@@ -1324,9 +1798,9 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        appBundleSwitchVersionPost: async (version: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        switchAppBundleVersion: async (version: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'version' is not null or undefined
-            assertParamExists('appBundleSwitchVersionPost', 'version', version)
+            assertParamExists('switchAppBundleVersion', 'version', version)
             const localVarPath = `/app-bundle/switch/{version}`
                 .replace(`{${"version"}}`, encodeURIComponent(String(version)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
@@ -1359,14 +1833,19 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * 
-         * @summary Get a list of available app bundle versions
+         * Retrieves records that have changed since a specified version.  **Pagination Pattern:** 1. Send initial request with `since.version` (or omit for all records) 2. Process returned records 3. If `has_more` is true, make next request using `change_cutoff` as the new `since.version` 4. Repeat until `has_more` is false  Example pagination flow: - Request 1: `since: {version: 100}` → Response: `change_cutoff: 150, has_more: true` - Request 2: `since: {version: 150}` → Response: `change_cutoff: 200, has_more: false` 
+         * @summary Pull updated records since last sync
+         * @param {SyncPullRequest} syncPullRequest 
+         * @param {string} [schemaType] Filter by schemaType
+         * @param {number} [limit] Maximum number of records to return
          * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        appBundleVersionsGet: async (xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/app-bundle/versions`;
+        syncPull: async (syncPullRequest: SyncPullRequest, schemaType?: string, limit?: number, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'syncPullRequest' is not null or undefined
+            assertParamExists('syncPull', 'syncPullRequest', syncPullRequest)
+            const localVarPath = `/sync/pull`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -1374,7 +1853,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 baseOptions = configuration.baseOptions;
             }
 
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
@@ -1382,14 +1861,25 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             // http bearer authentication required
             await setBearerAuthToObject(localVarHeaderParameter, configuration)
 
+            if (schemaType !== undefined) {
+                localVarQueryParameter['schemaType'] = schemaType;
+            }
+
+            if (limit !== undefined) {
+                localVarQueryParameter['limit'] = limit;
+            }
+
 
     
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
             if (xApiVersion != null) {
                 localVarHeaderParameter['x-api-version'] = String(xApiVersion);
             }
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(syncPullRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -1398,16 +1888,16 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
         },
         /**
          * 
-         * @summary Download an attachment by ID
-         * @param {string} attachmentId 
+         * @summary Push new or updated records to the server
+         * @param {SyncPushRequest} syncPushRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        attachmentsAttachmentIdGet: async (attachmentId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'attachmentId' is not null or undefined
-            assertParamExists('attachmentsAttachmentIdGet', 'attachmentId', attachmentId)
-            const localVarPath = `/attachments/{attachment_id}`
-                .replace(`{${"attachment_id"}}`, encodeURIComponent(String(attachmentId)));
+        syncPush: async (syncPushRequest: SyncPushRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'syncPushRequest' is not null or undefined
+            assertParamExists('syncPush', 'syncPushRequest', syncPushRequest)
+            const localVarPath = `/sync/push`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
             let baseOptions;
@@ -1415,7 +1905,7 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 baseOptions = configuration.baseOptions;
             }
 
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
             const localVarHeaderParameter = {} as any;
             const localVarQueryParameter = {} as any;
 
@@ -1425,47 +1915,15 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
 
 
     
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarHeaderParameter['Content-Type'] = 'application/json';
 
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @summary Check if an attachment exists
-         * @param {string} attachmentId 
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        attachmentsAttachmentIdHead: async (attachmentId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'attachmentId' is not null or undefined
-            assertParamExists('attachmentsAttachmentIdHead', 'attachmentId', attachmentId)
-            const localVarPath = `/attachments/{attachment_id}`
-                .replace(`{${"attachment_id"}}`, encodeURIComponent(String(attachmentId)));
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
+            if (xApiVersion != null) {
+                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
             }
-
-            const localVarRequestOptions = { method: 'HEAD', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-
-    
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(syncPushRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -1480,11 +1938,11 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        attachmentsAttachmentIdPut: async (attachmentId: string, file: File, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        uploadAttachment: async (attachmentId: string, file: File, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'attachmentId' is not null or undefined
-            assertParamExists('attachmentsAttachmentIdPut', 'attachmentId', attachmentId)
+            assertParamExists('uploadAttachment', 'attachmentId', attachmentId)
             // verify required parameter 'file' is not null or undefined
-            assertParamExists('attachmentsAttachmentIdPut', 'file', file)
+            assertParamExists('uploadAttachment', 'file', file)
             const localVarPath = `/attachments/{attachment_id}`
                 .replace(`{${"attachment_id"}}`, encodeURIComponent(String(attachmentId)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
@@ -1521,475 +1979,6 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
                 options: localVarRequestOptions,
             };
         },
-        /**
-         * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
-         * @summary Get attachment manifest for incremental sync
-         * @param {AttachmentManifestRequest} attachmentManifestRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        attachmentsManifestPost: async (attachmentManifestRequest: AttachmentManifestRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'attachmentManifestRequest' is not null or undefined
-            assertParamExists('attachmentsManifestPost', 'attachmentManifestRequest', attachmentManifestRequest)
-            const localVarPath = `/attachments/manifest`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(attachmentManifestRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * Obtain a JWT token by providing username and password
-         * @summary Authenticate with the API
-         * @param {AuthLoginPostRequest} authLoginPostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        authLoginPost: async (authLoginPostRequest: AuthLoginPostRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'authLoginPostRequest' is not null or undefined
-            assertParamExists('authLoginPost', 'authLoginPostRequest', authLoginPostRequest)
-            const localVarPath = `/auth/login`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(authLoginPostRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * Obtain a new JWT token using a refresh token
-         * @summary Refresh authentication token
-         * @param {AuthRefreshPostRequest} authRefreshPostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        authRefreshPost: async (authRefreshPostRequest: AuthRefreshPostRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'authRefreshPostRequest' is not null or undefined
-            assertParamExists('authRefreshPost', 'authRefreshPostRequest', authRefreshPostRequest)
-            const localVarPath = `/auth/refresh`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(authRefreshPostRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @summary Pull updated records since last sync
-         * @param {SyncPullRequest} syncPullRequest 
-         * @param {string} [schemaType] Filter by schemaType
-         * @param {number} [limit] Maximum number of records to return
-         * @param {string} [pageToken] Pagination token from previous response
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        syncPullPost: async (syncPullRequest: SyncPullRequest, schemaType?: string, limit?: number, pageToken?: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'syncPullRequest' is not null or undefined
-            assertParamExists('syncPullPost', 'syncPullRequest', syncPullRequest)
-            const localVarPath = `/sync/pull`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-            if (schemaType !== undefined) {
-                localVarQueryParameter['schemaType'] = schemaType;
-            }
-
-            if (limit !== undefined) {
-                localVarQueryParameter['limit'] = limit;
-            }
-
-            if (pageToken !== undefined) {
-                localVarQueryParameter['page_token'] = pageToken;
-            }
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(syncPullRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * 
-         * @summary Push new or updated records to the server
-         * @param {SyncPushRequest} syncPushRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        syncPushPost: async (syncPushRequest: SyncPushRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'syncPushRequest' is not null or undefined
-            assertParamExists('syncPushPost', 'syncPushRequest', syncPushRequest)
-            const localVarPath = `/sync/push`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(syncPushRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * Change password for the currently authenticated user
-         * @summary Change current user\'s password
-         * @param {UsersChangePasswordPostRequest} usersChangePasswordPostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        usersChangePasswordPost: async (usersChangePasswordPostRequest: UsersChangePasswordPostRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'usersChangePasswordPostRequest' is not null or undefined
-            assertParamExists('usersChangePasswordPost', 'usersChangePasswordPostRequest', usersChangePasswordPostRequest)
-            const localVarPath = `/users/change-password`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(usersChangePasswordPostRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * Create a new user with specified username, password, and role
-         * @summary Create a new user (admin only)
-         * @param {UsersCreatePostRequest} usersCreatePostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        usersCreatePost: async (usersCreatePostRequest: UsersCreatePostRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'usersCreatePostRequest' is not null or undefined
-            assertParamExists('usersCreatePost', 'usersCreatePostRequest', usersCreatePostRequest)
-            const localVarPath = `/users/create`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(usersCreatePostRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * Retrieve a list of all users in the system. Admin access required.
-         * @summary List all users (admin only)
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        usersGet: async (xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/users`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-
-    
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * Reset password for a specified user
-         * @summary Reset a user\'s password (admin only)
-         * @param {UsersResetPasswordPostRequest} usersResetPasswordPostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        usersResetPasswordPost: async (usersResetPasswordPostRequest: UsersResetPasswordPostRequest, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'usersResetPasswordPostRequest' is not null or undefined
-            assertParamExists('usersResetPasswordPost', 'usersResetPasswordPostRequest', usersResetPasswordPostRequest)
-            const localVarPath = `/users/reset-password`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-
-    
-            localVarHeaderParameter['Content-Type'] = 'application/json';
-
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-            localVarRequestOptions.data = serializeDataIfNeeded(usersResetPasswordPostRequest, localVarRequestOptions, configuration)
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * Delete a user by username
-         * @summary Delete a user (admin only)
-         * @param {string} username Username of the user to delete
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        usersUsernameDelete: async (username: string, xApiVersion?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            // verify required parameter 'username' is not null or undefined
-            assertParamExists('usersUsernameDelete', 'username', username)
-            const localVarPath = `/users/{username}`
-                .replace(`{${"username"}}`, encodeURIComponent(String(username)));
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-            // authentication bearerAuth required
-            // http bearer authentication required
-            await setBearerAuthToObject(localVarHeaderParameter, configuration)
-
-
-    
-            if (xApiVersion != null) {
-                localVarHeaderParameter['x-api-version'] = String(xApiVersion);
-            }
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
-        /**
-         * Returns detailed version information about the server, including build information and system details
-         * @summary Get server version and system information
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        versionGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
-            const localVarPath = `/version`;
-            // use dummy base URL string because the URL constructor only accepts absolute URLs.
-            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
-            let baseOptions;
-            if (configuration) {
-                baseOptions = configuration.baseOptions;
-            }
-
-            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
-            const localVarHeaderParameter = {} as any;
-            const localVarQueryParameter = {} as any;
-
-
-    
-            setSearchParams(localVarUrlObj, localVarQueryParameter);
-            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
-            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
-
-            return {
-                url: toPathString(localVarUrlObj),
-                options: localVarRequestOptions,
-            };
-        },
     }
 };
 
@@ -2001,18 +1990,58 @@ export const DefaultApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = DefaultApiAxiosParamCreator(configuration)
     return {
         /**
-         * Compares two versions of the app bundle and returns detailed changes
-         * @summary Get changes between two app bundle versions
-         * @param {string} [current] The current version (defaults to latest)
-         * @param {string} [target] The target version to compare against (defaults to previous version)
+         * Change password for the currently authenticated user
+         * @summary Change user password (authenticated user)\'s password
+         * @param {ChangePasswordRequest} changePasswordRequest 
          * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async appBundleChangesGet(current?: string, target?: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ChangeLog>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.appBundleChangesGet(current, target, xApiVersion, options);
+        async changePassword(changePasswordRequest: ChangePasswordRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ChangePassword200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.changePassword(changePasswordRequest, xApiVersion, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.appBundleChangesGet']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.changePassword']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Check if an attachment exists
+         * @param {string} attachmentId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async checkAttachmentExists(attachmentId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.checkAttachmentExists(attachmentId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.checkAttachmentExists']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Create a new user with specified username, password, and role
+         * @summary Create a new user (admin only)
+         * @param {CreateUserRequest} createUserRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createUser(createUserRequest: CreateUserRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createUser(createUserRequest, xApiVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.createUser']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Delete a user by username
+         * @summary Delete a user (admin only)
+         * @param {string} username Username of the user to delete
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteUser(username: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<DeleteUser200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteUser(username, xApiVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deleteUser']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2025,64 +2054,10 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async appBundleDownloadPathGet(path: string, preview?: boolean, ifNoneMatch?: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.appBundleDownloadPathGet(path, preview, ifNoneMatch, xApiVersion, options);
+        async downloadAppBundleFile(path: string, preview?: boolean, ifNoneMatch?: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.downloadAppBundleFile(path, preview, ifNoneMatch, xApiVersion, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.appBundleDownloadPathGet']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
-         * @summary Get the current custom app bundle manifest
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async appBundleManifestGet(xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AppBundleManifest>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.appBundleManifestGet(xApiVersion, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.appBundleManifestGet']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
-         * @summary Upload a new app bundle (admin only)
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {File} [bundle] ZIP file containing the new app bundle
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async appBundlePushPost(xApiVersion?: string, bundle?: File, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AppBundlePushResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.appBundlePushPost(xApiVersion, bundle, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.appBundlePushPost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
-         * @summary Switch to a specific app bundle version (admin only)
-         * @param {string} version Version identifier to switch to
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async appBundleSwitchVersionPost(version: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AppBundleSwitchVersionPost200Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.appBundleSwitchVersionPost(version, xApiVersion, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.appBundleSwitchVersionPost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * 
-         * @summary Get a list of available app bundle versions
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async appBundleVersionsGet(xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AppBundleVersions>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.appBundleVersionsGet(xApiVersion, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.appBundleVersionsGet']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.downloadAppBundleFile']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2092,37 +2067,51 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async attachmentsAttachmentIdGet(attachmentId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.attachmentsAttachmentIdGet(attachmentId, options);
+        async downloadAttachment(attachmentId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.downloadAttachment(attachmentId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.attachmentsAttachmentIdGet']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.downloadAttachment']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Compares two versions of the app bundle and returns detailed changes
+         * @summary Get changes between two app bundle versions
+         * @param {string} [current] The current version (defaults to latest)
+         * @param {string} [target] The target version to compare against (defaults to previous version)
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getAppBundleChanges(current?: string, target?: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ChangeLog>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAppBundleChanges(current, target, xApiVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getAppBundleChanges']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * 
-         * @summary Check if an attachment exists
-         * @param {string} attachmentId 
+         * @summary Get the current custom app bundle manifest
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async attachmentsAttachmentIdHead(attachmentId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.attachmentsAttachmentIdHead(attachmentId, options);
+        async getAppBundleManifest(xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AppBundleManifest>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAppBundleManifest(xApiVersion, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.attachmentsAttachmentIdHead']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getAppBundleManifest']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * 
-         * @summary Upload a new attachment with specified ID
-         * @param {string} attachmentId 
-         * @param {File} file The binary file to upload
+         * @summary Get a list of available app bundle versions
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async attachmentsAttachmentIdPut(attachmentId: string, file: File, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AttachmentsAttachmentIdPut200Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.attachmentsAttachmentIdPut(attachmentId, file, options);
+        async getAppBundleVersions(xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AppBundleVersions>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAppBundleVersions(xApiVersion, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.attachmentsAttachmentIdPut']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getAppBundleVersions']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2133,55 +2122,121 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async attachmentsManifestPost(attachmentManifestRequest: AttachmentManifestRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AttachmentManifestResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.attachmentsManifestPost(attachmentManifestRequest, xApiVersion, options);
+        async getAttachmentManifest(attachmentManifestRequest: AttachmentManifestRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AttachmentManifestResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAttachmentManifest(attachmentManifestRequest, xApiVersion, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.attachmentsManifestPost']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getAttachmentManifest']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Returns detailed version information about the server, including build information and system details
+         * @summary Get server version and system information
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getVersion(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SystemVersionInfo>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getVersion(options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getVersion']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Retrieve a list of all users in the system. Admin access required.
+         * @summary List all users (admin only)
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listUsers(xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserResponse>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listUsers(xApiVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.listUsers']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * Obtain a JWT token by providing username and password
-         * @summary Authenticate with the API
-         * @param {AuthLoginPostRequest} authLoginPostRequest 
+         * @summary Authenticate user and return JWT tokens
+         * @param {LoginRequest} loginRequest 
          * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async authLoginPost(authLoginPostRequest: AuthLoginPostRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuthResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.authLoginPost(authLoginPostRequest, xApiVersion, options);
+        async login(loginRequest: LoginRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuthResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.login(loginRequest, xApiVersion, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.authLoginPost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * Obtain a new JWT token using a refresh token
-         * @summary Refresh authentication token
-         * @param {AuthRefreshPostRequest} authRefreshPostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async authRefreshPost(authRefreshPostRequest: AuthRefreshPostRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuthResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.authRefreshPost(authRefreshPostRequest, xApiVersion, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.authRefreshPost']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.login']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
          * 
-         * @summary Pull updated records since last sync
-         * @param {SyncPullRequest} syncPullRequest 
-         * @param {string} [schemaType] Filter by schemaType
-         * @param {number} [limit] Maximum number of records to return
-         * @param {string} [pageToken] Pagination token from previous response
+         * @summary Upload a new app bundle (admin only)
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {File} [bundle] ZIP file containing the new app bundle
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async pushAppBundle(xApiVersion?: string, bundle?: File, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AppBundlePushResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.pushAppBundle(xApiVersion, bundle, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.pushAppBundle']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Obtain a new JWT token using a refresh token
+         * @summary Refresh JWT token
+         * @param {RefreshTokenRequest} refreshTokenRequest 
          * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async syncPullPost(syncPullRequest: SyncPullRequest, schemaType?: string, limit?: number, pageToken?: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SyncPullResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.syncPullPost(syncPullRequest, schemaType, limit, pageToken, xApiVersion, options);
+        async refreshToken(refreshTokenRequest: RefreshTokenRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AuthResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.refreshToken(refreshTokenRequest, xApiVersion, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.syncPullPost']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.refreshToken']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Reset password for a specified user
+         * @summary Reset user password (admin only)
+         * @param {ResetUserPasswordRequest} resetUserPasswordRequest 
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async resetUserPassword(resetUserPasswordRequest: ResetUserPasswordRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ResetUserPassword200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.resetUserPassword(resetUserPasswordRequest, xApiVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.resetUserPassword']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * 
+         * @summary Switch to a specific app bundle version (admin only)
+         * @param {string} version Version identifier to switch to
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async switchAppBundleVersion(version: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SwitchAppBundleVersion200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.switchAppBundleVersion(version, xApiVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.switchAppBundleVersion']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Retrieves records that have changed since a specified version.  **Pagination Pattern:** 1. Send initial request with `since.version` (or omit for all records) 2. Process returned records 3. If `has_more` is true, make next request using `change_cutoff` as the new `since.version` 4. Repeat until `has_more` is false  Example pagination flow: - Request 1: `since: {version: 100}` → Response: `change_cutoff: 150, has_more: true` - Request 2: `since: {version: 150}` → Response: `change_cutoff: 200, has_more: false` 
+         * @summary Pull updated records since last sync
+         * @param {SyncPullRequest} syncPullRequest 
+         * @param {string} [schemaType] Filter by schemaType
+         * @param {number} [limit] Maximum number of records to return
+         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async syncPull(syncPullRequest: SyncPullRequest, schemaType?: string, limit?: number, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SyncPullResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.syncPull(syncPullRequest, schemaType, limit, xApiVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.syncPull']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -2192,91 +2247,24 @@ export const DefaultApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async syncPushPost(syncPushRequest: SyncPushRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SyncPushResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.syncPushPost(syncPushRequest, xApiVersion, options);
+        async syncPush(syncPushRequest: SyncPushRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SyncPushResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.syncPush(syncPushRequest, xApiVersion, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.syncPushPost']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.syncPush']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Change password for the currently authenticated user
-         * @summary Change current user\'s password
-         * @param {UsersChangePasswordPostRequest} usersChangePasswordPostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+         * 
+         * @summary Upload a new attachment with specified ID
+         * @param {string} attachmentId 
+         * @param {File} file The binary file to upload
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async usersChangePasswordPost(usersChangePasswordPostRequest: UsersChangePasswordPostRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UsersChangePasswordPost200Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.usersChangePasswordPost(usersChangePasswordPostRequest, xApiVersion, options);
+        async uploadAttachment(attachmentId: string, file: File, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UploadAttachment200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.uploadAttachment(attachmentId, file, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.usersChangePasswordPost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * Create a new user with specified username, password, and role
-         * @summary Create a new user (admin only)
-         * @param {UsersCreatePostRequest} usersCreatePostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async usersCreatePost(usersCreatePostRequest: UsersCreatePostRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UserResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.usersCreatePost(usersCreatePostRequest, xApiVersion, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.usersCreatePost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * Retrieve a list of all users in the system. Admin access required.
-         * @summary List all users (admin only)
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async usersGet(xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<UserResponse>>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.usersGet(xApiVersion, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.usersGet']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * Reset password for a specified user
-         * @summary Reset a user\'s password (admin only)
-         * @param {UsersResetPasswordPostRequest} usersResetPasswordPostRequest 
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async usersResetPasswordPost(usersResetPasswordPostRequest: UsersResetPasswordPostRequest, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UsersResetPasswordPost200Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.usersResetPasswordPost(usersResetPasswordPostRequest, xApiVersion, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.usersResetPasswordPost']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * Delete a user by username
-         * @summary Delete a user (admin only)
-         * @param {string} username Username of the user to delete
-         * @param {string} [xApiVersion] Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async usersUsernameDelete(username: string, xApiVersion?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UsersUsernameDelete200Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.usersUsernameDelete(username, xApiVersion, options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.usersUsernameDelete']?.[localVarOperationServerIndex]?.url;
-            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
-        },
-        /**
-         * Returns detailed version information about the server, including build information and system details
-         * @summary Get server version and system information
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        async versionGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<SystemVersionInfo>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.versionGet(options);
-            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['DefaultApi.versionGet']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.uploadAttachment']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -2290,194 +2278,104 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
     const localVarFp = DefaultApiFp(configuration)
     return {
         /**
-         * Compares two versions of the app bundle and returns detailed changes
-         * @summary Get changes between two app bundle versions
-         * @param {DefaultApiAppBundleChangesGetRequest} requestParameters Request parameters.
+         * Change password for the currently authenticated user
+         * @summary Change user password (authenticated user)\'s password
+         * @param {DefaultApiChangePasswordRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        appBundleChangesGet(requestParameters: DefaultApiAppBundleChangesGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<ChangeLog> {
-            return localVarFp.appBundleChangesGet(requestParameters.current, requestParameters.target, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Download a specific file from the app bundle
-         * @param {DefaultApiAppBundleDownloadPathGetRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        appBundleDownloadPathGet(requestParameters: DefaultApiAppBundleDownloadPathGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<File> {
-            return localVarFp.appBundleDownloadPathGet(requestParameters.path, requestParameters.preview, requestParameters.ifNoneMatch, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Get the current custom app bundle manifest
-         * @param {DefaultApiAppBundleManifestGetRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        appBundleManifestGet(requestParameters: DefaultApiAppBundleManifestGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AppBundleManifest> {
-            return localVarFp.appBundleManifestGet(requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Upload a new app bundle (admin only)
-         * @param {DefaultApiAppBundlePushPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        appBundlePushPost(requestParameters: DefaultApiAppBundlePushPostRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AppBundlePushResponse> {
-            return localVarFp.appBundlePushPost(requestParameters.xApiVersion, requestParameters.bundle, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Switch to a specific app bundle version (admin only)
-         * @param {DefaultApiAppBundleSwitchVersionPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        appBundleSwitchVersionPost(requestParameters: DefaultApiAppBundleSwitchVersionPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AppBundleSwitchVersionPost200Response> {
-            return localVarFp.appBundleSwitchVersionPost(requestParameters.version, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Get a list of available app bundle versions
-         * @param {DefaultApiAppBundleVersionsGetRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        appBundleVersionsGet(requestParameters: DefaultApiAppBundleVersionsGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AppBundleVersions> {
-            return localVarFp.appBundleVersionsGet(requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Download an attachment by ID
-         * @param {DefaultApiAttachmentsAttachmentIdGetRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        attachmentsAttachmentIdGet(requestParameters: DefaultApiAttachmentsAttachmentIdGetRequest, options?: RawAxiosRequestConfig): AxiosPromise<File> {
-            return localVarFp.attachmentsAttachmentIdGet(requestParameters.attachmentId, options).then((request) => request(axios, basePath));
+        changePassword(requestParameters: DefaultApiChangePasswordRequest, options?: RawAxiosRequestConfig): AxiosPromise<ChangePassword200Response> {
+            return localVarFp.changePassword(requestParameters.changePasswordRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
         },
         /**
          * 
          * @summary Check if an attachment exists
-         * @param {DefaultApiAttachmentsAttachmentIdHeadRequest} requestParameters Request parameters.
+         * @param {DefaultApiCheckAttachmentExistsRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        attachmentsAttachmentIdHead(requestParameters: DefaultApiAttachmentsAttachmentIdHeadRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
-            return localVarFp.attachmentsAttachmentIdHead(requestParameters.attachmentId, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Upload a new attachment with specified ID
-         * @param {DefaultApiAttachmentsAttachmentIdPutRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        attachmentsAttachmentIdPut(requestParameters: DefaultApiAttachmentsAttachmentIdPutRequest, options?: RawAxiosRequestConfig): AxiosPromise<AttachmentsAttachmentIdPut200Response> {
-            return localVarFp.attachmentsAttachmentIdPut(requestParameters.attachmentId, requestParameters.file, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
-         * @summary Get attachment manifest for incremental sync
-         * @param {DefaultApiAttachmentsManifestPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        attachmentsManifestPost(requestParameters: DefaultApiAttachmentsManifestPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AttachmentManifestResponse> {
-            return localVarFp.attachmentsManifestPost(requestParameters.attachmentManifestRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * Obtain a JWT token by providing username and password
-         * @summary Authenticate with the API
-         * @param {DefaultApiAuthLoginPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        authLoginPost(requestParameters: DefaultApiAuthLoginPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AuthResponse> {
-            return localVarFp.authLoginPost(requestParameters.authLoginPostRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * Obtain a new JWT token using a refresh token
-         * @summary Refresh authentication token
-         * @param {DefaultApiAuthRefreshPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        authRefreshPost(requestParameters: DefaultApiAuthRefreshPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<AuthResponse> {
-            return localVarFp.authRefreshPost(requestParameters.authRefreshPostRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Pull updated records since last sync
-         * @param {DefaultApiSyncPullPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        syncPullPost(requestParameters: DefaultApiSyncPullPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<SyncPullResponse> {
-            return localVarFp.syncPullPost(requestParameters.syncPullRequest, requestParameters.schemaType, requestParameters.limit, requestParameters.pageToken, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * 
-         * @summary Push new or updated records to the server
-         * @param {DefaultApiSyncPushPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        syncPushPost(requestParameters: DefaultApiSyncPushPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<SyncPushResponse> {
-            return localVarFp.syncPushPost(requestParameters.syncPushRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * Change password for the currently authenticated user
-         * @summary Change current user\'s password
-         * @param {DefaultApiUsersChangePasswordPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        usersChangePasswordPost(requestParameters: DefaultApiUsersChangePasswordPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<UsersChangePasswordPost200Response> {
-            return localVarFp.usersChangePasswordPost(requestParameters.usersChangePasswordPostRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        checkAttachmentExists(requestParameters: DefaultApiCheckAttachmentExistsRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.checkAttachmentExists(requestParameters.attachmentId, options).then((request) => request(axios, basePath));
         },
         /**
          * Create a new user with specified username, password, and role
          * @summary Create a new user (admin only)
-         * @param {DefaultApiUsersCreatePostRequest} requestParameters Request parameters.
+         * @param {DefaultApiCreateUserRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        usersCreatePost(requestParameters: DefaultApiUsersCreatePostRequest, options?: RawAxiosRequestConfig): AxiosPromise<UserResponse> {
-            return localVarFp.usersCreatePost(requestParameters.usersCreatePostRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * Retrieve a list of all users in the system. Admin access required.
-         * @summary List all users (admin only)
-         * @param {DefaultApiUsersGetRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        usersGet(requestParameters: DefaultApiUsersGetRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<Array<UserResponse>> {
-            return localVarFp.usersGet(requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
-        },
-        /**
-         * Reset password for a specified user
-         * @summary Reset a user\'s password (admin only)
-         * @param {DefaultApiUsersResetPasswordPostRequest} requestParameters Request parameters.
-         * @param {*} [options] Override http request option.
-         * @throws {RequiredError}
-         */
-        usersResetPasswordPost(requestParameters: DefaultApiUsersResetPasswordPostRequest, options?: RawAxiosRequestConfig): AxiosPromise<UsersResetPasswordPost200Response> {
-            return localVarFp.usersResetPasswordPost(requestParameters.usersResetPasswordPostRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        createUser(requestParameters: DefaultApiCreateUserRequest, options?: RawAxiosRequestConfig): AxiosPromise<UserResponse> {
+            return localVarFp.createUser(requestParameters.createUserRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
         },
         /**
          * Delete a user by username
          * @summary Delete a user (admin only)
-         * @param {DefaultApiUsersUsernameDeleteRequest} requestParameters Request parameters.
+         * @param {DefaultApiDeleteUserRequest} requestParameters Request parameters.
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        usersUsernameDelete(requestParameters: DefaultApiUsersUsernameDeleteRequest, options?: RawAxiosRequestConfig): AxiosPromise<UsersUsernameDelete200Response> {
-            return localVarFp.usersUsernameDelete(requestParameters.username, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        deleteUser(requestParameters: DefaultApiDeleteUserRequest, options?: RawAxiosRequestConfig): AxiosPromise<DeleteUser200Response> {
+            return localVarFp.deleteUser(requestParameters.username, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Download a specific file from the app bundle
+         * @param {DefaultApiDownloadAppBundleFileRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        downloadAppBundleFile(requestParameters: DefaultApiDownloadAppBundleFileRequest, options?: RawAxiosRequestConfig): AxiosPromise<File> {
+            return localVarFp.downloadAppBundleFile(requestParameters.path, requestParameters.preview, requestParameters.ifNoneMatch, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Download an attachment by ID
+         * @param {DefaultApiDownloadAttachmentRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        downloadAttachment(requestParameters: DefaultApiDownloadAttachmentRequest, options?: RawAxiosRequestConfig): AxiosPromise<File> {
+            return localVarFp.downloadAttachment(requestParameters.attachmentId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Compares two versions of the app bundle and returns detailed changes
+         * @summary Get changes between two app bundle versions
+         * @param {DefaultApiGetAppBundleChangesRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAppBundleChanges(requestParameters: DefaultApiGetAppBundleChangesRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<ChangeLog> {
+            return localVarFp.getAppBundleChanges(requestParameters.current, requestParameters.target, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get the current custom app bundle manifest
+         * @param {DefaultApiGetAppBundleManifestRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAppBundleManifest(requestParameters: DefaultApiGetAppBundleManifestRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AppBundleManifest> {
+            return localVarFp.getAppBundleManifest(requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Get a list of available app bundle versions
+         * @param {DefaultApiGetAppBundleVersionsRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAppBundleVersions(requestParameters: DefaultApiGetAppBundleVersionsRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AppBundleVersions> {
+            return localVarFp.getAppBundleVersions(requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+         * @summary Get attachment manifest for incremental sync
+         * @param {DefaultApiGetAttachmentManifestRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAttachmentManifest(requestParameters: DefaultApiGetAttachmentManifestRequest, options?: RawAxiosRequestConfig): AxiosPromise<AttachmentManifestResponse> {
+            return localVarFp.getAttachmentManifest(requestParameters.attachmentManifestRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
         },
         /**
          * Returns detailed version information about the server, including build information and system details
@@ -2485,416 +2383,499 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        versionGet(options?: RawAxiosRequestConfig): AxiosPromise<SystemVersionInfo> {
-            return localVarFp.versionGet(options).then((request) => request(axios, basePath));
+        getVersion(options?: RawAxiosRequestConfig): AxiosPromise<SystemVersionInfo> {
+            return localVarFp.getVersion(options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Retrieve a list of all users in the system. Admin access required.
+         * @summary List all users (admin only)
+         * @param {DefaultApiListUsersRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listUsers(requestParameters: DefaultApiListUsersRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<Array<UserResponse>> {
+            return localVarFp.listUsers(requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Obtain a JWT token by providing username and password
+         * @summary Authenticate user and return JWT tokens
+         * @param {DefaultApiLoginRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        login(requestParameters: DefaultApiLoginRequest, options?: RawAxiosRequestConfig): AxiosPromise<AuthResponse> {
+            return localVarFp.login(requestParameters.loginRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Upload a new app bundle (admin only)
+         * @param {DefaultApiPushAppBundleRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        pushAppBundle(requestParameters: DefaultApiPushAppBundleRequest = {}, options?: RawAxiosRequestConfig): AxiosPromise<AppBundlePushResponse> {
+            return localVarFp.pushAppBundle(requestParameters.xApiVersion, requestParameters.bundle, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Obtain a new JWT token using a refresh token
+         * @summary Refresh JWT token
+         * @param {DefaultApiRefreshTokenRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        refreshToken(requestParameters: DefaultApiRefreshTokenRequest, options?: RawAxiosRequestConfig): AxiosPromise<AuthResponse> {
+            return localVarFp.refreshToken(requestParameters.refreshTokenRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Reset password for a specified user
+         * @summary Reset user password (admin only)
+         * @param {DefaultApiResetUserPasswordRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        resetUserPassword(requestParameters: DefaultApiResetUserPasswordRequest, options?: RawAxiosRequestConfig): AxiosPromise<ResetUserPassword200Response> {
+            return localVarFp.resetUserPassword(requestParameters.resetUserPasswordRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Switch to a specific app bundle version (admin only)
+         * @param {DefaultApiSwitchAppBundleVersionRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        switchAppBundleVersion(requestParameters: DefaultApiSwitchAppBundleVersionRequest, options?: RawAxiosRequestConfig): AxiosPromise<SwitchAppBundleVersion200Response> {
+            return localVarFp.switchAppBundleVersion(requestParameters.version, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Retrieves records that have changed since a specified version.  **Pagination Pattern:** 1. Send initial request with `since.version` (or omit for all records) 2. Process returned records 3. If `has_more` is true, make next request using `change_cutoff` as the new `since.version` 4. Repeat until `has_more` is false  Example pagination flow: - Request 1: `since: {version: 100}` → Response: `change_cutoff: 150, has_more: true` - Request 2: `since: {version: 150}` → Response: `change_cutoff: 200, has_more: false` 
+         * @summary Pull updated records since last sync
+         * @param {DefaultApiSyncPullRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        syncPull(requestParameters: DefaultApiSyncPullRequest, options?: RawAxiosRequestConfig): AxiosPromise<SyncPullResponse> {
+            return localVarFp.syncPull(requestParameters.syncPullRequest, requestParameters.schemaType, requestParameters.limit, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Push new or updated records to the server
+         * @param {DefaultApiSyncPushRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        syncPush(requestParameters: DefaultApiSyncPushRequest, options?: RawAxiosRequestConfig): AxiosPromise<SyncPushResponse> {
+            return localVarFp.syncPush(requestParameters.syncPushRequest, requestParameters.xApiVersion, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * 
+         * @summary Upload a new attachment with specified ID
+         * @param {DefaultApiUploadAttachmentRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        uploadAttachment(requestParameters: DefaultApiUploadAttachmentRequest, options?: RawAxiosRequestConfig): AxiosPromise<UploadAttachment200Response> {
+            return localVarFp.uploadAttachment(requestParameters.attachmentId, requestParameters.file, options).then((request) => request(axios, basePath));
         },
     };
 };
 
 /**
- * Request parameters for appBundleChangesGet operation in DefaultApi.
+ * Request parameters for changePassword operation in DefaultApi.
  * @export
- * @interface DefaultApiAppBundleChangesGetRequest
+ * @interface DefaultApiChangePasswordRequest
  */
-export interface DefaultApiAppBundleChangesGetRequest {
+export interface DefaultApiChangePasswordRequest {
     /**
-     * The current version (defaults to latest)
-     * @type {string}
-     * @memberof DefaultApiAppBundleChangesGet
+     * 
+     * @type {ChangePasswordRequest}
+     * @memberof DefaultApiChangePassword
      */
-    readonly current?: string
-
-    /**
-     * The target version to compare against (defaults to previous version)
-     * @type {string}
-     * @memberof DefaultApiAppBundleChangesGet
-     */
-    readonly target?: string
+    readonly changePasswordRequest: ChangePasswordRequest
 
     /**
      * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
      * @type {string}
-     * @memberof DefaultApiAppBundleChangesGet
+     * @memberof DefaultApiChangePassword
      */
     readonly xApiVersion?: string
 }
 
 /**
- * Request parameters for appBundleDownloadPathGet operation in DefaultApi.
+ * Request parameters for checkAttachmentExists operation in DefaultApi.
  * @export
- * @interface DefaultApiAppBundleDownloadPathGetRequest
+ * @interface DefaultApiCheckAttachmentExistsRequest
  */
-export interface DefaultApiAppBundleDownloadPathGetRequest {
+export interface DefaultApiCheckAttachmentExistsRequest {
     /**
      * 
      * @type {string}
-     * @memberof DefaultApiAppBundleDownloadPathGet
-     */
-    readonly path: string
-
-    /**
-     * If true, returns the file from the latest version including unreleased changes
-     * @type {boolean}
-     * @memberof DefaultApiAppBundleDownloadPathGet
-     */
-    readonly preview?: boolean
-
-    /**
-     * 
-     * @type {string}
-     * @memberof DefaultApiAppBundleDownloadPathGet
-     */
-    readonly ifNoneMatch?: string
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiAppBundleDownloadPathGet
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for appBundleManifestGet operation in DefaultApi.
- * @export
- * @interface DefaultApiAppBundleManifestGetRequest
- */
-export interface DefaultApiAppBundleManifestGetRequest {
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiAppBundleManifestGet
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for appBundlePushPost operation in DefaultApi.
- * @export
- * @interface DefaultApiAppBundlePushPostRequest
- */
-export interface DefaultApiAppBundlePushPostRequest {
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiAppBundlePushPost
-     */
-    readonly xApiVersion?: string
-
-    /**
-     * ZIP file containing the new app bundle
-     * @type {File}
-     * @memberof DefaultApiAppBundlePushPost
-     */
-    readonly bundle?: File
-}
-
-/**
- * Request parameters for appBundleSwitchVersionPost operation in DefaultApi.
- * @export
- * @interface DefaultApiAppBundleSwitchVersionPostRequest
- */
-export interface DefaultApiAppBundleSwitchVersionPostRequest {
-    /**
-     * Version identifier to switch to
-     * @type {string}
-     * @memberof DefaultApiAppBundleSwitchVersionPost
-     */
-    readonly version: string
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiAppBundleSwitchVersionPost
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for appBundleVersionsGet operation in DefaultApi.
- * @export
- * @interface DefaultApiAppBundleVersionsGetRequest
- */
-export interface DefaultApiAppBundleVersionsGetRequest {
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiAppBundleVersionsGet
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for attachmentsAttachmentIdGet operation in DefaultApi.
- * @export
- * @interface DefaultApiAttachmentsAttachmentIdGetRequest
- */
-export interface DefaultApiAttachmentsAttachmentIdGetRequest {
-    /**
-     * 
-     * @type {string}
-     * @memberof DefaultApiAttachmentsAttachmentIdGet
+     * @memberof DefaultApiCheckAttachmentExists
      */
     readonly attachmentId: string
 }
 
 /**
- * Request parameters for attachmentsAttachmentIdHead operation in DefaultApi.
+ * Request parameters for createUser operation in DefaultApi.
  * @export
- * @interface DefaultApiAttachmentsAttachmentIdHeadRequest
+ * @interface DefaultApiCreateUserRequest
  */
-export interface DefaultApiAttachmentsAttachmentIdHeadRequest {
+export interface DefaultApiCreateUserRequest {
     /**
      * 
-     * @type {string}
-     * @memberof DefaultApiAttachmentsAttachmentIdHead
+     * @type {CreateUserRequest}
+     * @memberof DefaultApiCreateUser
      */
-    readonly attachmentId: string
-}
-
-/**
- * Request parameters for attachmentsAttachmentIdPut operation in DefaultApi.
- * @export
- * @interface DefaultApiAttachmentsAttachmentIdPutRequest
- */
-export interface DefaultApiAttachmentsAttachmentIdPutRequest {
-    /**
-     * 
-     * @type {string}
-     * @memberof DefaultApiAttachmentsAttachmentIdPut
-     */
-    readonly attachmentId: string
-
-    /**
-     * The binary file to upload
-     * @type {File}
-     * @memberof DefaultApiAttachmentsAttachmentIdPut
-     */
-    readonly file: File
-}
-
-/**
- * Request parameters for attachmentsManifestPost operation in DefaultApi.
- * @export
- * @interface DefaultApiAttachmentsManifestPostRequest
- */
-export interface DefaultApiAttachmentsManifestPostRequest {
-    /**
-     * 
-     * @type {AttachmentManifestRequest}
-     * @memberof DefaultApiAttachmentsManifestPost
-     */
-    readonly attachmentManifestRequest: AttachmentManifestRequest
+    readonly createUserRequest: CreateUserRequest
 
     /**
      * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
      * @type {string}
-     * @memberof DefaultApiAttachmentsManifestPost
+     * @memberof DefaultApiCreateUser
      */
     readonly xApiVersion?: string
 }
 
 /**
- * Request parameters for authLoginPost operation in DefaultApi.
+ * Request parameters for deleteUser operation in DefaultApi.
  * @export
- * @interface DefaultApiAuthLoginPostRequest
+ * @interface DefaultApiDeleteUserRequest
  */
-export interface DefaultApiAuthLoginPostRequest {
-    /**
-     * 
-     * @type {AuthLoginPostRequest}
-     * @memberof DefaultApiAuthLoginPost
-     */
-    readonly authLoginPostRequest: AuthLoginPostRequest
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiAuthLoginPost
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for authRefreshPost operation in DefaultApi.
- * @export
- * @interface DefaultApiAuthRefreshPostRequest
- */
-export interface DefaultApiAuthRefreshPostRequest {
-    /**
-     * 
-     * @type {AuthRefreshPostRequest}
-     * @memberof DefaultApiAuthRefreshPost
-     */
-    readonly authRefreshPostRequest: AuthRefreshPostRequest
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiAuthRefreshPost
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for syncPullPost operation in DefaultApi.
- * @export
- * @interface DefaultApiSyncPullPostRequest
- */
-export interface DefaultApiSyncPullPostRequest {
-    /**
-     * 
-     * @type {SyncPullRequest}
-     * @memberof DefaultApiSyncPullPost
-     */
-    readonly syncPullRequest: SyncPullRequest
-
-    /**
-     * Filter by schemaType
-     * @type {string}
-     * @memberof DefaultApiSyncPullPost
-     */
-    readonly schemaType?: string
-
-    /**
-     * Maximum number of records to return
-     * @type {number}
-     * @memberof DefaultApiSyncPullPost
-     */
-    readonly limit?: number
-
-    /**
-     * Pagination token from previous response
-     * @type {string}
-     * @memberof DefaultApiSyncPullPost
-     */
-    readonly pageToken?: string
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiSyncPullPost
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for syncPushPost operation in DefaultApi.
- * @export
- * @interface DefaultApiSyncPushPostRequest
- */
-export interface DefaultApiSyncPushPostRequest {
-    /**
-     * 
-     * @type {SyncPushRequest}
-     * @memberof DefaultApiSyncPushPost
-     */
-    readonly syncPushRequest: SyncPushRequest
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiSyncPushPost
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for usersChangePasswordPost operation in DefaultApi.
- * @export
- * @interface DefaultApiUsersChangePasswordPostRequest
- */
-export interface DefaultApiUsersChangePasswordPostRequest {
-    /**
-     * 
-     * @type {UsersChangePasswordPostRequest}
-     * @memberof DefaultApiUsersChangePasswordPost
-     */
-    readonly usersChangePasswordPostRequest: UsersChangePasswordPostRequest
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiUsersChangePasswordPost
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for usersCreatePost operation in DefaultApi.
- * @export
- * @interface DefaultApiUsersCreatePostRequest
- */
-export interface DefaultApiUsersCreatePostRequest {
-    /**
-     * 
-     * @type {UsersCreatePostRequest}
-     * @memberof DefaultApiUsersCreatePost
-     */
-    readonly usersCreatePostRequest: UsersCreatePostRequest
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiUsersCreatePost
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for usersGet operation in DefaultApi.
- * @export
- * @interface DefaultApiUsersGetRequest
- */
-export interface DefaultApiUsersGetRequest {
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiUsersGet
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for usersResetPasswordPost operation in DefaultApi.
- * @export
- * @interface DefaultApiUsersResetPasswordPostRequest
- */
-export interface DefaultApiUsersResetPasswordPostRequest {
-    /**
-     * 
-     * @type {UsersResetPasswordPostRequest}
-     * @memberof DefaultApiUsersResetPasswordPost
-     */
-    readonly usersResetPasswordPostRequest: UsersResetPasswordPostRequest
-
-    /**
-     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
-     * @type {string}
-     * @memberof DefaultApiUsersResetPasswordPost
-     */
-    readonly xApiVersion?: string
-}
-
-/**
- * Request parameters for usersUsernameDelete operation in DefaultApi.
- * @export
- * @interface DefaultApiUsersUsernameDeleteRequest
- */
-export interface DefaultApiUsersUsernameDeleteRequest {
+export interface DefaultApiDeleteUserRequest {
     /**
      * Username of the user to delete
      * @type {string}
-     * @memberof DefaultApiUsersUsernameDelete
+     * @memberof DefaultApiDeleteUser
      */
     readonly username: string
 
     /**
      * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
      * @type {string}
-     * @memberof DefaultApiUsersUsernameDelete
+     * @memberof DefaultApiDeleteUser
      */
     readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for downloadAppBundleFile operation in DefaultApi.
+ * @export
+ * @interface DefaultApiDownloadAppBundleFileRequest
+ */
+export interface DefaultApiDownloadAppBundleFileRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof DefaultApiDownloadAppBundleFile
+     */
+    readonly path: string
+
+    /**
+     * If true, returns the file from the latest version including unreleased changes
+     * @type {boolean}
+     * @memberof DefaultApiDownloadAppBundleFile
+     */
+    readonly preview?: boolean
+
+    /**
+     * 
+     * @type {string}
+     * @memberof DefaultApiDownloadAppBundleFile
+     */
+    readonly ifNoneMatch?: string
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiDownloadAppBundleFile
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for downloadAttachment operation in DefaultApi.
+ * @export
+ * @interface DefaultApiDownloadAttachmentRequest
+ */
+export interface DefaultApiDownloadAttachmentRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof DefaultApiDownloadAttachment
+     */
+    readonly attachmentId: string
+}
+
+/**
+ * Request parameters for getAppBundleChanges operation in DefaultApi.
+ * @export
+ * @interface DefaultApiGetAppBundleChangesRequest
+ */
+export interface DefaultApiGetAppBundleChangesRequest {
+    /**
+     * The current version (defaults to latest)
+     * @type {string}
+     * @memberof DefaultApiGetAppBundleChanges
+     */
+    readonly current?: string
+
+    /**
+     * The target version to compare against (defaults to previous version)
+     * @type {string}
+     * @memberof DefaultApiGetAppBundleChanges
+     */
+    readonly target?: string
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiGetAppBundleChanges
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for getAppBundleManifest operation in DefaultApi.
+ * @export
+ * @interface DefaultApiGetAppBundleManifestRequest
+ */
+export interface DefaultApiGetAppBundleManifestRequest {
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiGetAppBundleManifest
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for getAppBundleVersions operation in DefaultApi.
+ * @export
+ * @interface DefaultApiGetAppBundleVersionsRequest
+ */
+export interface DefaultApiGetAppBundleVersionsRequest {
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiGetAppBundleVersions
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for getAttachmentManifest operation in DefaultApi.
+ * @export
+ * @interface DefaultApiGetAttachmentManifestRequest
+ */
+export interface DefaultApiGetAttachmentManifestRequest {
+    /**
+     * 
+     * @type {AttachmentManifestRequest}
+     * @memberof DefaultApiGetAttachmentManifest
+     */
+    readonly attachmentManifestRequest: AttachmentManifestRequest
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiGetAttachmentManifest
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for listUsers operation in DefaultApi.
+ * @export
+ * @interface DefaultApiListUsersRequest
+ */
+export interface DefaultApiListUsersRequest {
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiListUsers
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for login operation in DefaultApi.
+ * @export
+ * @interface DefaultApiLoginRequest
+ */
+export interface DefaultApiLoginRequest {
+    /**
+     * 
+     * @type {LoginRequest}
+     * @memberof DefaultApiLogin
+     */
+    readonly loginRequest: LoginRequest
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiLogin
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for pushAppBundle operation in DefaultApi.
+ * @export
+ * @interface DefaultApiPushAppBundleRequest
+ */
+export interface DefaultApiPushAppBundleRequest {
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiPushAppBundle
+     */
+    readonly xApiVersion?: string
+
+    /**
+     * ZIP file containing the new app bundle
+     * @type {File}
+     * @memberof DefaultApiPushAppBundle
+     */
+    readonly bundle?: File
+}
+
+/**
+ * Request parameters for refreshToken operation in DefaultApi.
+ * @export
+ * @interface DefaultApiRefreshTokenRequest
+ */
+export interface DefaultApiRefreshTokenRequest {
+    /**
+     * 
+     * @type {RefreshTokenRequest}
+     * @memberof DefaultApiRefreshToken
+     */
+    readonly refreshTokenRequest: RefreshTokenRequest
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiRefreshToken
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for resetUserPassword operation in DefaultApi.
+ * @export
+ * @interface DefaultApiResetUserPasswordRequest
+ */
+export interface DefaultApiResetUserPasswordRequest {
+    /**
+     * 
+     * @type {ResetUserPasswordRequest}
+     * @memberof DefaultApiResetUserPassword
+     */
+    readonly resetUserPasswordRequest: ResetUserPasswordRequest
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiResetUserPassword
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for switchAppBundleVersion operation in DefaultApi.
+ * @export
+ * @interface DefaultApiSwitchAppBundleVersionRequest
+ */
+export interface DefaultApiSwitchAppBundleVersionRequest {
+    /**
+     * Version identifier to switch to
+     * @type {string}
+     * @memberof DefaultApiSwitchAppBundleVersion
+     */
+    readonly version: string
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiSwitchAppBundleVersion
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for syncPull operation in DefaultApi.
+ * @export
+ * @interface DefaultApiSyncPullRequest
+ */
+export interface DefaultApiSyncPullRequest {
+    /**
+     * 
+     * @type {SyncPullRequest}
+     * @memberof DefaultApiSyncPull
+     */
+    readonly syncPullRequest: SyncPullRequest
+
+    /**
+     * Filter by schemaType
+     * @type {string}
+     * @memberof DefaultApiSyncPull
+     */
+    readonly schemaType?: string
+
+    /**
+     * Maximum number of records to return
+     * @type {number}
+     * @memberof DefaultApiSyncPull
+     */
+    readonly limit?: number
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiSyncPull
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for syncPush operation in DefaultApi.
+ * @export
+ * @interface DefaultApiSyncPushRequest
+ */
+export interface DefaultApiSyncPushRequest {
+    /**
+     * 
+     * @type {SyncPushRequest}
+     * @memberof DefaultApiSyncPush
+     */
+    readonly syncPushRequest: SyncPushRequest
+
+    /**
+     * Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+     * @type {string}
+     * @memberof DefaultApiSyncPush
+     */
+    readonly xApiVersion?: string
+}
+
+/**
+ * Request parameters for uploadAttachment operation in DefaultApi.
+ * @export
+ * @interface DefaultApiUploadAttachmentRequest
+ */
+export interface DefaultApiUploadAttachmentRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof DefaultApiUploadAttachment
+     */
+    readonly attachmentId: string
+
+    /**
+     * The binary file to upload
+     * @type {File}
+     * @memberof DefaultApiUploadAttachment
+     */
+    readonly file: File
 }
 
 /**
@@ -2905,231 +2886,123 @@ export interface DefaultApiUsersUsernameDeleteRequest {
  */
 export class DefaultApi extends BaseAPI {
     /**
-     * Compares two versions of the app bundle and returns detailed changes
-     * @summary Get changes between two app bundle versions
-     * @param {DefaultApiAppBundleChangesGetRequest} requestParameters Request parameters.
+     * Change password for the currently authenticated user
+     * @summary Change user password (authenticated user)\'s password
+     * @param {DefaultApiChangePasswordRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApi
      */
-    public appBundleChangesGet(requestParameters: DefaultApiAppBundleChangesGetRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).appBundleChangesGet(requestParameters.current, requestParameters.target, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Download a specific file from the app bundle
-     * @param {DefaultApiAppBundleDownloadPathGetRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public appBundleDownloadPathGet(requestParameters: DefaultApiAppBundleDownloadPathGetRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).appBundleDownloadPathGet(requestParameters.path, requestParameters.preview, requestParameters.ifNoneMatch, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Get the current custom app bundle manifest
-     * @param {DefaultApiAppBundleManifestGetRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public appBundleManifestGet(requestParameters: DefaultApiAppBundleManifestGetRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).appBundleManifestGet(requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Upload a new app bundle (admin only)
-     * @param {DefaultApiAppBundlePushPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public appBundlePushPost(requestParameters: DefaultApiAppBundlePushPostRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).appBundlePushPost(requestParameters.xApiVersion, requestParameters.bundle, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Switch to a specific app bundle version (admin only)
-     * @param {DefaultApiAppBundleSwitchVersionPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public appBundleSwitchVersionPost(requestParameters: DefaultApiAppBundleSwitchVersionPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).appBundleSwitchVersionPost(requestParameters.version, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Get a list of available app bundle versions
-     * @param {DefaultApiAppBundleVersionsGetRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public appBundleVersionsGet(requestParameters: DefaultApiAppBundleVersionsGetRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).appBundleVersionsGet(requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Download an attachment by ID
-     * @param {DefaultApiAttachmentsAttachmentIdGetRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public attachmentsAttachmentIdGet(requestParameters: DefaultApiAttachmentsAttachmentIdGetRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).attachmentsAttachmentIdGet(requestParameters.attachmentId, options).then((request) => request(this.axios, this.basePath));
+    public changePassword(requestParameters: DefaultApiChangePasswordRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).changePassword(requestParameters.changePasswordRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * 
      * @summary Check if an attachment exists
-     * @param {DefaultApiAttachmentsAttachmentIdHeadRequest} requestParameters Request parameters.
+     * @param {DefaultApiCheckAttachmentExistsRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApi
      */
-    public attachmentsAttachmentIdHead(requestParameters: DefaultApiAttachmentsAttachmentIdHeadRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).attachmentsAttachmentIdHead(requestParameters.attachmentId, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Upload a new attachment with specified ID
-     * @param {DefaultApiAttachmentsAttachmentIdPutRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public attachmentsAttachmentIdPut(requestParameters: DefaultApiAttachmentsAttachmentIdPutRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).attachmentsAttachmentIdPut(requestParameters.attachmentId, requestParameters.file, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
-     * @summary Get attachment manifest for incremental sync
-     * @param {DefaultApiAttachmentsManifestPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public attachmentsManifestPost(requestParameters: DefaultApiAttachmentsManifestPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).attachmentsManifestPost(requestParameters.attachmentManifestRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * Obtain a JWT token by providing username and password
-     * @summary Authenticate with the API
-     * @param {DefaultApiAuthLoginPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public authLoginPost(requestParameters: DefaultApiAuthLoginPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).authLoginPost(requestParameters.authLoginPostRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * Obtain a new JWT token using a refresh token
-     * @summary Refresh authentication token
-     * @param {DefaultApiAuthRefreshPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public authRefreshPost(requestParameters: DefaultApiAuthRefreshPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).authRefreshPost(requestParameters.authRefreshPostRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Pull updated records since last sync
-     * @param {DefaultApiSyncPullPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public syncPullPost(requestParameters: DefaultApiSyncPullPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).syncPullPost(requestParameters.syncPullRequest, requestParameters.schemaType, requestParameters.limit, requestParameters.pageToken, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * 
-     * @summary Push new or updated records to the server
-     * @param {DefaultApiSyncPushPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public syncPushPost(requestParameters: DefaultApiSyncPushPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).syncPushPost(requestParameters.syncPushRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * Change password for the currently authenticated user
-     * @summary Change current user\'s password
-     * @param {DefaultApiUsersChangePasswordPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public usersChangePasswordPost(requestParameters: DefaultApiUsersChangePasswordPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).usersChangePasswordPost(requestParameters.usersChangePasswordPostRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    public checkAttachmentExists(requestParameters: DefaultApiCheckAttachmentExistsRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).checkAttachmentExists(requestParameters.attachmentId, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * Create a new user with specified username, password, and role
      * @summary Create a new user (admin only)
-     * @param {DefaultApiUsersCreatePostRequest} requestParameters Request parameters.
+     * @param {DefaultApiCreateUserRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApi
      */
-    public usersCreatePost(requestParameters: DefaultApiUsersCreatePostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).usersCreatePost(requestParameters.usersCreatePostRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * Retrieve a list of all users in the system. Admin access required.
-     * @summary List all users (admin only)
-     * @param {DefaultApiUsersGetRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public usersGet(requestParameters: DefaultApiUsersGetRequest = {}, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).usersGet(requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
-    }
-
-    /**
-     * Reset password for a specified user
-     * @summary Reset a user\'s password (admin only)
-     * @param {DefaultApiUsersResetPasswordPostRequest} requestParameters Request parameters.
-     * @param {*} [options] Override http request option.
-     * @throws {RequiredError}
-     * @memberof DefaultApi
-     */
-    public usersResetPasswordPost(requestParameters: DefaultApiUsersResetPasswordPostRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).usersResetPasswordPost(requestParameters.usersResetPasswordPostRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    public createUser(requestParameters: DefaultApiCreateUserRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).createUser(requestParameters.createUserRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
      * Delete a user by username
      * @summary Delete a user (admin only)
-     * @param {DefaultApiUsersUsernameDeleteRequest} requestParameters Request parameters.
+     * @param {DefaultApiDeleteUserRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof DefaultApi
      */
-    public usersUsernameDelete(requestParameters: DefaultApiUsersUsernameDeleteRequest, options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).usersUsernameDelete(requestParameters.username, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    public deleteUser(requestParameters: DefaultApiDeleteUserRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deleteUser(requestParameters.username, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Download a specific file from the app bundle
+     * @param {DefaultApiDownloadAppBundleFileRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public downloadAppBundleFile(requestParameters: DefaultApiDownloadAppBundleFileRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).downloadAppBundleFile(requestParameters.path, requestParameters.preview, requestParameters.ifNoneMatch, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Download an attachment by ID
+     * @param {DefaultApiDownloadAttachmentRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public downloadAttachment(requestParameters: DefaultApiDownloadAttachmentRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).downloadAttachment(requestParameters.attachmentId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Compares two versions of the app bundle and returns detailed changes
+     * @summary Get changes between two app bundle versions
+     * @param {DefaultApiGetAppBundleChangesRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public getAppBundleChanges(requestParameters: DefaultApiGetAppBundleChangesRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getAppBundleChanges(requestParameters.current, requestParameters.target, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get the current custom app bundle manifest
+     * @param {DefaultApiGetAppBundleManifestRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public getAppBundleManifest(requestParameters: DefaultApiGetAppBundleManifestRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getAppBundleManifest(requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Get a list of available app bundle versions
+     * @param {DefaultApiGetAppBundleVersionsRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public getAppBundleVersions(requestParameters: DefaultApiGetAppBundleVersionsRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getAppBundleVersions(requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
+     * @summary Get attachment manifest for incremental sync
+     * @param {DefaultApiGetAttachmentManifestRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public getAttachmentManifest(requestParameters: DefaultApiGetAttachmentManifestRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getAttachmentManifest(requestParameters.attachmentManifestRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -3139,8 +3012,116 @@ export class DefaultApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof DefaultApi
      */
-    public versionGet(options?: RawAxiosRequestConfig) {
-        return DefaultApiFp(this.configuration).versionGet(options).then((request) => request(this.axios, this.basePath));
+    public getVersion(options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getVersion(options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Retrieve a list of all users in the system. Admin access required.
+     * @summary List all users (admin only)
+     * @param {DefaultApiListUsersRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public listUsers(requestParameters: DefaultApiListUsersRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).listUsers(requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Obtain a JWT token by providing username and password
+     * @summary Authenticate user and return JWT tokens
+     * @param {DefaultApiLoginRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public login(requestParameters: DefaultApiLoginRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).login(requestParameters.loginRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Upload a new app bundle (admin only)
+     * @param {DefaultApiPushAppBundleRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public pushAppBundle(requestParameters: DefaultApiPushAppBundleRequest = {}, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).pushAppBundle(requestParameters.xApiVersion, requestParameters.bundle, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Obtain a new JWT token using a refresh token
+     * @summary Refresh JWT token
+     * @param {DefaultApiRefreshTokenRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public refreshToken(requestParameters: DefaultApiRefreshTokenRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).refreshToken(requestParameters.refreshTokenRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Reset password for a specified user
+     * @summary Reset user password (admin only)
+     * @param {DefaultApiResetUserPasswordRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public resetUserPassword(requestParameters: DefaultApiResetUserPasswordRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).resetUserPassword(requestParameters.resetUserPasswordRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Switch to a specific app bundle version (admin only)
+     * @param {DefaultApiSwitchAppBundleVersionRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public switchAppBundleVersion(requestParameters: DefaultApiSwitchAppBundleVersionRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).switchAppBundleVersion(requestParameters.version, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Retrieves records that have changed since a specified version.  **Pagination Pattern:** 1. Send initial request with `since.version` (or omit for all records) 2. Process returned records 3. If `has_more` is true, make next request using `change_cutoff` as the new `since.version` 4. Repeat until `has_more` is false  Example pagination flow: - Request 1: `since: {version: 100}` → Response: `change_cutoff: 150, has_more: true` - Request 2: `since: {version: 150}` → Response: `change_cutoff: 200, has_more: false` 
+     * @summary Pull updated records since last sync
+     * @param {DefaultApiSyncPullRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public syncPull(requestParameters: DefaultApiSyncPullRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).syncPull(requestParameters.syncPullRequest, requestParameters.schemaType, requestParameters.limit, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Push new or updated records to the server
+     * @param {DefaultApiSyncPushRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public syncPush(requestParameters: DefaultApiSyncPushRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).syncPush(requestParameters.syncPushRequest, requestParameters.xApiVersion, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * 
+     * @summary Upload a new attachment with specified ID
+     * @param {DefaultApiUploadAttachmentRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof DefaultApi
+     */
+    public uploadAttachment(requestParameters: DefaultApiUploadAttachmentRequest, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).uploadAttachment(requestParameters.attachmentId, requestParameters.file, options).then((request) => request(this.axios, this.basePath));
     }
 }
 
@@ -3158,7 +3139,7 @@ export const HealthApiAxiosParamCreator = function (configuration?: Configuratio
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        healthGet: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getHealth: async (options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             const localVarPath = `/health`;
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -3198,10 +3179,10 @@ export const HealthApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async healthGet(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<HealthGet200Response>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.healthGet(options);
+        async getHealth(options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GetHealth200Response>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getHealth(options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
-            const localVarOperationServerBasePath = operationServerMap['HealthApi.healthGet']?.[localVarOperationServerIndex]?.url;
+            const localVarOperationServerBasePath = operationServerMap['HealthApi.getHealth']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
     }
@@ -3220,8 +3201,8 @@ export const HealthApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        healthGet(options?: RawAxiosRequestConfig): AxiosPromise<HealthGet200Response> {
-            return localVarFp.healthGet(options).then((request) => request(axios, basePath));
+        getHealth(options?: RawAxiosRequestConfig): AxiosPromise<GetHealth200Response> {
+            return localVarFp.getHealth(options).then((request) => request(axios, basePath));
         },
     };
 };
@@ -3240,8 +3221,8 @@ export class HealthApi extends BaseAPI {
      * @throws {RequiredError}
      * @memberof HealthApi
      */
-    public healthGet(options?: RawAxiosRequestConfig) {
-        return HealthApiFp(this.configuration).healthGet(options).then((request) => request(this.axios, this.basePath));
+    public getHealth(options?: RawAxiosRequestConfig) {
+        return HealthApiFp(this.configuration).getHealth(options).then((request) => request(this.axios, this.basePath));
     }
 }
 
