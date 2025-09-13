@@ -1,11 +1,28 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-08-10T15:38:20.095Z
+// Last generated: 2025-09-13T12:05:18.780Z
 
 (function() {
-  if (typeof globalThis.formulus !== 'undefined') {
-    //console.debug('Formulus interface already exists. Skipping injection.');
+  // Enhanced API availability detection and recovery
+  function getFormulus() {
+    // Check multiple locations where the API might exist
+    return globalThis.formulus || window.formulus || (typeof formulus !== 'undefined' ? formulus : undefined);
+  }
+
+  function isFormulusAvailable() {
+    const api = getFormulus();
+    return api && typeof api === 'object' && typeof api.getVersion === 'function';
+  }
+
+  // If API already exists and is functional, skip injection
+  if (isFormulusAvailable()) {
+    console.debug('Formulus interface already exists and is functional. Skipping injection.');
     return;
+  }
+
+  // If API exists but is not functional, log warning and proceed with re-injection
+  if (getFormulus()) {
+    console.warn('Formulus interface exists but appears non-functional. Re-injecting...');
   }
 
   // Helper function to handle callbacks
@@ -927,6 +944,17 @@
   // Notify that the interface is ready
   console.log('Formulus interface initialized');
   
+  // Simple API availability check for internal use
+  function requestApiReinjection() {
+    console.log('Formulus: Requesting re-injection from host...');
+    if (globalThis.ReactNativeWebView) {
+      globalThis.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'requestApiReinjection',
+        timestamp: Date.now()
+      }));
+    }
+  }
+
   // Notify React Native that the interface is ready
   if (globalThis.ReactNativeWebView) {
     globalThis.ReactNativeWebView.postMessage(JSON.stringify({
@@ -942,8 +970,4 @@
     window.formulus = globalThis.formulus;
   }
   
-  // Export for CommonJS/Node.js environments
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = globalThis.formulus;
-  }
 })();

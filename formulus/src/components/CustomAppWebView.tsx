@@ -68,21 +68,7 @@ const consoleLogScript = `
 const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl, appName, onLoadEndProp }, ref) => {
   const webViewRef = useRef<WebView | null>(null);
   const hasLoadedOnceRef = useRef(false);
-  const messageManager = useMemo(() => {
-    return new FormulusWebViewMessageManager(webViewRef, appName);
-  }, [appName]);
-
-  // Expose imperative handle
-  useImperativeHandle(ref, () => ({
-    reload: () => webViewRef.current?.reload?.(),
-    goBack: () => webViewRef.current?.goBack?.(),
-    goForward: () => webViewRef.current?.goForward?.(),
-    injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
-    sendFormInit: (formData: FormInitData) => messageManager.sendFormInit(formData),
-    sendAttachmentData: (attachmentData: any) => messageManager.sendAttachmentData(attachmentData),
-    sendSavePartialComplete: (formType: string, success: boolean) => messageManager.sendSavePartialComplete(formType, success),
-  }), [messageManager]);
-
+  
   // JS injection: load script from assets and prepend consoleLogScript
   const [injectionScript, setInjectionScript] = useState<string>(consoleLogScript);
   useEffect(() => {
@@ -97,6 +83,64 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     };
     loadScript();
   }, []);
+
+  const messageManager = useMemo(() => {
+    const manager = new FormulusWebViewMessageManager(webViewRef, appName);
+    
+    // Extend the message manager to handle API recovery requests
+    const originalHandleMessage = manager.handleWebViewMessage;
+    manager.handleWebViewMessage = (event) => {
+      try {
+        const eventData = JSON.parse(event.nativeEvent.data);
+        
+        // Handle API re-injection requests from WebView
+        if (eventData.type === 'requestApiReinjection') {
+          console.log(`[CustomAppWebView - ${appName || 'Default'}] WebView requested API re-injection`);
+          
+          // Perform immediate re-injection
+          if (webViewRef.current && injectionScript !== consoleLogScript && hasLoadedOnceRef.current) {
+            const reInjectionWrapper = `
+              (function() {
+                console.debug('[CustomAppWebView/ApiRecovery] Processing re-injection request...');
+                
+                // Clear any existing broken references
+                delete window.formulus;
+                delete globalThis.formulus;
+                delete window.formulusCallbacks;
+                delete globalThis.formulusCallbacks;
+                
+                // Re-inject the full script
+                ${injectionScript}
+                
+                console.log('[CustomAppWebView/ApiRecovery] API re-injection completed');
+                return true;
+              })();
+            `;
+            webViewRef.current.injectJavaScript(reInjectionWrapper);
+          }
+          return;
+        }
+      } catch (e) {
+        // If parsing fails, let the original handler deal with it
+      }
+      
+      // Call the original handler for all other messages
+      originalHandleMessage.call(manager, event);
+    };
+    
+    return manager;
+  }, [appName, injectionScript]);
+
+  // Expose imperative handle
+  useImperativeHandle(ref, () => ({
+    reload: () => webViewRef.current?.reload?.(),
+    goBack: () => webViewRef.current?.goBack?.(),
+    goForward: () => webViewRef.current?.goForward?.(),
+    injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
+    sendFormInit: (formData: FormInitData) => messageManager.sendFormInit(formData),
+    sendAttachmentData: (attachmentData: any) => messageManager.sendAttachmentData(attachmentData),
+    sendSavePartialComplete: (formType: string, success: boolean) => messageManager.sendSavePartialComplete(formType, success),
+  }), [messageManager]);
 
   const handleError = (syntheticEvent: any) => {
     const { nativeEvent } = syntheticEvent;

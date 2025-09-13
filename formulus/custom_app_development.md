@@ -139,6 +139,33 @@ The `globalThis.formulus` API object is injected asynchronously. To handle this 
     initializeMyApp();
     ```
 
+    **REQUIRED APPROACH: Use `getFormulus()` with formulus-load.js**
+    
+    Client code must include the formulus-load.js script and use the getFormulus() function. This is the only supported way to access the Formulus API:
+
+    ```html
+    <!-- Include the load script -->
+    <script src="formulus-load.js"></script>
+    
+    <script>
+    async function initializeMyApp() {
+      try {
+        // This is the way to get the API
+        const api = await getFormulus();
+        
+        // Now it's safe to use the API
+        const version = await api.getVersion();
+        console.log('Formulus Host Version:', version);
+      } catch (error) {
+        console.error('Failed to load Formulus API:', error);
+        // Handle graceful degradation here
+      }
+    }
+    
+    initializeMyApp();
+    </script>
+    ```
+
 **3. Handling Host Readiness and Other Callbacks (`globalThis.formulusCallbacks`)**
 
 The Formulus host can send event-like messages to your web app. You can listen for these by defining functions on the `globalThis.formulusCallbacks` object.
