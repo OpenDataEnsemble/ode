@@ -55,7 +55,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   const [isClosing, setIsClosing] = useState(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  // Initialize FormService
+  // Initialize FormService and subscribe to cache invalidation
   useEffect(() => {
     const initFormService = async () => {
       try {
@@ -64,13 +64,28 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         setFormSpecs(service.getFormSpecs());
         setIsFormServiceLoading(false);
         console.log('FormService initialized successfully');
+        
+        // Subscribe to cache invalidation events
+        const unsubscribe = service.onCacheInvalidated(() => {
+          console.log('FormplayerModal: FormService cache invalidated, refreshing form specs');
+          setFormSpecs(service.getFormSpecs());
+        });
+        
+        // Return cleanup function
+        return unsubscribe;
       } catch (error) {
         console.error('Failed to initialize FormService:', error);
         setIsFormServiceLoading(false);
+        return () => {}; // Return empty cleanup function on error
       }
     };
     
-    initFormService();
+    let cleanupPromise = initFormService();
+    
+    // Cleanup subscription on unmount
+    return () => {
+      cleanupPromise.then(cleanup => cleanup?.());
+    };
   }, []);
 
   // Path to the formplayer dist folder in assets

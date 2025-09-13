@@ -21,6 +21,7 @@ export class FormService {
   private static instance: FormService;
   private formSpecs: FormSpec[] = [];
   private static initializationPromise: Promise<void> | null = null;
+  private cacheInvalidationCallbacks: Set<() => void> = new Set();
   
   private constructor() {
     console.log('FormService: Instance created - use await getInstance() to access singleton instance');
@@ -120,6 +121,41 @@ export class FormService {
   public getFormSpecs(): FormSpec[] {
     return this.formSpecs;
   }
+
+  /**
+   * Subscribe to cache invalidation events
+   * @param callback Function to call when cache is invalidated
+   * @returns Unsubscribe function
+   */
+  public onCacheInvalidated(callback: () => void): () => void {
+    this.cacheInvalidationCallbacks.add(callback);
+    return () => this.cacheInvalidationCallbacks.delete(callback);
+  }
+
+  /**
+   * Invalidate the form specs cache and reload from storage
+   * This should be called after app bundle updates
+   */
+  public async invalidateCache(): Promise<void> {
+    console.log('FormService: Invalidating cache and reloading form specs...');
+    try {
+      const specs = await this.getFormspecsFromStorage();
+      this.formSpecs = specs;
+      console.log(`FormService: Cache invalidated, ${specs.length} form specs reloaded`);
+      
+      // Notify all subscribers that cache has been invalidated
+      this.cacheInvalidationCallbacks.forEach(callback => {
+        try {
+          callback();
+        } catch (error) {
+          console.error('FormService: Error in cache invalidation callback:', error);
+        }
+      });
+    } catch (error) {
+      console.error('FormService: Failed to reload form specs after cache invalidation:', error);
+      throw error;
+    }
+  }
   
   /**
    * Get a form type by its ID
@@ -190,21 +226,21 @@ export class FormService {
    */
   public async updateObservation(observationId: string, data: Record<string, any>): Promise<string> {
     const input: UpdateObservationInput = {
-      id: observationId,
+      observationId: observationId,
       data
     };
     
     console.debug("Observation update input: ", input);
-    if (input.id === undefined) {
+    if (input.observationId === undefined) {
       throw new Error('Observation ID is required to update observation');
     }
     if (input.data === undefined) {
       throw new Error('Data is required to update observation');
     }
-    console.log("Updating observation with ID: " + input.id);
+    console.log("Updating observation with ID: " + input.observationId);
     const localRepo = databaseService.getLocalRepo();
     await localRepo.updateObservation(input);
-    return input.id;
+    return input.observationId;
   }
 
   /**

@@ -3,6 +3,7 @@ import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SyncProgress } from '../contexts/SyncContext';
 import { notificationService } from './NotificationService';
+import { FormService } from './FormService';
 
 type SyncProgressCallback = (progress: number) => void;
 type SyncStatusCallback = (status: string) => void;
@@ -195,6 +196,12 @@ export class SyncService {
 
     try {
       await this.downloadAppBundle();
+      
+      // Invalidate FormService cache to reload new form specs
+      this.updateStatus('Refreshing form specifications...');
+      const formService = await FormService.getInstance();
+      await formService.invalidateCache();
+      
       const syncTime = new Date().toLocaleTimeString();
       await AsyncStorage.setItem('@lastSync', syncTime);
       this.updateStatus('App bundle sync completed');

@@ -39,6 +39,23 @@ const HomeScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     console.log('HomeScreen: MOUNTED'); // Added for debugging mount/unmount
+    
+    // Subscribe to FormService cache invalidation to refresh form specs
+    let unsubscribeFromCache: (() => void) | null = null;
+    
+    const initCacheSubscription = async () => {
+      try {
+        const formService = await FormService.getInstance();
+        unsubscribeFromCache = formService.onCacheInvalidated(() => {
+          console.log('HomeScreen: FormService cache invalidated, form specs refreshed');
+        });
+      } catch (error) {
+        console.error('HomeScreen: Failed to subscribe to FormService cache invalidation:', error);
+      }
+    };
+    
+    initCacheSubscription();
+    
     const handleOpenFormplayer = async (config: any) => {
       console.log('HomeScreen: openFormplayerRequested event received', config);
 
@@ -75,6 +92,11 @@ const HomeScreen = ({ navigation }: any) => {
       console.log('HomeScreen: UNMOUNTING'); // Added for debugging mount/unmount
       appEvents.removeListener('openFormplayerRequested', handleOpenFormplayer);
       appEvents.removeListener('closeFormplayer', handleCloseFormplayer);
+      
+      // Cleanup FormService cache subscription
+      if (unsubscribeFromCache) {
+        unsubscribeFromCache();
+      }
     };
   }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
 
