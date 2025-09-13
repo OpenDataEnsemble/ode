@@ -36,7 +36,9 @@ class FormulusClient {
 
   private constructor() {
     // Initialize and set up event listeners
-    this.setupEventListeners();
+    this.setupEventListeners().catch(error => {
+      console.error('Failed to setup event listeners:', error);
+    });
   }
   
   /**
@@ -268,15 +270,30 @@ class FormulusClient {
   /**
    * Register a callback for when the Formulus interface is ready
    */
-  public onFormulusReady(callback: () => void): void {
-    if (this.formulus) {
-      callback();
-    } else {
-      // Set up a global callback that will be called by the Formulus RN app
-      globalThis.onFormulusReady = () => {
-        this.formulus = globalThis.formulus || null;
+  public async onFormulusReady(callback: () => void): Promise<void> {
+    try {
+      // Use the new getFormulus() approach
+      if (typeof (window as any).getFormulus === 'function') {
+        this.formulus = await (window as any).getFormulus();
         callback();
-      };
+      } else {
+        console.warn('getFormulus() not available, falling back to legacy approach');
+        // Legacy fallback
+        if (this.formulus) {
+          callback();
+        } else {
+          globalThis.onFormulusReady = () => {
+            this.formulus = globalThis.formulus || null;
+            callback();
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Failed to initialize Formulus API:', error);
+      // Still try legacy fallback
+      if (this.formulus) {
+        callback();
+      }
     }
   }
 
@@ -308,17 +325,34 @@ class FormulusClient {
   /**
    * Set up event listeners for communication with the Formulus RN app
    */
-  private setupEventListeners(): void {
+  private async setupEventListeners(): Promise<void> {
     // Set up the global callbacks that will be called by the Formulus RN app
     globalThis.onFormInit = (formId: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => {
       this.handleFormInit({ formType: formId, observationId, params, savedData });
     };
 
-    // Check if the Formulus interface is already available
-    if (globalThis.formulus) {
-      this.formulus = globalThis.formulus;
-      if (typeof globalThis.onFormulusReady === 'function') {
-        globalThis.onFormulusReady();
+    // Try to initialize the Formulus interface using the new approach
+    try {
+      if (typeof (window as any).getFormulus === 'function') {
+        this.formulus = await (window as any).getFormulus();
+        console.log('Formulus API initialized successfully using getFormulus()');
+      } else {
+        // Legacy fallback
+        if (globalThis.formulus) {
+          this.formulus = globalThis.formulus;
+          if (typeof globalThis.onFormulusReady === 'function') {
+            globalThis.onFormulusReady();
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to initialize Formulus API with getFormulus(), using legacy approach:', error);
+      // Legacy fallback
+      if (globalThis.formulus) {
+        this.formulus = globalThis.formulus;
+        if (typeof globalThis.onFormulusReady === 'function') {
+          globalThis.onFormulusReady();
+        }
       }
     }
   }

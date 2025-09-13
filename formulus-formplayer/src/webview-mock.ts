@@ -144,6 +144,17 @@ class WebViewMock {
       console.log('[WebView Mock] globalThis.formulus already exists, not initializing mock');
     }
 
+    // Mock the new getFormulus() function
+    if (!(mockWindow as any).getFormulus) {
+      (mockWindow as any).getFormulus = (): Promise<MockFormulus> => {
+        console.log('[WebView Mock] getFormulus() called');
+        return Promise.resolve(mockGlobal.formulus!);
+      };
+      console.log('[WebView Mock] Initialized mock getFormulus() function');
+    } else {
+      console.log('[WebView Mock] getFormulus() already exists, not initializing mock');
+    }
+
     this.isActive = true;
   }
 
