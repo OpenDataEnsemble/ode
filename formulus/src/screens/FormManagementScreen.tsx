@@ -317,7 +317,18 @@ const FormManagementScreen = ({ navigation }: any) => {
           </TouchableOpacity>
         </>
       ) : (
-        <Text style={styles.noForms}>No form types available</Text>
+        <View style={styles.noFormsContainer}>
+          <Text style={styles.noFormsTitle}>No Forms Available</Text>
+          <Text style={styles.noFormsMessage}>
+            No form specifications have been downloaded yet. To get started:
+          </Text>
+          <Text style={styles.noFormsStep}>1. Go to Settings and configure your server URL</Text>
+          <Text style={styles.noFormsStep}>2. Log in with your credentials</Text>
+          <Text style={styles.noFormsStep}>3. Go to Sync screen and tap "Update App Bundle"</Text>
+          <Text style={styles.noFormsNote}>
+            This will download the latest forms and app content from your server.
+          </Text>
+        </View>
       )}
       
       <FormplayerModal
@@ -439,6 +450,41 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
     color: '#666',
+  },
+  noFormsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  noFormsTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  noFormsMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  noFormsStep: {
+    fontSize: 14,
+    color: '#555',
+    marginBottom: 8,
+    textAlign: 'left',
+    alignSelf: 'stretch',
+  },
+  noFormsNote: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 16,
+    fontStyle: 'italic',
+    lineHeight: 20,
   },
   noObservations: {
     padding: 16,

@@ -76,18 +76,39 @@ export class FormService {
   private async getFormspecsFromStorage(): Promise<FormSpec[]> {
     try {
       const formSpecsDir = RNFS.DocumentDirectoryPath + '/forms';
+      
+      // Check if forms directory exists, if not create it
+      const dirExists = await RNFS.exists(formSpecsDir);
+      if (!dirExists) {
+        console.log('FormService: Forms directory does not exist, creating it...');
+        await RNFS.mkdir(formSpecsDir);
+        console.log('FormService: No forms available yet - directory created for future downloads');
+        return [];
+      }
+      
       const formSpecFolders = await RNFS.readDir(formSpecsDir);
       console.log('FormSpec folders:', formSpecFolders.map(f => f.name));
+      
+      if (formSpecFolders.length === 0) {
+        console.log('FormService: Forms directory is empty - no forms available yet');
+        return [];
+      }
+      
       const formSpecs = await Promise.all(formSpecFolders.map(async formDir => {
         return this.loadFormspec(formDir);
       }));
-      var errorCount = formSpecs.length !== formSpecFolders.length;
-      if (errorCount) {
-        console.warn(`${errorCount} form specs did not load correctly!`);
+      
+      const validFormSpecs = formSpecs.filter((s): s is FormSpec => s !== null);
+      const errorCount = formSpecFolders.length - validFormSpecs.length;
+      
+      if (errorCount > 0) {
+        console.warn(`FormService: ${errorCount} form specs did not load correctly!`);
       }
-      return formSpecs.filter((s): s is FormSpec => s !== null);
+      
+      console.log(`FormService: Successfully loaded ${validFormSpecs.length} form specs`);
+      return validFormSpecs;
     } catch (error) {
-      console.error('Failed to load form types from storage:', error);
+      console.error('FormService: Failed to load form types from storage:', error);
       return [];
     }
   }

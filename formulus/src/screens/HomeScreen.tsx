@@ -65,10 +65,25 @@ const HomeScreen = ({ navigation }: any) => {
       // Use the ref-based approach to initialize the form
       const formService = await FormService.getInstance();
       const forms = formService.getFormSpecs();
+      
+      if (forms.length === 0) {
+        Alert.alert(
+          'No Forms Available', 
+          'No form specifications have been downloaded yet. Please go to Settings to configure your server, then use the Sync screen to download the app bundle.',
+          [{ text: 'OK' }]
+        );
+        console.warn('No forms available - app bundle needs to be downloaded');
+        return;
+      }
+      
       const formSpec = forms.find((form) => form.id === formType);
       if (!formSpec) {
-        Alert.alert('Error', `Form ${formType} not found`);
-        console.warn(`Form ${formType} not found`);
+        Alert.alert(
+          'Form Not Found', 
+          `The requested form "${formType}" was not found. Available forms: ${forms.map(f => f.id).join(', ')}`,
+          [{ text: 'OK' }]
+        );
+        console.warn(`Form ${formType} not found. Available forms:`, forms.map(f => f.id));
         return;
       }
       //TODO: Handle edit mode
