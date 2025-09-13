@@ -51,6 +51,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   // Use a ref to track processed submissions with timestamps - this won't trigger re-renders
   const processedSubmissions = useRef<Map<string, number>>(new Map());
   
+  // Add state to track closing process and prevent multiple close attempts
+  const [isClosing, setIsClosing] = useState(false);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   // Initialize FormService
   useEffect(() => {
     const initFormService = async () => {
@@ -87,10 +91,35 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     
   }, [visible, webViewRef, formService]);
 
+  // Create a debounced close handler to prevent multiple rapid close attempts
+  const handleClose = useCallback(() => {
+    // Prevent multiple close attempts
+    if (isClosing || isSubmitting) {
+      console.log('FormplayerModal: Close attempt blocked - already closing or submitting');
+      return;
+    }
+    
+    console.log('FormplayerModal: Starting close process');
+    setIsClosing(true);
+    
+    // Clear any existing timeout
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+    }
+    
+    // Call the parent's onClose immediately
+    onClose();
+    
+    // Reset closing state after a short delay to prevent rapid re-opening issues
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsClosing(false);
+    }, 500);
+  }, [isClosing, isSubmitting, onClose]);
+
   // Listen for the closeFormplayer event
   useEffect(() => {
     const handleCloseFormplayer = () => {
-      onClose();
+      handleClose();
     };
     
     // Add event listener
@@ -100,7 +129,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     return () => {
       appEvents.removeListener('closeFormplayer', handleCloseFormplayer);
     };
-  }, [onClose]);
+  }, [handleClose]);
   
   // Reset form state when modal becomes visible or invisible
   useEffect(() => {
@@ -114,9 +143,19 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         setCurrentObservationData(null);
         setPendingFormInit(null);
         setIsWebViewReady(false);
+        setIsClosing(false); // Reset closing state when modal is fully closed
       }, 300); // Small delay to ensure modal is fully closed
     }
   }, [visible]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Handle WebView errors
   const handleError = (syntheticEvent: any) => {
@@ -314,10 +353,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity 
-            onPress={isSubmitting ? undefined : onClose} 
-            style={[styles.closeButton, isSubmitting && styles.disabledButton]}
+            onPress={handleClose} 
+            style={[styles.closeButton, (isSubmitting || isClosing) && styles.disabledButton]}
+            disabled={isSubmitting || isClosing}
           >
-            <Icon name="close" size={24} color={isSubmitting ? '#ccc' : '#000'} />
+            <Icon name="close" size={24} color={(isSubmitting || isClosing) ? '#ccc' : '#000'} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {currentObservationId ? 'Edit Observation' : 'New Observation'}
