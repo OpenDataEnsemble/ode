@@ -1,11 +1,14 @@
 // Mock implementation of ReactNativeWebView for development testing
 import { 
+  FormulusInterface, 
   FormInitData, 
+  AttachmentData, 
   CameraResult, 
   QrcodeResult, 
   SignatureResult, 
-  FileResult,
-  AudioResult 
+  FileResult, 
+  AudioResult,
+  LocationResult 
 } from './FormulusInterfaceDefinition';
 
 interface MockWebView {
@@ -19,7 +22,7 @@ interface MockFormulus {
   requestCamera: (fieldId: string) => Promise<CameraResult>;
   requestQrcode: (fieldId: string) => Promise<QrcodeResult>;
   requestSignature: (fieldId: string) => Promise<SignatureResult>;
-  requestLocation: (fieldId: string) => Promise<void>;
+  requestLocation: (fieldId: string) => Promise<LocationResult>;
   requestFile: (fieldId: string) => Promise<FileResult>;
   requestAudio: (fieldId: string) => Promise<AudioResult>;
   launchIntent: (fieldId: string, intentSpec: Record<string, any>) => Promise<void>;
@@ -42,6 +45,7 @@ class WebViewMock {
   private pendingSignaturePromises = new Map<string, { resolve: (result: SignatureResult) => void; reject: (result: SignatureResult) => void }>();
   private pendingFilePromises = new Map<string, { resolve: (result: FileResult) => void; reject: (result: FileResult) => void }>();
   private pendingAudioPromises = new Map<string, { resolve: (result: AudioResult) => void; reject: (result: AudioResult) => void }>();
+  private pendingLocationPromises = new Map<string, { resolve: (result: LocationResult) => void; reject: (result: LocationResult) => void }>();
 
   // Mock the postMessage function that the app uses to send messages to native
   private postMessage = (message: string) => {
@@ -159,11 +163,18 @@ class WebViewMock {
             this.showSignatureSimulationPopup(fieldId);
           });
         },
-        requestLocation: (fieldId: string): Promise<void> => {
+        requestLocation: (fieldId: string): Promise<LocationResult> => {
           const message = { type: 'requestLocation', fieldId };
           console.log('[WebView Mock] Received requestLocation call:', message);
           this.messageListeners.forEach(listener => listener(message));
-          return Promise.resolve();
+          
+          return new Promise<LocationResult>((resolve, reject) => {
+            // Store the promise callbacks for later resolution
+            this.pendingLocationPromises.set(fieldId, { resolve, reject });
+            
+            // Show interactive popup for location simulation
+            this.showLocationSimulationPopup(fieldId);
+          });
         },
         requestFile: (fieldId: string): Promise<FileResult> => {
           const message = { type: 'requestFile', fieldId };
@@ -1086,6 +1097,188 @@ class WebViewMock {
   // Manually simulate an audio response for testing (keeping for DevTestbed)
   public simulateAudioResponse(fieldId: string): void {
     this.simulateAudioSuccessResponse(fieldId);
+  }
+
+  // Show location capture simulation popup
+  private showLocationSimulationPopup(fieldId: string): void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      min-width: 350px;
+      text-align: center;
+      max-width: 90vw;
+    `;
+
+    popup.innerHTML = `
+      <h3 style="margin: 0 0 20px 0; color: #333; font-size: 20px;">📍 GPS Location Request</h3>
+      <p style="margin: 0 0 25px 0; color: #666; line-height: 1.5;">
+        Simulate capturing GPS location for field: <strong>${fieldId}</strong>
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <button id="location-success" style="
+          background: #4CAF50;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        ">✓ Capture Location</button>
+        <button id="location-cancel" style="
+          background: #757575;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        ">✕ Cancel</button>
+        <button id="location-error" style="
+          background: #f44336;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        ">⚠ Permission Denied</button>
+      </div>
+    `;
+
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+
+    // Add hover effects
+    const buttons = popup.querySelectorAll('button');
+    buttons.forEach(button => {
+      button.addEventListener('mouseenter', () => {
+        (button as HTMLElement).style.opacity = '0.8';
+      });
+      button.addEventListener('mouseleave', () => {
+        (button as HTMLElement).style.opacity = '1';
+      });
+    });
+
+    // Handle button clicks
+    popup.querySelector('#location-success')?.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      this.simulateLocationSuccessResponse(fieldId);
+    });
+
+    popup.querySelector('#location-cancel')?.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      this.simulateLocationCancelResponse(fieldId);
+    });
+
+    popup.querySelector('#location-error')?.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      this.simulateLocationErrorResponse(fieldId);
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        document.body.removeChild(overlay);
+        this.simulateLocationCancelResponse(fieldId);
+      }
+    });
+  }
+
+  // Simulate successful location capture
+  private simulateLocationSuccessResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating successful location capture for field:', fieldId);
+    
+    const locationResult: LocationResult = {
+      fieldId,
+      status: 'success',
+      data: {
+        type: 'location',
+        latitude: 37.7749,  // San Francisco coordinates
+        longitude: -122.4194,
+        accuracy: 5.0,
+        altitude: 52.0,
+        altitudeAccuracy: 3.0,
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    // Resolve the pending Promise for this field
+    const pendingPromise = this.pendingLocationPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.resolve(locationResult);
+      this.pendingLocationPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending location promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate cancelled location capture
+  private simulateLocationCancelResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating cancelled location capture for field:', fieldId);
+    
+    const locationResult: LocationResult = {
+      fieldId,
+      status: 'cancelled',
+      message: 'Location capture was cancelled by user'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingLocationPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(locationResult);
+      this.pendingLocationPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending location promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate location capture error
+  private simulateLocationErrorResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating location capture error for field:', fieldId);
+    
+    const locationResult: LocationResult = {
+      fieldId,
+      status: 'error',
+      message: 'Location permission denied'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingLocationPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(locationResult);
+      this.pendingLocationPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending location promise found for field:', fieldId);
+    }
+  }
+
+  // Manually simulate a location response for testing (keeping for DevTestbed)
+  public simulateLocationResponse(fieldId: string): void {
+    this.simulateLocationSuccessResponse(fieldId);
   }
 
   // Show file selection simulation popup

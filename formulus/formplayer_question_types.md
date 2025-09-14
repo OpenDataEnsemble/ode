@@ -384,9 +384,126 @@ Provides form submission functionality with validation.
 - Submit button with loading states
 - Integration with Formulus observation system
 
+## GPS/Location Question Type
+
+The GPS question type allows users to capture their current GPS coordinates including latitude, longitude, altitude, accuracy, and timestamp information.
+
+### Schema Definition
+
+```json
+{
+  "currentLocation": {
+    "type": "string",
+    "format": "gps",
+    "title": "Current Location",
+    "description": "Capture your current GPS coordinates"
+  }
+}
+```
+
+### UI Schema (Optional)
+
+```json
+{
+  "currentLocation": {
+    "ui:widget": "gps",
+    "ui:options": {
+      "label": "Capture GPS Location",
+      "description": "This will request your device's current GPS coordinates"
+    }
+  }
+}
+```
+
+### Features
+
+- **GPS Coordinate Capture**: Captures latitude, longitude with high precision
+- **Altitude Information**: Includes altitude and altitude accuracy when available
+- **Accuracy Reporting**: Shows GPS accuracy in meters
+- **Timestamp**: Records when the location was captured
+- **Re-capture Support**: Allows users to capture location again
+- **Delete Functionality**: Users can remove captured location data
+- **Permission Handling**: Gracefully handles location permission requests
+- **Error Management**: Clear error messages for permission denials or GPS failures
+
+### Data Structure
+
+The GPS question type stores location data as a JSON string with the following structure:
+
+```json
+{
+  "latitude": 37.7749,
+  "longitude": -122.4194,
+  "accuracy": 5.0,
+  "altitude": 52.0,
+  "altitudeAccuracy": 3.0,
+  "timestamp": "2023-10-15T14:30:00.000Z"
+}
+```
+
+### Dependencies
+
+- **React Native**: Uses native Geolocation API through `GeolocationService`
+- **Permissions**: Requires location permissions on device
+- **GeolocationService**: Leverages existing location service infrastructure
+
+### Usage Examples
+
+#### Basic GPS Field
+```json
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "siteLocation": {
+        "type": "string",
+        "format": "gps",
+        "title": "Site Location"
+      }
+    }
+  }
+}
+```
+
+#### GPS Field with Custom UI
+```json
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "inspectionLocation": {
+        "type": "string",
+        "format": "gps",
+        "title": "Inspection Location",
+        "description": "Record the exact location where this inspection was conducted"
+      }
+    }
+  },
+  "uischema": {
+    "inspectionLocation": {
+      "ui:options": {
+        "label": "Capture Inspection Location"
+      }
+    }
+  }
+}
+```
+
 ## Implementation Guide
 
-This section provides a comprehensive step-by-step guide for implementing new question types in the Formplayer, using the QR code implementation as a reference.
+When adding new question types to the Formplayer, follow this established pattern:
+
+1. **Define Result Interfaces**: Create `*ResultData` and `*Result` types in `FormulusInterfaceDefinition.ts`
+2. **Update FormulusInterface**: Add `request*` method returning `Promise<*Result>`
+3. **Update FormulusClient**: Implement client-side request forwarding
+4. **Create React Component**: Build UI renderer following existing patterns
+5. **Register Renderer**: Add to custom renderers array in `App.tsx`
+6. **Add AJV Validation**: Include format validator for schema compliance
+7. **Mock Implementation**: Add development simulation in `webview-mock.ts`
+8. **React Native Handler**: Implement native functionality in `FormulusMessageHandlers.ts`
+9. **Update Documentation**: Document usage, schema, and features
+
+This pattern ensures consistency across all question types and maintains the separation between WebView (React) and React Native components.
 
 ### Step-by-Step Implementation Process
 

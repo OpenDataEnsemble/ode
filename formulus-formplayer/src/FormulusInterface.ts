@@ -10,10 +10,11 @@
 import { 
   FormulusInterface, 
   CameraResult, 
-  AudioResult, 
-  SignatureResult, 
   QrcodeResult, 
-  FileResult 
+  SignatureResult, 
+  FileResult, 
+  AudioResult,
+  LocationResult 
 } from './FormulusInterfaceDefinition';
 
 import { 
@@ -124,13 +125,18 @@ class FormulusClient {
   /**
    * Request location from the Formulus RN app
    */
-  public requestLocation(fieldId: string): void {
+  public requestLocation(fieldId: string): Promise<LocationResult> {
     console.log('Requesting location for field', fieldId);
     
     if (this.formulus) {
-      this.formulus.requestLocation(fieldId);
+      return this.formulus.requestLocation(fieldId);
     } else {
       console.warn('Formulus interface not available for requestLocation');
+      return Promise.reject({
+        fieldId,
+        status: 'error',
+        message: 'Formulus interface not available'
+      });
     }
   }
 

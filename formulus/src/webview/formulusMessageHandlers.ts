@@ -2,7 +2,8 @@
 This is where the actual implementation of the methods happens on the React Native side. 
 It handles the messages received from the WebView and executes the corresponding native functionality.
 */
-import { NativeModules } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
+import { GeolocationService } from '../services/GeolocationService';
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 
@@ -398,9 +399,48 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         }
       });
     },
-    onRequestLocation: (fieldId: string) => {
-      // TODO: implement location request logic
+    onRequestLocation: async (fieldId: string): Promise<any> => {
       console.log('Request location handler called', fieldId);
+      
+      return new Promise(async (resolve, reject) => {
+        try {
+          // Get current location using the existing GeolocationService
+          const geolocationService = GeolocationService.getInstance();
+          const position = await geolocationService.getCurrentLocationForObservation();
+          
+          if (position) {
+            // Convert ObservationGeolocation to LocationResultData format
+            const locationResult = {
+              fieldId,
+              status: 'success' as const,
+              data: {
+                type: 'location' as const,
+                latitude: position.latitude || 0,
+                longitude: position.longitude || 0,
+                accuracy: position.accuracy,
+                altitude: position.altitude,
+                altitudeAccuracy: position.altitude_accuracy,
+                timestamp: new Date().toISOString()
+              }
+            };
+            
+            console.log('Location captured successfully:', locationResult);
+            resolve(locationResult);
+          } else {
+            throw new Error('Unable to get current location');
+          }
+        } catch (error: any) {
+          console.error('Location capture failed:', error);
+          
+          const errorResult = {
+            fieldId,
+            status: 'error' as const,
+            message: error.message || 'Location capture failed'
+          };
+          
+          reject(errorResult);
+        }
+      });
     },
     onRequestFile: async (fieldId: string): Promise<any> => {
       console.log('Request file handler called', fieldId);

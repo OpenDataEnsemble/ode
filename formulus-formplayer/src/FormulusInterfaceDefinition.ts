@@ -96,6 +96,26 @@ export interface AudioResultData {
 }
 
 /**
+ * Location/GPS-specific result data
+ * @property {'location'} type - Always 'location' for GPS results
+ * @property {number} latitude - Latitude coordinate
+ * @property {number} longitude - Longitude coordinate
+ * @property {number} [accuracy] - Accuracy in meters
+ * @property {number} [altitude] - Altitude in meters (can be null)
+ * @property {number} [altitudeAccuracy] - Altitude accuracy in meters (can be null)
+ * @property {string} timestamp - ISO timestamp when location was captured
+ */
+export interface LocationResultData {
+  type: 'location';
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  altitude?: number | null;
+  altitudeAccuracy?: number | null;
+  timestamp: string;
+}
+
+/**
  * Signature-specific result data
  * @property {'signature'} type - Always 'signature' for signature results
  * @property {string} filename - Generated filename for the signature
@@ -158,6 +178,7 @@ export interface FileResultData {
  */
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
+export type LocationResult = ActionResult<LocationResultData>;
 export type SignatureResult = ActionResult<SignatureResultData>;
 export type QrcodeResult = ActionResult<QrcodeResultData>;
 export type FileResult = ActionResult<FileResultData>;
@@ -285,9 +306,9 @@ export interface FormulusInterface {
   /**
    * Request location for a field
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<LocationResult>} Promise that resolves with location result or rejects on error/cancellation
    */
-  requestLocation(fieldId: string): Promise<void>;
+  requestLocation(fieldId: string): Promise<LocationResult>;
 
   /**
    * Request file selection for a field

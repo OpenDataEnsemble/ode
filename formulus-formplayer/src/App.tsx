@@ -17,8 +17,9 @@ import { finalizeRenderer } from "./FinalizeRenderer";
 import PhotoQuestionRenderer, { photoQuestionTester } from "./PhotoQuestionRenderer";
 import QrcodeQuestionRenderer, { qrcodeQuestionTester } from "./QrcodeQuestionRenderer";
 import SignatureQuestionRenderer, { signatureQuestionTester } from "./SignatureQuestionRenderer";
-import FileQuestionRenderer, { fileQuestionTester } from "./FileQuestionRenderer";
-import AudioQuestionRenderer, { audioQuestionTester } from "./AudioQuestionRenderer";
+import FileQuestionRenderer, { fileQuestionTester } from './FileQuestionRenderer';
+import AudioQuestionRenderer, { audioQuestionTester } from './AudioQuestionRenderer';
+import GPSQuestionRenderer, { gpsQuestionTester } from './GPSQuestionRenderer';
 
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -62,16 +63,15 @@ export const FormContext = createContext<FormContextType>({
 
 export const useFormContext = () => useContext(FormContext);
 
-const customRenderers = [
-  ...materialRenderers,
+export const customRenderers = [
+  { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
+  { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
   { tester: signatureQuestionTester, renderer: SignatureQuestionRenderer },
   { tester: fileQuestionTester, renderer: FileQuestionRenderer },
   { tester: audioQuestionTester, renderer: AudioQuestionRenderer },
-  { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
-  { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
-  finalizeRenderer
+  { tester: gpsQuestionTester, renderer: GPSQuestionRenderer }
 ];
 
 function App() {
@@ -309,88 +309,15 @@ function App() {
   addErrors(ajv);
   addFormats(ajv);
   
-  // Add custom format for photo fields - expects JSON objects only
-  ajv.addFormat('photo', (data: any) => {
-    // Accept null/undefined for empty photo fields
-    if (data === null || data === undefined) {
-      return true;
-    }
-    
-    // For photo fields, we expect an object with specific properties
-    if (typeof data === 'object' && data !== null) {
-      // Basic validation - should have filename and type properties
-      return typeof data.filename === 'string' && data.type === 'image';
-    }
-    
-    return false;
-  });
+  // Add custom format validators
+  ajv.addFormat('photo', () => true); // Accept any value for photo format
+  ajv.addFormat('qrcode', () => true); // Accept any value for qrcode format
+  ajv.addFormat('signature', () => true); // Accept any value for signature format
+  ajv.addFormat('select_file', () => true); // Accept any value for file selection format
+  ajv.addFormat('audio', () => true); // Accept any value for audio format
+  ajv.addFormat('gps', () => true); // Accept any value for GPS format
 
-  // Add custom format for QR code fields - expects string values
-  ajv.addFormat('qrcode', (data: any) => {
-    // Accept null/undefined/empty string for empty QR code fields
-    if (data === null || data === undefined || data === '') {
-      return true;
-    }
-    
-    // For QR code fields, we expect a string value
-    return typeof data === 'string';
-  });
 
-  // Add custom format for signature fields - expects JSON objects only
-  ajv.addFormat('signature', (data: any) => {
-    // Accept null/undefined for empty signature fields
-    if (data === null || data === undefined) {
-      return true;
-    }
-    
-    // For signature fields, we expect an object with specific properties
-    if (typeof data === 'object' && data !== null) {
-      // Basic validation - should have filename and type properties
-      return typeof data.filename === 'string' && data.type === 'signature';
-    }
-    
-    return false;
-  });
-
-  // Add custom format for file selection fields - expects JSON objects only
-  ajv.addFormat('select_file', (data: any) => {
-    // Accept null/undefined for empty file fields
-    if (data === null || data === undefined) {
-      return true;
-    }
-    
-    // For file fields, we expect an object with specific properties
-    if (typeof data === 'object' && data !== null) {
-      // Basic validation - should have filename, uri, and type properties
-      return typeof data.filename === 'string' && 
-             typeof data.uri === 'string' && 
-             data.type === 'file';
-    }
-    
-    return false;
-  });
-
-  // Add custom format for audio fields - expects JSON objects only
-  ajv.addFormat('audio', (data: any) => {
-    // Accept null/undefined for empty audio fields
-    if (data === null || data === undefined) {
-      return true;
-    }
-    
-    // For audio fields, we expect an object with specific properties
-    if (typeof data === 'object' && data !== null) {
-      // Basic validation - should have filename, uri, type, and metadata properties
-      return typeof data.filename === 'string' && 
-             typeof data.uri === 'string' && 
-             data.type === 'audio' &&
-             typeof data.metadata === 'object' &&
-             typeof data.metadata.duration === 'number';
-    }
-    
-    return false;
-  });
-
-  
   // Render loading state or error if needed
   if (isLoading) {
     return (
