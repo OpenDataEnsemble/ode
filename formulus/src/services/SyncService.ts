@@ -258,7 +258,6 @@ export class SyncService {
 
   public async initialize(): Promise<void> {
     // Initialize any required state
-    await AsyncStorage.setItem('@clientId', 'android-123'); // TODO: Move to app initialization
     const lastSeenVersion = await AsyncStorage.getItem('@last_seen_version');
     await AsyncStorage.setItem('@appVersion', '1.0.0'); // TODO: Get from app config
     

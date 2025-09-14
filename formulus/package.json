@@ -21,6 +21,7 @@
     "@testing-library/react-native": "^13.2.0",
     "react": "19.0.0",
     "react-native": "0.79.2",
+    "react-native-device-info": "^14.0.4",
     "react-native-document-picker": "^9.1.1",
     "react-native-fs": "^2.20.0",
     "react-native-gesture-handler": "^2.25.0",

@@ -7,6 +7,7 @@ import { getApiAuthToken } from './Auth';
 import { databaseService } from '../../database/DatabaseService';
 import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { Buffer } from 'buffer';
+import { clientIdService } from '../../services/ClientIdService';
 
 interface DownloadResult {
   success: boolean;
@@ -115,7 +116,7 @@ class SynkronusApi {
   private async processAttachmentManifest(): Promise<void> {
     try {
       const lastAttachmentVersion = Number(await AsyncStorage.getItem('@last_attachment_version')) || 0;
-      const clientId = await AsyncStorage.getItem('@clientId');
+      const clientId = await clientIdService.getClientId();
       
       if (!clientId) {
         console.warn('No client ID available, skipping attachment sync');
@@ -556,8 +557,7 @@ class SynkronusApi {
    * @returns {Promise<number>} The current version of the observations pulled from the server
    */
   private async pullObservations(includeAttachments: boolean = false) {
-    const clientId = await AsyncStorage.getItem('@clientId');
-    if (!clientId) throw new Error('Missing client ID');
+    const clientId = await clientIdService.getClientId();
     let since = Number(await AsyncStorage.getItem('@last_seen_version'));
     if (!since) since = 0;
 
@@ -659,7 +659,7 @@ class SynkronusApi {
 
       // 3. Push observations to server
       const syncPushRequest = {
-        client_id: (await AsyncStorage.getItem('@clientId')) ?? 'UNDEFINED',
+        client_id: await clientIdService.getClientId(),
         records: localChanges.map(ObservationMapper.toApi),
         transmission_id: transmissionId,
       };
