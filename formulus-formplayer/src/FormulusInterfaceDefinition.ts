@@ -141,16 +141,14 @@ export interface VideoResultData {
  * Signature-specific result data
  * @property {'signature'} type - Always 'signature' for signature results
  * @property {string} filename - Generated filename for the signature
- * @property {string} base64 - Base64 encoded signature image data
- * @property {string} url - Data URL for the signature
+ * @property {string} uri - File URI for the signature image
  * @property {string} timestamp - ISO timestamp when signature was captured
  * @property {object} metadata - Signature metadata (dimensions, etc.)
  */
 export interface SignatureResultData {
   type: 'signature';
   filename: string;
-  base64: string;
-  url: string;
+  uri: string;
   timestamp: string;
   metadata: {
     width: number;

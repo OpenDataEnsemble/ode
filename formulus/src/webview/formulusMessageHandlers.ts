@@ -382,9 +382,63 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           // Emit event to open signature capture modal
           appEvents.emit('openSignatureCapture', {
             fieldId,
-            onResult: (result: any) => {
+            onResult: async (result: any) => {
               console.log('Signature capture result received:', result);
-              resolve(result);
+              
+              try {
+                // If the result contains base64 data, save it to file and return URI
+                if (result.status === 'success' && result.data && result.data.base64) {
+                  const RNFS = require('react-native-fs');
+                  
+                  // Generate a unique filename
+                  const timestamp = Date.now();
+                  const filename = `signature_${timestamp}.png`;
+                  
+                  // Create signatures directory path
+                  const signaturesDir = `${RNFS.DocumentDirectoryPath}/signatures`;
+                  const filePath = `${signaturesDir}/${filename}`;
+                  
+                  // Ensure signatures directory exists
+                  await RNFS.mkdir(signaturesDir);
+                  
+                  // Write base64 data to file
+                  await RNFS.writeFile(filePath, result.data.base64, 'base64');
+                  
+                  // Get file stats for size
+                  const fileStats = await RNFS.stat(filePath);
+                  
+                  // Create updated result with URI instead of base64
+                  const updatedResult = {
+                    fieldId,
+                    status: 'success' as const,
+                    data: {
+                      type: 'signature' as const,
+                      filename,
+                      uri: `file://${filePath}`,
+                      timestamp: result.data.timestamp || new Date().toISOString(),
+                      metadata: {
+                        width: result.data.metadata?.width || 400,
+                        height: result.data.metadata?.height || 200,
+                        size: fileStats.size,
+                        strokeCount: result.data.metadata?.strokeCount || 1
+                      }
+                    }
+                  };
+                  
+                  console.log('Signature saved to file:', filePath);
+                  resolve(updatedResult);
+                } else {
+                  // Return result as-is if no base64 data or if it's an error/cancellation
+                  resolve(result);
+                }
+              } catch (fileError: any) {
+                console.error('Error saving signature file:', fileError);
+                resolve({
+                  fieldId,
+                  status: 'error',
+                  message: `Error saving signature: ${fileError.message}`
+                });
+              }
             }
           });
           

@@ -181,8 +181,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
     const signatureData = {
       type: 'signature' as const,
       filename,
-      base64: base64Data,
-      url: dataUrl,
+      uri: dataUrl, // For canvas signatures, we still use data URL as URI
       timestamp: new Date().toISOString(),
       metadata: {
         width: canvas.width,
@@ -367,7 +366,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
                 justifyContent: 'center'
               }}>
                 <img 
-                  src={data.url} 
+                  src={data.uri} 
                   alt="Signature" 
                   style={{ 
                     maxWidth: '100%', 

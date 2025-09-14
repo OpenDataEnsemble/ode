@@ -782,8 +782,7 @@ class WebViewMock {
       data: {
         type: 'signature',
         filename: `${signatureGuid}.svg`,
-        base64: base64Signature,
-        url: dataUrl,
+        uri: dataUrl, // Use URI instead of base64 and url
         timestamp: new Date().toISOString(),
         metadata: {
           width: 300,
