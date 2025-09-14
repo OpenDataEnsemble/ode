@@ -430,13 +430,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           operationId 
         });
         
-        // Set a timeout to prevent hanging promises (30 minutes)
+        // Set a timeout to prevent hanging promises (8 hours)
         setTimeout(() => {
           if (pendingFormOperations.has(operationId)) {
             pendingFormOperations.delete(operationId);
             reject(new Error('Form operation timed out'));
           }
-        }, 30 * 60 * 1000);
+        }, 8 * 60 * 60 * 1000);
       });
     },
     onFormulusReady: () => {
