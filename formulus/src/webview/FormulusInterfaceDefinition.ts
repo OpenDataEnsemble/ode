@@ -179,6 +179,22 @@ export interface FormObservation {
 }
 
 /**
+ * Result returned when a form is completed or closed
+ * @property {'form_submitted' | 'form_updated' | 'draft_saved' | 'cancelled' | 'error'} status - The outcome status
+ * @property {string} [observationId] - The observation ID (present on successful submission/update)
+ * @property {Record<string, any>} [formData] - The final form data (present on successful submission/update)
+ * @property {string} [message] - Optional message (mainly for errors or additional context)
+ * @property {string} formType - The form type that was being edited
+ */
+export interface FormCompletionResult {
+  status: 'form_submitted' | 'form_updated' | 'draft_saved' | 'cancelled' | 'error';
+  observationId?: string;
+  formData?: Record<string, any>;
+  message?: string;
+  formType: string;
+}
+
+/**
  * Interface for the Formulus app methods that will be injected into the WebViews for custom_app and FormPlayer
  * @namespace formulus
  */
@@ -200,9 +216,9 @@ export interface FormulusInterface {
    * @param {string} formType - The identifier of the formtype to open
    * @param {Object} params - Additional parameters for form initialization
    * @param {Object} savedData - Previously saved form data (for editing)
-   * @returns {Promise<void>}
+   * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
-  openFormplayer(formType: string, params: Record<string, any>, savedData: Record<string, any>): Promise<void>;
+  openFormplayer(formType: string, params: Record<string, any>, savedData: Record<string, any>): Promise<FormCompletionResult>;
 
   /**
    * Get observations for a specific form
@@ -333,7 +349,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = "1.0.1";
+export const FORMULUS_INTERFACE_VERSION = "1.1.0";
 
 /**
  * Check if the current interface version is compatible with the required version

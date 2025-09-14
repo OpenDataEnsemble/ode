@@ -1,7 +1,7 @@
 // Type definitions for WebView message handlers
 // Must match the injected interface in FormulusInterfaceDefinition.ts
 import { Observation } from '../database/models/observation';
-import { FormInitData } from './FormulusInterfaceDefinition';
+import { FormInitData, FormCompletionResult } from './FormulusInterfaceDefinition';
 
 export interface FormulusMessageHandlers {
   onInitForm?: (payload: any) => void; // Keep existing, adjust payload type as needed
@@ -27,7 +27,7 @@ export interface FormulusMessageHandlers {
   // New handlers to be added
   onGetAvailableForms?: () => Promise<any>; // Adjust return type as needed (e.g., Promise<FormListItem[]>) 
   onGetObservations?: (formId: string, isDraft?: boolean, includeDeleted?: boolean) => Promise<Observation[]>;
-  onOpenFormplayer?: (data: FormInitData) => Promise<void>; // Or simply void if no async operation needed
+  onOpenFormplayer?: (data: FormInitData) => Promise<FormCompletionResult>;
   onFormulusReady?: () => void; // Handler for when the WebView signals it's ready
   onReceiveFocus?: () => void; // Handler for when the WebView signals it's ready
   onUnknownMessage?: (message: any) => void;

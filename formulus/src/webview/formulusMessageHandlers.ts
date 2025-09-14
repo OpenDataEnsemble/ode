@@ -41,6 +41,57 @@ class SimpleEventEmitter {
 // Create a global event emitter for app-wide events
 export const appEvents = new SimpleEventEmitter();
 
+// Track pending form operations with their promise resolvers
+const pendingFormOperations = new Map<string, {
+  resolve: (result: FormCompletionResult) => void;
+  reject: (error: Error) => void;
+  formType: string;
+  startTime: number;
+}>();
+
+// Helper functions to resolve form operations
+export const resolveFormOperation = (operationId: string, result: FormCompletionResult) => {
+  const operation = pendingFormOperations.get(operationId);
+  if (operation) {
+    console.log(`Resolving form operation ${operationId} with status: ${result.status}`);
+    operation.resolve(result);
+    pendingFormOperations.delete(operationId);
+  } else {
+    console.warn(`No pending operation found for ID: ${operationId}`);
+  }
+};
+
+export const rejectFormOperation = (operationId: string, error: Error) => {
+  const operation = pendingFormOperations.get(operationId);
+  if (operation) {
+    console.log(`Rejecting form operation ${operationId} with error:`, error.message);
+    operation.reject(error);
+    pendingFormOperations.delete(operationId);
+  } else {
+    console.warn(`No pending operation found for ID: ${operationId}`);
+  }
+};
+
+// Helper to resolve operation by form type (fallback when operationId is not available)
+export const resolveFormOperationByType = (formType: string, result: FormCompletionResult) => {
+  // Find the most recent operation for this form type
+  let mostRecentOperation: string | null = null;
+  let mostRecentTime = 0;
+  
+  for (const [operationId, operation] of pendingFormOperations.entries()) {
+    if (operation.formType === formType && operation.startTime > mostRecentTime) {
+      mostRecentOperation = operationId;
+      mostRecentTime = operation.startTime;
+    }
+  }
+  
+  if (mostRecentOperation) {
+    resolveFormOperation(mostRecentOperation, result);
+  } else {
+    console.warn(`No pending operation found for form type: ${formType}`);
+  }
+};
+
 // Helper function to save form data to storage
 const saveFormData = async (formType: string, data: any, observationId: string | null, isPartial = true) => {
   const isUpdate = observationId !== null;
@@ -104,9 +155,9 @@ const loadFormData = async (formType: string) => {
 
 
 import { FormulusMessageHandlers } from './FormulusMessageHandlers.types';
-import { FormInitData } from './FormulusInterfaceDefinition';
-import { FormObservationRepository } from '../database/FormObservationRepository'; // User added this
-import { FormService } from '../services'; // User added this
+import { FormInitData, FormulusInterface, FormCompletionResult } from './FormulusInterfaceDefinition';
+import { FormService } from '../services/FormService';
+import { FormObservationRepository } from '../database/FormObservationRepository';
 import { Observation } from '../database/models/Observation';
 
 
@@ -354,11 +405,39 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const observations = await formService.getObservationsByFormType(formType); //TODO: Handle deleted etc.
       return observations;
     },
-    onOpenFormplayer: async (data: FormInitData) => {
+    onOpenFormplayer: async (data: FormInitData): Promise<FormCompletionResult> => {
       const { formType, params, savedData } = data;
       console.log('FormulusMessageHandlers: onOpenFormplayer handler invoked with data:', data);
-      appEvents.emit('openFormplayerRequested', { formType, params, savedData });
-      return Promise.resolve();
+      
+      // Generate a unique operation ID for this form session
+      const operationId = `${formType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Create a promise that will be resolved when the form is completed/closed
+      return new Promise<FormCompletionResult>((resolve, reject) => {
+        // Store the promise resolvers
+        pendingFormOperations.set(operationId, {
+          resolve,
+          reject,
+          formType,
+          startTime: Date.now()
+        });
+        
+        // Emit the event with the operation ID so we can track completion
+        appEvents.emit('openFormplayerRequested', { 
+          formType, 
+          params, 
+          savedData, 
+          operationId 
+        });
+        
+        // Set a timeout to prevent hanging promises (30 minutes)
+        setTimeout(() => {
+          if (pendingFormOperations.has(operationId)) {
+            pendingFormOperations.delete(operationId);
+            reject(new Error('Form operation timed out'));
+          }
+        }, 30 * 60 * 1000);
+      });
     },
     onFormulusReady: () => {
       console.log('FormulusMessageHandlers: onFormulusReady handler invoked. WebView is ready.');

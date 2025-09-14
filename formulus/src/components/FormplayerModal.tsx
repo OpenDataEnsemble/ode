@@ -2,9 +2,9 @@ import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, f
 import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, ActivityIndicator } from 'react-native';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { appEvents } from '../webview/FormulusMessageHandlers';
+import { appEvents, resolveFormOperation, resolveFormOperationByType } from '../webview/FormulusMessageHandlers';
 import { readFileAssets } from 'react-native-fs';
-import { FormInitData } from '../webview/FormulusInterfaceDefinition';
+import { FormInitData, FormCompletionResult } from '../webview/FormulusInterfaceDefinition';
 
 const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
   ? 'webview/FormulusInjectionScript.js'
@@ -20,7 +20,7 @@ interface FormplayerModalProps {
 }
 
 export interface FormplayerModalHandle {
-  initializeForm: (formType: FormSpec, params: Record<string, any> | null, observationId: string | null, existingObservationData: Record<string, any> | null) => void;
+  initializeForm: (formType: FormSpec, params: Record<string, any> | null, observationId: string | null, existingObservationData: Record<string, any> | null, operationId: string | null) => void;
 }
 
 import { FormService } from '../services/FormService'; // Import FormService
@@ -38,6 +38,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   const [currentObservationId, setCurrentObservationId] = useState<string | null>(null);
   const [currentObservationData, setCurrentObservationData] = useState<Record<string, any> | null>(null);
   const [currentParams, setCurrentParams] = useState<Record<string, any> | null>(null);
+  const [currentOperationId, setCurrentOperationId] = useState<string | null>(null);
   
   // State to track pending form initialization
   const [pendingFormInit, setPendingFormInit] = useState<{
@@ -45,6 +46,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     params: Record<string, any> | null;
     observationId: string | null;
     existingObservationData: Record<string, any> | null;
+    operationId: string | null;
   } | null>(null);
   const [isWebViewReady, setIsWebViewReady] = useState(false);
   
@@ -122,6 +124,25 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       clearTimeout(closeTimeoutRef.current);
     }
     
+    // Resolve the form operation promise with cancelled status if no submission occurred
+    if (currentOperationId && currentFormType) {
+      const completionResult: FormCompletionResult = {
+        status: 'cancelled',
+        formType: currentFormType,
+        message: 'Form was closed without submission'
+      };
+      
+      resolveFormOperation(currentOperationId, completionResult);
+    } else if (currentFormType) {
+      const completionResult: FormCompletionResult = {
+        status: 'cancelled',
+        formType: currentFormType,
+        message: 'Form was closed without submission'
+      };
+      
+      resolveFormOperationByType(currentFormType, completionResult);
+    }
+    
     // Call the parent's onClose immediately
     onClose();
     
@@ -129,7 +150,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     closeTimeoutRef.current = setTimeout(() => {
       setIsClosing(false);
     }, 500);
-  }, [isClosing, isSubmitting, onClose]);
+  }, [isClosing, isSubmitting, onClose, currentOperationId, currentFormType]);
 
   // Listen for the closeFormplayer event
   useEffect(() => {
@@ -185,13 +206,14 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   };
 
   // Initialize a form with the given form type and optional existing data
-  const initializeForm = (formType: FormSpec, params: Record<string, any> | null, observationId: string | null, existingObservationData: Record<string, any> | null) => {
+  const initializeForm = (formType: FormSpec, params: Record<string, any> | null, observationId: string | null, existingObservationData: Record<string, any> | null, operationId: string | null) => {
     
     // Set internal state for the current form and observation
     setCurrentFormType(formType.id);
     setCurrentObservationId(observationId);
     setCurrentObservationData(existingObservationData);
     setCurrentParams(params);
+    setCurrentOperationId(operationId);
     setSelectedFormSpecId(formType.id);
     
     // Store the form initialization data
@@ -200,6 +222,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       params,
       observationId,
       existingObservationData,
+      operationId,
     });
   };
 
@@ -321,6 +344,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         : finalData;
       
       // Save the observation to the database
+      let resultObservationId: string;
       if (currentObservationId) {
         console.log(`[${submissionId}] Updating existing observation:`, currentObservationId);
         const updateSuccess = await localRepo.updateObservation({id:currentObservationId, data: processedData});
@@ -328,6 +352,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         if (!updateSuccess) {
           throw new Error('Failed to update observation');
         }
+        resultObservationId = currentObservationId;
       } else {
         console.log(`[${submissionId}] Creating new observation for form type:`, activeFormType);
         const newId = await localRepo.saveObservation({formType:activeFormType, data: processedData});
@@ -336,12 +361,27 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           throw new Error('Failed to save new observation');
         }
         console.log(`[${submissionId}] Successfully created observation with ID:`, newId);
+        resultObservationId = newId;
       }
       
       // Show success message
       const successMessage = currentObservationId
         ? 'Observation updated successfully!'
         : 'Form submitted successfully!';
+      
+      // Resolve the form operation promise with success result
+      const completionResult: FormCompletionResult = {
+        status: currentObservationId ? 'form_updated' : 'form_submitted',
+        observationId: resultObservationId,
+        formData: processedData,
+        formType: activeFormType
+      };
+      
+      if (currentOperationId) {
+        resolveFormOperation(currentOperationId, completionResult);
+      } else {
+        resolveFormOperationByType(activeFormType, completionResult);
+      }
       
       Alert.alert('Success', successMessage, [{ text: 'OK', onPress: onClose }]);
       
@@ -351,10 +391,24 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       // No callback needed here, the onClose will trigger the parent to refresh
     } catch (error) {
       console.error(`[${submissionId}] Error saving form submission:`, error);
+      
+      // Resolve the form operation promise with error result
+      const errorResult: FormCompletionResult = {
+        status: 'error',
+        formType: currentFormType || 'unknown',
+        message: error instanceof Error ? error.message : 'Unknown error occurred'
+      };
+      
+      if (currentOperationId) {
+        resolveFormOperation(currentOperationId, errorResult);
+      } else if (currentFormType) {
+        resolveFormOperationByType(currentFormType, errorResult);
+      }
+      
       Alert.alert('Error', 'Failed to save your form. Please try again.');
       setIsSubmitting(false);
     }
-  }, [selectedFormSpecId, onClose, currentFormType, currentObservationId, isSubmitting]);
+  }, [selectedFormSpecId, onClose, currentFormType, currentObservationId, currentOperationId, isSubmitting]);
 
   useImperativeHandle(ref, () => ({ initializeForm }));
 

@@ -59,7 +59,7 @@ const HomeScreen = ({ navigation }: any) => {
     const handleOpenFormplayer = async (config: any) => {
       console.log('HomeScreen: openFormplayerRequested event received', config);
 
-      const { formType, observationId, params, savedData } = config;
+      const { formType, observationId, params, savedData, operationId } = config;
       
       setFormplayerVisible(true);
       // Use the ref-based approach to initialize the form
@@ -91,7 +91,8 @@ const HomeScreen = ({ navigation }: any) => {
         formSpec,
         params || null, // params if any
         observationId || null, // observation ID for edit mode
-        savedData || null // Saved data if any
+        savedData || null, // Saved data if any
+        operationId || null // Operation ID for promise resolution
       );
     };
 
