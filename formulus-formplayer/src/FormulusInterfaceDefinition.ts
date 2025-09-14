@@ -49,8 +49,7 @@ export interface ActionResult<T = any> {
  * @property {'image'} type - Always 'image' for camera results
  * @property {string} id - Generated GUID for the image
  * @property {string} filename - Generated filename for the image
- * @property {string} uri - Persistent file path for sync protocol
- * @property {string} url - Data URL for the image
+ * @property {string} uri - File URI for both sync protocol and display (file://)
  * @property {string} timestamp - ISO timestamp when image was captured
  * @property {object} metadata - Image metadata (dimensions, size, etc.)
  */
@@ -58,8 +57,7 @@ export interface CameraResultData {
   type: 'image';
   id: string; // GUID for unique identification
   filename: string; // GUID-based filename
-  uri: string; // Persistent file path for sync protocol
-  url: string; // File URL for display (file://)
+  uri: string;
   timestamp: string;
   metadata: {
     width: number;

@@ -606,8 +606,7 @@ class WebViewMock {
         type: 'image',
         id: imageGuid,
         filename: `${imageGuid}.jpg`,
-        uri: `/mock/storage/images/${imageGuid}.jpg`,
-        url: dummyPhotoUrl,
+        uri: dummyPhotoUrl, // Use the dummy photo URL as the URI for display
         timestamp: new Date().toISOString(),
         metadata: {
           width: 1920,

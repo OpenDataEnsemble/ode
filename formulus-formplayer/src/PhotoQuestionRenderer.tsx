@@ -65,13 +65,13 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   // Set photo URL from stored data if available
   useEffect(() => {
     console.log('Photo data changed:', currentPhotoData);
-    if (currentPhotoData?.url) {
+    if (currentPhotoData?.uri) {
       // For WebView, we need to handle file:// URLs differently
       // In development/mock mode, file URLs might work, but in production we need a different approach
-      console.log('Setting photo URL from stored data:', currentPhotoData.url);
-      setPhotoUrl(currentPhotoData.url);
+      console.log('Setting photo URL from stored data:', currentPhotoData.uri);
+      setPhotoUrl(currentPhotoData.uri);
     } else {
-      console.log('No photo URL found, clearing photoUrl state');
+      console.log('No photo URI found, clearing photoUrl state');
       setPhotoUrl(null);
     }
   }, [currentPhotoData]);
@@ -94,14 +94,13 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
       // Check if the result was successful
       if (cameraResult.status === 'success' && cameraResult.data) {
         // Store photo data in form - use file URI for display
-        const displayUrl = cameraResult.data.url;
+        const displayUri = cameraResult.data.uri;
         
         const photoData = {
           id: cameraResult.data.id,
           type: cameraResult.data.type,
           filename: cameraResult.data.filename,
           uri: cameraResult.data.uri,
-          url: cameraResult.data.url,
           timestamp: cameraResult.data.timestamp,
           metadata: cameraResult.data.metadata
         };
@@ -117,9 +116,9 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
         console.log('Updating form data with photo data...');
         handleChange(path, photoData);
         
-        // Set the photo URL for display using the file URL
-        console.log('Setting photo URL for display:', displayUrl.substring(0, 50) + '...');
-        setPhotoUrl(displayUrl);
+        // Set the photo URL for display using the file URI
+        console.log('Setting photo URL for display:', displayUri.substring(0, 50) + '...');
+        setPhotoUrl(displayUri);
         
         // Clear any previous errors on successful photo capture
         console.log('Clearing error state after successful photo capture');
@@ -276,7 +275,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
               currentPhotoData,
               hasPhotoData: !!currentPhotoData,
               hasFilename: !!currentPhotoData?.filename,
-              hasUrl: !!currentPhotoData?.url,
+              hasUri: !!currentPhotoData?.uri,
               photoUrl,
               hasPhotoUrl: !!photoUrl,
               shouldShowThumbnail: !!(currentPhotoData && currentPhotoData.filename && photoUrl),
