@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, f
 import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, ActivityIndicator } from 'react-native';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { appEvents, resolveFormOperation, resolveFormOperationByType } from '../webview/FormulusMessageHandlers';
+import { appEvents, resolveFormOperation, resolveFormOperationByType, setActiveFormplayerModal } from '../webview/FormulusMessageHandlers';
 import { readFileAssets } from 'react-native-fs';
 import { FormInitData, FormCompletionResult } from '../webview/FormulusInterfaceDefinition';
 
@@ -21,6 +21,7 @@ interface FormplayerModalProps {
 
 export interface FormplayerModalHandle {
   initializeForm: (formType: FormSpec, params: Record<string, any> | null, observationId: string | null, existingObservationData: Record<string, any> | null, operationId: string | null) => void;
+  handleSubmission: (data: { formType: string; finalData: Record<string, any> }) => Promise<string>;
 }
 
 import { FormService } from '../services/FormService'; // Import FormService
@@ -127,25 +128,29 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       clearTimeout(closeTimeoutRef.current);
     }
     
-    // Only resolve with cancelled status if form hasn't been successfully submitted
-    if (!formSubmitted) {
-      if (currentOperationId && currentFormType) {
-        const completionResult: FormCompletionResult = {
-          status: 'cancelled',
-          formType: currentFormType,
-          message: 'Form was closed without submission'
-        };
-        
-        resolveFormOperation(currentOperationId, completionResult);
-      } else if (currentFormType) {
-        const completionResult: FormCompletionResult = {
-          status: 'cancelled',
-          formType: currentFormType,
-          message: 'Form was closed without submission'
-        };
-        
-        resolveFormOperationByType(currentFormType, completionResult);
-      }
+    // Only resolve with cancelled status if form hasn't been successfully submitted AND we have a valid operation
+    if (!formSubmitted && currentOperationId) {
+      console.log('FormplayerModal: Resolving operation as cancelled:', currentOperationId);
+      const completionResult: FormCompletionResult = {
+        status: 'cancelled',
+        formType: currentFormType || 'unknown',
+        message: 'Form was closed without submission'
+      };
+      
+      resolveFormOperation(currentOperationId, completionResult);
+      // Clear the operation ID immediately to prevent double resolution
+      setCurrentOperationId(null);
+    } else if (!formSubmitted && currentFormType) {
+      console.log('FormplayerModal: Resolving by form type as cancelled:', currentFormType);
+      const completionResult: FormCompletionResult = {
+        status: 'cancelled',
+        formType: currentFormType,
+        message: 'Form was closed without submission'
+      };
+      
+      resolveFormOperationByType(currentFormType, completionResult);
+    } else {
+      console.log('FormplayerModal: Form was already submitted or no operation to resolve');
     }
     
     // Call the parent's onClose immediately
@@ -155,39 +160,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     closeTimeoutRef.current = setTimeout(() => {
       setIsClosing(false);
     }, 500);
-  }, [isClosing, isSubmitting, onClose, currentOperationId, currentFormType]);
+  }, [isClosing, isSubmitting, onClose, currentOperationId, currentFormType, formSubmitted]);
 
-  // Listen for the closeFormplayer event
-  useEffect(() => {
-    const handleCloseFormplayer = () => {
-      handleClose();
-    };
-    
-    // Add event listener
-    appEvents.addListener('closeFormplayer', handleCloseFormplayer);
-    
-    // Clean up event listener on component unmount
-    return () => {
-      appEvents.removeListener('closeFormplayer', handleCloseFormplayer);
-    };
-  }, [handleClose]);
-  
-  // Reset form state when modal becomes visible or invisible
-  useEffect(() => {
-    if (!visible) {
-      // Reset form state when modal is closed
-      setTimeout(() => {
-        processedSubmissions.current.clear();
-        setSelectedFormSpecId(null);
-        setCurrentFormType(null);
-        setCurrentObservationId(null);
-        setCurrentObservationData(null);
-        setPendingFormInit(null);
-        setIsWebViewReady(false);
-        setIsClosing(false); // Reset closing state when modal is fully closed
-      }, 300); // Small delay to ensure modal is fully closed
-    }
-  }, [visible]);
+  // Removed closeFormplayer event listener - now using direct promise-based submission handling
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -282,151 +257,123 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     }
   };
   
-  // Handle form submission from the WebView
-  const handleSubmitForm = useCallback(async (formId: string, finalData: any) => {
-    console.log('Form submission received:', { formId, finalDataType: typeof finalData });
-    console.log('Form data preview:', JSON.stringify(finalData).substring(0, 100) + '...');
+  // Handle form submission directly (called by WebView message handler)
+  const handleSubmission = useCallback(async (data: { formType: string; finalData: Record<string, any> }): Promise<string> => {
+    const { formType, finalData } = data;
+    console.log('FormplayerModal: handleSubmission called', { formType, finalData });
     
-    // Generate a unique submission ID to track this specific submission attempt
-    const submissionId = `${formId}_${Date.now()}`;
-    
-    // Validate that we have valid form data
-    if (!finalData || typeof finalData !== 'object') {
-      console.error(`[${submissionId}] Invalid form data received:`, finalData);
-      Alert.alert('Error', 'Invalid form data received. Please try again.');
-      return;
-    }
-    
-    // If already submitting, prevent duplicate submissions
-    if (isSubmitting) {
-      console.log(`[${submissionId}] Already submitting a form, ignoring this submission`);
-      return;
-    }
-    
-    // Set submitting state to show loading indicator
+    // Set submitting state
     setIsSubmitting(true);
     
-    // Create a unique submission key that combines form ID and a timestamp
-    // This ensures we only save the form once per session, but allows retries if needed
-    const currentTime = Date.now();
-    const lastSubmissionTime = processedSubmissions.current.get(formId) || 0;
-    
-    // Only process submissions that are at least 2 seconds apart to prevent duplicates
-    // but still allow retries if the first submission failed
-    if (currentTime - lastSubmissionTime < 2000) {
-      console.log(`[${submissionId}] Ignoring rapid duplicate submission for form:`, formId);
-      console.log(`[${submissionId}] Time since last submission:`, currentTime - lastSubmissionTime, 'ms');
-      setIsSubmitting(false);
-      return;
-    }
-    
-    // Mark this submission time
-    processedSubmissions.current.set(formId, currentTime);
-    console.log(`[${submissionId}] Processing submission for form:`, formId);
-    
-    // Get the local repository from the database service
-    const localRepo = databaseService.getLocalRepo();
-    if (!localRepo) {
-      console.error(`[${submissionId}] Database repository not available`);
-      Alert.alert('Error', 'Database not available. Please restart the app and try again.');
-      setIsSubmitting(false);
-      return;
-    }
-    
     try {
-      // Determine the form type from props
-      const activeFormType = currentFormType;
-      if (!activeFormType) {
-        console.error(`[${submissionId}] Active form type is null`);
-        Alert.alert('Error', 'Invalid form type. Please try again.');
-        setIsSubmitting(false);
-        return;
+      // Get the local repository from the database service
+      const localRepo = databaseService.getLocalRepo();
+      if (!localRepo) {
+        throw new Error('Database repository not available');
       }
-      console.log(`[${submissionId}] Using form type:`, activeFormType);
       
-      // Ensure form data is properly structured before saving
-      const processedData = typeof finalData === 'string' 
-        ? JSON.parse(finalData) 
-        : finalData;
-      
-      // Save the observation to the database
+      // Save the observation
       let resultObservationId: string;
       if (currentObservationId) {
-        console.log(`[${submissionId}] Updating existing observation:`, currentObservationId);
-        const updateSuccess = await localRepo.updateObservation({id:currentObservationId, data: processedData});
-        
+        console.log('FormplayerModal: Updating existing observation:', currentObservationId);
+        const updateSuccess = await localRepo.updateObservation({observationId: currentObservationId, data: finalData});
         if (!updateSuccess) {
           throw new Error('Failed to update observation');
         }
         resultObservationId = currentObservationId;
       } else {
-        console.log(`[${submissionId}] Creating new observation for form type:`, activeFormType);
-        const newId = await localRepo.saveObservation({formType:activeFormType, data: processedData});
-        
+        console.log('FormplayerModal: Creating new observation for form type:', formType);
+        const newId = await localRepo.saveObservation({formType, data: finalData});
         if (!newId) {
           throw new Error('Failed to save new observation');
         }
-        console.log(`[${submissionId}] Successfully created observation with ID:`, newId);
         resultObservationId = newId;
       }
       
-      // Show success message
-      const successMessage = currentObservationId
-        ? 'Observation updated successfully!'
-        : 'Form submitted successfully!';
+      // Mark form as successfully submitted
+      setFormSubmitted(true);
       
-      // Resolve the form operation promise with success result
+      // Resolve the form operation with success result
       const completionResult: FormCompletionResult = {
         status: currentObservationId ? 'form_updated' : 'form_submitted',
         observationId: resultObservationId,
-        formData: processedData,
-        formType: activeFormType
+        formData: finalData,
+        formType: formType
       };
-      
-      // Mark form as successfully submitted to prevent cancelled status on close
-      setFormSubmitted(true);
       
       if (currentOperationId) {
         resolveFormOperation(currentOperationId, completionResult);
+        // Clear the operation ID to prevent double resolution
+        setCurrentOperationId(null);
       } else {
-        resolveFormOperationByType(activeFormType, completionResult);
+        resolveFormOperationByType(formType, completionResult);
       }
       
-      Alert.alert('Success', successMessage, [{ text: 'OK', onPress: onClose }]);
+      // Show success message and close modal
+      const successMessage = currentObservationId ? 'Observation updated successfully!' : 'Form submitted successfully!';
+      Alert.alert('Success', successMessage, [{ text: 'OK', onPress: () => {
+        setIsSubmitting(false);
+        onClose();
+      }}]);
       
-      // Close the modal after successful submission
+      return resultObservationId;
+      
+    } catch (error) {
+      console.error('FormplayerModal: Error in handleSubmission:', error);
       setIsSubmitting(false);
       
-      // No callback needed here, the onClose will trigger the parent to refresh
-    } catch (error) {
-      console.error(`[${submissionId}] Error saving form submission:`, error);
-      
-      // Resolve the form operation promise with error result
+      // Resolve the form operation with error result
       const errorResult: FormCompletionResult = {
         status: 'error',
-        formType: currentFormType || 'unknown',
+        formType: formType,
         message: error instanceof Error ? error.message : 'Unknown error occurred'
       };
       
       if (currentOperationId) {
         resolveFormOperation(currentOperationId, errorResult);
-      } else if (currentFormType) {
-        resolveFormOperationByType(currentFormType, errorResult);
+      } else {
+        resolveFormOperationByType(formType, errorResult);
       }
       
       Alert.alert('Error', 'Failed to save your form. Please try again.');
-      setIsSubmitting(false);
+      throw error;
     }
-  }, [selectedFormSpecId, onClose, currentFormType, currentObservationId, currentOperationId, isSubmitting]);
+  }, [currentObservationId, currentOperationId, onClose]);
 
-  useImperativeHandle(ref, () => ({ initializeForm }));
+  // Register/unregister modal with message handlers and reset form state
+  useEffect(() => {
+    if (visible) {
+      // Register this modal as the active one for handling submissions
+      setActiveFormplayerModal({ handleSubmission });
+    } else {
+      // Unregister when modal is closed
+      setActiveFormplayerModal(null);
+      
+      // Reset form state when modal is closed
+      setTimeout(() => {
+        processedSubmissions.current.clear();
+        setSelectedFormSpecId(null);
+        setCurrentFormType(null);
+        setCurrentObservationId(null);
+        setCurrentObservationData(null);
+        setPendingFormInit(null);
+        setIsWebViewReady(false);
+        setIsClosing(false); // Reset closing state when modal is fully closed
+        setFormSubmitted(false); // Reset submission flag
+      }, 300); // Small delay to ensure modal is fully closed
+    }
+  }, [visible, handleSubmission]);
+
+  useImperativeHandle(ref, () => ({ initializeForm, handleSubmission }));
 
   return (
     <Modal
       animationType="slide"
       transparent={false}
       visible={visible}
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
+      presentationStyle="fullScreen"
+      statusBarTranslucent={false}
     >
       <View style={styles.container}>
         <View style={styles.header}>

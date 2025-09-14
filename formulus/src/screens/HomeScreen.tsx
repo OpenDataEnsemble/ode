@@ -59,8 +59,15 @@ const HomeScreen = ({ navigation }: any) => {
     const handleOpenFormplayer = async (config: any) => {
       console.log('HomeScreen: openFormplayerRequested event received', config);
 
+      // Prevent opening if already visible
+      if (formplayerVisible) {
+        console.log('HomeScreen: FormplayerModal already visible, ignoring open request');
+        return;
+      }
+
       const { formType, observationId, params, savedData, operationId } = config;
       
+      console.log('HomeScreen: Opening FormplayerModal');
       setFormplayerVisible(true);
       // Use the ref-based approach to initialize the form
       const formService = await FormService.getInstance();
@@ -133,6 +140,14 @@ const HomeScreen = ({ navigation }: any) => {
 
   const handleClick = () => {
     console.log('HomeScreen: handleClick event received');
+    
+    // Prevent opening if already visible
+    if (formplayerVisible) {
+      console.log('HomeScreen: FormplayerModal already visible, ignoring test button click');
+      return;
+    }
+    
+    console.log('HomeScreen: Opening FormplayerModal via test button');
     setFormplayerVisible(true);
     const bgPath = "file:///data/user/0/com.formulus/files/app/assets/sapiens-Dt1gTJ5Q.jpg";
     // Check if bgPath exists
@@ -170,9 +185,11 @@ const HomeScreen = ({ navigation }: any) => {
       
       {/* Formplayer Modal */}
       <FormplayerModal 
+        key="formplayer-modal" // Ensure single instance
         ref={formplayerModalRef}
         visible={formplayerVisible} 
         onClose={() => {
+          console.log('HomeScreen: FormplayerModal onClose called');
           setFormplayerVisible(false);
         }}
       />
