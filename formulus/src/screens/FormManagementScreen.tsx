@@ -104,8 +104,14 @@ const FormManagementScreen = ({ navigation }: any) => {
   
   // Handle editing an observation
   const handleEditObservation = (formType: FormSpec, observation: Observation) => {
-    setFormModalVisible(true);
-    formplayerModalRef.current?.initializeForm(formType, null, observation.observationId, observation.data, null);
+    // Use the standard openFormplayer API method by emitting the event directly
+    // This matches the standard FormulusInterface.openFormplayer implementation
+    appEvents.emit('openFormplayerRequested', {
+      formType: formType.id,
+      params: {},
+      savedData: observation.data,
+      observationId: observation.observationId
+    });
   };
   
   // Handle deleting an observation
