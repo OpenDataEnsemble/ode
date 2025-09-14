@@ -88,7 +88,7 @@ android {
         versionName = "1.0"
         
         // Enable VisionCamera code scanner
-        buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", isNewArchitectureEnabled().toString()
+        buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", (findProperty("newArchEnabled") ?: "false").toString()
         buildConfigField "boolean", "VISION_CAMERA_ENABLE_CODE_SCANNER", "true"
     }
 

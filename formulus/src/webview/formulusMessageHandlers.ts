@@ -639,10 +639,10 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       
       try {
         // Import DocumentPicker dynamically to handle cases where it might not be available
-        const DocumentPicker = require('react-native-document-picker');
+        const DocumentPicker = require('@react-native-documents/picker');
         
-        // Pick a single file
-        const result = await DocumentPicker.pickSingle({
+        // Pick a single file (new API returns array, destructure first item)
+        const [result] = await DocumentPicker.pick({
           type: [DocumentPicker.types.allFiles],
           copyTo: 'cachesDirectory', // Copy to cache for access
         });
@@ -669,7 +669,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         // Check if DocumentPicker is available and if this is a cancellation
         let isCancel = false;
         try {
-          const DocumentPicker = require('react-native-document-picker');
+          const DocumentPicker = require('@react-native-documents/picker');
           isCancel = DocumentPicker.isCancel(error);
         } catch (importError) {
           // DocumentPicker not available, treat as regular error

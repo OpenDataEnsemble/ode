@@ -9,8 +9,7 @@ import {
   Dimensions,
   StatusBar,
 } from 'react-native';
-import { Camera, useCameraDevices, useFrameProcessor, useCameraPermission } from 'react-native-vision-camera';
-import { scanBarcodes, BarcodeFormat } from 'vision-camera-code-scanner';
+import { Camera, useCameraDevices, useCodeScanner, useCameraPermission } from 'react-native-vision-camera';
 import { appEvents } from '../webview/FormulusMessageHandlers';
 
 const { width, height } = Dimensions.get('window');
@@ -51,62 +50,34 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
     }
   }, [visible]);
 
-  // Frame processor for barcode scanning
-  const frameProcessor = useFrameProcessor((frame) => {
-    'worklet'
-    
-    if (!isScanning) return;
-    
-    try {
-      const barcodes = scanBarcodes(frame, [
-        BarcodeFormat.QR_CODE,
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,
-        BarcodeFormat.UPC_A,
-        BarcodeFormat.UPC_E,
-        BarcodeFormat.DATA_MATRIX,
-        BarcodeFormat.PDF417,
-        BarcodeFormat.AZTEC,
-      ]);
+  // Code scanner using built-in functionality
+  const codeScanner = useCodeScanner({
+    codeTypes: ['qr', 'ean-13', 'ean-8', 'code-128', 'code-39', 'code-93', 'upc-a', 'upc-e', 'data-matrix', 'pdf-417', 'aztec', 'codabar', 'itf'],
+    onCodeScanned: (codes) => {
+      if (!isScanning || resultSentRef.current || codes.length === 0) return;
       
-      if (barcodes.length > 0 && !resultSentRef.current) {
-        const barcode = barcodes[0];
-        console.log('Barcode detected:', barcode);
-        
-        // Use runOnJS to call React state updates from worklet
-        const handleBarcodeDetected = (value: string, format: string) => {
-          'worklet'
-          console.log('Processing barcode:', value, format);
-          setScannedData(value);
-          setIsScanning(false);
-          resultSentRef.current = true;
-          
-          // Send result back to handler
-          if (onResult && fieldId) {
-            onResult({
-              fieldId,
-              status: 'success',
-              data: {
-                type: 'qrcode',
-                value: value,
-                format: format,
-                timestamp: new Date().toISOString()
-              }
-            });
+      const code = codes[0];
+      console.log('Code detected:', code);
+      
+      setScannedData(code.value || '');
+      setIsScanning(false);
+      resultSentRef.current = true;
+      
+      // Send result back to handler
+      if (onResult && fieldId) {
+        onResult({
+          fieldId,
+          status: 'success',
+          data: {
+            type: 'qrcode',
+            value: code.value,
+            format: code.type,
+            timestamp: new Date().toISOString()
           }
-        };
-        
-        // Call the handler function
-        if (barcode.displayValue) {
-          handleBarcodeDetected(barcode.displayValue, String(barcode.format));
-        }
+        });
       }
-    } catch (error) {
-      console.error('Frame processor error:', error);
     }
-  }, [isScanning, fieldId, onResult]);
+  });
 
   const handleCancel = () => {
     if (onResult && fieldId) {
@@ -176,7 +147,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
           style={styles.camera}
           device={device}
           isActive={visible && isScanning}
-          frameProcessor={frameProcessor}
+          codeScanner={codeScanner}
         />
         
         {/* Overlay */}
