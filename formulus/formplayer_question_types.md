@@ -117,7 +117,65 @@ The QR code field stores a simple string value:
 - JSON data: `"{\"type\":\"contact\",\"name\":\"John Doe\",\"phone\":\"123-456-7890\"}"`
 - WiFi configuration: `"WIFI:T:WPA;S:MyNetwork;P:password123;;"`
 
-### 3. Swipe Layout
+### 3. Signature Questions
+
+Signature questions allow users to capture digital signatures using either the device's native signature capture or a web-based canvas drawing interface.
+
+**Schema Format:**
+```json
+{
+  "customerSignature": {
+    "type": "object",
+    "format": "signature",
+    "title": "Customer Signature",
+    "description": "Please provide your signature"
+  }
+}
+```
+
+**UI Schema:**
+```json
+{
+  "type": "Control",
+  "scope": "#/properties/customerSignature"
+}
+```
+
+**Features:**
+- Native signature capture using `react-native-signature-canvas`
+- Web-based canvas drawing with touch/mouse support
+- Dual capture modes: Native (React Native) and Canvas (Web)
+- Signature preview and validation
+- Clear/retry functionality
+- Mock implementation for development/testing
+- Automatic GUID generation for signature files
+
+**Capture Methods:**
+1. **Native Signature Capture**: Full-screen signature pad optimized for mobile devices
+2. **Canvas Drawing**: Browser-based signature drawing with touch and mouse support
+
+**Data Structure:**
+Signatures are stored as objects containing:
+```json
+{
+  "type": "signature",
+  "filename": "a1b2c3d4-e5f6-7890-abcd-ef1234567890.png",
+  "base64": "iVBORw0KGgoAAAANSUhEUgAA...",
+  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "metadata": {
+    "width": 400,
+    "height": 200,
+    "size": 12345,
+    "strokeCount": 1
+  }
+}
+```
+
+**Dependencies:**
+- `react-native-signature-canvas`: For native signature capture functionality
+
+### 4. Swipe Layout
 
 Organizes form elements into swipeable pages for better mobile UX.
 
@@ -689,6 +747,19 @@ Use this checklist to ensure you've completed all necessary steps:
 - [ ] ✅ Create React component renderer
 - [ ] ✅ Register renderer in `App.tsx`
 - [ ] ✅ Add AJV format validation
+
+**Signature Question Type Example:**
+
+All steps above have been completed for the signature question type. Here's a summary of the implementation:
+
+1. **Interface Definition**: `SignatureResult` and `SignatureResultData` interfaces defined
+2. **Client Method**: `requestSignature(fieldId: string): Promise<SignatureResult>` implemented
+3. **Mock Implementation**: Interactive signature simulation with success/cancel/error options
+4. **React Renderer**: `SignatureQuestionRenderer` with dual capture modes (native + canvas)
+5. **Registration**: Added to `customRenderers` array in App.tsx
+6. **Validation**: AJV format validator for 'signature' format
+7. **React Native Handler**: `onRequestSignature` handler with modal integration
+8. **Dependencies**: `react-native-signature-canvas` added to package.json
 
 **Testing & Polish:**
 - [ ] ✅ Add sample data to mock for testing

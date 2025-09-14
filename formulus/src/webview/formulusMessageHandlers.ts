@@ -373,6 +373,31 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         }
       });
     },
+    onRequestSignature: async (fieldId: string): Promise<any> => {
+      console.log('Request signature handler called', fieldId);
+      
+      return new Promise((resolve, reject) => {
+        try {
+          // Emit event to open signature capture modal
+          appEvents.emit('openSignatureCapture', {
+            fieldId,
+            onResult: (result: any) => {
+              console.log('Signature capture result received:', result);
+              resolve(result);
+            }
+          });
+          
+        } catch (error) {
+          console.error('Error in signature handler:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          resolve({
+            fieldId,
+            status: 'error',
+            message: `Signature error: ${errorMessage}`
+          });
+        }
+      });
+    },
     onRequestLocation: (fieldId: string) => {
       // TODO: implement location request logic
       console.log('Request location handler called', fieldId);
@@ -392,10 +417,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onRequestAudio: (fieldId: string) => {
       // TODO: implement audio request logic
       console.log('Request audio handler called', fieldId);
-    },
-    onRequestSignature: (fieldId: string) => {
-      // TODO: implement signature request logic
-      console.log('Request signature handler called', fieldId);
     },
     onRequestBiometric: (fieldId: string) => {
       // TODO: implement biometric request logic

@@ -1,5 +1,5 @@
 // Mock implementation of ReactNativeWebView for development testing
-import { FormInitData, CameraResult, QrcodeResult } from './FormulusInterfaceDefinition';
+import { FormInitData, CameraResult, QrcodeResult, SignatureResult } from './FormulusInterfaceDefinition';
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -11,6 +11,7 @@ interface MockFormulus {
   savePartial: (formType: string, data: Record<string, any>) => Promise<void>;
   requestCamera: (fieldId: string) => Promise<CameraResult>;
   requestQrcode: (fieldId: string) => Promise<QrcodeResult>;
+  requestSignature: (fieldId: string) => Promise<SignatureResult>;
   requestLocation: (fieldId: string) => Promise<void>;
   requestFile: (fieldId: string) => Promise<void>;
   launchIntent: (fieldId: string, intentSpec: Record<string, any>) => Promise<void>;
@@ -34,6 +35,10 @@ class WebViewMock {
   }> = new Map();
   private pendingQrcodePromises: Map<string, {
     resolve: (result: QrcodeResult) => void;
+    reject: (error: any) => void;
+  }> = new Map();
+  private pendingSignaturePromises: Map<string, {
+    resolve: (result: SignatureResult) => void;
     reject: (error: any) => void;
   }> = new Map();
 
@@ -137,6 +142,20 @@ class WebViewMock {
             
             // Show interactive popup for QR code simulation
             this.showQrcodeSimulationPopup(fieldId);
+          });
+        },
+        requestSignature: (fieldId: string): Promise<SignatureResult> => {
+          const message = { type: 'requestSignature', fieldId };
+          console.log('[WebView Mock] Received requestSignature call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          
+          // Return a Promise that will be resolved/rejected based on user interaction
+          return new Promise<SignatureResult>((resolve, reject) => {
+            // Store the promise resolvers for this field
+            this.pendingSignaturePromises.set(fieldId, { resolve, reject });
+            
+            // Show interactive popup for signature simulation
+            this.showSignatureSimulationPopup(fieldId);
           });
         },
         requestLocation: (fieldId: string): Promise<void> => {
@@ -412,6 +431,109 @@ class WebViewMock {
     });
   }
 
+  // Show interactive signature simulation popup
+  private showSignatureSimulationPopup(fieldId: string): void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    `;
+
+    popup.innerHTML = `
+      <h3 style="margin: 0 0 16px 0; color: #333; font-size: 18px;">✍️ Signature Capture</h3>
+      <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Field: <code>${fieldId}</code></p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="mock-success" style="
+          padding: 12px 20px;
+          background: #4CAF50;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">✅ Capture Signature (Success)</button>
+        
+        <button id="mock-cancel" style="
+          padding: 12px 20px;
+          background: #FF9800;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">❌ Cancel</button>
+        
+        <button id="mock-error" style="
+          padding: 12px 20px;
+          background: #f44336;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">⚠️ Capture Error</button>
+      </div>
+    `;
+
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+
+    // Add button event listeners
+    const successBtn = popup.querySelector('#mock-success');
+    const cancelBtn = popup.querySelector('#mock-cancel');
+    const errorBtn = popup.querySelector('#mock-error');
+
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+    };
+
+    successBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateSignatureSuccessResponse(fieldId);
+    });
+
+    cancelBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateSignatureCancelResponse(fieldId);
+    });
+
+    errorBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateSignatureErrorResponse(fieldId);
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        this.simulateSignatureCancelResponse(fieldId);
+      }
+    });
+  }
+
   // Simulate successful camera response with GUID
   private simulateSuccessResponse(fieldId: string): void {
     // Generate GUID for mock image
@@ -584,9 +706,104 @@ class WebViewMock {
     this.simulateSuccessResponse(fieldId);
   }
 
+  // Simulate successful signature response
+  private simulateSignatureSuccessResponse(fieldId: string): void {
+    // Generate GUID for mock signature
+    const generateGUID = () => {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : ((r & 0x3) | 0x8);
+        return v.toString(16);
+      });
+    };
+    
+    const signatureGuid = generateGUID();
+    // Create a simple mock signature as base64 SVG
+    const mockSignatureSvg = `<svg width="300" height="150" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10,75 Q50,25 100,75 T200,75 Q250,50 290,75" stroke="black" stroke-width="2" fill="none"/>
+      <text x="10" y="140" font-family="Arial" font-size="12" fill="gray">Mock Signature</text>
+    </svg>`;
+    const base64Signature = btoa(mockSignatureSvg);
+    const dataUrl = `data:image/svg+xml;base64,${base64Signature}`;
+    
+    const mockSignatureResult: SignatureResult = {
+      fieldId,
+      status: 'success',
+      data: {
+        type: 'signature',
+        filename: `${signatureGuid}.svg`,
+        base64: base64Signature,
+        url: dataUrl,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          width: 300,
+          height: 150,
+          size: mockSignatureSvg.length,
+          strokeCount: 1
+        }
+      }
+    };
+    
+    console.log('[WebView Mock] Simulating successful signature response:', mockSignatureResult);
+    
+    // Resolve the pending Promise for this field
+    const pendingPromise = this.pendingSignaturePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.resolve(mockSignatureResult);
+      this.pendingSignaturePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending signature promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate signature cancellation
+  private simulateSignatureCancelResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating signature cancellation for field:', fieldId);
+    
+    const signatureResult: SignatureResult = {
+      fieldId,
+      status: 'cancelled',
+      message: 'User cancelled signature capture'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingSignaturePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(signatureResult);
+      this.pendingSignaturePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending signature promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate signature error
+  private simulateSignatureErrorResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating signature error for field:', fieldId);
+    
+    const signatureResult: SignatureResult = {
+      fieldId,
+      status: 'error',
+      message: 'Signature capture failed to initialize'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingSignaturePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(signatureResult);
+      this.pendingSignaturePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending signature promise found for field:', fieldId);
+    }
+  }
+
   // Manually simulate a QR code response for testing (keeping for DevTestbed)
   public simulateQrcodeResponse(fieldId: string): void {
     this.simulateQrcodeSuccessResponse(fieldId);
+  }
+
+  // Manually simulate a signature response for testing (keeping for DevTestbed)
+  public simulateSignatureResponse(fieldId: string): void {
+    this.simulateSignatureSuccessResponse(fieldId);
   }
 
   // Clean up the mock

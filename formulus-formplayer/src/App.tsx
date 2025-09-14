@@ -16,6 +16,7 @@ import SwipeLayoutRenderer, { swipeLayoutTester, groupAsSwipeLayoutTester } from
 import { finalizeRenderer } from "./FinalizeRenderer";
 import PhotoQuestionRenderer, { photoQuestionTester } from "./PhotoQuestionRenderer";
 import QrcodeQuestionRenderer, { qrcodeQuestionTester } from "./QrcodeQuestionRenderer";
+import SignatureQuestionRenderer, { signatureQuestionTester } from "./SignatureQuestionRenderer";
 
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -63,6 +64,7 @@ const customRenderers = [
   ...materialRenderers,
   { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
+  { tester: signatureQuestionTester, renderer: SignatureQuestionRenderer },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   finalizeRenderer
@@ -328,6 +330,22 @@ function App() {
     
     // For QR code fields, we expect a string value
     return typeof data === 'string';
+  });
+
+  // Add custom format for signature fields - expects JSON objects only
+  ajv.addFormat('signature', (data: any) => {
+    // Accept null/undefined for empty signature fields
+    if (data === null || data === undefined) {
+      return true;
+    }
+    
+    // For signature fields, we expect an object with specific properties
+    if (typeof data === 'object' && data !== null) {
+      // Basic validation - should have filename and type properties
+      return typeof data.filename === 'string' && data.type === 'signature';
+    }
+    
+    return false;
   });
 
   
