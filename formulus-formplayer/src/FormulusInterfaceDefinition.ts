@@ -133,12 +133,36 @@ export interface QrcodeResultData {
 }
 
 /**
+ * File selection result data
+ * @property {'file'} type - Always 'file' for file selection results
+ * @property {string} filename - Original filename of the selected file
+ * @property {string} uri - Local file URI (no base64 encoding)
+ * @property {string} mimeType - MIME type of the selected file
+ * @property {number} size - File size in bytes
+ * @property {string} timestamp - ISO timestamp when file was selected
+ * @property {object} metadata - File metadata (extension, original path, etc.)
+ */
+export interface FileResultData {
+  type: 'file';
+  filename: string;
+  uri: string; // Local file URI (no base64 encoding)
+  mimeType: string;
+  size: number;
+  timestamp: string;
+  metadata: {
+    extension: string;
+    originalPath?: string;
+  };
+}
+
+/**
  * Type aliases for specific action results
  */
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
 export type SignatureResult = ActionResult<SignatureResultData>;
 export type QrcodeResult = ActionResult<QrcodeResultData>;
+export type FileResult = ActionResult<FileResultData>;
 
 /**
  * @deprecated Use ActionResult<CameraResultData> instead
@@ -270,9 +294,9 @@ export interface FormulusInterface {
   /**
    * Request file selection for a field
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<FileResult>} Promise that resolves with file result or rejects on error/cancellation
    */
-  requestFile(fieldId: string): Promise<void>;
+  requestFile(fieldId: string): Promise<FileResult>;
 
   /**
    * Launch an external intent

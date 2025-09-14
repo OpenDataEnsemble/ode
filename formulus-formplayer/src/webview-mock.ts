@@ -1,5 +1,5 @@
 // Mock implementation of ReactNativeWebView for development testing
-import { FormInitData, CameraResult, QrcodeResult, SignatureResult } from './FormulusInterfaceDefinition';
+import { FormInitData, CameraResult, QrcodeResult, SignatureResult, FileResult } from './FormulusInterfaceDefinition';
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -13,7 +13,7 @@ interface MockFormulus {
   requestQrcode: (fieldId: string) => Promise<QrcodeResult>;
   requestSignature: (fieldId: string) => Promise<SignatureResult>;
   requestLocation: (fieldId: string) => Promise<void>;
-  requestFile: (fieldId: string) => Promise<void>;
+  requestFile: (fieldId: string) => Promise<FileResult>;
   launchIntent: (fieldId: string, intentSpec: Record<string, any>) => Promise<void>;
 }
 
@@ -29,18 +29,10 @@ type MockGlobalThis = typeof globalThis & {
 class WebViewMock {
   private messageListeners: ((message: any) => void)[] = [];
   private isActive = false;
-  private pendingCameraPromises: Map<string, {
-    resolve: (result: CameraResult) => void;
-    reject: (error: any) => void;
-  }> = new Map();
-  private pendingQrcodePromises: Map<string, {
-    resolve: (result: QrcodeResult) => void;
-    reject: (error: any) => void;
-  }> = new Map();
-  private pendingSignaturePromises: Map<string, {
-    resolve: (result: SignatureResult) => void;
-    reject: (error: any) => void;
-  }> = new Map();
+  private pendingCameraPromises: Map<string, { resolve: (value: CameraResult) => void; reject: (reason: any) => void }> = new Map();
+  private pendingQrcodePromises: Map<string, { resolve: (value: QrcodeResult) => void; reject: (reason: any) => void }> = new Map();
+  private pendingSignaturePromises: Map<string, { resolve: (value: SignatureResult) => void; reject: (reason: any) => void }> = new Map();
+  private pendingFilePromises: Map<string, { resolve: (value: FileResult) => void; reject: (reason: any) => void }> = new Map();
 
   // Mock the postMessage function that the app uses to send messages to native
   private postMessage = (message: string) => {
@@ -164,11 +156,19 @@ class WebViewMock {
           this.messageListeners.forEach(listener => listener(message));
           return Promise.resolve();
         },
-        requestFile: (fieldId: string): Promise<void> => {
+        requestFile: (fieldId: string): Promise<FileResult> => {
           const message = { type: 'requestFile', fieldId };
           console.log('[WebView Mock] Received requestFile call:', message);
           this.messageListeners.forEach(listener => listener(message));
-          return Promise.resolve();
+          
+          // Return a Promise that will be resolved/rejected based on user interaction
+          return new Promise<FileResult>((resolve, reject) => {
+            // Store the promise resolvers for this field
+            this.pendingFilePromises.set(fieldId, { resolve, reject });
+            
+            // Show interactive popup for file selection simulation
+            this.showFileSimulationPopup(fieldId);
+          });
         },
         launchIntent: (fieldId: string, intentData: Record<string, any>): Promise<void> => {
           const message = { type: 'launchIntent', fieldId, intentData };
@@ -804,6 +804,176 @@ class WebViewMock {
   // Manually simulate a signature response for testing (keeping for DevTestbed)
   public simulateSignatureResponse(fieldId: string): void {
     this.simulateSignatureSuccessResponse(fieldId);
+  }
+
+  // Simulate successful file selection response
+  private simulateFileSuccessResponse(fieldId: string, mimeType: string, filename: string): void {
+    // Generate GUID for file
+    const generateGUID = () => {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : ((r & 0x3) | 0x8);
+        return v.toString(16);
+      });
+    };
+    
+    const fileGuid = generateGUID();
+    const extension = filename.split('.').pop() || '';
+    const mockFileSize = Math.floor(Math.random() * 1000000) + 50000; // 50KB to 1MB
+    const mockUri = `file:///storage/emulated/0/Android/data/com.formulus/files/${fileGuid}.${extension}`;
+    
+    const mockFileResult: FileResult = {
+      fieldId,
+      status: 'success',
+      data: {
+        type: 'file',
+        filename,
+        uri: mockUri,
+        mimeType,
+        size: mockFileSize,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          extension,
+          originalPath: `/storage/emulated/0/Download/${filename}`
+        }
+      }
+    };
+    
+    console.log('[WebView Mock] Simulating successful file selection response:', mockFileResult);
+    
+    // Resolve the pending Promise for this field
+    const pendingPromise = this.pendingFilePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.resolve(mockFileResult);
+      this.pendingFilePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending file promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate file selection cancellation
+  private simulateFileCancelResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating file selection cancellation for field:', fieldId);
+    
+    const fileResult: FileResult = {
+      fieldId,
+      status: 'cancelled',
+      message: 'User cancelled file selection'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingFilePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(fileResult);
+      this.pendingFilePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending file promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate file selection error
+  private simulateFileErrorResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating file selection error for field:', fieldId);
+    
+    const fileResult: FileResult = {
+      fieldId,
+      status: 'error',
+      message: 'File selection failed: Permission denied'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingFilePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(fileResult);
+      this.pendingFilePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending file promise found for field:', fieldId);
+    }
+  }
+
+  // Manually simulate a file response for testing (keeping for DevTestbed)
+  public simulateFileResponse(fieldId: string): void {
+    this.simulateFileSuccessResponse(fieldId, 'application/pdf', 'test-document.pdf');
+  }
+
+  // Show file selection simulation popup
+  private showFileSimulationPopup(fieldId: string): void {
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border: 2px solid #007AFF;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-width: 300px;
+      text-align: center;
+    `;
+
+    popup.innerHTML = `
+      <h3 style="margin: 0 0 15px 0; color: #333;">File Selection Simulation</h3>
+      <p style="margin: 0 0 20px 0; color: #666;">Field ID: <code>${fieldId}</code></p>
+      <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        <button id="file-success" style="background: #007AFF; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Select PDF</button>
+        <button id="file-image" style="background: #34C759; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Select Image</button>
+        <button id="file-document" style="background: #FF9500; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Select Document</button>
+        <button id="file-cancel" style="background: #FF3B30; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Cancel</button>
+        <button id="file-error" style="background: #8E8E93; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">Error</button>
+      </div>
+      <p style="margin: 15px 0 0 0; font-size: 12px; color: #999;">Choose an option to simulate file selection</p>
+    `;
+
+    document.body.appendChild(popup);
+
+    // Add event listeners
+    popup.querySelector('#file-success')?.addEventListener('click', () => {
+      this.simulateFileSuccessResponse(fieldId, 'application/pdf', 'document.pdf');
+      document.body.removeChild(popup);
+    });
+
+    popup.querySelector('#file-image')?.addEventListener('click', () => {
+      this.simulateFileSuccessResponse(fieldId, 'image/jpeg', 'photo.jpg');
+      document.body.removeChild(popup);
+    });
+
+    popup.querySelector('#file-document')?.addEventListener('click', () => {
+      this.simulateFileSuccessResponse(fieldId, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'report.docx');
+      document.body.removeChild(popup);
+    });
+
+    popup.querySelector('#file-cancel')?.addEventListener('click', () => {
+      this.simulateFileCancelResponse(fieldId);
+      document.body.removeChild(popup);
+    });
+
+    popup.querySelector('#file-error')?.addEventListener('click', () => {
+      this.simulateFileErrorResponse(fieldId);
+      document.body.removeChild(popup);
+    });
+
+    // Close on background click
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 9999;
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', () => {
+      this.simulateFileCancelResponse(fieldId);
+      document.body.removeChild(popup);
+      document.body.removeChild(overlay);
+    });
   }
 
   // Clean up the mock

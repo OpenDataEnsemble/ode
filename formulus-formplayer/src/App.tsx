@@ -17,6 +17,7 @@ import { finalizeRenderer } from "./FinalizeRenderer";
 import PhotoQuestionRenderer, { photoQuestionTester } from "./PhotoQuestionRenderer";
 import QrcodeQuestionRenderer, { qrcodeQuestionTester } from "./QrcodeQuestionRenderer";
 import SignatureQuestionRenderer, { signatureQuestionTester } from "./SignatureQuestionRenderer";
+import FileQuestionRenderer, { fileQuestionTester } from "./FileQuestionRenderer";
 
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -65,6 +66,7 @@ const customRenderers = [
   { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
   { tester: signatureQuestionTester, renderer: SignatureQuestionRenderer },
+  { tester: fileQuestionTester, renderer: FileQuestionRenderer },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   finalizeRenderer
@@ -343,6 +345,24 @@ function App() {
     if (typeof data === 'object' && data !== null) {
       // Basic validation - should have filename and type properties
       return typeof data.filename === 'string' && data.type === 'signature';
+    }
+    
+    return false;
+  });
+
+  // Add custom format for file selection fields - expects JSON objects only
+  ajv.addFormat('select_file', (data: any) => {
+    // Accept null/undefined for empty file fields
+    if (data === null || data === undefined) {
+      return true;
+    }
+    
+    // For file fields, we expect an object with specific properties
+    if (typeof data === 'object' && data !== null) {
+      // Basic validation - should have filename, uri, and type properties
+      return typeof data.filename === 'string' && 
+             typeof data.uri === 'string' && 
+             data.type === 'file';
     }
     
     return false;

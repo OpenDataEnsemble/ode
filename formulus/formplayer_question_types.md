@@ -175,7 +175,63 @@ Signatures are stored as objects containing:
 **Dependencies:**
 - `react-native-signature-canvas`: For native signature capture functionality
 
-### 4. Swipe Layout
+### 4. File Selection Question
+
+The File Selection question type allows users to select files from their device using native file picker dialogs. This question type is designed to handle file URIs efficiently without base64 encoding, making it suitable for large files.
+
+**Schema Definition:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "documentUpload": {
+      "type": "string",
+      "format": "select_file",
+      "title": "Upload Document",
+      "description": "Select a document to upload"
+    }
+  }
+}
+```
+
+**UI Schema:**
+```json
+{
+  "documentUpload": {
+    "ui:widget": "file",
+    "ui:options": {
+      "accept": "*/*",
+      "multiple": false
+    }
+  }
+}
+```
+
+**Features:**
+- Native File Picker: Uses platform-specific file selection dialogs
+- URI-Based Storage: Files are stored as URIs, not base64 encoded data
+- File Metadata: Captures filename, size, MIME type, and timestamp
+- Error Handling: Supports cancellation and error states
+- File Preview: Shows selected file information with replace/delete options
+- Mock Support: Interactive simulation for development testing
+
+**Data Structure:**
+When a file is selected, the field value becomes a structured object:
+```json
+{
+  "filename": "document.pdf",
+  "uri": "file:///path/to/cached/document.pdf",
+  "size": 1024000,
+  "mimeType": "application/pdf",
+  "type": "file",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}
+```
+
+**Dependencies:**
+- `react-native-document-picker`: For native file selection functionality
+
+### 5. Swipe Layout
 
 Organizes form elements into swipeable pages for better mobile UX.
 
@@ -734,30 +790,6 @@ const sampleFormData = {
   "description": "Test your custom question type"
 }
 ```
-
-### Implementation Checklist
-
-Use this checklist to ensure you've completed all necessary steps:
-
-**Core Implementation:**
-- [ ] ✅ Define result interface and type in `FormulusInterfaceDefinition.ts`
-- [ ] ✅ Add interface method to `FormulusInterface`
-- [ ] ✅ Implement method in `FormulusClient` class
-- [ ] ✅ Create mock implementation in `webview-mock.ts`
-- [ ] ✅ Create React component renderer
-- [ ] ✅ Register renderer in `App.tsx`
-- [ ] ✅ Add AJV format validation
-
-**Signature Question Type Example:**
-
-All steps above have been completed for the signature question type. Here's a summary of the implementation:
-
-1. **Interface Definition**: `SignatureResult` and `SignatureResultData` interfaces defined
-2. **Client Method**: `requestSignature(fieldId: string): Promise<SignatureResult>` implemented
-3. **Mock Implementation**: Interactive signature simulation with success/cancel/error options
-4. **React Renderer**: `SignatureQuestionRenderer` with dual capture modes (native + canvas)
-5. **Registration**: Added to `customRenderers` array in App.tsx
-6. **Validation**: AJV format validator for 'signature' format
 7. **React Native Handler**: `onRequestSignature` handler with modal integration
 8. **Dependencies**: `react-native-signature-canvas` added to package.json
 

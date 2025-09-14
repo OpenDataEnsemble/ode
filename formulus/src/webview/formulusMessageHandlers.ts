@@ -402,9 +402,63 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // TODO: implement location request logic
       console.log('Request location handler called', fieldId);
     },
-    onRequestFile: (fieldId: string) => {
-      // TODO: implement file request logic
+    onRequestFile: async (fieldId: string): Promise<any> => {
       console.log('Request file handler called', fieldId);
+      
+      try {
+        // Import DocumentPicker dynamically to handle cases where it might not be available
+        const DocumentPicker = require('react-native-document-picker');
+        
+        // Pick a single file
+        const result = await DocumentPicker.pickSingle({
+          type: [DocumentPicker.types.allFiles],
+          copyTo: 'cachesDirectory', // Copy to cache for access
+        });
+        
+        console.log('File selected:', result);
+        
+        // Create FileResult object matching our interface
+        return {
+          fieldId,
+          status: 'success' as const,
+          data: {
+            filename: result.name,
+            uri: result.fileCopyUri || result.uri, // Use copied URI if available
+            size: result.size || 0,
+            mimeType: result.type || 'application/octet-stream',
+            type: 'file' as const,
+            timestamp: new Date().toISOString()
+          }
+        };
+        
+      } catch (error: any) {
+        console.log('File selection error or cancelled:', error);
+        
+        // Check if DocumentPicker is available and if this is a cancellation
+        let isCancel = false;
+        try {
+          const DocumentPicker = require('react-native-document-picker');
+          isCancel = DocumentPicker.isCancel(error);
+        } catch (importError) {
+          // DocumentPicker not available, treat as regular error
+        }
+        
+        if (isCancel) {
+          // User cancelled the picker
+          return {
+            fieldId,
+            status: 'cancelled' as const,
+            message: 'File selection was cancelled'
+          };
+        } else {
+          // Other error occurred
+          return {
+            fieldId,
+            status: 'error' as const,
+            message: error.message || 'Failed to select file'
+          };
+        }
+      }
     },
     onLaunchIntent: (fieldId: string, intentSpec: Record<string, any>) => {
       // TODO: implement launch intent logic

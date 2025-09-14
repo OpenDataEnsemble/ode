@@ -8,16 +8,20 @@
  */
 
 import { 
+  FormulusInterface, 
+  CameraResult, 
+  AudioResult, 
+  SignatureResult, 
+  QrcodeResult, 
+  FileResult 
+} from './FormulusInterfaceDefinition';
+
+import { 
   FormInitData, 
   AttachmentData, 
-  FormulusInterface,
   FormulusCallbacks,
   FORMULUS_INTERFACE_VERSION,
-  isCompatibleVersion,
-  CameraResult,
-  AudioResult,
-  SignatureResult,
-  QrcodeResult
+  isCompatibleVersion
 } from './FormulusInterfaceDefinition';
 
 // Re-export the types for convenience
@@ -131,15 +135,20 @@ class FormulusClient {
   }
 
   /**
-   * Request file picker from the Formulus RN app
+   * Request file selection from the Formulus RN app
    */
-  public requestFile(fieldId: string): void {
+  public requestFile(fieldId: string): Promise<FileResult> {
     console.log('Requesting file for field', fieldId);
     
     if (this.formulus) {
-      this.formulus.requestFile(fieldId);
+      return this.formulus.requestFile(fieldId);
     } else {
       console.warn('Formulus interface not available for requestFile');
+      return Promise.reject({
+        fieldId,
+        status: 'error',
+        message: 'Formulus interface not available'
+      });
     }
   }
 
