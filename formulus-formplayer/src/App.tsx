@@ -15,7 +15,7 @@ import { FormInitData } from "./FormulusInterfaceDefinition";
 import SwipeLayoutRenderer, { swipeLayoutTester, groupAsSwipeLayoutTester } from "./SwipeLayoutRenderer";
 import { finalizeRenderer } from "./FinalizeRenderer";
 import PhotoQuestionRenderer, { photoQuestionTester } from "./PhotoQuestionRenderer";
-import { RankedTester } from "@jsonforms/core";
+import QrcodeQuestionRenderer, { qrcodeQuestionTester } from "./QrcodeQuestionRenderer";
 
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -62,6 +62,7 @@ export const useFormContext = () => useContext(FormContext);
 const customRenderers = [
   ...materialRenderers,
   { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
+  { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   finalizeRenderer
@@ -309,18 +310,26 @@ function App() {
       return true;
     }
     
-    // Only accept objects (JSON photo data format)
+    // For photo fields, we expect an object with specific properties
     if (typeof data === 'object' && data !== null) {
-      // Validate required properties for photo data
-      return (
-        typeof data.type === 'string' &&
-        typeof data.filename === 'string' &&
-        (typeof data.url === 'string' || typeof data.base64 === 'string')
-      );
+      // Basic validation - should have filename and type properties
+      return typeof data.filename === 'string' && data.type === 'image';
     }
     
     return false;
   });
+
+  // Add custom format for QR code fields - expects string values
+  ajv.addFormat('qrcode', (data: any) => {
+    // Accept null/undefined/empty string for empty QR code fields
+    if (data === null || data === undefined || data === '') {
+      return true;
+    }
+    
+    // For QR code fields, we expect a string value
+    return typeof data === 'string';
+  });
+
   
   // Render loading state or error if needed
   if (isLoading) {

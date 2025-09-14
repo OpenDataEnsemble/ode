@@ -16,7 +16,8 @@ import {
   isCompatibleVersion,
   CameraResult,
   AudioResult,
-  SignatureResult
+  SignatureResult,
+  QrcodeResult
 } from './FormulusInterfaceDefinition';
 
 // Re-export the types for convenience
@@ -201,6 +202,24 @@ class FormulusClient {
         status: 'error',
         message: 'Formulus interface not available'
       } as SignatureResult);
+    }
+  }
+
+  /**
+   * Request QR code scanning from the Formulus RN app
+   */
+  public requestQrcode(fieldId: string): Promise<QrcodeResult> {
+    console.log('Requesting QR code scanner for field', fieldId);
+    
+    if (this.formulus) {
+      return this.formulus.requestQrcode(fieldId);
+    } else {
+      console.warn('Formulus interface not available for requestQrcode');
+      return Promise.reject({
+        fieldId,
+        status: 'error',
+        message: 'Formulus interface not available'
+      } as QrcodeResult);
     }
   }
 

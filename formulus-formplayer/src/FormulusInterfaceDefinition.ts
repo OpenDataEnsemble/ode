@@ -121,11 +121,24 @@ export interface SignatureResultData {
 }
 
 /**
+ * QR code-specific result data
+ * @property {'qrcode'} type - Always 'qrcode' for QR code results
+ * @property {string} value - The decoded QR code string value
+ * @property {string} timestamp - ISO timestamp when QR code was scanned
+ */
+export interface QrcodeResultData {
+  type: 'qrcode';
+  value: string;
+  timestamp: string;
+}
+
+/**
  * Type aliases for specific action results
  */
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
 export type SignatureResult = ActionResult<SignatureResultData>;
+export type QrcodeResult = ActionResult<QrcodeResultData>;
 
 /**
  * @deprecated Use ActionResult<CameraResultData> instead
@@ -291,6 +304,13 @@ export interface FormulusInterface {
    * @returns {Promise<SignatureResult>} Promise that resolves with signature result or rejects on error/cancellation
    */
   requestSignature(fieldId: string): Promise<SignatureResult>;
+
+  /**
+   * Request QR code scanning for a field
+   * @param {string} fieldId - The ID of the field
+   * @returns {Promise<QrcodeResult>} Promise that resolves with QR code result or rejects on error/cancellation
+   */
+  requestQrcode(fieldId: string): Promise<QrcodeResult>;
 
   /**
    * Request biometric authentication

@@ -1,5 +1,5 @@
 // Mock implementation of ReactNativeWebView for development testing
-import { FormInitData, CameraResult } from './FormulusInterfaceDefinition';
+import { FormInitData, CameraResult, QrcodeResult } from './FormulusInterfaceDefinition';
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -10,6 +10,7 @@ interface MockFormulus {
   updateObservation: (observationId: string, formType: string, finalData: Record<string, any>) => Promise<void>;
   savePartial: (formType: string, data: Record<string, any>) => Promise<void>;
   requestCamera: (fieldId: string) => Promise<CameraResult>;
+  requestQrcode: (fieldId: string) => Promise<QrcodeResult>;
   requestLocation: (fieldId: string) => Promise<void>;
   requestFile: (fieldId: string) => Promise<void>;
   launchIntent: (fieldId: string, intentSpec: Record<string, any>) => Promise<void>;
@@ -29,6 +30,10 @@ class WebViewMock {
   private isActive = false;
   private pendingCameraPromises: Map<string, {
     resolve: (result: CameraResult) => void;
+    reject: (error: any) => void;
+  }> = new Map();
+  private pendingQrcodePromises: Map<string, {
+    resolve: (result: QrcodeResult) => void;
     reject: (error: any) => void;
   }> = new Map();
 
@@ -120,6 +125,20 @@ class WebViewMock {
             this.showCameraSimulationPopup(fieldId);
           });
         },
+        requestQrcode: (fieldId: string): Promise<QrcodeResult> => {
+          const message = { type: 'requestQrcode', fieldId };
+          console.log('[WebView Mock] Received requestQrcode call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          
+          // Return a Promise that will be resolved/rejected based on user interaction
+          return new Promise<QrcodeResult>((resolve, reject) => {
+            // Store the promise resolvers for this field
+            this.pendingQrcodePromises.set(fieldId, { resolve, reject });
+            
+            // Show interactive popup for QR code simulation
+            this.showQrcodeSimulationPopup(fieldId);
+          });
+        },
         requestLocation: (fieldId: string): Promise<void> => {
           const message = { type: 'requestLocation', fieldId };
           console.log('[WebView Mock] Received requestLocation call:', message);
@@ -185,6 +204,109 @@ class WebViewMock {
   // Check if the mock is active
   public isActiveMock(): boolean {
     return this.isActive;
+  }
+
+  // Show interactive QR code simulation popup
+  private showQrcodeSimulationPopup(fieldId: string): void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    `;
+
+    popup.innerHTML = `
+      <h3 style="margin: 0 0 16px 0; color: #333; font-size: 18px;">📱 QR Code Scanner</h3>
+      <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Field: <code>${fieldId}</code></p>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <button id="mock-success" style="
+          padding: 12px 20px;
+          background: #4CAF50;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">✅ Scan QR Code (Success)</button>
+        
+        <button id="mock-cancel" style="
+          padding: 12px 20px;
+          background: #FF9800;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">❌ Cancel</button>
+        
+        <button id="mock-error" style="
+          padding: 12px 20px;
+          background: #f44336;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">⚠️ Scanner Error</button>
+      </div>
+    `;
+
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+
+    // Add button event listeners
+    const successBtn = popup.querySelector('#mock-success');
+    const cancelBtn = popup.querySelector('#mock-cancel');
+    const errorBtn = popup.querySelector('#mock-error');
+
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+    };
+
+    successBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateQrcodeSuccessResponse(fieldId);
+    });
+
+    cancelBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateQrcodeCancelResponse(fieldId);
+    });
+
+    errorBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateQrcodeErrorResponse(fieldId);
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        this.simulateQrcodeCancelResponse(fieldId);
+      }
+    });
   }
 
   // Show interactive camera simulation popup
@@ -380,11 +502,91 @@ class WebViewMock {
     }
   }
 
+  // Simulate successful QR code response
+  private simulateQrcodeSuccessResponse(fieldId: string): void {
+    // Sample QR code values for testing
+    const sampleQrCodes = [
+      'https://example.com',
+      'Hello World!',
+      'QR_CODE_12345',
+      '{"type":"contact","name":"John Doe","phone":"123-456-7890"}',
+      'WIFI:T:WPA;S:MyNetwork;P:password123;;'
+    ];
+    
+    const randomQrCode = sampleQrCodes[Math.floor(Math.random() * sampleQrCodes.length)];
+    
+    const mockQrcodeResult: QrcodeResult = {
+      fieldId,
+      status: 'success',
+      data: {
+        type: 'qrcode',
+        value: randomQrCode,
+        timestamp: new Date().toISOString()
+      }
+    };
+    
+    console.log('[WebView Mock] Simulating successful QR code response:', mockQrcodeResult);
+    
+    // Resolve the pending Promise for this field
+    const pendingPromise = this.pendingQrcodePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.resolve(mockQrcodeResult);
+      this.pendingQrcodePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending QR code promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate QR code cancellation
+  private simulateQrcodeCancelResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating QR code cancellation for field:', fieldId);
+    
+    const qrcodeResult: QrcodeResult = {
+      fieldId,
+      status: 'cancelled',
+      message: 'User cancelled QR code scanning'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingQrcodePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(qrcodeResult);
+      this.pendingQrcodePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending QR code promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate QR code error
+  private simulateQrcodeErrorResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating QR code error for field:', fieldId);
+    
+    const qrcodeResult: QrcodeResult = {
+      fieldId,
+      status: 'error',
+      message: 'QR code scanner failed to open'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingQrcodePromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(qrcodeResult);
+      this.pendingQrcodePromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending QR code promise found for field:', fieldId);
+    }
+  }
+
 
 
   // Manually simulate a camera response for testing (keeping for DevTestbed)
   public simulateCameraResponse(fieldId: string): void {
     this.simulateSuccessResponse(fieldId);
+  }
+
+  // Manually simulate a QR code response for testing (keeping for DevTestbed)
+  public simulateQrcodeResponse(fieldId: string): void {
+    this.simulateQrcodeSuccessResponse(fieldId);
   }
 
   // Clean up the mock
@@ -403,6 +605,16 @@ class WebViewMock {
         } as CameraResult);
       });
       this.pendingCameraPromises.clear();
+      
+      // Reject any pending QR code promises
+      this.pendingQrcodePromises.forEach((promise, fieldId) => {
+        promise.reject({
+          fieldId,
+          status: 'error',
+          message: 'WebView mock destroyed'
+        } as QrcodeResult);
+      });
+      this.pendingQrcodePromises.clear();
       
       this.isActive = false;
       console.log('[WebView Mock] Destroyed mock ReactNativeWebView interface');
@@ -478,6 +690,12 @@ export const sampleFormData = {
             "format": "photo",
             "title": "Profile Photo",
             "description": "Take a photo for your profile"
+        },
+        "qrCodeData": {
+            "type": "string",
+            "format": "qrcode",
+            "title": "QR Code Scanner",
+            "description": "Scan a QR code or enter data manually"
         },
         "personalData": {
             "type": "object",
@@ -597,6 +815,10 @@ export const sampleFormData = {
                 {
                     "type": "Control",
                     "scope": "#/properties/profilePhoto"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/qrCodeData"
                 }
             ]
         },
