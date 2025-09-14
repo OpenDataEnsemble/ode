@@ -5,8 +5,8 @@ export const login = async (username: string, password: string) => {
     console.log('Logging in with', username, password)
     const api = await synkronusApi.getApi()
 
-    const res = await api.authLoginPost({
-        authLoginPostRequest: { username, password },
+    const res = await api.login({
+        loginRequest: { username, password },
     })
 
     const { token, refreshToken, expiresAt } = res.data
@@ -39,8 +39,8 @@ export const getApiAuthToken = async (): Promise<string | undefined> => {
  */
 export const refreshToken = async () => {
   const api = await synkronusApi.getApi();
-  const res = await api.authRefreshPost({
-    authRefreshPostRequest: { refreshToken: (await AsyncStorage.getItem('@refreshToken')) ?? '' },
+  const res = await api.refreshToken({
+    refreshTokenRequest: { refreshToken: (await AsyncStorage.getItem('@refreshToken')) ?? '' },
   });
   const { token, refreshToken, expiresAt } = res.data;
   await AsyncStorage.setItem('@token', token);
