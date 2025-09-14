@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-09-13T12:05:18.780Z
+// Last generated: 2025-09-14T07:43:23.313Z
 
 (function() {
   // Enhanced API availability detection and recovery
@@ -172,7 +172,7 @@
           });
         },
 
-        // openFormplayer: formType: string, params: Record<string, any>, savedData: Record<string, any> => Promise<void>
+        // openFormplayer: formType: string, params: Record<string, any>, savedData: Record<string, any> => Promise<FormCompletionResult>
         openFormplayer: function(formType, params, savedData) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);

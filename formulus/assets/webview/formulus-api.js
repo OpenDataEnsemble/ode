@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-09-13T12:05:20.127Z
+ * Last generated: 2025-09-14T07:43:24.653Z
  * 
  * @example
  * // In your JavaScript file:
@@ -48,7 +48,7 @@ const FormulusAPI = {
  * @param {string} formType - The identifier of the formtype to open
  * @param {Object} params - Additional parameters for form initialization
  * @param {Object} savedData - Previously saved form data (for editing)
- * @returns {Promise<void>} 
+ * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
  */
   openFormplayer: function(formType, params, savedData) {},
 
