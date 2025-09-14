@@ -10,17 +10,14 @@ import {
 } from '@mui/material';
 import { Draw as SignatureIcon, Delete as DeleteIcon, Clear as ClearIcon } from '@mui/icons-material';
 import { withJsonFormsControlProps } from '@jsonforms/react';
-import { ControlProps, rankWith, schemaTypeIs, and, schemaMatches } from '@jsonforms/core';
+import { ControlProps, rankWith, formatIs } from '@jsonforms/core';
 import FormulusClient from './FormulusInterface';
 import { SignatureResult } from './FormulusInterfaceDefinition';
 
 // Tester function - determines when this renderer should be used
 export const signatureQuestionTester = rankWith(
-  5, // Priority (higher = more specific)
-  and(
-    schemaTypeIs('object'), // Expects object data type (like photo)
-    schemaMatches((schema) => schema.format === 'signature') // Matches format
-  )
+  10, // Priority - higher than default string renderer
+  formatIs('signature')
 );
 
 const SignatureQuestionRenderer: React.FC<ControlProps> = ({

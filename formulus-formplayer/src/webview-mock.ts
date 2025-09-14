@@ -1670,6 +1670,12 @@ export const sampleFormData = {
             "title": "QR Code Scanner",
             "description": "Scan a QR code or enter data manually"
         },
+        "userSignature": {
+            "type": "string",
+            "format": "signature",
+            "title": "Digital Signature",
+            "description": "Please provide your signature"
+        },
         "personalData": {
             "type": "object",
             "properties": {
@@ -1873,6 +1879,27 @@ export const sampleFormData = {
                 {
                     "type": "Control",
                     "scope": "#/properties/postalCode"
+                }
+            ]
+        },
+        {
+            "type": "VerticalLayout",
+            "elements": [
+                {
+                    "type": "Label",
+                    "text": "Media & Signatures"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/profilePhoto"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/qrCodeData"
+                },
+                {
+                    "type": "Control",
+                    "scope": "#/properties/userSignature"
                 }
             ]
         },

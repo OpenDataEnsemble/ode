@@ -398,7 +398,7 @@ function App() {
                   schema={schema}
                   uischema={uischema}
                   data={data}
-                  renderers={customRenderers}
+                  renderers={[...materialRenderers, ...customRenderers]}
                   cells={materialCells}
                   onChange={handleDataChange}
                   validationMode="ValidateAndShow"
