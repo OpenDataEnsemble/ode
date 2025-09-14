@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SyncProgress } from '../contexts/SyncContext';
 import { notificationService } from './NotificationService';
 import { FormService } from './FormService';
+import { appVersionService } from './AppVersionService';
 
 type SyncProgressCallback = (progress: number) => void;
 type SyncStatusCallback = (status: string) => void;
@@ -259,7 +260,15 @@ export class SyncService {
   public async initialize(): Promise<void> {
     // Initialize any required state
     const lastSeenVersion = await AsyncStorage.getItem('@last_seen_version');
-    await AsyncStorage.setItem('@appVersion', '1.0.0'); // TODO: Get from app config
+    
+    try {
+      const appVersion = await appVersionService.getVersion();
+      await AsyncStorage.setItem('@appVersion', appVersion);
+      console.log('SyncService: Initialized with app version:', appVersion);
+    } catch (error) {
+      console.error('SyncService: Failed to get app version, using fallback:', error);
+      await AsyncStorage.setItem('@appVersion', '1.0.0'); // Fallback version
+    }
     
     if (lastSeenVersion) {
       this.updateStatus(`Last sync: v${lastSeenVersion}`);
