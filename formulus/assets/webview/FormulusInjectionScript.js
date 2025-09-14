@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-09-14T07:43:23.313Z
+// Last generated: 2025-09-14T15:11:29.229Z
 
 (function() {
   // Enhanced API availability detection and recovery
@@ -509,7 +509,7 @@
           });
         },
 
-        // requestFile: fieldId: string => Promise<void>
+        // requestFile: fieldId: string => Promise<FileResult>
         requestFile: function(fieldId) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -740,6 +740,53 @@
           // Send the message to React Native
           globalThis.ReactNativeWebView.postMessage(JSON.stringify({
             type: 'requestSignature',
+            messageId,
+                        fieldId: fieldId
+          }));
+          
+          });
+        },
+
+        // requestQrcode: fieldId: string => Promise<QrcodeResult>
+        requestQrcode: function(fieldId) {
+          return new Promise((resolve, reject) => {
+          const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+          
+          // Add response handler for methods that return values
+          
+          const callback = (event) => {
+            try {
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestQrcode callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestQrcode callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
+              if (data.type === 'requestQrcode_response' && data.messageId === messageId) {
+                window.removeEventListener('message', callback);
+                if (data.error) {
+                  reject(new Error(data.error));
+                } else {
+                  resolve(data.result);
+                }
+              }
+            } catch (e) {
+              console.error("'requestQrcode' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
+              reject(e);
+            }
+          };
+          window.addEventListener('message', callback);
+          
+          
+          // Send the message to React Native
+          globalThis.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'requestQrcode',
             messageId,
                         fieldId: fieldId
           }));

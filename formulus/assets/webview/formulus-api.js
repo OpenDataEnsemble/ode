@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-09-14T07:43:24.653Z
+ * Last generated: 2025-09-14T15:11:30.528Z
  * 
  * @example
  * // In your JavaScript file:
@@ -108,7 +108,7 @@ const FormulusAPI = {
  * Request file selection for a field
  * /
  * @param {string} fieldId - The ID of the field
- * @returns {Promise<void>} 
+ * @returns {Promise<FileResult>} Promise that resolves with file result or rejects on error/cancellation
  */
   requestFile: function(fieldId) {},
 
@@ -146,6 +146,14 @@ const FormulusAPI = {
  * @returns {Promise<SignatureResult>} Promise that resolves with signature result or rejects on error/cancellation
  */
   requestSignature: function(fieldId) {},
+
+  /**
+ * Request QR code scanning for a field
+ * /
+ * @param {string} fieldId - The ID of the field
+ * @returns {Promise<QrcodeResult>} Promise that resolves with QR code result or rejects on error/cancellation
+ */
+  requestQrcode: function(fieldId) {},
 
   /**
  * Request biometric authentication
