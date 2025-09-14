@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {View,Text,TextInput,TouchableOpacity,StyleSheet,SafeAreaView,ScrollView,Alert,ActivityIndicator} from 'react-native';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { login } from '../api/synkronus/Auth'
+import { login } from '../api/synkronus/Auth';
+import QRScannerModal from '../components/QRScannerModal';
+import { QRSettingsService } from '../services/QRSettingsService';
 
 const SettingsScreen = () => {
   const [serverUrl, setServerUrl] = useState('');
@@ -11,6 +13,7 @@ const SettingsScreen = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   // Load settings when component mounts
   useEffect(() => {
@@ -107,6 +110,36 @@ const SettingsScreen = () => {
     }
   };
 
+  const handleQRScan = () => {
+    setShowQRScanner(true);
+  };
+
+  const handleQRResult = async (result: any) => {
+    console.log('QR scan result:', result);
+    
+    if (result.status === 'success' && result.data?.value) {
+      try {
+        const settings = await QRSettingsService.processQRCode(result.data.value);
+        
+        // Update the UI with the new settings
+        setServerUrl(settings.serverUrl);
+        setUsername(settings.username);
+        setPassword(settings.password);
+        
+        Alert.alert('Success', 'Settings updated from QR code');
+      } catch (error) {
+        console.error('QR processing error:', error);
+        Alert.alert('Error', `Failed to process QR code: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else if (result.status === 'cancelled') {
+      console.log('QR scan cancelled');
+    } else {
+      Alert.alert('Error', result.message || 'Failed to scan QR code');
+    }
+    
+    setShowQRScanner(false);
+  };
+
   if (isLoading) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
@@ -165,6 +198,13 @@ const SettingsScreen = () => {
         </View>
 
         <TouchableOpacity 
+          style={styles.qrButton}
+          onPress={handleQRScan}
+        >
+          <Text style={styles.qrButtonText}>📱 Scan QR Code</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
           style={[
             styles.button,
             isSaving && styles.buttonDisabled
@@ -190,6 +230,12 @@ const SettingsScreen = () => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      
+      <QRScannerModal
+        visible={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        onResult={handleQRResult}
+      />
     </SafeAreaView>
   );
 };
@@ -250,6 +296,20 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  qrButton: {
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  qrButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

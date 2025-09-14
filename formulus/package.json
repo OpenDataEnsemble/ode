@@ -10,6 +10,7 @@
     "test": "jest",
     "generate": "ts-node --project scripts/tsconfig.json scripts/generateInjectionScript.ts",
     "generate:api": "openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated --additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original",
+    "generate_qr": "ts-node --project scripts/tsconfig.json scripts/generateQR.ts",
     "prebuild": "npm run generate"
   },
   "dependencies": {
