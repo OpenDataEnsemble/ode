@@ -47,8 +47,9 @@ export interface ActionResult<T = any> {
 /**
  * Camera-specific result data
  * @property {'image'} type - Always 'image' for camera results
+ * @property {string} id - Generated GUID for the image
  * @property {string} filename - Generated filename for the image
- * @property {string} base64 - Base64 encoded image data
+ * @property {string} uri - Persistent file path for sync protocol
  * @property {string} url - Data URL for the image
  * @property {string} timestamp - ISO timestamp when image was captured
  * @property {object} metadata - Image metadata (dimensions, size, etc.)
