@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, SafeAreaView, Alert, TouchableOpacity } from 'react-native';
 import { RootStackParamList } from '../types/NavigationTypes';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation } from '@react-navigation/native';
+import Icon from 'react-native-vector-icons/MaterialIcons';
 
 
 
@@ -10,44 +11,47 @@ type WelcomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Welc
 
 const WelcomeScreen: React.FC = () => {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
-  const [serverUrl, setServerUrl] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
 
-  const handleLogin = () => {
-    // Placeholder for login logic
-    // TODO: Implement login and sync
-    navigation.navigate('Settings');
-  };
+
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Welcome to Formulus</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Server URL"
-        value={serverUrl}
-        onChangeText={setServerUrl}
-        autoCapitalize="none"
-        keyboardType="url"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Username"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+    
       <View style={styles.buttonContainer}>
-        <Button title="Login" onPress={handleLogin} />
+        <TouchableOpacity 
+          style={styles.iconButton} 
+          onPress={() => navigation.navigate('Home')}
+        >
+          <Icon name="home" size={32} color="#fff" />
+          <Text style={styles.buttonText}>Home</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.iconButton} 
+          onPress={() => navigation.navigate('Settings')}
+        >
+          <Icon name="settings" size={32} color="#fff" />
+          <Text style={styles.buttonText}>Settings</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.iconButton} 
+          onPress={() => navigation.navigate('FormManagement')}
+        >
+          <Icon name="description" size={32} color="#fff" />
+          <Text style={styles.buttonText}>Form Management</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.iconButton} 
+          onPress={() => navigation.navigate('Sync')}
+        >
+          <Icon name="sync" size={32} color="#fff" />
+          <Text style={styles.buttonText}>Sync</Text>
+        </TouchableOpacity>
       </View>
+      
     </SafeAreaView>
   );
 };
@@ -77,6 +81,31 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     width: '100%',
+    marginTop: 8,
+    gap: 16,
+  },
+  iconButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'column',
+    minHeight: 100,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
     marginTop: 8,
   },
 });
