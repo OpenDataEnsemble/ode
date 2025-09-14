@@ -14,6 +14,7 @@ export interface FormulusMessageHandlers {
   onSubmitObservation?: (data: { formType: string; finalData: Record<string, any> }) => void;
   onUpdateObservation?: (data: { observationId: string; formType: string; finalData: Record<string, any> }) => void;
   onRequestCamera?: (fieldId: string) => void;
+  onRequestQrcode?: (fieldId: string) => void;
   onRequestLocation?: (fieldId: string) => void;
   onRequestFile?: (fieldId: string) => void;
   onLaunchIntent?: (fieldId: string, intentSpec: Record<string, any>) => void;

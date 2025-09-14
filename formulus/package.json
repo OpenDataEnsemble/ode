@@ -29,7 +29,9 @@
     "react-native-screens": "^4.10.0",
     "react-native-url-polyfill": "^2.0.0",
     "react-native-vector-icons": "^10.2.0",
-    "react-native-webview": "^13.13.5"
+    "react-native-vision-camera": "^4.7.2",
+    "react-native-webview": "^13.13.5",
+    "vision-camera-code-scanner": "^0.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

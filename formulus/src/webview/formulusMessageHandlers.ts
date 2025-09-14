@@ -348,6 +348,31 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         }
       });
     },
+    onRequestQrcode: async (fieldId: string): Promise<any> => {
+      console.log('Request QR code handler called', fieldId);
+      
+      return new Promise((resolve, reject) => {
+        try {
+          // Emit event to open QR scanner modal
+          appEvents.emit('openQRScanner', {
+            fieldId,
+            onResult: (result: any) => {
+              console.log('QR scan result received:', result);
+              resolve(result);
+            }
+          });
+          
+        } catch (error) {
+          console.error('Error in QR code handler:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          resolve({
+            fieldId,
+            status: 'error',
+            message: `QR code error: ${errorMessage}`
+          });
+        }
+      });
+    },
     onRequestLocation: (fieldId: string) => {
       // TODO: implement location request logic
       console.log('Request location handler called', fieldId);
