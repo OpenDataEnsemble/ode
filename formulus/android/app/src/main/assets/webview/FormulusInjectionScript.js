@@ -1,11 +1,28 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-08-10T15:38:20.095Z
+// Last generated: 2025-09-14T15:11:29.229Z
 
 (function() {
-  if (typeof globalThis.formulus !== 'undefined') {
-    //console.debug('Formulus interface already exists. Skipping injection.');
+  // Enhanced API availability detection and recovery
+  function getFormulus() {
+    // Check multiple locations where the API might exist
+    return globalThis.formulus || window.formulus || (typeof formulus !== 'undefined' ? formulus : undefined);
+  }
+
+  function isFormulusAvailable() {
+    const api = getFormulus();
+    return api && typeof api === 'object' && typeof api.getVersion === 'function';
+  }
+
+  // If API already exists and is functional, skip injection
+  if (isFormulusAvailable()) {
+    console.debug('Formulus interface already exists and is functional. Skipping injection.');
     return;
+  }
+
+  // If API exists but is not functional, log warning and proceed with re-injection
+  if (getFormulus()) {
+    console.warn('Formulus interface exists but appears non-functional. Re-injecting...');
   }
 
   // Helper function to handle callbacks
@@ -155,7 +172,7 @@
           });
         },
 
-        // openFormplayer: formType: string, params: Record<string, any>, savedData: Record<string, any> => Promise<void>
+        // openFormplayer: formType: string, params: Record<string, any>, savedData: Record<string, any> => Promise<FormCompletionResult>
         openFormplayer: function(formType, params, savedData) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -492,7 +509,7 @@
           });
         },
 
-        // requestFile: fieldId: string => Promise<void>
+        // requestFile: fieldId: string => Promise<FileResult>
         requestFile: function(fieldId) {
           return new Promise((resolve, reject) => {
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -730,6 +747,53 @@
           });
         },
 
+        // requestQrcode: fieldId: string => Promise<QrcodeResult>
+        requestQrcode: function(fieldId) {
+          return new Promise((resolve, reject) => {
+          const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+          
+          // Add response handler for methods that return values
+          
+          const callback = (event) => {
+            try {
+              let data;
+              if (typeof event.data === 'string') {
+                data = JSON.parse(event.data);
+              } else if (typeof event.data === 'object' && event.data !== null) {
+                data = event.data; // Already an object
+              } else {
+                // console.warn('requestQrcode callback: Received response with unexpected data type:', typeof event.data, event.data);
+                window.removeEventListener('message', callback); // Clean up listener
+                reject(new Error('requestQrcode callback: Received response with unexpected data type. Raw: ' + String(event.data)));
+                return;
+              }
+              if (data.type === 'requestQrcode_response' && data.messageId === messageId) {
+                window.removeEventListener('message', callback);
+                if (data.error) {
+                  reject(new Error(data.error));
+                } else {
+                  resolve(data.result);
+                }
+              }
+            } catch (e) {
+              console.error("'requestQrcode' callback: Error processing response:" , e, "Raw event.data:", event.data);
+              window.removeEventListener('message', callback); // Ensure listener is removed on error too
+              reject(e);
+            }
+          };
+          window.addEventListener('message', callback);
+          
+          
+          // Send the message to React Native
+          globalThis.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'requestQrcode',
+            messageId,
+                        fieldId: fieldId
+          }));
+          
+          });
+        },
+
         // requestBiometric: fieldId: string => Promise<void>
         requestBiometric: function(fieldId) {
           return new Promise((resolve, reject) => {
@@ -927,6 +991,17 @@
   // Notify that the interface is ready
   console.log('Formulus interface initialized');
   
+  // Simple API availability check for internal use
+  function requestApiReinjection() {
+    console.log('Formulus: Requesting re-injection from host...');
+    if (globalThis.ReactNativeWebView) {
+      globalThis.ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'requestApiReinjection',
+        timestamp: Date.now()
+      }));
+    }
+  }
+
   // Notify React Native that the interface is ready
   if (globalThis.ReactNativeWebView) {
     globalThis.ReactNativeWebView.postMessage(JSON.stringify({
@@ -942,8 +1017,4 @@
     window.formulus = globalThis.formulus;
   }
   
-  // Export for CommonJS/Node.js environments
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = globalThis.formulus;
-  }
 })();
