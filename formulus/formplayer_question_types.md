@@ -1112,3 +1112,129 @@ try {
 - Ensure you're in development mode (`NODE_ENV=development`)
 - Check that the mock method is implemented in `webview-mock.ts`
 - Verify the mock is initialized in `App.tsx`
+
+---
+
+## Video Question Type
+
+The video question type allows users to record videos using the device's camera functionality.
+
+### Schema Configuration
+
+```json
+{
+  "instructionalVideo": {
+    "type": "string",
+    "format": "video",
+    "title": "Instructional Video",
+    "description": "Record a video demonstration"
+  }
+}
+```
+
+### UI Schema Configuration
+
+```json
+{
+  "instructionalVideo": {
+    "ui:widget": "video",
+    "ui:options": {
+      "label": "Record Video",
+      "maxDuration": 60,
+      "quality": "high"
+    }
+  }
+}
+```
+
+### Features
+
+- **Video Recording**: Uses device camera to record videos
+- **Video Playback**: Built-in video player with play/pause/stop controls
+- **Duration Limit**: Configurable maximum recording duration (default 60 seconds)
+- **Quality Settings**: High-quality video recording
+- **File Metadata**: Displays duration, file size, format, and resolution
+- **Re-record**: Allows users to record a new video
+- **Delete**: Option to remove recorded video
+- **Permission Handling**: Gracefully handles camera permission requests
+- **Error Handling**: Shows appropriate messages for camera/recording errors
+
+### Data Structure
+
+The video question type stores video data as a JSON string containing:
+
+```json
+{
+  "type": "video",
+  "filename": "video_1701944200000.mp4",
+  "uri": "file:///data/user/0/com.app/files/videos/video_1701944200000.mp4",
+  "timestamp": "2023-12-07T10:30:00.000Z",
+  "metadata": {
+    "duration": 45.2,
+    "format": "mp4",
+    "size": 15728640,
+    "width": 1920,
+    "height": 1080
+  }
+}
+```
+
+### Dependencies
+
+- **React Native**: Uses react-native-image-picker for video recording
+- **Permissions**: Requires camera permissions on the device
+- **Storage**: Uses react-native-fs for file management
+- **Camera Hardware**: Requires device with camera capability
+
+### Usage Example
+
+```json
+{
+  "schema": {
+    "type": "object",
+    "properties": {
+      "trainingVideo": {
+        "type": "string",
+        "format": "video",
+        "title": "Training Video",
+        "description": "Record a video showing the proper procedure"
+      },
+      "testimonial": {
+        "type": "string",
+        "format": "video",
+        "title": "Customer Testimonial",
+        "description": "Record a brief testimonial video"
+      }
+    },
+    "required": ["trainingVideo"]
+  },
+  "uiSchema": {
+    "trainingVideo": {
+      "ui:widget": "video",
+      "ui:options": {
+        "label": "Record Training Video",
+        "maxDuration": 120
+      }
+    },
+    "testimonial": {
+      "ui:widget": "video",
+      "ui:options": {
+        "label": "Record Testimonial",
+        "maxDuration": 30
+      }
+    }
+  }
+}
+```
+
+### Implementation
+
+The video question type is implemented using:
+
+1. **VideoQuestionRenderer**: React component for video recording and playback UI
+2. **FormulusClient.requestVideo()**: Client-side video request method
+3. **react-native-image-picker**: React Native library for camera access and video recording
+4. **react-native-fs**: File system access for video storage
+5. **Mock Support**: Development environment simulation with interactive popups
+
+The component provides a comprehensive interface for video recording with built-in playback controls, detailed metadata display, and user-friendly error handling. Videos are stored locally on the device and referenced by URI to avoid memory issues with large video files.

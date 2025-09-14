@@ -20,6 +20,7 @@ import SignatureQuestionRenderer, { signatureQuestionTester } from "./SignatureQ
 import FileQuestionRenderer, { fileQuestionTester } from './FileQuestionRenderer';
 import AudioQuestionRenderer, { audioQuestionTester } from './AudioQuestionRenderer';
 import GPSQuestionRenderer, { gpsQuestionTester } from './GPSQuestionRenderer';
+import VideoQuestionRenderer, { videoQuestionTester } from './VideoQuestionRenderer';
 
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -71,7 +72,8 @@ export const customRenderers = [
   { tester: signatureQuestionTester, renderer: SignatureQuestionRenderer },
   { tester: fileQuestionTester, renderer: FileQuestionRenderer },
   { tester: audioQuestionTester, renderer: AudioQuestionRenderer },
-  { tester: gpsQuestionTester, renderer: GPSQuestionRenderer }
+  { tester: gpsQuestionTester, renderer: GPSQuestionRenderer },
+  { tester: videoQuestionTester, renderer: VideoQuestionRenderer }
 ];
 
 function App() {
@@ -316,6 +318,7 @@ function App() {
   ajv.addFormat('select_file', () => true); // Accept any value for file selection format
   ajv.addFormat('audio', () => true); // Accept any value for audio format
   ajv.addFormat('gps', () => true); // Accept any value for GPS format
+  ajv.addFormat('video', () => true); // Accept any value for video format
 
 
   // Render loading state or error if needed

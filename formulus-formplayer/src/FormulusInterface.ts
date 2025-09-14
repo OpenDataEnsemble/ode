@@ -14,7 +14,8 @@ import {
   SignatureResult, 
   FileResult, 
   AudioResult,
-  LocationResult 
+  LocationResult,
+  VideoResult 
 } from './FormulusInterfaceDefinition';
 
 import { 
@@ -137,6 +138,24 @@ class FormulusClient {
         status: 'error',
         message: 'Formulus interface not available'
       });
+    }
+  }
+
+  /**
+   * Request video recording from the Formulus RN app
+   */
+  public requestVideo(fieldId: string): Promise<VideoResult> {
+    console.log('Requesting video for field', fieldId);
+    
+    if (this.formulus) {
+      return this.formulus.requestVideo(fieldId);
+    } else {
+      console.warn('Formulus interface not available for requestVideo');
+      return Promise.reject({
+        fieldId,
+        status: 'error',
+        message: 'Formulus interface not available'
+      } as VideoResult);
     }
   }
 

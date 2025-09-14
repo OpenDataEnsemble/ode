@@ -442,6 +442,109 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         }
       });
     },
+    onRequestVideo: async (fieldId: string): Promise<any> => {
+      console.log('Request video handler called', fieldId);
+      
+      return new Promise((resolve, reject) => {
+        try {
+          // Import react-native-image-picker directly
+          const ImagePicker = require('react-native-image-picker');
+          
+          const options = {
+            mediaType: 'video' as const,
+            videoQuality: 'high' as const,
+            durationLimit: 60, // 60 seconds max
+            storageOptions: {
+              skipBackup: true,
+              path: 'videos',
+            },
+          };
+
+          ImagePicker.launchCamera(options, async (response: any) => {
+            if (response.didCancel) {
+              console.log('Video recording cancelled');
+              reject({
+                fieldId,
+                status: 'cancelled',
+                message: 'Video recording was cancelled by user'
+              });
+              return;
+            }
+
+            if (response.errorMessage) {
+              console.error('Video recording error:', response.errorMessage);
+              reject({
+                fieldId,
+                status: 'error',
+                message: `Video recording error: ${response.errorMessage}`
+              });
+              return;
+            }
+
+            if (response.assets && response.assets.length > 0) {
+              const asset = response.assets[0];
+              
+              try {
+                // Generate a unique filename
+                const timestamp = Date.now();
+                const filename = `video_${timestamp}.${asset.type?.split('/')[1] || 'mp4'}`;
+                
+                // Copy video to app storage directory
+                const destinationPath = `${RNFS.DocumentDirectoryPath}/videos/${filename}`;
+                
+                // Ensure videos directory exists
+                await RNFS.mkdir(`${RNFS.DocumentDirectoryPath}/videos`);
+                
+                // Copy the video file
+                await RNFS.copyFile(asset.uri, destinationPath);
+                
+                const videoResult = {
+                  fieldId,
+                  status: 'success' as const,
+                  data: {
+                    type: 'video' as const,
+                    filename,
+                    uri: `file://${destinationPath}`,
+                    timestamp: new Date().toISOString(),
+                    metadata: {
+                      duration: asset.duration || 0,
+                      format: asset.type?.split('/')[1] || 'mp4',
+                      size: asset.fileSize || 0,
+                      width: asset.width,
+                      height: asset.height
+                    }
+                  }
+                };
+                
+                console.log('Video recorded successfully:', videoResult);
+                resolve(videoResult);
+              } catch (fileError: any) {
+                console.error('Error saving video file:', fileError);
+                reject({
+                  fieldId,
+                  status: 'error',
+                  message: `Error saving video: ${fileError.message}`
+                });
+              }
+            } else {
+              reject({
+                fieldId,
+                status: 'error',
+                message: 'No video data received'
+              });
+            }
+          });
+        } catch (error: any) {
+          console.error('Error in video handler:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          reject({
+            fieldId,
+            status: 'error',
+            message: `Video error: ${errorMessage}`
+          });
+        }
+      });
+    },
     onRequestFile: async (fieldId: string): Promise<any> => {
       console.log('Request file handler called', fieldId);
       

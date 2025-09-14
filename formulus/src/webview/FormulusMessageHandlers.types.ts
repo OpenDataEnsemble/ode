@@ -20,6 +20,7 @@ export interface FormulusMessageHandlers {
   onLaunchIntent?: (fieldId: string, intentSpec: Record<string, any>) => void;
   onCallSubform?: (fieldId: string, formId: string, options: Record<string, any>) => void;
   onRequestAudio?: (fieldId: string) => void;
+  onRequestVideo?: (fieldId: string) => void;
   onRequestSignature?: (fieldId: string) => void;
   onRequestBiometric?: (fieldId: string) => void;
   onRequestConnectivityStatus?: () => void;

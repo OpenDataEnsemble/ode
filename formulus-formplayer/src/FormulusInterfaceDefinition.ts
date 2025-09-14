@@ -116,6 +116,28 @@ export interface LocationResultData {
 }
 
 /**
+ * Video-specific result data
+ * @property {'video'} type - Always 'video' for video results
+ * @property {string} filename - Generated filename for the video
+ * @property {string} uri - Local file URI (no base64 encoding)
+ * @property {string} timestamp - ISO timestamp when video was captured
+ * @property {object} metadata - Video metadata (duration, format, size, etc.)
+ */
+export interface VideoResultData {
+  type: 'video';
+  filename: string;
+  uri: string;
+  timestamp: string;
+  metadata: {
+    duration: number;
+    format: string;
+    size: number;
+    width?: number;
+    height?: number;
+  };
+}
+
+/**
  * Signature-specific result data
  * @property {'signature'} type - Always 'signature' for signature results
  * @property {string} filename - Generated filename for the signature
@@ -179,6 +201,7 @@ export interface FileResultData {
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
 export type LocationResult = ActionResult<LocationResultData>;
+export type VideoResult = ActionResult<VideoResultData>;
 export type SignatureResult = ActionResult<SignatureResultData>;
 export type QrcodeResult = ActionResult<QrcodeResultData>;
 export type FileResult = ActionResult<FileResultData>;
@@ -309,6 +332,13 @@ export interface FormulusInterface {
    * @returns {Promise<LocationResult>} Promise that resolves with location result or rejects on error/cancellation
    */
   requestLocation(fieldId: string): Promise<LocationResult>;
+
+  /**
+   * Request video recording for a field
+   * @param {string} fieldId - The ID of the field
+   * @returns {Promise<VideoResult>} Promise that resolves with video result or rejects on error/cancellation
+   */
+  requestVideo(fieldId: string): Promise<VideoResult>;
 
   /**
    * Request file selection for a field

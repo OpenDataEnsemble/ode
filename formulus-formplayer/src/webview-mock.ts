@@ -8,7 +8,8 @@ import {
   SignatureResult, 
   FileResult, 
   AudioResult,
-  LocationResult 
+  LocationResult,
+  VideoResult 
 } from './FormulusInterfaceDefinition';
 
 interface MockWebView {
@@ -23,6 +24,7 @@ interface MockFormulus {
   requestQrcode: (fieldId: string) => Promise<QrcodeResult>;
   requestSignature: (fieldId: string) => Promise<SignatureResult>;
   requestLocation: (fieldId: string) => Promise<LocationResult>;
+  requestVideo: (fieldId: string) => Promise<VideoResult>;
   requestFile: (fieldId: string) => Promise<FileResult>;
   requestAudio: (fieldId: string) => Promise<AudioResult>;
   launchIntent: (fieldId: string, intentSpec: Record<string, any>) => Promise<void>;
@@ -46,6 +48,7 @@ class WebViewMock {
   private pendingFilePromises = new Map<string, { resolve: (result: FileResult) => void; reject: (result: FileResult) => void }>();
   private pendingAudioPromises = new Map<string, { resolve: (result: AudioResult) => void; reject: (result: AudioResult) => void }>();
   private pendingLocationPromises = new Map<string, { resolve: (result: LocationResult) => void; reject: (result: LocationResult) => void }>();
+  private pendingVideoPromises = new Map<string, { resolve: (result: VideoResult) => void; reject: (result: VideoResult) => void }>();
 
   // Mock the postMessage function that the app uses to send messages to native
   private postMessage = (message: string) => {
@@ -174,6 +177,19 @@ class WebViewMock {
             
             // Show interactive popup for location simulation
             this.showLocationSimulationPopup(fieldId);
+          });
+        },
+        requestVideo: (fieldId: string): Promise<VideoResult> => {
+          const message = { type: 'requestVideo', fieldId };
+          console.log('[WebView Mock] Received requestVideo call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          
+          return new Promise<VideoResult>((resolve, reject) => {
+            // Store the promise callbacks for later resolution
+            this.pendingVideoPromises.set(fieldId, { resolve, reject });
+            
+            // Show interactive popup for video simulation
+            this.showVideoSimulationPopup(fieldId);
           });
         },
         requestFile: (fieldId: string): Promise<FileResult> => {
@@ -1279,6 +1295,192 @@ class WebViewMock {
   // Manually simulate a location response for testing (keeping for DevTestbed)
   public simulateLocationResponse(fieldId: string): void {
     this.simulateLocationSuccessResponse(fieldId);
+  }
+
+  // Show video recording simulation popup
+  private showVideoSimulationPopup(fieldId: string): void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      min-width: 350px;
+      text-align: center;
+      max-width: 90vw;
+    `;
+
+    popup.innerHTML = `
+      <h3 style="margin: 0 0 20px 0; color: #333; font-size: 20px;">🎥 Video Recording Request</h3>
+      <p style="margin: 0 0 25px 0; color: #666; line-height: 1.5;">
+        Simulate video recording for field: <strong>${fieldId}</strong>
+      </p>
+      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <button id="video-success" style="
+          background: #4CAF50;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        ">✓ Record Video</button>
+        <button id="video-cancel" style="
+          background: #757575;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        ">✕ Cancel</button>
+        <button id="video-error" style="
+          background: #f44336;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        ">⚠ Permission Denied</button>
+      </div>
+    `;
+
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+
+    // Add hover effects
+    const buttons = popup.querySelectorAll('button');
+    buttons.forEach(button => {
+      button.addEventListener('mouseenter', () => {
+        (button as HTMLElement).style.opacity = '0.8';
+      });
+      button.addEventListener('mouseleave', () => {
+        (button as HTMLElement).style.opacity = '1';
+      });
+    });
+
+    // Handle button clicks
+    popup.querySelector('#video-success')?.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      this.simulateVideoSuccessResponse(fieldId);
+    });
+
+    popup.querySelector('#video-cancel')?.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      this.simulateVideoCancelResponse(fieldId);
+    });
+
+    popup.querySelector('#video-error')?.addEventListener('click', () => {
+      document.body.removeChild(overlay);
+      this.simulateVideoErrorResponse(fieldId);
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        document.body.removeChild(overlay);
+        this.simulateVideoCancelResponse(fieldId);
+      }
+    });
+  }
+
+  // Simulate successful video recording
+  private simulateVideoSuccessResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating successful video recording for field:', fieldId);
+    
+    const videoResult: VideoResult = {
+      fieldId,
+      status: 'success',
+      data: {
+        type: 'video',
+        filename: `video_${Date.now()}.mp4`,
+        uri: `file:///mock/videos/video_${Date.now()}.mp4`,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          duration: 15.5, // 15.5 seconds
+          format: 'mp4',
+          size: 2048576, // 2MB
+          width: 1920,
+          height: 1080
+        }
+      }
+    };
+    
+    // Resolve the pending Promise for this field
+    const pendingPromise = this.pendingVideoPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.resolve(videoResult);
+      this.pendingVideoPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending video promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate cancelled video recording
+  private simulateVideoCancelResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating cancelled video recording for field:', fieldId);
+    
+    const videoResult: VideoResult = {
+      fieldId,
+      status: 'cancelled',
+      message: 'Video recording was cancelled by user'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingVideoPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(videoResult);
+      this.pendingVideoPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending video promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate video recording error
+  private simulateVideoErrorResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating video recording error for field:', fieldId);
+    
+    const videoResult: VideoResult = {
+      fieldId,
+      status: 'error',
+      message: 'Camera permission denied'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingVideoPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(videoResult);
+      this.pendingVideoPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending video promise found for field:', fieldId);
+    }
+  }
+
+  // Manually simulate a video response for testing (keeping for DevTestbed)
+  public simulateVideoResponse(fieldId: string): void {
+    this.simulateVideoSuccessResponse(fieldId);
   }
 
   // Show file selection simulation popup
