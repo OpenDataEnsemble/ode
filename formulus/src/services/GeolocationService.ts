@@ -1,44 +1,24 @@
-import { PermissionsAndroid, Platform } from 'react-native';
-import { ObservationGeolocation, GeolocationConfig, GeolocationPosition } from '../types/Geolocation';
-
-// React Native provides navigator.geolocation as a global browser polyfill
-// No import needed - it's available as a global
-declare const navigator: {
-  geolocation: {
-    getCurrentPosition: (
-      success: (position: GeolocationPosition) => void,
-      error: (error: any) => void,
-      options?: any
-    ) => void;
-    watchPosition: (
-      success: (position: GeolocationPosition) => void,
-      error: (error: any) => void,
-      options?: any
-    ) => number;
-    clearWatch: (watchId: number) => void;
-  };
-};
+import Geolocation from 'react-native-geolocation-service';
+import { ObservationGeolocation, GeolocationConfig } from '../types/Geolocation';
+import { ensureLocationPermission, hasLocationPermission } from './LocationPermissions';
+import { RESULTS } from 'react-native-permissions';
 
 /**
- * Service for efficiently managing geolocation capture for observations
- * Keeps location ready and provides non-blocking access
+ * Service for on-demand geolocation capture for observations
+ * Uses react-native-geolocation-service for reliable location access
  */
 export class GeolocationService {
   private static instance: GeolocationService;
-  private currentLocation: ObservationGeolocation | null = null;
-  private lastLocationTime: number = 0;
-  private isWatching: boolean = false;
-  private watchId: number | null = null;
   
   // Configuration for geolocation
   private config: GeolocationConfig = {
     enableHighAccuracy: true,
     timeout: 10000, // 10 seconds
-    maximumAge: 300000, // 5 minutes - use cached location if recent
+    maximumAge: 10000, // 10 seconds - use cached location if very recent
   };
 
   private constructor() {
-    this.startLocationTracking();
+    // No continuous tracking - we get location on demand
   }
 
   public static getInstance(): GeolocationService {
@@ -49,141 +29,97 @@ export class GeolocationService {
   }
 
   /**
-   * Request location permissions (Android only)
-   */
-  private async requestLocationPermission(): Promise<boolean> {
-    if (Platform.OS !== 'android') {
-      return true; // iOS permissions handled via Info.plist
-    }
-
-    try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: 'Location Permission',
-          message: 'Formulus needs access to your location to add geolocation data to observations.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        }
-      );
-      return granted === PermissionsAndroid.RESULTS.GRANTED;
-    } catch (error) {
-      console.warn('Location permission request failed:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Check if geolocation API is available
-   */
-  private isGeolocationAvailable(): boolean {
-    return typeof navigator !== 'undefined' && 
-           navigator.geolocation && 
-           typeof navigator.geolocation.watchPosition === 'function';
-  }
-
-  /**
-   * Start continuous location tracking
-   */
-  public async startLocationTracking(): Promise<void> {
-    if (this.isWatching) {
-      return;
-    }
-
-    if (!this.isGeolocationAvailable()) {
-      console.warn('Geolocation API not available - location tracking disabled');
-      return;
-    }
-
-    const hasPermission = await this.requestLocationPermission();
-    if (!hasPermission) {
-      console.warn('Location permission denied - geolocation will not be available');
-      return;
-    }
-
-    try {
-      this.watchId = navigator.geolocation.watchPosition(
-        (position: GeolocationPosition) => {
-          this.currentLocation = this.convertToObservationGeolocation(position);
-          this.lastLocationTime = Date.now();
-          console.debug('Location updated:', this.currentLocation);
-        },
-        (error: any) => {
-          console.warn('Location watch error:', error);
-          this.currentLocation = null;
-        },
-        {
-          ...this.config,
-          distanceFilter: 10, // Update when moved 10 meters
-        }
-      );
-      this.isWatching = true;
-      console.debug('Started location tracking');
-    } catch (error) {
-      console.error('Failed to start location tracking:', error);
-    }
-  }
-
-  /**
-   * Stop location tracking to save battery
-   */
-  public stopLocationTracking(): void {
-    if (this.watchId !== null && this.isGeolocationAvailable()) {
-      navigator.geolocation.clearWatch(this.watchId);
-      this.watchId = null;
-      this.isWatching = false;
-      console.debug('Stopped location tracking');
-    }
-  }
-
-  /**
-   * Get current location for an observation (non-blocking)
-   * Returns cached location if recent, otherwise attempts quick fix
+   * Get current location for an observation
+   * Uses react-native-geolocation-service for reliable location access
    */
   public async getCurrentLocationForObservation(): Promise<ObservationGeolocation | null> {
-    // If we have a recent location (within 5 minutes), use it
-    const locationAge = Date.now() - this.lastLocationTime;
-    if (this.currentLocation && locationAge < this.config.maximumAge) {
-      console.debug('Using cached location (age: ' + Math.round(locationAge / 1000) + 's)');
-      return this.currentLocation;
-    }
+    try {
+      // Check and request permissions first
+      const permissionStatus = await ensureLocationPermission();
+      if (permissionStatus !== RESULTS.GRANTED) {
+        console.warn('Location permission not granted:', permissionStatus);
+        return null;
+      }
 
-    // Try to get a fresh location with a short timeout
-    return new Promise((resolve) => {
-      if (!this.isGeolocationAvailable()) {
-        console.warn('Geolocation API not available for fresh location');
-        resolve(this.currentLocation);
+      // Get current position using react-native-geolocation-service
+      return new Promise<ObservationGeolocation | null>((resolve) => {
+        Geolocation.getCurrentPosition(
+          (position) => {
+            const location = this.convertToObservationGeolocation(position);
+            console.debug('Got location for observation:', location);
+            resolve(location);
+          },
+          (error) => {
+            console.warn('Failed to get location for observation:', error);
+            resolve(null);
+          },
+          {
+            ...this.config,
+            forceRequestLocation: true,
+            showLocationDialog: true,
+          }
+        );
+      });
+    } catch (error) {
+      console.error('Error getting location for observation:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get current location with Promise-based API
+   * Useful for other parts of the app that need location
+   */
+  public async getCurrentPosition(): Promise<ObservationGeolocation | null> {
+    return this.getCurrentLocationForObservation();
+  }
+
+  /**
+   * Start watching position (for future use if needed)
+   * Returns a cleanup function to stop watching
+   */
+  public startWatching(onUpdate: (location: ObservationGeolocation) => void): () => void {
+    let watchId: number | null = null;
+
+    const startWatch = async () => {
+      const hasPermission = await hasLocationPermission();
+      if (!hasPermission) {
+        console.warn('Location permission not available for watching');
         return;
       }
 
-      const quickConfig = {
-        ...this.config,
-        timeout: 5000, // Quick 5-second timeout for observation saving
-      };
-
-      navigator.geolocation.getCurrentPosition(
-        (position: GeolocationPosition) => {
+      watchId = Geolocation.watchPosition(
+        (position) => {
           const location = this.convertToObservationGeolocation(position);
-          this.currentLocation = location;
-          this.lastLocationTime = Date.now();
-          console.debug('Got fresh location for observation');
-          resolve(location);
+          onUpdate(location);
         },
-        (error: any) => {
-          console.warn('Failed to get fresh location for observation:', error);
-          // Fall back to cached location if available, even if old
-          resolve(this.currentLocation);
+        (error) => {
+          console.warn('Location watch error:', error);
         },
-        quickConfig
+        {
+          enableHighAccuracy: true,
+          distanceFilter: 25, // Battery-friendly: update when moved 25 meters
+          interval: 10000, // 10 seconds
+          fastestInterval: 5000, // 5 seconds
+        }
       );
-    });
+    };
+
+    startWatch();
+
+    // Return cleanup function
+    return () => {
+      if (watchId !== null) {
+        Geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    };
   }
 
   /**
-   * Convert React Native geolocation to our observation format
+   * Convert react-native-geolocation-service position to our observation format
    */
-  private convertToObservationGeolocation(position: GeolocationPosition): ObservationGeolocation {
+  private convertToObservationGeolocation(position: Geolocation.GeoPosition): ObservationGeolocation {
     return {
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
@@ -196,15 +132,8 @@ export class GeolocationService {
   /**
    * Check if location services are available
    */
-  public isLocationAvailable(): boolean {
-    return this.currentLocation !== null;
-  }
-
-  /**
-   * Get the age of the current location in milliseconds
-   */
-  public getLocationAge(): number {
-    return Date.now() - this.lastLocationTime;
+  public async isLocationAvailable(): Promise<boolean> {
+    return await hasLocationPermission();
   }
 }
 
