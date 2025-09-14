@@ -13,7 +13,7 @@ import FormulusClient from "./FormulusInterface";
 import { FormInitData } from "./FormulusInterfaceDefinition";
 
 import SwipeLayoutRenderer, { swipeLayoutTester, groupAsSwipeLayoutTester } from "./SwipeLayoutRenderer";
-import { finalizeRenderer } from "./FinalizeRenderer";
+import { finalizeRenderer, finalizeTester } from "./FinalizeRenderer";
 import PhotoQuestionRenderer, { photoQuestionTester } from "./PhotoQuestionRenderer";
 import QrcodeQuestionRenderer, { qrcodeQuestionTester } from "./QrcodeQuestionRenderer";
 import SignatureQuestionRenderer, { signatureQuestionTester } from "./SignatureQuestionRenderer";
@@ -67,6 +67,7 @@ export const useFormContext = () => useContext(FormContext);
 export const customRenderers = [
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer },
+  { tester: finalizeTester, renderer: finalizeRenderer.renderer },
   { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
   { tester: signatureQuestionTester, renderer: SignatureQuestionRenderer },
