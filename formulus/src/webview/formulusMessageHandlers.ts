@@ -50,6 +50,13 @@ const pendingFormOperations = new Map<string, {
   startTime: number;
 }>();
 
+// Global reference to the active FormplayerModal for direct submission handling
+let activeFormplayerModalRef: { handleSubmission: (data: { formType: string; finalData: Record<string, any> }) => Promise<string> } | null = null;
+
+export const setActiveFormplayerModal = (modalRef: { handleSubmission: (data: { formType: string; finalData: Record<string, any> }) => Promise<string> } | null) => {
+  activeFormplayerModalRef = modalRef;
+};
+
 // Helper functions to resolve form operations
 export const resolveFormOperation = (operationId: string, result: FormCompletionResult) => {
   const operation = pendingFormOperations.get(operationId);
@@ -118,8 +125,8 @@ const saveFormData = async (formType: string, data: any, observationId: string |
     
     console.log(`${isUpdate ? 'Updated' : 'Saved'} observation with id: ${id}`);
     
-    // Emit event to close the FormplayerModal after successful save
-    appEvents.emit('closeFormplayer', { observationId: id, isUpdate });
+    // Don't emit closeFormplayer here - let FormplayerModal handle closing after its own submission process
+    // appEvents.emit('closeFormplayer', { observationId: id, isUpdate });
     
     return id;
 
@@ -182,8 +189,16 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onSubmitObservation: async (data: { formType: string; finalData: Record<string, any> }) => {
       const { formType, finalData } = data;
       console.log("FormulusMessageHandlers: onSubmitObservation handler invoked.", { formType, finalData });
-      const id = await saveFormData(formType, finalData, null, false);
-      return id;
+      
+      // Use the active FormplayerModal's handleSubmission method if available
+      if (activeFormplayerModalRef) {
+        console.log("FormulusMessageHandlers: Delegating to FormplayerModal.handleSubmission");
+        return await activeFormplayerModalRef.handleSubmission({ formType, finalData });
+      } else {
+        // Fallback to the old method if no modal is active
+        console.warn("FormulusMessageHandlers: No active FormplayerModal, using fallback saveFormData");
+        return await saveFormData(formType, finalData, null, false);
+      }
     },
     onUpdateObservation: async (data: { observationId: string; formType: string; finalData: Record<string, any> }) => {
       const { observationId, formType, finalData } = data;

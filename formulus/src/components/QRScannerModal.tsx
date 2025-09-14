@@ -64,9 +64,9 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
       resultSentRef.current = true;
       
       // Send result back to handler
-      if (onResult && fieldId) {
+      if (onResult) {
         onResult({
-          fieldId,
+          fieldId: fieldId || undefined,
           status: 'success',
           data: {
             type: 'qrcode',
@@ -80,9 +80,9 @@ const QRScannerModal: React.FC<QRScannerModalProps> = ({
   });
 
   const handleCancel = () => {
-    if (onResult && fieldId) {
+    if (onResult) {
       onResult({
-        fieldId,
+        fieldId: fieldId || undefined,
         status: 'cancelled',
         message: 'QR code scanning cancelled by user'
       });
