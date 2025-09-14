@@ -1,8 +1,23 @@
 import { PermissionsAndroid, Platform } from 'react-native';
 import { ObservationGeolocation, GeolocationConfig, GeolocationPosition } from '../types/Geolocation';
 
-// Use React Native's built-in Geolocation API instead of community package
-const Geolocation = require('react-native').Geolocation;
+// React Native provides navigator.geolocation as a global browser polyfill
+// No import needed - it's available as a global
+declare const navigator: {
+  geolocation: {
+    getCurrentPosition: (
+      success: (position: GeolocationPosition) => void,
+      error: (error: any) => void,
+      options?: any
+    ) => void;
+    watchPosition: (
+      success: (position: GeolocationPosition) => void,
+      error: (error: any) => void,
+      options?: any
+    ) => number;
+    clearWatch: (watchId: number) => void;
+  };
+};
 
 /**
  * Service for efficiently managing geolocation capture for observations
@@ -60,10 +75,24 @@ export class GeolocationService {
   }
 
   /**
-   * Start background location tracking to keep location ready
+   * Check if geolocation API is available
    */
-  private async startLocationTracking(): Promise<void> {
+  private isGeolocationAvailable(): boolean {
+    return typeof navigator !== 'undefined' && 
+           navigator.geolocation && 
+           typeof navigator.geolocation.watchPosition === 'function';
+  }
+
+  /**
+   * Start continuous location tracking
+   */
+  public async startLocationTracking(): Promise<void> {
     if (this.isWatching) {
+      return;
+    }
+
+    if (!this.isGeolocationAvailable()) {
+      console.warn('Geolocation API not available - location tracking disabled');
       return;
     }
 
@@ -74,7 +103,7 @@ export class GeolocationService {
     }
 
     try {
-      this.watchId = Geolocation.watchPosition(
+      this.watchId = navigator.geolocation.watchPosition(
         (position: GeolocationPosition) => {
           this.currentLocation = this.convertToObservationGeolocation(position);
           this.lastLocationTime = Date.now();
@@ -100,8 +129,8 @@ export class GeolocationService {
    * Stop location tracking to save battery
    */
   public stopLocationTracking(): void {
-    if (this.watchId !== null) {
-      Geolocation.clearWatch(this.watchId);
+    if (this.watchId !== null && this.isGeolocationAvailable()) {
+      navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;
       this.isWatching = false;
       console.debug('Stopped location tracking');
@@ -122,12 +151,18 @@ export class GeolocationService {
 
     // Try to get a fresh location with a short timeout
     return new Promise((resolve) => {
+      if (!this.isGeolocationAvailable()) {
+        console.warn('Geolocation API not available for fresh location');
+        resolve(this.currentLocation);
+        return;
+      }
+
       const quickConfig = {
         ...this.config,
         timeout: 5000, // Quick 5-second timeout for observation saving
       };
 
-      Geolocation.getCurrentPosition(
+      navigator.geolocation.getCurrentPosition(
         (position: GeolocationPosition) => {
           const location = this.convertToObservationGeolocation(position);
           this.currentLocation = location;

@@ -48,6 +48,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     existingObservationData: Record<string, any> | null;
     operationId: string | null;
   } | null>(null);
+  
+  // Track if form has been successfully submitted to avoid double resolution
+  const [formSubmitted, setFormSubmitted] = useState(false);
   const [isWebViewReady, setIsWebViewReady] = useState(false);
   
   // Use a ref to track processed submissions with timestamps - this won't trigger re-renders
@@ -124,23 +127,25 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       clearTimeout(closeTimeoutRef.current);
     }
     
-    // Resolve the form operation promise with cancelled status if no submission occurred
-    if (currentOperationId && currentFormType) {
-      const completionResult: FormCompletionResult = {
-        status: 'cancelled',
-        formType: currentFormType,
-        message: 'Form was closed without submission'
-      };
-      
-      resolveFormOperation(currentOperationId, completionResult);
-    } else if (currentFormType) {
-      const completionResult: FormCompletionResult = {
-        status: 'cancelled',
-        formType: currentFormType,
-        message: 'Form was closed without submission'
-      };
-      
-      resolveFormOperationByType(currentFormType, completionResult);
+    // Only resolve with cancelled status if form hasn't been successfully submitted
+    if (!formSubmitted) {
+      if (currentOperationId && currentFormType) {
+        const completionResult: FormCompletionResult = {
+          status: 'cancelled',
+          formType: currentFormType,
+          message: 'Form was closed without submission'
+        };
+        
+        resolveFormOperation(currentOperationId, completionResult);
+      } else if (currentFormType) {
+        const completionResult: FormCompletionResult = {
+          status: 'cancelled',
+          formType: currentFormType,
+          message: 'Form was closed without submission'
+        };
+        
+        resolveFormOperationByType(currentFormType, completionResult);
+      }
     }
     
     // Call the parent's onClose immediately
@@ -214,6 +219,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     setCurrentObservationData(existingObservationData);
     setCurrentParams(params);
     setCurrentOperationId(operationId);
+    setFormSubmitted(false); // Reset submission flag for new form
     setSelectedFormSpecId(formType.id);
     
     // Store the form initialization data
@@ -376,6 +382,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         formData: processedData,
         formType: activeFormType
       };
+      
+      // Mark form as successfully submitted to prevent cancelled status on close
+      setFormSubmitted(true);
       
       if (currentOperationId) {
         resolveFormOperation(currentOperationId, completionResult);
