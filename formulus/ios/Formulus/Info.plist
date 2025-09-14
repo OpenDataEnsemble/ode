@@ -33,7 +33,9 @@
 		<true/>
 	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string>Formulus needs access to your location to add geolocation data to observations for accurate data collection.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Formulus needs access to your location to add geolocation data to observations for accurate data collection.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs access to camera to scan QR codes and barcodes for form data collection.</string>
 	<key>UILaunchStoryboardName</key>
