@@ -83,8 +83,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       // Return the observationId as the public identifier
       return observationId;
     } catch (error) {
-      const typedError = error as Error;
-      console.error('Error saving observation:', typedError.message);
+      console.error('Error saving observation:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }
@@ -139,8 +138,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       
       return null;
     } catch (error) {
-      const typedError = error as Error;
-      console.error('Error getting observation:', typedError.message);
+      console.error('Error getting observation:', error instanceof Error ? error.message : String(error));
       return null;
     }
   }
@@ -169,8 +167,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       
       return observations.map(observation => this.mapObservationModelToInterface(observation));
     } catch (error) {
-      const typedError = error as Error;
-      console.error('Error getting observations by form type ID:', typedError.message);
+      console.error('Error getting observations by form type ID:', error instanceof Error ? error.message : String(error));
       return [];
     }
   }
@@ -221,8 +218,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       
       return success;
     } catch (error) {
-      const typedError = error as Error;
-      console.error('Error updating observation:', typedError.message);
+      console.error('Error updating observation:', error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -265,8 +261,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       
       return success;
     } catch (error) {
-      const typedError = error as Error;
-      console.error('Error marking observation as deleted:', typedError.message);
+      console.error('Error marking observation as deleted:', error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -328,8 +323,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       
       return success;
     } catch (error) {
-      const typedError = error as Error;
-      console.error('Error marking observation as synced:', typedError.message);
+      console.error('Error marking observation as synced:', error instanceof Error ? error.message : String(error));
       return false;
     }
   }
@@ -474,8 +468,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       
       console.log('Synchronization completed successfully');
     } catch (error) {
-      const typedError = error as Error;
-      console.error('Error during synchronization:', typedError.message);
+      console.error('Error during synchronization:', error instanceof Error ? error.message : String(error));
       throw error;
     }
   }

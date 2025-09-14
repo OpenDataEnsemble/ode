@@ -19,6 +19,19 @@ const migrations = schemaMigrations({
           ]
         }
       ]
+    },
+    {
+      toVersion: 3,
+      steps: [
+        // Add geolocation column to observations table
+        {
+          type: 'add_columns',
+          table: 'observations',
+          columns: [
+            { name: 'geolocation', type: 'string' }
+          ]
+        }
+      ]
     }
   ]
 });
