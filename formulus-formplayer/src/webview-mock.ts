@@ -407,10 +407,10 @@ class WebViewMock {
     `;
 
     popup.innerHTML = `
-      <h3 style="margin: 0 0 16px 0; color: #333; font-size: 18px;">📸 Camera Simulation</h3>
+      <h3 style="margin: 0 0 16px 0; color: #333; font-size: 18px;">📸 Select Image</h3>
       <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Field: <code>${fieldId}</code></p>
       <div style="display: flex; flex-direction: column; gap: 12px;">
-        <button id="mock-success" style="
+        <button id="mock-camera" style="
           padding: 12px 20px;
           background: #4CAF50;
           color: white;
@@ -419,7 +419,18 @@ class WebViewMock {
           font-size: 14px;
           cursor: pointer;
           transition: background 0.2s;
-        ">✅ Take Photo (Success)</button>
+        ">📷 Camera</button>
+        
+        <button id="mock-gallery" style="
+          padding: 12px 20px;
+          background: #2196F3;
+          color: white;
+          border: none;
+          border-radius: 6px;
+          font-size: 14px;
+          cursor: pointer;
+          transition: background 0.2s;
+        ">🖼️ Gallery</button>
         
         <button id="mock-cancel" style="
           padding: 12px 20px;
@@ -441,7 +452,7 @@ class WebViewMock {
           font-size: 14px;
           cursor: pointer;
           transition: background 0.2s;
-        ">⚠️ Camera Error</button>
+        ">⚠️ Error</button>
       </div>
     `;
 
@@ -449,7 +460,8 @@ class WebViewMock {
     document.body.appendChild(overlay);
 
     // Add button event listeners
-    const successBtn = popup.querySelector('#mock-success');
+    const cameraBtn = popup.querySelector('#mock-camera');
+    const galleryBtn = popup.querySelector('#mock-gallery');
     const cancelBtn = popup.querySelector('#mock-cancel');
     const errorBtn = popup.querySelector('#mock-error');
 
@@ -457,9 +469,14 @@ class WebViewMock {
       document.body.removeChild(overlay);
     };
 
-    successBtn?.addEventListener('click', () => {
+    cameraBtn?.addEventListener('click', () => {
       cleanup();
-      this.simulateSuccessResponse(fieldId);
+      this.simulateSuccessResponse(fieldId, 'camera');
+    });
+
+    galleryBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateSuccessResponse(fieldId, 'gallery');
     });
 
     cancelBtn?.addEventListener('click', () => {
@@ -585,7 +602,7 @@ class WebViewMock {
   }
 
   // Simulate successful camera response with GUID
-  private simulateSuccessResponse(fieldId: string): void {
+  private simulateSuccessResponse(fieldId: string, source?: 'camera' | 'gallery'): void {
     // Generate GUID for mock image
     const generateGUID = () => {
       return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -613,7 +630,7 @@ class WebViewMock {
           height: 1080,
           size: 17982, // Approximate size of a small PNG
           mimeType: 'image/png',
-          source: 'webview_mock',
+          source: source === 'gallery' ? 'webview_mock_gallery' : 'webview_mock_camera',
           quality: 0.8,
           persistentStorage: true,
           storageLocation: 'mock/storage/images'

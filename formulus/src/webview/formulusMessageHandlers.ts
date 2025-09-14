@@ -199,17 +199,17 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           // Import react-native-image-picker directly
           const ImagePicker = require('react-native-image-picker');
           
-          if (!ImagePicker || !ImagePicker.launchCamera) {
+          if (!ImagePicker || (!ImagePicker.showImagePicker && !ImagePicker.launchImageLibrary)) {
             console.error('react-native-image-picker not available or not properly linked');
             resolve({
               fieldId,
               status: 'error',
-              message: 'Camera functionality not available. Please ensure react-native-image-picker is properly installed and linked.'
+              message: 'Image picker functionality not available. Please ensure react-native-image-picker is properly installed and linked.'
             });
             return;
           }
           
-          // Camera options for react-native-image-picker
+          // Image picker options for react-native-image-picker
           const options = {
             mediaType: 'photo' as const,
             quality: 0.8,
@@ -222,10 +222,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             },
           };
           
-          console.log('Launching camera with react-native-image-picker, options:', options);
+          console.log('Launching image picker with camera and gallery options, options:', options);
           
-          // react-native-image-picker handles permissions automatically
-          ImagePicker.launchCamera(options, (response: any) => {
+          // Import Alert for showing action sheet
+          const { Alert } = require('react-native');
+          
+          // Common response handler for both camera and gallery
+          const handleImagePickerResponse = (response: any) => {
             console.log('Camera response received:', response);
             
             if (response.didCancel) {
@@ -337,7 +340,39 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                 message: 'Unexpected camera response format'
               });
             }
-          });
+          };
+          
+          // Show action sheet with camera and gallery options
+          Alert.alert(
+            'Select Image',
+            'Choose an option',
+            [
+              {
+                text: 'Camera',
+                onPress: () => {
+                  ImagePicker.launchCamera(options, handleImagePickerResponse);
+                }
+              },
+              {
+                text: 'Gallery',
+                onPress: () => {
+                  ImagePicker.launchImageLibrary(options, handleImagePickerResponse);
+                }
+              },
+              {
+                text: 'Cancel',
+                style: 'cancel',
+                onPress: () => {
+                  resolve({
+                    fieldId,
+                    status: 'cancelled',
+                    message: 'Image selection cancelled by user'
+                  });
+                }
+              }
+            ]
+          );
+          
         } catch (error) {
           console.error('Error in native camera handler:', error);
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
