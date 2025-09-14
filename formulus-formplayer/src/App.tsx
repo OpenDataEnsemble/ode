@@ -18,6 +18,7 @@ import PhotoQuestionRenderer, { photoQuestionTester } from "./PhotoQuestionRende
 import QrcodeQuestionRenderer, { qrcodeQuestionTester } from "./QrcodeQuestionRenderer";
 import SignatureQuestionRenderer, { signatureQuestionTester } from "./SignatureQuestionRenderer";
 import FileQuestionRenderer, { fileQuestionTester } from "./FileQuestionRenderer";
+import AudioQuestionRenderer, { audioQuestionTester } from "./AudioQuestionRenderer";
 
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -67,6 +68,7 @@ const customRenderers = [
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
   { tester: signatureQuestionTester, renderer: SignatureQuestionRenderer },
   { tester: fileQuestionTester, renderer: FileQuestionRenderer },
+  { tester: audioQuestionTester, renderer: AudioQuestionRenderer },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer, isSwipeRenderer: true },
   finalizeRenderer
@@ -363,6 +365,26 @@ function App() {
       return typeof data.filename === 'string' && 
              typeof data.uri === 'string' && 
              data.type === 'file';
+    }
+    
+    return false;
+  });
+
+  // Add custom format for audio fields - expects JSON objects only
+  ajv.addFormat('audio', (data: any) => {
+    // Accept null/undefined for empty audio fields
+    if (data === null || data === undefined) {
+      return true;
+    }
+    
+    // For audio fields, we expect an object with specific properties
+    if (typeof data === 'object' && data !== null) {
+      // Basic validation - should have filename, uri, type, and metadata properties
+      return typeof data.filename === 'string' && 
+             typeof data.uri === 'string' && 
+             data.type === 'audio' &&
+             typeof data.metadata === 'object' &&
+             typeof data.metadata.duration === 'number';
     }
     
     return false;

@@ -231,7 +231,87 @@ When a file is selected, the field value becomes a structured object:
 **Dependencies:**
 - `react-native-document-picker`: For native file selection functionality
 
-### 5. Swipe Layout
+### 5. Audio Recording Question
+
+The Audio Recording question type allows users to record audio directly within forms using the device's microphone. This question type provides a complete audio recording and playback interface with URI-based storage for efficient file handling.
+
+**Schema Definition:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "voiceNote": {
+      "type": "string",
+      "format": "audio",
+      "title": "Voice Note",
+      "description": "Record a voice message"
+    }
+  }
+}
+```
+
+**UI Schema:**
+```json
+{
+  "voiceNote": {
+    "ui:widget": "audio",
+    "ui:options": {
+      "maxDuration": 300,
+      "quality": "high"
+    }
+  }
+}
+```
+
+**Features:**
+- Native Audio Recording: Uses device microphone with high-quality recording
+- Audio Playback: Built-in player with play/pause/stop controls
+- Progress Visualization: Real-time progress bar during playback
+- File Metadata: Captures duration, format, file size, and timestamp
+- Replace/Delete: Options to re-record or remove audio
+- Error Handling: Comprehensive permission and recording error management
+- Mock Support: Interactive simulation for development testing
+
+**Recording Interface:**
+- Large microphone button for easy recording initiation
+- Visual feedback during recording process
+- Loading states and progress indicators
+- Permission handling for microphone access
+
+**Playback Interface:**
+- Audio file information display (filename, duration, format, size)
+- Play/pause/stop controls with visual feedback
+- Progress bar showing current playback position
+- Time display (current time / total duration)
+
+**Data Structure:**
+When audio is recorded, the field value becomes a structured object:
+```json
+{
+  "type": "audio",
+  "filename": "audio_1642234567890.m4a",
+  "uri": "file:///path/to/audio/cache/audio_1642234567890.m4a",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "metadata": {
+    "duration": 15.5,
+    "format": "m4a",
+    "size": 245760
+  }
+}
+```
+
+**Audio Result Properties:**
+- `filename`: Generated filename for the audio recording
+- `uri`: File URI for accessing the audio content
+- `timestamp`: ISO timestamp of when recording was completed
+- `metadata.duration`: Recording duration in seconds
+- `metadata.format`: Audio file format (m4a, wav, etc.)
+- `metadata.size`: File size in bytes
+
+**Dependencies:**
+- `react-native-nitro-sound`: For native audio recording and playback functionality
+
+### 6. Swipe Layout
 
 Organizes form elements into swipeable pages for better mobile UX.
 

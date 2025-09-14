@@ -153,6 +153,24 @@ class FormulusClient {
   }
 
   /**
+   * Request audio recording from the Formulus RN app
+   */
+  public requestAudio(fieldId: string): Promise<AudioResult> {
+    console.log('Requesting audio recording for field', fieldId);
+    
+    if (this.formulus) {
+      return this.formulus.requestAudio(fieldId);
+    } else {
+      console.warn('Formulus interface not available for requestAudio');
+      return Promise.reject({
+        fieldId,
+        status: 'error',
+        message: 'Formulus interface not available'
+      });
+    }
+  }
+
+  /**
    * Launch an Android intent from the Formulus RN app
    */
   public launchIntent(fieldId: string, intentSpec: Record<string, any>): void {
@@ -178,23 +196,6 @@ class FormulusClient {
     }
   }
 
-  /**
-   * Request audio recording from the Formulus RN app
-   */
-  public requestAudio(fieldId: string): Promise<AudioResult> {
-    console.log('Requesting audio for field', fieldId);
-    
-    if (this.formulus) {
-      return this.formulus.requestAudio(fieldId);
-    } else {
-      console.warn('Formulus interface not available for requestAudio');
-      return Promise.reject({
-        fieldId,
-        status: 'error',
-        message: 'Formulus interface not available'
-      } as AudioResult);
-    }
-  }
 
   /**
    * Request signature capture from the Formulus RN app

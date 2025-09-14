@@ -1,5 +1,12 @@
 // Mock implementation of ReactNativeWebView for development testing
-import { FormInitData, CameraResult, QrcodeResult, SignatureResult, FileResult } from './FormulusInterfaceDefinition';
+import { 
+  FormInitData, 
+  CameraResult, 
+  QrcodeResult, 
+  SignatureResult, 
+  FileResult,
+  AudioResult 
+} from './FormulusInterfaceDefinition';
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -14,6 +21,7 @@ interface MockFormulus {
   requestSignature: (fieldId: string) => Promise<SignatureResult>;
   requestLocation: (fieldId: string) => Promise<void>;
   requestFile: (fieldId: string) => Promise<FileResult>;
+  requestAudio: (fieldId: string) => Promise<AudioResult>;
   launchIntent: (fieldId: string, intentSpec: Record<string, any>) => Promise<void>;
 }
 
@@ -29,10 +37,11 @@ type MockGlobalThis = typeof globalThis & {
 class WebViewMock {
   private messageListeners: ((message: any) => void)[] = [];
   private isActive = false;
-  private pendingCameraPromises: Map<string, { resolve: (value: CameraResult) => void; reject: (reason: any) => void }> = new Map();
-  private pendingQrcodePromises: Map<string, { resolve: (value: QrcodeResult) => void; reject: (reason: any) => void }> = new Map();
-  private pendingSignaturePromises: Map<string, { resolve: (value: SignatureResult) => void; reject: (reason: any) => void }> = new Map();
-  private pendingFilePromises: Map<string, { resolve: (value: FileResult) => void; reject: (reason: any) => void }> = new Map();
+  private pendingCameraPromises = new Map<string, { resolve: (result: CameraResult) => void; reject: (result: CameraResult) => void }>();
+  private pendingQrcodePromises = new Map<string, { resolve: (result: QrcodeResult) => void; reject: (result: QrcodeResult) => void }>();
+  private pendingSignaturePromises = new Map<string, { resolve: (result: SignatureResult) => void; reject: (result: SignatureResult) => void }>();
+  private pendingFilePromises = new Map<string, { resolve: (result: FileResult) => void; reject: (result: FileResult) => void }>();
+  private pendingAudioPromises = new Map<string, { resolve: (result: AudioResult) => void; reject: (result: AudioResult) => void }>();
 
   // Mock the postMessage function that the app uses to send messages to native
   private postMessage = (message: string) => {
@@ -168,6 +177,20 @@ class WebViewMock {
             
             // Show interactive popup for file selection simulation
             this.showFileSimulationPopup(fieldId);
+          });
+        },
+        requestAudio: (fieldId: string): Promise<AudioResult> => {
+          const message = { type: 'requestAudio', fieldId };
+          console.log('[WebView Mock] Received requestAudio call:', message);
+          this.messageListeners.forEach(listener => listener(message));
+          
+          // Return a Promise that will be resolved/rejected based on user interaction
+          return new Promise<AudioResult>((resolve, reject) => {
+            // Store the promise resolvers for this field
+            this.pendingAudioPromises.set(fieldId, { resolve, reject });
+            
+            // Show interactive popup for audio recording simulation
+            this.showAudioSimulationPopup(fieldId);
           });
         },
         launchIntent: (fieldId: string, intentData: Record<string, any>): Promise<void> => {
@@ -894,6 +917,175 @@ class WebViewMock {
   // Manually simulate a file response for testing (keeping for DevTestbed)
   public simulateFileResponse(fieldId: string): void {
     this.simulateFileSuccessResponse(fieldId, 'application/pdf', 'test-document.pdf');
+  }
+
+  // Show audio recording simulation popup
+  private showAudioSimulationPopup(fieldId: string): void {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      min-width: 350px;
+      text-align: center;
+      max-width: 90vw;
+    `;
+
+    popup.innerHTML = `
+      <div style="margin-bottom: 20px;">
+        <div style="width: 60px; height: 60px; background: #FF3B30; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center;">
+          <div style="width: 20px; height: 20px; background: white; border-radius: 50%;"></div>
+        </div>
+        <h3 style="margin: 0 0 10px 0; color: #333; font-size: 18px;">Audio Recording Simulation</h3>
+        <p style="margin: 0 0 20px 0; color: #666; font-size: 14px;">Field ID: <code style="background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">${fieldId}</code></p>
+      </div>
+      
+      <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <button id="audio-success" style="background: #34C759; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">
+          🎤 Record Success
+        </button>
+        <button id="audio-cancel" style="background: #FF9500; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">
+          ❌ Cancel
+        </button>
+        <button id="audio-error" style="background: #8E8E93; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500;">
+          ⚠️ Error
+        </button>
+      </div>
+      
+      <p style="margin: 20px 0 0 0; color: #999; font-size: 12px;">
+        Simulate audio recording interaction for development testing
+      </p>
+    `;
+
+    overlay.appendChild(popup);
+    document.body.appendChild(overlay);
+
+    // Add button event listeners
+    const successBtn = popup.querySelector('#audio-success');
+    const cancelBtn = popup.querySelector('#audio-cancel');
+    const errorBtn = popup.querySelector('#audio-error');
+
+    const cleanup = () => {
+      document.body.removeChild(overlay);
+    };
+
+    successBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateAudioSuccessResponse(fieldId);
+    });
+
+    cancelBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateAudioCancelResponse(fieldId);
+    });
+
+    errorBtn?.addEventListener('click', () => {
+      cleanup();
+      this.simulateAudioErrorResponse(fieldId);
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        this.simulateAudioCancelResponse(fieldId);
+      }
+    });
+  }
+
+  // Simulate successful audio recording response
+  private simulateAudioSuccessResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating audio recording success for field:', fieldId);
+    
+    // Generate mock audio file data
+    const mockFilename = `audio_${Date.now()}.m4a`;
+    const mockUri = `file:///mock/audio/cache/${mockFilename}`;
+    
+    const audioResult: AudioResult = {
+      fieldId,
+      status: 'success',
+      data: {
+        type: 'audio',
+        filename: mockFilename,
+        uri: mockUri,
+        timestamp: new Date().toISOString(),
+        metadata: {
+          duration: 15.5, // 15.5 seconds
+          format: 'm4a',
+          size: 245760 // ~240KB
+        }
+      }
+    };
+    
+    // Resolve the pending Promise for this field
+    const pendingPromise = this.pendingAudioPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.resolve(audioResult);
+      this.pendingAudioPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending audio promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate audio recording cancellation
+  private simulateAudioCancelResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating audio recording cancellation for field:', fieldId);
+    
+    const audioResult: AudioResult = {
+      fieldId,
+      status: 'cancelled',
+      message: 'Audio recording was cancelled by user'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingAudioPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(audioResult);
+      this.pendingAudioPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending audio promise found for field:', fieldId);
+    }
+  }
+
+  // Simulate audio recording error
+  private simulateAudioErrorResponse(fieldId: string): void {
+    console.log('[WebView Mock] Simulating audio recording error for field:', fieldId);
+    
+    const audioResult: AudioResult = {
+      fieldId,
+      status: 'error',
+      message: 'Microphone permission denied'
+    };
+    
+    // Reject the pending Promise for this field
+    const pendingPromise = this.pendingAudioPromises.get(fieldId);
+    if (pendingPromise) {
+      pendingPromise.reject(audioResult);
+      this.pendingAudioPromises.delete(fieldId);
+    } else {
+      console.warn('[WebView Mock] No pending audio promise found for field:', fieldId);
+    }
+  }
+
+  // Manually simulate an audio response for testing (keeping for DevTestbed)
+  public simulateAudioResponse(fieldId: string): void {
+    this.simulateAudioSuccessResponse(fieldId);
   }
 
   // Show file selection simulation popup

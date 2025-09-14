@@ -468,9 +468,85 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // TODO: implement call subform logic
       console.log('Call subform handler called', fieldId, formType, options);
     },
-    onRequestAudio: (fieldId: string) => {
-      // TODO: implement audio request logic
+    onRequestAudio: async (fieldId: string): Promise<any> => {
       console.log('Request audio handler called', fieldId);
+      
+      try {
+        // Import NitroSound dynamically to handle cases where it might not be available
+        const NitroSound = require('react-native-nitro-sound');
+        
+        // Create a unique filename for the audio recording
+        const timestamp = Date.now();
+        const filename = `audio_${timestamp}.m4a`;
+        const documentsPath = require('react-native-fs').DocumentDirectoryPath;
+        const audioPath = `${documentsPath}/${filename}`;
+        
+        console.log('Starting audio recording to:', audioPath);
+        
+        // Start recording
+        const recorder = await NitroSound.createRecorder({
+          path: audioPath,
+          format: 'aac', // AAC format for .m4a files
+          quality: 'high',
+          sampleRate: 44100,
+          channels: 1
+        });
+        
+        await recorder.start();
+        
+        // For demo purposes, we'll record for a fixed duration
+        // In a real implementation, you'd want user controls for start/stop
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 3000)); // 3 second recording
+        
+        const result = await recorder.stop();
+        
+        console.log('Audio recording completed:', result);
+        
+        // Get file stats for metadata
+        const RNFS = require('react-native-fs');
+        const fileStats = await RNFS.stat(audioPath);
+        
+        // Create AudioResult object matching our interface
+        return {
+          fieldId,
+          status: 'success' as const,
+          data: {
+            type: 'audio' as const,
+            filename: filename,
+            uri: `file://${audioPath}`,
+            timestamp: new Date().toISOString(),
+            metadata: {
+              duration: result.duration || 3.0, // Duration in seconds
+              format: 'm4a',
+              size: fileStats.size || 0
+            }
+          }
+        };
+        
+      } catch (error: any) {
+        console.log('Audio recording error:', error);
+        
+        // Check if this is a user cancellation or permission error
+        if (error.code === 'PERMISSION_DENIED' || error.message?.includes('permission')) {
+          return {
+            fieldId,
+            status: 'error' as const,
+            message: 'Microphone permission denied. Please enable microphone access in settings.'
+          };
+        } else if (error.code === 'USER_CANCELLED') {
+          return {
+            fieldId,
+            status: 'cancelled' as const,
+            message: 'Audio recording was cancelled'
+          };
+        } else {
+          return {
+            fieldId,
+            status: 'error' as const,
+            message: error.message || 'Failed to record audio'
+          };
+        }
+      }
     },
     onRequestBiometric: (fieldId: string) => {
       // TODO: implement biometric request logic

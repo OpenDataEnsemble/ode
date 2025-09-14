@@ -85,14 +85,11 @@ export interface CameraResultData {
 export interface AudioResultData {
   type: 'audio';
   filename: string;
-  base64: string;
-  url: string;
+  uri: string;
   timestamp: string;
   metadata: {
     duration: number;
     format: string;
-    sampleRate: number;
-    channels: number;
     size: number;
   };
 }
@@ -297,6 +294,13 @@ export interface FormulusInterface {
    * @returns {Promise<FileResult>} Promise that resolves with file result or rejects on error/cancellation
    */
   requestFile(fieldId: string): Promise<FileResult>;
+
+  /**
+   * Request audio recording for a field
+   * @param {string} fieldId - The ID of the field
+   * @returns {Promise<AudioResult>} Promise that resolves with audio result or rejects on error/cancellation
+   */
+  requestAudio(fieldId: string): Promise<AudioResult>;
 
   /**
    * Launch an external intent
