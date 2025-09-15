@@ -50,6 +50,46 @@ interface FormUISchema {
   [key: string]: any;
 }
 
+// Function to ensure UI schema root is always SwipeLayout
+const ensureSwipeLayoutRoot = (uiSchema: FormUISchema | null): FormUISchema => {
+  if (!uiSchema) {
+    // If no UI schema, create a basic SwipeLayout with empty elements
+    return {
+      type: "SwipeLayout",
+      elements: []
+    };
+  }
+
+  // If root is already SwipeLayout, return as is
+  if (uiSchema.type === "SwipeLayout") {
+    return { ...uiSchema };
+  }
+
+  // If root is not SwipeLayout, wrap the entire schema in a SwipeLayout
+  if (uiSchema.type === "Group" || uiSchema.type === "VerticalLayout" || uiSchema.type === "HorizontalLayout" || uiSchema.elements) {
+    console.log(`Root UI schema type is "${uiSchema.type}", wrapping in SwipeLayout`);
+    return {
+      type: "SwipeLayout",
+      elements: [uiSchema]
+    };
+  }
+
+  // If there are multiple root elements (array), wrap them in SwipeLayout
+  if (Array.isArray(uiSchema)) {
+    console.log('Multiple root elements detected, wrapping in SwipeLayout');
+    return {
+      type: "SwipeLayout",
+      elements: uiSchema
+    };
+  }
+
+  // Fallback: create SwipeLayout with the original schema as a single element
+  return {
+    type: "SwipeLayout",
+    elements: [uiSchema]
+  };
+};
+
 // Function to process UI schema and ensure Finalize element is present
 const processUISchemaWithFinalize = (uiSchema: FormUISchema | null): FormUISchema => {
   if (!uiSchema || !uiSchema.elements) {
@@ -168,13 +208,15 @@ function App() {
         console.warn('formSchema was not provided. Form rendering might fail or be incomplete.');
         setLoadError('Form schema is missing. Form rendering might fail or be incomplete.');
         setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
-        // Process UI schema to ensure Finalize element is present
-        const processedUISchema = processUISchemaWithFinalize(null);
+        // First ensure SwipeLayout root, then process to ensure Finalize element is present
+        const swipeLayoutUISchema = ensureSwipeLayoutRoot(null);
+        const processedUISchema = processUISchemaWithFinalize(swipeLayoutUISchema);
         setUISchema(processedUISchema);
       } else {
         setSchema(formSchema as FormSchema);
-        // Process UI schema to ensure Finalize element is present, even if uiSchema is undefined
-        const processedUISchema = processUISchemaWithFinalize(uiSchema as FormUISchema);
+        // First ensure SwipeLayout root, then process to ensure Finalize element is present
+        const swipeLayoutUISchema = ensureSwipeLayoutRoot(uiSchema as FormUISchema);
+        const processedUISchema = processUISchemaWithFinalize(swipeLayoutUISchema);
         setUISchema(processedUISchema);
       }
 

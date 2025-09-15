@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { webViewMock, sampleFormData } from './webview-mock';
+import { 
+  webViewMock, 
+  sampleFormData, 
+  sampleFormDataWithGroupRoot,
+  sampleFormDataWithVerticalLayoutRoot,
+  sampleFormDataWithMultipleRoots
+} from './webview-mock';
 import { FormInitData } from './FormulusInterfaceDefinition';
 
 interface DevTestbedProps {
@@ -51,6 +57,18 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
       // Keep the existing savedData from sampleFormData
     };
     setCustomFormData(JSON.stringify(modifiedData, null, 2));
+  };
+
+  const handleLoadGroupRootSample = () => {
+    setCustomFormData(JSON.stringify(sampleFormDataWithGroupRoot, null, 2));
+  };
+
+  const handleLoadVerticalLayoutRootSample = () => {
+    setCustomFormData(JSON.stringify(sampleFormDataWithVerticalLayoutRoot, null, 2));
+  };
+
+  const handleLoadMultipleRootsSample = () => {
+    setCustomFormData(JSON.stringify(sampleFormDataWithMultipleRoots, null, 2));
   };
 
   const handleQuickTest = () => {
@@ -199,6 +217,58 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
           >
             Load Sample (edit)
           </button>
+        </div>
+
+        {/* SwipeLayout Testing Section */}
+        <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '4px' }}>
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#1565c0' }}>SwipeLayout Testing</h4>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleLoadGroupRootSample}
+              style={{
+                padding: '6px 10px',
+                backgroundColor: '#2196f3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px'
+              }}
+            >
+              Group Root
+            </button>
+            <button
+              onClick={handleLoadVerticalLayoutRootSample}
+              style={{
+                padding: '6px 10px',
+                backgroundColor: '#2196f3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px'
+              }}
+            >
+              VerticalLayout Root
+            </button>
+            <button
+              onClick={handleLoadMultipleRootsSample}
+              style={{
+                padding: '6px 10px',
+                backgroundColor: '#2196f3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '11px'
+              }}
+            >
+              Multiple Roots
+            </button>
+          </div>
+          <p style={{ margin: '6px 0 0 0', fontSize: '10px', color: '#1976d2', fontStyle: 'italic' }}>
+            These test forms demonstrate automatic SwipeLayout wrapping for different UI schema structures.
+          </p>
         </div>
         
         {/* Camera Testing Section */}

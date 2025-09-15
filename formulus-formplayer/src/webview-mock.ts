@@ -1609,9 +1609,79 @@ class WebViewMock {
       console.log('[WebView Mock] Destroyed mock ReactNativeWebView interface');
     }
   }
-}
+};
 
-// Export a singleton instance
+// Test case: UI schema with Group root (should be wrapped in SwipeLayout)
+export const sampleFormDataWithGroupRoot: FormInitData = {
+  formType: 'test-group-root',
+  observationId: null,
+  params: {},
+  savedData: {},
+  formSchema: {
+    "type": "object",
+    "properties": {
+      "name": { "type": "string", "minLength": 3 },
+      "email": { "type": "string", "format": "email" }
+    }
+  },
+  uiSchema: {
+    "type": "Group",
+    "label": "User Information",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/name" },
+      { "type": "Control", "scope": "#/properties/email" }
+    ]
+  }
+};
+
+// Test case: UI schema with VerticalLayout root (should be wrapped in SwipeLayout)
+export const sampleFormDataWithVerticalLayoutRoot: FormInitData = {
+  formType: 'test-vertical-layout-root',
+  observationId: null,
+  params: {},
+  savedData: {},
+  formSchema: {
+    "type": "object",
+    "properties": {
+      "firstName": { "type": "string" },
+      "lastName": { "type": "string" }
+    }
+  },
+  uiSchema: {
+    "type": "VerticalLayout",
+    "elements": [
+      { "type": "Control", "scope": "#/properties/firstName" },
+      { "type": "Control", "scope": "#/properties/lastName" }
+    ]
+  }
+};
+
+// Test case: Multiple root elements (should be wrapped in SwipeLayout)
+export const sampleFormDataWithMultipleRoots: FormInitData = {
+  formType: 'test-multiple-roots',
+  observationId: null,
+  params: {},
+  savedData: {},
+  formSchema: {
+    "type": "object",
+    "properties": {
+      "section1": { "type": "string" },
+      "section2": { "type": "string" }
+    }
+  },
+  uiSchema: [
+    {
+      "type": "VerticalLayout",
+      "elements": [{ "type": "Control", "scope": "#/properties/section1" }]
+    },
+    {
+      "type": "VerticalLayout", 
+      "elements": [{ "type": "Control", "scope": "#/properties/section2" }]
+    }
+  ] as any
+};
+
+// Create and export a singleton instance
 export const webViewMock = new WebViewMock();
 
 // Sample form data for testing
