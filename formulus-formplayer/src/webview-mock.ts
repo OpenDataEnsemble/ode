@@ -1918,9 +1918,6 @@ export const sampleFormData = {
                     "scope": "#/properties/userSignature"
                 }
             ]
-        },
-        {
-            "type": "Finalize"
         }
     ]
   }

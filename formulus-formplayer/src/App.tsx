@@ -50,6 +50,49 @@ interface FormUISchema {
   [key: string]: any;
 }
 
+// Function to process UI schema and ensure Finalize element is present
+const processUISchemaWithFinalize = (uiSchema: FormUISchema | null): FormUISchema => {
+  if (!uiSchema || !uiSchema.elements) {
+    // If no UI schema or no elements, create a basic one with just Finalize
+    return {
+      type: "VerticalLayout",
+      elements: [
+        {
+          type: "Finalize"
+        }
+      ]
+    };
+  }
+
+  // Create a copy of the UI schema to avoid mutating the original
+  const processedUISchema = { ...uiSchema };
+  let elements = [...uiSchema.elements];
+  
+  // Check for existing Finalize elements and remove them
+  const existingFinalizeIndices: number[] = [];
+  elements.forEach((element, index) => {
+    if (element && element.type === "Finalize") {
+      existingFinalizeIndices.push(index);
+    }
+  });
+
+  if (existingFinalizeIndices.length > 0) {
+    console.warn(`Found ${existingFinalizeIndices.length} existing Finalize element(s) in UI schema. Removing them as they will be automatically added.`);
+    // Remove existing Finalize elements (in reverse order to maintain indices)
+    existingFinalizeIndices.reverse().forEach(index => {
+      elements.splice(index, 1);
+    });
+  }
+
+  // Always add our Finalize element as the last element
+  elements.push({
+    type: "Finalize"
+  });
+
+  processedUISchema.elements = elements;
+  return processedUISchema;
+};
+
 // Interface for the data structure passed to window.onFormInit
 // Removed local definition, importing from FormulusInterfaceDefinition.ts
 
@@ -125,11 +168,14 @@ function App() {
         console.warn('formSchema was not provided. Form rendering might fail or be incomplete.');
         setLoadError('Form schema is missing. Form rendering might fail or be incomplete.');
         setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
-        // uiSchema might also need a default or be cleared
-        setUISchema({} as FormUISchema);
+        // Process UI schema to ensure Finalize element is present
+        const processedUISchema = processUISchemaWithFinalize(null);
+        setUISchema(processedUISchema);
       } else {
         setSchema(formSchema as FormSchema);
-        setUISchema(uiSchema || {} as FormUISchema); // Fallback to empty object if uiSchema is undefined
+        // Process UI schema to ensure Finalize element is present, even if uiSchema is undefined
+        const processedUISchema = processUISchemaWithFinalize(uiSchema as FormUISchema);
+        setUISchema(processedUISchema);
       }
 
       if (savedData && Object.keys(savedData).length > 0) {
