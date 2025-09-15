@@ -23,6 +23,8 @@ import GPSQuestionRenderer, { gpsQuestionTester } from './GPSQuestionRenderer';
 import VideoQuestionRenderer, { videoQuestionTester } from './VideoQuestionRenderer';
 
 import ErrorBoundary from "./ErrorBoundary";
+import { draftService } from './DraftService';
+import DraftSelector from './DraftSelector';
 
 // Only import development dependencies in development mode
 let webViewMock: any = null;
@@ -182,6 +184,8 @@ function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showFinalizeMessage, setShowFinalizeMessage] = useState(false);
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
+  const [showDraftSelector, setShowDraftSelector] = useState(false);
+  const [pendingFormInit, setPendingFormInit] = useState<FormInitData | null>(null);
   
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -202,6 +206,45 @@ function App() {
         }
         return; // Exit early
       }
+
+      // Check if this is a new form (no savedData) and if drafts exist
+      const hasExistingSavedData = savedData && Object.keys(savedData).length > 0;
+      if (!hasExistingSavedData) {
+        const availableDrafts = draftService.getDraftsForForm(receivedFormType, formSchema?.version);
+        if (availableDrafts.length > 0) {
+          console.log(`Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`);
+          setPendingFormInit(initData);
+          setShowDraftSelector(true);
+          setIsLoading(false);
+          isLoadingRef.current = false;
+          return; // Don't proceed with normal initialization
+        }
+      }
+
+      // Proceed with normal form initialization
+      initializeForm(initData);
+    } catch (error) {
+      console.error('Error processing onFormInit data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during form initialization';
+      setLoadError(`Error processing form data: ${errorMessage}`);
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'formplayerError',
+          formType: initData?.formType,
+          status: 'error',
+          message: errorMessage
+        }));
+      }
+      setIsLoading(false);
+      isLoadingRef.current = false;
+    }
+  }, []);
+
+  // Separate function to handle actual form initialization
+  const initializeForm = useCallback((initData: FormInitData) => {
+    try {
+      const { formType: receivedFormType, params, savedData, formSchema, uiSchema } = initData;
+      
       setFormInitData(initData);
 
       if (!formSchema) {
@@ -239,19 +282,12 @@ function App() {
           status: 'success'
         }));
       }
+      setIsLoading(false);
+      isLoadingRef.current = false;
     } catch (error) {
-      console.error('Error processing onFormInit data:', error);
+      console.error('Error initializing form:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error during form initialization';
-      setLoadError(`Error processing form data: ${errorMessage}`);
-      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'formplayerError',
-          formType: initData?.formType,
-          status: 'error',
-          message: errorMessage
-        }));
-      }
-    } finally {
+      setLoadError(`Error initializing form: ${errorMessage}`);
       setIsLoading(false);
       isLoadingRef.current = false;
     }
@@ -371,6 +407,9 @@ function App() {
       if (formInitData) {
         console.log('[App.tsx] Submitting form data:', data);
         formulusClient.current.submitObservationWithContext(formInitData, data);
+        
+        // Delete any drafts for this form instance since it's now finalized
+        draftService.deleteDraftsForFormInstance(formInitData.formType, formInitData.observationId);
       }
       setShowFinalizeMessage(true);
     };
@@ -382,14 +421,45 @@ function App() {
       window.removeEventListener('navigateToError', handleNavigateToError as EventListener);
       window.removeEventListener('finalizeForm', handleFinalizeForm as EventListener);
     };
-  }, [data, formInitData, uischema, schema]);  // Include all dependencies
+  }, [data, formInitData]); // Include all dependencies
+
+  // Handler for resuming a draft
+  const handleResumeDraft = useCallback((draftId: string) => {
+    const draft = draftService.getDraft(draftId);
+    if (draft && pendingFormInit) {
+      console.log('Resuming draft:', draftId, draft);
+      
+      // Create new FormInitData with draft data as savedData
+      const initDataWithDraft: FormInitData = {
+        ...pendingFormInit,
+        savedData: draft.data
+      };
+      
+      // Initialize form with draft data
+      initializeForm(initDataWithDraft);
+      
+      // Hide draft selector
+      setShowDraftSelector(false);
+      setPendingFormInit(null);
+    }
+  }, [pendingFormInit, initializeForm]);
+
+  // Handler for starting a new form (ignoring drafts)
+  const handleStartNewForm = useCallback(() => {
+    if (pendingFormInit) {
+      console.log('Starting new form, ignoring drafts');
+      initializeForm(pendingFormInit);
+      setShowDraftSelector(false);
+      setPendingFormInit(null);
+    }
+  }, [pendingFormInit, initializeForm]);
 
   const handleDataChange = useCallback(({ data }: { data: FormData }) => {
     setData(data);
     
-    // Save partial data to the Formulus RN app whenever data changes
+    // Save draft data whenever form data changes
     if (formInitData) {
-      formulusClient.current.savePartial(data);
+      draftService.saveDraft(formInitData.formType, data, formInitData);
     }
   }, [formInitData]);
 
@@ -409,6 +479,19 @@ function App() {
   ajv.addFormat('gps', () => true); // Accept any value for GPS format
   ajv.addFormat('video', () => true); // Accept any value for video format
 
+
+  // Show draft selector if we have pending form init and available drafts
+  if (showDraftSelector && pendingFormInit) {
+    return (
+      <DraftSelector
+        formType={pendingFormInit.formType}
+        formVersion={pendingFormInit.formSchema?.version}
+        onResumeDraft={handleResumeDraft}
+        onStartNew={handleStartNewForm}
+        fullScreen={true}
+      />
+    );
+  }
 
   // Render loading state or error if needed
   if (isLoading) {

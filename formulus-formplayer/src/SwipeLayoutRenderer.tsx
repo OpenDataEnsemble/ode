@@ -3,7 +3,8 @@ import { JsonFormsDispatch, withJsonFormsControlProps } from "@jsonforms/react";
 import { ControlProps, rankWith, uiTypeIs, isGroup, RankedTester } from "@jsonforms/core";
 import { useSwipeable } from "react-swipeable";
 import { Button, Box } from "@mui/material";
-import FormulusClient from "./FormulusInterface";
+import { useFormContext } from "./App";
+import { draftService } from './DraftService';
 
 interface SwipeLayoutProps extends ControlProps {
   currentPage: number;
@@ -119,15 +120,15 @@ const SwipeLayoutRenderer = ({
 // Create a wrapper component that manages the page state
 const SwipeLayoutWrapper = (props: ControlProps) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
+  const { formInitData } = useFormContext();
   const { data } = props;
 
   // Save partial data whenever the page changes or data changes
   const handlePageChange = useCallback((page: number) => {
     // Save the current form data before changing the page
-    if (data) {
-      console.log('Saving partial form data on page change:', data);
-      formulusClient.current.savePartial(data);
+    if (data && formInitData) {
+      console.log('Saving draft data on page change:', data);
+      draftService.saveDraft(formInitData.formType, data, formInitData);
     }
     setCurrentPage(page);
   }, [data]);
@@ -135,9 +136,9 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
   useEffect(() => {
     const handleNavigateToPage = (event: CustomEvent) => {
       // Save the current form data before navigating to a specific page
-      if (data) {
-        console.log('Saving partial form data before navigation event:', data);
-        formulusClient.current.savePartial(data);
+      if (data && formInitData) {
+        console.log('Saving draft data before navigation event:', data);
+        draftService.saveDraft(formInitData.formType, data, formInitData);
       }
       setCurrentPage(event.detail.page);
     };
@@ -154,8 +155,10 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
     if (data) {
       // Debounce the save to avoid too many calls
       const debounceTimer = setTimeout(() => {
-        console.log('Saving partial form data on data change:', data);
-        formulusClient.current.savePartial(data);
+        if (formInitData) {
+          console.log('Saving draft data on data change:', data);
+          draftService.saveDraft(formInitData.formType, data, formInitData);
+        }
       }, 1000); // 1 second debounce
       
       return () => clearTimeout(debounceTimer);
