@@ -319,8 +319,4 @@ export class FormulusWebViewMessageManager {
     return this.send<void>('onAttachmentData', attachmentData);
   }
 
-  public sendSavePartialComplete(formType: string, success: boolean): Promise<void> {
-    console.log(`${this.logPrefix} Sending save partial complete for ${formType}, success: ${success}`);
-    return this.send<void>('onSavePartialComplete', { formType, success });
-  }
 }

@@ -265,9 +265,6 @@ function generateInjectionScript(interfaceFilePath: string): string {
       
       // Handle specific callbacks
       
-      if (data.type === 'onSavePartialComplete' && globalThis.formulusCallbacks?.onSavePartialComplete) {
-        handleCallback(globalThis.formulusCallbacks.onSavePartialComplete, data.success, data.formId);
-      }
       
       if (data.type === 'onFormulusReady' && globalThis.formulusCallbacks?.onFormulusReady) {
         handleCallback(globalThis.formulusCallbacks.onFormulusReady);

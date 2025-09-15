@@ -246,16 +246,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     }
   }, [isWebViewReady, pendingFormInit]);
 
-  // Handle saving partial form data
-  const handleSavePartial = (formId: string, data: any) => {
-    // In a real implementation, you would save this data to your app's storage
-    console.log('Saving partial data for form:', formId, data);
-    
-    // Send a confirmation back to the Formplayer
-    if (webViewRef.current) {
-      webViewRef.current?.sendSavePartialComplete(formId, true);
-    }
-  };
   
   // Handle form submission directly (called by WebView message handler)
   const handleSubmission = useCallback(async (data: { formType: string; finalData: Record<string, any> }): Promise<string> => {

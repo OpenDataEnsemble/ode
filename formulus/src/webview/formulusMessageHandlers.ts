@@ -181,11 +181,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const version = "0.1.0-native"; // Example version
       return version;
     },
-    onSavePartial: async (formType: string, data: Record<string, any>) => {
-      console.log("FormulusMessageHandlers: onSavePartial handler invoked.", { formType, data });
-      console.warn("TODO: implement onSavePartial logic");
-      return("draft - not implemented");
-    },
     onSubmitObservation: async (data: { formType: string; finalData: Record<string, any> }) => {
       const { formType, finalData } = data;
       console.log("FormulusMessageHandlers: onSubmitObservation handler invoked.", { formType, finalData });

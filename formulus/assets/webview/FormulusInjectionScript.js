@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2025-09-14T15:11:29.229Z
+// Last generated: 2025-09-15T12:36:19.307Z
 
 (function() {
   // Enhanced API availability detection and recovery
@@ -60,9 +60,6 @@
       
       // Handle specific callbacks
       
-      if (data.type === 'onSavePartialComplete' && globalThis.formulusCallbacks?.onSavePartialComplete) {
-        handleCallback(globalThis.formulusCallbacks.onSavePartialComplete, data.success, data.formId);
-      }
       
       if (data.type === 'onFormulusReady' && globalThis.formulusCallbacks?.onFormulusReady) {
         handleCallback(globalThis.formulusCallbacks.onFormulusReady);
@@ -265,54 +262,6 @@
                         formType: formType,
             isDraft: isDraft,
             includeDeleted: includeDeleted
-          }));
-          
-          });
-        },
-
-        // savePartial: formType: string, data: Record<string, any> => Promise<void>
-        savePartial: function(formType, data) {
-          return new Promise((resolve, reject) => {
-          const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-          
-          // Add response handler for methods that return values
-          
-          const callback = (event) => {
-            try {
-              let data;
-              if (typeof event.data === 'string') {
-                data = JSON.parse(event.data);
-              } else if (typeof event.data === 'object' && event.data !== null) {
-                data = event.data; // Already an object
-              } else {
-                // console.warn('savePartial callback: Received response with unexpected data type:', typeof event.data, event.data);
-                window.removeEventListener('message', callback); // Clean up listener
-                reject(new Error('savePartial callback: Received response with unexpected data type. Raw: ' + String(event.data)));
-                return;
-              }
-              if (data.type === 'savePartial_response' && data.messageId === messageId) {
-                window.removeEventListener('message', callback);
-                if (data.error) {
-                  reject(new Error(data.error));
-                } else {
-                  resolve(data.result);
-                }
-              }
-            } catch (e) {
-              console.error("'savePartial' callback: Error processing response:" , e, "Raw event.data:", event.data);
-              window.removeEventListener('message', callback); // Ensure listener is removed on error too
-              reject(e);
-            }
-          };
-          window.addEventListener('message', callback);
-          
-          
-          // Send the message to React Native
-          globalThis.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'savePartial',
-            messageId,
-                        formType: formType,
-            data: data
           }));
           
           });

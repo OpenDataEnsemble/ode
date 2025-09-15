@@ -264,13 +264,6 @@ export interface FormulusInterface {
    */
   getObservations(formType: string, isDraft?: boolean, includeDeleted?: boolean): Promise<FormObservation[]>;
 
-  /**
-   * Save partial form data
-   * @param {string} formType - The identifier of the formtype
-   * @param {Object} data - The form data to save
-   * @returns {Promise<void>}
-   */
-  savePartial(formType: string, data: Record<string, any>): Promise<void>;
 
   /**
    * Submit a completed form
@@ -383,7 +376,6 @@ export interface FormulusInterface {
 export interface FormulusCallbacks {
   onFormInit?: (formType: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => void;
 
-  onSavePartialComplete?: (formType: string, observationId: string | null, success: boolean) => void;
   onFormulusReady?: () => void;
   onReceiveFocus?: () => void;
 }
@@ -406,7 +398,6 @@ declare global {
   var formulus: FormulusInterface | undefined;
   var onFormInit: FormulusCallbacks['onFormInit'];
 
-  var onSavePartialComplete: FormulusCallbacks['onSavePartialComplete'];
   var onFormulusReady: FormulusCallbacks['onFormulusReady'];
   var onReceiveFocus: FormulusCallbacks['onReceiveFocus'];
 }

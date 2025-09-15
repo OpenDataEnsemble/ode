@@ -14,7 +14,6 @@ export interface CustomAppWebViewHandle {
   injectJavaScript: (script: string) => void;
   sendFormInit: (formData: FormInitData) => Promise<void>;
   sendAttachmentData: (attachmentData: any) => Promise<void>;
-  sendSavePartialComplete: (formType: string, success: boolean) => Promise<void>;
 }
 
 interface CustomAppWebViewProps {
@@ -139,7 +138,6 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     injectJavaScript: (script: string) => webViewRef.current?.injectJavaScript(script),
     sendFormInit: (formData: FormInitData) => messageManager.sendFormInit(formData),
     sendAttachmentData: (attachmentData: any) => messageManager.sendAttachmentData(attachmentData),
-    sendSavePartialComplete: (formType: string, success: boolean) => messageManager.sendSavePartialComplete(formType, success),
   }), [messageManager]);
 
   const handleError = (syntheticEvent: any) => {

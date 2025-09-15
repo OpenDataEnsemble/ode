@@ -10,7 +10,6 @@ export interface FormulusMessageHandlers {
    * This function should return a Promise that resolves with the API version string.
    */
   onGetVersion?: () => Promise<string>;
-  onSavePartial?: (formId: string, data: Record<string, any>) => void;
   onSubmitObservation?: (data: { formType: string; finalData: Record<string, any> }) => void;
   onUpdateObservation?: (data: { observationId: string; formType: string; finalData: Record<string, any> }) => void;
   onRequestCamera?: (fieldId: string) => void;
