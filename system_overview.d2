@@ -1,0 +1,126 @@
+## ODE toolkit overview
+
+The diagram below shows the main components of ODE and how they interact: the Synkronus server and storage, the Formulus mobile client with its two embedded webviews, the user’s own custom_app, the Formplayer, and the Synkronus CLI.
+
+```d2
+direction: right
+layout: elk
+
+style.theme: 200
+
+ODE: {
+  label: "Open Data Ensemble"
+  shape: cloud
+}
+
+Server: {
+  label: "Server"
+  shape: container
+
+  Synkronus: {
+    label: "Synkronus\nGo server\nOpenAPI endpoints"
+    shape: container
+
+    Responsibilities: {
+      label: "Handles:\n- User accounts\n- custom_app data\n- Form definitions\n- Observations\n  incl. binary attachments"
+      shape: note
+    }
+  }
+
+  Stores: {
+    label: "Storage"
+    shape: container
+
+    Postgres: {
+      label: "PostgreSQL\nObservations collection\n- metadata: geo, timestamp, user, form type+version\n- data: flexible JSON"
+      shape: cylinder
+    }
+
+    FS: {
+      label: "Filesystem\nBinary attachments\n(photos, videos, etc.)"
+      shape: cylinder
+    }
+  }
+}
+
+Clients: {
+  label: "Clients"
+  shape: container
+
+  Formulus: {
+    label: "Formulus app\nReact Native (iOS+Android)"
+    shape: container
+
+    Sync: {
+      label: "Sync engine\n- observations\n- attachments\n- custom_app + form defs"
+      shape: note
+    }
+
+    JSAPI: {
+      label: "Formulus JS API\nexposed to webviews"
+      shape: note
+    }
+
+    WV_CustomApp: {
+      label: "WebView: custom_app\nUser's webapp\n(any tech that runs in a webview)"
+      shape: container
+    }
+
+    WV_Formplayer: {
+      label: "WebView: Formplayer\nTypeScript React"
+      shape: container
+
+      FP_Capabilities: {
+        label: "Capabilities:\n- Renders JSONForms schemas\n- Submits observations via Formulus\n- Saves local drafts to prevent data loss"
+        shape: note
+      }
+    }
+  }
+
+  CLI: {
+    label: "Synkronus CLI\nGo command line"
+    shape: container
+
+    CLI_Tasks: {
+      label: "Tasks:\n- Export data\n- Manage users\n- Manage custom_app versions"
+      shape: note
+    }
+  }
+}
+
+Examples: {
+  label: "Examples"
+  shape: container
+
+  EspressoLogger: {
+    label: "Example custom_app:\nSvelte espresso logger\n(longitudinal collection)"
+    shape: component
+  }
+}
+
+/* Relationships */
+ODE -> Server: ""
+ODE -> Clients: ""
+ODE -> Examples: ""
+
+Synkronus -> Postgres: "stores observations"
+Synkronus -> FS: "stores attachments"
+
+Formulus -> Synkronus: "syncs data + attachments" {
+  style.stroke-dash: 4
+}
+
+WV_CustomApp -> JSAPI: "uses"
+WV_CustomApp -> Formulus: "query observations\nopen new forms\nopen forms in edit mode"
+WV_Formplayer -> Formulus: "submit form data\nstore drafts locally"
+
+CLI -> Synkronus: "admin + data export"
+
+Examples.EspressoLogger -> Clients.Formulus.WV_CustomApp: "runs inside"
+
+/* Niceties */
+Server.Synkronus.Responsibilities -> Server.Synkronus: ""
+Clients.Formulus.Sync -> Clients.Formulus: ""
+Clients.Formulus.JSAPI -> Clients.Formulus: ""
+Clients.Formulus.WV_Formplayer.FP_Capabilities -> Clients.Formulus.WV_Formplayer: ""
+Clients.CLI.CLI_Tasks -> Clients.CLI: ""
