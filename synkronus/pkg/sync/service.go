@@ -206,9 +206,13 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 		s.log.Error("Failed to begin transaction", "error", err)
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
+	
+	committed := false
 	defer func() {
-		if err := tx.Rollback(); err != nil {
-			s.log.Error("Failed to rollback transaction", "error", err)
+		if !committed {
+			if err := tx.Rollback(); err != nil {
+				s.log.Error("Failed to rollback transaction", "error", err)
+			}
 		}
 	}()
 
@@ -276,6 +280,7 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 		s.log.Error("Failed to commit transaction", "error", err)
 		return nil, fmt.Errorf("failed to commit transaction: %w", err)
 	}
+	committed = true
 
 	result := &SyncPushResult{
 		CurrentVersion: currentVersion,
