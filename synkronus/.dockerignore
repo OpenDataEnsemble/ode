@@ -1,0 +1,51 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+README.md
+LICENSE
+
+# Development files
+.env
+.env.local
+.env.*.local
+*.log
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Test files
+*_test.go
+testdata/
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Data directories (will be mounted as volumes)
+data/
+*.db
+*.sqlite
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Docker files (not needed in image)
+Dockerfile*
+docker-compose*.yml
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -34,14 +34,29 @@ synkronus/
 
 ## Getting Started
 
-### Prerequisites
+### Quick Start with Docker
+
+**For production deployment (Coolify, etc.)**, see [DOCKER.md](./DOCKER.md) for quick start or [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment guide.
+
+```bash
+docker build -t synkronus:latest .
+docker run -d -p 8080:8080 \
+  -e DB_CONNECTION="postgres://user:pass@host:5432/synkronus" \
+  -e JWT_SECRET="your-secret-key" \
+  -v synkronus-bundles:/app/data/app-bundles \
+  synkronus:latest
+```
+
+### Development Setup
+
+#### Prerequisites
 
 - Go 1.22 or higher
-- Postgresql
+- PostgreSQL
 
-### Installation
+#### Installation
 
-```
+```bash
 go get github.com/opendataensemble/synkronus
 ```
 
