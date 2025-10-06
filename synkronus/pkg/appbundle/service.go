@@ -82,6 +82,12 @@ func (s *Service) Initialize(ctx context.Context) error {
 		}
 	}
 
+	// Check if we have versions but no current version set
+	if err := s.ensureCurrentVersionSet(ctx); err != nil {
+		s.log.Warn("Failed to ensure current version is set", "error", err)
+		// Continue anyway, this is not critical for startup
+	}
+
 	// Generate the initial manifest
 	if _, err := s.GetManifest(ctx); err != nil {
 		return fmt.Errorf("failed to generate initial manifest: %w", err)
@@ -401,6 +407,59 @@ func (s *Service) hashManifest(manifest *Manifest) (string, error) {
 	hash := sha256.New()
 	hash.Write([]byte(sb.String()))
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// ensureCurrentVersionSet checks if a current version is set, and if not,
+// sets the latest available version as current
+func (s *Service) ensureCurrentVersionSet(ctx context.Context) error {
+	// Check if CURRENT_VERSION file exists
+	versionFile := filepath.Join(s.versionsPath, "CURRENT_VERSION")
+	if _, err := os.Stat(versionFile); err == nil {
+		// File exists, current version is already set
+		return nil
+	}
+
+	// Read available versions
+	entries, err := os.ReadDir(s.versionsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No versions directory yet, nothing to do
+			return nil
+		}
+		return fmt.Errorf("failed to read versions directory: %w", err)
+	}
+
+	// Collect version directories
+	var versions []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			versions = append(versions, entry.Name())
+		}
+	}
+
+	// If no versions exist, nothing to do
+	if len(versions) == 0 {
+		s.log.Info("No app bundle versions found, skipping current version initialization")
+		return nil
+	}
+
+	// Sort versions in descending order to get the latest
+	sort.Slice(versions, func(i, j int) bool {
+		return versions[i] > versions[j]
+	})
+
+	latestVersion := versions[0]
+	s.log.Info("Setting initial current version", "version", latestVersion)
+
+	// Set the latest version as current
+	if err := os.WriteFile(versionFile, []byte(latestVersion), 0644); err != nil {
+		return fmt.Errorf("failed to write current version file: %w", err)
+	}
+
+	// Update in-memory state
+	s.currentVersion = latestVersion
+
+	return nil
 }
 
 // RefreshManifest forces a refresh of the manifest
