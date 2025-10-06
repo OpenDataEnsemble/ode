@@ -1,3 +1,9 @@
 synkronus/.env
 .vscode
 **/.vscode
+
+# Android release keys
+android/keystores/
+*.jks
+*.keystore
+local.properties
