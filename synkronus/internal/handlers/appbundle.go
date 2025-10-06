@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opendataensemble/synkronus/pkg/appbundle"
@@ -142,7 +143,8 @@ func (h *Handler) CompareAppBundleVersions(w http.ResponseWriter, r *http.Reques
 			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to get current version")
 			return
 		}
-		currentVersion = versions[len(versions)-1]
+		// Remove asterisk suffix if present
+		currentVersion = strings.TrimSuffix(versions[len(versions)-1], " *")
 	}
 
 	// Determine the target version (preview or previous)
@@ -159,7 +161,9 @@ func (h *Handler) CompareAppBundleVersions(w http.ResponseWriter, r *http.Reques
 		// Find the index of the current version
 		currentIdx := -1
 		for i, v := range versions {
-			if v == currentVersion {
+			// Strip asterisk for comparison
+			cleanVersion := strings.TrimSuffix(v, " *")
+			if cleanVersion == currentVersion {
 				currentIdx = i
 				break
 			}
@@ -174,7 +178,8 @@ func (h *Handler) CompareAppBundleVersions(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		targetVersion = versions[currentIdx-1]
+		// Remove asterisk suffix from target version
+		targetVersion = strings.TrimSuffix(versions[currentIdx-1], " *")
 	}
 
 	// Compare the versions
