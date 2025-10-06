@@ -3,7 +3,7 @@ synkronus/.env
 **/.vscode
 
 # Android release keys
-android/keystores/
+formulus/android/keystores/
 *.jks
 *.keystore
 local.properties
