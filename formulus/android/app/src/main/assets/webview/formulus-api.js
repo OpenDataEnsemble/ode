@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2025-09-14T15:11:30.528Z
+ * Last generated: 2025-09-15T12:36:20.547Z
  * 
  * @example
  * // In your JavaScript file:
@@ -59,15 +59,6 @@ const FormulusAPI = {
  * @returns {Promise<FormObservation[]>} Array of form observations
  */
   getObservations: function(formType, isDraft, includeDeleted) {},
-
-  /**
- * Save partial form data
- * /
- * @param {string} formType - The identifier of the formtype
- * @param {Object} data - The form data to save
- * @returns {Promise<void>} 
- */
-  savePartial: function(formType, data) {},
 
   /**
  * Submit a completed form

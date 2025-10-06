@@ -1,4 +1,4 @@
-package com.formulus
+package org.opendataensemble.formulus
 
 import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.NativeModule

@@ -56,6 +56,15 @@ react {
 }
 
 /**
+ * Load keystore properties from local.properties
+ */
+def keystorePropertiesFile = rootProject.file("local.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
+/**
  * Set this to true to Run Proguard on Release builds to minify the Java bytecode.
  */
 def enableProguardInReleaseBuilds = false
@@ -78,10 +87,10 @@ android {
     buildToolsVersion = rootProject.ext.buildToolsVersion
     compileSdk = rootProject.ext.compileSdkVersion
 
-    namespace = "com.formulus"
+    namespace = "org.opendataensemble.formulus"
 
     defaultConfig {
-        applicationId = "com.formulus"
+        applicationId = "org.opendataensemble.formulus"
         minSdk = rootProject.ext.minSdkVersion
         targetSdk = rootProject.ext.targetSdkVersion
         versionCode = 1
@@ -99,6 +108,15 @@ android {
             keyAlias = 'androiddebugkey'
             keyPassword = 'android'
         }
+        release {
+            if (keystorePropertiesFile.exists()) {
+                // Use rootProject.file() to resolve path relative to android/ directory
+                storeFile = rootProject.file(keystoreProperties['FORMULUS_RELEASE_STORE_FILE'])
+                storePassword = keystoreProperties['FORMULUS_RELEASE_STORE_PASSWORD']
+                keyAlias = keystoreProperties['FORMULUS_RELEASE_KEY_ALIAS']
+                keyPassword = keystoreProperties['FORMULUS_RELEASE_KEY_PASSWORD']
+            }
+        }
     }
 
     buildTypes {
@@ -106,9 +124,22 @@ android {
             signingConfig = signingConfigs.debug
         }
         release {
-            signingConfig = signingConfigs.debug
+            signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
             minifyEnabled = enableProguardInReleaseBuilds
             proguardFiles = [getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"]
+        }
+    }
+
+    // Custom APK naming
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def versionName = variant.versionName
+            def versionCode = variant.versionCode
+            def buildType = variant.buildType.name
+            def date = new Date().format('yyyyMMdd')
+            
+            // Format: formulus-v1.0-1-release-20251006.apk
+            outputFileName = "formulus-v${versionName}-${versionCode}-${buildType}-${date}.apk"
         }
     }
 
