@@ -1,0 +1,86 @@
+name: Synkronus Docker Build & Publish
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'synkronus/**'
+      - '.github/workflows/synkronus-docker.yml'
+  pull_request:
+    paths:
+      - 'synkronus/**'
+      - '.github/workflows/synkronus-docker.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: opendataensemble/synkronus
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Extract metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # For main branch: latest + version tag
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern=v{{version}},enable=${{ github.event.inputs.version != '' }},value=${{ github.event.inputs.version }}
+            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event.inputs.version != '' }},value=${{ github.event.inputs.version }}
+            # For other branches: branch name (pre-release)
+            type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' }}
+            # For PRs: pr-number
+            type=ref,event=pr
+            # SHA for traceability
+            type=sha,prefix={{branch}}-
+          labels: |
+            org.opencontainers.image.title=Synkronus
+            org.opencontainers.image.description=Synchronization API for offline-first applications
+            org.opencontainers.image.vendor=Open Data Ensemble
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./synkronus
+          file: ./synkronus/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Generate artifact attestation
+        if: github.event_name != 'pull_request'
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
