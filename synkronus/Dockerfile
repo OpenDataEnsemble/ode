@@ -1,10 +1,10 @@
 # Multi-stage build for Synkronus
 # Stage 1: Build the Go application
-# Build natively for the target platform (required for CGO with SQLite)
+# Pure Go build (PostgreSQL only, SQLite/CGO disabled by default)
 FROM golang:1.24.2-alpine AS builder
 
-# Install build dependencies
-RUN apk add --no-cache git gcc musl-dev
+# Install build dependencies (no C toolchain needed for pure Go build)
+RUN apk add --no-cache git
 
 # Set working directory
 WORKDIR /app
@@ -19,9 +19,9 @@ RUN go mod download
 COPY . .
 
 # Build the application
-# CGO is required for SQLite support (mattn/go-sqlite3)
-# Building natively for the target platform ensures proper CGO compilation
-RUN CGO_ENABLED=1 go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus
+# CGO is disabled so the binary is pure Go (better for multi-arch Docker builds)
+ENV CGO_ENABLED=0 GOOS=linux
+RUN go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus
 
 # Stage 2: Create minimal runtime image
 FROM alpine:latest

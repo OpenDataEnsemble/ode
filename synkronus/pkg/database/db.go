@@ -7,8 +7,7 @@ import (
 	"io/fs"
 	"time"
 
-	_ "github.com/lib/pq"           // PostgreSQL driver
-	_ "github.com/mattn/go-sqlite3" // SQLite driver
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/pressly/goose/v3"
 )
