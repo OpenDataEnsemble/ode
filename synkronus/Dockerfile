@@ -19,7 +19,8 @@ COPY . .
 
 # Build the application
 # CGO is required for SQLite support (mattn/go-sqlite3)
-RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o synkronus ./cmd/synkronus
+ARG TARGETARCH
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o synkronus ./cmd/synkronus
 
 # Stage 2: Create minimal runtime image
 FROM alpine:latest
