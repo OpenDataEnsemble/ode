@@ -1,5 +1,6 @@
 # Multi-stage build for Synkronus
 # Stage 1: Build the Go application
+# Build natively for the target platform (required for CGO with SQLite)
 FROM golang:1.24.2-alpine AS builder
 
 # Install build dependencies
@@ -19,8 +20,8 @@ COPY . .
 
 # Build the application
 # CGO is required for SQLite support (mattn/go-sqlite3)
-ARG TARGETARCH
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH} go build -a -installsuffix cgo -o synkronus ./cmd/synkronus
+# Building natively for the target platform ensures proper CGO compilation
+RUN CGO_ENABLED=1 go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus
 
 # Stage 2: Create minimal runtime image
 FROM alpine:latest
