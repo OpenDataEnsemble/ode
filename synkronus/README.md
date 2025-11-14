@@ -36,15 +36,23 @@ synkronus/
 
 ### Quick Start with Docker
 
-**For production deployment (Coolify, etc.)**, see [DOCKER.md](./DOCKER.md) for quick start or [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment guide.
+**For production deployment**, we recommend using Docker Compose with nginx and cloudflared tunnel.
+
+See [DOCKER.md](./DOCKER.md) for quick start or [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment guide.
 
 ```bash
-docker build -t synkronus:latest .
+# Quick start with docker-compose
+cp docker-compose.example.yml docker-compose.yml
+# Edit docker-compose.yml with your secrets
+docker compose up -d
+
+# Or run directly with Docker
+docker pull ghcr.io/opendataensemble/synkronus:latest
 docker run -d -p 8080:8080 \
   -e DB_CONNECTION="postgres://user:pass@host:5432/synkronus" \
   -e JWT_SECRET="your-secret-key" \
   -v synkronus-bundles:/app/data/app-bundles \
-  synkronus:latest
+  ghcr.io/opendataensemble/synkronus:latest
 ```
 
 ### Development Setup

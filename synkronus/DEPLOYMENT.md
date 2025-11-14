@@ -1,27 +1,129 @@
-# Synkronus Docker Deployment Guide
+# Synkronus Production Deployment Guide
 
-This guide covers deploying Synkronus using Docker, including deployment on platforms like Coolify.
+This guide covers deploying Synkronus in production using Docker Compose.
+
+## Recommended Production Setup
+
+For a production deployment, we recommend:
+
+- **Clean Linux server** (Ubuntu 22.04 LTS or Debian 12)
+- **Docker & Docker Compose** installed
+- **Cloudflared tunnel** for secure external access (no port forwarding needed)
+- **PostgreSQL** database (dockerized via docker-compose)
+- **Nginx** reverse proxy (included in docker-compose)
+- **Persistent volumes** for data storage
 
 ## Quick Start
 
-### Building the Docker Image
+### 1. Server Preparation
 
 ```bash
-docker build -t synkronus:latest .
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+
+# Install Docker Compose
+sudo apt install docker-compose-plugin -y
+
+# Verify installation
+docker --version
+docker compose version
 ```
 
-### Running with Docker
+### 2. Deploy Synkronus
 
 ```bash
-docker run -d \
-  --name synkronus \
-  -p 8080:8080 \
-  -e DB_CONNECTION="postgres://user:password@your-db-host:5432/synkronus" \
-  -e JWT_SECRET="your-secret-jwt-key" \
-  -e APP_BUNDLE_PATH="/app/data/app-bundles" \
-  -v synkronus-bundles:/app/data/app-bundles \
-  synkronus:latest
+# Create deployment directory
+mkdir -p ~/synkronus
+cd ~/synkronus
+
+# Download configuration files
+wget https://raw.githubusercontent.com/opendataensemble/ode/main/synkronus/docker-compose.example.yml -O docker-compose.yml
+wget https://raw.githubusercontent.com/opendataensemble/ode/main/synkronus/nginx.conf
+
+# Generate secure secrets
+JWT_SECRET=$(openssl rand -base64 32)
+DB_PASSWORD=$(openssl rand -base64 24)
+ADMIN_PASSWORD=$(openssl rand -base64 16)
+
+# Update docker-compose.yml with secrets
+sed -i "s/CHANGE_THIS_PASSWORD/$DB_PASSWORD/g" docker-compose.yml
+sed -i "s/CHANGE_THIS_TO_RANDOM_32_CHAR_STRING/$JWT_SECRET/g" docker-compose.yml
+sed -i "s/CHANGE_THIS_ADMIN_PASSWORD/$ADMIN_PASSWORD/g" docker-compose.yml
+
+# Start the stack
+docker compose up -d
+
+# Verify it's running
+curl http://localhost/health
 ```
+
+### 3. Set Up Cloudflared Tunnel (Optional but Recommended)
+
+Cloudflared provides secure external access without exposing ports or managing SSL certificates.
+
+#### Install Cloudflared
+
+```bash
+# Download and install
+wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+
+# Verify installation
+cloudflared --version
+```
+
+#### Create Tunnel
+
+```bash
+# Login to Cloudflare
+cloudflared tunnel login
+
+# Create tunnel
+cloudflared tunnel create synkronus
+
+# Note the tunnel ID from the output
+```
+
+#### Configure Tunnel
+
+Create `~/.cloudflared/config.yml`:
+
+```yaml
+tunnel: <your-tunnel-id>
+credentials-file: /root/.cloudflared/<your-tunnel-id>.json
+
+ingress:
+  - hostname: synkronus.your-domain.com
+    service: http://localhost:80
+  - service: http_status:404
+```
+
+#### Route DNS
+
+```bash
+# Route your domain to the tunnel
+cloudflared tunnel route dns synkronus synkronus.your-domain.com
+```
+
+#### Run Tunnel as Service
+
+```bash
+# Install as systemd service
+sudo cloudflared service install
+
+# Start service
+sudo systemctl start cloudflared
+sudo systemctl enable cloudflared
+
+# Check status
+sudo systemctl status cloudflared
+```
+
+Your Synkronus instance is now accessible at `https://synkronus.your-domain.com` with automatic SSL!
 
 ## Environment Variables
 
@@ -29,8 +131,8 @@ docker run -d \
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DB_CONNECTION` | PostgreSQL connection string | `postgres://user:pass@host:5432/dbname` |
-| `JWT_SECRET` | Secret key for JWT token signing | `your-secret-key-min-32-chars` |
+| `DB_CONNECTION` | PostgreSQL connection string | `postgres://user:pass@postgres:5432/synkronus` |
+| `JWT_SECRET` | Secret key for JWT token signing | Generate with `openssl rand -base64 32` |
 
 ### Optional Variables
 
@@ -41,269 +143,420 @@ docker run -d \
 | `APP_BUNDLE_PATH` | `/app/data/app-bundles` | Path for app bundle storage |
 | `MAX_VERSIONS_KEPT` | `5` | Number of app bundle versions to retain |
 | `ADMIN_USERNAME` | `admin` | Initial admin username |
-| `ADMIN_PASSWORD` | `admin` | Initial admin password |
+| `ADMIN_PASSWORD` | `admin` | Initial admin password (CHANGE THIS!) |
 
-## Volume Mounts
+## Volume Management
 
-### App Bundle Storage
+### Persistent Volumes
 
-The application stores app bundles (uploaded application files) in a persistent directory. You **must** mount a volume to preserve this data:
+The docker-compose setup creates two persistent volumes:
 
-```bash
--v /path/on/host:/app/data/app-bundles
-```
-
-Or using a named volume:
+1. **postgres-data**: PostgreSQL database files
+2. **app-bundles**: Uploaded application bundles
 
 ```bash
--v synkronus-bundles:/app/data/app-bundles
+# List volumes
+docker volume ls
+
+# Inspect volume
+docker volume inspect synkronus_postgres-data
+
+# Backup volume
+docker run --rm -v synkronus_postgres-data:/data -v $(pwd):/backup alpine tar czf /backup/postgres-backup.tar.gz /data
+
+# Restore volume
+docker run --rm -v synkronus_postgres-data:/data -v $(pwd):/backup alpine tar xzf /backup/postgres-backup.tar.gz -C /
 ```
 
-## Deployment on Coolify
+## Monitoring and Maintenance
 
-### Prerequisites
-
-1. **PostgreSQL Database**: Set up a PostgreSQL database in Coolify first
-2. **Note the connection details**: hostname, port, username, password, database name
-
-### Deployment Steps
-
-1. **Create a new service** in Coolify
-   - Choose "Docker Image" or "Git Repository"
-   - If using Git, point to your Synkronus repository
-
-2. **Configure Environment Variables**:
-   ```env
-   DB_CONNECTION=postgres://username:password@postgres-host:5432/synkronus
-   JWT_SECRET=your-very-secure-random-secret-key-here
-   PORT=8080
-   LOG_LEVEL=info
-   APP_BUNDLE_PATH=/app/data/app-bundles
-   MAX_VERSIONS_KEPT=5
-   ADMIN_USERNAME=admin
-   ADMIN_PASSWORD=your-secure-admin-password
-   ```
-
-3. **Configure Persistent Storage**:
-   - Add a volume mount in Coolify
-   - Source: Create a new persistent volume (e.g., `synkronus-app-bundles`)
-   - Destination: `/app/data/app-bundles`
-
-4. **Configure Port Mapping**:
-   - Container port: `8080`
-   - Public port: Your choice (or let Coolify assign)
-
-5. **Health Check** (optional but recommended):
-   - Path: `/health`
-   - Port: `8080`
-   - Interval: `30s`
-
-6. **Deploy**: Click deploy and monitor the logs
-
-### Database Connection String Format
-
-For PostgreSQL in Coolify, your connection string will look like:
-
-```
-postgres://username:password@service-name:5432/database_name?sslmode=disable
-```
-
-- Replace `service-name` with your PostgreSQL service name in Coolify
-- Use `sslmode=require` if your database requires SSL
-
-### Security Recommendations
-
-1. **JWT Secret**: Generate a strong random secret:
-   ```bash
-   openssl rand -base64 32
-   ```
-
-2. **Admin Password**: Change the default admin password immediately after first login
-
-3. **Database Password**: Use a strong, unique password for your database
-
-4. **SSL/TLS**: Enable SSL for database connections in production:
-   ```
-   postgres://user:pass@host:5432/db?sslmode=require
-   ```
-
-## Docker Compose (Local Development)
-
-For local development and testing, use the provided `docker-compose.example.yml`:
+### View Logs
 
 ```bash
-# Copy and customize the example
-cp docker-compose.example.yml docker-compose.yml
+# All services
+docker compose logs -f
 
-# Edit docker-compose.yml with your settings
-nano docker-compose.yml
+# Specific service
+docker compose logs -f synkronus
+docker compose logs -f postgres
+docker compose logs -f nginx
 
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f synkronus
-
-# Stop services
-docker-compose down
+# Last 100 lines
+docker compose logs --tail=100 synkronus
 ```
 
-## Troubleshooting
-
-### Database Connection Issues
-
-1. **Check connection string format**:
-   ```
-   postgres://username:password@hostname:port/database?sslmode=disable
-   ```
-
-2. **Verify database is accessible** from the container:
-   ```bash
-   docker exec -it synkronus sh
-   apk add postgresql-client
-   psql "postgres://user:pass@host:5432/dbname"
-   ```
-
-3. **Check logs**:
-   ```bash
-   docker logs synkronus
-   ```
-
-### Volume/Storage Issues
-
-1. **Verify volume is mounted**:
-   ```bash
-   docker inspect synkronus | grep -A 10 Mounts
-   ```
-
-2. **Check permissions**:
-   ```bash
-   docker exec -it synkronus ls -la /app/data/app-bundles
-   ```
-
-### Application Won't Start
-
-1. **Check environment variables**:
-   ```bash
-   docker exec -it synkronus env | grep -E 'DB_CONNECTION|JWT_SECRET|PORT'
-   ```
-
-2. **View detailed logs**:
-   ```bash
-   docker logs synkronus --tail 100
-   ```
-
-3. **Test health endpoint**:
-   ```bash
-   curl http://localhost:8080/health
-   ```
-
-## Updating the Application
-
-### Pull New Image
+### Health Checks
 
 ```bash
-docker pull your-registry/synkronus:latest
-docker stop synkronus
-docker rm synkronus
-docker run -d [same options as before] synkronus:latest
+# Check service status
+docker compose ps
+
+# Test health endpoint
+curl http://localhost/health
+
+# Via cloudflared tunnel
+curl https://synkronus.your-domain.com/health
 ```
 
-### With Docker Compose
+### Restart Services
 
 ```bash
-docker-compose pull
-docker-compose up -d
+# Restart all services
+docker compose restart
+
+# Restart specific service
+docker compose restart synkronus
+
+# Reload nginx configuration
+docker compose exec nginx nginx -s reload
 ```
 
-### On Coolify
+### Update to Latest Version
 
-Coolify will automatically rebuild and redeploy when you push to your repository (if using Git deployment).
+```bash
+# Pull latest image
+docker compose pull
+
+# Recreate containers with new image
+docker compose up -d
+
+# Remove old images
+docker image prune -f
+```
 
 ## Backup and Restore
 
 ### Database Backup
 
 ```bash
-docker exec postgres pg_dump -U synkronus_user synkronus > backup.sql
+# Create backup
+docker compose exec postgres pg_dump -U synkronus_user synkronus > backup-$(date +%Y%m%d).sql
+
+# Automated daily backups (add to crontab)
+0 2 * * * cd ~/synkronus && docker compose exec -T postgres pg_dump -U synkronus_user synkronus > /backups/synkronus-$(date +\%Y\%m\%d).sql
 ```
 
-### App Bundle Backup
+### Database Restore
 
 ```bash
-docker cp synkronus:/app/data/app-bundles ./backup-bundles
+# Restore from backup
+docker compose exec -T postgres psql -U synkronus_user synkronus < backup-20250114.sql
 ```
 
-### Restore
+### Full System Backup
 
 ```bash
-# Database
-docker exec -i postgres psql -U synkronus_user synkronus < backup.sql
+# Backup everything
+tar czf synkronus-full-backup-$(date +%Y%m%d).tar.gz \
+  docker-compose.yml \
+  nginx.conf \
+  $(docker volume inspect synkronus_postgres-data --format '{{ .Mountpoint }}') \
+  $(docker volume inspect synkronus_app-bundles --format '{{ .Mountpoint }}')
+```
 
-# App Bundles
-docker cp ./backup-bundles synkronus:/app/data/app-bundles
+## Security Best Practices
+
+### 1. Use Strong Secrets
+
+```bash
+# Generate strong JWT secret
+openssl rand -base64 32
+
+# Generate strong passwords
+openssl rand -base64 24
+```
+
+### 2. Change Default Admin Password
+
+```bash
+# After first deployment, change admin password via API
+curl -X POST https://synkronus.your-domain.com/users/change-password \
+  -H "Authorization: Bearer <your-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"current_password":"old","new_password":"new"}'
+```
+
+### 3. Regular Updates
+
+```bash
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Update Docker images
+docker compose pull
+docker compose up -d
+```
+
+### 4. Firewall Configuration
+
+```bash
+# If not using cloudflared, configure firewall
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw enable
+```
+
+### 5. Enable SSL (if not using Cloudflared)
+
+Update `nginx.conf` to include SSL configuration and mount certificates in `docker-compose.yml`.
+
+## Troubleshooting
+
+### Service Won't Start
+
+```bash
+# Check logs
+docker compose logs synkronus
+
+# Check environment variables
+docker compose config
+
+# Verify database connection
+docker compose exec synkronus sh
+# Inside container:
+apk add postgresql-client
+psql "$DB_CONNECTION"
+```
+
+### Database Connection Issues
+
+```bash
+# Check PostgreSQL is running
+docker compose ps postgres
+
+# Check PostgreSQL logs
+docker compose logs postgres
+
+# Test connection from synkronus container
+docker compose exec synkronus sh -c 'apk add postgresql-client && psql "$DB_CONNECTION"'
+```
+
+### Nginx Issues
+
+```bash
+# Test nginx configuration
+docker compose exec nginx nginx -t
+
+# Reload nginx
+docker compose exec nginx nginx -s reload
+
+# Check nginx logs
+docker compose logs nginx
+```
+
+### Cloudflared Tunnel Issues
+
+```bash
+# Check tunnel status
+sudo systemctl status cloudflared
+
+# View tunnel logs
+sudo journalctl -u cloudflared -f
+
+# Test tunnel connectivity
+cloudflared tunnel info synkronus
+```
+
+### Port Already in Use
+
+```bash
+# Find what's using port 80
+sudo lsof -i :80
+
+# Stop conflicting service
+sudo systemctl stop apache2  # or nginx, etc.
 ```
 
 ## Performance Tuning
 
-### Database Connection Pooling
+### PostgreSQL Optimization
 
-The application uses Go's database/sql package with built-in connection pooling. For high-traffic deployments, ensure your PostgreSQL server is properly configured.
+Add to `docker-compose.yml` under postgres service:
+
+```yaml
+command:
+  - "postgres"
+  - "-c"
+  - "max_connections=100"
+  - "-c"
+  - "shared_buffers=256MB"
+  - "-c"
+  - "effective_cache_size=1GB"
+  - "-c"
+  - "maintenance_work_mem=64MB"
+  - "-c"
+  - "checkpoint_completion_target=0.9"
+  - "-c"
+  - "wal_buffers=16MB"
+  - "-c"
+  - "default_statistics_target=100"
+```
 
 ### Resource Limits
 
-Set appropriate resource limits in production:
-
-```bash
-docker run -d \
-  --memory="512m" \
-  --cpus="1.0" \
-  [other options] \
-  synkronus:latest
-```
-
-Or in docker-compose.yml:
+Add to `docker-compose.yml` under each service:
 
 ```yaml
-services:
-  synkronus:
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 512M
-        reservations:
-          cpus: '0.5'
-          memory: 256M
+deploy:
+  resources:
+    limits:
+      cpus: '1.0'
+      memory: 512M
+    reservations:
+      cpus: '0.5'
+      memory: 256M
 ```
+
+### Nginx Caching
+
+Update `nginx.conf` to add caching for static assets:
+
+```nginx
+proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=my_cache:10m max_size=1g inactive=60m;
+proxy_cache my_cache;
+```
+
+## Scaling
+
+### Horizontal Scaling
+
+To run multiple Synkronus instances:
+
+```yaml
+# In docker-compose.yml
+synkronus:
+  image: ghcr.io/opendataensemble/synkronus:latest
+  deploy:
+    replicas: 3
+```
+
+Update nginx.conf upstream:
+
+```nginx
+upstream synkronus_backend {
+    least_conn;
+    server synkronus:8080;
+    # Add more instances as needed
+}
+```
+
+### External PostgreSQL
+
+For better performance, use a managed PostgreSQL service:
+
+1. Remove postgres service from `docker-compose.yml`
+2. Update `DB_CONNECTION` to point to external database
+3. Ensure network connectivity
 
 ## Monitoring
 
-### Health Check Endpoint
+### Prometheus Metrics (Future Enhancement)
 
-The application exposes a `/health` endpoint for monitoring:
+Add to `docker-compose.yml`:
 
-```bash
-curl http://localhost:8080/health
+```yaml
+prometheus:
+  image: prom/prometheus
+  volumes:
+    - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    - prometheus-data:/prometheus
+  ports:
+    - "9090:9090"
+
+grafana:
+  image: grafana/grafana
+  ports:
+    - "3000:3000"
+  volumes:
+    - grafana-data:/var/lib/grafana
 ```
 
-### Logs
+### Log Aggregation
 
-View application logs:
+Use Docker logging drivers:
 
-```bash
-docker logs -f synkronus
+```yaml
+# In docker-compose.yml
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
 ```
 
-Set log level via environment variable:
+## Architecture Diagram
 
-```env
-LOG_LEVEL=debug  # debug, info, warn, error
+```
+┌─────────────────────────────────────────┐
+│         Cloudflared Tunnel              │
+│         (Optional - Cloudflare)         │
+│         Automatic SSL/TLS               │
+└──────────────┬──────────────────────────┘
+               │ HTTPS
+               ▼
+┌─────────────────────────────────────────┐
+│         Nginx Reverse Proxy             │
+│         Port 80/443                     │
+│         - Load balancing                │
+│         - Request routing               │
+│         - Compression                   │
+└──────────────┬──────────────────────────┘
+               │ HTTP
+               ▼
+┌─────────────────────────────────────────┐
+│         Synkronus Container             │
+│         Port 8080 (internal)            │
+│         - API endpoints                 │
+│         - Business logic                │
+│         - File storage                  │
+└──────────────┬──────────────────────────┘
+               │ PostgreSQL protocol
+               ▼
+┌─────────────────────────────────────────┐
+│         PostgreSQL Database             │
+│         Port 5432 (internal)            │
+│         - Data persistence              │
+│         - Transactions                  │
+└─────────────────────────────────────────┘
 ```
 
-## Support
+## Support and Resources
 
-For issues and questions:
-- Check the logs first: `docker logs synkronus`
-- Review this deployment guide
-- Check the main README.md for application-specific documentation
+### Documentation
+- [Docker Quick Start](DOCKER.md) - Quick start guide
+- [GitHub Repository](https://github.com/opendataensemble/ode)
+- [CI/CD Documentation](../.github/CICD.md)
+
+### External Resources
+- [Docker Documentation](https://docs.docker.com/)
+- [Cloudflare Tunnel Docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [Nginx Documentation](https://nginx.org/en/docs/)
+
+### Getting Help
+
+1. Check logs: `docker compose logs`
+2. Review this guide
+3. Check GitHub issues
+4. Consult the troubleshooting section
+
+## Production Checklist
+
+Before going live:
+
+- [ ] Strong JWT secret generated
+- [ ] Strong database password set
+- [ ] Admin password changed from default
+- [ ] Cloudflared tunnel configured (or SSL certificates installed)
+- [ ] Backup strategy implemented
+- [ ] Monitoring configured
+- [ ] Health checks passing
+- [ ] Firewall configured (if not using Cloudflared)
+- [ ] Resource limits set
+- [ ] Log rotation configured
+- [ ] Documentation reviewed
+- [ ] Test deployment verified
+
+---
+
+**Your Synkronus instance is now ready for production! 🚀**

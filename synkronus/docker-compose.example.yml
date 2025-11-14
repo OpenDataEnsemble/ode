@@ -1,27 +1,64 @@
-# Example docker-compose.yml for local development/testing
-# For production deployment on Coolify, use environment variables directly
+# Docker Compose configuration for Synkronus
+# This setup includes:
+# - Synkronus API server
+# - PostgreSQL database
+# - Nginx reverse proxy
+#
+# For production deployment:
+# 1. Update all passwords and secrets
+# 2. Configure nginx SSL certificates (or use cloudflared tunnel)
+# 3. Set up persistent volumes
+# 4. Configure backup strategy
 
 version: '3.8'
 
 services:
-  synkronus:
-    build: .
+  # Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
     ports:
-      - "8080:8080"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # Uncomment for SSL certificates:
+      # - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - synkronus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  # Synkronus API server
+  synkronus:
+    # Use pre-built image from GitHub Container Registry
+    image: ghcr.io/opendataensemble/synkronus:latest
+    # Or build locally for development:
+    # build: .
+    expose:
+      - "8080"
+    # Only expose port directly if not using nginx:
+    # ports:
+    #   - "8080:8080"
     environment:
       # Server configuration
       PORT: "8080"
       LOG_LEVEL: "info"
       
       # Database configuration
-      DB_CONNECTION: "postgres://synkronus_user:your_password@postgres:5432/synkronus?sslmode=disable"
+      # Update with your PostgreSQL credentials
+      DB_CONNECTION: "postgres://synkronus_user:CHANGE_THIS_PASSWORD@postgres:5432/synkronus?sslmode=disable"
       
       # JWT Secret (MUST be changed in production!)
-      JWT_SECRET: "your-secret-jwt-key-change-this-in-production"
+      # Generate with: openssl rand -base64 32
+      JWT_SECRET: "CHANGE_THIS_TO_RANDOM_32_CHAR_STRING"
       
-      # Admin credentials (optional, will use defaults if not set)
+      # Admin credentials
       ADMIN_USERNAME: "admin"
-      ADMIN_PASSWORD: "change-this-password"
+      ADMIN_PASSWORD: "CHANGE_THIS_ADMIN_PASSWORD"
       
       # App bundle storage path (inside container)
       APP_BUNDLE_PATH: "/app/data/app-bundles"
@@ -45,22 +82,29 @@ services:
       retries: 3
       start_period: 10s
 
+  # PostgreSQL database
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: synkronus
       POSTGRES_USER: synkronus_user
-      POSTGRES_PASSWORD: your_password
+      POSTGRES_PASSWORD: CHANGE_THIS_PASSWORD
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
+    # Only expose port if you need external access:
+    # ports:
+    #   - "5432:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U synkronus_user -d synkronus"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+# Named volumes for data persistence
+# These will persist data even if containers are removed
 
 volumes:
   postgres-data:

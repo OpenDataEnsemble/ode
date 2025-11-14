@@ -46,6 +46,45 @@ We believe that diverse perspectives and varied skill sets make our project stro
 - Test the platform and report your experience
 - Share how you're using ODE in your work
 
+## CI/CD Pipeline 🚀
+
+This monorepo uses GitHub Actions for continuous integration and deployment:
+
+### Current Pipelines
+
+#### Synkronus Docker Build & Publish
+- **Trigger**: Push to `main` branch or pull requests affecting `synkronus/` directory
+- **Registry**: GitHub Container Registry (ghcr.io)
+- **Image**: `ghcr.io/opendataensemble/synkronus`
+- **Tagging Strategy**:
+  - `main` branch → `latest` + `v{version}` (release versions)
+  - Other branches → `{branch-name}` (pre-release versions)
+- **Workflow**: `.github/workflows/synkronus-docker.yml`
+
+### Image Versioning
+
+Images follow semantic versioning:
+- **Release**: `ghcr.io/opendataensemble/synkronus:latest` or `ghcr.io/opendataensemble/synkronus:v1.0.0`
+- **Pre-release**: `ghcr.io/opendataensemble/synkronus:develop` or `ghcr.io/opendataensemble/synkronus:feature-xyz`
+
+### Using Published Images
+
+Pull and run the latest Synkronus image:
+
+```bash
+docker pull ghcr.io/opendataensemble/synkronus:latest
+docker run -d -p 8080:8080 \
+  -e DB_CONNECTION="postgres://user:pass@host:5432/synkronus" \
+  -e JWT_SECRET="your-secret-key" \
+  -v synkronus-bundles:/app/data/app-bundles \
+  ghcr.io/opendataensemble/synkronus:latest
+```
+
+**Documentation:**
+- [CI/CD Pipeline Details](.github/CICD.md) - Comprehensive CI/CD documentation
+- [Synkronus Docker Guide](synkronus/DOCKER.md) - Quick start guide
+- [Synkronus Deployment Guide](synkronus/DEPLOYMENT.md) - Production deployment
+
 ## Get Involved 📬 
 
 Ready to join the ensemble? We're excited to meet you and see what unique perspective you'll bring to ODE!
