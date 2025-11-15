@@ -20,11 +20,11 @@
   },
   "StringFileInfo": {
     "Comments": "Synkronus CLI Tool",
-    "CompanyName": "HelloSapiens",
+    "CompanyName": "OpenDataEnsemble",
     "FileDescription": "Synkronus CLI - A command-line interface for the Synkronus API",
     "FileVersion": "1.0.0.0",
     "InternalName": "synk",
-    "LegalCopyright": "© 2025 HelloSapiens",
+    "LegalCopyright": "© 2025 OpenDataEnsemble",
     "LegalTrademarks": "",
     "OriginalFilename": "synk.exe",
     "PrivateBuild": "",
