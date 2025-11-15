@@ -1,0 +1,100 @@
+name: Formulus Android Build
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'formulus/**'
+      - '.github/workflows/formulus-android.yml'
+  pull_request:
+    paths:
+      - 'formulus/**'
+      - '.github/workflows/formulus-android.yml'
+  release:
+    types: [published]
+
+jobs:
+  build-android:
+    name: Build Formulus Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      NODE_VERSION: '18.x'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            formulus/package-lock.json
+            formulus/package.json
+
+      - name: Install npm dependencies
+        working-directory: formulus
+        run: npm ci
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Prepare Android signing (non-PR)
+        if: github.event_name != 'pull_request'
+        env:
+          FORMULUS_RELEASE_KEYSTORE_B64: ${{ secrets.FORMULUS_RELEASE_KEYSTORE_B64 }}
+          FORMULUS_RELEASE_STORE_PASSWORD: ${{ secrets.FORMULUS_RELEASE_STORE_PASSWORD }}
+          FORMULUS_RELEASE_KEY_ALIAS: ${{ secrets.FORMULUS_RELEASE_KEY_ALIAS }}
+          FORMULUS_RELEASE_KEY_PASSWORD: ${{ secrets.FORMULUS_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -e
+          mkdir -p formulus/android/keystores
+
+          if [ -z "$FORMULUS_RELEASE_KEYSTORE_B64" ]; then
+            echo "FORMULUS_RELEASE_KEYSTORE_B64 is not set. Failing to avoid unsigned release builds."
+            exit 1
+          fi
+
+          echo "$FORMULUS_RELEASE_KEYSTORE_B64" | base64 -d > formulus/android/keystores/formulus-signing.jks
+
+          cat << EOF > formulus/android/local.properties
+FORMULUS_RELEASE_STORE_FILE=keystores/formulus-signing.jks
+FORMULUS_RELEASE_STORE_PASSWORD=${FORMULUS_RELEASE_STORE_PASSWORD}
+FORMULUS_RELEASE_KEY_ALIAS=${FORMULUS_RELEASE_KEY_ALIAS}
+FORMULUS_RELEASE_KEY_PASSWORD=${FORMULUS_RELEASE_KEY_PASSWORD}
+EOF
+
+      - name: Build debug APK (PR)
+        if: github.event_name == 'pull_request'
+        working-directory: formulus/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Build release APK (main/develop/release)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: formulus-android-apk-${{ github.event_name }}-${{ github.run_id }}
+          path: |
+            formulus/android/app/build/outputs/apk/**/**/*.apk
+
+      - name: Upload APK to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            formulus/android/app/build/outputs/apk/**/**/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
