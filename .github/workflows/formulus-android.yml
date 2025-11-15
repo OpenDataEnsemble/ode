@@ -48,6 +48,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Make Gradle wrapper executable
+        working-directory: formulus/android
+        run: chmod +x ./gradlew
+
       - name: Prepare Android signing (non-PR)
         if: github.event_name != 'pull_request'
         env:
