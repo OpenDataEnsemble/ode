@@ -1,4 +1,4 @@
-module github.com/HelloSapiens/collectivus/synkronus-cli
+module github.com/OpenDataEnsemble/ode/synkronus-cli
 
 go 1.23.0
 

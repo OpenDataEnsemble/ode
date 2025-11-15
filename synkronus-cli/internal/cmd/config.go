@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/config"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"

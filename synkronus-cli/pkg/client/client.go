@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/auth"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/auth"
 	"github.com/spf13/viper"
 )
 

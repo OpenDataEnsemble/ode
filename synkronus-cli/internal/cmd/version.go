@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/utils"
-	"github.com/HelloSapiens/collectivus/synkronus-cli/pkg/client"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/client"
 	"github.com/spf13/cobra"
 )
 
@@ -47,7 +47,7 @@ func printCLIVersion() {
 func printServerVersion() error {
 	c := client.NewClient()
 	start := time.Now()
-	
+
 	versionInfo, err := c.GetVersion()
 	if err != nil {
 		utils.PrintError("Failed to get server version: %v", err)
@@ -59,9 +59,9 @@ func printServerVersion() error {
 
 	// Print server version details
 	fmt.Printf("%s\n", utils.FormatKeyValue("Server version", utils.Info(versionInfo.Server.Version)))
-	fmt.Printf("%s\n", utils.FormatKeyValue("Database", 
+	fmt.Printf("%s\n", utils.FormatKeyValue("Database",
 		fmt.Sprintf("%s %s", versionInfo.Database.Type, versionInfo.Database.Version)))
-	fmt.Printf("%s\n", utils.FormatKeyValue("System", 
+	fmt.Printf("%s\n", utils.FormatKeyValue("System",
 		fmt.Sprintf("%s/%s (%d CPUs)", versionInfo.System.OS, versionInfo.System.Architecture, versionInfo.System.CPUs)))
 	fmt.Printf("%s\n", utils.FormatKeyValue("Go version", versionInfo.Build.GoVersion))
 	fmt.Printf("%s\n", utils.FormatKeyValue("Build commit", versionInfo.Build.Commit))

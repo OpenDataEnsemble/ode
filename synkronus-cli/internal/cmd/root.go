@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/config"
-	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/utils"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/config"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

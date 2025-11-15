@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/HelloSapiens/collectivus/synkronus-cli/pkg/client"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/client"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 )

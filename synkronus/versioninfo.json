@@ -20,11 +20,11 @@
     },
     "StringFileInfo": {
       "Comments": "Synkronus Server",
-      "CompanyName": "HelloSapiens",
+      "CompanyName": "ODE - Open Data Ensemble",
       "FileDescription": "Synkronus - Synkronus Server",
       "FileVersion": "1.0.24.0",
       "InternalName": "synkronus",
-      "LegalCopyright": "© 2025 HelloSapiens",
+      "LegalCopyright": "© 2025 Open Data Ensemble",
       "LegalTrademarks": "",
       "OriginalFilename": "synkronus.exe",
       "PrivateBuild": "",

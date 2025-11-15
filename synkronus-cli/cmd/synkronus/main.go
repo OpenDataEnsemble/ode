@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/cmd"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/cmd"
 )
 
 func main() {

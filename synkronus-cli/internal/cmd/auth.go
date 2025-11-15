@@ -5,8 +5,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/auth"
-	"github.com/HelloSapiens/collectivus/synkronus-cli/internal/utils"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/auth"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )

@@ -12,13 +12,13 @@ A command-line interface for interacting with the Synkronus API.
 ## Installation
 
 ```bash
-go install github.com/HelloSapiens/collectivus/synkronus-cli/cmd/synkronus@latest
+go install github.com/OpenDataEnsemble/ode/synkronus-cli/cmd/synkronus@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/HelloSapiens/collectivus/synkronus-cli.git
+git clone https://github.com/OpenDataEnsemble/ode/synkronus-cli.git
 cd synkronus-cli
 go build -o bin/synk ./cmd/synkronus
 ```
