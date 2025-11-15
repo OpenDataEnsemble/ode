@@ -66,12 +66,11 @@ jobs:
 
           echo "$FORMULUS_RELEASE_KEYSTORE_B64" | base64 -d > formulus/android/keystores/formulus-signing.jks
 
-          cat << EOF > formulus/android/local.properties
-FORMULUS_RELEASE_STORE_FILE=keystores/formulus-signing.jks
-FORMULUS_RELEASE_STORE_PASSWORD=${FORMULUS_RELEASE_STORE_PASSWORD}
-FORMULUS_RELEASE_KEY_ALIAS=${FORMULUS_RELEASE_KEY_ALIAS}
-FORMULUS_RELEASE_KEY_PASSWORD=${FORMULUS_RELEASE_KEY_PASSWORD}
-EOF
+          # Generate local.properties for release signing
+          echo "FORMULUS_RELEASE_STORE_FILE=keystores/formulus-signing.jks" > formulus/android/local.properties
+          echo "FORMULUS_RELEASE_STORE_PASSWORD=${FORMULUS_RELEASE_STORE_PASSWORD}" >> formulus/android/local.properties
+          echo "FORMULUS_RELEASE_KEY_ALIAS=${FORMULUS_RELEASE_KEY_ALIAS}" >> formulus/android/local.properties
+          echo "FORMULUS_RELEASE_KEY_PASSWORD=${FORMULUS_RELEASE_KEY_PASSWORD}" >> formulus/android/local.properties
 
       - name: Build debug APK (PR)
         if: github.event_name == 'pull_request'
