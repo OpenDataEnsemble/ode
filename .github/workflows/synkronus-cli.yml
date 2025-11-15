@@ -33,7 +33,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: synkronus-cli/go.mod
+          go-version: '1.22.x'
+          cache-dependency-path: synkronus-cli/go.sum
 
       - name: Build synkronus-cli
         working-directory: synkronus-cli
@@ -66,7 +67,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: synkronus-cli/go.mod
+          go-version: '1.22.x'
+          cache-dependency-path: synkronus-cli/go.sum
 
       - name: Build synkronus-cli binaries
         working-directory: synkronus-cli
