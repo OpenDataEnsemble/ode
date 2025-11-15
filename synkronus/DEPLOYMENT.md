@@ -203,6 +203,27 @@ docker run --rm -v synkronus_postgres-data:/data -v $(pwd):/backup alpine tar cz
 docker run --rm -v synkronus_postgres-data:/data -v $(pwd):/backup alpine tar xzf /backup/postgres-backup.tar.gz -C /
 ```
 
+### App Bundle Directory Permissions
+
+When you bind-mount a host directory for `app-bundles`, the synkronus container must be able to write to that path. The container runs as user `synkronus` with `uid=1000` and `gid=1000`, so the host directory should be owned (or at least writable) by `1000:1000`.
+
+```bash
+# Check running containers
+docker ps
+
+# Confirm the user inside the synkronus container
+docker exec -it <synkronus-container-id> id
+
+# Example: fix permissions on a host directory used for app bundles
+sudo chown -R 1000:1000 ~/server/app-bundles
+```
+
+If you use a different host path, adjust the `chown` command accordingly. After fixing permissions, you may need to restart the stack:
+
+```bash
+docker compose restart synkronus
+```
+
 ## Monitoring and Maintenance
 
 ### View Logs
