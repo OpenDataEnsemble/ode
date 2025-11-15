@@ -46,20 +46,55 @@ wget https://raw.githubusercontent.com/opendataensemble/ode/main/synkronus/nginx
 
 # Generate secure secrets
 JWT_SECRET=$(openssl rand -base64 32)
-DB_PASSWORD=$(openssl rand -base64 24)
+DB_ROOT_PASSWORD=$(openssl rand -base64 24)
 ADMIN_PASSWORD=$(openssl rand -base64 16)
 
-# Update docker-compose.yml with secrets
-sed -i "s/CHANGE_THIS_PASSWORD/$DB_PASSWORD/g" docker-compose.yml
+# Update docker-compose.yml with secrets (PostgreSQL root and Synkronus secrets)
+sed -i "s/CHANGE_THIS_PASSWORD/$DB_ROOT_PASSWORD/g" docker-compose.yml
 sed -i "s/CHANGE_THIS_TO_RANDOM_32_CHAR_STRING/$JWT_SECRET/g" docker-compose.yml
 sed -i "s/CHANGE_THIS_ADMIN_PASSWORD/$ADMIN_PASSWORD/g" docker-compose.yml
 
-# Start the stack
+# Start the stack (Postgres, Synkronus, nginx)
 docker compose up -d
 
-# Verify it's running
+# Verify it's running via nginx health endpoint
 curl http://localhost/health
 ```
+
+### 3. Create Database and User for Synkronus
+
+In this setup we use **one PostgreSQL container** and create one or more application databases inside it using the root `postgres` user. This is the recommended way to initialize databases for Synkronus.
+
+```bash
+# Open a psql shell into the Postgres container (as root user)
+docker compose exec postgres psql -U postgres
+```
+
+From the `psql` prompt, create a role (user) and a database **owned by that role** for Synkronus:
+
+```sql
+-- Replace names/passwords as appropriate
+CREATE ROLE synkronus_user LOGIN PASSWORD 'CHANGE_THIS_APP_PASSWORD';
+CREATE DATABASE synkronus OWNER synkronus_user;
+```
+
+Then update the `synkronus` service `DB_CONNECTION` in `docker-compose.yml` to match:
+
+```yaml
+services:
+  synkronus:
+    environment:
+      DB_CONNECTION: "postgres://synkronus_user:CHANGE_THIS_APP_PASSWORD@postgres:5432/synkronus?sslmode=disable"
+```
+
+To add **additional Synkronus instances** later, repeat the same pattern:
+
+```sql
+CREATE ROLE synkronus_another_user LOGIN PASSWORD 'another_password';
+CREATE DATABASE synkronus_another OWNER synkronus_another_user;
+```
+
+and point a new Synkronus service at that database with its own `DB_CONNECTION`.
 
 ### 3. Set Up Cloudflared Tunnel (Optional but Recommended)
 

@@ -26,8 +26,8 @@ RUN go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus
 # Stage 2: Create minimal runtime image
 FROM alpine:latest
 
-# Install runtime dependencies
-RUN apk --no-cache add ca-certificates tzdata
+# Install runtime dependencies (wget needed for container healthcheck)
+RUN apk --no-cache add ca-certificates tzdata wget
 
 # Create non-root user for security
 RUN addgroup -g 1000 synkronus && \

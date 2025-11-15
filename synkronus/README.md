@@ -55,6 +55,14 @@ docker run -d -p 8080:8080 \
   ghcr.io/opendataensemble/synkronus:latest
 ```
 
+When using the provided `docker-compose` setup, the recommended way to initialize databases is:
+
+- Run a single PostgreSQL container (service `postgres`).
+- Use `docker compose exec postgres psql -U postgres` to create one or more databases and users for Synkronus.
+- Point each Synkronus instance at its own database via the `DB_CONNECTION` string.
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for the full step-by-step database initialization procedure.
+
 ### Development Setup
 
 #### Prerequisites

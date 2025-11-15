@@ -308,7 +308,7 @@ Validation errors follow RFC 7807 (Problem Details for HTTP APIs) format:
   - Avoids complexity of gRPC/protobuf while remaining debuggable
 - **In transit**: HTTPS enforced with Let's Encrypt
 - **At rest**:
-  - Database encryption via SQLite + OS-level encryption or Postgres
+  - Database encryption via Postgres (at-rest encryption provided by the underlying database / storage layer)
   - Attachments optionally encrypted at rest
 - All secrets stored via `.env` or environment variables
 
