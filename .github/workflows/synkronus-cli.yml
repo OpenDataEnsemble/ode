@@ -1,0 +1,87 @@
+name: Synkronus CLI Build & Release
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'synkronus-cli/**'
+      - '.github/workflows/synkronus-cli.yml'
+  pull_request:
+    paths:
+      - 'synkronus-cli/**'
+      - '.github/workflows/synkronus-cli.yml'
+  release:
+    types: [published]
+
+jobs:
+  build-cli:
+    name: Build synkronus-cli (CI)
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        goos: [linux]
+        goarch: [amd64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: synkronus-cli/go.mod
+
+      - name: Build synkronus-cli
+        working-directory: synkronus-cli
+        run: |
+          mkdir -p dist
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -o dist/synkronus-cli-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/synkronus
+          ls -R dist
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synkronus-cli-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: synkronus-cli/dist/synkronus-cli-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  release-cli:
+    name: Build & attach release assets
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        goos: [linux, windows]
+        goarch: [amd64]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: synkronus-cli/go.mod
+
+      - name: Build synkronus-cli binaries
+        working-directory: synkronus-cli
+        run: |
+          mkdir -p dist
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -o dist/synkronus-cli-${{ matrix.goos }}-${{ matrix.goarch }}${EXT} ./cmd/synkronus
+          ls -R dist
+
+      - name: Upload assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            synkronus-cli/dist/synkronus-cli-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

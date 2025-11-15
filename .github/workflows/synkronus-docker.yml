@@ -15,9 +15,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g., v1.0.0)'
+        description: 'Version tag (e.g., v1.0.0). If empty, tags will be derived from the current ref.'
         required: false
         type: string
+  release:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
@@ -52,12 +54,16 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # For main branch: latest + version tag
+            # For main branch: latest + version tag (manual dispatch) or release tag
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=semver,pattern=v{{version}},enable=${{ github.event.inputs.version != '' }},value=${{ github.event.inputs.version }}
-            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event.inputs.version != '' }},value=${{ github.event.inputs.version }}
+            # When triggered via manual dispatch with a version input
+            type=semver,pattern=v{{version}},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version != '' }},value=${{ github.event.inputs.version }}
+            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version != '' }},value=${{ github.event.inputs.version }}
+            # When triggered from a GitHub Release event, use the release tag name as the semver source
+            type=semver,pattern=v{{version}},enable=${{ github.event_name == 'release' }},value=${{ github.event.release.tag_name }}
+            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event_name == 'release' }},value=${{ github.event.release.tag_name }}
             # For other branches: branch name (pre-release)
-            type=ref,event=branch,enable=${{ github.ref != 'refs/heads/main' }}
+            type=ref,event=branch,enable=${{ github.event_name != 'release' && github.ref != 'refs/heads/main' }}
             # For PRs: pr-number
             type=ref,event=pr
             # SHA for traceability
