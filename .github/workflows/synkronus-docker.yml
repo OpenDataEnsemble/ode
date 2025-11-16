@@ -66,8 +66,8 @@ jobs:
             type=ref,event=branch,enable=${{ github.event_name != 'release' && github.ref != 'refs/heads/main' }}
             # For PRs: pr-number
             type=ref,event=pr
-            # SHA for traceability
-            type=sha,prefix={{branch}}-
+            # SHA for traceability (only for non-release events)
+            type=sha,prefix={{branch}}-,enable=${{ github.event_name != 'release' }}
           labels: |
             org.opencontainers.image.title=Synkronus
             org.opencontainers.image.description=Synchronization API for offline-first applications

@@ -59,6 +59,8 @@ jobs:
     name: Build & attach release assets
     if: github.event_name == 'release'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     strategy:
       matrix:
