@@ -47,7 +47,7 @@ const SettingsScreen = () => {
     try {
       setIsLoggingIn(true)
       await login(username, password)
-      console.log('Logged in!')
+      Alert.alert('Success', 'Login authenticated successfully.\nYou can now sync your app and data!')
     } catch (err) {
       console.error('Login failed', err)
     } finally {
@@ -68,7 +68,7 @@ const SettingsScreen = () => {
     try {
       const credentials = await Keychain.getGenericPassword();
       if (credentials) {
-        console.log('Credentials loaded successfully:', credentials.username, credentials.password);
+        console.log('Credentials loaded successfully:', credentials.username, "password redacted"); //credentials.password
         return {username: credentials.username, password: credentials.password};
       } else {
         console.log('No credentials stored.');
