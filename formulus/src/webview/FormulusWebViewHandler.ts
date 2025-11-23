@@ -69,6 +69,7 @@ export class FormulusWebViewMessageManager {
     this.isWebViewReady = isReady;
     console.log(`${this.logPrefix} WebView readiness set to: ${isReady}`);
     if (isReady) {
+      console.log(`${this.logPrefix} WebView is ready, processing any queued messages (count=${this.messageQueue.length})`);
       this.processMessageQueue();
     }
   }
@@ -143,6 +144,7 @@ export class FormulusWebViewMessageManager {
   public send<T = void>(callbackName: string, data: any = {}): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       if (!this.isWebViewReady) {
+        console.log(`${this.logPrefix} WebView not ready, queuing message for callback ${callbackName}`, data);
         this.queueMessage(callbackName, data, resolve, reject);
         return;
       }
@@ -309,7 +311,11 @@ export class FormulusWebViewMessageManager {
     if (!formData.formType) {
       throw new Error('Form type is required for form init');
     }
-    console.log(`${this.logPrefix} Sending form init:`, formData.formType);
+    console.log(`${this.logPrefix} sendFormInit called for formType='${formData.formType}', isWebViewReady=${this.isWebViewReady}`);
+    if (!this.isWebViewReady) {
+      console.log(`${this.logPrefix} Form init will be queued until WebView is ready`, formData);
+    }
+    console.log(`${this.logPrefix} Sending form init now (or queuing via send):`, formData.formType);
     return this.send<void>('onFormInit', formData);
   }
 
@@ -317,5 +323,4 @@ export class FormulusWebViewMessageManager {
     console.log(`${this.logPrefix} Sending attachment data.`);
     return this.send<void>('onAttachmentData', attachmentData);
   }
-
 }

@@ -1,23 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text, Platform, Alert } from 'react-native';
 import RNFS from 'react-native-fs';
-import FormplayerModal, { FormplayerModalHandle } from '../components/FormplayerModal';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import { appEvents } from '../webview/FormulusMessageHandlers'; // Import appEvents
 import { FormService } from '../services/FormService';
 
 const HomeScreen = ({ navigation }: any) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
-  const [formplayerVisible, setFormplayerVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
-  const formplayerModalRef = useRef<FormplayerModalHandle>(null);
-  const formplayerVisibleRef = useRef(false);
-
-  // Keep ref in sync with state so event handlers always see the latest value
-  useEffect(() => {
-    formplayerVisibleRef.current = formplayerVisible;
-  }, [formplayerVisible]);
 
   useEffect(() => {
     const setupPlaceholder = async () => {
@@ -62,67 +53,8 @@ const HomeScreen = ({ navigation }: any) => {
     
     initCacheSubscription();
     
-    const handleOpenFormplayer = async (config: any) => {
-      console.log('HomeScreen: openFormplayerRequested event received', config);
-
-      // Prevent opening if already visible
-      if (formplayerVisibleRef.current) {
-        console.log('HomeScreen: FormplayerModal already visible, ignoring open request');
-        return;
-      }
-
-      const { formType, observationId, params, savedData, operationId } = config;
-      
-      console.log('HomeScreen: Opening FormplayerModal');
-      formplayerVisibleRef.current = true;
-      setFormplayerVisible(true);
-      // Use the ref-based approach to initialize the form
-      const formService = await FormService.getInstance();
-      const forms = formService.getFormSpecs();
-      
-      if (forms.length === 0) {
-        Alert.alert(
-          'No Forms Available', 
-          'No form specifications have been downloaded yet. Please go to Settings to configure your server, then use the Sync screen to download the app bundle.',
-          [{ text: 'OK' }]
-        );
-        console.warn('No forms available - app bundle needs to be downloaded');
-        return;
-      }
-      
-      const formSpec = forms.find((form) => form.id === formType);
-      if (!formSpec) {
-        Alert.alert(
-          'Form Not Found', 
-          `The requested form "${formType}" was not found. Available forms: ${forms.map(f => f.id).join(', ')}`,
-          [{ text: 'OK' }]
-        );
-        console.warn(`Form ${formType} not found. Available forms:`, forms.map(f => f.id));
-        return;
-      }
-      //TODO: Handle edit mode
-      formplayerModalRef.current?.initializeForm(
-        formSpec,
-        params || null, // params if any
-        observationId || null, // observation ID for edit mode
-        savedData || null, // Saved data if any
-        operationId || null // Operation ID for promise resolution
-      );
-    };
-
-    const handleCloseFormplayer = (data: any) => {
-      console.log('HomeScreen: closeFormplayer event received', data);
-      formplayerVisibleRef.current = false;
-      setFormplayerVisible(false);
-    };
-
-    appEvents.addListener('openFormplayerRequested', handleOpenFormplayer);
-    appEvents.addListener('closeFormplayer', handleCloseFormplayer);
-
     return () => {
       console.log('HomeScreen: UNMOUNTING'); // Added for debugging mount/unmount
-      appEvents.removeListener('openFormplayerRequested', handleOpenFormplayer);
-      appEvents.removeListener('closeFormplayer', handleCloseFormplayer);
       
       // Cleanup FormService cache subscription
       if (unsubscribeFromCache) {
@@ -149,14 +81,7 @@ const HomeScreen = ({ navigation }: any) => {
   const handleClick = () => {
     console.log('HomeScreen: handleClick event received');
     
-    // Prevent opening if already visible
-    if (formplayerVisible) {
-      console.log('HomeScreen: FormplayerModal already visible, ignoring test button click');
-      return;
-    }
-    
-    console.log('HomeScreen: Opening FormplayerModal via test button');
-    setFormplayerVisible(true);
+    console.log('HomeScreen: handleClick event received');
     const bgPath = "file:///data/user/0/com.formulus/files/app/assets/sapiens-Dt1gTJ5Q.jpg";
     // Check if bgPath exists
     RNFS.exists(bgPath).then((exists) => {
@@ -180,18 +105,6 @@ const HomeScreen = ({ navigation }: any) => {
           appName="custom_app"
         />
       )}
-            
-      {/* Formplayer Modal */}
-      <FormplayerModal 
-        key="formplayer-modal" // Ensure single instance
-        ref={formplayerModalRef}
-        visible={formplayerVisible} 
-        onClose={() => {
-          console.log('HomeScreen: FormplayerModal onClose called');
-          formplayerVisibleRef.current = false;
-          setFormplayerVisible(false);
-        }}
-      />
     </View>
   );
 };
