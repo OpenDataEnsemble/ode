@@ -54,7 +54,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   
 
   // Create a debounced close handler to prevent multiple rapid close attempts
-  const handleClose = useCallback(() => {
+  const performClose = useCallback(() => {
     // Prevent multiple close attempts
     if (isClosing || isSubmitting) {
       console.log('FormplayerModal: Close attempt blocked - already closing or submitting');
@@ -102,6 +102,31 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       setIsClosing(false);
     }, 500);
   }, [isClosing, isSubmitting, onClose, currentOperationId, currentFormType, formSubmitted]);
+
+  const handleClose = useCallback(() => {
+    if (isClosing || isSubmitting) {
+      console.log('FormplayerModal: Close attempt blocked - already closing or submitting');
+      return;
+    }
+
+    Alert.alert(
+      'Close form?',
+      'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Close form',
+          style: 'destructive',
+          onPress: () => {
+            performClose();
+          },
+        },
+      ],
+    );
+  }, [isClosing, isSubmitting, performClose]);
 
   // Removed closeFormplayer event listener - now using direct promise-based submission handling
 
