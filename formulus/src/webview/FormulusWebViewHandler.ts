@@ -7,7 +7,6 @@
  */
 
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
-import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import { createFormulusMessageHandlers } from './FormulusMessageHandlers';
 import { FormInitData } from './FormulusInterfaceDefinition';
 
