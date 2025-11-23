@@ -299,36 +299,6 @@ class FormulusClient {
   }
 
   /**
-   * Register a callback for when the Formulus interface is ready
-   */
-  public async onFormulusReady(callback: () => void): Promise<void> {
-    try {
-      // Use the new getFormulus() approach
-      if (typeof (window as any).getFormulus === 'function') {
-        this.formulus = await (window as any).getFormulus();
-        callback();
-      } else {
-        console.warn('getFormulus() not available, falling back to legacy approach');
-        // Legacy fallback
-        if (this.formulus) {
-          callback();
-        } else {
-          globalThis.onFormulusReady = () => {
-            this.formulus = globalThis.formulus || null;
-            callback();
-          };
-        }
-      }
-    } catch (error) {
-      console.error('Failed to initialize Formulus API:', error);
-      // Still try legacy fallback
-      if (this.formulus) {
-        callback();
-      }
-    }
-  }
-
-  /**
    * Handle form initialization data from the Formulus RN app
    */
   private handleFormInit(data: FormInitData): void {
@@ -342,37 +312,19 @@ class FormulusClient {
 
 
   /**
-   * Set up event listeners for communication with the Formulus RN app
+   * Set up event listeners and initialize the Formulus interface
    */
   private async setupEventListeners(): Promise<void> {
-    // Set up the global callbacks that will be called by the Formulus RN app
-    globalThis.onFormInit = (formId: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => {
-      this.handleFormInit({ formType: formId, observationId, params, savedData });
-    };
-
-    // Try to initialize the Formulus interface using the new approach
+    // Initialize the Formulus interface using the modern getFormulus() approach only
     try {
       if (typeof (window as any).getFormulus === 'function') {
         this.formulus = await (window as any).getFormulus();
         console.log('Formulus API initialized successfully using getFormulus()');
       } else {
-        // Legacy fallback
-        if (globalThis.formulus) {
-          this.formulus = globalThis.formulus;
-          if (typeof globalThis.onFormulusReady === 'function') {
-            globalThis.onFormulusReady();
-          }
-        }
+        console.error('getFormulus() is not available on window. Formulus API will not be available.');
       }
     } catch (error) {
-      console.warn('Failed to initialize Formulus API with getFormulus(), using legacy approach:', error);
-      // Legacy fallback
-      if (globalThis.formulus) {
-        this.formulus = globalThis.formulus;
-        if (typeof globalThis.onFormulusReady === 'function') {
-          globalThis.onFormulusReady();
-        }
-      }
+      console.error('Failed to initialize Formulus API with getFormulus():', error);
     }
   }
 }

@@ -375,8 +375,6 @@ export interface FormulusInterface {
  */
 export interface FormulusCallbacks {
   onFormInit?: (formType: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => void;
-
-  onFormulusReady?: () => void;
   onReceiveFocus?: () => void;
 }
 
@@ -397,7 +395,5 @@ export function isCompatibleVersion(requiredVersion: string): boolean {
 declare global {
   var formulus: FormulusInterface | undefined;
   var onFormInit: FormulusCallbacks['onFormInit'];
-
-  var onFormulusReady: FormulusCallbacks['onFormulusReady'];
   var onReceiveFocus: FormulusCallbacks['onReceiveFocus'];
 }

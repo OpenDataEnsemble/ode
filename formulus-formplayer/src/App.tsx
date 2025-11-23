@@ -296,11 +296,20 @@ function App() {
 
   // Effect for initializing form via window.onFormInit
   useEffect(() => {
+    // Ensure we only register onFormInit and signal readiness once per WebView lifecycle
+    const globalAny = window as any;
+    if (globalAny.__formplayerOnInitRegistered) {
+      console.log('window.onFormInit already registered for this WebView lifecycle, skipping re-registration.');
+      return;
+    }
+
+    globalAny.__formplayerOnInitRegistered = true;
+
     setIsLoading(true);
     isLoadingRef.current = true;
 
     console.log('Registering window.onFormInit handler.');
-    (window as any).onFormInit = handleFormInitByNative;
+    globalAny.onFormInit = handleFormInitByNative;
 
     // Signal to native that the WebView is ready to receive onFormInit
     console.log('Signaling readiness to native host (formplayerReadyToReceiveInit).');
@@ -348,32 +357,17 @@ function App() {
     // Cleanup function when component unmounts
     return () => {
       clearTimeout(initTimeout);
-      if ((window as any).onFormInit === handleFormInitByNative) {
-        (window as any).onFormInit = undefined;
+      // Intentionally do not clear __formplayerOnInitRegistered so that we do not
+      // re-register handlers or resend readiness within the same WebView lifecycle.
+      if (globalAny.onFormInit === handleFormInitByNative) {
+        globalAny.onFormInit = undefined;
         console.log('Unregistered window.onFormInit handler.');
       }
     };
   }, [handleFormInitByNative]); // Dependency: re-run if handleFormInitByNative changes
 
-  // Register for attachment ready events
-  useEffect(() => {
-    console.log('Formplayer: Executing initialization code');
-    // Check if Formplayer has already been initialized in this WebView session
-    if ((window as any).__formplayerAppInitialized) {
-      console.log('Already initialized by this instance, skipping effect.');
-      return;
-    }
-    window.onFormulusReady = () => {
-      console.log('Formplayer: onFormulusReady called');
-    };
-
-    // Note: Attachment handling is now done directly in individual components
-    // using the Promise-based camera/audio/signature APIs
-
-    // Set the flag to indicate initialization is complete for this session
-    (window as any).__formplayerAppInitialized = true;
-    console.log('__formplayerAppInitialized flag set to true.');
-  }, []);
+  // Attachment handling is now fully encapsulated within individual components
+  // using the Promise-based media/action APIs exposed by Formulus.
 
   // Set up event listeners for navigation and finalization
   useEffect(() => {
