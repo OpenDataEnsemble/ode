@@ -172,17 +172,7 @@ const HomeScreen = ({ navigation }: any) => {
           appName="custom_app"
         />
       )}
-      
-      {/* Test button to open formplayer (can be removed in production) */}
-      <TouchableOpacity 
-        style={styles.testButton} 
-        onPress={() => handleClick()}
-      >
-        <Text style={styles.testButtonText}>Open Formplayer</Text>
-      </TouchableOpacity>
-      
-
-      
+            
       {/* Formplayer Modal */}
       <FormplayerModal 
         key="formplayer-modal" // Ensure single instance
