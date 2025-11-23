@@ -1,16 +1,31 @@
 // Mock implementation of ReactNativeWebView for development testing
-import { 
-  FormulusInterface, 
-  FormInitData, 
-  AttachmentData, 
-  CameraResult, 
-  QrcodeResult, 
-  SignatureResult, 
-  FileResult, 
-  AudioResult,
-  LocationResult,
-  VideoResult 
+import {
+  FormulusInterface,
+  FormInitData,
+  AttachmentData,
+  CameraResult,
+  QrcodeResult,
+  SignatureResult,
+  FileResult,
+  AudioResult
 } from './FormulusInterfaceDefinition';
+
+// Local lightweight types for location/video results used only in the
+// development mock. The shared Formulus interface no longer exposes
+// these, but the mock helpers still refer to them.
+type LocationResult = {
+  fieldId: string;
+  status: 'success' | 'cancelled' | 'error';
+  message?: string;
+  data?: any;
+};
+
+type VideoResult = {
+  fieldId: string;
+  status: 'success' | 'cancelled' | 'error';
+  message?: string;
+  data?: any;
+};
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -19,7 +34,6 @@ interface MockWebView {
 interface MockFormulus {
   submitObservation: (formType: string, finalData: Record<string, any>) => Promise<void>;
   updateObservation: (observationId: string, formType: string, finalData: Record<string, any>) => Promise<void>;
-  savePartial: (formType: string, data: Record<string, any>) => Promise<void>;
   requestCamera: (fieldId: string) => Promise<CameraResult>;
   requestQrcode: (fieldId: string) => Promise<QrcodeResult>;
   requestSignature: (fieldId: string) => Promise<SignatureResult>;
@@ -115,12 +129,6 @@ class WebViewMock {
         updateObservation: (observationId: string, formType: string, data: Record<string, any>): Promise<void> => {
           const message = { type: 'updateObservation', observationId, formType, data };
           console.log('[WebView Mock] Received updateObservation call:', message);
-          this.messageListeners.forEach(listener => listener(message));
-          return Promise.resolve();
-        },
-        savePartial: (formType: string, data: Record<string, any>): Promise<void> => {
-          const message = { type: 'savePartial', formType, data };
-          console.log('[WebView Mock] Received savePartial call:', message);
           this.messageListeners.forEach(listener => listener(message));
           return Promise.resolve();
         },
@@ -624,6 +632,7 @@ class WebViewMock {
         id: imageGuid,
         filename: `${imageGuid}.jpg`,
         uri: dummyPhotoUrl, // Use the dummy photo URL as the URI for display
+        url: dummyPhotoUrl, // For compatibility with CameraResultData.url
         timestamp: new Date().toISOString(),
         metadata: {
           width: 1920,
@@ -1058,6 +1067,8 @@ class WebViewMock {
     // Generate mock audio file data
     const mockFilename = `audio_${Date.now()}.m4a`;
     const mockUri = `file:///mock/audio/cache/${mockFilename}`;
+    const dummyAudioUrl = `${window.location.origin}/dummyaudio.m4a`;
+    const base64Placeholder = 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='; // tiny WAV header stub
     
     const audioResult: AudioResult = {
       fieldId,
@@ -1065,11 +1076,14 @@ class WebViewMock {
       data: {
         type: 'audio',
         filename: mockFilename,
-        uri: mockUri,
+        base64: base64Placeholder,
+        url: dummyAudioUrl,
         timestamp: new Date().toISOString(),
         metadata: {
           duration: 15.5, // 15.5 seconds
           format: 'm4a',
+          sampleRate: 44100,
+          channels: 2,
           size: 245760 // ~240KB
         }
       }

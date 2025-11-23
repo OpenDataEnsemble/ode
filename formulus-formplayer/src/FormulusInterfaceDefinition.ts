@@ -47,17 +47,16 @@ export interface ActionResult<T = any> {
 /**
  * Camera-specific result data
  * @property {'image'} type - Always 'image' for camera results
- * @property {string} id - Generated GUID for the image
  * @property {string} filename - Generated filename for the image
- * @property {string} uri - File URI for both sync protocol and display (file://)
  * @property {string} timestamp - ISO timestamp when image was captured
  * @property {object} metadata - Image metadata (dimensions, size, etc.)
  */
 export interface CameraResultData {
   type: 'image';
-  id: string; // GUID for unique identification
-  filename: string; // GUID-based filename
+  id: string;
+  filename: string;
   uri: string;
+  url: string;
   timestamp: string;
   metadata: {
     width: number;
@@ -84,54 +83,15 @@ export interface CameraResultData {
 export interface AudioResultData {
   type: 'audio';
   filename: string;
-  uri: string;
+  base64: string;
+  url: string;
   timestamp: string;
   metadata: {
     duration: number;
     format: string;
+    sampleRate: number;
+    channels: number;
     size: number;
-  };
-}
-
-/**
- * Location/GPS-specific result data
- * @property {'location'} type - Always 'location' for GPS results
- * @property {number} latitude - Latitude coordinate
- * @property {number} longitude - Longitude coordinate
- * @property {number} [accuracy] - Accuracy in meters
- * @property {number} [altitude] - Altitude in meters (can be null)
- * @property {number} [altitudeAccuracy] - Altitude accuracy in meters (can be null)
- * @property {string} timestamp - ISO timestamp when location was captured
- */
-export interface LocationResultData {
-  type: 'location';
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
-  altitude?: number | null;
-  altitudeAccuracy?: number | null;
-  timestamp: string;
-}
-
-/**
- * Video-specific result data
- * @property {'video'} type - Always 'video' for video results
- * @property {string} filename - Generated filename for the video
- * @property {string} uri - Local file URI (no base64 encoding)
- * @property {string} timestamp - ISO timestamp when video was captured
- * @property {object} metadata - Video metadata (duration, format, size, etc.)
- */
-export interface VideoResultData {
-  type: 'video';
-  filename: string;
-  uri: string;
-  timestamp: string;
-  metadata: {
-    duration: number;
-    format: string;
-    size: number;
-    width?: number;
-    height?: number;
   };
 }
 
@@ -196,8 +156,6 @@ export interface FileResultData {
  */
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
-export type LocationResult = ActionResult<LocationResultData>;
-export type VideoResult = ActionResult<VideoResultData>;
 export type SignatureResult = ActionResult<SignatureResultData>;
 export type QrcodeResult = ActionResult<QrcodeResultData>;
 export type FileResult = ActionResult<FileResultData>;
@@ -256,6 +214,22 @@ export interface FormObservation {
 }
 
 /**
+ * Result returned when a form is completed or closed
+ * @property {'form_submitted' | 'form_updated' | 'draft_saved' | 'cancelled' | 'error'} status - The outcome status
+ * @property {string} [observationId] - The observation ID (present on successful submission/update)
+ * @property {Record<string, any>} [formData] - The final form data (present on successful submission/update)
+ * @property {string} [message] - Optional message (mainly for errors or additional context)
+ * @property {string} formType - The form type that was being edited
+ */
+export interface FormCompletionResult {
+  status: 'form_submitted' | 'form_updated' | 'draft_saved' | 'cancelled' | 'error';
+  observationId?: string;
+  formData?: Record<string, any>;
+  message?: string;
+  formType: string;
+}
+
+/**
  * Interface for the Formulus app methods that will be injected into the WebViews for custom_app and FormPlayer
  * @namespace formulus
  */
@@ -277,9 +251,9 @@ export interface FormulusInterface {
    * @param {string} formType - The identifier of the formtype to open
    * @param {Object} params - Additional parameters for form initialization
    * @param {Object} savedData - Previously saved form data (for editing)
-   * @returns {Promise<void>}
+   * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
-  openFormplayer(formType: string, params: Record<string, any>, savedData: Record<string, any>): Promise<void>;
+  openFormplayer(formType: string, params: Record<string, any>, savedData: Record<string, any>): Promise<FormCompletionResult>;
 
   /**
    * Get observations for a specific form
@@ -290,13 +264,6 @@ export interface FormulusInterface {
    */
   getObservations(formType: string, isDraft?: boolean, includeDeleted?: boolean): Promise<FormObservation[]>;
 
-  /**
-   * Save partial form data
-   * @param {string} formType - The identifier of the formtype
-   * @param {Object} data - The form data to save
-   * @returns {Promise<void>}
-   */
-  savePartial(formType: string, data: Record<string, any>): Promise<void>;
 
   /**
    * Submit a completed form
@@ -325,16 +292,9 @@ export interface FormulusInterface {
   /**
    * Request location for a field
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<LocationResult>} Promise that resolves with location result or rejects on error/cancellation
+   * @returns {Promise<void>}
    */
-  requestLocation(fieldId: string): Promise<LocationResult>;
-
-  /**
-   * Request video recording for a field
-   * @param {string} fieldId - The ID of the field
-   * @returns {Promise<VideoResult>} Promise that resolves with video result or rejects on error/cancellation
-   */
-  requestVideo(fieldId: string): Promise<VideoResult>;
+  requestLocation(fieldId: string): Promise<void>;
 
   /**
    * Request file selection for a field
@@ -342,13 +302,6 @@ export interface FormulusInterface {
    * @returns {Promise<FileResult>} Promise that resolves with file result or rejects on error/cancellation
    */
   requestFile(fieldId: string): Promise<FileResult>;
-
-  /**
-   * Request audio recording for a field
-   * @param {string} fieldId - The ID of the field
-   * @returns {Promise<AudioResult>} Promise that resolves with audio result or rejects on error/cancellation
-   */
-  requestAudio(fieldId: string): Promise<AudioResult>;
 
   /**
    * Launch an external intent
@@ -422,7 +375,7 @@ export interface FormulusInterface {
  */
 export interface FormulusCallbacks {
   onFormInit?: (formType: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => void;
-  onSavePartialComplete?: (formType: string, observationId: string | null, success: boolean) => void;
+
   onFormulusReady?: () => void;
   onReceiveFocus?: () => void;
 }
@@ -430,7 +383,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = "1.0.1";
+export const FORMULUS_INTERFACE_VERSION = "1.1.0";
 
 /**
  * Check if the current interface version is compatible with the required version
@@ -444,7 +397,7 @@ export function isCompatibleVersion(requiredVersion: string): boolean {
 declare global {
   var formulus: FormulusInterface | undefined;
   var onFormInit: FormulusCallbacks['onFormInit'];
-  var onSavePartialComplete: FormulusCallbacks['onSavePartialComplete'];
+
   var onFormulusReady: FormulusCallbacks['onFormulusReady'];
   var onReceiveFocus: FormulusCallbacks['onReceiveFocus'];
 }

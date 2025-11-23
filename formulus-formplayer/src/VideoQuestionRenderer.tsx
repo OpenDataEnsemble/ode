@@ -28,8 +28,10 @@ import {
   Delete as DeleteIcon,
   VideoFile as VideoFileIcon
 } from '@mui/icons-material';
-import FormulusClient from './FormulusInterface';
-import { VideoResult, VideoResultData } from './FormulusInterfaceDefinition';
+// Note: The shared Formulus interface v1.1.0 no longer exposes a
+// requestVideo() API. This renderer therefore does not actively
+// trigger native video recording anymore. It can still display
+// existing video metadata if present in the form data.
 
 interface VideoQuestionRendererProps extends ControlProps {
   // Additional props if needed
@@ -72,45 +74,10 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
   }, [data]);
 
   const handleRecordVideo = async () => {
-    setIsRecording(true);
-    setError(null);
-    
-    try {
-      const fieldId = path.replace(/\//g, '_') || 'video_field';
-      console.log('Requesting video recording for field:', fieldId);
-      
-      const result: VideoResult = await FormulusClient.getInstance().requestVideo(fieldId);
-      
-      if (result.status === 'success' && result.data) {
-        const videoInfo: VideoDisplayData = {
-          filename: result.data.filename,
-          uri: result.data.uri,
-          timestamp: result.data.timestamp,
-          metadata: result.data.metadata
-        };
-        
-        setVideoData(videoInfo);
-        
-        // Save the video data as JSON string to the form
-        handleChange(path, JSON.stringify(videoInfo));
-        
-        console.log('Video recorded successfully:', videoInfo);
-      } else {
-        throw new Error(result.message || 'Video recording failed');
-      }
-    } catch (err: any) {
-      console.error('Video recording error:', err);
-      
-      if (err.status === 'cancelled') {
-        setError('Video recording was cancelled');
-      } else if (err.status === 'error') {
-        setError(err.message || 'Camera permission denied');
-      } else {
-        setError(err.message || 'Failed to record video');
-      }
-    } finally {
-      setIsRecording(false);
-    }
+    // The current Formulus interface version does not provide a
+    // requestVideo() API. Surface a clear message so users are not
+    // confused when pressing the button.
+    setError('Video recording is not supported in this version of the app.');
   };
 
   const handleDeleteVideo = () => {

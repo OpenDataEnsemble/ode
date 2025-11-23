@@ -25,8 +25,10 @@ import {
   Delete as DeleteIcon,
   MyLocation as MyLocationIcon
 } from '@mui/icons-material';
-import FormulusClient from './FormulusInterface';
-import { LocationResult, LocationResultData } from './FormulusInterfaceDefinition';
+// GPS is now captured automatically by the native app for all forms.
+// This renderer is kept only for backward-compatibility with existing
+// form schemas that still reference the "gps" format. It no longer
+// actively requests location from the native side.
 
 interface GPSQuestionRendererProps extends ControlProps {
   // Additional props if needed
@@ -63,47 +65,12 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
   }, [data]);
 
   const handleCaptureLocation = async () => {
+    // GPS is now handled automatically by the native app and attached to
+    // observations outside of the form. This button is kept only so that
+    // existing forms with a GPS question do not break visually.
     setIsCapturing(true);
-    setError(null);
-    
-    try {
-      const fieldId = path.replace(/\//g, '_') || 'location_field';
-      console.log('Requesting location for field:', fieldId);
-      
-      const result: LocationResult = await FormulusClient.getInstance().requestLocation(fieldId);
-      
-      if (result.status === 'success' && result.data) {
-        const locationInfo: LocationDisplayData = {
-          latitude: result.data.latitude,
-          longitude: result.data.longitude,
-          accuracy: result.data.accuracy,
-          altitude: result.data.altitude,
-          altitudeAccuracy: result.data.altitudeAccuracy,
-          timestamp: result.data.timestamp
-        };
-        
-        setLocationData(locationInfo);
-        
-        // Save the location data as JSON string to the form
-        handleChange(path, JSON.stringify(locationInfo));
-        
-        console.log('Location captured successfully:', locationInfo);
-      } else {
-        throw new Error(result.message || 'Location capture failed');
-      }
-    } catch (err: any) {
-      console.error('Location capture error:', err);
-      
-      if (err.status === 'cancelled') {
-        setError('Location capture was cancelled');
-      } else if (err.status === 'error') {
-        setError(err.message || 'Location permission denied');
-      } else {
-        setError(err.message || 'Failed to capture location');
-      }
-    } finally {
-      setIsCapturing(false);
-    }
+    setError('GPS location is now captured automatically by the app and does not need to be recorded here.');
+    setTimeout(() => setIsCapturing(false), 500);
   };
 
   const handleDeleteLocation = () => {

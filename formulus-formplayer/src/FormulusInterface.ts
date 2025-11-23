@@ -13,9 +13,7 @@ import {
   QrcodeResult, 
   SignatureResult, 
   FileResult, 
-  AudioResult,
-  LocationResult,
-  VideoResult 
+  AudioResult
 } from './FormulusInterfaceDefinition';
 
 import { 
@@ -65,43 +63,36 @@ class FormulusClient {
   }
 
   /**
-   * Save partial form data to the Formulus RN app
-   */
-  public savePartial(data: Record<string, any>): void {
-    if (!this.formData) {
-      console.debug('Cannot save partial data: No form data to save yet');
-      return;
-    }
-
-    console.debug('Saving partial form data', data);
-    
-    if (this.formulus) {
-      this.formulus.savePartial(this.formData.formType, data);
-    } else {
-      console.warn('Formulus interface not available for savePartial');
-    }
-  }
-
-  /**
    * Submit form data with proper create/update logic based on context
    * @param formInitData - The form initialization data containing observationId and formType
    * @param finalData - The final form data to submit
+   * @returns Promise that resolves with the observationId (or void for legacy implementations)
    */
-  public submitObservationWithContext(formInitData: FormInitData, finalData: Record<string, any>): void {
+  public submitObservationWithContext(
+    formInitData: FormInitData,
+    finalData: Record<string, any>
+  ): Promise<string | void> {
     console.debug('Submitting form with context:', formInitData);
     console.debug('Final form data:', finalData);
     
     if (!this.formulus) {
       console.warn('Formulus interface not available for form submission');
-      return;
+      return Promise.reject(new Error('Formulus interface not available for form submission'));
     }
 
     if (formInitData.observationId) {
       console.debug('Updating existing form with observationId:', formInitData.observationId);
-      this.formulus.updateObservation(formInitData.observationId, formInitData.formType, finalData);
+      return this.formulus.updateObservation(
+        formInitData.observationId,
+        formInitData.formType,
+        finalData
+      );
     } else {
       console.debug('Creating new form of type:', formInitData.formType);
-      this.formulus.submitObservation(formInitData.formType, finalData);
+      return this.formulus.submitObservation(
+        formInitData.formType,
+        finalData
+      );
     }
   }
 
@@ -124,39 +115,19 @@ class FormulusClient {
   }
 
   /**
-   * Request location from the Formulus RN app
+   * Request location from the Formulus RN app.
+   * The shared interface no longer returns a typed LocationResult; this
+   * simply forwards the request and returns the underlying Promise<void>.
    */
-  public requestLocation(fieldId: string): Promise<LocationResult> {
+  public requestLocation(fieldId: string): Promise<void> {
     console.log('Requesting location for field', fieldId);
     
     if (this.formulus) {
       return this.formulus.requestLocation(fieldId);
-    } else {
-      console.warn('Formulus interface not available for requestLocation');
-      return Promise.reject({
-        fieldId,
-        status: 'error',
-        message: 'Formulus interface not available'
-      });
     }
-  }
 
-  /**
-   * Request video recording from the Formulus RN app
-   */
-  public requestVideo(fieldId: string): Promise<VideoResult> {
-    console.log('Requesting video for field', fieldId);
-    
-    if (this.formulus) {
-      return this.formulus.requestVideo(fieldId);
-    } else {
-      console.warn('Formulus interface not available for requestVideo');
-      return Promise.reject({
-        fieldId,
-        status: 'error',
-        message: 'Formulus interface not available'
-      } as VideoResult);
-    }
+    console.warn('Formulus interface not available for requestLocation');
+    return Promise.reject(new Error('Formulus interface not available for requestLocation'));
   }
 
   /**
@@ -198,29 +169,30 @@ class FormulusClient {
   /**
    * Launch an Android intent from the Formulus RN app
    */
-  public launchIntent(fieldId: string, intentSpec: Record<string, any>): void {
+  public launchIntent(fieldId: string, intentSpec: Record<string, any>): Promise<void> {
     console.log('Launching intent for field', fieldId, intentSpec);
     
     if (this.formulus) {
-      this.formulus.launchIntent(fieldId, intentSpec);
-    } else {
-      console.warn('Formulus interface not available for launchIntent');
+      return this.formulus.launchIntent(fieldId, intentSpec);
     }
+
+    console.warn('Formulus interface not available for launchIntent');
+    return Promise.reject(new Error('Formulus interface not available for launchIntent'));
   }
 
   /**
    * Call a subform from the Formulus RN app
    */
-  public callSubform(fieldId: string, formId: string, options: Record<string, any>): void {
+  public callSubform(fieldId: string, formId: string, options: Record<string, any>): Promise<void> {
     console.log('Calling subform for field', fieldId, formId, options);
     
     if (this.formulus) {
-      this.formulus.callSubform(fieldId, formId, options);
-    } else {
-      console.warn('Formulus interface not available for callSubform');
+      return this.formulus.callSubform(fieldId, formId, options);
     }
-  }
 
+    console.warn('Formulus interface not available for callSubform');
+    return Promise.reject(new Error('Formulus interface not available for callSubform'));
+  }
 
   /**
    * Request signature capture from the Formulus RN app
@@ -261,54 +233,59 @@ class FormulusClient {
   /**
    * Request biometric authentication from the Formulus RN app
    */
-  public requestBiometric(fieldId: string): void {
+  public requestBiometric(fieldId: string): Promise<void> {
     console.log('Requesting biometric authentication for field', fieldId);
     
     if (this.formulus) {
-      this.formulus.requestBiometric(fieldId);
-    } else {
-      console.warn('Formulus interface not available for requestBiometric');
+      return this.formulus.requestBiometric(fieldId);
     }
+
+    console.warn('Formulus interface not available for requestBiometric');
+    return Promise.reject(new Error('Formulus interface not available for requestBiometric'));
   }
 
   /**
    * Request connectivity status from the Formulus RN app
    */
-  public requestConnectivityStatus(): void {
+  public requestConnectivityStatus(): Promise<void> {
     console.log('Requesting connectivity status');
     
     if (this.formulus) {
-      this.formulus.requestConnectivityStatus();
-    } else {
-      console.warn('Formulus interface not available for requestConnectivityStatus');
+      return this.formulus.requestConnectivityStatus();
     }
+
+    console.warn('Formulus interface not available for requestConnectivityStatus');
+    return Promise.reject(new Error('Formulus interface not available for requestConnectivityStatus'));
   }
 
   /**
    * Request sync status from the Formulus RN app
    */
-  public requestSyncStatus(): void {
+  public requestSyncStatus(): Promise<void> {
     console.log('Requesting sync status');
     
     if (this.formulus) {
-      this.formulus.requestSyncStatus();
-    } else {
-      console.warn('Formulus interface not available for requestSyncStatus');
+      return this.formulus.requestSyncStatus();
     }
+
+    console.warn('Formulus interface not available for requestSyncStatus');
+    return Promise.reject(new Error('Formulus interface not available for requestSyncStatus'));
   }
 
   /**
    * Run a local ML model through the Formulus RN app
    */
-  public runLocalModel(fieldId: string, modelId: string, input: Record<string, any>): void {
+  public runLocalModel(fieldId: string, modelId: string, input: Record<string, any>): Promise<void> {
     console.log('Running local model', modelId, 'for field', fieldId, 'with input', input);
     
     if (this.formulus) {
-      this.formulus.runLocalModel(fieldId, modelId, input);
-    } else {
-      console.warn('Formulus interface not available for runLocalModel');
+      return this.formulus.runLocalModel(fieldId, modelId, input);
     }
+
+    console.warn('Formulus interface not available for runLocalModel');
+    return Promise.reject(new Error('Formulus interface not available for runLocalModel'));
   }
+
   /**
    * Register a callback for when the form is initialized
    */
@@ -350,18 +327,6 @@ class FormulusClient {
       }
     }
   }
-
-  /**
-   * Register a callback for when a save partial operation completes
-   */
-  public onSavePartialComplete(callback: (formId: string, observationId: string | null, success: boolean) => void): void {
-    // Set up a global callback that will be called by the Formulus RN app
-    globalThis.onSavePartialComplete = (formId: string, observationId: string | null, success: boolean) => {
-      callback(formId, observationId, success);
-    };
-  }
-
-
 
   /**
    * Handle form initialization data from the Formulus RN app

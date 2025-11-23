@@ -1,10 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { Box, Button, List, ListItem, ListItemText, Typography, Paper } from '@mui/material';
 import { JsonFormsRendererRegistryEntry } from '@jsonforms/core';
 import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import { ControlProps } from '@jsonforms/core';
 import { ErrorObject } from 'ajv';
-import FormulusClient from './FormulusInterface';
 import { useFormContext } from './App';
 
 const FinalizeRenderer = ({ 
@@ -19,7 +18,6 @@ const FinalizeRenderer = ({
 }: ControlProps) => {
   const { core } = useJsonForms();
   const errors = core?.errors || [];
-  const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
   const { formInitData } = useFormContext();
   
   // Log the props to inspect their structure
@@ -60,9 +58,9 @@ const FinalizeRenderer = ({
       return;
     }
     if (!hasErrors) {
-      console.log('Submitting form data:', data);
-      console.log('Using formInitData from context:', formInitData);
-      formulusClient.current.submitObservationWithContext(formInitData, data);
+      console.log('Dispatching finalizeForm event to submit data via App.tsx');
+      const event = new CustomEvent('finalizeForm', { detail: { formInitData, data } });
+      window.dispatchEvent(event);
     }
   };
 

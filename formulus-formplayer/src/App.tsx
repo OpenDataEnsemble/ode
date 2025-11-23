@@ -183,6 +183,7 @@ function App() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [showFinalizeMessage, setShowFinalizeMessage] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
   const [showDraftSelector, setShowDraftSelector] = useState(false);
   const [pendingFormInit, setPendingFormInit] = useState<FormInitData | null>(null);
@@ -402,16 +403,34 @@ function App() {
       }
     };
 
-    const handleFinalizeForm = () => {
-      // Submit the form data to the Formulus RN app
-      if (formInitData) {
-        console.log('[App.tsx] Submitting form data:', data);
-        formulusClient.current.submitObservationWithContext(formInitData, data);
-        
-        // Delete any drafts for this form instance since it's now finalized
-        draftService.deleteDraftsForFormInstance(formInitData.formType, formInitData.observationId);
+    const handleFinalizeForm = (event: Event) => {
+      // Prefer the payload from the FinalizeRenderer if available
+      const customEvent = event as CustomEvent<{ formInitData?: FormInitData; data?: FormData }>;
+      const payloadFormInit = customEvent.detail?.formInitData || formInitData;
+      const payloadData = customEvent.detail?.data || data;
+
+      if (!payloadFormInit) {
+        console.error('[App.tsx] Cannot finalize form: formInitData is missing');
+        setSubmitError('Cannot submit form because initialization data is missing.');
+        return;
       }
-      setShowFinalizeMessage(true);
+
+      console.log('[App.tsx] Submitting form data:', payloadData);
+      formulusClient.current
+        .submitObservationWithContext(payloadFormInit, payloadData)
+        .then(() => {
+          // Only clean up drafts after a successful save
+          draftService.deleteDraftsForFormInstance(
+            payloadFormInit.formType,
+            payloadFormInit.observationId
+          );
+          setSubmitError(null);
+          setShowFinalizeMessage(true);
+        })
+        .catch((error) => {
+          console.error('[App.tsx] Error submitting form:', error);
+          setSubmitError('Failed to submit form. Please try again.');
+        });
     };
 
     window.addEventListener('navigateToError', handleNavigateToError as EventListener);
@@ -532,35 +551,42 @@ function App() {
   
   // Log render with current state
   console.log('Rendering form with:', {
-    schemaType: schema?.type || "MISSING",
-    uiSchemaType: uischema?.type || "MISSING",
+    schemaType: schema?.type || 'MISSING',
+    uiSchemaType: uischema?.type || 'MISSING',
     dataKeys: Object.keys(data),
     formType: formInitData?.formType
-  });  
+  });
 
   return (
     <FormContext.Provider value={{ formInitData }}>
-      <div className="App" style={{ 
-        display: 'flex', 
-        height: '100vh',
-        width: '100%'
-      }}>
+      <div
+        className="App"
+        style={{
+          display: 'flex',
+          height: '100vh',
+          width: '100%'
+        }}
+      >
         {/* Main app content - 60% width in development mode */}
-        <div style={{ 
-          width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
-          overflow: 'auto',
-          padding: '20px',
-          boxSizing: 'border-box'
-        }}>
+        <div
+          style={{
+            width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
+            overflow: 'auto',
+            padding: '20px',
+            boxSizing: 'border-box'
+          }}
+        >
           <ErrorBoundary>
             {loadError ? (
-              <div style={{ 
-                padding: '20px', 
-                backgroundColor: '#ffebee', 
-                border: '1px solid #f44336', 
-                borderRadius: '4px',
-                color: '#c62828'
-              }}>
+              <div
+                style={{
+                  padding: '20px',
+                  backgroundColor: '#ffebee',
+                  border: '1px solid #f44336',
+                  borderRadius: '4px',
+                  color: '#c62828'
+                }}
+              >
                 <h3>Error Loading Form</h3>
                 <p>{loadError}</p>
               </div>
@@ -576,13 +602,24 @@ function App() {
                   validationMode="ValidateAndShow"
                   ajv={ajv}
                 />
-                <Snackbar 
-                  open={showFinalizeMessage} 
-                  autoHideDuration={6000} 
+                {/* Success Snackbar */}
+                <Snackbar
+                  open={showFinalizeMessage}
+                  autoHideDuration={6000}
                   onClose={() => setShowFinalizeMessage(false)}
                 >
                   <Alert onClose={() => setShowFinalizeMessage(false)} severity="info">
                     Form submitted successfully!
+                  </Alert>
+                </Snackbar>
+                {/* Error Snackbar for submit failures */}
+                <Snackbar
+                  open={Boolean(submitError)}
+                  autoHideDuration={6000}
+                  onClose={() => setSubmitError(null)}
+                >
+                  <Alert onClose={() => setSubmitError(null)} severity="error">
+                    {submitError}
                   </Alert>
                 </Snackbar>
               </>
@@ -592,11 +629,13 @@ function App() {
 
         {/* Development testbed - 40% width in development mode */}
         {process.env.NODE_ENV === 'development' && DevTestbed && (
-          <div style={{ 
-            width: '40%',
-            borderLeft: '2px solid #e0e0e0',
-            backgroundColor: '#fafafa'
-          }}>
+          <div
+            style={{
+              width: '40%',
+              borderLeft: '2px solid #e0e0e0',
+              backgroundColor: '#fafafa'
+            }}
+          >
             <ErrorBoundary>
               <DevTestbed isVisible={true} />
             </ErrorBoundary>
