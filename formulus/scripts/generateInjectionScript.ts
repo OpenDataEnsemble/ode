@@ -219,6 +219,16 @@ function generateInjectionScript(interfaceFilePath: string): string {
     return api && typeof api === 'object' && typeof api.getVersion === 'function';
   }
 
+  // Idempotent guard to avoid double-initialization when scripts are reinjected
+  if ((globalThis as any).__formulusBridgeInitialized) {
+    if (isFormulusAvailable()) {
+      console.debug('Formulus bridge already initialized and functional. Skipping duplicate injection.');
+      return;
+    } else {
+      console.warn('Formulus bridge flag is set but API is not functional. Proceeding with re-injection...');
+    }
+  }
+
   // If API already exists and is functional, skip injection
   if (isFormulusAvailable()) {
     console.debug('Formulus interface already exists and is functional. Skipping injection.');
@@ -287,7 +297,8 @@ function generateInjectionScript(interfaceFilePath: string): string {
   
   // Notify that the interface is ready
   console.log('Formulus interface initialized');
-  
+  (globalThis as any).__formulusBridgeInitialized = true;
+
   // Simple API availability check for internal use
   function requestApiReinjection() {
     console.log('Formulus: Requesting re-injection from host...');

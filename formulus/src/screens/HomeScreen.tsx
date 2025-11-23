@@ -12,6 +12,12 @@ const HomeScreen = ({ navigation }: any) => {
   const [isLoading, setIsLoading] = useState(true);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
   const formplayerModalRef = useRef<FormplayerModalHandle>(null);
+  const formplayerVisibleRef = useRef(false);
+
+  // Keep ref in sync with state so event handlers always see the latest value
+  useEffect(() => {
+    formplayerVisibleRef.current = formplayerVisible;
+  }, [formplayerVisible]);
 
   useEffect(() => {
     const setupPlaceholder = async () => {
@@ -60,7 +66,7 @@ const HomeScreen = ({ navigation }: any) => {
       console.log('HomeScreen: openFormplayerRequested event received', config);
 
       // Prevent opening if already visible
-      if (formplayerVisible) {
+      if (formplayerVisibleRef.current) {
         console.log('HomeScreen: FormplayerModal already visible, ignoring open request');
         return;
       }
@@ -68,6 +74,7 @@ const HomeScreen = ({ navigation }: any) => {
       const { formType, observationId, params, savedData, operationId } = config;
       
       console.log('HomeScreen: Opening FormplayerModal');
+      formplayerVisibleRef.current = true;
       setFormplayerVisible(true);
       // Use the ref-based approach to initialize the form
       const formService = await FormService.getInstance();
@@ -105,6 +112,7 @@ const HomeScreen = ({ navigation }: any) => {
 
     const handleCloseFormplayer = (data: any) => {
       console.log('HomeScreen: closeFormplayer event received', data);
+      formplayerVisibleRef.current = false;
       setFormplayerVisible(false);
     };
 
@@ -180,6 +188,7 @@ const HomeScreen = ({ navigation }: any) => {
         visible={formplayerVisible} 
         onClose={() => {
           console.log('HomeScreen: FormplayerModal onClose called');
+          formplayerVisibleRef.current = false;
           setFormplayerVisible(false);
         }}
       />
