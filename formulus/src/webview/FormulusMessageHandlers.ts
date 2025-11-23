@@ -50,6 +50,59 @@ const pendingFormOperations = new Map<string, {
   startTime: number;
 }>();
 
+// Internal helper to start a formplayer operation and return a promise that resolves
+// when the form is completed or closed. This is used both by the WebView-driven
+// onOpenFormplayer handler and by native screens that want to open Formplayer
+// directly in a promise-based way.
+const startFormplayerOperation = (
+  formType: string,
+  params: Record<string, any> = {},
+  savedData: Record<string, any> = {},
+  observationId: string | null = null,
+): Promise<FormCompletionResult> => {
+  const operationId = `${formType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  return new Promise<FormCompletionResult>((resolve, reject) => {
+    // Store the promise resolvers
+    pendingFormOperations.set(operationId, {
+      resolve,
+      reject,
+      formType,
+      startTime: Date.now()
+    });
+
+    // Emit the event with the operation ID so the HomeScreen/FormplayerModal
+    // stack can open the modal and initialize the form
+    appEvents.emit('openFormplayerRequested', {
+      formType,
+      params,
+      savedData,
+      observationId,
+      operationId,
+    });
+
+    // Set a timeout to prevent hanging promises (8 hours)
+    setTimeout(() => {
+      if (pendingFormOperations.has(operationId)) {
+        pendingFormOperations.delete(operationId);
+        reject(new Error('Form operation timed out'));
+      }
+    }, 8 * 60 * 60 * 1000);
+  });
+};
+
+// Public helper for native React Native screens to open Formplayer
+// in a promise-based way, without needing to manage appEvents or
+// pending operation maps directly.
+export const openFormplayerFromNative = (
+  formType: string,
+  params: Record<string, any> = {},
+  savedData: Record<string, any> = {},
+  observationId: string | null = null,
+): Promise<FormCompletionResult> => {
+  return startFormplayerOperation(formType, params, savedData, observationId);
+};
+
 // Global reference to the active FormplayerModal for direct submission handling
 let activeFormplayerModalRef: { handleSubmission: (data: { formType: string; finalData: Record<string, any> }) => Promise<string> } | null = null;
 
@@ -824,38 +877,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       return observations;
     },
     onOpenFormplayer: async (data: FormInitData): Promise<FormCompletionResult> => {
-      const { formType, params, savedData } = data;
+      const { formType, params, savedData, observationId } = data;
       console.log('FormulusMessageHandlers: onOpenFormplayer handler invoked with data:', data);
-      
-      // Generate a unique operation ID for this form session
-      const operationId = `${formType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Create a promise that will be resolved when the form is completed/closed
-      return new Promise<FormCompletionResult>((resolve, reject) => {
-        // Store the promise resolvers
-        pendingFormOperations.set(operationId, {
-          resolve,
-          reject,
-          formType,
-          startTime: Date.now()
-        });
-        
-        // Emit the event with the operation ID so we can track completion
-        appEvents.emit('openFormplayerRequested', { 
-          formType, 
-          params, 
-          savedData, 
-          operationId 
-        });
-        
-        // Set a timeout to prevent hanging promises (8 hours)
-        setTimeout(() => {
-          if (pendingFormOperations.has(operationId)) {
-            pendingFormOperations.delete(operationId);
-            reject(new Error('Form operation timed out'));
-          }
-        }, 8 * 60 * 60 * 1000);
-      });
+      // Delegate to the shared helper so WebView and native callers share the same
+      // promise-based behaviour and operation tracking.
+      return startFormplayerOperation(formType, params, savedData, observationId ?? null);
     },
     onFormulusReady: () => {
       console.log('FormulusMessageHandlers: onFormulusReady handler invoked. WebView is ready.');
