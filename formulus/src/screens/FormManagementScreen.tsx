@@ -1,18 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Modal,
   ActivityIndicator,
   Alert
 } from 'react-native';
 import { FormService, FormSpec } from '../services';
 import { Observation } from '../database/models/Observation';
-import FormplayerModal, { FormplayerModalHandle } from '../components/FormplayerModal';
-import { appEvents } from '../webview/FormulusMessageHandlers';
+import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 
 /**
  * Screen for managing forms and observations (admin only)
@@ -21,10 +19,8 @@ const FormManagementScreen = ({ navigation }: any) => {
   const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
   const [observations, setObservations] = useState<Record<string, Observation[]>>({});
   const [loading, setLoading] = useState<boolean>(true);
-  const [formModalVisible, setFormModalVisible] = useState<boolean>(false);
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
   const [formService, setFormService] = useState<FormService | null>(null);
-  const formplayerModalRef = useRef<FormplayerModalHandle>(null);
   
   // Load form types and observations
   useEffect(() => {
@@ -49,16 +45,6 @@ const FormManagementScreen = ({ navigation }: any) => {
       loadData();
     }
   }, [formService]);
-
-  useEffect(() => {
-    const closeFormplayerModal = () => {
-      setFormModalVisible(false);
-    };
-    appEvents.addListener('closeFormplayer', closeFormplayerModal);
-    return () => {
-      appEvents.removeListener('closeFormplayer', closeFormplayerModal);
-    };
-  }, []);
 
   // Function to load form types and observations
   const loadData = async () => {
@@ -90,28 +76,30 @@ const FormManagementScreen = ({ navigation }: any) => {
     }
   };
   
-  // Handle adding a new observation
-  const handleAddObservation = (formType: FormSpec) => {
-    // Use the standard openFormplayer API method by emitting the event directly
-    // This matches the standard FormulusInterface.openFormplayer implementation
-    appEvents.emit('openFormplayerRequested', {
-      formType: formType.id,
-      params: {},
-      savedData: {},
-      observationId: null
-    });
+  // Handle adding a new observation using the promise-based Formplayer API
+  const handleAddObservation = async (formType: FormSpec) => {
+    try {
+      const result = await openFormplayerFromNative(formType.id, {}, {});
+      if (result.status === 'form_submitted' || result.status === 'form_updated') {
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Error while opening Formplayer for new observation:', error);
+      Alert.alert('Error', 'Failed to open form for new observation');
+    }
   };
   
-  // Handle editing an observation
-  const handleEditObservation = (formType: FormSpec, observation: Observation) => {
-    // Use the standard openFormplayer API method by emitting the event directly
-    // This matches the standard FormulusInterface.openFormplayer implementation
-    appEvents.emit('openFormplayerRequested', {
-      formType: formType.id,
-      params: {},
-      savedData: observation.data,
-      observationId: observation.observationId
-    });
+  // Handle editing an observation using the promise-based Formplayer API
+  const handleEditObservation = async (formType: FormSpec, observation: Observation) => {
+    try {
+      const result = await openFormplayerFromNative(formType.id, {}, observation.data || {});
+      if (result.status === 'form_submitted' || result.status === 'form_updated') {
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Error while opening Formplayer for editing observation:', error);
+      Alert.alert('Error', 'Failed to open form for editing observation');
+    }
   };
   
   // Handle deleting an observation
@@ -143,13 +131,6 @@ const FormManagementScreen = ({ navigation }: any) => {
       Alert.alert('Error', 'Failed to delete observation');
       setLoading(false);
     }
-  };
-  
-  // Handle form modal close
-  const handleFormModalClose = () => {
-    setFormModalVisible(false);
-    // Reload data to show new observations
-    loadData();
   };
   
   // Handle database reset
@@ -342,12 +323,6 @@ const FormManagementScreen = ({ navigation }: any) => {
           </Text>
         </View>
       )}
-      
-      <FormplayerModal
-        ref={formplayerModalRef}
-        visible={formModalVisible}
-        onClose={handleFormModalClose}
-      />
     </View>
   );
 };

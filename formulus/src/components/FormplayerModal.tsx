@@ -2,17 +2,11 @@ import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, f
 import { StyleSheet, View, Modal, TouchableOpacity, Text, Platform, Alert, ActivityIndicator } from 'react-native';
 import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { appEvents, resolveFormOperation, resolveFormOperationByType, setActiveFormplayerModal } from '../webview/FormulusMessageHandlers';
-import { readFileAssets } from 'react-native-fs';
-import { FormInitData, FormCompletionResult } from '../webview/FormulusInterfaceDefinition';
-
-const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
-  ? 'webview/FormulusInjectionScript.js'
-  : 'FormulusInjectionScript.js';
+import { resolveFormOperation, resolveFormOperationByType, setActiveFormplayerModal } from '../webview/FormulusMessageHandlers';
+import { FormCompletionResult } from '../webview/FormulusInterfaceDefinition';
 
 import { databaseService } from '../database';
 import { FormSpec } from '../services'; // FormService will be imported directly
-import { Observation } from '../database/models/Observation';
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -24,15 +18,9 @@ export interface FormplayerModalHandle {
   handleSubmission: (data: { formType: string; finalData: Record<string, any> }) => Promise<string>;
 }
 
-import { FormService } from '../services/FormService'; // Import FormService
-
 const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(({ visible, onClose }, ref) => {
   const webViewRef = useRef<CustomAppWebViewHandle>(null);
-  const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
-  const [selectedFormSpecId, setSelectedFormSpecId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formService, setFormService] = useState<FormService | null>(null);
-  const [isFormServiceLoading, setIsFormServiceLoading] = useState(true);
   
   // Internal state to track current form and observation data
   const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -54,63 +42,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [isWebViewReady, setIsWebViewReady] = useState(false);
   
-  // Use a ref to track processed submissions with timestamps - this won't trigger re-renders
-  const processedSubmissions = useRef<Map<string, number>>(new Map());
-  
   // Add state to track closing process and prevent multiple close attempts
   const [isClosing, setIsClosing] = useState(false);
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
-  // Initialize FormService and subscribe to cache invalidation
-  useEffect(() => {
-    const initFormService = async () => {
-      try {
-        const service = await FormService.getInstance();
-        setFormService(service);
-        setFormSpecs(service.getFormSpecs());
-        setIsFormServiceLoading(false);
-        console.log('FormService initialized successfully');
-        
-        // Subscribe to cache invalidation events
-        const unsubscribe = service.onCacheInvalidated(() => {
-          console.log('FormplayerModal: FormService cache invalidated, refreshing form specs');
-          setFormSpecs(service.getFormSpecs());
-        });
-        
-        // Return cleanup function
-        return unsubscribe;
-      } catch (error) {
-        console.error('Failed to initialize FormService:', error);
-        setIsFormServiceLoading(false);
-        return () => {}; // Return empty cleanup function on error
-      }
-    };
-    
-    let cleanupPromise = initFormService();
-    
-    // Cleanup subscription on unmount
-    return () => {
-      cleanupPromise.then(cleanup => cleanup?.());
-    };
-  }, []);
 
   // Path to the formplayer dist folder in assets
   const formplayerUri = Platform.OS === 'android' 
     ? 'file:///android_asset/formplayer_dist/index.html'
     : 'file:///formplayer_dist/index.html'; // Add iOS path
 
- 
-
-  useEffect(() => {
-    if (!formService || isFormServiceLoading) {
-      // Wait for FormService to initialize
-      return;
-    }
-
-    const loadedFormSpecs = formService.getFormSpecs();
-    setFormSpecs(loadedFormSpecs);
-    
-  }, [visible, webViewRef, formService]);
+  
 
   // Create a debounced close handler to prevent multiple rapid close attempts
   const handleClose = useCallback(() => {
@@ -195,7 +136,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     setCurrentParams(params);
     setCurrentOperationId(operationId);
     setFormSubmitted(false); // Reset submission flag for new form
-    setSelectedFormSpecId(formType.id);
     
     // Store the form initialization data
     setPendingFormInit({
@@ -341,8 +281,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       
       // Reset form state when modal is closed
       setTimeout(() => {
-        processedSubmissions.current.clear();
-        setSelectedFormSpecId(null);
         setCurrentFormType(null);
         setCurrentObservationId(null);
         setCurrentObservationData(null);
