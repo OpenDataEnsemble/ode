@@ -90,6 +90,12 @@ const SettingsScreen = () => {
   }
   
   const handleSave = async () => {
+    // Prevent saving if only one of username/password is provided
+    if ((username && !password) || (!username && password)) {
+      Alert.alert('Error', 'Both username and password are required to save credentials');
+      return;
+    }
+
     try {
       setIsSaving(true);
       
@@ -99,7 +105,11 @@ const SettingsScreen = () => {
       }));
 
       // Save username and password in keychain
-      await saveCredentials(username, password);
+      if (username && password) {
+        await saveCredentials(username, password);
+      } else {
+        await resetCredentials();
+      }
       
       Alert.alert('Success', 'Settings saved successfully');
     } catch (error) {
