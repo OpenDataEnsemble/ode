@@ -29,18 +29,8 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   const [currentParams, setCurrentParams] = useState<Record<string, any> | null>(null);
   const [currentOperationId, setCurrentOperationId] = useState<string | null>(null);
   
-  // State to track pending form initialization
-  const [pendingFormInit, setPendingFormInit] = useState<{
-    formType: FormSpec;
-    params: Record<string, any> | null;
-    observationId: string | null;
-    existingObservationData: Record<string, any> | null;
-    operationId: string | null;
-  } | null>(null);
-  
   // Track if form has been successfully submitted to avoid double resolution
   const [formSubmitted, setFormSubmitted] = useState(false);
-  const [isWebViewReady, setIsWebViewReady] = useState(false);
   
   // Add state to track closing process and prevent multiple close attempts
   const [isClosing, setIsClosing] = useState(false);
@@ -147,13 +137,17 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
   // Handle WebView load complete
   const handleWebViewLoad = () => {
-    console.log('FormplayerModal: WebView loaded successfully (onLoadEnd) - ready to initialize form');    
-    setIsWebViewReady(true);
+    console.log('FormplayerModal: WebView loaded successfully (onLoadEnd).');
   };
 
   // Initialize a form with the given form type and optional existing data
-  const initializeForm = (formType: FormSpec, params: Record<string, any> | null, observationId: string | null, existingObservationData: Record<string, any> | null, operationId: string | null) => {
-    
+  const initializeForm = async (
+    formType: FormSpec,
+    params: Record<string, any> | null,
+    observationId: string | null,
+    existingObservationData: Record<string, any> | null,
+    operationId: string | null
+  ) => {
     // Set internal state for the current form and observation
     setCurrentFormType(formType.id);
     setCurrentObservationId(observationId);
@@ -161,55 +155,42 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     setCurrentParams(params);
     setCurrentOperationId(operationId);
     setFormSubmitted(false); // Reset submission flag for new form
-    
-    // Store the form initialization data
-    setPendingFormInit({
-      formType,
-      params,
-      observationId,
-      existingObservationData,
-      operationId,
-    });
-  };
 
-  useEffect(() => {
-    if (isWebViewReady && pendingFormInit) {
-      const { formType, params, observationId, existingObservationData } = pendingFormInit;
-      
-      // Create the parameters for the form
-      const formParams = {
-        locale: 'en', 
-        theme: 'default',
-        //schema: formType.schema,
-        //uischema: formType.uiSchema,
-        ...params
-      };
-      
-      // Log the form initialization
-      const formInitData = {
-        formType: formType.id,
-        observationId: observationId,
-        params: formParams,
-        savedData: existingObservationData || {},
-        formSchema: formType.schema,
-        uiSchema: formType.uiSchema
-      };
-      
-      console.log('Initializing form with:', formInitData);
-      
-      // Send the initialization data back to the Formplayer
-      if (webViewRef.current) {
-        try {
-          webViewRef.current?.sendFormInit(formInitData);
-        } catch (error) {
-          console.error('Error sending form init data:', error);
-        }
-      }
-      
-      // Clear the pending form initialization state
-      setPendingFormInit(null);
+    const formParams = {
+      locale: 'en',
+      theme: 'default',
+      //schema: formType.schema,
+      //uischema: formType.uiSchema,
+      ...params,
+    };
+
+    const formInitData = {
+      formType: formType.id,
+      observationId: observationId,
+      params: formParams,
+      savedData: existingObservationData || {},
+      formSchema: formType.schema,
+      uiSchema: formType.uiSchema,
+    };
+
+    console.log('Initializing form with:', formInitData);
+
+    if (!webViewRef.current) {
+      console.warn('FormplayerModal: WebView ref is not available when trying to initialize form');
+      return;
     }
-  }, [isWebViewReady, pendingFormInit]);
+
+    try {
+      await webViewRef.current.sendFormInit(formInitData);
+      console.log('FormplayerModal: Form init acknowledged by WebView');
+    } catch (error) {
+      console.error('FormplayerModal: Error sending form init data:', error);
+      Alert.alert(
+        'Error',
+        'Failed to initialize the form UI. Please close and try again.'
+      );
+    }
+  };
 
   
   // Handle form submission directly (called by WebView message handler)
@@ -309,8 +290,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         setCurrentFormType(null);
         setCurrentObservationId(null);
         setCurrentObservationData(null);
-        setPendingFormInit(null);
-        setIsWebViewReady(false);
         setIsClosing(false); // Reset closing state when modal is fully closed
         setFormSubmitted(false); // Reset submission flag
       }, 300); // Small delay to ensure modal is fully closed

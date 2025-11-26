@@ -218,12 +218,13 @@ function App() {
           setShowDraftSelector(true);
           setIsLoading(false);
           isLoadingRef.current = false;
-          return; // Don't proceed with normal initialization
+          return { status: 'draft_selector_shown' }; // Don't proceed with normal initialization
         }
       }
 
       // Proceed with normal form initialization
       initializeForm(initData);
+      return { status: 'ok' };
     } catch (error) {
       console.error('Error processing onFormInit data:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error during form initialization';
@@ -238,6 +239,7 @@ function App() {
       }
       setIsLoading(false);
       isLoadingRef.current = false;
+      return { status: 'error' };
     }
   }, []);
 

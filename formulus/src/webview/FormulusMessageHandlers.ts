@@ -883,6 +883,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // promise-based behaviour and operation tracking.
       return startFormplayerOperation(formType, params, savedData, observationId ?? null);
     },
+    onFormplayerInitialized: (data: { formType?: string; status?: string }) => {
+      console.log('FormulusMessageHandlers: onFormplayerInitialized handler invoked.', data);
+      // Reserved for future hooks (e.g., native-side loading indicators or analytics).
+      // Currently used only for logging/diagnostics so other WebViews are unaffected.
+    },
     onFormulusReady: () => {
       console.log('FormulusMessageHandlers: onFormulusReady handler invoked. WebView is ready.');
       // TODO: Perform any actions needed when the WebView content signals it's ready

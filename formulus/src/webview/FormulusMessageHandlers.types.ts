@@ -29,6 +29,9 @@ export interface FormulusMessageHandlers {
   onGetAvailableForms?: () => Promise<any>; // Adjust return type as needed (e.g., Promise<FormListItem[]>) 
   onGetObservations?: (formId: string, isDraft?: boolean, includeDeleted?: boolean) => Promise<Observation[]>;
   onOpenFormplayer?: (data: FormInitData) => Promise<FormCompletionResult>;
+  // Called when the Formplayer WebView signals that it has completed initialization
+  // via a `formplayerInitialized` message. Primarily used for logging/diagnostics.
+  onFormplayerInitialized?: (data: { formType?: string; status?: string }) => void;
   onFormulusReady?: () => void; // Handler for when the WebView signals it's ready
   onReceiveFocus?: () => void; // Handler for when the WebView signals it's ready
   onUnknownMessage?: (message: any) => void;

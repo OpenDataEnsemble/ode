@@ -70,12 +70,16 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
   
   // JS injection: load script from assets and prepend consoleLogScript
   const [injectionScript, setInjectionScript] = useState<string>(consoleLogScript);
+  const injectionScriptRef = useRef<string>(consoleLogScript);
   useEffect(() => {
     const loadScript = async () => {
       try {
         const script = await readFileAssets(INJECTION_SCRIPT_PATH);
-        setInjectionScript(consoleLogScript + '\n' + script + '\n(function() {console.debug("Injection scripts initialized");}())');
+        const fullScript = consoleLogScript + '\n' + script + '\n(function() {console.debug("Injection scripts initialized");}())';
+        injectionScriptRef.current = fullScript;
+        setInjectionScript(fullScript);
       } catch (err) {
+        injectionScriptRef.current = consoleLogScript; // fallback
         setInjectionScript(consoleLogScript); // fallback
         console.warn('Failed to load injection script:', err);
       }
@@ -97,7 +101,8 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
           console.log(`[CustomAppWebView - ${appName || 'Default'}] WebView requested API re-injection`);
           
           // Perform immediate re-injection
-          if (webViewRef.current && injectionScript !== consoleLogScript && hasLoadedOnceRef.current) {
+          const latestScript = injectionScriptRef.current;
+          if (webViewRef.current && latestScript !== consoleLogScript && hasLoadedOnceRef.current) {
             const reInjectionWrapper = `
               (function() {
                 console.debug('[CustomAppWebView/ApiRecovery] Processing re-injection request...');
@@ -109,7 +114,7 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
                 delete globalThis.formulusCallbacks;
                 
                 // Re-inject the full script
-                ${injectionScript}
+                ${latestScript}
                 
                 console.log('[CustomAppWebView/ApiRecovery] API re-injection completed');
                 return true;
@@ -128,7 +133,7 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
     };
     
     return manager;
-  }, [appName, injectionScript]);
+  }, [appName]);
 
   // Expose imperative handle
   useImperativeHandle(ref, () => ({
