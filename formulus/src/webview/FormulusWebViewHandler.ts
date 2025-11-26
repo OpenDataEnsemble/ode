@@ -260,7 +260,12 @@ export class FormulusWebViewMessageManager {
     let error: any;
 
     try {
-      if (typeof this.nativeSideHandlers[handlerName] === 'function') {
+      // Special-case WebView messages of type 'onFormulusReady'. These already
+      // correspond to the onFormulusReady handler on the native side, so we
+      // call it directly instead of routing through onUnknownMessage.
+      if (type === 'onFormulusReady' && typeof this.nativeSideHandlers.onFormulusReady === 'function') {
+        result = await this.nativeSideHandlers.onFormulusReady();
+      } else if (typeof this.nativeSideHandlers[handlerName] === 'function') {
         result = await (this.nativeSideHandlers[handlerName] as Function)(data);
       } else if (this.nativeSideHandlers.onUnknownMessage) {
         console.warn(`${this.logPrefix} No specific handler for type '${type}'. Using onUnknownMessage.`);

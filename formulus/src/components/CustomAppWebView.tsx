@@ -205,9 +205,9 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
       source={{ uri: appUrl }}
       onMessage={messageManager.handleWebViewMessage}
       onError={handleError}
-      onLoadStart={() => console.log(`[CustomAppWebView - ${appName || 'Default'}] Starting to load URL:`, appUrl)}
+      onLoadStart={() => console.debug(`[CustomAppWebView - ${appName || 'Default'}] Starting to load URL:`, appUrl)}
       onLoadEnd={() => {
-        console.log(`[CustomAppWebView - ${appName || 'Default'}] Finished loading URL: ${appUrl}`);
+        console.debug(`[CustomAppWebView - ${appName || 'Default'}] Finished loading URL: ${appUrl}`);
         if (webViewRef.current) {
           // Call window.onFormulusReady if it exists in the WebView
           const scriptToNotifyReady = `
@@ -215,7 +215,7 @@ const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProp
               console.log('[CustomAppWebView Native] Calling window.onFormulusReady() in WebView.');
               window.onFormulusReady();
             } else {
-              console.debug('[CustomAppWebView Native] window.onFormulusReady is not defined in WebView. The custom_app might not initialize correctly.');
+              console.debug('[CustomAppWebView Native] window.onFormulusReady is not defined in WebView. This is expected for most custom apps using getFormulus().');
             }
           `;
           webViewRef.current.injectJavaScript(scriptToNotifyReady);

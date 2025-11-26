@@ -867,7 +867,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onGetObservations: async (formType: string, isDraft?: boolean, includeDeleted?: boolean) => {
       console.log('FormulusMessageHandlers: onGetObservations handler invoked.', { formType, isDraft, includeDeleted });
       if (formType.hasOwnProperty('formType')) {
-        console.warn('FormulusMessageHandlers: onGetObservations handler invoked with formType object, expected string');
+        console.debug('FormulusMessageHandlers: onGetObservations handler invoked with formType object, expected string');
         formType = (formType as any).formType;
         isDraft = (formType as any).isDraft;
         includeDeleted = (formType as any).includeDeleted;
