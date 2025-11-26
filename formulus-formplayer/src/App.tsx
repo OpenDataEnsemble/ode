@@ -168,13 +168,13 @@ function App() {
     console.log('Development mode detected and no ReactNativeWebView found, initializing WebView mock...');
     webViewMock.init();
     console.log('WebView mock initialized, isActive:', webViewMock.isActiveMock());
-  } else if (process.env.NODE_ENV !== 'development') {
+  }/* else if (process.env.NODE_ENV !== 'development') {
     console.log('Production mode detected, NOT initializing WebView mock');
   } else if (window.ReactNativeWebView) {
     console.log('ReactNativeWebView already exists, NOT initializing mock');
   } else if (!webViewMock) {
     console.log('WebView mock not available (production build)');
-  }
+  }*/
 
   // State for form data, schema, and UI schema
   const [data, setData] = useState<FormData>({});
@@ -270,9 +270,12 @@ function App() {
         console.log('Preloading saved data:', savedData);
         setData(savedData as FormData);
       } else {
-        const defaultData = params?.defaultData || {};
+        const defaultData =
+          (params && typeof params === 'object')
+            ? (params.defaultData ?? params)
+            : {};
         console.log('Preloading initialization form values:', defaultData);
-        setData(defaultData);
+        setData(defaultData as FormData);
       }
 
       console.log('Form params (if any, beyond schemas/data):', params);
