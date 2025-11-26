@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   rankWith, 
   ControlProps, 
-  formatIs, 
-  JsonSchema, 
-  UISchemaElement 
+  formatIs
 } from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import { 
@@ -53,7 +51,6 @@ interface VideoDisplayData {
 const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
   const { data, handleChange, path, errors, schema, uischema, enabled } = props;
   
-  const [isRecording, setIsRecording] = useState(false);
   const [videoData, setVideoData] = useState<VideoDisplayData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -134,7 +131,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
   };
 
   const hasValidationErrors = errors && errors.length > 0;
-  const isDisabled = !enabled || isRecording;
+  const isDisabled = !enabled;
 
   return (
     <Box sx={{ mb: 2 }}>
@@ -302,7 +299,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
         <Box>
           <Button
             variant="contained"
-            startIcon={isRecording ? <CircularProgress size={20} color="inherit" /> : <VideocamIcon />}
+            startIcon={<VideocamIcon />}
             onClick={handleRecordVideo}
             disabled={isDisabled}
             fullWidth
@@ -312,7 +309,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
               textTransform: 'none'
             }}
           >
-            {isRecording ? 'Recording Video...' : 'Record Video'}
+            Record Video
           </Button>
           
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>

@@ -1,6 +1,6 @@
-import React, { useCallback, useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import { JsonFormsDispatch, withJsonFormsControlProps } from "@jsonforms/react";
-import { ControlProps, rankWith, uiTypeIs, isGroup, RankedTester } from "@jsonforms/core";
+import { ControlProps, rankWith, uiTypeIs, RankedTester } from "@jsonforms/core";
 import { useSwipeable } from "react-swipeable";
 import { Button, Box } from "@mui/material";
 import { useFormContext } from "./App";
@@ -131,7 +131,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       draftService.saveDraft(formInitData.formType, data, formInitData);
     }
     setCurrentPage(page);
-  }, [data]);
+  }, [data, formInitData]);
 
   useEffect(() => {
     const handleNavigateToPage = (event: CustomEvent) => {
@@ -148,7 +148,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
     return () => {
       window.removeEventListener('navigateToPage', handleNavigateToPage as EventListener);
     };
-  }, [data]);
+  }, [data, formInitData]);
   
   // Also save data when it changes (even without page change)
   useEffect(() => {
@@ -163,7 +163,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       
       return () => clearTimeout(debounceTimer);
     }
-  }, [data]);
+  }, [data, formInitData]);
 
   return (
     <SwipeLayoutRenderer

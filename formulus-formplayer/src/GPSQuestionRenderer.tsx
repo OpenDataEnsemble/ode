@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   rankWith, 
   ControlProps, 
-  formatIs, 
-  JsonSchema, 
-  UISchemaElement 
+  formatIs
 } from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import { 
@@ -44,7 +42,7 @@ interface LocationDisplayData {
 }
 
 const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
-  const { data, handleChange, path, errors, schema, uischema, enabled } = props;
+  const { data, handleChange, path, errors, schema, enabled } = props;
   
   const [isCapturing, setIsCapturing] = useState(false);
   const [locationData, setLocationData] = useState<LocationDisplayData | null>(null);

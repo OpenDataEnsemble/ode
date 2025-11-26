@@ -297,7 +297,7 @@ export class DraftService {
     // Try to find meaningful fields for preview
     const meaningfulKeys = keys.filter(key => 
       !key.startsWith('_') && // Skip internal fields
-      typeof data[key] === 'string' || typeof data[key] === 'number'
+      (typeof data[key] === 'string' || typeof data[key] === 'number')
     ).slice(0, 3); // Take first 3 meaningful fields
     
     if (meaningfulKeys.length === 0) {

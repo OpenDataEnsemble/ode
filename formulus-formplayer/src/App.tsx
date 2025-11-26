@@ -192,57 +192,6 @@ function App() {
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
   const isLoadingRef = useRef<boolean>(true); // Use a ref to track loading state for the timeout
 
-  // Handler for data received via window.onFormInit
-  const handleFormInitByNative = useCallback((initData: FormInitData) => {
-    console.log('Received onFormInit event with data:', initData);
-
-    try {
-      const { formType: receivedFormType, params, savedData, formSchema, uiSchema } = initData;
-
-      if (!receivedFormType) {
-        console.error('formType is crucial and was not provided in onFormInit. Cannot proceed.');
-        setLoadError('Form ID is missing. Cannot initialize form.');
-        if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formplayerError', formType: receivedFormType, message: 'formType missing in onFormInit' }));
-        }
-        return; // Exit early
-      }
-
-      // Check if this is a new form (no savedData) and if drafts exist
-      const hasExistingSavedData = savedData && Object.keys(savedData).length > 0;
-      if (!hasExistingSavedData) {
-        const availableDrafts = draftService.getDraftsForForm(receivedFormType, formSchema?.version);
-        if (availableDrafts.length > 0) {
-          console.log(`Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`);
-          setPendingFormInit(initData);
-          setShowDraftSelector(true);
-          setIsLoading(false);
-          isLoadingRef.current = false;
-          return { status: 'draft_selector_shown' }; // Don't proceed with normal initialization
-        }
-      }
-
-      // Proceed with normal form initialization
-      initializeForm(initData);
-      return { status: 'ok' };
-    } catch (error) {
-      console.error('Error processing onFormInit data:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error during form initialization';
-      setLoadError(`Error processing form data: ${errorMessage}`);
-      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'formplayerError',
-          formType: initData?.formType,
-          status: 'error',
-          message: errorMessage
-        }));
-      }
-      setIsLoading(false);
-      isLoadingRef.current = false;
-      return { status: 'error' };
-    }
-  }, []);
-
   // Separate function to handle actual form initialization
   const initializeForm = useCallback((initData: FormInitData) => {
     try {
@@ -298,6 +247,57 @@ function App() {
       isLoadingRef.current = false;
     }
   }, [setFormInitData, setSchema, setUISchema, setData, setLoadError, setIsLoading]); // isLoadingRef is a ref, not needed in deps
+
+  // Handler for data received via window.onFormInit
+  const handleFormInitByNative = useCallback((initData: FormInitData) => {
+    console.log('Received onFormInit event with data:', initData);
+
+    try {
+      const { formType: receivedFormType, savedData, formSchema } = initData;
+
+      if (!receivedFormType) {
+        console.error('formType is crucial and was not provided in onFormInit. Cannot proceed.');
+        setLoadError('Form ID is missing. Cannot initialize form.');
+        if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formplayerError', formType: receivedFormType, message: 'formType missing in onFormInit' }));
+        }
+        return; // Exit early
+      }
+
+      // Check if this is a new form (no savedData) and if drafts exist
+      const hasExistingSavedData = savedData && Object.keys(savedData).length > 0;
+      if (!hasExistingSavedData) {
+        const availableDrafts = draftService.getDraftsForForm(receivedFormType, formSchema?.version);
+        if (availableDrafts.length > 0) {
+          console.log(`Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`);
+          setPendingFormInit(initData);
+          setShowDraftSelector(true);
+          setIsLoading(false);
+          isLoadingRef.current = false;
+          return { status: 'draft_selector_shown' }; // Don't proceed with normal initialization
+        }
+      }
+
+      // Proceed with normal form initialization
+      initializeForm(initData);
+      return { status: 'ok' };
+    } catch (error) {
+      console.error('Error processing onFormInit data:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error during form initialization';
+      setLoadError(`Error processing form data: ${errorMessage}`);
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+          type: 'formplayerError',
+          formType: initData?.formType,
+          status: 'error',
+          message: errorMessage
+        }));
+      }
+      setIsLoading(false);
+      isLoadingRef.current = false;
+      return { status: 'error' };
+    }
+  }, [initializeForm]);
 
   // Effect for initializing form via window.onFormInit
   useEffect(() => {
@@ -439,7 +439,7 @@ function App() {
       window.removeEventListener('navigateToError', handleNavigateToError as EventListener);
       window.removeEventListener('finalizeForm', handleFinalizeForm as EventListener);
     };
-  }, [data, formInitData]); // Include all dependencies
+  }, [data, formInitData, uischema]); // Include all dependencies
 
   // Handler for resuming a draft
   const handleResumeDraft = useCallback((draftId: string) => {

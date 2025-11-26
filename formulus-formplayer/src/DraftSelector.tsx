@@ -5,7 +5,7 @@
  * Shows available drafts for a form type and allows resuming or deleting them.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -60,11 +60,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
 
   // Load drafts on component mount and when formType changes
-  useEffect(() => {
-    loadDrafts();
-  }, [formType, formVersion]);
-
-  const loadDrafts = () => {
+  const loadDrafts = useCallback(() => {
     const formDrafts = draftService.getDraftsForForm(formType, formVersion);
     setDrafts(formDrafts);
 
@@ -73,7 +69,11 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
     if (oldDraftCount > 0) {
       setCleanupMessage(`${oldDraftCount} draft${oldDraftCount === 1 ? '' : 's'} older than 7 days will be automatically removed.`);
     }
-  };
+  }, [formType, formVersion]);
+
+  useEffect(() => {
+    loadDrafts();
+  }, [loadDrafts]);
 
   const handleDeleteDraft = (draftId: string) => {
     setDraftToDelete(draftId);

@@ -48,7 +48,6 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
   uischema,
   errors
 }) => {
-  const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);

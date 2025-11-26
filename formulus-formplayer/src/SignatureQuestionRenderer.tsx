@@ -33,7 +33,6 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
   // State management
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
   const [showCanvas, setShowCanvas] = useState(false);
   
   // Refs
@@ -111,7 +110,6 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
     
     isDrawingRef.current = true;
     lastPointRef.current = point;
-    setIsDrawing(true);
   }, [getCanvasPoint]);
 
   const draw = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
@@ -139,7 +137,6 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
   const stopDrawing = useCallback(() => {
     isDrawingRef.current = false;
     lastPointRef.current = null;
-    setIsDrawing(false);
   }, []);
 
   // Clear canvas
