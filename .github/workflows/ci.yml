@@ -1,0 +1,256 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
+      - '.github/labeler.yml'
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same workflow and branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+  GO_VERSION: '1.24'
+
+jobs:
+  # Detect which components have changed
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      formulus: ${{ steps.filter.outputs.formulus }}
+      formulus-formplayer: ${{ steps.filter.outputs.formulus-formplayer }}
+      synkronus: ${{ steps.filter.outputs.synkronus }}
+      synkronus-cli: ${{ steps.filter.outputs.synkronus-cli }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Detect changed components
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            formulus:
+              - 'formulus/**'
+            formulus-formplayer:
+              - 'formulus-formplayer/**'
+            synkronus:
+              - 'synkronus/**'
+            synkronus-cli:
+              - 'synkronus-cli/**'
+
+  # Lint and test for formulus (React Native)
+  formulus:
+    name: Formulus (React Native)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.formulus == 'true' || github.event_name == 'workflow_dispatch' }}
+    
+    defaults:
+      run:
+        working-directory: ./formulus
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: formulus/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linter
+        run: npm run lint
+        continue-on-error: false
+      
+      - name: Run tests
+        run: npm test -- --coverage --watchAll=false
+        continue-on-error: false
+
+  # Lint and test for formulus-formplayer (React Web)
+  formulus-formplayer:
+    name: Formulus Formplayer (React Web)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.formulus-formplayer == 'true' || github.event_name == 'workflow_dispatch' }}
+    
+    defaults:
+      run:
+        working-directory: ./formulus-formplayer
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: formulus-formplayer/package-lock.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm test -- --coverage --watchAll=false
+        continue-on-error: false
+      
+      - name: Build
+        run: npm run build
+        continue-on-error: false
+
+  # Build and test for synkronus (Go backend)
+  synkronus:
+    name: Synkronus (Go Backend)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.synkronus == 'true' || github.event_name == 'workflow_dispatch' }}
+    
+    defaults:
+      run:
+        working-directory: ./synkronus
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: synkronus/go.sum
+      
+      - name: Verify dependencies
+        run: go mod verify
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Run gofmt
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Code is not formatted. Run 'go fmt ./...'"
+            gofmt -s -d .
+            exit 1
+          fi
+      
+      - name: Run golangci-lint (if available)
+        run: |
+          if command -v golangci-lint &> /dev/null; then
+            golangci-lint run
+          else
+            echo "golangci-lint not installed, skipping..."
+          fi
+        continue-on-error: true
+      
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+      
+      - name: Build
+        run: go build -v ./cmd/synkronus
+        continue-on-error: false
+
+  # Build and test for synkronus-cli (Go CLI)
+  synkronus-cli:
+    name: Synkronus CLI (Go CLI)
+    runs-on: ubuntu-latest
+    needs: changes
+    if: ${{ needs.changes.outputs.synkronus-cli == 'true' || github.event_name == 'workflow_dispatch' }}
+    
+    defaults:
+      run:
+        working-directory: ./synkronus-cli
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: synkronus-cli/go.sum
+      
+      - name: Verify dependencies
+        run: go mod verify
+      
+      - name: Download dependencies
+        run: go mod download
+      
+      - name: Run gofmt
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "Code is not formatted. Run 'go fmt ./...'"
+            gofmt -s -d .
+            exit 1
+          fi
+      
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+      
+      - name: Build
+        run: go build -v ./cmd/synkronus
+        continue-on-error: false
+
+  # Summary job that runs after all component jobs
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [formulus, formulus-formplayer, synkronus, synkronus-cli]
+    if: always()
+    
+    steps:
+      - name: Check job results
+        run: |
+          echo "## CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Formulus | ${{ needs.formulus.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Formulus Formplayer | ${{ needs.formulus-formplayer.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Synkronus | ${{ needs.synkronus.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Synkronus CLI | ${{ needs.synkronus-cli.result }} |" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "${{ needs.formulus.result }}" != "success" ] && [ "${{ needs.formulus.result }}" != "skipped" ]; then
+            echo "❌ Formulus CI failed"
+            exit 1
+          fi
+          if [ "${{ needs.formulus-formplayer.result }}" != "success" ] && [ "${{ needs.formulus-formplayer.result }}" != "skipped" ]; then
+            echo "❌ Formulus Formplayer CI failed"
+            exit 1
+          fi
+          if [ "${{ needs.synkronus.result }}" != "success" ] && [ "${{ needs.synkronus.result }}" != "skipped" ]; then
+            echo "❌ Synkronus CI failed"
+            exit 1
+          fi
+          if [ "${{ needs.synkronus-cli.result }}" != "success" ] && [ "${{ needs.synkronus-cli.result }}" != "skipped" ]; then
+            echo "❌ Synkronus CLI CI failed"
+            exit 1
+          fi
+          
+          echo "✅ All CI checks passed!"
+
