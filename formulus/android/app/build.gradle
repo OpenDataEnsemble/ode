@@ -109,7 +109,7 @@ android {
             keyPassword = 'android'
         }
         release {
-            if (keystorePropertiesFile.exists()) {
+            if (keystorePropertiesFile.exists() && keystoreProperties['FORMULUS_RELEASE_STORE_FILE']) {
                 // Use rootProject.file() to resolve path relative to android/ directory
                 storeFile = rootProject.file(keystoreProperties['FORMULUS_RELEASE_STORE_FILE'])
                 storePassword = keystoreProperties['FORMULUS_RELEASE_STORE_PASSWORD']
@@ -124,7 +124,7 @@ android {
             signingConfig = signingConfigs.debug
         }
         release {
-            signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
+            signingConfig = (keystorePropertiesFile.exists() && keystoreProperties['FORMULUS_RELEASE_STORE_FILE']) ? signingConfigs.release : signingConfigs.debug
             minifyEnabled = enableProguardInReleaseBuilds
             proguardFiles = [getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"]
         }
