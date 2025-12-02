@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/opendataensemble/ode#readme
+    about: Check our README and documentation for setup and usage guides
+  - name: Discussions
+    url: https://github.com/opendataensemble/ode/discussions
+    about: Ask questions and discuss ideas with the community
+
