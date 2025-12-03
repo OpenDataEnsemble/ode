@@ -1,0 +1,65 @@
+name: Validate PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  pr-title:
+    name: Validate PR Title Format
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check PR Title Format
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Allowed commit types matching our Conventional Commits specification
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          # Require scope (optional but recommended)
+          requireScope: false
+          # Allow breaking changes indicator
+          allowMergeCommits: false
+          # Custom validation pattern (optional)
+          # This enforces: <type>(<scope>): <subject>
+          subjectPattern: ^.+$
+          subjectPatternError: |
+            The subject must be a non-empty string.
+            See https://www.conventionalcommits.org/ for more information.
+          # Scopes that are allowed (optional - leave empty to allow any scope)
+          scopes: []
+          # Wording for the PR title
+          # This will be used in the status check message
+          titleWording: |
+            The PR title must follow the Conventional Commits format:
+            `<type>(<scope>): <subject>`
+            
+            Examples:
+            - feat(auth): add OAuth2 login
+            - fix(ui): resolve button alignment issue
+            - docs: update installation guide
+            
+            See [CONTRIBUTING.md](CONTRIBUTING.md#commit-message-convention) for details.
+          # Wording for the PR title when it's invalid
+          titleWordingFail: |
+            The PR title does not follow the Conventional Commits format.
+            Please update the title to match: `<type>(<scope>): <subject>`
+            
+            See [CONTRIBUTING.md](CONTRIBUTING.md#commit-message-convention) for details.
+

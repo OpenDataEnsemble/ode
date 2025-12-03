@@ -1,0 +1,110 @@
+# Auto-labeling configuration for Pull Requests
+# Based on file paths changed in the PR
+# See: https://github.com/actions/labeler
+
+# Feature labels - matches PR body for features
+feat:
+  - pr-body: '(?i)(feat|feature|new functionality)'
+
+# Bug fix labels - matches files with fix/bug/error in name or PR body
+fix:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*fix*', '**/*bug*', '**/*error*']
+  - pr-body: '(?i)(fix|bug|error|issue)'
+
+# Documentation labels - matches markdown files and docs directories
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ['**/*.md', 'docs/**', 'documentation/**']
+  - pr-body: '(?i)(doc|documentation|readme)'
+
+# Test labels - matches test files and directories
+test:
+  - changed-files:
+      - any-glob-to-any-file: ['**/__tests__/**', '**/*.test.*', '**/*.spec.*', '**/test/**']
+  - pr-body: '(?i)(test|spec|coverage)'
+
+# Chore/maintenance labels - matches config files and dependency files
+chore:
+  - changed-files:
+      - any-glob-to-any-file: 
+          - '.github/**'
+          - '**/package.json'
+          - '**/package-lock.json'
+          - '**/go.mod'
+          - '**/go.sum'
+          - '**/.gitignore'
+          - '**/.editorconfig'
+  - pr-body: '(?i)(chore|maintenance|dependencies|deps)'
+
+# CI/CD labels - matches workflow files
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/workflows/**', '.github/actions/**']
+  - pr-body: '(?i)(ci|cd|pipeline|workflow|github actions)'
+
+# Build system labels - matches build-related files
+build:
+  - changed-files:
+      - any-glob-to-any-file: 
+          - '**/Dockerfile*'
+          - '**/docker-compose*'
+          - '**/Makefile'
+          - '**/build.*'
+          - '**/CMakeLists.txt'
+  - pr-body: '(?i)(build|docker|container)'
+
+# Style/formatting labels - matches formatting config files
+style:
+  - changed-files:
+      - any-glob-to-any-file: 
+          - '**/.prettierrc*'
+          - '**/.eslintrc*'
+          - '**/prettier.config.*'
+          - '**/eslint.config.*'
+  - pr-body: '(?i)(style|format|prettier|eslint|lint)'
+
+# Refactor labels - matches PR body
+refactor:
+  - pr-body: '(?i)(refactor|restructure|reorganize)'
+
+# Performance labels - matches PR body
+perf:
+  - pr-body: '(?i)(perf|performance|optimize|optimization)'
+
+# Security labels - matches PR body
+security:
+  - pr-body: '(?i)(security|vulnerability|vuln|CVE|exploit)'
+
+# Component-specific labels
+formulus:
+  - changed-files:
+      - any-glob-to-any-file: ['formulus/**']
+
+formulus-formplayer:
+  - changed-files:
+      - any-glob-to-any-file: ['formulus-formplayer/**']
+
+synkronus:
+  - changed-files:
+      - any-glob-to-any-file: ['synkronus/**']
+
+synkronus-cli:
+  - changed-files:
+      - any-glob-to-any-file: ['synkronus-cli/**']
+
+# Breaking change labels - matches PR body
+breaking:
+  - pr-body: '(?i)(breaking|BREAKING CHANGE)'
+
+# Dependencies labels - matches dependency files
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: 
+          - '**/package.json'
+          - '**/package-lock.json'
+          - '**/go.mod'
+          - '**/go.sum'
+          - '**/yarn.lock'
+          - '**/pnpm-lock.yaml'
+
