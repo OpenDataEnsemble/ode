@@ -7,6 +7,7 @@ A command-line interface for interacting with the Synkronus API.
 - Authentication with JWT tokens
 - App bundle management (download, upload, version management)
 - Data synchronization (push and pull)
+- Data export as Parquet ZIP archives
 - Configuration management
 
 ## Installation
@@ -138,6 +139,16 @@ synk sync pull --client-id your-client-id --after-change-id 1234 --schema-types 
 
 # Push data to the server
 synk sync push data.json
+```
+
+### Data Export
+
+```bash
+# Export all observations as a Parquet ZIP archive
+synk data export exports.zip
+
+# Export to a specific directory
+synk data export ./backups/observations_parquet.zip
 ```
 
 ## License
