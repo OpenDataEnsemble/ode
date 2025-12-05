@@ -163,7 +163,15 @@ func validateFormRendererReferences(zipReader *zip.Reader) error {
 
 	// Then check all form schemas for renderer references
 	for _, file := range zipReader.File {
-		if strings.HasSuffix(file.Name, "schema.json") {
+		// Only process schema.json files that are under the forms/ directory
+		// Verify the path format: forms/{formName}/schema.json
+		if strings.HasPrefix(file.Name, "forms/") && strings.HasSuffix(file.Name, "schema.json") {
+			parts := strings.Split(file.Name, "/")
+			// Ensure it's exactly forms/{formName}/schema.json (3 parts)
+			if len(parts) != 3 || parts[2] != "schema.json" {
+				continue // Skip invalid paths (should have been caught earlier, but be safe)
+			}
+
 			// Open the file
 			f, err := file.Open()
 			if err != nil {
@@ -320,4 +328,3 @@ func GetBundleInfo(bundlePath string) (map[string]interface{}, error) {
 
 	return info, nil
 }
-

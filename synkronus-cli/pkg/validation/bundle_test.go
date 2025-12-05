@@ -174,6 +174,16 @@ func TestValidateBundle(t *testing.T) {
 			wantErr: true,
 			errMsg:  "invalid JSON",
 		},
+		{
+			name: "schema.json outside forms/ directory should be ignored",
+			files: map[string]string{
+				"app/index.html":        "<html></html>",
+				"app/schema.json":       `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "missing-renderer"}}}`,
+				"forms/user/schema.json": `{"type": "object", "properties": {"name": {"type": "string", "x-question-type": "text"}}}`,
+				"forms/user/ui.json":    "{}",
+			},
+			wantErr: false, // Should pass because schema.json files outside forms/ are ignored (app/schema.json should not be processed)
+		},
 	}
 
 	for _, tt := range tests {
