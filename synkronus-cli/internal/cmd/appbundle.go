@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/client"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/validation"
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -216,8 +218,13 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 	uploadCmd := &cobra.Command{
 		Use:   "upload [file]",
 		Short: "Upload a new app bundle",
-		Long:  `Upload a new app bundle ZIP file to the Synkronus API (admin only).`,
-		Args:  cobra.ExactArgs(1),
+		Long: `Upload a new app bundle ZIP file to the Synkronus API (admin only).
+
+The bundle will be validated before upload to ensure it has the correct structure.
+Use --skip-validation to bypass validation (not recommended).
+
+After upload, use --activate to automatically activate the new version.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			bundlePath := args[0]
 
@@ -227,20 +234,117 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 				return fmt.Errorf("file not found: %s: %w", bundlePath, err)
 			}
 
+			// Get flags
+			skipValidation, _ := cmd.Flags().GetBool("skip-validation")
+			activate, _ := cmd.Flags().GetBool("activate")
+			verbose, _ := cmd.Flags().GetBool("verbose")
+
+			// Validate bundle structure (unless skipped)
+			if !skipValidation {
+				color.Cyan("Validating bundle structure...")
+				if err := validation.ValidateBundle(bundlePath); err != nil {
+					cmd.SilenceUsage = true
+					return fmt.Errorf("bundle validation failed: %w", err)
+				}
+				color.Green("✓ Bundle structure is valid")
+			} else {
+				color.Yellow("⚠ Skipping validation (not recommended)")
+			}
+
+			// Show bundle info
+			if verbose {
+				info, err := validation.GetBundleInfo(bundlePath)
+				if err == nil {
+					fmt.Println()
+					color.Cyan("Bundle Information:")
+					fmt.Printf("  Size: %d bytes\n", info["size"])
+					fmt.Printf("  Files: %d\n", info["file_count"])
+					fmt.Printf("  Forms: %d\n", info["form_count"])
+					fmt.Printf("  Renderers: %d\n", info["renderer_count"])
+					fmt.Println()
+				}
+			}
+
+			// Upload bundle
+			color.Cyan("Uploading bundle...")
 			c := client.NewClient()
 			response, err := c.UploadAppBundle(bundlePath)
 			if err != nil {
 				cmd.SilenceUsage = true
-				// Add context to the error
+				// Try to parse error message for better output
 				return fmt.Errorf("failed to upload app bundle: %w", err)
 			}
 
-			fmt.Println("App bundle uploaded successfully!")
-			fmt.Printf("Message: %s\n", response["message"])
+			color.Green("✓ App bundle uploaded successfully!")
+
+			// Extract version from response
+			version, ok := response["version"].(string)
+			if !ok {
+				// Try to get from manifest
+				if manifest, ok := response["manifest"].(map[string]interface{}); ok {
+					version, _ = manifest["version"].(string)
+				}
+			}
+
+			if version != "" {
+				fmt.Printf("Version: %s\n", version)
+			}
+
+			// Show manifest if verbose
+			if verbose {
+				if manifest, ok := response["manifest"].(map[string]interface{}); ok {
+					fmt.Println()
+					color.Cyan("Manifest:")
+					if v, ok := manifest["version"].(string); ok {
+						fmt.Printf("  Version: %s\n", v)
+					}
+					if h, ok := manifest["hash"].(string); ok {
+						fmt.Printf("  Hash: %s\n", h)
+					}
+					if files, ok := manifest["files"].([]interface{}); ok {
+						fmt.Printf("  Files: %d\n", len(files))
+						if len(files) > 0 && len(files) <= 10 {
+							fmt.Println("  File list:")
+							for _, file := range files {
+								if fileMap, ok := file.(map[string]interface{}); ok {
+									path, _ := fileMap["path"].(string)
+									size, _ := fileMap["size"].(float64)
+									fmt.Printf("    - %s (%d bytes)\n", path, int(size))
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Auto-activate if requested
+			if activate && version != "" {
+				fmt.Println()
+				color.Cyan("Activating version %s...", version)
+				switchResponse, err := c.SwitchAppBundleVersion(version)
+				if err != nil {
+					color.Yellow("⚠ Warning: Failed to activate version automatically: %v", err)
+					color.Yellow("   You can activate it manually with: synk app-bundle switch %s", version)
+				} else {
+					color.Green("✓ Version %s activated successfully!", version)
+				}
+				if verbose && switchResponse != nil {
+					if msg, ok := switchResponse["message"].(string); ok {
+						fmt.Printf("  %s\n", msg)
+					}
+				}
+			} else if version != "" {
+				fmt.Println()
+				color.Cyan("Tip: Activate this version with:")
+				fmt.Printf("  synk app-bundle switch %s\n", version)
+			}
 
 			return nil
 		},
 	}
+	uploadCmd.Flags().Bool("skip-validation", false, "Skip bundle validation before upload (not recommended)")
+	uploadCmd.Flags().BoolP("activate", "a", false, "Automatically activate the uploaded version")
+	uploadCmd.Flags().BoolP("verbose", "v", false, "Show detailed information about the bundle and manifest")
 	appBundleCmd.AddCommand(uploadCmd)
 
 	// Changes command

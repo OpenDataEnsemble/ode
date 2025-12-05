@@ -123,6 +123,12 @@ synk app-bundle download index.html
 # Upload a new app bundle (admin only)
 synk app-bundle upload bundle.zip
 
+# Upload with auto-activation and verbose output
+synk app-bundle upload bundle.zip --activate --verbose
+
+# Upload with validation skipped (not recommended)
+synk app-bundle upload bundle.zip --skip-validation
+
 # Switch to a specific app bundle version (admin only)
 synk app-bundle switch 20250507-123456
 ```
