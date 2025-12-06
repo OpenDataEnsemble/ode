@@ -39,6 +39,12 @@ WORKDIR /app
 # Copy binary from builder
 COPY --from=builder /app/synkronus .
 
+# Copy openapi directory for Swagger UI
+COPY --from=builder /app/openapi /app/openapi
+
+# Copy static directory for static files
+COPY --from=builder /app/static /app/static
+
 # Create directories for data storage with proper permissions
 RUN mkdir -p /app/data/app-bundles && \
     chown -R synkronus:synkronus /app
