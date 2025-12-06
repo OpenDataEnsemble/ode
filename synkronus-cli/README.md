@@ -7,6 +7,7 @@ A command-line interface for interacting with the Synkronus API.
 - Authentication with JWT tokens
 - App bundle management (download, upload, version management)
 - Data synchronization (push and pull)
+- Data export as Parquet ZIP archives
 - Configuration management
 
 ## Installation
@@ -25,14 +26,36 @@ go build -o bin/synk ./cmd/synkronus
 
 ## Configuration
 
-The CLI uses a configuration file located at `$HOME/.synkronus.yaml`. You can specify a different configuration file using the `--config` flag.
+By default, the CLI uses a configuration file located at `$HOME/.synkronus.yaml`.
 
-Example configuration:
+You can override this in two ways:
+
+- Per-command: pass `--config <path>` to read/write a specific config file for that invocation.
+- Persistent "current" config: use `synk config use <path>` to point the CLI at a specific config file for future runs (this writes a pointer file at `$HOME/.synkronus_current`).
+
+Example configuration file:
 
 ```yaml
 api:
   url: http://localhost:8080
   version: 1.0.0
+```
+
+### Multiple endpoints example
+
+```bash
+# Create separate config files
+synk config init -o ~/.synkronus-dev.yaml
+synk config init -o ~/.synkronus-prod.yaml
+
+# Point CLI at dev by default
+synk config use ~/.synkronus-dev.yaml
+
+# Point CLI at prod by default
+synk config use ~/.synkronus-prod.yaml
+
+# Temporarily override for a single command
+synk --config ~/.synkronus-dev.yaml status
 ```
 
 ## Shell Completion
@@ -138,6 +161,16 @@ synk sync pull --client-id your-client-id --after-change-id 1234 --schema-types 
 
 # Push data to the server
 synk sync push data.json
+```
+
+### Data Export
+
+```bash
+# Export all observations as a Parquet ZIP archive
+synk data export exports.zip
+
+# Export to a specific directory
+synk data export ./backups/observations_parquet.zip
 ```
 
 ## License
