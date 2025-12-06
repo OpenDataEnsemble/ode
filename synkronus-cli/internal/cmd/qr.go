@@ -10,9 +10,10 @@ import (
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/auth"
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
-	qrcode "github.com/skip2/go-qrcode"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	qrcode "github.com/yeqown/go-qrcode/v2"
+	"github.com/yeqown/go-qrcode/writer/standard"
 )
 
 // encodeFRMLS replicates the FRMLS encoding used by the Formulus generateQR.ts script.
@@ -150,7 +151,20 @@ for the Formulus mobile app. The QR encodes server URL, username, and password.`
 			if outputFile == "" {
 				outputFile = deriveOutputFilename(serverURL)
 			}
-			if err := qrcode.WriteFile(encoded, qrcode.Medium, 256, outputFile); err != nil {
+
+			// Generate QR code with logo using yeqown/go-qrcode
+			logoPath := "C:/Users/emil/code/ODE/synkronus-cli/qr_logo.png"
+			qrc, err := qrcode.New(encoded)
+			if err != nil {
+				return fmt.Errorf("failed to create QR code: %w", err)
+			}
+
+			w, err := standard.New(outputFile, standard.WithLogoImageFilePNG(logoPath))
+			if err != nil {
+				return fmt.Errorf("failed to create QR writer: %w", err)
+			}
+
+			if err := qrc.Save(w); err != nil {
 				return fmt.Errorf("failed to generate QR code image: %w", err)
 			}
 
