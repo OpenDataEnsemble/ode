@@ -1,0 +1,36 @@
+{
+  "name": "@ode/tokens",
+  "version": "1.0.0",
+  "description": "ODE Design System - Unified design tokens for React Native, React Web, and all ODE applications",
+  "main": "dist/js/tokens.js",
+  "types": "dist/js/tokens.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "style-dictionary build --config style-dictionary.config.js",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "design-tokens",
+    "design-system",
+    "ode",
+    "react-native",
+    "react",
+    "css-variables",
+    "tokens"
+  ],
+  "author": "ODE Design System Team",
+  "license": "MIT",
+  "devDependencies": {
+    "style-dictionary": "^3.9.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenDataEnsemble/ode.git",
+    "directory": "packages/tokens"
+  }
+}
+

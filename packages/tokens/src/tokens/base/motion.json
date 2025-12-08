@@ -1,0 +1,16 @@
+{
+  "duration": {
+    "instant": { "value": "0ms" },
+    "fast": { "value": "150ms" },
+    "normal": { "value": "250ms" },
+    "slow": { "value": "350ms" },
+    "slower": { "value": "500ms" }
+  },
+  "easing": {
+    "linear": { "value": "linear" },
+    "easeIn": { "value": "cubic-bezier(0.4, 0, 1, 1)" },
+    "easeOut": { "value": "cubic-bezier(0, 0, 0.2, 1)" },
+    "easeInOut": { "value": "cubic-bezier(0.4, 0, 0.2, 1)" }
+  }
+}
+
