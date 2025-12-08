@@ -1,57 +1,100 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, SafeAreaView, Alert, TouchableOpacity } from 'react-native';
-import { RootStackParamList } from '../types/NavigationTypes';
-import { StackNavigationProp } from '@react-navigation/stack';
-import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
+import React, {useEffect, useState} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  Image,
+  TouchableOpacity,
+  Linking,
+} from 'react-native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {useNavigation} from '@react-navigation/native';
+import {AuthStackParamList} from '../types/NavigationTypes';
+import {Button} from '../components/common';
+import {appVersionService} from '../services/AppVersionService';
 
-
-
-type WelcomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Welcome'>;
+type WelcomeScreenNavigationProp = StackNavigationProp<AuthStackParamList>;
 
 const WelcomeScreen: React.FC = () => {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
+  const [appVersion, setAppVersion] = useState<string>('');
 
+  useEffect(() => {
+    const loadVersion = async () => {
+      try {
+        const version = await appVersionService.getVersion();
+        setAppVersion(version);
+      } catch (error) {
+        console.error('Failed to load app version:', error);
+        setAppVersion('0.0.1'); // Fallback version
+      }
+    };
+    loadVersion();
+  }, []);
 
+  const handleGetStarted = () => {
+    navigation.navigate('ServerConfiguration');
+  };
+
+  const handleSignIn = () => {
+    navigation.navigate('Login');
+  };
+
+  const handlePrivacyPolicy = () => {
+    Linking.openURL('https://example.com/privacy-policy').catch(err =>
+      console.error('Failed to open privacy policy:', err),
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Welcome to Formulus</Text>
-    
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={styles.iconButton} 
-          onPress={() => navigation.navigate('Home')}
-        >
-          <Icon name="home" size={32} color="#fff" />
-          <Text style={styles.buttonText}>Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.iconButton} 
-          onPress={() => navigation.navigate('Settings')}
-        >
-          <Icon name="settings" size={32} color="#fff" />
-          <Text style={styles.buttonText}>Settings</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.iconButton} 
-          onPress={() => navigation.navigate('FormManagement')}
-        >
-          <Icon name="description" size={32} color="#fff" />
-          <Text style={styles.buttonText}>Form Management</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.iconButton} 
-          onPress={() => navigation.navigate('Sync')}
-        >
-          <Icon name="sync" size={32} color="#fff" />
-          <Text style={styles.buttonText}>Sync</Text>
-        </TouchableOpacity>
+      <View style={styles.content}>
+        <View style={styles.logoSection}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require('../../assets/images/logo.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+
+        <Text style={styles.tagline}>
+          Professional Data Collection for Field Work
+        </Text>
+
+        <View style={styles.buttonContainer}>
+          <Button
+            title="Get Started"
+            onPress={handleGetStarted}
+            variant="primary"
+            size="large"
+            fullWidth
+            testID="welcome-get-started-button"
+          />
+          <Button
+            title="Sign In"
+            onPress={handleSignIn}
+            variant="secondary"
+            size="large"
+            fullWidth
+            testID="welcome-sign-in-button"
+          />
+        </View>
+
+        <View style={styles.footer}>
+          {appVersion ? (
+            <Text style={styles.versionText}>Version {appVersion}</Text>
+          ) : null}
+          <TouchableOpacity
+            onPress={handlePrivacyPolicy}
+            style={styles.privacyLink}
+            testID="welcome-privacy-policy-link">
+            <Text style={styles.privacyLinkText}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      
     </SafeAreaView>
   );
 };
@@ -59,54 +102,62 @@ const WelcomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  content: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
+    paddingHorizontal: 24,
+    paddingVertical: 32,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  logoSection: {
     marginBottom: 32,
+    alignItems: 'center',
   },
-  input: {
+  logoContainer: {
+    width: 200,
+    height: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logo: {
     width: '100%',
-    height: 48,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-    fontSize: 16,
+    height: '100%',
+  },
+  tagline: {
+    fontSize: 18,
+    fontWeight: '400',
+    color: '#666666',
+    textAlign: 'center',
+    marginBottom: 48,
+    paddingHorizontal: 16,
+    lineHeight: 24,
   },
   buttonContainer: {
     width: '100%',
-    marginTop: 8,
     gap: 16,
+    marginBottom: 48,
   },
-  iconButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+  footer: {
+    position: 'absolute',
+    bottom: 32,
     alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'column',
-    minHeight: 100,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    gap: 12,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 8,
+  versionText: {
+    fontSize: 12,
+    color: '#999999',
+    fontWeight: '400',
+  },
+  privacyLink: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  privacyLinkText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
   },
 });
 

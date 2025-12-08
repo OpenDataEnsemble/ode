@@ -1,8 +1,28 @@
-// Defines the types for all possible routes/screens in your navigation stack
 export type RootStackParamList = {
-    Welcome: undefined;        // The Welcome screen takes no parameters
-    Home: undefined;           // The Home screen takes no parameters
-    Settings: undefined;       // The Settings screen takes no parameters
-    FormManagement: undefined; // The Form Management screen takes no parameters
-    Sync: undefined;           // The Sync screen takes no parameters
+    Auth: undefined;
+    MainApp: undefined;
+};
+
+export type AuthStackParamList = {
+    Welcome: undefined;
+    ServerConfiguration: undefined;
+    Login: undefined;
+};
+
+export type MainTabParamList = {
+    Home: undefined;
+    Forms: undefined;
+    Observations: undefined;
+    Sync: undefined;
+    More: {openDrawer?: number} | undefined;
+};
+
+export type MainAppStackParamList = {
+    MainApp: undefined;
+    Settings: undefined;
+    FormManagement: undefined;
+    Profile: undefined;
+    About: undefined;
+    Help: undefined;
+    PrivacyPolicy: undefined;
 };
