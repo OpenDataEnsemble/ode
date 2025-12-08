@@ -122,4 +122,43 @@ func init() {
 		},
 	}
 	configCmd.AddCommand(setCmd)
+
+	// Use config command
+	useCmd := &cobra.Command{
+		Use:   "use [config_path]",
+		Short: "Set the current config file",
+		Long:  `Set the default config file used by the Synkronus CLI when --config is not provided. This writes a pointer file in your home directory.`,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			configPath := args[0]
+
+			if configPath == "" {
+				return fmt.Errorf("config_path is required")
+			}
+
+			absPath, err := filepath.Abs(configPath)
+			if err != nil {
+				return fmt.Errorf("error resolving config path: %w", err)
+			}
+
+			// Ensure the target config file exists to avoid pointing to an invalid file
+			if _, err := os.Stat(absPath); os.IsNotExist(err) {
+				return fmt.Errorf("config file does not exist at %s (use 'synk config init -o %s' to create it)", absPath, absPath)
+			}
+
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("error getting home directory: %w", err)
+			}
+
+			pointerPath := filepath.Join(home, ".synkronus_current")
+			if err := os.WriteFile(pointerPath, []byte(absPath+"\n"), 0644); err != nil {
+				return fmt.Errorf("error writing current config pointer: %w", err)
+			}
+
+			fmt.Printf("Current config set to %s\n", absPath)
+			return nil
+		},
+	}
+	configCmd.AddCommand(useCmd)
 }

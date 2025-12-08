@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/config"
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
@@ -86,21 +87,37 @@ func init() {
 }
 
 func initConfig() {
+	var configPath string
+
 	if cfgFile != "" {
 		// Use config file from the flag
-		viper.SetConfigFile(cfgFile)
+		configPath = cfgFile
+		viper.SetConfigFile(configPath)
 	} else {
 		// Find home directory
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".synkronus" (without extension)
-		viper.AddConfigPath(home)
-		viper.SetConfigType("yaml")
-		viper.SetConfigName(".synkronus")
+		// First, check if a "current config" pointer file exists
+		currentConfigPointer := filepath.Join(home, ".synkronus_current")
+		if data, err := os.ReadFile(currentConfigPointer); err == nil {
+			path := strings.TrimSpace(string(data))
+			if path != "" {
+				configPath = path
+				viper.SetConfigFile(configPath)
+			}
+		}
 
-		// Also look for config in the current directory
-		viper.AddConfigPath(".")
+		// If no explicit config path was resolved, fall back to the default search behavior
+		if configPath == "" {
+			// Search config in home directory with name ".synkronus" (without extension)
+			viper.AddConfigPath(home)
+			viper.SetConfigType("yaml")
+			viper.SetConfigName(".synkronus")
+
+			// Also look for config in the current directory
+			viper.AddConfigPath(".")
+		}
 	}
 
 	// Read in environment variables that match
@@ -113,11 +130,24 @@ func initConfig() {
 		// Create default config if it doesn't exist
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			defaultConfig := config.DefaultConfig()
-			configDir := filepath.Dir(filepath.Join(os.Getenv("HOME"), ".synkronus.yaml"))
-			if _, err := os.Stat(configDir); os.IsNotExist(err) {
-				os.MkdirAll(configDir, 0755)
+
+			// If we have an explicit config path (from --config or pointer), create that file
+			if configPath != "" {
+				configDir := filepath.Dir(configPath)
+				if _, err := os.Stat(configDir); os.IsNotExist(err) {
+					os.MkdirAll(configDir, 0755)
+				}
+				viper.SetConfigFile(configPath)
+			} else {
+				// Fall back to legacy default at $HOME/.synkronus.yaml
+				legacyPath := filepath.Join(os.Getenv("HOME"), ".synkronus.yaml")
+				configDir := filepath.Dir(legacyPath)
+				if _, err := os.Stat(configDir); os.IsNotExist(err) {
+					os.MkdirAll(configDir, 0755)
+				}
+				viper.SetConfigFile(legacyPath)
 			}
-			viper.SetConfigFile(filepath.Join(os.Getenv("HOME"), ".synkronus.yaml"))
+
 			for k, v := range defaultConfig {
 				viper.Set(k, v)
 			}

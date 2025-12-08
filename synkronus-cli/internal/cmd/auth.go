@@ -8,6 +8,7 @@ import (
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/auth"
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"golang.org/x/term"
 )
 
@@ -76,6 +77,17 @@ func init() {
 		Short: "Show authentication status",
 		Long:  `Display information about the current authentication status.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			configFile := viper.ConfigFileUsed()
+			if configFile == "" {
+				configFile = "(no config file found, using defaults)"
+			}
+			apiURL := viper.GetString("api.url")
+
+			utils.PrintHeading("Configuration")
+			fmt.Printf("%s\n", utils.FormatKeyValue("Config file", configFile))
+			fmt.Printf("%s\n", utils.FormatKeyValue("API endpoint", apiURL))
+			fmt.Println()
+
 			claims, err := auth.GetUserInfo()
 			if err != nil {
 				return fmt.Errorf("not authenticated: %w", err)
