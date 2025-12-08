@@ -1,75 +1,61 @@
 # Auto-labeling configuration for Pull Requests
 # Based on file paths changed in the PR
 # See: https://github.com/actions/labeler
-# Note: actions/labeler only supports file path patterns, not PR body matching
+# Note: actions/labeler@v5 requires changed-files format
 
 # Bug fix labels - matches files with fix/bug/error in name
 fix:
-  - '**/*fix*'
-  - '**/*bug*'
-  - '**/*error*'
+  - changed-files:
+      any-glob-to-any-file: ['**/*fix*', '**/*bug*', '**/*error*']
 
 # Documentation labels - matches markdown files and docs directories
 docs:
-  - '**/*.md'
-  - 'docs/**'
-  - 'documentation/**'
+  - changed-files:
+      any-glob-to-any-file: ['**/*.md', 'docs/**', 'documentation/**']
 
 # Test labels - matches test files and directories
 test:
-  - '**/__tests__/**'
-  - '**/*.test.*'
-  - '**/*.spec.*'
-  - '**/test/**'
+  - changed-files:
+      any-glob-to-any-file: ['**/__tests__/**', '**/*.test.*', '**/*.spec.*', '**/test/**']
 
 # Chore/maintenance labels - matches config files and dependency files
 chore:
-  - '.github/**'
-  - '**/package.json'
-  - '**/package-lock.json'
-  - '**/go.mod'
-  - '**/go.sum'
-  - '**/.gitignore'
-  - '**/.editorconfig'
+  - changed-files:
+      any-glob-to-any-file: ['.github/**', '**/package.json', '**/package-lock.json', '**/go.mod', '**/go.sum', '**/.gitignore', '**/.editorconfig']
 
 # CI/CD labels - matches workflow files
 ci:
-  - '.github/workflows/**'
-  - '.github/actions/**'
+  - changed-files:
+      any-glob-to-any-file: ['.github/workflows/**', '.github/actions/**']
 
 # Build system labels - matches build-related files
 build:
-  - '**/Dockerfile*'
-  - '**/docker-compose*'
-  - '**/Makefile'
-  - '**/build.*'
-  - '**/CMakeLists.txt'
+  - changed-files:
+      any-glob-to-any-file: ['**/Dockerfile*', '**/docker-compose*', '**/Makefile', '**/build.*', '**/CMakeLists.txt']
 
 # Style/formatting labels - matches formatting config files
 style:
-  - '**/.prettierrc*'
-  - '**/.eslintrc*'
-  - '**/prettier.config.*'
-  - '**/eslint.config.*'
+  - changed-files:
+      any-glob-to-any-file: ['**/.prettierrc*', '**/.eslintrc*', '**/prettier.config.*', '**/eslint.config.*']
 
 # Component-specific labels
 formulus:
-  - 'formulus/**'
+  - changed-files:
+      any-glob-to-any-file: ['formulus/**']
 
 formulus-formplayer:
-  - 'formulus-formplayer/**'
+  - changed-files:
+      any-glob-to-any-file: ['formulus-formplayer/**']
 
 synkronus:
-  - 'synkronus/**'
+  - changed-files:
+      any-glob-to-any-file: ['synkronus/**']
 
 synkronus-cli:
-  - 'synkronus-cli/**'
+  - changed-files:
+      any-glob-to-any-file: ['synkronus-cli/**']
 
 # Dependencies labels - matches dependency files
 dependencies:
-  - '**/package.json'
-  - '**/package-lock.json'
-  - '**/go.mod'
-  - '**/go.sum'
-  - '**/yarn.lock'
-  - '**/pnpm-lock.yaml'
+  - changed-files:
+      any-glob-to-any-file: ['**/package.json', '**/package-lock.json', '**/go.mod', '**/go.sum', '**/yarn.lock', '**/pnpm-lock.yaml']
