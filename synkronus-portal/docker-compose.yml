@@ -99,4 +99,3 @@ volumes:
 networks:
   synkronus-network:
     driver: bridge
-
