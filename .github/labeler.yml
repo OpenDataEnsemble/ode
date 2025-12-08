@@ -73,4 +73,3 @@ dependencies:
   - '**/go.sum'
   - '**/yarn.lock'
   - '**/pnpm-lock.yaml'
-
