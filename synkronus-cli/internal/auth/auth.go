@@ -44,14 +44,14 @@ func Login(username, password string) (*TokenResponse, error) {
 	// Send login request
 	resp, err := http.Post(loginURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return nil, fmt.Errorf("login request failed: %w", err)
+		return nil, fmt.Errorf("login request failed for endpoint %s: %w", loginURL, err)
 	}
 	defer resp.Body.Close()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("login failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("login failed for endpoint %s with status %d: %s", loginURL, resp.StatusCode, string(body))
 	}
 
 	// Read the response body
@@ -59,10 +59,10 @@ func Login(username, password string) (*TokenResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
-	
+
 	// Print the raw response for debugging
 	fmt.Printf("DEBUG - Raw API response: %s\n", string(body))
-	
+
 	// Parse response
 	var tokenResp TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
@@ -86,7 +86,7 @@ func RefreshToken() (*TokenResponse, error) {
 
 	// Prepare refresh request
 	refreshData := map[string]string{
-		"refreshToken": refreshToken,  // Updated to match API expectations
+		"refreshToken": refreshToken, // Updated to match API expectations
 	}
 	jsonData, err := json.Marshal(refreshData)
 	if err != nil {
@@ -111,7 +111,7 @@ func RefreshToken() (*TokenResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
-	
+
 	// Parse response
 	var tokenResp TokenResponse
 	if err := json.Unmarshal(body, &tokenResp); err != nil {
