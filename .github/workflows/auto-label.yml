@@ -12,6 +12,7 @@ jobs:
   label:
     name: Auto Label PR
     runs-on: ubuntu-latest
+    continue-on-error: true
     
     steps:
       - name: Checkout repository
