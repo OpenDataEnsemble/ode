@@ -55,7 +55,7 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   
   const audioRef = useRef<HTMLAudioElement>(null);
-  const progressInterval = useRef<NodeJS.Timeout | null>(null);
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const audioData: AudioData | null = data && typeof data === 'object' && data.type === 'audio' ? data : null;
   const hasAudio = !!audioData;
