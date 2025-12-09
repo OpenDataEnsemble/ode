@@ -261,6 +261,48 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 	return nil
 }
 
+// DownloadParquetExport downloads the Parquet export ZIP archive to the specified destination path
+func (c *Client) DownloadParquetExport(destPath string) error {
+	url := fmt.Sprintf("%s/dataexport/parquet", c.BaseURL)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	// Create destination directory if it doesn't exist
+	destDir := filepath.Dir(destPath)
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return err
+	}
+
+	// Create destination file
+	out, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	// Copy response body to file
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // UploadAppBundle uploads a new app bundle
 func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, error) {
 	url := fmt.Sprintf("%s/app-bundle/push", c.BaseURL)

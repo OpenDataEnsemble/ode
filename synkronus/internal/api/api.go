@@ -21,13 +21,11 @@ import (
 // static files from a http.FileSystem.
 func FileServer(r chi.Router, path string, root http.FileSystem) {
 	if path != "/" && path[len(path)-1] != '/' {
-		r.Get(path, http.RedirectHandler(path+"/", 301).ServeHTTP)
+		r.Get(path, http.RedirectHandler(path+"/", http.StatusMovedPermanently).ServeHTTP)
 		path += "/"
 	}
 	r.Get(path+"*", func(w http.ResponseWriter, r *http.Request) {
-		rctx := chi.RouteContext(r.Context())
-		pathPrefix := rctx.RoutePattern()
-		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
+		fs := http.StripPrefix(path, http.FileServer(root))
 		fs.ServeHTTP(w, r)
 	})
 }
@@ -57,6 +55,8 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	// Public endpoints
 	r.Get("/health", h.HealthCheck)
 
+	r.Get("/openapi/swagger", http.RedirectHandler("/openapi/swagger-ui.html", http.StatusMovedPermanently).ServeHTTP)
+
 	// Serve favicon.ico
 	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		// Get the executable directory
@@ -81,6 +81,11 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		// Serve static files from the static directory
 		staticDir := filepath.Join(rootDir, "static")
 		FileServer(r, "/static", http.Dir(staticDir))
+
+		// Serve OpenAPI documentation (Swagger UI)
+		appDir := filepath.Dir(execDir)
+		openapiDir := filepath.Join(appDir, "openapi")
+		FileServer(r, "/openapi", http.Dir(openapiDir))
 	}
 
 	// Authentication routes
@@ -136,7 +141,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		// User management routes
 		r.Route("/users", func(r chi.Router) {
 			// Admin-only routes
-			r.With(auth.RequireRole(models.RoleAdmin)).Post("/", h.CreateUserHandler)
+			r.With(auth.RequireRole(models.RoleAdmin)).Post("/create", h.CreateUserHandler)
 			r.With(auth.RequireRole(models.RoleAdmin)).Delete("/delete/{username}", h.DeleteUserHandler)
 			r.With(auth.RequireRole(models.RoleAdmin)).Post("/reset-password", h.ResetPasswordHandler)
 			r.With(auth.RequireRole(models.RoleAdmin)).Get("/", h.ListUsersHandler)

@@ -1,0 +1,61 @@
+# Auto-labeling configuration for Pull Requests
+# Based on file paths changed in the PR
+# See: https://github.com/actions/labeler
+# Note: actions/labeler@v5 requires changed-files format
+
+# Bug fix labels - matches files with fix/bug/error in name
+fix:
+  - changed-files:
+      any-glob-to-any-file: ['**/*fix*', '**/*bug*', '**/*error*']
+
+# Documentation labels - matches markdown files and docs directories
+docs:
+  - changed-files:
+      any-glob-to-any-file: ['**/*.md', 'docs/**', 'documentation/**']
+
+# Test labels - matches test files and directories
+test:
+  - changed-files:
+      any-glob-to-any-file: ['**/__tests__/**', '**/*.test.*', '**/*.spec.*', '**/test/**']
+
+# Chore/maintenance labels - matches config files and dependency files
+chore:
+  - changed-files:
+      any-glob-to-any-file: ['.github/**', '**/package.json', '**/package-lock.json', '**/go.mod', '**/go.sum', '**/.gitignore', '**/.editorconfig']
+
+# CI/CD labels - matches workflow files
+ci:
+  - changed-files:
+      any-glob-to-any-file: ['.github/workflows/**', '.github/actions/**']
+
+# Build system labels - matches build-related files
+build:
+  - changed-files:
+      any-glob-to-any-file: ['**/Dockerfile*', '**/docker-compose*', '**/Makefile', '**/build.*', '**/CMakeLists.txt']
+
+# Style/formatting labels - matches formatting config files
+style:
+  - changed-files:
+      any-glob-to-any-file: ['**/.prettierrc*', '**/.eslintrc*', '**/prettier.config.*', '**/eslint.config.*']
+
+# Component-specific labels
+formulus:
+  - changed-files:
+      any-glob-to-any-file: ['formulus/**']
+
+formulus-formplayer:
+  - changed-files:
+      any-glob-to-any-file: ['formulus-formplayer/**']
+
+synkronus:
+  - changed-files:
+      any-glob-to-any-file: ['synkronus/**']
+
+synkronus-cli:
+  - changed-files:
+      any-glob-to-any-file: ['synkronus-cli/**']
+
+# Dependencies labels - matches dependency files
+dependencies:
+  - changed-files:
+      any-glob-to-any-file: ['**/package.json', '**/package-lock.json', '**/go.mod', '**/go.sum', '**/yarn.lock', '**/pnpm-lock.yaml']
