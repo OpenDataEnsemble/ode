@@ -1,0 +1,27 @@
+{
+  "color": {
+    "semantic": {
+      "success": {
+        "50": { "value": "#F0F9F0" },
+        "500": { "value": "#34C759" },
+        "600": { "value": "#2E7D32" }
+      },
+      "error": {
+        "50": { "value": "#FEF2F2" },
+        "500": { "value": "#F44336" },
+        "600": { "value": "#DC2626" }
+      },
+      "warning": {
+        "50": { "value": "#FFFBEB" },
+        "500": { "value": "#FF9500" },
+        "600": { "value": "#D97706" }
+      },
+      "info": {
+        "50": { "value": "#EFF6FF" },
+        "500": { "value": "#2196F3" },
+        "600": { "value": "#2563EB" }
+      }
+    }
+  }
+}
+

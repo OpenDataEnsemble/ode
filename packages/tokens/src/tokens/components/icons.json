@@ -1,0 +1,33 @@
+{
+  "icon": {
+    "size": {
+      "xs": { "value": "12px" },
+      "sm": { "value": "16px" },
+      "md": { "value": "20px" },
+      "lg": { "value": "24px" },
+      "xl": { "value": "32px" },
+      "2xl": { "value": "40px" },
+      "3xl": { "value": "48px" }
+    },
+    "stroke": {
+      "thin": { "value": "1px" },
+      "normal": { "value": "1.5px" },
+      "medium": { "value": "2px" },
+      "thick": { "value": "2.5px" }
+    }
+  },
+  "avatar": {
+    "sm": { "value": "24px" },
+    "md": { "value": "32px" },
+    "lg": { "value": "48px" },
+    "xl": { "value": "64px" },
+    "2xl": { "value": "96px" }
+  },
+  "logo": {
+    "sm": { "value": "80px" },
+    "md": { "value": "120px" },
+    "lg": { "value": "160px" },
+    "xl": { "value": "200px" }
+  }
+}
+
