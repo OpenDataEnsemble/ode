@@ -3,21 +3,24 @@
     "reactNative": {
       "sm": {
         "shadowColor": { "value": "#000000" },
-        "shadowOffset": { "value": "{0, 1}" },
+        "shadowOffsetWidth": { "value": "0" },
+        "shadowOffsetHeight": { "value": "1" },
         "shadowOpacity": { "value": "0.1" },
         "shadowRadius": { "value": "2" },
         "elevation": { "value": "2" }
       },
       "md": {
         "shadowColor": { "value": "#000000" },
-        "shadowOffset": { "value": "{0, 2}" },
+        "shadowOffsetWidth": { "value": "0" },
+        "shadowOffsetHeight": { "value": "2" },
         "shadowOpacity": { "value": "0.15" },
         "shadowRadius": { "value": "4" },
         "elevation": { "value": "4" }
       },
       "lg": {
         "shadowColor": { "value": "#000000" },
-        "shadowOffset": { "value": "{0, 4}" },
+        "shadowOffsetWidth": { "value": "0" },
+        "shadowOffsetHeight": { "value": "4" },
         "shadowOpacity": { "value": "0.2" },
         "shadowRadius": { "value": "8" },
         "elevation": { "value": "8" }
