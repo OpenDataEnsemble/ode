@@ -1,0 +1,9 @@
+{
+  "focus": {
+    "ringWidth": { "value": "2px" },
+    "ringOffset": { "value": "2px" },
+    "ringColor": { "value": "{color.brand.primary.500}" },
+    "ringOpacity": { "value": "{opacity.100}" }
+  }
+}
+

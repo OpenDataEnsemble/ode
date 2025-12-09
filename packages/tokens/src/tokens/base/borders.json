@@ -1,0 +1,20 @@
+{
+  "border": {
+    "radius": {
+      "none": { "value": "0px" },
+      "sm": { "value": "4px" },
+      "md": { "value": "8px" },
+      "lg": { "value": "12px" },
+      "xl": { "value": "16px" },
+      "full": { "value": "9999px" }
+    },
+    "width": {
+      "none": { "value": "0px" },
+      "hairline": { "value": "0.5px" },
+      "thin": { "value": "1px" },
+      "medium": { "value": "2px" },
+      "thick": { "value": "3px" }
+    }
+  }
+}
+

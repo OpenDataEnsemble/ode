@@ -1,0 +1,16 @@
+# Source files (not needed in npm package)
+src/
+config.json
+style-dictionary.config.js
+
+# Development files
+*.md
+!README.md
+
+# Git files
+.gitignore
+.git/
+
+# Build files (will be generated)
+node_modules/
+

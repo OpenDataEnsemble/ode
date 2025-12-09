@@ -1,0 +1,9 @@
+{
+  "contrast": {
+    "aaLarge": { "value": "3:1" },
+    "aaNormal": { "value": "4.5:1" },
+    "aaaLarge": { "value": "4.5:1" },
+    "aaaNormal": { "value": "7:1" }
+  }
+}
+
