@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from 'react';
 import {NavigationContainer, DefaultTheme} from '@react-navigation/native';
-import {createStackNavigator} from '@react-navigation/stack';
 import {StatusBar} from 'react-native';
 import 'react-native-url-polyfill/auto';
 import {FormService} from './src/services/FormService';
@@ -11,13 +10,8 @@ import FormplayerModal, {
 } from './src/components/FormplayerModal';
 import QRScannerModal from './src/components/QRScannerModal';
 import SignatureCaptureModal from './src/components/SignatureCaptureModal';
-import AuthNavigator from './src/navigation/AuthNavigator';
 import MainAppNavigator from './src/navigation/MainAppNavigator';
-import {RootStackParamList} from './src/types/NavigationTypes';
 
-const RootStack = createStackNavigator<RootStackParamList>();
-
-// Always use a light theme for the app, regardless of system dark mode
 const LightNavigationTheme = {
   ...DefaultTheme,
   dark: false,
@@ -33,7 +27,6 @@ const LightNavigationTheme = {
 };
 
 function App(): React.JSX.Element {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [qrScannerData, setQrScannerData] = useState<{
     fieldId: string;
@@ -46,7 +39,6 @@ function App(): React.JSX.Element {
     onResult: (result: any) => void;
   } | null>(null);
 
-  // Global Formplayer modal state so it works from any screen
   const [formplayerVisible, setFormplayerVisible] = useState(false);
   const formplayerModalRef = React.useRef<FormplayerModalHandle>(null);
   const formplayerVisibleRef = React.useRef(false);
@@ -56,27 +48,20 @@ function App(): React.JSX.Element {
   }, [formplayerVisible]);
 
   useEffect(() => {
-    // pre-load form service
-    FormService.getInstance().then(() => {
-      console.log('FormService pre-loaded');
-    });
+    FormService.getInstance();
 
-    // Listen for QR scanner requests
     const handleOpenQRScanner = (data: {
       fieldId: string;
       onResult: (result: any) => void;
     }) => {
-      console.log('Opening QR scanner for field:', data.fieldId);
       setQrScannerData(data);
       setQrScannerVisible(true);
     };
 
-    // Listen for signature capture requests
     const handleOpenSignatureCapture = (data: {
       fieldId: string;
       onResult: (result: any) => void;
     }) => {
-      console.log('Opening signature capture for field:', data.fieldId);
       setSignatureCaptureData(data);
       setSignatureCaptureVisible(true);
     };
@@ -84,20 +69,12 @@ function App(): React.JSX.Element {
     appEvents.addListener('openQRScanner', handleOpenQRScanner);
     appEvents.addListener('openSignatureCapture', handleOpenSignatureCapture);
 
-    // Global Formplayer open/close handlers so any screen can trigger it
     const handleOpenFormplayer = async (config: any) => {
-      console.log('App: openFormplayerRequested event received', config);
-
       if (formplayerVisibleRef.current) {
-        console.log(
-          'App: FormplayerModal already visible, ignoring open request',
-        );
         return;
       }
 
       const {formType, observationId, params, savedData, operationId} = config;
-
-      console.log('App: Opening FormplayerModal');
       formplayerVisibleRef.current = true;
       setFormplayerVisible(true);
 
@@ -105,15 +82,11 @@ function App(): React.JSX.Element {
       const forms = formService.getFormSpecs();
 
       if (forms.length === 0) {
-        console.warn('App: No forms available when trying to open Formplayer');
         return;
       }
 
       const formSpec = forms.find(form => form.id === formType);
       if (!formSpec) {
-        console.warn(
-          `App: Form ${formType} not found when trying to open Formplayer`,
-        );
         return;
       }
 
@@ -126,8 +99,7 @@ function App(): React.JSX.Element {
       );
     };
 
-    const handleCloseFormplayer = (data: any) => {
-      console.log('App: closeFormplayer event received', data);
+    const handleCloseFormplayer = () => {
       formplayerVisibleRef.current = false;
       setFormplayerVisible(false);
     };
@@ -146,42 +118,12 @@ function App(): React.JSX.Element {
     };
   }, []);
 
-  const handleQRScannerClose = () => {
-    setQrScannerVisible(false);
-    setQrScannerData(null);
-  };
-
-  const handleSignatureCaptureClose = () => {
-    setSignatureCaptureVisible(false);
-    setSignatureCaptureData(null);
-  };
-
-  const handleSignatureCaptureResult = (result: any) => {
-    if (signatureCaptureData?.onResult) {
-      signatureCaptureData.onResult(result);
-    }
-  };
   return (
     <SyncProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <NavigationContainer theme={LightNavigationTheme}>
-        <RootStack.Navigator screenOptions={{headerShown: false}}>
-          {!isAuthenticated ? (
-            <RootStack.Screen name="Auth">
-              {props => (
-                <AuthNavigator
-                  {...props}
-                  onLogin={() => setIsAuthenticated(true)}
-                />
-              )}
-            </RootStack.Screen>
-          ) : (
-            <RootStack.Screen name="MainApp" component={MainAppNavigator} />
-          )}
-        </RootStack.Navigator>
-
+        <MainAppNavigator />
         <FormplayerModal
-          key="formplayer-modal"
           ref={formplayerModalRef}
           visible={formplayerVisible}
           onClose={() => {
@@ -191,20 +133,26 @@ function App(): React.JSX.Element {
         />
       </NavigationContainer>
 
-      {/* QR Scanner Modal */}
       <QRScannerModal
         visible={qrScannerVisible}
-        onClose={handleQRScannerClose}
+        onClose={() => {
+          setQrScannerVisible(false);
+          setQrScannerData(null);
+        }}
         fieldId={qrScannerData?.fieldId}
         onResult={qrScannerData?.onResult}
       />
 
-      {/* Signature Capture Modal */}
       <SignatureCaptureModal
         visible={signatureCaptureVisible}
-        onClose={handleSignatureCaptureClose}
+        onClose={() => {
+          setSignatureCaptureVisible(false);
+          setSignatureCaptureData(null);
+        }}
         fieldId={signatureCaptureData?.fieldId || ''}
-        onSignatureCapture={handleSignatureCaptureResult}
+        onSignatureCapture={(result: any) => {
+          signatureCaptureData?.onResult?.(result);
+        }}
       />
     </SyncProvider>
   );

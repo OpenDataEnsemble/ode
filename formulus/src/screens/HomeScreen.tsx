@@ -1,69 +1,44 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, View, ActivityIndicator, TouchableOpacity, Text, Platform, Alert } from 'react-native';
+import React, {useEffect, useState, useRef} from 'react';
+import {StyleSheet, View, ActivityIndicator, Platform} from 'react-native';
 import RNFS from 'react-native-fs';
-import CustomAppWebView, { CustomAppWebViewHandle } from '../components/CustomAppWebView';
-import { appEvents } from '../webview/FormulusMessageHandlers'; // Import appEvents
-import { FormService } from '../services/FormService';
+import CustomAppWebView, {
+  CustomAppWebViewHandle,
+} from '../components/CustomAppWebView';
 
-const HomeScreen = ({ navigation }: any) => {
+const HomeScreen = ({navigation}: any) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
 
-  useEffect(() => {
-    const setupPlaceholder = async () => {
-      try {
-        const filePath = `${RNFS.DocumentDirectoryPath}/app/index.html`;
-        const fileExists = await RNFS.exists(filePath);
-        if (!fileExists) {
-          // USE PLACEHOLDER
-          const placeholderUri = Platform.OS === 'android' 
+  const checkAndSetAppUri = async () => {
+    try {
+      const filePath = `${RNFS.DocumentDirectoryPath}/app/index.html`;
+      const fileExists = await RNFS.exists(filePath);
+      if (!fileExists) {
+        const placeholderUri =
+          Platform.OS === 'android'
             ? 'file:///android_asset/webview/placeholder_app.html'
-            : 'file:///webview/placeholder_app.html'; // Add iOS path
-          console.log('Using placeholder HTML at:', placeholderUri);
-          setLocalUri(placeholderUri);
-        } else {
-          console.log('Using custom app HTML at:', filePath);          
-          setLocalUri(`file://${filePath}`);
-        }
-      } catch (err) {
-        console.warn('Failed to setup placeholder HTML:', err);
+            : 'file:///webview/placeholder_app.html';
+        setLocalUri(placeholderUri);
+      } else {
+        setLocalUri(`file://${filePath}`);
       }
-    };
-   
-    setupPlaceholder();
+    } catch (err) {
+      console.warn('Failed to setup app URI:', err);
+    }
+  };
+
+  useEffect(() => {
+    checkAndSetAppUri();
   }, []);
 
   useEffect(() => {
-    console.log('HomeScreen: MOUNTED'); // Added for debugging mount/unmount
-    
-    // Subscribe to FormService cache invalidation to refresh form specs
-    let unsubscribeFromCache: (() => void) | null = null;
-    
-    const initCacheSubscription = async () => {
-      try {
-        const formService = await FormService.getInstance();
-        unsubscribeFromCache = formService.onCacheInvalidated(() => {
-          console.log('HomeScreen: FormService cache invalidated, form specs refreshed');
-        });
-      } catch (error) {
-        console.error('HomeScreen: Failed to subscribe to FormService cache invalidation:', error);
-      }
-    };
-    
-    initCacheSubscription();
-    
-    return () => {
-      console.log('HomeScreen: UNMOUNTING'); // Added for debugging mount/unmount
-      
-      // Cleanup FormService cache subscription
-      if (unsubscribeFromCache) {
-        unsubscribeFromCache();
-      }
-    };
-  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
+    const unsubscribe = navigation.addListener('focus', () => {
+      checkAndSetAppUri();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
-  // Update isLoading when localUri is set
   useEffect(() => {
     if (localUri) {
       setIsLoading(false);
@@ -78,30 +53,18 @@ const HomeScreen = ({ navigation }: any) => {
     );
   }
 
-  const handleClick = () => {
-    console.log('HomeScreen: handleClick event received');
-    
-    console.log('HomeScreen: handleClick event received');
-    const bgPath = "file:///data/user/0/com.formulus/files/app/assets/sapiens-Dt1gTJ5Q.jpg";
-    // Check if bgPath exists
-    RNFS.exists(bgPath).then((exists) => {
-      if (exists) {
-        console.log('Background image exists at:', bgPath);
-      } else {
-        console.log('Background image does not exist at:', bgPath);
-      }
-    });
-  };
-
   return (
     <View style={styles.container}>
       {isLoading ? (
-        <ActivityIndicator size="large" color="#0000ff" style={styles.loading} />
+        <ActivityIndicator
+          size="large"
+          color="#4A90E2"
+          style={styles.loading}
+        />
       ) : (
-        /* Main WebView for custom app using our new component */
         <CustomAppWebView
           ref={customAppRef}
-          appUrl={localUri || ''}
+          appUrl={localUri}
           appName="custom_app"
         />
       )}
@@ -113,37 +76,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  webview: {
-    flex: 1,
-  },
   loading: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  testButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    backgroundColor: '#4A90E2',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-    elevation: 3,
-  },
-  adminButton: {
-    position: 'absolute',
-    right: 20,
-    bottom: 80,
-    backgroundColor: '#9C27B0', // Purple color for admin button
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 5,
-    elevation: 3,
-  },
-  testButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
   },
 });
 

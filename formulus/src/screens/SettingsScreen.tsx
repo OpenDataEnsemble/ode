@@ -1,158 +1,205 @@
-import React, { useState, useEffect } from 'react';
-import {View,Text,TextInput,TouchableOpacity,StyleSheet,SafeAreaView,ScrollView,Alert,ActivityIndicator} from 'react-native';
+import React, {useState, useEffect} from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
 import * as Keychain from 'react-native-keychain';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { login } from '../api/synkronus/Auth';
+import {login, getUserInfo, logout, UserInfo} from '../api/synkronus/Auth';
+import {serverConfigService} from '../services/ServerConfigService';
 import QRScannerModal from '../components/QRScannerModal';
-import { QRSettingsService } from '../services/QRSettingsService';
+import {QRSettingsService} from '../services/QRSettingsService';
+import {MainAppStackParamList} from '../types/NavigationTypes';
+
+type SettingsScreenNavigationProp = StackNavigationProp<
+  MainAppStackParamList,
+  'Settings'
+>;
 
 const SettingsScreen = () => {
+  const navigation = useNavigation<SettingsScreenNavigationProp>();
   const [serverUrl, setServerUrl] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [loggedInUser, setLoggedInUser] = useState<UserInfo | null>(null);
 
-  // Load settings when component mounts
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const settings = await AsyncStorage.getItem('@settings');
-        if (settings) {
-          const { serverUrl: savedUrl } = JSON.parse(settings);
-          setServerUrl(savedUrl || '');          
-        }
-      } catch (error) {
-        console.error('Failed to load settings', error);
-      } finally {
-        setIsLoading(false);
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const savedUrl = await serverConfigService.getServerUrl();
+      if (savedUrl) {
+        setServerUrl(savedUrl);
       }
-      const credentials = await loadCredentials();
+
+      const credentials = await Keychain.getGenericPassword();
       if (credentials) {
         setUsername(credentials.username);
         setPassword(credentials.password);
       }
-    };
 
-    loadSettings();
-  }, []);
-
-  const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert('Error', 'Username and password are required')
-      return
-    }
-    try {
-      setIsLoggingIn(true)
-      await login(username, password)
-      Alert.alert('Success', 'Login authenticated successfully.\nYou can now sync your app and data!')
-    } catch (err) {
-      console.error('Login failed', err)
+      // Check if user is logged in
+      const userInfo = await getUserInfo();
+      setLoggedInUser(userInfo);
+    } catch (error) {
+      console.error('Failed to load settings:', error);
     } finally {
-      setIsLoggingIn(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  async function resetCredentials() {
-    try {
-      await Keychain.resetGenericPassword();
-      console.log('Credentials reset successfully.');
-    } catch (error) {
-      console.error('Keychain couldn\'t be accessed!', error);
-    }
-  }
-
-  async function loadCredentials(): Promise<{ username: string, password: string } | null> {
-    try {
-      const credentials = await Keychain.getGenericPassword();
-      if (credentials) {
-        console.log('Credentials loaded successfully:', credentials.username, "password redacted"); //credentials.password
-        return {username: credentials.username, password: credentials.password};
-      } else {
-        console.log('No credentials stored.');
-        return null;
-      }
-    } catch (error) {
-      console.error('Keychain couldn\'t be accessed!', error);
-      return null;
-    }
-  }
-  async function saveCredentials(username: string, password: string) {
-    try {
-      await Keychain.setGenericPassword(username, password);
-      console.log('Credentials saved successfully!');
-    } catch (error) {
-      console.error('Keychain couldn\'t be accessed!', error);
-      throw new Error('Keychain couldn\'t be accessed for safe credential storage!');
-    }
-  }
-  
-  const handleSave = async () => {
-    // Prevent saving if only one of username/password is provided
-    if ((username && !password) || (!username && password)) {
-      Alert.alert('Error', 'Both username and password are required to save credentials');
+  const handleTestConnection = async () => {
+    if (!serverUrl.trim()) {
+      Alert.alert('Error', 'Please enter a server URL');
       return;
     }
 
+    setIsTesting(true);
     try {
-      setIsSaving(true);
-      
-      // Save settings to AsyncStorage
-      await AsyncStorage.setItem('@settings', JSON.stringify({
-        serverUrl
-      }));
+      const result = await serverConfigService.testConnection(serverUrl);
+      Alert.alert(result.success ? 'Success' : 'Error', result.message);
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
-      // Save username and password in keychain
+  const handleSave = async () => {
+    if ((username && !password) || (!username && password)) {
+      Alert.alert('Error', 'Both username and password are required');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await serverConfigService.saveServerUrl(serverUrl);
+
       if (username && password) {
-        await saveCredentials(username, password);
+        await Keychain.setGenericPassword(username, password);
       } else {
-        await resetCredentials();
+        await Keychain.resetGenericPassword();
       }
-      
-      Alert.alert('Success', 'Settings saved successfully');
+
+      Alert.alert('Success', 'Settings saved');
     } catch (error) {
-      console.error('Failed to save settings', error);
+      console.error('Failed to save settings:', error);
       Alert.alert('Error', 'Failed to save settings');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleQRScan = () => {
-    setShowQRScanner(true);
+  const handleLogin = async () => {
+    if (!serverUrl.trim()) {
+      Alert.alert('Error', 'Server URL is required');
+      return;
+    }
+    if (!username || !password) {
+      Alert.alert('Error', 'Username and password are required');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      // Save settings before login
+      await serverConfigService.saveServerUrl(serverUrl);
+      await Keychain.setGenericPassword(username, password);
+
+      const userInfo = await login(username, password);
+      setLoggedInUser(userInfo);
+      Alert.alert(
+        'Success',
+        `Logged in as ${userInfo.username} (${userInfo.role})\nYou can now sync your app and data.`,
+        [{text: 'OK', onPress: () => navigation.navigate('MainApp')}],
+      );
+    } catch (error: any) {
+      console.error('Login failed:', error);
+      const message =
+        error?.response?.data?.message || error?.message || 'Login failed';
+      Alert.alert('Login Failed', message);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    Alert.alert('Logout', 'Are you sure you want to logout?', [
+      {text: 'Cancel', style: 'cancel'},
+      {
+        text: 'Logout',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          setLoggedInUser(null);
+          Alert.alert('Success', 'Logged out successfully');
+        },
+      },
+    ]);
   };
 
   const handleQRResult = async (result: any) => {
-    console.log('QR scan result:', result);
-    
+    setShowQRScanner(false);
+
     if (result.status === 'success' && result.data?.value) {
       try {
-        const settings = await QRSettingsService.processQRCode(result.data.value);
-        
-        // Update the UI with the new settings
+        const settings = await QRSettingsService.processQRCode(
+          result.data.value,
+        );
         setServerUrl(settings.serverUrl);
         setUsername(settings.username);
         setPassword(settings.password);
-        
-        Alert.alert('Success', 'Settings updated from QR code');
+
+        // Auto-login after QR scan
+        try {
+          const userInfo = await login(settings.username, settings.password);
+          setLoggedInUser(userInfo);
+          Alert.alert(
+            'Success',
+            'Settings updated and logged in successfully',
+            [{text: 'OK', onPress: () => navigation.navigate('MainApp')}],
+          );
+        } catch (error: any) {
+          Alert.alert(
+            'Settings Updated',
+            'QR code processed. Login failed - please check credentials.',
+          );
+        }
       } catch (error) {
-        console.error('QR processing error:', error);
-        Alert.alert('Error', `Failed to process QR code: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        Alert.alert('Error', 'Failed to process QR code');
       }
-    } else if (result.status === 'cancelled') {
-      console.log('QR scan cancelled');
-    } else {
+    } else if (result.status !== 'cancelled') {
       Alert.alert('Error', result.message || 'Failed to scan QR code');
     }
-    
-    setShowQRScanner(false);
+  };
+
+  const getRoleBadgeStyle = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return styles.roleBadgeAdmin;
+      case 'read-write':
+        return styles.roleBadgeReadWrite;
+      default:
+        return styles.roleBadgeReadOnly;
+    }
   };
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
+      <View style={[styles.container, styles.centered]}>
         <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
@@ -160,15 +207,34 @@ const SettingsScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.sectionHeader}>Settings</Text>
-        <View style={styles.divider} />
-        
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Login Status Card */}
+        {loggedInUser && (
+          <View style={styles.statusCard}>
+            <View style={styles.statusHeader}>
+              <Text style={styles.statusTitle}>Logged In</Text>
+              <View
+                style={[
+                  styles.roleBadge,
+                  getRoleBadgeStyle(loggedInUser.role),
+                ]}>
+                <Text style={styles.roleBadgeText}>{loggedInUser.role}</Text>
+              </View>
+            </View>
+            <Text style={styles.statusUsername}>{loggedInUser.username}</Text>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={styles.section}>
-          <Text style={styles.label}>Synkronus URL</Text>
+          <Text style={styles.label}>Synkronus Server URL</Text>
           <TextInput
             style={styles.input}
-            placeholder="https://example.com"
+            placeholder="https://your-server.com"
             placeholderTextColor="#999"
             value={serverUrl}
             onChangeText={setServerUrl}
@@ -176,7 +242,17 @@ const SettingsScreen = () => {
             keyboardType="url"
             autoCorrect={false}
           />
+          <TouchableOpacity
+            style={[styles.secondaryButton, isTesting && styles.disabled]}
+            onPress={handleTestConnection}
+            disabled={isTesting}>
+            <Text style={styles.secondaryButtonText}>
+              {isTesting ? 'Testing...' : 'Test Connection'}
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        <View style={styles.divider} />
 
         <View style={styles.section}>
           <Text style={styles.label}>Username</Text>
@@ -202,45 +278,34 @@ const SettingsScreen = () => {
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
-            autoComplete="password"
-            textContentType="password"
           />
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.qrButton}
-          onPress={handleQRScan}
-        >
-          <Text style={styles.qrButtonText}>📱 Scan QR Code</Text>
+          onPress={() => setShowQRScanner(true)}>
+          <Text style={styles.buttonText}>📱 Scan QR Code</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[
-            styles.button,
-            isSaving && styles.buttonDisabled
-          ]}
+        <TouchableOpacity
+          style={[styles.button, isSaving && styles.disabled]}
           onPress={handleSave}
-          disabled={isSaving}
-        >
+          disabled={isSaving}>
           <Text style={styles.buttonText}>
             {isSaving ? 'Saving...' : 'Save Settings'}
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={[
-            styles.button,
-            isLoggingIn && styles.buttonDisabled
-          ]}
+        <TouchableOpacity
+          style={[styles.primaryButton, isLoggingIn && styles.disabled]}
           onPress={handleLogin}
-          disabled={isLoggingIn}
-        >
+          disabled={isLoggingIn}>
           <Text style={styles.buttonText}>
             {isLoggingIn ? 'Logging in...' : 'Login'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
-      
+
       <QRScannerModal
         visible={showQRScanner}
         onClose={() => setShowQRScanner(false)}
@@ -255,25 +320,75 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  scrollContainer: {
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  content: {
     padding: 20,
   },
-  section: {
-    marginBottom: 24,
+  statusCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#34C759',
   },
-  sectionHeader: {
-    fontSize: 20,
+  statusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusTitle: {
+    fontSize: 14,
+    color: '#34C759',
     fontWeight: '600',
-    marginBottom: 16,
+  },
+  statusUsername: {
+    fontSize: 18,
+    fontWeight: '600',
     color: '#333',
+    marginBottom: 12,
+  },
+  roleBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  roleBadgeAdmin: {
+    backgroundColor: '#FF3B30',
+  },
+  roleBadgeReadWrite: {
+    backgroundColor: '#007AFF',
+  },
+  roleBadgeReadOnly: {
+    backgroundColor: '#8E8E93',
+  },
+  roleBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    alignSelf: 'flex-start',
+  },
+  logoutButtonText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  section: {
+    marginBottom: 20,
   },
   label: {
     fontSize: 16,
+    fontWeight: '500',
     marginBottom: 8,
     color: '#333',
   },
   input: {
-    width: '100%',
     height: 50,
     borderWidth: 1,
     borderColor: '#ddd',
@@ -281,31 +396,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     backgroundColor: '#fff',
+    color: '#000',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#ddd',
+    marginVertical: 16,
   },
   button: {
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: '#666',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  primaryButton: {
     height: 50,
     borderRadius: 8,
     backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
   },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#ccc',
-    marginVertical: 16,
-  },
-  loadingContainer: {
+  secondaryButton: {
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  secondaryButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
   qrButton: {
     height: 50,
@@ -313,13 +440,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#34C759',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: 12,
   },
-  qrButtonText: {
+  buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  disabled: {
+    opacity: 0.6,
   },
 });
 

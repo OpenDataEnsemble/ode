@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,13 @@ import {
   SafeAreaView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {getUserInfo, UserInfo, UserRole} from '../api/synkronus/Auth';
 
 interface MenuItem {
   icon: string;
   label: string;
-  onPress: () => void;
-  badge?: number;
-  adminOnly?: boolean;
+  screen: string;
+  minRole?: UserRole; // Minimum role required to see this item
 }
 
 interface MenuDrawerProps {
@@ -26,6 +26,20 @@ interface MenuDrawerProps {
   allowClose?: boolean;
 }
 
+const ROLE_LEVELS: Record<UserRole, number> = {
+  'read-only': 1,
+  'read-write': 2,
+  admin: 3,
+};
+
+const hasMinRole = (
+  userRole: UserRole | undefined,
+  minRole: UserRole,
+): boolean => {
+  if (!userRole) return false;
+  return ROLE_LEVELS[userRole] >= ROLE_LEVELS[minRole];
+};
+
 const MenuDrawer: React.FC<MenuDrawerProps> = ({
   visible,
   onClose,
@@ -33,39 +47,53 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onLogout,
   allowClose = true,
 }) => {
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+
+  useEffect(() => {
+    if (visible) {
+      getUserInfo().then(setUserInfo);
+    }
+  }, [visible]);
+
   const menuItems: MenuItem[] = [
     {
       icon: 'clipboard-list',
       label: 'Form Management',
-      onPress: () => onNavigate('FormManagement'),
-      adminOnly: true,
+      screen: 'FormManagement',
+      minRole: 'admin',
     },
     {
       icon: 'cog',
       label: 'App Settings',
-      onPress: () => onNavigate('Settings'),
-    },
-    {
-      icon: 'account',
-      label: 'User Profile',
-      onPress: () => onNavigate('Profile'),
+      screen: 'Settings',
     },
     {
       icon: 'information',
       label: 'About',
-      onPress: () => onNavigate('About'),
+      screen: 'About',
     },
     {
       icon: 'help-circle',
       label: 'Help & Support',
-      onPress: () => onNavigate('Help'),
-    },
-    {
-      icon: 'lock',
-      label: 'Privacy Policy',
-      onPress: () => onNavigate('PrivacyPolicy'),
+      screen: 'Help',
     },
   ];
+
+  const visibleItems = menuItems.filter(item => {
+    if (!item.minRole) return true;
+    return hasMinRole(userInfo?.role, item.minRole);
+  });
+
+  const getRoleBadgeStyle = (role: UserRole) => {
+    switch (role) {
+      case 'admin':
+        return styles.roleBadgeAdmin;
+      case 'read-write':
+        return styles.roleBadgeReadWrite;
+      default:
+        return styles.roleBadgeReadOnly;
+    }
+  };
 
   return (
     <Modal
@@ -92,35 +120,57 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
               )}
             </View>
 
+            {/* User Info Section */}
+            {userInfo ? (
+              <View style={styles.userSection}>
+                <View style={styles.userAvatar}>
+                  <Icon name="account" size={32} color="#fff" />
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{userInfo.username}</Text>
+                  <View
+                    style={[
+                      styles.roleBadge,
+                      getRoleBadgeStyle(userInfo.role),
+                    ]}>
+                    <Text style={styles.roleBadgeText}>{userInfo.role}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.userSection}>
+                <View style={[styles.userAvatar, styles.userAvatarInactive]}>
+                  <Icon name="account-off" size={32} color="#999" />
+                </View>
+                <View style={styles.userInfo}>
+                  <Text style={styles.userNameInactive}>Not logged in</Text>
+                  <Text style={styles.loginHint}>Go to Settings to login</Text>
+                </View>
+              </View>
+            )}
+
             <ScrollView style={styles.menuList}>
-              {menuItems.map((item, index) => (
+              {visibleItems.map((item, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.menuItem}
-                  onPress={() => {
-                    item.onPress();
-                  }}>
+                  onPress={() => onNavigate(item.screen)}>
                   <Icon name={item.icon} size={24} color="#333333" />
                   <Text style={styles.menuLabel}>{item.label}</Text>
-                  {item.badge && (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{item.badge}</Text>
-                    </View>
-                  )}
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <View style={styles.footer}>
-              <TouchableOpacity
-                style={styles.logoutButton}
-                onPress={() => {
-                  onLogout();
-                }}>
-                <Icon name="logout" size={24} color="#FF3B30" />
-                <Text style={styles.logoutText}>Logout</Text>
-              </TouchableOpacity>
-            </View>
+            {userInfo && (
+              <View style={styles.footer}>
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={onLogout}>
+                  <Icon name="logout" size={24} color="#FF3B30" />
+                  <Text style={styles.logoutText}>Logout</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </SafeAreaView>
         </View>
       </View>
@@ -169,6 +219,65 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
+  userSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f8f8f8',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  userAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userAvatarInactive: {
+    backgroundColor: '#ddd',
+  },
+  userInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  userName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  userNameInactive: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#999',
+    marginBottom: 4,
+  },
+  loginHint: {
+    fontSize: 12,
+    color: '#666',
+  },
+  roleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  roleBadgeAdmin: {
+    backgroundColor: '#FF3B30',
+  },
+  roleBadgeReadWrite: {
+    backgroundColor: '#007AFF',
+  },
+  roleBadgeReadOnly: {
+    backgroundColor: '#8E8E93',
+  },
+  roleBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+  },
   menuList: {
     flex: 1,
   },
@@ -184,20 +293,6 @@ const styles = StyleSheet.create({
     marginLeft: 16,
     fontSize: 16,
     color: '#333333',
-  },
-  badge: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
   },
   footer: {
     borderTopWidth: 1,
@@ -218,4 +313,3 @@ const styles = StyleSheet.create({
 });
 
 export default MenuDrawer;
-

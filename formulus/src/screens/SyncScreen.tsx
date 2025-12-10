@@ -14,37 +14,56 @@ import { syncService } from '../services/SyncService';
 import { useSyncContext } from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
 import { databaseService } from '../database/DatabaseService';
+import {getUserInfo} from '../api/synkronus/Auth';
 
 const SyncScreen = () => {
-  const { syncState, startSync, updateProgress, finishSync, cancelSync, clearError } = useSyncContext();
+  const {
+    syncState,
+    startSync,
+    updateProgress,
+    finishSync,
+    cancelSync,
+    clearError,
+  } = useSyncContext();
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [status, setStatus] = useState<string>('Loading...');
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [dataVersion, setDataVersion] = useState<number>(0);
-  const [pendingUploads, setPendingUploads] = useState<{count: number, sizeMB: number}>({count: 0, sizeMB: 0});
+  const [pendingUploads, setPendingUploads] = useState<{
+    count: number;
+    sizeMB: number;
+  }>({count: 0, sizeMB: 0});
   const [pendingObservations, setPendingObservations] = useState<number>(0);
-  const [backgroundSyncEnabled, setBackgroundSyncEnabled] = useState<boolean>(false);
+  const [backgroundSyncEnabled, setBackgroundSyncEnabled] =
+    useState<boolean>(false);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [appBundleVersion, setAppBundleVersion] = useState<string>('0');
+  const [serverBundleVersion, setServerBundleVersion] =
+    useState<string>('Unknown');
 
   // Get pending upload info
   const updatePendingUploads = useCallback(async () => {
     try {
       const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
-      
+
       // Ensure directory exists
       await RNFS.mkdir(pendingUploadDirectory);
-      
+
       // Get all files in pending_upload directory
       const files = await RNFS.readDir(pendingUploadDirectory);
       const attachmentFiles = files.filter(file => file.isFile());
-      
+
       const count = attachmentFiles.length;
-      const totalSizeBytes = attachmentFiles.reduce((sum, file) => sum + file.size, 0);
+      const totalSizeBytes = attachmentFiles.reduce(
+        (sum, file) => sum + file.size,
+        0,
+      );
       const sizeMB = totalSizeBytes / (1024 * 1024);
-      
-      setPendingUploads({ count, sizeMB });
+
+      setPendingUploads({count, sizeMB});
     } catch (error) {
       console.error('Failed to get pending uploads info:', error);
-      setPendingUploads({ count: 0, sizeMB: 0 });
+      setPendingUploads({count: 0, sizeMB: 0});
     }
   }, []);
 
@@ -63,7 +82,7 @@ const SyncScreen = () => {
   // Handle sync operations
   const handleSync = useCallback(async () => {
     if (syncState.isActive) return; // Prevent multiple syncs
-    
+
     try {
       startSync(true); // Allow cancellation
       const version = await syncService.syncObservations(true);
@@ -82,7 +101,7 @@ const SyncScreen = () => {
   // Handle app updates
   const handleCustomAppUpdate = useCallback(async () => {
     if (syncState.isActive) return; // Prevent multiple syncs
-    
+
     try {
       startSync(false); // App updates can't be cancelled easily
       await syncService.updateAppBundle();
@@ -101,15 +120,28 @@ const SyncScreen = () => {
     try {
       const hasUpdate = await syncService.checkForUpdates(force);
       setUpdateAvailable(hasUpdate);
+
+      // Get current app bundle version
+      const currentVersion = (await AsyncStorage.getItem('@appVersion')) || '0';
+      setAppBundleVersion(currentVersion);
+
+      // Get server bundle version
+      try {
+        const {synkronusApi} = await import('../api/synkronus/index');
+        const manifest = await synkronusApi.getManifest();
+        setServerBundleVersion(manifest.version);
+      } catch (err) {
+        // Server manifest unavailable
+      }
     } catch (error) {
-      console.warn('Failed to check for updates', error);
+      // Update check failed
     }
   }, []);
 
   // Initialize component
   useEffect(() => {
     // Set up status updates
-    const unsubscribe = syncService.subscribeToStatusUpdates((newStatus) => {
+    const unsubscribe = syncService.subscribeToStatusUpdates(newStatus => {
       setStatus(newStatus);
     });
 
@@ -117,19 +149,23 @@ const SyncScreen = () => {
     const initialize = async () => {
       await syncService.initialize();
       await checkForUpdates(true); // Check for updates on initial load
-      
+
+      // Check if user is admin
+      const userInfo = await getUserInfo();
+      setIsAdmin(userInfo?.role === 'admin');
+
       // Get last sync time
       const lastSyncTime = await AsyncStorage.getItem('@lastSync');
       if (lastSyncTime) {
         setLastSync(lastSyncTime);
       }
-      
+
       // Get last seen version
       const lastSeenVersion = await AsyncStorage.getItem('@last_seen_version');
       if (lastSeenVersion) {
         setDataVersion(parseInt(lastSeenVersion, 10));
       }
-      
+
       // Get pending uploads and observations info
       await updatePendingUploads();
       await updatePendingObservations();
@@ -147,7 +183,7 @@ const SyncScreen = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={styles.title}>Synchronization</Text>
-        
+
         <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>Status:</Text>
           <Text style={styles.statusValue}>{status}</Text>
@@ -161,6 +197,13 @@ const SyncScreen = () => {
         </View>
 
         <View style={styles.statusContainer}>
+          <Text style={styles.statusLabel}>App Bundle:</Text>
+          <Text style={styles.statusValue}>
+            Local: {appBundleVersion} | Server: {serverBundleVersion}
+          </Text>
+        </View>
+
+        <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>Pending Uploads:</Text>
           <Text style={styles.statusValue}>
             {pendingUploads.count} files ({pendingUploads.sizeMB.toFixed(2)} MB)
@@ -169,9 +212,7 @@ const SyncScreen = () => {
 
         <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>Pending Observations:</Text>
-          <Text style={styles.statusValue}>
-            {pendingObservations} records
-          </Text>
+          <Text style={styles.statusValue}>{pendingObservations} records</Text>
         </View>
 
         {/* Sync Progress Display */}
@@ -182,21 +223,29 @@ const SyncScreen = () => {
               {syncState.progress.details || 'Syncing...'}
             </Text>
             <View style={styles.progressBar}>
-              <View 
+              <View
                 style={[
-                  styles.progressFill, 
-                  { width: `${(syncState.progress.current / syncState.progress.total) * 100}%` }
-                ]} 
+                  styles.progressFill,
+                  {
+                    width: `${
+                      (syncState.progress.current / syncState.progress.total) *
+                      100
+                    }%`,
+                  },
+                ]}
               />
             </View>
             <Text style={styles.progressText}>
-              {syncState.progress.current}/{syncState.progress.total} - {Math.round((syncState.progress.current / syncState.progress.total) * 100)}%
+              {syncState.progress.current}/{syncState.progress.total} -{' '}
+              {Math.round(
+                (syncState.progress.current / syncState.progress.total) * 100,
+              )}
+              %
             </Text>
             {syncState.canCancel && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={cancelSync}
-              >
+                onPress={cancelSync}>
                 <Text style={styles.cancelButtonText}>Cancel Sync</Text>
               </TouchableOpacity>
             )}
@@ -207,35 +256,43 @@ const SyncScreen = () => {
         {syncState.error && (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{syncState.error}</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.clearErrorButton}
-              onPress={clearError}
-            >
+              onPress={clearError}>
               <Text style={styles.clearErrorText}>Dismiss</Text>
             </TouchableOpacity>
           </View>
         )}
 
         <View style={styles.section}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.button, syncState.isActive && styles.buttonDisabled]}
             onPress={handleSync}
-            disabled={syncState.isActive}
-          >
+            disabled={syncState.isActive}>
             <Text style={styles.buttonText}>
               {syncState.isActive ? 'Syncing...' : 'Sync data + attachments'}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.button, syncState.isActive && styles.buttonDisabled]}
+          <TouchableOpacity
+            style={[
+              styles.button,
+              (syncState.isActive || (!updateAvailable && !isAdmin)) &&
+                styles.buttonDisabled,
+            ]}
             onPress={handleCustomAppUpdate}
-            disabled={syncState.isActive || !updateAvailable}
-          >
+            disabled={syncState.isActive || (!updateAvailable && !isAdmin)}>
             <Text style={styles.buttonText}>
-              {syncState.isActive ? 'Syncing...' : 'Update forms and custom app'}
+              {syncState.isActive
+                ? 'Syncing...'
+                : 'Update forms and custom app'}
             </Text>
           </TouchableOpacity>
+          {!updateAvailable && !isAdmin && (
+            <Text style={styles.hintText}>
+              No updates available. Check your connection and try again.
+            </Text>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -280,7 +337,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
@@ -300,7 +357,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
@@ -415,6 +472,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '500',
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
 
