@@ -2,10 +2,10 @@ import React, { useCallback, useState, useEffect, useMemo } from "react";
 import { JsonFormsDispatch, withJsonFormsControlProps } from "@jsonforms/react";
 import { ControlProps, rankWith, uiTypeIs, RankedTester } from "@jsonforms/core";
 import { useSwipeable } from "react-swipeable";
-import { Button, Box } from "@mui/material";
 import { useFormContext } from "./App";
 import { draftService } from './DraftService';
 import FormProgressBar from './FormProgressBar';
+import FormLayout from './FormLayout';
 
 interface SwipeLayoutProps extends ControlProps {
   currentPage: number;
@@ -89,17 +89,37 @@ const SwipeLayoutRenderer = ({
   }, [layouts, currentPage]);
 
   return (
-    <Box sx={{ position: 'relative', height: '100%' }}>
-      {/* Progress Bar */}
-      <FormProgressBar
-        currentPage={currentPage}
-        totalScreens={totalScreens}
-        data={data}
-        schema={schema}
-        uischema={uischema}
-        mode="screens"
-        isOnFinalizePage={isOnFinalizePage}
-      />
+    <FormLayout
+      header={
+        <FormProgressBar
+          currentPage={currentPage}
+          totalScreens={totalScreens}
+          data={data}
+          schema={schema}
+          uischema={uischema}
+          mode="screens"
+          isOnFinalizePage={isOnFinalizePage}
+        />
+      }
+      previousButton={
+        currentPage > 0
+          ? {
+              onClick: () => navigateToPage(Math.max(currentPage - 1, 0)),
+              disabled: isNavigating,
+            }
+          : undefined
+      }
+      nextButton={
+        currentPage < layouts.length - 1
+          ? {
+              onClick: () => navigateToPage(Math.min(currentPage + 1, layouts.length - 1)),
+              disabled: isNavigating,
+            }
+          : undefined
+      }
+      contentBottomPadding={120}
+      showNavigation={true}
+    >
       <div {...handlers} className="swipelayout_screen">
         {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
         {layouts.length > 0 && (
@@ -113,31 +133,7 @@ const SwipeLayoutRenderer = ({
           />
         )}
       </div>
-      <Box sx={{ 
-        position: "absolute", 
-        bottom: 20, 
-        width: "100%", 
-        textAlign: "center",
-        display: 'flex',
-        justifyContent: 'center',
-        gap: 2
-      }}>
-        <Button 
-          variant="contained"
-          onClick={() => navigateToPage(Math.max(currentPage - 1, 0))} 
-          disabled={currentPage === 0 || isNavigating}
-        >
-          Previous
-        </Button>
-        <Button 
-          variant="contained"
-          onClick={() => navigateToPage(Math.min(currentPage + 1, layouts.length - 1))} 
-          disabled={currentPage === layouts.length - 1 || isNavigating}
-        >
-          Next
-        </Button>
-      </Box>
-    </Box>
+    </FormLayout>
   );
 };
 

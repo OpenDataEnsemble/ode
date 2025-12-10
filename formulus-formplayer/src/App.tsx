@@ -514,7 +514,7 @@ function App() {
   // Render loading state or error if needed
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100dvh' }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
           Loading form...
@@ -528,7 +528,7 @@ function App() {
   
   if (loadError || !schema || !uischema) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100dvh' }}>
         <Typography variant="h6" color="error">
           {loadError || 'Failed to load form'}
         </Typography>
@@ -562,7 +562,7 @@ function App() {
         className="App"
         style={{
           display: 'flex',
-          height: '100vh',
+          height: '100dvh', // Use dynamic viewport height for mobile keyboard support
           width: '100%'
         }}
       >
