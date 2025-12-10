@@ -10,27 +10,35 @@
   </head>
   <body>
     <h1>Your Custom App</h1>
-    <p>This is an placeholder. Your app will appear here after sync.</p>
+    <p>This is a placeholder. Your app will appear here after sync.</p>
     <script>
-    console.log('Custom placeholder loaded');
-    function waitForFormulus(cb, tries = 49) {
-      console.log('Waiting for Formulus...');
-      if (globalThis.formulus && typeof globalThis.formulus.getVersion === 'function') {
-        cb();
-      } else if (tries > 0) {
-        setTimeout(() => waitForFormulus(cb, tries - 1), 100);
-      } else {
-        document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: unavailable</p>');
+    (function() {
+      function waitForFormulus(cb, tries = 50) {
+        const api = window.formulus || globalThis.formulus;
+        if (api && typeof api.getVersion === 'function') {
+          try {
+            const version = api.getVersion();
+            console.log('Formulus version:', version);
+            document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: ' + version + '</p>');
+            cb();
+          } catch (err) {
+            console.error('Error getting Formulus version:', err);
+            document.body.insertAdjacentHTML('beforeend', '<p style="color: #999;">Formulus API: Error</p>');
+          }
+        } else if (tries > 0) {
+          setTimeout(() => waitForFormulus(cb, tries - 1), 100);
+        } else {
+          console.warn('Formulus API not available after waiting');
+          document.body.insertAdjacentHTML('beforeend', '<p style="color: #999;">Formulus API: Not available</p>');
+        }
       }
-    }
-    
-    document.addEventListener('DOMContentLoaded', function() {
-      waitForFormulus(function() {
-        const version = globalThis.formulus?.getVersion?.();
-        console.log('Formulus version:', version);
-        document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: ' + version + '</p>');
+      
+      document.addEventListener('DOMContentLoaded', function() {
+        waitForFormulus(function() {
+          // API loaded successfully
+        });
       });
-    });
+    })();
     </script>
   </body>
 </html>

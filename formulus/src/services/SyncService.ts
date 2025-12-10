@@ -196,7 +196,13 @@ export class SyncService {
     this.updateStatus('Starting app bundle sync...');
 
     try {
+      // Get manifest to know what version we're downloading
+      const manifest = await synkronusApi.getManifest();
+      
       await this.downloadAppBundle();
+      
+      // Save the version after successful download
+      await AsyncStorage.setItem('@appVersion', manifest.version);
       
       // Invalidate FormService cache to reload new form specs
       this.updateStatus('Refreshing form specifications...');
@@ -217,10 +223,8 @@ export class SyncService {
 
   private async downloadAppBundle(): Promise<void> {
     try {
-      // Get the manifest
       this.updateStatus('Fetching manifest...');
       const manifest = await synkronusApi.getManifest();
-      console.log('Manifest:', manifest);
   
       // Clean out the existing app bundle
       await synkronusApi.removeAppBundleFiles();
@@ -242,7 +246,6 @@ export class SyncService {
       );
 
       const results = [...formResults, ...appResults];
-      console.debug('Download results:', results);
       
       if (results.some(r => !r.success)) {
         const errorMessages = results
@@ -261,13 +264,9 @@ export class SyncService {
     // Initialize any required state
     const lastSeenVersion = await AsyncStorage.getItem('@last_seen_version');
     
-    try {
-      const appVersion = await appVersionService.getVersion();
-      await AsyncStorage.setItem('@appVersion', appVersion);
-      console.log('SyncService: Initialized with app version:', appVersion);
-    } catch (error) {
-      console.error('SyncService: Failed to get app version, using fallback:', error);
-      await AsyncStorage.setItem('@appVersion', '1.0.0'); // Fallback version
+    const existingAppVersion = await AsyncStorage.getItem('@appVersion');
+    if (!existingAppVersion) {
+      await AsyncStorage.setItem('@appVersion', '0');
     }
     
     if (lastSeenVersion) {
