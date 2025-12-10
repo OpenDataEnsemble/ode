@@ -153,7 +153,7 @@ for the Formulus mobile app. The QR encodes server URL, username, and password.`
 			}
 
 			// Generate QR code with logo using yeqown/go-qrcode
-			logoPath := "C:/Users/emil/code/ODE/synkronus-cli/qr_logo.png"
+			logoPath := "qr_logo.png"
 			qrc, err := qrcode.New(encoded)
 			if err != nil {
 				return fmt.Errorf("failed to create QR code: %w", err)
