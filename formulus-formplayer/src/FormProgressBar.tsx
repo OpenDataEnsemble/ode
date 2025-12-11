@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Box, LinearProgress, Typography } from '@mui/material';
+import React, { useMemo } from "react";
+import { Box, LinearProgress, Typography } from "@mui/material";
 
 type JsonSchema = {
   type?: string | string[];
@@ -33,7 +33,7 @@ interface FormProgressBarProps {
    * 'screens': Based on screens completed
    * 'questions': Based on questions answered
    */
-  mode?: 'screens' | 'questions' | 'both';
+  mode?: "screens" | "questions" | "both";
   /**
    * Whether the user is currently on the Finalize page
    */
@@ -43,7 +43,10 @@ interface FormProgressBarProps {
 /**
  * Recursively count all question fields in the schema
  */
-const countQuestions = (schema: JsonSchema | undefined, path: string = ''): number => {
+const countQuestions = (
+  schema: JsonSchema | undefined,
+  path: string = "",
+): number => {
   if (!schema || !schema.properties) {
     return 0;
   }
@@ -55,10 +58,10 @@ const countQuestions = (schema: JsonSchema | undefined, path: string = ''): numb
     const currentPath = path ? `${path}.${key}` : key;
     const fieldSchema = value as JsonSchema;
 
-    if (fieldSchema.type === 'object' && fieldSchema.properties) {
+    if (fieldSchema.type === "object" && fieldSchema.properties) {
       count += countQuestions(fieldSchema, currentPath);
     } else {
-      if (fieldSchema.format !== 'finalize') {
+      if (fieldSchema.format !== "finalize") {
         count++;
       }
     }
@@ -73,7 +76,7 @@ const countQuestions = (schema: JsonSchema | undefined, path: string = ''): numb
 const countAnsweredQuestions = (
   schema: JsonSchema | undefined,
   data: Record<string, any>,
-  path: string = ''
+  path: string = "",
 ): number => {
   if (!schema || !schema.properties || !data) {
     return 0;
@@ -87,18 +90,21 @@ const countAnsweredQuestions = (
     const fieldSchema = value as JsonSchema;
     const fieldValue = data[key];
 
-    if (fieldSchema.type === 'object' && fieldSchema.properties) {
-      if (fieldValue && typeof fieldValue === 'object') {
+    if (fieldSchema.type === "object" && fieldSchema.properties) {
+      if (fieldValue && typeof fieldValue === "object") {
         count += countAnsweredQuestions(fieldSchema, fieldValue, currentPath);
       }
     } else {
-      const isAnswered = fieldValue !== undefined && 
-                        fieldValue !== null && 
-                        fieldValue !== '' &&
-                        !(Array.isArray(fieldValue) && fieldValue.length === 0) &&
-                        !(typeof fieldValue === 'object' && Object.keys(fieldValue).length === 0);
-      
-      if (isAnswered && fieldSchema.format !== 'finalize') {
+      const isAnswered =
+        fieldValue !== undefined &&
+        fieldValue !== null &&
+        fieldValue !== "" &&
+        !(Array.isArray(fieldValue) && fieldValue.length === 0) &&
+        !(
+          typeof fieldValue === "object" && Object.keys(fieldValue).length === 0
+        );
+
+      if (isAnswered && fieldSchema.format !== "finalize") {
         count++;
       }
     }
@@ -116,45 +122,44 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   data,
   schema,
   uischema,
-  mode = 'screens',
-  isOnFinalizePage = false
+  mode = "screens",
+  isOnFinalizePage = false,
 }) => {
   const progress = useMemo(() => {
-    if (mode === 'screens' || mode === 'both') {
+    if (mode === "screens" || mode === "both") {
       if (totalScreens === 0) return 0;
-      
+
       if (isOnFinalizePage) {
         return 100;
       }
-      
+
       const completedScreens = currentPage + 1;
       const screenProgress = (completedScreens / totalScreens) * 100;
-      
-      if (mode === 'screens') {
+
+      if (mode === "screens") {
         return Math.round(screenProgress);
       }
-      
+
       if (schema && data) {
         const totalQuestions = countQuestions(schema);
         const answeredQuestions = countAnsweredQuestions(schema, data);
-        const questionProgress = totalQuestions > 0 
-          ? (answeredQuestions / totalQuestions) * 100 
-          : 0;
-        
+        const questionProgress =
+          totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
+
         return Math.round((screenProgress + questionProgress) / 2);
       }
-      
+
       return Math.round(screenProgress);
-    } else if (mode === 'questions') {
+    } else if (mode === "questions") {
       if (!schema || !data) return 0;
-      
+
       const totalQuestions = countQuestions(schema);
       if (totalQuestions === 0) return 0;
-      
+
       const answeredQuestions = countAnsweredQuestions(schema, data);
       return Math.round((answeredQuestions / totalQuestions) * 100);
     }
-    
+
     return 0;
   }, [currentPage, totalScreens, data, schema, mode, isOnFinalizePage]);
 
@@ -165,12 +170,12 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   return (
     <Box
       sx={{
-        width: '100%',
+        width: "100%",
         mb: 2,
-        px: { xs: 1, sm: 2 }
+        px: { xs: 1, sm: 2 },
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
         <LinearProgress
           variant="determinate"
           value={progress}
@@ -178,20 +183,20 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
             flexGrow: 1,
             height: 8,
             borderRadius: 4,
-            backgroundColor: 'rgba(0, 0, 0, 0.1)',
-            '& .MuiLinearProgress-bar': {
+            backgroundColor: "rgba(0, 0, 0, 0.1)",
+            "& .MuiLinearProgress-bar": {
               borderRadius: 4,
-              transition: 'transform 0.4s ease-in-out'
-            }
+              transition: "transform 0.4s ease-in-out",
+            },
           }}
         />
         <Typography
           variant="caption"
           sx={{
-            minWidth: '45px',
-            textAlign: 'right',
-            color: 'text.secondary',
-            fontWeight: 500
+            minWidth: "45px",
+            textAlign: "right",
+            color: "text.secondary",
+            fontWeight: 500,
           }}
         >
           {progress}%
@@ -202,4 +207,3 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
 };
 
 export default FormProgressBar;
-

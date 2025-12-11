@@ -31,6 +31,10 @@
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
+  "devDependencies": {
+    "eslint": "^8.19.0",
+    "prettier": "^2.8.8"
+  },
   "scripts": {
     "start": "react-scripts start",
     "sync-interface": "powershell -NoProfile -Command \"Copy-Item -Path '../formulus/src/webview/FormulusInterfaceDefinition.ts' -Destination './src/FormulusInterfaceDefinition.ts' -Force\"",
@@ -38,6 +42,8 @@
     "build:rn": "npm run build && npm run copy-to-rn",
     "clean-rn-assets": "powershell -NoProfile -Command \"Remove-Item -Path '../formulus/android/app/src/main/assets/formplayer_dist' -Recurse -Force -ErrorAction SilentlyContinue; mkdir -Force -Path '../formulus/android/app/src/main/assets/formplayer_dist'\"",
     "copy-to-rn": "npm run clean-rn-assets && powershell -NoProfile -Command \"Copy-Item -Path './build/*' -Destination '../formulus/android/app/src/main/assets/formplayer_dist' -Recurse -Force\"",
+    "lint": "eslint .",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
