@@ -220,13 +220,14 @@ const QrcodeQuestionRenderer: React.FC<QrcodeQuestionProps> = ({
         </Card>
       ) : (
         <Box sx={{ 
-          border: '2px dashed #ccc', 
+          border: '2px dashed', 
+          borderColor: 'divider',
           borderRadius: 2, 
           p: 3, 
           textAlign: 'center',
-          backgroundColor: '#fafafa'
+          backgroundColor: 'grey.50'
         }}>
-          <QrCodeScanner sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
+          <QrCodeScanner sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
             No QR code scanned yet
           </Typography>
@@ -255,7 +256,6 @@ const QrcodeQuestionRenderer: React.FC<QrcodeQuestionProps> = ({
               disabled={!enabled}
               variant="outlined"
               placeholder="Enter QR code value manually..."
-              size="small"
             />
           </Box>
         </Box>

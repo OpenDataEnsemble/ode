@@ -240,13 +240,14 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
         </Card>
       ) : (
         <Box sx={{ 
-          border: '2px dashed #ccc', 
+          border: '2px dashed', 
+          borderColor: 'divider',
           borderRadius: 2, 
           p: 3, 
           textAlign: 'center',
-          backgroundColor: '#fafafa'
+          backgroundColor: 'grey.50'
         }}>
-          <PhotoCamera sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
+          <PhotoCamera sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
             {currentPhotoData?.filename ? 'Photo taken' : 'No photo taken yet'}
           </Typography>
