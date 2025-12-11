@@ -18,6 +18,7 @@ import {serverConfigService} from '../services/ServerConfigService';
 import QRScannerModal from '../components/QRScannerModal';
 import {QRSettingsService} from '../services/QRSettingsService';
 import {MainAppStackParamList} from '../types/NavigationTypes';
+import {PasswordInput} from '../components/common';
 
 type SettingsScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -268,16 +269,15 @@ const SettingsScreen = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
+          <PasswordInput
+            label="Password"
             placeholder="••••••••"
             placeholderTextColor="#999"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
+            style={styles.input}
           />
         </View>
 
