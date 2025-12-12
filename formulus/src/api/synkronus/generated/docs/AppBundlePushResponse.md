@@ -1,21 +1,20 @@
 # AppBundlePushResponse
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**message** | **string** |  | [default to undefined]
-**manifest** | [**AppBundleManifest**](AppBundleManifest.md) |  | [default to undefined]
+| Name         | Type                                          | Description | Notes                  |
+| ------------ | --------------------------------------------- | ----------- | ---------------------- |
+| **message**  | **string**                                    |             | [default to undefined] |
+| **manifest** | [**AppBundleManifest**](AppBundleManifest.md) |             | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AppBundlePushResponse } from './api';
+import {AppBundlePushResponse} from './api';
 
 const instance: AppBundlePushResponse = {
-    message,
-    manifest,
+  message,
+  manifest,
 };
 ```
 

@@ -1,23 +1,22 @@
 # SyncPushResponseWarningsInner
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**id** | **string** |  | [default to undefined]
-**code** | **string** |  | [default to undefined]
-**message** | **string** |  | [default to undefined]
+| Name        | Type       | Description | Notes                  |
+| ----------- | ---------- | ----------- | ---------------------- |
+| **id**      | **string** |             | [default to undefined] |
+| **code**    | **string** |             | [default to undefined] |
+| **message** | **string** |             | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { SyncPushResponseWarningsInner } from './api';
+import {SyncPushResponseWarningsInner} from './api';
 
 const instance: SyncPushResponseWarningsInner = {
-    id,
-    code,
-    message,
+  id,
+  code,
+  message,
 };
 ```
 

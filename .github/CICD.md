@@ -8,6 +8,101 @@ The ODE monorepo uses GitHub Actions for continuous integration and deployment. 
 
 ## Pipelines
 
+### CI Pipeline
+
+**Workflow File**: `.github/workflows/ci.yml`
+
+#### Overview
+
+The CI pipeline runs formatting, linting, and testing checks for all components in the monorepo. It uses path-based filtering to only run checks for components that have changed.
+
+#### Triggers
+
+- **Pull Requests**: Runs on PRs targeting `main` or `develop`
+- **Push to `main`/`develop`**: Runs on pushes to main branches
+- **Manual Dispatch**: Allows manual triggering for all components
+
+#### Path Filters
+
+The workflow automatically detects which components have changed:
+- `formulus/**` - React Native mobile app
+- `formulus-formplayer/**` - React web app
+- `synkronus/**` - Go backend server
+- `synkronus-cli/**` - Go CLI utility
+
+#### Checks Performed
+
+##### YAML Workflow Validation
+- Validates all `.github/workflows/*.yml` files using `actionlint`
+- Runs on every CI execution
+
+##### formulus (React Native)
+- **ESLint**: Code quality and style checks
+- **Prettier**: Code formatting validation
+- **Tests**: Jest tests with coverage
+
+##### formulus-formplayer (React Web)
+- **ESLint**: Code quality and style checks
+- **Prettier**: Code formatting validation
+- **Tests**: Jest tests with coverage
+- **Build**: Production build verification
+
+##### synkronus (Go Backend)
+- **gofmt**: Go code formatting check
+- **golangci-lint**: Comprehensive Go linting (uses `.golangci.yml` config)
+- **Tests**: Go tests with race detection and coverage
+- **Build**: Binary compilation verification
+
+##### synkronus-cli (Go CLI)
+- **gofmt**: Go code formatting check
+- **golangci-lint**: Comprehensive Go linting (uses `.golangci.yml` config)
+- **Tests**: Go tests with race detection and coverage
+- **Build**: Binary compilation verification
+
+#### Local Pre-commit Checks
+
+Before pushing code, developers should run these checks locally:
+
+**Go Projects:**
+```bash
+cd synkronus  # or synkronus-cli
+go fmt ./...                    # Format code
+gofmt -s -l .                   # Check formatting
+golangci-lint run                # Run linter
+go test -race ./...             # Run tests
+```
+
+**formulus:**
+```bash
+cd formulus
+npm run lint                     # Run ESLint
+npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}"  # Check formatting
+npm test -- --coverage --watchAll=false  # Run tests
+```
+
+**formulus-formplayer:**
+```bash
+cd formulus-formplayer
+npm run lint                     # Run ESLint
+npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}"  # Check formatting
+npm test -- --coverage --watchAll=false  # Run tests
+npm run build                    # Verify build
+```
+
+#### Failure Behavior
+
+All checks must pass for the CI to succeed. If any check fails:
+- The workflow run is marked as failed
+- PRs cannot be merged until issues are resolved
+- Error messages indicate which check failed and how to fix it
+
+#### Best Practices
+
+1. **Run checks locally before pushing**: Use the commands above to catch issues early
+2. **Fix formatting automatically**: Use `go fmt ./...` for Go and `npx prettier --write` for JavaScript/TypeScript
+3. **Address linting warnings**: Don't ignore linting errors; they indicate potential issues
+4. **Keep tests passing**: Ensure all tests pass before opening a PR
+
 ### Synkronus Docker Build & Publish
 
 **Workflow File**: `.github/workflows/synkronus-docker.yml`
@@ -171,7 +266,8 @@ echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 
 Potential improvements to the CI/CD pipeline:
 
-- [ ] Add automated testing before build
+- [x] Add automated testing before build
+- [x] Add formatting and linting checks
 - [ ] Implement security scanning (Trivy, Snyk)
 - [ ] Add deployment to staging environment
 - [ ] Create release notes automation

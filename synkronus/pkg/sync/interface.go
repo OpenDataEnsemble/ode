@@ -37,9 +37,9 @@ type Observation struct {
 	CreatedAt     string          `json:"created_at" db:"created_at"`
 	UpdatedAt     string          `json:"updated_at" db:"updated_at"`
 	SyncedAt      *string         `json:"synced_at,omitempty" db:"synced_at"`
-	Deleted       bool         `json:"deleted" db:"deleted"`
-	Version       int64        `json:"version" db:"version"`
-	Geolocation   *Geolocation `json:"geolocation,omitempty" db:"geolocation,json"`
+	Deleted       bool            `json:"deleted" db:"deleted"`
+	Version       int64           `json:"version" db:"version"`
+	Geolocation   *Geolocation    `json:"geolocation,omitempty" db:"geolocation,json"`
 }
 
 // SyncPullCursor represents pagination cursor for sync pull operations

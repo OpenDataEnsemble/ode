@@ -1,21 +1,20 @@
 # AuthLoginPostRequest
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**username** | **string** | User\&#39;s username | [default to undefined]
-**password** | **string** | User\&#39;s password | [default to undefined]
+| Name         | Type       | Description          | Notes                  |
+| ------------ | ---------- | -------------------- | ---------------------- |
+| **username** | **string** | User\&#39;s username | [default to undefined] |
+| **password** | **string** | User\&#39;s password | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AuthLoginPostRequest } from './api';
+import {AuthLoginPostRequest} from './api';
 
 const instance: AuthLoginPostRequest = {
-    username,
-    password,
+  username,
+  password,
 };
 ```
 

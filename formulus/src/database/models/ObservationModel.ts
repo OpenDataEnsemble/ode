@@ -1,5 +1,5 @@
-import { Model } from '@nozbe/watermelondb';
-import { field, text, date, readonly } from '@nozbe/watermelondb/decorators';
+import {Model} from '@nozbe/watermelondb';
+import {field, text, date, readonly} from '@nozbe/watermelondb/decorators';
 
 /**
  * Model representing a completed form observation in WatermelonDB

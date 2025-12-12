@@ -13,6 +13,7 @@ The Formplayer supports various question types through custom renderers that int
 Allows users to capture photos using the device camera.
 
 **Schema Definition:**
+
 ```json
 {
   "profilePhoto": {
@@ -25,6 +26,7 @@ Allows users to capture photos using the device camera.
 ```
 
 **UI Schema:**
+
 ```json
 {
   "type": "Control",
@@ -33,6 +35,7 @@ Allows users to capture photos using the device camera.
 ```
 
 **Features:**
+
 - Camera integration via React Native
 - Photo preview with thumbnail display
 - Retake and delete functionality
@@ -41,6 +44,7 @@ Allows users to capture photos using the device camera.
 
 **Data Structure:**
 The photo field stores a JSON object with the following structure:
+
 ```json
 {
   "id": "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx",
@@ -67,6 +71,7 @@ The photo field stores a JSON object with the following structure:
 Allows users to scan QR codes or enter QR code data manually.
 
 **Schema Definition:**
+
 ```json
 {
   "qrCodeData": {
@@ -79,6 +84,7 @@ Allows users to scan QR codes or enter QR code data manually.
 ```
 
 **UI Schema:**
+
 ```json
 {
   "type": "Control",
@@ -87,6 +93,7 @@ Allows users to scan QR codes or enter QR code data manually.
 ```
 
 **Features:**
+
 - QR code and barcode scanner integration via React Native
 - Manual text input as fallback option
 - Support for multiple barcode formats (see supported formats below)
@@ -94,6 +101,7 @@ Allows users to scan QR codes or enter QR code data manually.
 - Cancel operation support
 
 **Supported Barcode Formats:**
+
 - **QR Code** - Quick Response codes (most common)
 - **Code 128** - Linear barcode used for product identification
 - **Code 39** - Alphanumeric barcode standard
@@ -107,11 +115,13 @@ Allows users to scan QR codes or enter QR code data manually.
 
 **Data Structure:**
 The QR code field stores a simple string value:
+
 ```json
 "https://example.com"
 ```
 
 **Example QR Code Values:**
+
 - URLs: `"https://example.com"`
 - Plain text: `"Hello World!"`
 - JSON data: `"{\"type\":\"contact\",\"name\":\"John Doe\",\"phone\":\"123-456-7890\"}"`
@@ -122,6 +132,7 @@ The QR code field stores a simple string value:
 Signature questions allow users to capture digital signatures using either the device's native signature capture or a web-based canvas drawing interface.
 
 **Schema Format:**
+
 ```json
 {
   "customerSignature": {
@@ -134,6 +145,7 @@ Signature questions allow users to capture digital signatures using either the d
 ```
 
 **UI Schema:**
+
 ```json
 {
   "type": "Control",
@@ -142,6 +154,7 @@ Signature questions allow users to capture digital signatures using either the d
 ```
 
 **Features:**
+
 - Native signature capture using `react-native-signature-canvas`
 - Web-based canvas drawing with touch/mouse support
 - Dual capture modes: Native (React Native) and Canvas (Web)
@@ -151,11 +164,13 @@ Signature questions allow users to capture digital signatures using either the d
 - Automatic GUID generation for signature files
 
 **Capture Methods:**
+
 1. **Native Signature Capture**: Full-screen signature pad optimized for mobile devices
 2. **Canvas Drawing**: Browser-based signature drawing with touch and mouse support
 
 **Data Structure:**
 Signatures are stored as objects containing:
+
 ```json
 {
   "type": "signature",
@@ -173,6 +188,7 @@ Signatures are stored as objects containing:
 ```
 
 **Dependencies:**
+
 - `react-native-signature-canvas`: For native signature capture functionality
 
 ### 4. File Selection Question
@@ -180,6 +196,7 @@ Signatures are stored as objects containing:
 The File Selection question type allows users to select files from their device using native file picker dialogs. This question type is designed to handle file URIs efficiently without base64 encoding, making it suitable for large files.
 
 **Schema Definition:**
+
 ```json
 {
   "type": "object",
@@ -195,6 +212,7 @@ The File Selection question type allows users to select files from their device 
 ```
 
 **UI Schema:**
+
 ```json
 {
   "documentUpload": {
@@ -208,6 +226,7 @@ The File Selection question type allows users to select files from their device 
 ```
 
 **Features:**
+
 - Native File Picker: Uses platform-specific file selection dialogs
 - URI-Based Storage: Files are stored as URIs, not base64 encoded data
 - File Metadata: Captures filename, size, MIME type, and timestamp
@@ -217,6 +236,7 @@ The File Selection question type allows users to select files from their device 
 
 **Data Structure:**
 When a file is selected, the field value becomes a structured object:
+
 ```json
 {
   "filename": "document.pdf",
@@ -229,6 +249,7 @@ When a file is selected, the field value becomes a structured object:
 ```
 
 **Dependencies:**
+
 - `react-native-document-picker`: For native file selection functionality
 
 ### 5. Audio Recording Question
@@ -236,6 +257,7 @@ When a file is selected, the field value becomes a structured object:
 The Audio Recording question type allows users to record audio directly within forms using the device's microphone. This question type provides a complete audio recording and playback interface with URI-based storage for efficient file handling.
 
 **Schema Definition:**
+
 ```json
 {
   "type": "object",
@@ -251,6 +273,7 @@ The Audio Recording question type allows users to record audio directly within f
 ```
 
 **UI Schema:**
+
 ```json
 {
   "voiceNote": {
@@ -264,6 +287,7 @@ The Audio Recording question type allows users to record audio directly within f
 ```
 
 **Features:**
+
 - Native Audio Recording: Uses device microphone with high-quality recording
 - Audio Playback: Built-in player with play/pause/stop controls
 - Progress Visualization: Real-time progress bar during playback
@@ -273,12 +297,14 @@ The Audio Recording question type allows users to record audio directly within f
 - Mock Support: Interactive simulation for development testing
 
 **Recording Interface:**
+
 - Large microphone button for easy recording initiation
 - Visual feedback during recording process
 - Loading states and progress indicators
 - Permission handling for microphone access
 
 **Playback Interface:**
+
 - Audio file information display (filename, duration, format, size)
 - Play/pause/stop controls with visual feedback
 - Progress bar showing current playback position
@@ -286,6 +312,7 @@ The Audio Recording question type allows users to record audio directly within f
 
 **Data Structure:**
 When audio is recorded, the field value becomes a structured object:
+
 ```json
 {
   "type": "audio",
@@ -301,6 +328,7 @@ When audio is recorded, the field value becomes a structured object:
 ```
 
 **Audio Result Properties:**
+
 - `filename`: Generated filename for the audio recording
 - `uri`: File URI for accessing the audio content
 - `timestamp`: ISO timestamp of when recording was completed
@@ -309,6 +337,7 @@ When audio is recorded, the field value becomes a structured object:
 - `metadata.size`: File size in bytes
 
 **Dependencies:**
+
 - `react-native-nitro-sound`: For native audio recording and playback functionality
 
 ### 6. Swipe Layout
@@ -316,6 +345,7 @@ When audio is recorded, the field value becomes a structured object:
 Organizes form elements into swipeable pages for better mobile UX.
 
 **UI Schema:**
+
 ```json
 {
   "type": "SwipeLayout",
@@ -362,6 +392,7 @@ Organizes form elements into swipeable pages for better mobile UX.
 ```
 
 **Features:**
+
 - Horizontal swipe navigation between form pages
 - Progress indicators
 - Automatic validation on page change
@@ -372,6 +403,7 @@ Organizes form elements into swipeable pages for better mobile UX.
 Provides form submission functionality with validation.
 
 **UI Schema:**
+
 ```json
 {
   "type": "Finalize"
@@ -379,6 +411,7 @@ Provides form submission functionality with validation.
 ```
 
 **Features:**
+
 - Form validation before submission
 - Error navigation (jumps to pages with validation errors)
 - Submit button with loading states
@@ -450,6 +483,7 @@ The GPS question type stores location data as a JSON string with the following s
 ### Usage Examples
 
 #### Basic GPS Field
+
 ```json
 {
   "schema": {
@@ -466,6 +500,7 @@ The GPS question type stores location data as a JSON string with the following s
 ```
 
 #### GPS Field with Custom UI
+
 ```json
 {
   "schema": {
@@ -518,9 +553,9 @@ Add the result data interface and type alias:
 ```typescript
 // 1. Add the result data interface
 export interface MyCustomResultData {
-  type: 'mycustom';           // Unique identifier for this result type
-  value: string;              // The actual data (adjust type as needed)
-  timestamp: string;          // ISO timestamp of when the action completed
+  type: 'mycustom'; // Unique identifier for this result type
+  value: string; // The actual data (adjust type as needed)
+  timestamp: string; // ISO timestamp of when the action completed
   // Add any additional fields specific to your question type
 }
 
@@ -529,6 +564,7 @@ export type MyCustomResult = ActionResult<MyCustomResultData>;
 ```
 
 **Template Variables to Replace:**
+
 - `MyCustom` → Your question type name (PascalCase)
 - `mycustom` → Your question type identifier (lowercase)
 - `value: string` → Adjust the data type as needed for your question type
@@ -562,7 +598,7 @@ import {
 // 2. Add method to FormulusClient class
 export class FormulusClient {
   // ... existing methods
-  
+
   public requestMyCustom(fieldId: string): Promise<MyCustomResult> {
     if (this.formulus) {
       return this.formulus.requestMyCustom(fieldId);
@@ -570,7 +606,7 @@ export class FormulusClient {
       return Promise.reject({
         fieldId,
         status: 'error' as const,
-        message: 'Formulus interface not available'
+        message: 'Formulus interface not available',
       });
     }
   }
@@ -591,9 +627,9 @@ import {
 } from './webview/FormulusInterfaceDefinition';
 
 // 2. Add pending promises map
-private pendingMyCustomPromises: Map<string, { 
-  resolve: (result: MyCustomResult) => void; 
-  reject: (error: any) => void; 
+private pendingMyCustomPromises: Map<string, {
+  resolve: (result: MyCustomResult) => void;
+  reject: (error: any) => void;
 }> = new Map();
 
 // 3. Add to MockFormulus interface
@@ -618,7 +654,7 @@ private showMyCustomSimulationPopup(fieldId: string): void {
     background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     z-index: 10000; font-family: Arial, sans-serif; text-align: center;
   `;
-  
+
   popup.innerHTML = `
     <h3>🔧 MyCustom Simulation</h3>
     <p>Simulate your custom action for field: <strong>${fieldId}</strong></p>
@@ -634,20 +670,20 @@ private showMyCustomSimulationPopup(fieldId: string): void {
       </button>
     </div>
   `;
-  
+
   document.body.appendChild(popup);
-  
+
   // Add event listeners
   popup.querySelector('#success-btn')?.addEventListener('click', () => {
     this.resolveMyCustomPromise(fieldId, 'success', 'Sample result data');
     document.body.removeChild(popup);
   });
-  
+
   popup.querySelector('#cancel-btn')?.addEventListener('click', () => {
     this.resolveMyCustomPromise(fieldId, 'cancelled');
     document.body.removeChild(popup);
   });
-  
+
   popup.querySelector('#error-btn')?.addEventListener('click', () => {
     this.resolveMyCustomPromise(fieldId, 'error', undefined, 'Simulated error occurred');
     document.body.removeChild(popup);
@@ -659,7 +695,7 @@ private resolveMyCustomPromise(fieldId: string, status: 'success' | 'cancelled' 
   const promise = this.pendingMyCustomPromises.get(fieldId);
   if (promise) {
     this.pendingMyCustomPromises.delete(fieldId);
-    
+
     if (status === 'success') {
       promise.resolve({
         fieldId,
@@ -694,7 +730,7 @@ private resolveMyCustomPromise(fieldId: string, status: 'success' | 'cancelled' 
 Create the React component:
 
 ```typescript
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, {useState, useCallback, useRef, useEffect} from 'react';
 import {
   Button,
   TextField,
@@ -703,21 +739,27 @@ import {
   Alert,
   CircularProgress,
   Paper,
-  IconButton
+  IconButton,
 } from '@mui/material';
-import { Build as MyCustomIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { withJsonFormsControlProps } from '@jsonforms/react';
-import { ControlProps, rankWith, schemaTypeIs, and, schemaMatches } from '@jsonforms/core';
-import { FormulusClient } from './FormulusInterface';
-import { MyCustomResult } from './webview/FormulusInterfaceDefinition';
+import {Build as MyCustomIcon, Delete as DeleteIcon} from '@mui/icons-material';
+import {withJsonFormsControlProps} from '@jsonforms/react';
+import {
+  ControlProps,
+  rankWith,
+  schemaTypeIs,
+  and,
+  schemaMatches,
+} from '@jsonforms/core';
+import {FormulusClient} from './FormulusInterface';
+import {MyCustomResult} from './webview/FormulusInterfaceDefinition';
 
 // Tester function - determines when this renderer should be used
 export const myCustomQuestionTester = rankWith(
   5, // Priority (higher = more specific)
   and(
     schemaTypeIs('string'), // Expects string data type
-    schemaMatches((schema) => schema.format === 'mycustom') // Matches format
-  )
+    schemaMatches(schema => schema.format === 'mycustom'), // Matches format
+  ),
 );
 
 const MyCustomQuestionRenderer: React.FC<ControlProps> = ({
@@ -735,28 +777,29 @@ const MyCustomQuestionRenderer: React.FC<ControlProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [manualInput, setManualInput] = useState('');
   const [showManualInput, setShowManualInput] = useState(false);
-  
+
   // Refs
   const formulusClient = useRef(new FormulusClient());
-  
+
   // Extract field ID from path
   const fieldId = path.split('.').pop() || path;
-  
+
   // Initialize manual input with current data
   useEffect(() => {
     if (data && typeof data === 'string') {
       setManualInput(data);
     }
   }, [data]);
-  
+
   // Handle the main action (e.g., scanning, capturing, etc.)
   const handleMyCustomAction = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const result: MyCustomResult = await formulusClient.current.requestMyCustom(fieldId);
-      
+      const result: MyCustomResult =
+        await formulusClient.current.requestMyCustom(fieldId);
+
       if (result.status === 'success' && result.data) {
         // Update form data with the result
         handleChange(path, result.data.value);
@@ -776,15 +819,18 @@ const MyCustomQuestionRenderer: React.FC<ControlProps> = ({
       setIsLoading(false);
     }
   }, [fieldId, handleChange, path]);
-  
+
   // Handle manual input changes
-  const handleManualInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    setManualInput(value);
-    handleChange(path, value);
-    setError(null);
-  }, [handleChange, path]);
-  
+  const handleManualInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value = event.target.value;
+      setManualInput(value);
+      handleChange(path, value);
+      setError(null);
+    },
+    [handleChange, path],
+  );
+
   // Handle delete/clear
   const handleDelete = useCallback(() => {
     handleChange(path, '');
@@ -792,70 +838,70 @@ const MyCustomQuestionRenderer: React.FC<ControlProps> = ({
     setShowManualInput(false);
     setError(null);
   }, [handleChange, path]);
-  
+
   // Don't render if not visible
   if (!visible) {
     return null;
   }
-  
+
   const hasData = data && typeof data === 'string' && data.length > 0;
   const hasError = errors && errors.length > 0;
-  
+
   return (
-    <Box sx={{ mb: 2 }}>
+    <Box sx={{mb: 2}}>
       {/* Title and Description */}
       {schema.title && (
-        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 500 }}>
+        <Typography variant="subtitle1" sx={{mb: 1, fontWeight: 500}}>
           {schema.title}
         </Typography>
       )}
       {schema.description && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography variant="body2" color="text.secondary" sx={{mb: 2}}>
           {schema.description}
         </Typography>
       )}
-      
+
       {/* Error Display */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{mb: 2}}>
           {error}
         </Alert>
       )}
-      
+
       {/* Validation Errors */}
       {hasError && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{mb: 2}}>
           {errors.join(', ')}
         </Alert>
       )}
-      
+
       {/* Main Action Button */}
-      <Box sx={{ mb: 2 }}>
+      <Box sx={{mb: 2}}>
         <Button
           variant="contained"
-          startIcon={isLoading ? <CircularProgress size={20} /> : <MyCustomIcon />}
+          startIcon={
+            isLoading ? <CircularProgress size={20} /> : <MyCustomIcon />
+          }
           onClick={handleMyCustomAction}
           disabled={!enabled || isLoading}
           fullWidth
-          sx={{ mb: 1 }}
-        >
+          sx={{mb: 1}}>
           {isLoading ? 'Processing...' : 'Start MyCustom Action'}
         </Button>
-        
+
         <Button
           variant="outlined"
           onClick={() => setShowManualInput(!showManualInput)}
           disabled={!enabled}
           fullWidth
-          size="small"
-        >
+          size="small">
           {showManualInput ? 'Hide Manual Input' : 'Enter Manually'}
         </Button>
       </Box>
-      
+
       {/* Manual Input Section */}
       {showManualInput && (
-        <Box sx={{ mb: 2 }}>
+        <Box sx={{mb: 2}}>
           <TextField
             label="Enter data manually"
             value={manualInput}
@@ -868,27 +914,34 @@ const MyCustomQuestionRenderer: React.FC<ControlProps> = ({
           />
         </Box>
       )}
-      
+
       {/* Data Display */}
       {hasData && (
-        <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+        <Paper sx={{p: 2, bgcolor: 'grey.50'}}>
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+            }}>
+            <Box sx={{flex: 1}}>
+              <Typography
+                variant="subtitle2"
+                color="text.secondary"
+                sx={{mb: 1}}>
                 Current Data:
               </Typography>
-              <Typography 
-                variant="body2" 
-                sx={{ 
+              <Typography
+                variant="body2"
+                sx={{
                   wordBreak: 'break-all',
                   fontFamily: 'monospace',
                   bgcolor: 'white',
                   p: 1,
                   borderRadius: 1,
                   border: '1px solid',
-                  borderColor: 'grey.300'
-                }}
-              >
+                  borderColor: 'grey.300',
+                }}>
                 {data}
               </Typography>
             </Box>
@@ -896,18 +949,17 @@ const MyCustomQuestionRenderer: React.FC<ControlProps> = ({
               onClick={handleDelete}
               disabled={!enabled}
               size="small"
-              sx={{ ml: 1 }}
-            >
+              sx={{ml: 1}}>
               <DeleteIcon />
             </IconButton>
           </Box>
         </Paper>
       )}
-      
+
       {/* Development Debug Info */}
       {process.env.NODE_ENV === 'development' && (
-        <Box sx={{ mt: 2, p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
-          <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+        <Box sx={{mt: 2, p: 1, bgcolor: 'info.light', borderRadius: 1}}>
+          <Typography variant="caption" sx={{fontFamily: 'monospace'}}>
             Debug: fieldId="{fieldId}", path="{path}", format="mycustom"
           </Typography>
         </Box>
@@ -927,16 +979,18 @@ Register the new renderer:
 
 ```typescript
 // 1. Add import
-import MyCustomQuestionRenderer, { myCustomQuestionTester } from "./MyCustomQuestionRenderer";
+import MyCustomQuestionRenderer, {
+  myCustomQuestionTester,
+} from './MyCustomQuestionRenderer';
 
 // 2. Add to customRenderers array
 const customRenderers = [
   ...materialRenderers,
-  { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
-  { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
-  { tester: myCustomQuestionTester, renderer: MyCustomQuestionRenderer }, // Add this line
-  { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
-  { tester: finalizeTester, renderer: FinalizeRenderer },
+  {tester: photoQuestionTester, renderer: PhotoQuestionRenderer},
+  {tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer},
+  {tester: myCustomQuestionTester, renderer: MyCustomQuestionRenderer}, // Add this line
+  {tester: swipeLayoutTester, renderer: SwipeLayoutRenderer},
+  {tester: finalizeTester, renderer: FinalizeRenderer},
 ];
 ```
 
@@ -953,7 +1007,7 @@ ajv.addFormat('mycustom', (data: any) => {
   if (data === null || data === undefined || data === '') {
     return true;
   }
-  
+
   // Validate the actual data format
   // Adjust this validation logic based on your data type requirements
   return typeof data === 'string';
@@ -987,10 +1041,12 @@ const sampleFormData = {
   "description": "Test your custom question type"
 }
 ```
+
 7. **React Native Handler**: `onRequestSignature` handler with modal integration
 8. **Dependencies**: `react-native-signature-canvas` added to package.json
 
 **Testing & Polish:**
+
 - [ ] ✅ Add sample data to mock for testing
 - [ ] ✅ Test success, cancel, and error scenarios
 - [ ] ✅ Verify form validation works correctly
@@ -1000,6 +1056,7 @@ const sampleFormData = {
 - [ ] ✅ Add loading states and progress indicators
 
 **Documentation:**
+
 - [ ] ✅ Update this documentation with your question type
 - [ ] ✅ Add usage examples and schema definitions
 - [ ] ✅ Document any special configuration requirements
@@ -1007,16 +1064,19 @@ const sampleFormData = {
 ### Common Patterns and Tips
 
 **Data Types:**
+
 - Use `string` for simple text data (QR codes, barcodes, etc.)
 - Use `object` for complex structured data (photos, audio with metadata)
 - Always include a `timestamp` field for audit trails
 
 **Error Handling:**
+
 - Always handle `cancelled` status gracefully (don't show as error)
 - Provide clear, actionable error messages
 - Include fallback options when possible (manual input, retry, etc.)
 
 **UI/UX Best Practices:**
+
 - Use appropriate Material-UI icons for your action type
 - Provide loading states during async operations
 - Include manual input options as fallbacks
@@ -1024,12 +1084,14 @@ const sampleFormData = {
 - Allow users to delete/retry actions
 
 **Mock Implementation:**
+
 - Create realistic simulation popups for testing
 - Include multiple test scenarios (success, cancel, error)
 - Use sample data that represents real-world usage
 - Add delays to simulate real device operations
 
 **Performance:**
+
 - Minimize re-renders with proper `useCallback` usage
 - Clean up resources and event listeners
 - Optimize for mobile device constraints
@@ -1045,6 +1107,7 @@ The Formplayer includes a comprehensive mock environment for development:
 - Hot reload support
 
 **Testing Your Question Types:**
+
 1. Start the development server: `npm start`
 2. Open http://localhost:3000 in your browser
 3. Use the mock popups to simulate user interactions
@@ -1095,20 +1158,24 @@ try {
 ### Common Issues
 
 **"Unknown format" AJV Error:**
+
 - Ensure the custom format is registered with AJV in `App.tsx`
 - Check that the format name matches exactly between schema and registration
 
 **Component Not Rendering:**
+
 - Verify the tester function is correctly implemented
 - Check that the renderer is registered in the `customRenderers` array
 - Ensure the schema format matches the tester conditions
 
 **Native Integration Issues:**
+
 - Check that the method is implemented in both interface definition files
 - Verify the FormulusClient has the corresponding method
 - Test with the mock implementation first
 
 **Mock Not Working:**
+
 - Ensure you're in development mode (`NODE_ENV=development`)
 - Check that the mock method is implemented in `webview-mock.ts`
 - Verify the mock is initialized in `App.tsx`

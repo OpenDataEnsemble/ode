@@ -1,21 +1,20 @@
 # ResetUserPasswordRequest
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**username** | **string** | Username of the user whose password is being reset | [default to undefined]
-**newPassword** | **string** | New password for the user | [default to undefined]
+| Name            | Type       | Description                                        | Notes                  |
+| --------------- | ---------- | -------------------------------------------------- | ---------------------- |
+| **username**    | **string** | Username of the user whose password is being reset | [default to undefined] |
+| **newPassword** | **string** | New password for the user                          | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { ResetUserPasswordRequest } from './api';
+import {ResetUserPasswordRequest} from './api';
 
 const instance: ResetUserPasswordRequest = {
-    username,
-    newPassword,
+  username,
+  newPassword,
 };
 ```
 

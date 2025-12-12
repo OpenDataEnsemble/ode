@@ -124,11 +124,11 @@ func TestObservationWithGeolocation(t *testing.T) {
 		t.Fatal("Geolocation should not be nil after unmarshaling")
 	}
 	if unmarshaled.Geolocation.Latitude != obs.Geolocation.Latitude {
-		t.Errorf("Geolocation latitude mismatch: expected %f, got %f", 
+		t.Errorf("Geolocation latitude mismatch: expected %f, got %f",
 			obs.Geolocation.Latitude, unmarshaled.Geolocation.Latitude)
 	}
 	if unmarshaled.Geolocation.Longitude != obs.Geolocation.Longitude {
-		t.Errorf("Geolocation longitude mismatch: expected %f, got %f", 
+		t.Errorf("Geolocation longitude mismatch: expected %f, got %f",
 			obs.Geolocation.Longitude, unmarshaled.Geolocation.Longitude)
 	}
 }

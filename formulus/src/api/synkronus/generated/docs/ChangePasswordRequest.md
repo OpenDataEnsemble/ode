@@ -1,21 +1,20 @@
 # ChangePasswordRequest
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**currentPassword** | **string** | Current password for verification | [default to undefined]
-**newPassword** | **string** | New password to set | [default to undefined]
+| Name                | Type       | Description                       | Notes                  |
+| ------------------- | ---------- | --------------------------------- | ---------------------- |
+| **currentPassword** | **string** | Current password for verification | [default to undefined] |
+| **newPassword**     | **string** | New password to set               | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { ChangePasswordRequest } from './api';
+import {ChangePasswordRequest} from './api';
 
 const instance: ChangePasswordRequest = {
-    currentPassword,
-    newPassword,
+  currentPassword,
+  newPassword,
 };
 ```
 

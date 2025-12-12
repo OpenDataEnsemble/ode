@@ -1,16 +1,15 @@
 /**
  * FormulusInterfaceDefinition.ts
- * 
+ *
  * This module defines the shared interface between the Formulus React Native app and the Formplayer WebView.
  * It serves as the single source of truth for the interface definition.
- * 
+ *
  * NOTE: This file should be manually copied to client projects that need to interact with the Formulus app.
- * If you've checked out the monorepo use: 
+ * If you've checked out the monorepo use:
  * cp ..\formulus\src\webview\FormulusInterfaceDefinition.ts .\src\FormulusInterfaceDefinition.ts
- * 
+ *
  * Current Version: 1.0.17
  */
-
 
 /**
  * Data passed to the Formulus app when a form is initialized
@@ -39,7 +38,7 @@ export interface FormInitData {
  */
 export interface ActionResult<T = any> {
   fieldId: string;
-  status: 'success' | 'cancelled' | 'error';
+  status: "success" | "cancelled" | "error";
   message?: string;
   data?: T;
 }
@@ -52,7 +51,7 @@ export interface ActionResult<T = any> {
  * @property {object} metadata - Image metadata (dimensions, size, etc.)
  */
 export interface CameraResultData {
-  type: 'image';
+  type: "image";
   id: string;
   filename: string;
   uri: string;
@@ -81,7 +80,7 @@ export interface CameraResultData {
  * @property {object} metadata - Audio metadata (duration, format, etc.)
  */
 export interface AudioResultData {
-  type: 'audio';
+  type: "audio";
   filename: string;
   base64: string;
   url: string;
@@ -104,7 +103,7 @@ export interface AudioResultData {
  * @property {object} metadata - Signature metadata (dimensions, etc.)
  */
 export interface SignatureResultData {
-  type: 'signature';
+  type: "signature";
   filename: string;
   uri: string;
   timestamp: string;
@@ -123,7 +122,7 @@ export interface SignatureResultData {
  * @property {string} timestamp - ISO timestamp when QR code was scanned
  */
 export interface QrcodeResultData {
-  type: 'qrcode';
+  type: "qrcode";
   value: string;
   timestamp: string;
 }
@@ -139,7 +138,7 @@ export interface QrcodeResultData {
  * @property {object} metadata - File metadata (extension, original path, etc.)
  */
 export interface FileResultData {
-  type: 'file';
+  type: "file";
   filename: string;
   uri: string; // Local file URI (no base64 encoding)
   mimeType: string;
@@ -169,7 +168,18 @@ export type FileResult = ActionResult<FileResultData>;
  */
 export interface AttachmentData {
   fieldId: string;
-  type: 'image' | 'location' | 'file' | 'intent' | 'subform' | 'audio' | 'signature' | 'biometric' | 'connectivity' | 'sync' | 'ml_result';
+  type:
+    | "image"
+    | "location"
+    | "file"
+    | "intent"
+    | "subform"
+    | "audio"
+    | "signature"
+    | "biometric"
+    | "connectivity"
+    | "sync"
+    | "ml_result";
   [key: string]: any;
 }
 
@@ -222,7 +232,12 @@ export interface FormObservation {
  * @property {string} formType - The form type that was being edited
  */
 export interface FormCompletionResult {
-  status: 'form_submitted' | 'form_updated' | 'draft_saved' | 'cancelled' | 'error';
+  status:
+    | "form_submitted"
+    | "form_updated"
+    | "draft_saved"
+    | "cancelled"
+    | "error";
   observationId?: string;
   formData?: Record<string, any>;
   message?: string;
@@ -253,7 +268,11 @@ export interface FormulusInterface {
    * @param {Object} savedData - Previously saved form data (for editing)
    * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
-  openFormplayer(formType: string, params: Record<string, any>, savedData: Record<string, any>): Promise<FormCompletionResult>;
+  openFormplayer(
+    formType: string,
+    params: Record<string, any>,
+    savedData: Record<string, any>,
+  ): Promise<FormCompletionResult>;
 
   /**
    * Get observations for a specific form
@@ -262,8 +281,11 @@ export interface FormulusInterface {
    * @param {boolean} [includeDeleted=false] - Whether to include deleted observations
    * @returns {Promise<FormObservation[]>} Array of form observations
    */
-  getObservations(formType: string, isDraft?: boolean, includeDeleted?: boolean): Promise<FormObservation[]>;
-
+  getObservations(
+    formType: string,
+    isDraft?: boolean,
+    includeDeleted?: boolean,
+  ): Promise<FormObservation[]>;
 
   /**
    * Submit a completed form
@@ -271,7 +293,10 @@ export interface FormulusInterface {
    * @param {Object} finalData - The final form data to submit
    * @returns {Promise<string>} The observationId of the submitted form
    */
-  submitObservation(formType: string, finalData: Record<string, any>): Promise<string>;
+  submitObservation(
+    formType: string,
+    finalData: Record<string, any>,
+  ): Promise<string>;
 
   /**
    * Update an existing form
@@ -280,7 +305,11 @@ export interface FormulusInterface {
    * @param {Object} finalData - The final form data to update
    * @returns {Promise<string>} The observationId of the updated form
    */
-  updateObservation(observationId: string, formType: string, finalData: Record<string, any>): Promise<string>;
+  updateObservation(
+    observationId: string,
+    formType: string,
+    finalData: Record<string, any>,
+  ): Promise<string>;
 
   /**
    * Request camera access for a field
@@ -318,7 +347,11 @@ export interface FormulusInterface {
    * @param {Object} options - Additional options for the subform
    * @returns {Promise<void>}
    */
-  callSubform(fieldId: string, formType: string, options: Record<string, any>): Promise<void>;
+  callSubform(
+    fieldId: string,
+    formType: string,
+    options: Record<string, any>,
+  ): Promise<void>;
 
   /**
    * Request audio recording for a field
@@ -367,14 +400,23 @@ export interface FormulusInterface {
    * @param {Object} input - The input data for the model
    * @returns {Promise<void>}
    */
-  runLocalModel(fieldId: string, modelId: string, input: Record<string, any>): Promise<void>;
+  runLocalModel(
+    fieldId: string,
+    modelId: string,
+    input: Record<string, any>,
+  ): Promise<void>;
 }
 
 /**
  * Interface for callback methods that the Formplayer WebView implements
  */
 export interface FormulusCallbacks {
-  onFormInit?: (formType: string, observationId: string | null, params: Record<string, any>, savedData: Record<string, any>) => void;
+  onFormInit?: (
+    formType: string,
+    observationId: string | null,
+    params: Record<string, any>,
+    savedData: Record<string, any>,
+  ) => void;
   onReceiveFocus?: () => void;
 }
 
@@ -394,6 +436,6 @@ export function isCompatibleVersion(requiredVersion: string): boolean {
 // Extend the global interface to include the Formulus interface
 declare global {
   var formulus: FormulusInterface | undefined;
-  var onFormInit: FormulusCallbacks['onFormInit'];
-  var onReceiveFocus: FormulusCallbacks['onReceiveFocus'];
+  var onFormInit: FormulusCallbacks["onFormInit"];
+  var onReceiveFocus: FormulusCallbacks["onReceiveFocus"];
 }

@@ -23,11 +23,11 @@ type SyncPullRequestSince struct {
 
 // SyncPullResponse represents the sync pull response payload according to OpenAPI spec
 type SyncPullResponse struct {
-	CurrentVersion    int64                `json:"current_version"`
-	Records           []sync.Observation   `json:"records"`
-	ChangeCutoff      int64                `json:"change_cutoff"`
-	HasMore           *bool                `json:"has_more,omitempty"`
-	SyncFormatVersion *string              `json:"sync_format_version,omitempty"`
+	CurrentVersion    int64              `json:"current_version"`
+	Records           []sync.Observation `json:"records"`
+	ChangeCutoff      int64              `json:"change_cutoff"`
+	HasMore           *bool              `json:"has_more,omitempty"`
+	SyncFormatVersion *string            `json:"sync_format_version,omitempty"`
 }
 
 // Pull handles the /sync/pull endpoint
@@ -68,7 +68,7 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 	// Determine starting version and cursor
 	var sinceVersion int64 = 0
 	var cursor *sync.SyncPullCursor
-	
+
 	if req.Since != nil {
 		sinceVersion = req.Since.Version
 		cursor = &sync.SyncPullCursor{
@@ -97,7 +97,7 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 
 	// Note: Clients should use change_cutoff as the next since.version for pagination
 
-	h.log.Info("Sync pull request processed", 
+	h.log.Info("Sync pull request processed",
 		"clientId", req.ClientID,
 		"sinceVersion", sinceVersion,
 		"currentVersion", result.CurrentVersion,
@@ -117,10 +117,10 @@ type SyncPushRequest struct {
 
 // SyncPushResponse represents the sync push response payload according to OpenAPI spec
 type SyncPushResponse struct {
-	CurrentVersion int64                      `json:"current_version"`
-	SuccessCount   int                        `json:"success_count"`
-	FailedRecords  []map[string]interface{}   `json:"failed_records,omitempty"`
-	Warnings       []sync.SyncWarning         `json:"warnings,omitempty"`
+	CurrentVersion int64                    `json:"current_version"`
+	SuccessCount   int                      `json:"success_count"`
+	FailedRecords  []map[string]interface{} `json:"failed_records,omitempty"`
+	Warnings       []sync.SyncWarning       `json:"warnings,omitempty"`
 }
 
 // Push handles the /sync/push endpoint
@@ -167,9 +167,9 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 		Warnings:       result.Warnings,
 	}
 
-	h.log.Info("Sync push request processed", 
+	h.log.Info("Sync push request processed",
 		"transmissionId", req.TransmissionID,
-		"clientId", req.ClientID, 
+		"clientId", req.ClientID,
 		"recordCount", len(req.Records),
 		"successCount", result.SuccessCount,
 		"failedCount", len(result.FailedRecords),

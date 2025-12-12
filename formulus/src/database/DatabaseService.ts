@@ -1,6 +1,6 @@
-import { database } from './database';
-import { LocalRepoInterface } from './repositories/LocalRepoInterface';
-import { WatermelonDBRepo } from './repositories/WatermelonDBRepo';
+import {database} from './database';
+import {LocalRepoInterface} from './repositories/LocalRepoInterface';
+import {WatermelonDBRepo} from './repositories/WatermelonDBRepo';
 
 /**
  * Service class to provide access to the database repositories

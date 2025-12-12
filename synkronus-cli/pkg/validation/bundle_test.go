@@ -90,8 +90,8 @@ func TestValidateBundle(t *testing.T) {
 		{
 			name: "missing ui.json",
 			files: map[string]string{
-				"app/index.html":          "<html></html>",
-				"forms/user/schema.json":  `{"type": "object"}`,
+				"app/index.html":         "<html></html>",
+				"forms/user/schema.json": `{"type": "object"}`,
 			},
 			wantErr: true,
 			errMsg:  "missing required files",
@@ -100,8 +100,8 @@ func TestValidateBundle(t *testing.T) {
 			name: "invalid form file path",
 			files: map[string]string{
 				"app/index.html":              "<html></html>",
-				"forms/user/invalid-file.txt":  "should not be here",
-				"forms/user/schema.json":       `{"type": "object"}`,
+				"forms/user/invalid-file.txt": "should not be here",
+				"forms/user/schema.json":      `{"type": "object"}`,
 				"forms/user/ui.json":          "{}",
 			},
 			wantErr: true,
@@ -119,7 +119,7 @@ func TestValidateBundle(t *testing.T) {
 		{
 			name: "invalid renderer structure - wrong filename",
 			files: map[string]string{
-				"app/index.html":                "<html></html>",
+				"app/index.html":                 "<html></html>",
 				"renderers/button/component.jsx": "should be renderer.jsx",
 			},
 			wantErr: true,
@@ -128,9 +128,9 @@ func TestValidateBundle(t *testing.T) {
 		{
 			name: "missing renderer reference",
 			files: map[string]string{
-				"app/index.html":                "<html></html>",
-				"forms/user/schema.json":         `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "custom-renderer"}}}`,
-				"forms/user/ui.json":            "{}",
+				"app/index.html":         "<html></html>",
+				"forms/user/schema.json": `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "custom-renderer"}}}`,
+				"forms/user/ui.json":     "{}",
 			},
 			wantErr: true,
 			errMsg:  "references non-existent renderer",
@@ -138,9 +138,9 @@ func TestValidateBundle(t *testing.T) {
 		{
 			name: "valid renderer reference",
 			files: map[string]string{
-				"app/index.html":                "<html></html>",
-				"forms/user/schema.json":         `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "custom-renderer"}}}`,
-				"forms/user/ui.json":            "{}",
+				"app/index.html":                         "<html></html>",
+				"forms/user/schema.json":                 `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "custom-renderer"}}}`,
+				"forms/user/ui.json":                     "{}",
 				"renderers/custom-renderer/renderer.jsx": "export default function CustomRenderer() {}",
 			},
 			wantErr: false,
@@ -148,18 +148,18 @@ func TestValidateBundle(t *testing.T) {
 		{
 			name: "built-in renderer reference",
 			files: map[string]string{
-				"app/index.html":                "<html></html>",
-				"forms/user/schema.json":         `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "text"}}}`,
-				"forms/user/ui.json":            "{}",
+				"app/index.html":         "<html></html>",
+				"forms/user/schema.json": `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "text"}}}`,
+				"forms/user/ui.json":     "{}",
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid JSON in schema",
 			files: map[string]string{
-				"app/index.html":       "<html></html>",
+				"app/index.html":         "<html></html>",
 				"forms/user/schema.json": "invalid json {",
-				"forms/user/ui.json":    "{}",
+				"forms/user/ui.json":     "{}",
 			},
 			wantErr: true,
 			errMsg:  "invalid JSON",
@@ -167,9 +167,9 @@ func TestValidateBundle(t *testing.T) {
 		{
 			name: "invalid JSON in ui",
 			files: map[string]string{
-				"app/index.html":       "<html></html>",
+				"app/index.html":         "<html></html>",
 				"forms/user/schema.json": `{"type": "object"}`,
-				"forms/user/ui.json":   "invalid json {",
+				"forms/user/ui.json":     "invalid json {",
 			},
 			wantErr: true,
 			errMsg:  "invalid JSON",
@@ -177,10 +177,10 @@ func TestValidateBundle(t *testing.T) {
 		{
 			name: "schema.json outside forms/ directory should be ignored",
 			files: map[string]string{
-				"app/index.html":        "<html></html>",
-				"app/schema.json":       `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "missing-renderer"}}}`,
+				"app/index.html":         "<html></html>",
+				"app/schema.json":        `{"type": "object", "properties": {"field": {"type": "string", "x-question-type": "missing-renderer"}}}`,
 				"forms/user/schema.json": `{"type": "object", "properties": {"name": {"type": "string", "x-question-type": "text"}}}`,
-				"forms/user/ui.json":    "{}",
+				"forms/user/ui.json":     "{}",
 			},
 			wantErr: false, // Should pass because schema.json files outside forms/ are ignored (app/schema.json should not be processed)
 		},
@@ -245,4 +245,3 @@ func TestGetBundleInfo(t *testing.T) {
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
-

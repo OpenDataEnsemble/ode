@@ -4,19 +4,19 @@ Count of operations by type
 
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**download** | **number** |  | [optional] [default to undefined]
-**_delete** | **number** |  | [optional] [default to undefined]
+| Name         | Type       | Description | Notes                             |
+| ------------ | ---------- | ----------- | --------------------------------- |
+| **download** | **number** |             | [optional] [default to undefined] |
+| **\_delete** | **number** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AttachmentManifestResponseOperationCount } from './api';
+import {AttachmentManifestResponseOperationCount} from './api';
 
 const instance: AttachmentManifestResponseOperationCount = {
-    download,
-    _delete,
+  download,
+  _delete,
 };
 ```
 

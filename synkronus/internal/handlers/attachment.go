@@ -28,7 +28,7 @@ func (h *AttachmentHandler) RegisterRoutes(r chi.Router, manifestHandler func(ht
 	r.Route("/attachments", func(r chi.Router) {
 		// Manifest endpoint
 		r.Post("/manifest", manifestHandler)
-		
+
 		// Individual attachment routes
 		r.Route("/{attachment_id}", func(r chi.Router) {
 			r.Put("/", h.UploadAttachment)

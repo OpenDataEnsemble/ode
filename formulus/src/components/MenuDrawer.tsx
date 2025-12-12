@@ -36,7 +36,9 @@ const hasMinRole = (
   userRole: UserRole | undefined,
   minRole: UserRole,
 ): boolean => {
-  if (!userRole) return false;
+  if (!userRole) {
+    return false;
+  }
   return ROLE_LEVELS[userRole] >= ROLE_LEVELS[minRole];
 };
 
@@ -80,7 +82,9 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   ];
 
   const visibleItems = menuItems.filter(item => {
-    if (!item.minRole) return true;
+    if (!item.minRole) {
+      return true;
+    }
     return hasMinRole(userInfo?.role, item.minRole);
   });
 

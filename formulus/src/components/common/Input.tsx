@@ -1,5 +1,12 @@
 import React from 'react';
-import { TextInput, Text, View, StyleSheet, TextInputProps, ViewStyle } from 'react-native';
+import {
+  TextInput,
+  Text,
+  View,
+  StyleSheet,
+  TextInputProps,
+  ViewStyle,
+} from 'react-native';
 
 export interface InputProps extends TextInputProps {
   label?: string;
@@ -64,4 +71,3 @@ const styles = StyleSheet.create({
 });
 
 export default Input;
-

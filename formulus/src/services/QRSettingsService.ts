@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
-import { decodeFRMLS, FRMLS } from '../utils/FRMLSHelpers';
+import {decodeFRMLS, FRMLS} from '../utils/FRMLSHelpers';
 
 export interface SettingsUpdate {
   serverUrl: string;
@@ -15,14 +15,18 @@ export class QRSettingsService {
   static parseQRCode(qrString: string): SettingsUpdate {
     try {
       const frmls = decodeFRMLS(qrString);
-      
+
       return {
         serverUrl: frmls.s,
         username: frmls.u,
-        password: frmls.p
+        password: frmls.p,
       };
     } catch (error) {
-      throw new Error(`Invalid QR code format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Invalid QR code format: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
     }
   }
 
@@ -32,13 +36,16 @@ export class QRSettingsService {
   static async updateSettings(settings: SettingsUpdate): Promise<void> {
     try {
       // Save server URL to AsyncStorage
-      await AsyncStorage.setItem('@settings', JSON.stringify({
-        serverUrl: settings.serverUrl
-      }));
+      await AsyncStorage.setItem(
+        '@settings',
+        JSON.stringify({
+          serverUrl: settings.serverUrl,
+        }),
+      );
 
       // Save credentials to Keychain
       await Keychain.setGenericPassword(settings.username, settings.password);
-      
+
       console.log('Settings updated successfully from QR code');
     } catch (error) {
       console.error('Failed to update settings:', error);

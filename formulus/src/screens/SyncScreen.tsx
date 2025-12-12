@@ -1,19 +1,19 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import React, {useEffect, useState, useCallback} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   Alert,
   SafeAreaView,
   ScrollView,
-  AppState
+  AppState,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { syncService } from '../services/SyncService';
-import { useSyncContext } from '../contexts/SyncContext';
+import {syncService} from '../services/SyncService';
+import {useSyncContext} from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
-import { databaseService } from '../database/DatabaseService';
+import {databaseService} from '../database/DatabaseService';
 import {getUserInfo} from '../api/synkronus/Auth';
 
 const SyncScreen = () => {
@@ -81,7 +81,9 @@ const SyncScreen = () => {
 
   // Handle sync operations
   const handleSync = useCallback(async () => {
-    if (syncState.isActive) return; // Prevent multiple syncs
+    if (syncState.isActive) {
+      return;
+    } // Prevent multiple syncs
 
     try {
       startSync(true); // Allow cancellation
@@ -100,7 +102,9 @@ const SyncScreen = () => {
 
   // Handle app updates
   const handleCustomAppUpdate = useCallback(async () => {
-    if (syncState.isActive) return; // Prevent multiple syncs
+    if (syncState.isActive) {
+      return;
+    } // Prevent multiple syncs
 
     try {
       startSync(false); // App updates can't be cancelled easily

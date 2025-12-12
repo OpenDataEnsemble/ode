@@ -1,31 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  rankWith, 
-  ControlProps, 
-  formatIs
-} from '@jsonforms/core';
-import { withJsonFormsControlProps } from '@jsonforms/react';
-import { 
-  Button, 
-  Typography, 
-  Box, 
-  Card, 
-  CardContent, 
+import React, { useState, useEffect } from "react";
+import { rankWith, ControlProps, formatIs } from "@jsonforms/core";
+import { withJsonFormsControlProps } from "@jsonforms/react";
+import {
+  Button,
+  Typography,
+  Box,
+  Card,
+  CardContent,
   Chip,
   Alert,
   CircularProgress,
   Grid,
-  Divider
-} from '@mui/material';
-import { 
+  Divider,
+} from "@mui/material";
+import {
   Videocam as VideocamIcon,
   PlayArrow as PlayIcon,
   Pause as PauseIcon,
   Stop as StopIcon,
   Refresh as RefreshIcon,
   Delete as DeleteIcon,
-  VideoFile as VideoFileIcon
-} from '@mui/icons-material';
+  VideoFile as VideoFileIcon,
+} from "@mui/icons-material";
 // Note: The shared Formulus interface v1.1.0 no longer exposes a
 // requestVideo() API. This renderer therefore does not actively
 // trigger native video recording anymore. It can still display
@@ -50,22 +46,24 @@ interface VideoDisplayData {
 
 const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
   const { data, handleChange, path, errors, schema, uischema, enabled } = props;
-  
+
   const [videoData, setVideoData] = useState<VideoDisplayData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
-  
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(
+    null,
+  );
+
   // Parse existing video data if present
   useEffect(() => {
-    if (data && typeof data === 'string') {
+    if (data && typeof data === "string") {
       try {
         const parsed = JSON.parse(data);
         if (parsed && parsed.filename && parsed.uri) {
           setVideoData(parsed);
         }
       } catch (e) {
-        console.warn('Failed to parse existing video data:', e);
+        console.warn("Failed to parse existing video data:", e);
       }
     }
   }, [data]);
@@ -74,7 +72,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
     // The current Formulus interface version does not provide a
     // requestVideo() API. Surface a clear message so users are not
     // confused when pressing the button.
-    setError('Video recording is not supported in this version of the app.');
+    setError("Video recording is not supported in this version of the app.");
   };
 
   const handleDeleteVideo = () => {
@@ -90,7 +88,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
 
   const handlePlayPause = () => {
     if (!videoElement || !videoData) return;
-    
+
     if (isPlaying) {
       videoElement.pause();
       setIsPlaying(false);
@@ -102,24 +100,24 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
 
   const handleStop = () => {
     if (!videoElement) return;
-    
+
     videoElement.pause();
     videoElement.currentTime = 0;
     setIsPlaying(false);
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatTimestamp = (timestamp: string): string => {
@@ -137,9 +135,9 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
     <Box sx={{ mb: 2 }}>
       {/* Field Label */}
       <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-        {schema.title || 'Video Recording'}
+        {schema.title || "Video Recording"}
       </Typography>
-      
+
       {/* Field Description */}
       {schema.description && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -157,7 +155,9 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
       {/* Validation Errors */}
       {hasValidationErrors && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {Array.isArray(errors) ? errors.map((error: any) => error.message).join(', ') : errors}
+          {Array.isArray(errors)
+            ? errors.map((error: any) => error.message).join(", ")
+            : errors}
         </Alert>
       )}
 
@@ -165,15 +165,15 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
       {videoData ? (
         <Card variant="outlined" sx={{ mb: 2 }}>
           <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
               <VideoFileIcon color="primary" sx={{ mr: 1 }} />
               <Typography variant="h6" component="div">
                 Video Recorded
               </Typography>
-              <Box sx={{ ml: 'auto' }}>
-                <Chip 
-                  label={videoData.metadata.format.toUpperCase()} 
-                  color="success" 
+              <Box sx={{ ml: "auto" }}>
+                <Chip
+                  label={videoData.metadata.format.toUpperCase()}
+                  color="success"
                   size="small"
                   icon={<VideocamIcon />}
                 />
@@ -181,29 +181,33 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
             </Box>
 
             {/* Video Player */}
-            <Box sx={{ mb: 2, textAlign: 'center' }}>
+            <Box sx={{ mb: 2, textAlign: "center" }}>
               <video
                 ref={setVideoElement}
                 src={videoData.uri}
                 style={{
-                  width: '100%',
-                  maxWidth: '400px',
-                  height: 'auto',
-                  borderRadius: '8px',
-                  backgroundColor: '#000'
+                  width: "100%",
+                  maxWidth: "400px",
+                  height: "auto",
+                  borderRadius: "8px",
+                  backgroundColor: "#000",
                 }}
                 onEnded={() => setIsPlaying(false)}
                 onLoadedMetadata={() => {
                   // Video loaded successfully
                 }}
                 onError={() => {
-                  console.warn('Video playback error - this is expected in development with mock URIs');
+                  console.warn(
+                    "Video playback error - this is expected in development with mock URIs",
+                  );
                 }}
               />
             </Box>
 
             {/* Video Controls */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2 }}>
+            <Box
+              sx={{ display: "flex", justifyContent: "center", gap: 1, mb: 2 }}
+            >
               <Button
                 variant="outlined"
                 startIcon={isPlaying ? <PauseIcon /> : <PlayIcon />}
@@ -211,7 +215,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
                 disabled={isDisabled}
                 size="small"
               >
-                {isPlaying ? 'Pause' : 'Play'}
+                {isPlaying ? "Pause" : "Play"}
               </Button>
               <Button
                 variant="outlined"
@@ -229,11 +233,14 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
                 <Typography variant="body2" color="text.secondary">
                   Filename
                 </Typography>
-                <Typography variant="body1" sx={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>
+                <Typography
+                  variant="body1"
+                  sx={{ fontFamily: "monospace", fontSize: "0.9rem" }}
+                >
                   {videoData.filename}
                 </Typography>
               </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
                   Duration
@@ -272,7 +279,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
             </Grid>
 
             {/* Action Buttons */}
-            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+            <Box sx={{ mt: 2, display: "flex", gap: 1 }}>
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
@@ -303,24 +310,28 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
             onClick={handleRecordVideo}
             disabled={isDisabled}
             fullWidth
-            sx={{ 
+            sx={{
               py: 1.5,
-              fontSize: '1rem',
-              textTransform: 'none'
+              fontSize: "1rem",
+              textTransform: "none",
             }}
           >
             Record Video
           </Button>
-          
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mt: 1, display: "block", textAlign: "center" }}
+          >
             This will open your device's camera to record a video
           </Typography>
         </Box>
       )}
 
       {/* Debug Information (only in development) */}
-      {process.env.NODE_ENV === 'development' && (
-        <Box sx={{ mt: 2, p: 1, bgcolor: 'grey.100', borderRadius: 1 }}>
+      {process.env.NODE_ENV === "development" && (
+        <Box sx={{ mt: 2, p: 1, bgcolor: "grey.100", borderRadius: 1 }}>
           <Typography variant="caption" color="text.secondary">
             Debug - Path: {path} | Data: {JSON.stringify(data)}
           </Typography>
@@ -333,7 +344,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = (props) => {
 // Tester function to determine when this renderer should be used
 export const videoQuestionTester = rankWith(
   10, // Priority - higher than default string renderer
-  formatIs('video')
+  formatIs("video"),
 );
 
 export default withJsonFormsControlProps(VideoQuestionRenderer);

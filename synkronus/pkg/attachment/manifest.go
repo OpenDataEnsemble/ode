@@ -29,10 +29,10 @@ type AttachmentManifestRequest struct {
 
 // AttachmentManifestResponse represents the response containing attachment manifest
 type AttachmentManifestResponse struct {
-	CurrentVersion      int64                 `json:"current_version"`
-	Operations          []AttachmentOperation `json:"operations"`
-	TotalDownloadSize   int64                 `json:"total_download_size"`
-	OperationCount      OperationCount        `json:"operation_count"`
+	CurrentVersion    int64                 `json:"current_version"`
+	Operations        []AttachmentOperation `json:"operations"`
+	TotalDownloadSize int64                 `json:"total_download_size"`
+	OperationCount    OperationCount        `json:"operation_count"`
 }
 
 // OperationCount represents the count of operations by type
@@ -45,19 +45,19 @@ type OperationCount struct {
 type ManifestService interface {
 	// GetManifest returns attachment operations since the specified version
 	GetManifest(ctx context.Context, req AttachmentManifestRequest) (*AttachmentManifestResponse, error)
-	
+
 	// RecordOperation records an attachment operation for sync tracking
 	RecordOperation(ctx context.Context, attachmentID, operation, clientID string, size *int, contentType *string) error
-	
+
 	// Initialize initializes the manifest service
 	Initialize(ctx context.Context) error
 }
 
 // manifestService implements ManifestService
 type manifestService struct {
-	db     *sql.DB
-	cfg    *config.Config
-	log    *logger.Logger
+	db      *sql.DB
+	cfg     *config.Config
+	log     *logger.Logger
 	baseURL string
 }
 
@@ -65,7 +65,7 @@ type manifestService struct {
 func NewManifestService(db *sql.DB, cfg *config.Config, log *logger.Logger) ManifestService {
 	// Construct base URL from config port
 	baseURL := fmt.Sprintf("http://localhost:%s", cfg.Port)
-	
+
 	return &manifestService{
 		db:      db,
 		cfg:     cfg,
@@ -85,15 +85,15 @@ func (s *manifestService) Initialize(ctx context.Context) error {
 			AND table_name = 'attachment_operations'
 		)
 	`).Scan(&exists)
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to check attachment_operations table: %w", err)
 	}
-	
+
 	if !exists {
 		return fmt.Errorf("attachment_operations table does not exist - please run database migrations")
 	}
-	
+
 	s.log.Info("Attachment manifest service initialized")
 	return nil
 }
@@ -173,7 +173,7 @@ func (s *manifestService) GetManifest(ctx context.Context, req AttachmentManifes
 			op.Operation = "download" // Normalize to download for client
 			downloadURL := s.generateDownloadURL(op.AttachmentID)
 			op.DownloadURL = &downloadURL
-			
+
 			if op.Size != nil {
 				totalDownloadSize += int64(*op.Size)
 			}

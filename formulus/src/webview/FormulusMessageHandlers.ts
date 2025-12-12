@@ -1,10 +1,10 @@
 /*
-This is where the actual implementation of the methods happens on the React Native side. 
+This is where the actual implementation of the methods happens on the React Native side.
 It handles the messages received from the WebView and executes the corresponding native functionality.
 */
-import { PermissionsAndroid, Platform } from 'react-native';
-import { GeolocationService } from '../services/GeolocationService';
-import { WebViewMessageEvent, WebView } from 'react-native-webview';
+import {PermissionsAndroid, Platform} from 'react-native';
+import {GeolocationService} from '../services/GeolocationService';
+import {WebViewMessageEvent, WebView} from 'react-native-webview';
 import RNFS from 'react-native-fs';
 
 export type HandlerArgs = {
@@ -29,12 +29,18 @@ class SimpleEventEmitter {
   }
 
   removeListener(eventName: string, listener: Listener): void {
-    if (!this.listeners[eventName]) return;
-    this.listeners[eventName] = this.listeners[eventName].filter(l => l !== listener);
+    if (!this.listeners[eventName]) {
+      return;
+    }
+    this.listeners[eventName] = this.listeners[eventName].filter(
+      l => l !== listener,
+    );
   }
 
   emit(eventName: string, ...args: any[]): void {
-    if (!this.listeners[eventName]) return;
+    if (!this.listeners[eventName]) {
+      return;
+    }
     this.listeners[eventName].forEach(listener => listener(...args));
   }
 }
@@ -43,12 +49,15 @@ class SimpleEventEmitter {
 export const appEvents = new SimpleEventEmitter();
 
 // Track pending form operations with their promise resolvers
-const pendingFormOperations = new Map<string, {
-  resolve: (result: FormCompletionResult) => void;
-  reject: (error: Error) => void;
-  formType: string;
-  startTime: number;
-}>();
+const pendingFormOperations = new Map<
+  string,
+  {
+    resolve: (result: FormCompletionResult) => void;
+    reject: (error: Error) => void;
+    formType: string;
+    startTime: number;
+  }
+>();
 
 // Internal helper to start a formplayer operation and return a promise that resolves
 // when the form is completed or closed. This is used both by the WebView-driven
@@ -60,7 +69,9 @@ const startFormplayerOperation = (
   savedData: Record<string, any> = {},
   observationId: string | null = null,
 ): Promise<FormCompletionResult> => {
-  const operationId = `${formType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const operationId = `${formType}_${Date.now()}_${Math.random()
+    .toString(36)
+    .substr(2, 9)}`;
 
   return new Promise<FormCompletionResult>((resolve, reject) => {
     // Store the promise resolvers
@@ -68,7 +79,7 @@ const startFormplayerOperation = (
       resolve,
       reject,
       formType,
-      startTime: Date.now()
+      startTime: Date.now(),
     });
 
     // Emit the event with the operation ID so the HomeScreen/FormplayerModal
@@ -104,17 +115,34 @@ export const openFormplayerFromNative = (
 };
 
 // Global reference to the active FormplayerModal for direct submission handling
-let activeFormplayerModalRef: { handleSubmission: (data: { formType: string; finalData: Record<string, any> }) => Promise<string> } | null = null;
+let activeFormplayerModalRef: {
+  handleSubmission: (data: {
+    formType: string;
+    finalData: Record<string, any>;
+  }) => Promise<string>;
+} | null = null;
 
-export const setActiveFormplayerModal = (modalRef: { handleSubmission: (data: { formType: string; finalData: Record<string, any> }) => Promise<string> } | null) => {
+export const setActiveFormplayerModal = (
+  modalRef: {
+    handleSubmission: (data: {
+      formType: string;
+      finalData: Record<string, any>;
+    }) => Promise<string>;
+  } | null,
+) => {
   activeFormplayerModalRef = modalRef;
 };
 
 // Helper functions to resolve form operations
-export const resolveFormOperation = (operationId: string, result: FormCompletionResult) => {
+export const resolveFormOperation = (
+  operationId: string,
+  result: FormCompletionResult,
+) => {
   const operation = pendingFormOperations.get(operationId);
   if (operation) {
-    console.log(`Resolving form operation ${operationId} with status: ${result.status}`);
+    console.log(
+      `Resolving form operation ${operationId} with status: ${result.status}`,
+    );
     operation.resolve(result);
     pendingFormOperations.delete(operationId);
   } else {
@@ -125,7 +153,10 @@ export const resolveFormOperation = (operationId: string, result: FormCompletion
 export const rejectFormOperation = (operationId: string, error: Error) => {
   const operation = pendingFormOperations.get(operationId);
   if (operation) {
-    console.log(`Rejecting form operation ${operationId} with error:`, error.message);
+    console.log(
+      `Rejecting form operation ${operationId} with error:`,
+      error.message,
+    );
     operation.reject(error);
     pendingFormOperations.delete(operationId);
   } else {
@@ -134,18 +165,24 @@ export const rejectFormOperation = (operationId: string, error: Error) => {
 };
 
 // Helper to resolve operation by form type (fallback when operationId is not available)
-export const resolveFormOperationByType = (formType: string, result: FormCompletionResult) => {
+export const resolveFormOperationByType = (
+  formType: string,
+  result: FormCompletionResult,
+) => {
   // Find the most recent operation for this form type
   let mostRecentOperation: string | null = null;
   let mostRecentTime = 0;
-  
+
   for (const [operationId, operation] of pendingFormOperations.entries()) {
-    if (operation.formType === formType && operation.startTime > mostRecentTime) {
+    if (
+      operation.formType === formType &&
+      operation.startTime > mostRecentTime
+    ) {
       mostRecentOperation = operationId;
       mostRecentTime = operation.startTime;
     }
   }
-  
+
   if (mostRecentOperation) {
     resolveFormOperation(mostRecentOperation, result);
   } else {
@@ -154,9 +191,22 @@ export const resolveFormOperationByType = (formType: string, result: FormComplet
 };
 
 // Helper function to save form data to storage
-const saveFormData = async (formType: string, data: any, observationId: string | null, isPartial = true) => {
+const saveFormData = async (
+  formType: string,
+  data: any,
+  observationId: string | null,
+  isPartial = true,
+) => {
   const isUpdate = observationId !== null;
-  console.log(`Message Handler: Saving form data: ${isUpdate ? 'Update' : 'New'} observation`, formType, data, observationId, isPartial);
+  console.log(
+    `Message Handler: Saving form data: ${
+      isUpdate ? 'Update' : 'New'
+    } observation`,
+    formType,
+    data,
+    observationId,
+    isPartial,
+  );
   try {
     let observation: Partial<Observation> = {
       formType,
@@ -169,18 +219,18 @@ const saveFormData = async (formType: string, data: any, observationId: string |
     } else {
       observation.createdAt = new Date();
     }
-    
-    const formService =  await FormService.getInstance()
-    
-    const id = isUpdate 
+
+    const formService = await FormService.getInstance();
+
+    const id = isUpdate
       ? await formService.updateObservation(observationId, data)
       : await formService.addNewObservation(formType, data);
-    
+
     console.log(`${isUpdate ? 'Updated' : 'Saved'} observation with id: ${id}`);
-    
+
     // Don't emit closeFormplayer here - let FormplayerModal handle closing after its own submission process
     // appEvents.emit('closeFormplayer', { observationId: id, isUpdate });
-    
+
     return id;
 
     // TODO: Handle attachments/files
@@ -189,7 +239,6 @@ const saveFormData = async (formType: string, data: any, observationId: string |
     // if (!exists) {
     //   await RNFS.mkdir(directory);
     // }
-    
   } catch (error) {
     console.error('Error saving form data:', error);
     return null;
@@ -204,7 +253,7 @@ const loadFormData = async (formType: string) => {
     if (!exists) {
       return null;
     }
-    
+
     const data = await RNFS.readFile(filePath, 'utf8');
     return JSON.parse(data);
   } catch (error) {
@@ -213,14 +262,15 @@ const loadFormData = async (formType: string) => {
   }
 };
 
-
-
-import { FormulusMessageHandlers } from './FormulusMessageHandlers.types';
-import { FormInitData, FormulusInterface, FormCompletionResult } from './FormulusInterfaceDefinition';
-import { FormService } from '../services/FormService';
-import { FormObservationRepository } from '../database/FormObservationRepository';
-import { Observation } from '../database/models/Observation';
-
+import {FormulusMessageHandlers} from './FormulusMessageHandlers.types';
+import {
+  FormInitData,
+  FormulusInterface,
+  FormCompletionResult,
+} from './FormulusInterfaceDefinition';
+import {FormService} from '../services/FormService';
+import {FormObservationRepository} from '../database/FormObservationRepository';
+import {Observation} from '../database/models/Observation';
 
 export function createFormulusMessageHandlers(): FormulusMessageHandlers {
   return {
@@ -231,47 +281,73 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onGetVersion: async (): Promise<string> => {
       console.log('FormulusMessageHandlers: onGetVersion handler invoked.');
       // Replace with your actual version retrieval logic.
-      const version = "0.1.0-native"; // Example version
+      const version = '0.1.0-native'; // Example version
       return version;
     },
-    onSubmitObservation: async (data: { formType: string; finalData: Record<string, any> }) => {
-      const { formType, finalData } = data;
-      console.log("FormulusMessageHandlers: onSubmitObservation handler invoked.", { formType, finalData });
-      
+    onSubmitObservation: async (data: {
+      formType: string;
+      finalData: Record<string, any>;
+    }) => {
+      const {formType, finalData} = data;
+      console.log(
+        'FormulusMessageHandlers: onSubmitObservation handler invoked.',
+        {formType, finalData},
+      );
+
       // Use the active FormplayerModal's handleSubmission method if available
       if (activeFormplayerModalRef) {
-        console.log("FormulusMessageHandlers: Delegating to FormplayerModal.handleSubmission");
-        return await activeFormplayerModalRef.handleSubmission({ formType, finalData });
+        console.log(
+          'FormulusMessageHandlers: Delegating to FormplayerModal.handleSubmission',
+        );
+        return await activeFormplayerModalRef.handleSubmission({
+          formType,
+          finalData,
+        });
       } else {
         // Fallback to the old method if no modal is active
-        console.warn("FormulusMessageHandlers: No active FormplayerModal, using fallback saveFormData");
+        console.warn(
+          'FormulusMessageHandlers: No active FormplayerModal, using fallback saveFormData',
+        );
         return await saveFormData(formType, finalData, null, false);
       }
     },
-    onUpdateObservation: async (data: { observationId: string; formType: string; finalData: Record<string, any> }) => {
-      const { observationId, formType, finalData } = data;
-      console.log("FormulusMessageHandlers: onUpdateObservation handler invoked.", { observationId, formType, finalData });
+    onUpdateObservation: async (data: {
+      observationId: string;
+      formType: string;
+      finalData: Record<string, any>;
+    }) => {
+      const {observationId, formType, finalData} = data;
+      console.log(
+        'FormulusMessageHandlers: onUpdateObservation handler invoked.',
+        {observationId, formType, finalData},
+      );
       const id = await saveFormData(formType, finalData, observationId, false);
       return id;
     },
     onRequestCamera: async (fieldId: string): Promise<any> => {
       console.log('Request camera handler called', fieldId);
-      
+
       return new Promise((resolve, reject) => {
         try {
           // Import react-native-image-picker directly
           const ImagePicker = require('react-native-image-picker');
-          
-          if (!ImagePicker || (!ImagePicker.showImagePicker && !ImagePicker.launchImageLibrary)) {
-            console.error('react-native-image-picker not available or not properly linked');
+
+          if (
+            !ImagePicker ||
+            (!ImagePicker.showImagePicker && !ImagePicker.launchImageLibrary)
+          ) {
+            console.error(
+              'react-native-image-picker not available or not properly linked',
+            );
             resolve({
               fieldId,
               status: 'error',
-              message: 'Image picker functionality not available. Please ensure react-native-image-picker is properly installed and linked.'
+              message:
+                'Image picker functionality not available. Please ensure react-native-image-picker is properly installed and linked.',
             });
             return;
           }
-          
+
           // Image picker options for react-native-image-picker
           const options = {
             mediaType: 'photo' as const,
@@ -284,84 +360,102 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               path: 'images',
             },
           };
-          
-          console.log('Launching image picker with camera and gallery options, options:', options);
-          
+
+          console.log(
+            'Launching image picker with camera and gallery options, options:',
+            options,
+          );
+
           // Import Alert for showing action sheet
-          const { Alert } = require('react-native');
-          
+          const {Alert} = require('react-native');
+
           // Common response handler for both camera and gallery
           const handleImagePickerResponse = (response: any) => {
             console.log('Camera response received:', response);
-            
+
             if (response.didCancel) {
               console.log('User cancelled camera');
               resolve({
                 fieldId,
                 status: 'cancelled',
-                message: 'Camera operation cancelled by user'
+                message: 'Camera operation cancelled by user',
               });
             } else if (response.errorCode || response.errorMessage) {
-              console.error('Camera error:', response.errorCode, response.errorMessage);
+              console.error(
+                'Camera error:',
+                response.errorCode,
+                response.errorMessage,
+              );
               resolve({
                 fieldId,
                 status: 'error',
-                message: response.errorMessage || `Camera error: ${response.errorCode}`
+                message:
+                  response.errorMessage ||
+                  `Camera error: ${response.errorCode}`,
               });
             } else if (response.assets && response.assets.length > 0) {
               // Photo captured successfully
               const asset = response.assets[0];
-              
+
               // Generate GUID for the image
               const generateGUID = () => {
-                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-                  const r = Math.random() * 16 | 0;
-                  const v = c == 'x' ? r : (r & 0x3 | 0x8);
-                  return v.toString(16);
-                });
+                return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+                  /[xy]/g,
+                  function (c) {
+                    const r = (Math.random() * 16) | 0;
+                    const v = c == 'x' ? r : (r & 0x3) | 0x8;
+                    return v.toString(16);
+                  },
+                );
               };
-              
+
               const imageGuid = generateGUID();
               const guidFilename = `${imageGuid}.jpg`;
-              
-              console.log('Photo captured, processing for persistent storage:', {
-                imageGuid,
-                guidFilename,
-                tempUri: asset.uri,
-                size: asset.fileSize
-              });
-              
+
+              console.log(
+                'Photo captured, processing for persistent storage:',
+                {
+                  imageGuid,
+                  guidFilename,
+                  tempUri: asset.uri,
+                  size: asset.fileSize,
+                },
+              );
+
               // Use RNFS to copy the camera image to both attachment locations
               const RNFS = require('react-native-fs');
               const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
               const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
-              
+
               const mainFilePath = `${attachmentsDirectory}/${guidFilename}`;
               const pendingFilePath = `${pendingUploadDirectory}/${guidFilename}`;
-              
+
               console.log('Copying camera image to attachment sync system:', {
                 source: asset.uri,
                 mainPath: mainFilePath,
-                pendingPath: pendingFilePath
+                pendingPath: pendingFilePath,
               });
-              
+
               // Ensure both directories exist and copy file to both locations
               Promise.all([
                 RNFS.mkdir(attachmentsDirectory),
-                RNFS.mkdir(pendingUploadDirectory)
+                RNFS.mkdir(pendingUploadDirectory),
               ])
                 .then(() => {
                   // Copy to both locations simultaneously
                   return Promise.all([
                     RNFS.copyFile(asset.uri, mainFilePath),
-                    RNFS.copyFile(asset.uri, pendingFilePath)
+                    RNFS.copyFile(asset.uri, pendingFilePath),
                   ]);
                 })
                 .then(() => {
-                  console.log('Image saved to attachment sync system:', mainFilePath);
-                  
+                  console.log(
+                    'Image saved to attachment sync system:',
+                    mainFilePath,
+                  );
+
                   const webViewUrl = `file://${mainFilePath}`;
-                  
+
                   resolve({
                     fieldId,
                     status: 'success',
@@ -382,17 +476,20 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                         originalFileName: asset.fileName || guidFilename,
                         persistentStorage: true,
                         storageLocation: 'attachments_with_upload_queue',
-                        syncReady: true
-                      }
-                    }
+                        syncReady: true,
+                      },
+                    },
                   });
                 })
                 .catch((error: any) => {
-                  console.error('Error copying image to attachment sync system:', error);
+                  console.error(
+                    'Error copying image to attachment sync system:',
+                    error,
+                  );
                   resolve({
                     fieldId,
                     status: 'error',
-                    message: `Failed to save image: ${error.message}`
+                    message: `Failed to save image: ${error.message}`,
                   });
                 });
             } else {
@@ -400,56 +497,55 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               resolve({
                 fieldId,
                 status: 'error',
-                message: 'Unexpected camera response format'
+                message: 'Unexpected camera response format',
               });
             }
           };
-          
+
           // Show action sheet with camera and gallery options
-          Alert.alert(
-            'Select Image',
-            'Choose an option',
-            [
-              {
-                text: 'Camera',
-                onPress: () => {
-                  ImagePicker.launchCamera(options, handleImagePickerResponse);
-                }
+          Alert.alert('Select Image', 'Choose an option', [
+            {
+              text: 'Camera',
+              onPress: () => {
+                ImagePicker.launchCamera(options, handleImagePickerResponse);
               },
-              {
-                text: 'Gallery',
-                onPress: () => {
-                  ImagePicker.launchImageLibrary(options, handleImagePickerResponse);
-                }
+            },
+            {
+              text: 'Gallery',
+              onPress: () => {
+                ImagePicker.launchImageLibrary(
+                  options,
+                  handleImagePickerResponse,
+                );
               },
-              {
-                text: 'Cancel',
-                style: 'cancel',
-                onPress: () => {
-                  resolve({
-                    fieldId,
-                    status: 'cancelled',
-                    message: 'Image selection cancelled by user'
-                  });
-                }
-              }
-            ]
-          );
-          
+            },
+            {
+              text: 'Cancel',
+              style: 'cancel',
+              onPress: () => {
+                resolve({
+                  fieldId,
+                  status: 'cancelled',
+                  message: 'Image selection cancelled by user',
+                });
+              },
+            },
+          ]);
         } catch (error) {
           console.error('Error in native camera handler:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
           resolve({
             fieldId,
             status: 'error',
-            message: `Camera error: ${errorMessage}`
+            message: `Camera error: ${errorMessage}`,
           });
         }
       });
     },
     onRequestQrcode: async (fieldId: string): Promise<any> => {
       console.log('Request QR code handler called', fieldId);
-      
+
       return new Promise((resolve, reject) => {
         try {
           // Emit event to open QR scanner modal
@@ -458,23 +554,23 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             onResult: (result: any) => {
               console.log('QR scan result received:', result);
               resolve(result);
-            }
+            },
           });
-          
         } catch (error) {
           console.error('Error in QR code handler:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
           resolve({
             fieldId,
             status: 'error',
-            message: `QR code error: ${errorMessage}`
+            message: `QR code error: ${errorMessage}`,
           });
         }
       });
     },
     onRequestSignature: async (fieldId: string): Promise<any> => {
       console.log('Request signature handler called', fieldId);
-      
+
       return new Promise((resolve, reject) => {
         try {
           // Emit event to open signature capture modal
@@ -482,29 +578,33 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             fieldId,
             onResult: async (result: any) => {
               console.log('Signature capture result received:', result);
-              
+
               try {
                 // If the result contains base64 data, save it to file and return URI
-                if (result.status === 'success' && result.data && result.data.base64) {
+                if (
+                  result.status === 'success' &&
+                  result.data &&
+                  result.data.base64
+                ) {
                   const RNFS = require('react-native-fs');
-                  
+
                   // Generate a unique filename
                   const timestamp = Date.now();
                   const filename = `signature_${timestamp}.png`;
-                  
+
                   // Create signatures directory path
                   const signaturesDir = `${RNFS.DocumentDirectoryPath}/signatures`;
                   const filePath = `${signaturesDir}/${filename}`;
-                  
+
                   // Ensure signatures directory exists
                   await RNFS.mkdir(signaturesDir);
-                  
+
                   // Write base64 data to file
                   await RNFS.writeFile(filePath, result.data.base64, 'base64');
-                  
+
                   // Get file stats for size
                   const fileStats = await RNFS.stat(filePath);
-                  
+
                   // Create updated result with URI instead of base64
                   const updatedResult = {
                     fieldId,
@@ -513,16 +613,17 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                       type: 'signature' as const,
                       filename,
                       uri: `file://${filePath}`,
-                      timestamp: result.data.timestamp || new Date().toISOString(),
+                      timestamp:
+                        result.data.timestamp || new Date().toISOString(),
                       metadata: {
                         width: result.data.metadata?.width || 400,
                         height: result.data.metadata?.height || 200,
                         size: fileStats.size,
-                        strokeCount: result.data.metadata?.strokeCount || 1
-                      }
-                    }
+                        strokeCount: result.data.metadata?.strokeCount || 1,
+                      },
+                    },
                   };
-                  
+
                   console.log('Signature saved to file:', filePath);
                   resolve(updatedResult);
                 } else {
@@ -534,32 +635,33 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                 resolve({
                   fieldId,
                   status: 'error',
-                  message: `Error saving signature: ${fileError.message}`
+                  message: `Error saving signature: ${fileError.message}`,
                 });
               }
-            }
+            },
           });
-          
         } catch (error) {
           console.error('Error in signature handler:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
           resolve({
             fieldId,
             status: 'error',
-            message: `Signature error: ${errorMessage}`
+            message: `Signature error: ${errorMessage}`,
           });
         }
       });
     },
     onRequestLocation: async (fieldId: string): Promise<any> => {
       console.log('Request location handler called', fieldId);
-      
+
       return new Promise(async (resolve, reject) => {
         try {
           // Get current location using the existing GeolocationService
           const geolocationService = GeolocationService.getInstance();
-          const position = await geolocationService.getCurrentLocationForObservation();
-          
+          const position =
+            await geolocationService.getCurrentLocationForObservation();
+
           if (position) {
             // Convert ObservationGeolocation to LocationResultData format
             const locationResult = {
@@ -572,10 +674,10 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                 accuracy: position.accuracy,
                 altitude: position.altitude,
                 altitudeAccuracy: position.altitude_accuracy,
-                timestamp: new Date().toISOString()
-              }
+                timestamp: new Date().toISOString(),
+              },
             };
-            
+
             console.log('Location captured successfully:', locationResult);
             resolve(locationResult);
           } else {
@@ -583,25 +685,25 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           }
         } catch (error: any) {
           console.error('Location capture failed:', error);
-          
+
           const errorResult = {
             fieldId,
             status: 'error' as const,
-            message: error.message || 'Location capture failed'
+            message: error.message || 'Location capture failed',
           };
-          
+
           reject(errorResult);
         }
       });
     },
     onRequestVideo: async (fieldId: string): Promise<any> => {
       console.log('Request video handler called', fieldId);
-      
+
       return new Promise((resolve, reject) => {
         try {
           // Import react-native-image-picker directly
           const ImagePicker = require('react-native-image-picker');
-          
+
           const options = {
             mediaType: 'video' as const,
             videoQuality: 'high' as const,
@@ -618,7 +720,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               reject({
                 fieldId,
                 status: 'cancelled',
-                message: 'Video recording was cancelled by user'
+                message: 'Video recording was cancelled by user',
               });
               return;
             }
@@ -628,28 +730,30 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               reject({
                 fieldId,
                 status: 'error',
-                message: `Video recording error: ${response.errorMessage}`
+                message: `Video recording error: ${response.errorMessage}`,
               });
               return;
             }
 
             if (response.assets && response.assets.length > 0) {
               const asset = response.assets[0];
-              
+
               try {
                 // Generate a unique filename
                 const timestamp = Date.now();
-                const filename = `video_${timestamp}.${asset.type?.split('/')[1] || 'mp4'}`;
-                
+                const filename = `video_${timestamp}.${
+                  asset.type?.split('/')[1] || 'mp4'
+                }`;
+
                 // Copy video to app storage directory
                 const destinationPath = `${RNFS.DocumentDirectoryPath}/videos/${filename}`;
-                
+
                 // Ensure videos directory exists
                 await RNFS.mkdir(`${RNFS.DocumentDirectoryPath}/videos`);
-                
+
                 // Copy the video file
                 await RNFS.copyFile(asset.uri, destinationPath);
-                
+
                 const videoResult = {
                   fieldId,
                   status: 'success' as const,
@@ -663,11 +767,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                       format: asset.type?.split('/')[1] || 'mp4',
                       size: asset.fileSize || 0,
                       width: asset.width,
-                      height: asset.height
-                    }
-                  }
+                      height: asset.height,
+                    },
+                  },
                 };
-                
+
                 console.log('Video recorded successfully:', videoResult);
                 resolve(videoResult);
               } catch (fileError: any) {
@@ -675,43 +779,44 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                 reject({
                   fieldId,
                   status: 'error',
-                  message: `Error saving video: ${fileError.message}`
+                  message: `Error saving video: ${fileError.message}`,
                 });
               }
             } else {
               reject({
                 fieldId,
                 status: 'error',
-                message: 'No video data received'
+                message: 'No video data received',
               });
             }
           });
         } catch (error: any) {
           console.error('Error in video handler:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
           reject({
             fieldId,
             status: 'error',
-            message: `Video error: ${errorMessage}`
+            message: `Video error: ${errorMessage}`,
           });
         }
       });
     },
     onRequestFile: async (fieldId: string): Promise<any> => {
       console.log('Request file handler called', fieldId);
-      
+
       try {
         // Import DocumentPicker dynamically to handle cases where it might not be available
         const DocumentPicker = require('@react-native-documents/picker');
-        
+
         // Pick a single file (new API returns array, destructure first item)
         const [result] = await DocumentPicker.pick({
           type: [DocumentPicker.types.allFiles],
           copyTo: 'cachesDirectory', // Copy to cache for access
         });
-        
+
         console.log('File selected:', result);
-        
+
         // Create FileResult object matching our interface
         return {
           fieldId,
@@ -722,13 +827,12 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             size: result.size || 0,
             mimeType: result.type || 'application/octet-stream',
             type: 'file' as const,
-            timestamp: new Date().toISOString()
-          }
+            timestamp: new Date().toISOString(),
+          },
         };
-        
       } catch (error: any) {
         console.log('File selection error or cancelled:', error);
-        
+
         // Check if DocumentPicker is available and if this is a cancellation
         let isCancel = false;
         try {
@@ -737,20 +841,20 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         } catch (importError) {
           // DocumentPicker not available, treat as regular error
         }
-        
+
         if (isCancel) {
           // User cancelled the picker
           return {
             fieldId,
             status: 'cancelled' as const,
-            message: 'File selection was cancelled'
+            message: 'File selection was cancelled',
           };
         } else {
           // Other error occurred
           return {
             fieldId,
             status: 'error' as const,
-            message: error.message || 'Failed to select file'
+            message: error.message || 'Failed to select file',
           };
         }
       }
@@ -759,48 +863,52 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // TODO: implement launch intent logic
       console.log('Launch intent handler called', fieldId, intentSpec);
     },
-    onCallSubform: (fieldId: string, formType: string, options: Record<string, any>) => {
+    onCallSubform: (
+      fieldId: string,
+      formType: string,
+      options: Record<string, any>,
+    ) => {
       // TODO: implement call subform logic
       console.log('Call subform handler called', fieldId, formType, options);
     },
     onRequestAudio: async (fieldId: string): Promise<any> => {
       console.log('Request audio handler called', fieldId);
-      
+
       try {
         // Import NitroSound dynamically to handle cases where it might not be available
         const NitroSound = require('react-native-nitro-sound');
-        
+
         // Create a unique filename for the audio recording
         const timestamp = Date.now();
         const filename = `audio_${timestamp}.m4a`;
         const documentsPath = require('react-native-fs').DocumentDirectoryPath;
         const audioPath = `${documentsPath}/${filename}`;
-        
+
         console.log('Starting audio recording to:', audioPath);
-        
+
         // Start recording
         const recorder = await NitroSound.createRecorder({
           path: audioPath,
           format: 'aac', // AAC format for .m4a files
           quality: 'high',
           sampleRate: 44100,
-          channels: 1
+          channels: 1,
         });
-        
+
         await recorder.start();
-        
+
         // For demo purposes, we'll record for a fixed duration
         // In a real implementation, you'd want user controls for start/stop
         await new Promise<void>(resolve => setTimeout(() => resolve(), 3000)); // 3 second recording
-        
+
         const result = await recorder.stop();
-        
+
         console.log('Audio recording completed:', result);
-        
+
         // Get file stats for metadata
         const RNFS = require('react-native-fs');
         const fileStats = await RNFS.stat(audioPath);
-        
+
         // Create AudioResult object matching our interface
         return {
           fieldId,
@@ -813,32 +921,35 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             metadata: {
               duration: result.duration || 3.0, // Duration in seconds
               format: 'm4a',
-              size: fileStats.size || 0
-            }
-          }
+              size: fileStats.size || 0,
+            },
+          },
         };
-        
       } catch (error: any) {
         console.log('Audio recording error:', error);
-        
+
         // Check if this is a user cancellation or permission error
-        if (error.code === 'PERMISSION_DENIED' || error.message?.includes('permission')) {
+        if (
+          error.code === 'PERMISSION_DENIED' ||
+          error.message?.includes('permission')
+        ) {
           return {
             fieldId,
             status: 'error' as const,
-            message: 'Microphone permission denied. Please enable microphone access in settings.'
+            message:
+              'Microphone permission denied. Please enable microphone access in settings.',
           };
         } else if (error.code === 'USER_CANCELLED') {
           return {
             fieldId,
             status: 'cancelled' as const,
-            message: 'Audio recording was cancelled'
+            message: 'Audio recording was cancelled',
           };
         } else {
           return {
             fieldId,
             status: 'error' as const,
-            message: error.message || 'Failed to record audio'
+            message: error.message || 'Failed to record audio',
           };
         }
       }
@@ -855,45 +966,79 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // TODO: implement sync status logic
       console.log('Request sync status handler called');
     },
-    onRunLocalModel: (fieldId: string, modelId: string, input: Record<string, any>) => {
+    onRunLocalModel: (
+      fieldId: string,
+      modelId: string,
+      input: Record<string, any>,
+    ) => {
       // TODO: implement run local model logic
       console.log('Run local model handler called', fieldId, modelId, input);
     },
     onGetAvailableForms: async () => {
-      console.log('FormulusMessageHandlers: onGetAvailableForms handler invoked.');
+      console.log(
+        'FormulusMessageHandlers: onGetAvailableForms handler invoked.',
+      );
       // TODO: Implement logic to fetch available forms
       return Promise.resolve([]); // Example: return empty array
     },
-    onGetObservations: async (formType: string, isDraft?: boolean, includeDeleted?: boolean) => {
-      console.log('FormulusMessageHandlers: onGetObservations handler invoked.', { formType, isDraft, includeDeleted });
+    onGetObservations: async (
+      formType: string,
+      isDraft?: boolean,
+      includeDeleted?: boolean,
+    ) => {
+      console.log(
+        'FormulusMessageHandlers: onGetObservations handler invoked.',
+        {formType, isDraft, includeDeleted},
+      );
       if (formType.hasOwnProperty('formType')) {
-        console.debug('FormulusMessageHandlers: onGetObservations handler invoked with formType object, expected string');
+        console.debug(
+          'FormulusMessageHandlers: onGetObservations handler invoked with formType object, expected string',
+        );
         formType = (formType as any).formType;
         isDraft = (formType as any).isDraft;
         includeDeleted = (formType as any).includeDeleted;
       }
       const formService = await FormService.getInstance();
-      const observations = await formService.getObservationsByFormType(formType); //TODO: Handle deleted etc.
+      const observations = await formService.getObservationsByFormType(
+        formType,
+      ); //TODO: Handle deleted etc.
       return observations;
     },
-    onOpenFormplayer: async (data: FormInitData): Promise<FormCompletionResult> => {
-      const { formType, params, savedData, observationId } = data;
-      console.log('FormulusMessageHandlers: onOpenFormplayer handler invoked with data:', data);
+    onOpenFormplayer: async (
+      data: FormInitData,
+    ): Promise<FormCompletionResult> => {
+      const {formType, params, savedData, observationId} = data;
+      console.log(
+        'FormulusMessageHandlers: onOpenFormplayer handler invoked with data:',
+        data,
+      );
       // Delegate to the shared helper so WebView and native callers share the same
       // promise-based behaviour and operation tracking.
-      return startFormplayerOperation(formType, params, savedData, observationId ?? null);
+      return startFormplayerOperation(
+        formType,
+        params,
+        savedData,
+        observationId ?? null,
+      );
     },
-    onFormplayerInitialized: (data: { formType?: string; status?: string }) => {
-      console.log('FormulusMessageHandlers: onFormplayerInitialized handler invoked.', data);
+    onFormplayerInitialized: (data: {formType?: string; status?: string}) => {
+      console.log(
+        'FormulusMessageHandlers: onFormplayerInitialized handler invoked.',
+        data,
+      );
       // Reserved for future hooks (e.g., native-side loading indicators or analytics).
       // Currently used only for logging/diagnostics so other WebViews are unaffected.
     },
     onFormulusReady: () => {
-      console.log('FormulusMessageHandlers: onFormulusReady handler invoked. WebView is ready.');
+      console.log(
+        'FormulusMessageHandlers: onFormulusReady handler invoked. WebView is ready.',
+      );
       // TODO: Perform any actions needed when the WebView content signals it's ready
     },
     onReceiveFocus: () => {
-      console.log('FormulusMessageHandlers: onReceiveFocus handler invoked. WebView is ready.');
+      console.log(
+        'FormulusMessageHandlers: onReceiveFocus handler invoked. WebView is ready.',
+      );
       // TODO: Perform any actions needed when the WebView content signals it's ready
     },
     onUnknownMessage: (message: any) => {

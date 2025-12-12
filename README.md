@@ -35,6 +35,88 @@ ODE is a **young and vibrant open-source project**, and we're incredibly welcomi
 
 ...we'd love to have you join our ensemble! 
 
+## 💻 Development
+
+### Local Setup
+
+Each component has its own directory with specific setup requirements. Refer to individual component READMEs for detailed setup instructions.
+
+### Code Formatting & Linting
+
+Before committing, ensure your code passes all formatting and linting checks. The CI pipeline will fail if these checks don't pass.
+
+#### Go Projects (synkronus, synkronus-cli)
+
+```bash
+# Format Go code
+go fmt ./...
+
+# Check formatting (run from project directory)
+cd synkronus  # or synkronus-cli
+gofmt -s -l .
+
+# Run linter (requires golangci-lint)
+golangci-lint run
+```
+
+**Installing golangci-lint:**
+```bash
+# macOS
+brew install golangci-lint
+
+# Linux
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.54.2
+
+# Or use the official installer
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+```
+
+#### formulus (React Native)
+
+```bash
+cd formulus
+
+# Run ESLint
+npm run lint
+
+# Check Prettier formatting
+npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}"
+
+# Auto-fix formatting issues
+npx prettier --write "**/*.{js,jsx,ts,tsx,json,css,md}"
+```
+
+#### formulus-formplayer (React Web)
+
+```bash
+cd formulus-formplayer
+
+# Run ESLint
+npm run lint
+
+# Check Prettier formatting
+npx prettier --check "**/*.{js,jsx,ts,tsx,json,css,md}"
+
+# Auto-fix formatting issues
+npm run format
+```
+
+### Running Tests Locally
+
+```bash
+# Go projects
+cd synkronus  # or synkronus-cli
+go test -race -coverprofile=coverage.out ./...
+
+# formulus
+cd formulus
+npm test -- --coverage --watchAll=false
+
+# formulus-formplayer
+cd formulus-formplayer
+npm test -- --coverage --watchAll=false
+```
+
 ## 🤝 Contributing
 
 We believe that diverse perspectives and varied skill sets make our project stronger. Don't worry if you're new to open source or if you think your skills might not be "technical enough" - there's a place for everyone here.

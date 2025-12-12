@@ -206,7 +206,7 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 		s.log.Error("Failed to begin transaction", "error", err)
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	
+
 	committed := false
 	defer func() {
 		if !committed {

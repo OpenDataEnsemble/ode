@@ -84,4 +84,3 @@ const MainTabNavigator: React.FC = () => {
 };
 
 export default MainTabNavigator;
-

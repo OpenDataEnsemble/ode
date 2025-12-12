@@ -36,8 +36,8 @@ func TestAttachmentManifestHandler(t *testing.T) {
 	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{
 		GetManifestFunc: func(ctx context.Context, req attachment.AttachmentManifestRequest) (*attachment.AttachmentManifestResponse, error) {
 			return &attachment.AttachmentManifestResponse{
-				CurrentVersion:    45,
-				Operations:        []attachment.AttachmentOperation{
+				CurrentVersion: 45,
+				Operations: []attachment.AttachmentOperation{
 					{
 						Operation:    "download",
 						AttachmentID: "test-attachment-123.jpg",

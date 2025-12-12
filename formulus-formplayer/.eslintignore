@@ -1,0 +1,18 @@
+# Build output
+build/
+dist/
+
+# Dependencies
+node_modules/
+
+# Generated files
+*.min.js
+*.bundle.js
+
+# Config files
+*.config.js
+*.config.ts
+
+# Public assets
+public/
+

@@ -1,21 +1,20 @@
 # ProblemDetailErrorsInner
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**field** | **string** |  | [optional] [default to undefined]
-**message** | **string** |  | [optional] [default to undefined]
+| Name        | Type       | Description | Notes                             |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| **field**   | **string** |             | [optional] [default to undefined] |
+| **message** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { ProblemDetailErrorsInner } from './api';
+import {ProblemDetailErrorsInner} from './api';
 
 const instance: ProblemDetailErrorsInner = {
-    field,
-    message,
+  field,
+  message,
 };
 ```
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, {useState, useRef} from 'react';
 import {
   Modal,
   View,
@@ -9,7 +9,7 @@ import {
   Dimensions,
   SafeAreaView,
 } from 'react-native';
-import Signature, { SignatureViewRef } from 'react-native-signature-canvas';
+import Signature, {SignatureViewRef} from 'react-native-signature-canvas';
 
 interface SignatureCaptureModalProps {
   visible: boolean;
@@ -26,7 +26,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
 }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const signatureRef = useRef<SignatureViewRef>(null);
-  const { width, height } = Dimensions.get('window');
+  const {width, height} = Dimensions.get('window');
 
   const handleSignatureEnd = () => {
     setIsCapturing(false);
@@ -46,19 +46,22 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
     if (signature) {
       // Generate GUID for signature
       const generateGUID = () => {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-          const r = Math.random() * 16 | 0;
-          const v = c === 'x' ? r : ((r & 0x3) | 0x8);
-          return v.toString(16);
-        });
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+          /[xy]/g,
+          function (c) {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          },
+        );
       };
 
       const signatureGuid = generateGUID();
       const filename = `${signatureGuid}.png`;
-      
+
       // Extract base64 data from data URL
       const base64Data = signature.split(',')[1];
-      
+
       const signatureResult = {
         fieldId,
         status: 'success',
@@ -72,9 +75,9 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
             width: Math.round(width * 0.9),
             height: Math.round(height * 0.4),
             size: Math.round(base64Data.length * 0.75), // Approximate size
-            strokeCount: 1 // Simplified for this implementation
-          }
-        }
+            strokeCount: 1, // Simplified for this implementation
+          },
+        },
       };
 
       onSignatureCapture(signatureResult);
@@ -94,7 +97,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
     const cancelResult = {
       fieldId,
       status: 'cancelled',
-      message: 'User cancelled signature capture'
+      message: 'User cancelled signature capture',
     };
     onSignatureCapture(cancelResult);
     onClose();
@@ -127,12 +130,13 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
-      onRequestClose={onClose}
-    >
+      onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Capture Signature</Text>
-          <Text style={styles.subtitle}>Draw your signature in the area below</Text>
+          <Text style={styles.subtitle}>
+            Draw your signature in the area below
+          </Text>
         </View>
 
         <View style={styles.signatureContainer}>
@@ -141,7 +145,9 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
             onEnd={handleSignatureEnd}
             onBegin={handleSignatureBegin}
             onOK={handleSignatureResult}
-            onEmpty={() => Alert.alert('Error', 'Please provide a signature before saving.')}
+            onEmpty={() =>
+              Alert.alert('Error', 'Please provide a signature before saving.')
+            }
             descriptionText=""
             clearText="Clear"
             confirmText="Save"
@@ -155,22 +161,19 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.button, styles.clearButton]}
-            onPress={handleClearSignature}
-          >
+            onPress={handleClearSignature}>
             <Text style={styles.clearButtonText}>Clear</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[styles.button, styles.cancelButton]}
-            onPress={handleCancel}
-          >
+            onPress={handleCancel}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             style={[styles.button, styles.saveButton]}
-            onPress={handleSaveSignature}
-          >
+            onPress={handleSaveSignature}>
             <Text style={styles.saveButtonText}>Save Signature</Text>
           </TouchableOpacity>
         </View>
@@ -209,7 +212,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
