@@ -259,13 +259,14 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
             Draw your signature below:
           </Typography>
           <Box sx={{ 
-            border: '2px dashed #ccc', 
+            border: '2px dashed', 
+            borderColor: 'divider',
             borderRadius: 1, 
             p: 1, 
             mb: 2,
             display: 'flex',
             justifyContent: 'center',
-            backgroundColor: '#fafafa'
+            backgroundColor: 'grey.50'
           }}>
             <canvas
               ref={canvasRef}

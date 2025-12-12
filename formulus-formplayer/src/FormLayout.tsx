@@ -145,14 +145,14 @@ const FormLayout: React.FC<FormLayoutProps> = ({
           >
             {previousButton && (
               <Button
-                variant="contained"
+                variant="outlined"
                 onClick={previousButton.onClick}
                 disabled={previousButton.disabled}
                 fullWidth={false}
                 sx={{
-                  // Ensure buttons are touch-friendly
-                  minHeight: { xs: '44px', sm: '36px' }, // iOS recommended touch target
-                  fontSize: { xs: '1rem', sm: '0.875rem' },
+                  // Ensure buttons are touch-friendly (Material Design minimum: 48dp)
+                  minHeight: { xs: '48px', sm: '48px' },
+                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
                 }}
               >
                 {previousButton.label || 'Previous'}
@@ -165,9 +165,9 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 disabled={nextButton.disabled}
                 fullWidth={false}
                 sx={{
-                  // Ensure buttons are touch-friendly
-                  minHeight: { xs: '44px', sm: '36px' }, // iOS recommended touch target
-                  fontSize: { xs: '1rem', sm: '0.875rem' },
+                  // Ensure buttons are touch-friendly (Material Design minimum: 48dp)
+                  minHeight: { xs: '48px', sm: '48px' },
+                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
                 }}
               >
                 {nextButton.label || 'Next'}

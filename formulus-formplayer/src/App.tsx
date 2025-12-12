@@ -3,7 +3,8 @@ import "./App.css";
 import { JsonForms } from "@jsonforms/react";
 import { materialRenderers, materialCells } from "@jsonforms/material-renderers";
 import { JsonSchema7 } from "@jsonforms/core";
-import { Alert, Snackbar, CircularProgress, Box, Typography } from '@mui/material';
+import { Alert, Snackbar, CircularProgress, Box, Typography, ThemeProvider } from '@mui/material';
+import { theme } from './theme';
 import Ajv from 'ajv';
 import addErrors from 'ajv-errors';
 import addFormats from 'ajv-formats';
@@ -557,15 +558,16 @@ function App() {
   });
 
   return (
-    <FormContext.Provider value={{ formInitData }}>
-      <div
-        className="App"
-        style={{
-          display: 'flex',
-          height: '100dvh', // Use dynamic viewport height for mobile keyboard support
-          width: '100%'
-        }}
-      >
+    <ThemeProvider theme={theme}>
+      <FormContext.Provider value={{ formInitData }}>
+        <div
+          className="App"
+          style={{
+            display: 'flex',
+            height: '100dvh', // Use dynamic viewport height for mobile keyboard support
+            width: '100%'
+          }}
+        >
         {/* Main app content - 60% width in development mode */}
         <div
           style={{
@@ -641,7 +643,8 @@ function App() {
           </div>
         )}
       </div>
-    </FormContext.Provider>
+      </FormContext.Provider>
+    </ThemeProvider>
   );
 }
 
