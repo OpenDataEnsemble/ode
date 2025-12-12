@@ -10,3 +10,5 @@ export { default as SyncStatusButtons } from './SyncStatusButtons';
 export type { SortOption, FilterOption } from './FilterBar.types';
 export type { StatusTab } from './StatusTabs';
 export type { SyncStatus } from './SyncStatusButtons';
+export { default as PasswordInput } from './PasswordInput';
+export type { PasswordInputProps } from './PasswordInput';
