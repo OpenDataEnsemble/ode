@@ -1,21 +1,20 @@
 # FieldChange
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**field** | **string** |  | [optional] [default to undefined]
-**type** | **string** |  | [optional] [default to undefined]
+| Name      | Type       | Description | Notes                             |
+| --------- | ---------- | ----------- | --------------------------------- |
+| **field** | **string** |             | [optional] [default to undefined] |
+| **type**  | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { FieldChange } from './api';
+import {FieldChange} from './api';
 
 const instance: FieldChange = {
-    field,
-    type,
+  field,
+  type,
 };
 ```
 

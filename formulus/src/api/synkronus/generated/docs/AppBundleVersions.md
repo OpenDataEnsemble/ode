@@ -1,19 +1,18 @@
 # AppBundleVersions
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**versions** | **Array&lt;string&gt;** |  | [default to undefined]
+| Name         | Type                    | Description | Notes                  |
+| ------------ | ----------------------- | ----------- | ---------------------- |
+| **versions** | **Array&lt;string&gt;** |             | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AppBundleVersions } from './api';
+import {AppBundleVersions} from './api';
 
 const instance: AppBundleVersions = {
-    versions,
+  versions,
 };
 ```
 

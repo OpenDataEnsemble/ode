@@ -1,10 +1,10 @@
-import { synkronusApi } from '../api/synkronus';
+import {synkronusApi} from '../api/synkronus';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SyncProgress } from '../contexts/SyncContext';
-import { notificationService } from './NotificationService';
-import { FormService } from './FormService';
-import { appVersionService } from './AppVersionService';
+import {SyncProgress} from '../contexts/SyncContext';
+import {notificationService} from './NotificationService';
+import {FormService} from './FormService';
+import {appVersionService} from './AppVersionService';
 
 type SyncProgressCallback = (progress: number) => void;
 type SyncStatusCallback = (status: string) => void;
@@ -32,7 +32,9 @@ export class SyncService {
     return () => this.statusCallbacks.delete(callback);
   }
 
-  public subscribeToProgressUpdates(callback: SyncProgressDetailCallback): () => void {
+  public subscribeToProgressUpdates(
+    callback: SyncProgressDetailCallback,
+  ): () => void {
     this.progressCallbacks.add(callback);
     return () => this.progressCallbacks.delete(callback);
   }
@@ -44,9 +46,11 @@ export class SyncService {
   private updateProgress(progress: SyncProgress): void {
     this.progressCallbacks.forEach(callback => callback(progress));
     // Note: showSyncProgress is now async, but we don't await to avoid blocking sync
-    notificationService.showSyncProgress(progress).catch(error => 
-      console.warn('Failed to show sync progress notification:', error)
-    );
+    notificationService
+      .showSyncProgress(progress)
+      .catch(error =>
+        console.warn('Failed to show sync progress notification:', error),
+      );
   }
 
   public cancelSync(): void {
@@ -64,7 +68,9 @@ export class SyncService {
     return this.canCancel;
   }
 
-  public async syncObservations(includeAttachments: boolean = false): Promise<number> {
+  public async syncObservations(
+    includeAttachments: boolean = false,
+  ): Promise<number> {
     if (this.isSyncing) {
       throw new Error('Sync already in progress');
     }
@@ -75,9 +81,11 @@ export class SyncService {
     this.updateStatus('Starting sync...');
 
     // Clear any stale notifications before starting new sync
-    notificationService.clearAllSyncNotifications().catch(error => 
-      console.warn('Failed to clear stale notifications:', error)
-    );
+    notificationService
+      .clearAllSyncNotifications()
+      .catch(error =>
+        console.warn('Failed to clear stale notifications:', error),
+      );
 
     try {
       // Phase 1: Pull - Get manifest and download changes
@@ -85,13 +93,15 @@ export class SyncService {
         current: 0,
         total: 4,
         phase: 'pull',
-        details: 'Fetching manifest...'
+        details: 'Fetching manifest...',
       });
 
       if (this.shouldCancel) {
-        notificationService.showSyncCanceled().catch(error => 
-          console.warn('Failed to show sync canceled notification:', error)
-        );
+        notificationService
+          .showSyncCanceled()
+          .catch(error =>
+            console.warn('Failed to show sync canceled notification:', error),
+          );
         throw new Error('Sync cancelled');
       }
 
@@ -100,13 +110,15 @@ export class SyncService {
         current: 1,
         total: 4,
         phase: 'pull',
-        details: 'Downloading observations...'
+        details: 'Downloading observations...',
       });
 
       if (this.shouldCancel) {
-        notificationService.showSyncCanceled().catch(error => 
-          console.warn('Failed to show sync canceled notification:', error)
-        );
+        notificationService
+          .showSyncCanceled()
+          .catch(error =>
+            console.warn('Failed to show sync canceled notification:', error),
+          );
         throw new Error('Sync cancelled');
       }
 
@@ -115,13 +127,15 @@ export class SyncService {
         current: 2,
         total: 4,
         phase: 'push',
-        details: 'Uploading observations...'
+        details: 'Uploading observations...',
       });
 
       if (this.shouldCancel) {
-        notificationService.showSyncCanceled().catch(error => 
-          console.warn('Failed to show sync canceled notification:', error)
-        );
+        notificationService
+          .showSyncCanceled()
+          .catch(error =>
+            console.warn('Failed to show sync canceled notification:', error),
+          );
         throw new Error('Sync cancelled');
       }
 
@@ -131,30 +145,34 @@ export class SyncService {
           current: 3,
           total: 4,
           phase: 'attachments_upload',
-          details: 'Syncing attachments...'
+          details: 'Syncing attachments...',
         });
 
         if (this.shouldCancel) {
-          notificationService.showSyncCanceled().catch(error => 
-            console.warn('Failed to show sync canceled notification:', error)
-          );
+          notificationService
+            .showSyncCanceled()
+            .catch(error =>
+              console.warn('Failed to show sync canceled notification:', error),
+            );
           throw new Error('Sync cancelled');
         }
       }
 
-      const finalVersion = await synkronusApi.syncObservations(includeAttachments);
-      
+      const finalVersion = await synkronusApi.syncObservations(
+        includeAttachments,
+      );
+
       this.updateProgress({
         current: 4,
         total: 4,
         phase: 'push',
-        details: 'Sync completed'
+        details: 'Sync completed',
       });
       await AsyncStorage.setItem('@last_seen_version', finalVersion.toString());
-      
+
       this.updateStatus(`Sync completed @ data version ${finalVersion}`);
       await notificationService.showSyncComplete(true);
-      
+
       return finalVersion;
     } catch (error: any) {
       console.error('Sync failed', error);
@@ -173,13 +191,13 @@ export class SyncService {
   public async checkForUpdates(force: boolean = false): Promise<boolean> {
     try {
       const manifest = await synkronusApi.getManifest();
-      const currentVersion = await AsyncStorage.getItem('@appVersion') || '0';
+      const currentVersion = (await AsyncStorage.getItem('@appVersion')) || '0';
       const updateAvailable = force || manifest.version !== currentVersion;
-      
+
       if (updateAvailable) {
         this.updateStatus(`${this.getStatus()} (Update available)`);
       }
-      
+
       return updateAvailable;
     } catch (error) {
       console.warn('Failed to check for updates', error);
@@ -198,17 +216,17 @@ export class SyncService {
     try {
       // Get manifest to know what version we're downloading
       const manifest = await synkronusApi.getManifest();
-      
+
       await this.downloadAppBundle();
-      
+
       // Save the version after successful download
       await AsyncStorage.setItem('@appVersion', manifest.version);
-      
+
       // Invalidate FormService cache to reload new form specs
       this.updateStatus('Refreshing form specifications...');
       const formService = await FormService.getInstance();
       await formService.invalidateCache();
-      
+
       const syncTime = new Date().toLocaleTimeString();
       await AsyncStorage.setItem('@lastSync', syncTime);
       this.updateStatus('App bundle sync completed');
@@ -225,28 +243,28 @@ export class SyncService {
     try {
       this.updateStatus('Fetching manifest...');
       const manifest = await synkronusApi.getManifest();
-  
+
       // Clean out the existing app bundle
       await synkronusApi.removeAppBundleFiles();
 
       // Download form specs
       this.updateStatus('Downloading form specs...');
       const formResults = await synkronusApi.downloadFormSpecs(
-        manifest, 
-        RNFS.DocumentDirectoryPath, 
-        (progress) => this.updateStatus(`Downloading form specs... ${progress}%`)
+        manifest,
+        RNFS.DocumentDirectoryPath,
+        progress => this.updateStatus(`Downloading form specs... ${progress}%`),
       );
-      
+
       // Download app files
       this.updateStatus('Downloading app files...');
       const appResults = await synkronusApi.downloadAppFiles(
-        manifest, 
-        RNFS.DocumentDirectoryPath, 
-        (progress) => this.updateStatus(`Downloading app files... ${progress}%`)
+        manifest,
+        RNFS.DocumentDirectoryPath,
+        progress => this.updateStatus(`Downloading app files... ${progress}%`),
       );
 
       const results = [...formResults, ...appResults];
-      
+
       if (results.some(r => !r.success)) {
         const errorMessages = results
           .filter(r => !r.success)
@@ -263,12 +281,12 @@ export class SyncService {
   public async initialize(): Promise<void> {
     // Initialize any required state
     const lastSeenVersion = await AsyncStorage.getItem('@last_seen_version');
-    
+
     const existingAppVersion = await AsyncStorage.getItem('@appVersion');
     if (!existingAppVersion) {
       await AsyncStorage.setItem('@appVersion', '0');
     }
-    
+
     if (lastSeenVersion) {
       this.updateStatus(`Last sync: v${lastSeenVersion}`);
     } else {
@@ -277,9 +295,7 @@ export class SyncService {
   }
 
   public getStatus(): string {
-    return this.isSyncing ? 
-      'Syncing...' : 
-      'Ready';
+    return this.isSyncing ? 'Syncing...' : 'Ready';
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -6,22 +6,24 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
-  Alert
+  Alert,
 } from 'react-native';
-import { FormService, FormSpec } from '../services';
-import { Observation } from '../database/models/Observation';
-import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
+import {FormService, FormSpec} from '../services';
+import {Observation} from '../database/models/Observation';
+import {openFormplayerFromNative} from '../webview/FormulusMessageHandlers';
 
 /**
  * Screen for managing forms and observations (admin only)
  */
-const FormManagementScreen = ({ navigation }: any) => {
+const FormManagementScreen = ({navigation}: any) => {
   const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
-  const [observations, setObservations] = useState<Record<string, Observation[]>>({});
+  const [observations, setObservations] = useState<
+    Record<string, Observation[]>
+  >({});
   const [loading, setLoading] = useState<boolean>(true);
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
   const [formService, setFormService] = useState<FormService | null>(null);
-  
+
   // Load form types and observations
   useEffect(() => {
     const initFormService = async () => {
@@ -36,10 +38,10 @@ const FormManagementScreen = ({ navigation }: any) => {
         console.error('Failed to initialize FormService:', error);
       }
     };
-    
+
     initFormService();
   }, []);
-  
+
   useEffect(() => {
     if (formService) {
       loadData();
@@ -54,19 +56,21 @@ const FormManagementScreen = ({ navigation }: any) => {
     }
     try {
       setLoading(true);
-      
+
       // Get all form types
       const types = await formService.getFormSpecs();
       setFormSpecs(types);
-      
+
       // Get observations for each form type
       const observationsMap: Record<string, Observation[]> = {};
-      
+
       for (const formType of types) {
-        const formObservations = await formService.getObservationsByFormType(formType.id);
+        const formObservations = await formService.getObservationsByFormType(
+          formType.id,
+        );
         observationsMap[formType.id] = formObservations;
       }
-      
+
       setObservations(observationsMap);
     } catch (error) {
       console.error('Error loading form data:', error);
@@ -75,35 +79,57 @@ const FormManagementScreen = ({ navigation }: any) => {
       setLoading(false);
     }
   };
-  
+
   // Handle adding a new observation using the promise-based Formplayer API
   const handleAddObservation = async (formType: FormSpec) => {
     try {
       const result = await openFormplayerFromNative(formType.id, {}, {});
-      if (result.status === 'form_submitted' || result.status === 'form_updated') {
+      if (
+        result.status === 'form_submitted' ||
+        result.status === 'form_updated'
+      ) {
         await loadData();
       }
     } catch (error) {
-      console.error('Error while opening Formplayer for new observation:', error);
+      console.error(
+        'Error while opening Formplayer for new observation:',
+        error,
+      );
       Alert.alert('Error', 'Failed to open form for new observation');
     }
   };
-  
+
   // Handle editing an observation using the promise-based Formplayer API
-  const handleEditObservation = async (formType: FormSpec, observation: Observation) => {
+  const handleEditObservation = async (
+    formType: FormSpec,
+    observation: Observation,
+  ) => {
     try {
-      const result = await openFormplayerFromNative(formType.id, {}, observation.data || {});
-      if (result.status === 'form_submitted' || result.status === 'form_updated') {
+      const result = await openFormplayerFromNative(
+        formType.id,
+        {},
+        observation.data || {},
+      );
+      if (
+        result.status === 'form_submitted' ||
+        result.status === 'form_updated'
+      ) {
         await loadData();
       }
     } catch (error) {
-      console.error('Error while opening Formplayer for editing observation:', error);
+      console.error(
+        'Error while opening Formplayer for editing observation:',
+        error,
+      );
       Alert.alert('Error', 'Failed to open form for editing observation');
     }
   };
-  
+
   // Handle deleting an observation
-  const handleDeleteObservation = async (formTypeId: string, observation: Observation) => {
+  const handleDeleteObservation = async (
+    formTypeId: string,
+    observation: Observation,
+  ) => {
     if (!formService) {
       Alert.alert('Error', 'FormService is not initialized');
       return;
@@ -113,18 +139,18 @@ const FormManagementScreen = ({ navigation }: any) => {
         'Confirm Delete',
         'Are you sure you want to delete this observation?',
         [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Delete', 
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Delete',
             style: 'destructive',
             onPress: async () => {
               setLoading(true);
               await formService.deleteObservation(observation.observationId);
               // Reload data after deletion
               await loadData();
-            }
+            },
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error('Error deleting observation:', error);
@@ -132,7 +158,7 @@ const FormManagementScreen = ({ navigation }: any) => {
       setLoading(false);
     }
   };
-  
+
   // Handle database reset
   const handleResetDatabase = async () => {
     if (!formService) {
@@ -144,9 +170,9 @@ const FormManagementScreen = ({ navigation }: any) => {
         'Reset Database',
         'Are you sure you want to delete ALL observations? This action cannot be undone.',
         [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Reset Database', 
+          {text: 'Cancel', style: 'cancel'},
+          {
+            text: 'Reset Database',
             style: 'destructive',
             onPress: async () => {
               setLoading(true);
@@ -154,9 +180,9 @@ const FormManagementScreen = ({ navigation }: any) => {
               // Reload data after reset
               await loadData();
               Alert.alert('Success', 'Database has been reset successfully.');
-            }
+            },
           },
-        ]
+        ],
       );
     } catch (error) {
       console.error('Error resetting database:', error);
@@ -164,7 +190,7 @@ const FormManagementScreen = ({ navigation }: any) => {
       setLoading(false);
     }
   };
-  
+
   // Toggle expanded state for a form
   const toggleExpanded = (formType: string) => {
     if (expandedFormId === formType) {
@@ -173,102 +199,121 @@ const FormManagementScreen = ({ navigation }: any) => {
       setExpandedFormId(formType);
     }
   };
-  
+
   // Render an observation item
-  const renderObservationItem = ({ item }: { item: Observation }) => {
+  const renderObservationItem = ({item}: {item: Observation}) => {
     // For backward compatibility: if formTypeId is not set, use the parent form type
     const currentFormTypeId = item.formType;
-    const parentFormType = expandedFormId ? formSpecs.find(ft => ft.id === expandedFormId) : null;
-    
+    const parentFormType = expandedFormId
+      ? formSpecs.find(ft => ft.id === expandedFormId)
+      : null;
+
     // Use either the observation's formTypeId or the parent form type if we're in a specific form's context
-    const formType = formSpecs.find(ft => ft.id === currentFormTypeId) || parentFormType;
-    
-    console.log('Rendering observation:', item.observationId, 'formTypeId:', currentFormTypeId, 'formType found:', !!formType);
-    
+    const formType =
+      formSpecs.find(ft => ft.id === currentFormTypeId) || parentFormType;
+
+    console.log(
+      'Rendering observation:',
+      item.observationId,
+      'formTypeId:',
+      currentFormTypeId,
+      'formType found:',
+      !!formType,
+    );
+
     return (
       <View style={styles.observationItem}>
         <Text style={styles.observationId}>ID: {item.observationId}</Text>
         <Text>Created: {item.createdAt.toLocaleString()}</Text>
-        <Text>Synced: {item.syncedAt && item.syncedAt.getTime() > new Date('1980-01-01').getTime() ? 'Yes' : 'No'}</Text>
-        
+        <Text>
+          Synced:{' '}
+          {item.syncedAt &&
+          item.syncedAt.getTime() > new Date('1980-01-01').getTime()
+            ? 'Yes'
+            : 'No'}
+        </Text>
+
         <View style={styles.observationActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => Alert.alert('View Observation', JSON.stringify(item.data, null, 2))}
-          >
+            onPress={() =>
+              Alert.alert(
+                'View Observation',
+                JSON.stringify(item.data, null, 2),
+              )
+            }>
             <Text style={styles.buttonText}>View Data</Text>
           </TouchableOpacity>
-          
+
           {formType && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.actionButton, styles.editButton]}
-              onPress={() => handleEditObservation(formType, item)}
-            >
+              onPress={() => handleEditObservation(formType, item)}>
               <Text style={styles.buttonText}>Edit</Text>
             </TouchableOpacity>
           )}
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => handleDeleteObservation(currentFormTypeId, item)}
-          >
+            onPress={() => handleDeleteObservation(currentFormTypeId, item)}>
             <Text style={styles.buttonText}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   };
-  
+
   // Render a form spec item
-  const renderFormSpecItem = ({ item }: { item: FormSpec }) => {
+  const renderFormSpecItem = ({item}: {item: FormSpec}) => {
     const formObservations = observations[item.id] || [];
     const isExpanded = expandedFormId === item.id;
-    
+
     return (
       <View style={styles.formTypeContainer}>
-        <TouchableOpacity 
-          style={styles.formTypeHeader} 
-          onPress={() => toggleExpanded(item.id)}
-        >
+        <TouchableOpacity
+          style={styles.formTypeHeader}
+          onPress={() => toggleExpanded(item.id)}>
           <View style={styles.formTypeInfo}>
             <Text style={styles.formTypeName}>{item.name}</Text>
             <Text style={styles.formTypeDescription}>{item.description}</Text>
-            <Text style={styles.formTypeVersion}>Version: {item.schemaVersion}</Text>
+            <Text style={styles.formTypeVersion}>
+              Version: {item.schemaVersion}
+            </Text>
           </View>
           <View style={styles.formTypeActions}>
             <Text style={styles.observationCount}>
-              {formObservations.length} observation{formObservations.length !== 1 ? 's' : ''}
+              {formObservations.length} observation
+              {formObservations.length !== 1 ? 's' : ''}
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.addButton}
-              onPress={() => handleAddObservation(item)}
-            >
+              onPress={() => handleAddObservation(item)}>
               <Text style={styles.buttonText}>Add Observation</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-        
+
         {isExpanded && formObservations.length > 0 && (
           <View style={styles.observationsWrapper}>
             {formObservations.map(observation => (
               <React.Fragment key={observation.observationId}>
-                {renderObservationItem({ item: observation })}
+                {renderObservationItem({item: observation})}
               </React.Fragment>
-            ))}  
+            ))}
           </View>
         )}
-        
+
         {isExpanded && formObservations.length === 0 && (
           <Text style={styles.noObservations}>No observations found</Text>
         )}
       </View>
     );
   };
-  
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Form Management</Text>
-      
+
       {loading ? (
         <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
       ) : formSpecs.length > 0 ? (
@@ -276,20 +321,22 @@ const FormManagementScreen = ({ navigation }: any) => {
           <FlatList
             data={formSpecs}
             renderItem={renderFormSpecItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={item => item.id}
             style={styles.formTypesList}
           />
-          
-          <TouchableOpacity 
-            style={[styles.resetButton, { marginTop: 20 }]}
-            onPress={handleResetDatabase}
-          >
+
+          <TouchableOpacity
+            style={[styles.resetButton, {marginTop: 20}]}
+            onPress={handleResetDatabase}>
             <Text style={styles.buttonText}>Reset Database</Text>
           </TouchableOpacity>
-          
+
           {/* Debug button */}
-          <TouchableOpacity 
-            style={[styles.resetButton, { marginTop: 10, backgroundColor: '#2196F3' }]}
+          <TouchableOpacity
+            style={[
+              styles.resetButton,
+              {marginTop: 10, backgroundColor: '#2196F3'},
+            ]}
             onPress={async () => {
               if (!formService) {
                 Alert.alert('Error', 'FormService is not initialized');
@@ -297,15 +344,17 @@ const FormManagementScreen = ({ navigation }: any) => {
               }
               try {
                 await formService.debugDatabase();
-                Alert.alert('Debug', 'Check console logs for debug information');
+                Alert.alert(
+                  'Debug',
+                  'Check console logs for debug information',
+                );
                 // Reload data after debugging
                 await loadData();
               } catch (error) {
                 console.error('Debug error:', error);
                 Alert.alert('Error', 'Debug failed');
               }
-            }}
-          >
+            }}>
             <Text style={styles.buttonText}>Debug Database</Text>
           </TouchableOpacity>
         </>
@@ -315,11 +364,18 @@ const FormManagementScreen = ({ navigation }: any) => {
           <Text style={styles.noFormsMessage}>
             No form specifications have been downloaded yet. To get started:
           </Text>
-          <Text style={styles.noFormsStep}>1. Go to Settings and configure your server URL</Text>
-          <Text style={styles.noFormsStep}>2. Log in with your credentials</Text>
-          <Text style={styles.noFormsStep}>3. Go to Sync screen and tap "Update App Bundle"</Text>
+          <Text style={styles.noFormsStep}>
+            1. Go to Settings and configure your server URL
+          </Text>
+          <Text style={styles.noFormsStep}>
+            2. Log in with your credentials
+          </Text>
+          <Text style={styles.noFormsStep}>
+            3. Go to Sync screen and tap "Update App Bundle"
+          </Text>
           <Text style={styles.noFormsNote}>
-            This will download the latest forms and app content from your server.
+            This will download the latest forms and app content from your
+            server.
           </Text>
         </View>
       )}
@@ -348,7 +404,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: {width: 0, height: 1},
     shadowOpacity: 0.2,
     shadowRadius: 1.41,
   },

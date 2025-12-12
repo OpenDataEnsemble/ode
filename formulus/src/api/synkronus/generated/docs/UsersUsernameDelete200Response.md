@@ -1,19 +1,18 @@
 # UsersUsernameDelete200Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**message** | **string** |  | [optional] [default to undefined]
+| Name        | Type       | Description | Notes                             |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| **message** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { UsersUsernameDelete200Response } from './api';
+import {UsersUsernameDelete200Response} from './api';
 
 const instance: UsersUsernameDelete200Response = {
-    message,
+  message,
 };
 ```
 

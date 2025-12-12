@@ -48,7 +48,7 @@ func TestHandler_ParquetExportHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create handler with mock services
 			h, _ := createTestHandler()
-			
+
 			// Setup mock data export service
 			mockDataExportService := mocks.NewMockDataExportService()
 			tt.setupMock(mockDataExportService)
@@ -97,7 +97,7 @@ func TestHandler_ParquetExportHandler(t *testing.T) {
 func TestHandler_ParquetExportHandler_Integration(t *testing.T) {
 	// This test verifies the handler works with a more realistic mock
 	h, _ := createTestHandler()
-	
+
 	// Setup mock data export service with realistic behavior
 	mockDataExportService := mocks.NewMockDataExportService()
 	mockDataExportService.ExportParquetZipFunc = func(ctx context.Context) (io.ReadCloser, error) {

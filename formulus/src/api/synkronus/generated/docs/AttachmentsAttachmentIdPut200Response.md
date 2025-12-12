@@ -1,19 +1,18 @@
 # AttachmentsAttachmentIdPut200Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**status** | **string** |  | [optional] [default to undefined]
+| Name       | Type       | Description | Notes                             |
+| ---------- | ---------- | ----------- | --------------------------------- |
+| **status** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AttachmentsAttachmentIdPut200Response } from './api';
+import {AttachmentsAttachmentIdPut200Response} from './api';
 
 const instance: AttachmentsAttachmentIdPut200Response = {
-    status,
+  status,
 };
 ```
 

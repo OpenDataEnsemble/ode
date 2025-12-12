@@ -1,23 +1,22 @@
 # SyncPushRequest
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**transmission_id** | **string** |  | [default to undefined]
-**client_id** | **string** |  | [default to undefined]
-**records** | [**Array&lt;Observation&gt;**](Observation.md) |  | [default to undefined]
+| Name                | Type                                           | Description | Notes                  |
+| ------------------- | ---------------------------------------------- | ----------- | ---------------------- |
+| **transmission_id** | **string**                                     |             | [default to undefined] |
+| **client_id**       | **string**                                     |             | [default to undefined] |
+| **records**         | [**Array&lt;Observation&gt;**](Observation.md) |             | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { SyncPushRequest } from './api';
+import {SyncPushRequest} from './api';
 
 const instance: SyncPushRequest = {
-    transmission_id,
-    client_id,
-    records,
+  transmission_id,
+  client_id,
+  records,
 };
 ```
 

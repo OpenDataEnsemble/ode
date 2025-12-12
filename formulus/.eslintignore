@@ -1,0 +1,28 @@
+# Build output
+build/
+android/app/build/
+android/build/
+ios/build/
+*.jsbundle
+
+# Dependencies
+node_modules/
+
+# Generated files
+*.min.js
+*.bundle.js
+src/api/synkronus/generated/
+
+# Config files
+*.config.js
+*.config.ts
+babel.config.js
+metro.config.js
+jest.config.js
+
+# Assets
+assets/
+
+# Test files (optional - you may want to lint these)
+# __tests__/
+

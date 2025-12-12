@@ -1,19 +1,18 @@
 # UsersChangePasswordPost200Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**message** | **string** |  | [optional] [default to undefined]
+| Name        | Type       | Description | Notes                             |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| **message** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { UsersChangePasswordPost200Response } from './api';
+import {UsersChangePasswordPost200Response} from './api';
 
 const instance: UsersChangePasswordPost200Response = {
-    message,
+  message,
 };
 ```
 

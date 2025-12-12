@@ -1,23 +1,22 @@
 # HealthGet503Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**status** | **string** |  | [optional] [default to undefined]
-**error** | **string** | Description of the error | [optional] [default to undefined]
-**timestamp** | **string** | Current server time | [optional] [default to undefined]
+| Name          | Type       | Description              | Notes                             |
+| ------------- | ---------- | ------------------------ | --------------------------------- |
+| **status**    | **string** |                          | [optional] [default to undefined] |
+| **error**     | **string** | Description of the error | [optional] [default to undefined] |
+| **timestamp** | **string** | Current server time      | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { HealthGet503Response } from './api';
+import {HealthGet503Response} from './api';
 
 const instance: HealthGet503Response = {
-    status,
-    error,
-    timestamp,
+  status,
+  error,
+  timestamp,
 };
 ```
 

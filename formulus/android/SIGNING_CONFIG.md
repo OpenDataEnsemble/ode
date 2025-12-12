@@ -1,27 +1,34 @@
 # Android Signing Configuration
 
 ## Overview
+
 This document explains how the Android app signing is configured for the Formulus app.
 
 ## Application ID
+
 The app uses the application ID: `org.opendataensemble.formulus`
 
 This is consistently set in:
+
 - `android/app/build.gradle` - `applicationId` and `namespace`
 - All Kotlin source files in `android/app/src/main/java/org/opendataensemble/formulus/`
 
 ## Keystore Configuration
 
 ### Debug Builds
+
 Debug builds use the default Android debug keystore located at:
+
 - `android/app/debug.keystore`
 - Alias: `androiddebugkey`
 - Password: `android`
 
 ### Release Builds
+
 Release builds use a production keystore configured via `android/local.properties`.
 
 **Required properties in `local.properties`:**
+
 ```properties
 FORMULUS_RELEASE_STORE_FILE=keystores/formulus-signing.jks
 FORMULUS_RELEASE_STORE_PASSWORD=your_keystore_password
@@ -30,6 +37,7 @@ FORMULUS_RELEASE_KEY_PASSWORD=your_key_password
 ```
 
 **Important Notes:**
+
 - The `local.properties` file is gitignored and should never be committed
 - The `FORMULUS_RELEASE_STORE_FILE` path is relative to the `android/` directory (project root)
 - Recommended location: `android/keystores/formulus-signing.jks`
@@ -92,11 +100,13 @@ cd android
 ```
 
 The signed outputs will be located at:
+
 - APK: `android/app/build/outputs/apk/release/formulus-v{version}-{versionCode}-release-{date}.apk`
   - Example: `formulus-v1.0-1-release-20251006.apk`
 - AAB: `android/app/build/outputs/bundle/release/app-release.aab`
 
 The APK filename includes:
+
 - App name: `formulus`
 - Version name: from `versionName` in build.gradle (e.g., `v1.0`)
 - Version code: from `versionCode` in build.gradle (e.g., `1`)

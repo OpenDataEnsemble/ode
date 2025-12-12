@@ -1,6 +1,6 @@
 /**
  * ClientIdService - Simple and robust client identification for sync operations
- * 
+ *
  * Uses react-native-device-info's getUniqueId() for consistent device identification
  */
 
@@ -31,13 +31,16 @@ export class ClientIdService {
     try {
       const deviceId = await DeviceInfo.getUniqueId();
       this.cachedClientId = `formulus-${deviceId}`;
-      
+
       console.log('ClientIdService: Generated client ID:', this.cachedClientId);
       return this.cachedClientId;
-      
     } catch (error) {
       console.error('ClientIdService: Error getting device unique ID:', error);
-      throw new Error(`Failed to get client ID: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get client ID: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
     }
   }
 

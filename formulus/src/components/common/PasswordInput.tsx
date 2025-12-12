@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
-export interface PasswordInputProps extends Omit<TextInputProps, 'secureTextEntry'> {
+export interface PasswordInputProps
+  extends Omit<TextInputProps, 'secureTextEntry'> {
   label?: string;
   error?: string;
   containerStyle?: ViewStyle;
@@ -46,9 +47,10 @@ const PasswordInput: React.FC<PasswordInputProps> = ({
   // Extract paddingHorizontal from style to calculate proper paddingRight
   const inputStyle = StyleSheet.flatten([styles.input, style]);
   const paddingHorizontal = inputStyle.paddingHorizontal || 12;
-  const paddingRight = typeof paddingHorizontal === 'number' 
-    ? paddingHorizontal + 40 // Space for icon + some padding
-    : 45; // Default fallback
+  const paddingRight =
+    typeof paddingHorizontal === 'number'
+      ? paddingHorizontal + 40 // Space for icon + some padding
+      : 45; // Default fallback
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -64,7 +66,9 @@ const PasswordInput: React.FC<PasswordInputProps> = ({
             {paddingRight}, // Ensure icon space is always available
           ]}
           secureTextEntry={!isPasswordVisible}
-          placeholderTextColor={textInputProps.placeholderTextColor || '#999999'}
+          placeholderTextColor={
+            textInputProps.placeholderTextColor || '#999999'
+          }
           testID={testID}
           accessibilityLabel={
             textInputProps.accessibilityLabel ||
@@ -81,9 +85,7 @@ const PasswordInput: React.FC<PasswordInputProps> = ({
           accessibilityLabel={accessibilityLabel}
           accessibilityRole="button"
           accessibilityHint={
-            isPasswordVisible
-              ? 'Tap to hide password'
-              : 'Tap to show password'
+            isPasswordVisible ? 'Tap to hide password' : 'Tap to show password'
           }
           hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
           <Icon
@@ -147,4 +149,3 @@ const styles = StyleSheet.create({
 });
 
 export default PasswordInput;
-

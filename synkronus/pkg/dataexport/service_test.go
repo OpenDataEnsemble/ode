@@ -12,11 +12,11 @@ import (
 
 // MockDatabaseInterface is a mock implementation of DatabaseInterface for testing
 type MockDatabaseInterface struct {
-	FormTypes           []string
-	FormTypeSchemas     map[string]*FormTypeSchema
-	ObservationsData    map[string][]ObservationRow
-	GetFormTypesError   error
-	GetSchemaError      error
+	FormTypes            []string
+	FormTypeSchemas      map[string]*FormTypeSchema
+	ObservationsData     map[string][]ObservationRow
+	GetFormTypesError    error
+	GetSchemaError       error
 	GetObservationsError error
 }
 
@@ -51,11 +51,11 @@ func (m *MockDatabaseInterface) GetObservationsForFormType(ctx context.Context, 
 
 func TestService_ExportParquetZip(t *testing.T) {
 	tests := []struct {
-		name           string
-		mockDB         *MockDatabaseInterface
-		expectedFiles  []string
-		expectError    bool
-		errorContains  string
+		name          string
+		mockDB        *MockDatabaseInterface
+		expectedFiles []string
+		expectError   bool
+		errorContains string
 	}{
 		{
 			name: "successful export with multiple form types",
@@ -148,7 +148,7 @@ func TestService_ExportParquetZip(t *testing.T) {
 			service := NewService(tt.mockDB, cfg)
 
 			zipReader, err := service.ExportParquetZip(context.Background())
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
@@ -253,10 +253,10 @@ func TestService_buildArrowSchema(t *testing.T) {
 
 	// Check base fields
 	baseFields := []string{
-		"observation_id", "form_type", "form_version", "created_at", 
+		"observation_id", "form_type", "form_version", "created_at",
 		"updated_at", "synced_at", "deleted", "version", "geolocation",
 	}
-	
+
 	for i, expectedName := range baseFields {
 		if arrowSchema.Field(i).Name != expectedName {
 			t.Errorf("Expected field %d to be %s, got %s", i, expectedName, arrowSchema.Field(i).Name)

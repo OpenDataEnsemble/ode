@@ -1,4 +1,4 @@
-import { ObservationGeolocation } from '../../types/Geolocation';
+import {ObservationGeolocation} from '../../types/Geolocation';
 
 /**
  * Interface for the observation data structure. This is
@@ -18,7 +18,7 @@ export interface Observation {
   formVersion: string;
   createdAt: Date;
   updatedAt: Date;
-  syncedAt: Date|null;
+  syncedAt: Date | null;
   deleted: boolean;
   data: ObservationData;
   geolocation: ObservationGeolocation | null;
