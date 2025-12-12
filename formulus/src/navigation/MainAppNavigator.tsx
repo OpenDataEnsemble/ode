@@ -5,6 +5,7 @@ import MainTabNavigator from './MainTabNavigator';
 import WelcomeScreen from '../screens/WelcomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import FormManagementScreen from '../screens/FormManagementScreen';
+import ObservationDetailScreen from '../screens/ObservationDetailScreen';
 import {MainAppStackParamList} from '../types/NavigationTypes';
 import {serverConfigService} from '../services/ServerConfigService';
 
@@ -59,6 +60,11 @@ const MainAppNavigator: React.FC = () => {
         name="FormManagement"
         component={FormManagementScreen}
         options={{title: 'Form Management'}}
+      />
+      <Stack.Screen
+        name="ObservationDetail"
+        component={ObservationDetailScreen}
+        options={{title: 'Observation Details'}}
       />
     </Stack.Navigator>
   );

@@ -1,20 +1,23 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
+import React, {useEffect, useState, useCallback} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
   Alert,
   SafeAreaView,
   ScrollView,
-  AppState
+  ActivityIndicator,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { syncService } from '../services/SyncService';
-import { useSyncContext } from '../contexts/SyncContext';
+import {formatRelativeTime} from '../utils/dateUtils';
+import {syncService} from '../services/SyncService';
+import {useSyncContext} from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
-import { databaseService } from '../database/DatabaseService';
+import {databaseService} from '../database/DatabaseService';
 import {getUserInfo} from '../api/synkronus/Auth';
+import colors from '../theme/colors';
 
 const SyncScreen = () => {
   const {
@@ -26,30 +29,21 @@ const SyncScreen = () => {
     clearError,
   } = useSyncContext();
   const [lastSync, setLastSync] = useState<string | null>(null);
-  const [status, setStatus] = useState<string>('Loading...');
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
-  const [dataVersion, setDataVersion] = useState<number>(0);
   const [pendingUploads, setPendingUploads] = useState<{
     count: number;
     sizeMB: number;
   }>({count: 0, sizeMB: 0});
   const [pendingObservations, setPendingObservations] = useState<number>(0);
-  const [backgroundSyncEnabled, setBackgroundSyncEnabled] =
-    useState<boolean>(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [appBundleVersion, setAppBundleVersion] = useState<string>('0');
   const [serverBundleVersion, setServerBundleVersion] =
     useState<string>('Unknown');
 
-  // Get pending upload info
   const updatePendingUploads = useCallback(async () => {
     try {
       const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
-
-      // Ensure directory exists
       await RNFS.mkdir(pendingUploadDirectory);
-
-      // Get all files in pending_upload directory
       const files = await RNFS.readDir(pendingUploadDirectory);
       const attachmentFiles = files.filter(file => file.isFile());
 
@@ -67,7 +61,6 @@ const SyncScreen = () => {
     }
   }, []);
 
-  // Get pending observations count
   const updatePendingObservations = useCallback(async () => {
     try {
       const repo = databaseService.getLocalRepo();
@@ -79,53 +72,66 @@ const SyncScreen = () => {
     }
   }, []);
 
-  // Handle sync operations
   const handleSync = useCallback(async () => {
-    if (syncState.isActive) return; // Prevent multiple syncs
+    if (syncState.isActive) return;
 
     try {
-      startSync(true); // Allow cancellation
-      const version = await syncService.syncObservations(true);
-      setDataVersion(version);
-      // Update pending uploads and observations after sync
+      startSync(true);
+      await syncService.syncObservations(true);
       await updatePendingUploads();
       await updatePendingObservations();
-      finishSync(); // Success
+      finishSync();
+      const syncTime = new Date().toISOString();
+      setLastSync(syncTime);
+      await AsyncStorage.setItem('@lastSync', syncTime);
     } catch (error) {
       const errorMessage = (error as Error).message;
-      finishSync(errorMessage); // Finish with error
+      finishSync(errorMessage);
       Alert.alert('Error', 'Failed to sync!\n' + errorMessage);
     }
-  }, [updatePendingUploads, syncState.isActive, startSync, finishSync]);
+  }, [
+    updatePendingUploads,
+    updatePendingObservations,
+    syncState.isActive,
+    startSync,
+    finishSync,
+  ]);
 
-  // Handle app updates
   const handleCustomAppUpdate = useCallback(async () => {
-    if (syncState.isActive) return; // Prevent multiple syncs
+    if (syncState.isActive) return;
 
     try {
-      startSync(false); // App updates can't be cancelled easily
+      startSync(false);
       await syncService.updateAppBundle();
-      setLastSync(new Date().toLocaleTimeString());
+      const syncTime = new Date().toISOString();
+      setLastSync(syncTime);
+      await AsyncStorage.setItem('@lastSync', syncTime);
       setUpdateAvailable(false);
-      finishSync(); // Success
+      finishSync();
+      await updatePendingUploads();
+      await updatePendingObservations();
+      const formService = await import('../services/FormService');
+      const fs = await formService.FormService.getInstance();
+      await fs.invalidateCache();
     } catch (error) {
       const errorMessage = (error as Error).message;
-      finishSync(errorMessage); // Finish with error
+      finishSync(errorMessage);
       Alert.alert('Error', 'Failed to update app bundle!\n' + errorMessage);
     }
-  }, [syncState.isActive, startSync, finishSync]);
+  }, [
+    syncState.isActive,
+    startSync,
+    finishSync,
+    updatePendingUploads,
+    updatePendingObservations,
+  ]);
 
-  // Check for updates
   const checkForUpdates = useCallback(async (force: boolean = false) => {
     try {
       const hasUpdate = await syncService.checkForUpdates(force);
       setUpdateAvailable(hasUpdate);
-
-      // Get current app bundle version
       const currentVersion = (await AsyncStorage.getItem('@appVersion')) || '0';
       setAppBundleVersion(currentVersion);
-
-      // Get server bundle version
       try {
         const {synkronusApi} = await import('../api/synkronus/index');
         const manifest = await synkronusApi.getManifest();
@@ -138,87 +144,219 @@ const SyncScreen = () => {
     }
   }, []);
 
-  // Initialize component
-  useEffect(() => {
-    // Set up status updates
-    const unsubscribe = syncService.subscribeToStatusUpdates(newStatus => {
-      setStatus(newStatus);
-    });
+  const getDataSyncStatus = (): string => {
+    if (syncState.isActive) {
+      return syncState.progress?.details || 'Syncing...';
+    }
+    if (syncState.error) {
+      return 'Error';
+    }
+    if (pendingObservations > 0 || pendingUploads.count > 0) {
+      return 'Pending Sync';
+    }
+    return 'Ready';
+  };
 
-    // Initialize sync service
+  const status = getDataSyncStatus();
+  const statusColor = syncState.isActive
+    ? colors.brand.primary[500]
+    : syncState.error
+    ? colors.semantic.error[500]
+    : pendingObservations > 0 || pendingUploads.count > 0
+    ? colors.semantic.warning[500]
+    : colors.semantic.success[500];
+
+  useEffect(() => {
+    const unsubscribe = syncService.subscribeToStatusUpdates(() => {});
+
     const initialize = async () => {
       await syncService.initialize();
-      await checkForUpdates(true); // Check for updates on initial load
-
-      // Check if user is admin
+      await checkForUpdates(true);
       const userInfo = await getUserInfo();
       setIsAdmin(userInfo?.role === 'admin');
-
-      // Get last sync time
       const lastSyncTime = await AsyncStorage.getItem('@lastSync');
       if (lastSyncTime) {
         setLastSync(lastSyncTime);
       }
-
-      // Get last seen version
-      const lastSeenVersion = await AsyncStorage.getItem('@last_seen_version');
-      if (lastSeenVersion) {
-        setDataVersion(parseInt(lastSeenVersion, 10));
-      }
-
-      // Get pending uploads and observations info
       await updatePendingUploads();
       await updatePendingObservations();
     };
 
     initialize();
 
-    // Clean up subscription
     return () => {
       unsubscribe();
     };
-  }, [checkForUpdates]);
+  }, [checkForUpdates, updatePendingUploads, updatePendingObservations]);
+
+  useEffect(() => {
+    if (!syncState.isActive && !syncState.error) {
+      updatePendingUploads();
+      updatePendingObservations();
+      checkForUpdates(false);
+    }
+  }, [
+    syncState.isActive,
+    syncState.error,
+    updatePendingUploads,
+    updatePendingObservations,
+    checkForUpdates,
+  ]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.title}>Synchronization</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Sync</Text>
+        <Text style={styles.subtitle}>
+          {syncState.isActive ? 'Syncing...' : 'Synchronize your data'}
+        </Text>
+      </View>
 
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusLabel}>Status:</Text>
-          <Text style={styles.statusValue}>{status}</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+        <View style={styles.statusCardsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.statusCard,
+              !syncState.isActive &&
+                (pendingObservations > 0 || pendingUploads.count > 0) &&
+                styles.statusCardClickable,
+            ]}
+            onPress={() => {
+              if (
+                !syncState.isActive &&
+                (pendingObservations > 0 || pendingUploads.count > 0)
+              ) {
+                handleSync();
+              }
+            }}
+            disabled={syncState.isActive}
+            activeOpacity={
+              syncState.isActive ||
+              (pendingObservations === 0 && pendingUploads.count === 0)
+                ? 1
+                : 0.7
+            }>
+            <View style={styles.statusCardHeader}>
+              <Icon
+                name={
+                  syncState.isActive
+                    ? 'sync'
+                    : syncState.error
+                    ? 'alert-circle'
+                    : pendingObservations > 0 || pendingUploads.count > 0
+                    ? 'clock-alert-outline'
+                    : 'check-circle'
+                }
+                size={20}
+                color={statusColor}
+              />
+              <Text style={styles.statusCardTitle}>Status</Text>
+            </View>
+            <Text style={[styles.statusCardValue, {color: statusColor}]}>
+              {status}
+            </Text>
+            {!syncState.isActive &&
+              (pendingObservations > 0 || pendingUploads.count > 0) && (
+                <Text style={styles.statusCardSubtext}>Tap to sync now</Text>
+              )}
+            {!syncState.isActive &&
+              pendingObservations === 0 &&
+              pendingUploads.count === 0 && (
+                <Text style={styles.statusCardSubtext}>All synced</Text>
+              )}
+          </TouchableOpacity>
+
+          <View style={styles.statusCard}>
+            <View style={styles.statusCardHeader}>
+              <Icon
+                name="clock-outline"
+                size={20}
+                color={colors.neutral[600]}
+              />
+              <Text style={styles.statusCardTitle}>Last Sync</Text>
+            </View>
+            <Text style={styles.statusCardValue}>
+              {lastSync ? formatRelativeTime(lastSync) : 'Never'}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusLabel}>Last Sync:</Text>
-          <Text style={styles.statusValue}>
-            {lastSync || 'Never'} @ version {dataVersion}
-          </Text>
+        {(pendingObservations > 0 || pendingUploads.count > 0) && (
+          <View style={styles.pendingSection}>
+            <Text style={styles.sectionTitle}>Pending Items</Text>
+            {pendingObservations > 0 && (
+              <View style={styles.pendingItem}>
+                <Icon
+                  name="clipboard-text-outline"
+                  size={20}
+                  color={colors.semantic.warning[500]}
+                />
+                <View style={styles.pendingItemContent}>
+                  <Text style={styles.pendingItemLabel}>Observations</Text>
+                  <Text style={styles.pendingItemValue}>
+                    {pendingObservations} record
+                    {pendingObservations !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+              </View>
+            )}
+            {pendingUploads.count > 0 && (
+              <View style={styles.pendingItem}>
+                <Icon
+                  name="file-upload-outline"
+                  size={20}
+                  color={colors.semantic.warning[500]}
+                />
+                <View style={styles.pendingItemContent}>
+                  <Text style={styles.pendingItemLabel}>Attachments</Text>
+                  <Text style={styles.pendingItemValue}>
+                    {pendingUploads.count} file
+                    {pendingUploads.count !== 1 ? 's' : ''} (
+                    {pendingUploads.sizeMB.toFixed(2)} MB)
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        <View style={styles.versionCard}>
+          <View style={styles.versionRow}>
+            <Text style={styles.versionLabel}>App Bundle</Text>
+            <View style={styles.versionValues}>
+              <View style={styles.versionItem}>
+                <Text style={styles.versionItemLabel}>Local</Text>
+                <Text style={styles.versionItemValue}>{appBundleVersion}</Text>
+              </View>
+              <View style={styles.versionDivider} />
+              <View style={styles.versionItem}>
+                <Text style={styles.versionItemLabel}>Server</Text>
+                <Text style={styles.versionItemValue}>
+                  {serverBundleVersion}
+                </Text>
+              </View>
+            </View>
+          </View>
+          {updateAvailable && (
+            <View style={styles.updateBadge}>
+              <Icon
+                name="arrow-down-circle"
+                size={16}
+                color={colors.semantic.success[500]}
+              />
+              <Text style={styles.updateBadgeText}>Update available</Text>
+            </View>
+          )}
         </View>
 
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusLabel}>App Bundle:</Text>
-          <Text style={styles.statusValue}>
-            Local: {appBundleVersion} | Server: {serverBundleVersion}
-          </Text>
-        </View>
-
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusLabel}>Pending Uploads:</Text>
-          <Text style={styles.statusValue}>
-            {pendingUploads.count} files ({pendingUploads.sizeMB.toFixed(2)} MB)
-          </Text>
-        </View>
-
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusLabel}>Pending Observations:</Text>
-          <Text style={styles.statusValue}>{pendingObservations} records</Text>
-        </View>
-
-        {/* Sync Progress Display */}
         {syncState.isActive && syncState.progress && (
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressTitle}>Sync Progress</Text>
+          <View style={styles.progressCard}>
+            <View style={styles.progressHeader}>
+              <Icon name="sync" size={20} color={colors.brand.primary[500]} />
+              <Text style={styles.progressTitle}>Sync Progress</Text>
+            </View>
             <Text style={styles.progressDetails}>
               {syncState.progress.details || 'Syncing...'}
             </Text>
@@ -246,67 +384,77 @@ const SyncScreen = () => {
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={cancelSync}>
-                <Text style={styles.cancelButtonText}>Cancel Sync</Text>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* Error Display */}
         {syncState.error && (
-          <View style={styles.errorContainer}>
+          <View style={styles.errorCard}>
+            <View style={styles.errorHeader}>
+              <Icon name="alert-circle" size={20} color="#FF3B30" />
+              <Text style={styles.errorTitle}>Error</Text>
+            </View>
             <Text style={styles.errorText}>{syncState.error}</Text>
-            <TouchableOpacity
-              style={styles.clearErrorButton}
-              onPress={clearError}>
-              <Text style={styles.clearErrorText}>Dismiss</Text>
+            <TouchableOpacity style={styles.dismissButton} onPress={clearError}>
+              <Text style={styles.dismissButtonText}>Dismiss</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <View style={styles.section}>
+        <View style={styles.actionsSection}>
           <TouchableOpacity
-            style={[styles.button, syncState.isActive && styles.buttonDisabled]}
+            style={[
+              styles.actionButton,
+              styles.primaryButton,
+              syncState.isActive && styles.buttonDisabled,
+            ]}
             onPress={handleSync}
             disabled={syncState.isActive}>
-            <Text style={styles.buttonText}>
-              {syncState.isActive ? 'Syncing...' : 'Sync data + attachments'}
+            {syncState.isActive ? (
+              <ActivityIndicator size="small" color={colors.neutral.white} />
+            ) : (
+              <Icon name="sync" size={20} color={colors.neutral.white} />
+            )}
+            <Text style={styles.actionButtonText}>
+              {syncState.isActive ? 'Syncing...' : 'Sync Data'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={[
-              styles.button,
+              styles.actionButton,
+              styles.secondaryButton,
               (syncState.isActive || (!updateAvailable && !isAdmin)) &&
                 styles.buttonDisabled,
             ]}
             onPress={handleCustomAppUpdate}
             disabled={syncState.isActive || (!updateAvailable && !isAdmin)}>
-            <Text style={styles.buttonText}>
-              {syncState.isActive
-                ? 'Syncing...'
-                : 'Update forms and custom app'}
+            {syncState.isActive ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.brand.primary[500]}
+              />
+            ) : (
+              <Icon
+                name="download"
+                size={20}
+                color={colors.brand.primary[500]}
+              />
+            )}
+            <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>
+              {syncState.isActive ? 'Updating...' : 'Update App Bundle'}
             </Text>
           </TouchableOpacity>
-          {!updateAvailable && !isAdmin && (
-            <Text style={styles.hintText}>
-              No updates available. Check your connection and try again.
-            </Text>
-          )}
-        </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionHeader}>Sync Details</Text>
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Server:</Text>
-            <Text style={styles.detailValue}>Synkronus</Text>
-          </View>
-          <View style={styles.detailItem}>
-            <Text style={styles.detailLabel}>Last Updated:</Text>
-            <Text style={styles.detailValue}>
-              {new Date().toLocaleDateString()}
-            </Text>
-          </View>
+          {updateAvailable && (
+            <Text style={styles.updateNotification}>Update available</Text>
+          )}
+
+          {!updateAvailable && !isAdmin && (
+            <Text style={styles.hintText}>No updates available</Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -316,169 +464,301 @@ const SyncScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colors.neutral[50],
   },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: 20,
+  header: {
+    padding: 16,
+    backgroundColor: colors.neutral.white,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.neutral[200],
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    marginBottom: 20,
-    color: '#333',
-    textAlign: 'center',
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.neutral[900],
+    marginBottom: 4,
   },
-  statusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    padding: 15,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+  subtitle: {
+    fontSize: 14,
+    color: colors.neutral[600],
   },
-  statusLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  statusValue: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
-  },
-  section: {
-    marginTop: 20,
-    backgroundColor: 'white',
-    borderRadius: 8,
+  scrollContent: {
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    marginBottom: 20,
+    paddingBottom: 32,
   },
-  sectionHeader: {
-    fontSize: 18,
-    fontWeight: '600',
+  statusCardsContainer: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 16,
-    color: '#333',
   },
-  button: {
-    backgroundColor: '#007AFF',
-    borderRadius: 8,
+  statusCard: {
+    flex: 1,
+    backgroundColor: colors.neutral.white,
+    borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    shadowColor: colors.neutral.black,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  buttonText: {
-    color: '#fff',
+  statusCardClickable: {
+    borderWidth: 2,
+    borderColor: colors.brand.primary[200],
+  },
+  statusCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  statusCardTitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.neutral[600],
+    textTransform: 'uppercase',
+  },
+  statusCardValue: {
     fontSize: 16,
     fontWeight: '600',
+    color: colors.neutral[900],
   },
-  buttonDisabled: {
-    opacity: 0.6,
+  statusCardSubtext: {
+    fontSize: 12,
+    color: colors.neutral[500],
+    marginTop: 4,
   },
-  detailItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  pendingSection: {
+    backgroundColor: colors.neutral.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: colors.neutral.black,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.neutral[900],
     marginBottom: 12,
   },
-  detailLabel: {
-    color: '#666',
-    fontSize: 15,
+  pendingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
   },
-  detailValue: {
-    color: '#333',
-    fontSize: 15,
+  pendingItemContent: {
+    flex: 1,
+  },
+  pendingItemLabel: {
+    fontSize: 14,
+    color: colors.neutral[600],
+    marginBottom: 2,
+  },
+  pendingItemValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.neutral[900],
+  },
+  versionCard: {
+    backgroundColor: colors.neutral.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: colors.neutral.black,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  versionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  versionLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.neutral[600],
+  },
+  versionValues: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  versionItem: {
+    alignItems: 'flex-end',
+  },
+  versionItemLabel: {
+    fontSize: 11,
+    color: colors.neutral[500],
+    marginBottom: 2,
+  },
+  versionItemValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.neutral[900],
+  },
+  versionDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: colors.neutral[200],
+  },
+  updateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[200],
+  },
+  updateBadgeText: {
+    fontSize: 12,
+    color: colors.semantic.success[500],
     fontWeight: '500',
   },
-  progressContainer: {
-    marginTop: 15,
-    padding: 15,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
+  progressCard: {
+    backgroundColor: colors.brand.primary[50],
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#2196f3',
+    borderLeftColor: colors.brand.primary[500],
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
   progressTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1976d2',
-    marginBottom: 8,
+    color: colors.brand.primary[500],
   },
   progressDetails: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
+    color: colors.neutral[600],
+    marginBottom: 12,
   },
   progressBar: {
     height: 8,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: colors.brand.primary[200],
     borderRadius: 4,
     marginBottom: 8,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#2196f3',
+    backgroundColor: colors.brand.primary[500],
     borderRadius: 4,
   },
   progressText: {
     fontSize: 12,
-    color: '#666',
+    color: colors.neutral[600],
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   cancelButton: {
-    backgroundColor: '#f44336',
+    backgroundColor: colors.semantic.error[500],
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 4,
+    borderRadius: 8,
     alignSelf: 'center',
   },
   cancelButtonText: {
-    color: 'white',
+    color: colors.neutral.white,
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  errorContainer: {
-    marginTop: 15,
-    padding: 15,
-    backgroundColor: '#ffebee',
-    borderRadius: 8,
+  errorCard: {
+    backgroundColor: colors.semantic.error[50],
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#f44336',
+    borderLeftColor: colors.semantic.error[500],
+  },
+  errorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  errorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.semantic.error[500],
   },
   errorText: {
     fontSize: 14,
-    color: '#c62828',
-    marginBottom: 10,
+    color: colors.semantic.error[600],
+    marginBottom: 12,
   },
-  clearErrorButton: {
-    backgroundColor: '#f44336',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 4,
+  dismissButton: {
+    backgroundColor: colors.semantic.error[500],
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
     alignSelf: 'flex-end',
   },
-  clearErrorText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '500',
+  dismissButtonText: {
+    color: colors.neutral.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  actionsSection: {
+    gap: 12,
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: colors.neutral.black,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  primaryButton: {
+    backgroundColor: colors.brand.primary[500],
+  },
+  secondaryButton: {
+    backgroundColor: colors.neutral.white,
+    borderWidth: 2,
+    borderColor: colors.brand.primary[500],
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  actionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.neutral.white,
+  },
+  secondaryButtonText: {
+    color: colors.brand.primary[500],
   },
   hintText: {
     fontSize: 12,
-    color: '#666',
+    color: colors.neutral[500],
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  updateNotification: {
+    fontSize: 12,
+    color: colors.semantic.warning[600],
     textAlign: 'center',
     marginTop: 4,
-    fontStyle: 'italic',
   },
 });
 
