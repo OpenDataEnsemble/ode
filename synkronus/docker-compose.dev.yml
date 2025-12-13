@@ -1,0 +1,27 @@
+# Docker Compose for local development
+# This sets up just PostgreSQL for local development
+# Run Synkronus directly with: go run cmd/synkronus/main.go
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: synkronus-postgres-dev
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: synkronus
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres-dev-data:
+
+
+
