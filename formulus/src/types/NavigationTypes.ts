@@ -11,4 +11,5 @@ export type MainAppStackParamList = {
   MainApp: undefined;
   Settings: undefined;
   FormManagement: undefined;
+  ObservationDetail: {observationId: string};
 };

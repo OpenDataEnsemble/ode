@@ -6,8 +6,8 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import {SafeAreaView, useSafeAreaInsets} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {getUserInfo, UserInfo, UserRole} from '../api/synkronus/Auth';
 
@@ -50,6 +50,9 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   allowClose = true,
 }) => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const insets = useSafeAreaInsets();
+  const TAB_BAR_HEIGHT = 60;
+  const bottomPadding = TAB_BAR_HEIGHT + insets.bottom;
 
   useEffect(() => {
     if (visible) {
@@ -113,8 +116,10 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
             onPress={onClose}
           />
         )}
-        <View style={styles.drawer}>
-          <SafeAreaView style={styles.safeArea}>
+        <View style={[styles.drawer, {bottom: bottomPadding}]}>
+          <SafeAreaView
+            style={styles.safeArea}
+            edges={['top', 'left', 'right']}>
             <View style={styles.header}>
               <Text style={styles.headerTitle}>Menu</Text>
               {allowClose && (
@@ -194,7 +199,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     top: 0,
-    bottom: 0,
     width: '80%',
     maxWidth: 320,
     backgroundColor: '#FFFFFF',

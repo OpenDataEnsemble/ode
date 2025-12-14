@@ -7,20 +7,34 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
+  RefreshControl,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {FormService, FormSpec} from '../services';
 import {Observation} from '../database/models/Observation';
 import {openFormplayerFromNative} from '../webview/FormulusMessageHandlers';
+import {ObservationCard, EmptyState} from '../components/common';
+import {useNavigation} from '@react-navigation/native';
+import {StackNavigationProp} from '@react-navigation/stack';
+import {MainAppStackParamList} from '../types/NavigationTypes';
+
+type FormManagementScreenNavigationProp = StackNavigationProp<
+  MainAppStackParamList,
+  'ObservationDetail'
+>;
 
 /**
  * Screen for managing forms and observations (admin only)
  */
-const FormManagementScreen = ({navigation}: any) => {
+const FormManagementScreen = () => {
+  const navigation = useNavigation<FormManagementScreenNavigationProp>();
   const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
   const [observations, setObservations] = useState<
     Record<string, Observation[]>
   >({});
   const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
   const [formService, setFormService] = useState<FormService | null>(null);
 
@@ -31,9 +45,7 @@ const FormManagementScreen = ({navigation}: any) => {
         const service = await FormService.getInstance();
         setFormService(service);
         const specs = service.getFormSpecs();
-        console.log('FormSpecs:', specs);
         setFormSpecs(specs);
-        console.log('FormService initialized successfully');
       } catch (error) {
         console.error('Failed to initialize FormService:', error);
       }
@@ -58,7 +70,7 @@ const FormManagementScreen = ({navigation}: any) => {
       setLoading(true);
 
       // Get all form types
-      const types = await formService.getFormSpecs();
+      const types = formService.getFormSpecs();
       setFormSpecs(types);
 
       // Get observations for each form type
@@ -77,7 +89,13 @@ const FormManagementScreen = ({navigation}: any) => {
       Alert.alert('Error', 'Failed to load form data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
   };
 
   // Handle adding a new observation using the promise-based Formplayer API
@@ -108,7 +126,10 @@ const FormManagementScreen = ({navigation}: any) => {
       const result = await openFormplayerFromNative(
         formType.id,
         {},
-        observation.data || {},
+        typeof observation.data === 'string'
+          ? JSON.parse(observation.data)
+          : observation.data,
+        observation.observationId,
       );
       if (
         result.status === 'form_submitted' ||
@@ -123,6 +144,13 @@ const FormManagementScreen = ({navigation}: any) => {
       );
       Alert.alert('Error', 'Failed to open form for editing observation');
     }
+  };
+
+  // Handle viewing an observation
+  const handleViewObservation = (observation: Observation) => {
+    navigation.navigate('ObservationDetail', {
+      observationId: observation.observationId,
+    });
   };
 
   // Handle deleting an observation
@@ -146,7 +174,6 @@ const FormManagementScreen = ({navigation}: any) => {
             onPress: async () => {
               setLoading(true);
               await formService.deleteObservation(observation.observationId);
-              // Reload data after deletion
               await loadData();
             },
           },
@@ -177,7 +204,6 @@ const FormManagementScreen = ({navigation}: any) => {
             onPress: async () => {
               setLoading(true);
               await formService.resetDatabase();
-              // Reload data after reset
               await loadData();
               Alert.alert('Success', 'Database has been reset successfully.');
             },
@@ -260,6 +286,19 @@ const FormManagementScreen = ({navigation}: any) => {
           </TouchableOpacity>
         </View>
       </View>
+  const renderObservationItem = (
+    observation: Observation,
+    formType: FormSpec,
+  ) => {
+    return (
+      <ObservationCard
+        key={observation.observationId}
+        observation={observation}
+        formName={formType.name}
+        onPress={() => handleViewObservation(observation)}
+        onEdit={() => handleEditObservation(formType, observation)}
+        onDelete={() => handleDeleteObservation(formType.id, observation)}
+      />
     );
   };
 
@@ -289,7 +328,45 @@ const FormManagementScreen = ({navigation}: any) => {
               style={styles.addButton}
               onPress={() => handleAddObservation(item)}>
               <Text style={styles.buttonText}>Add Observation</Text>
+          onPress={() => toggleExpanded(item.id)}
+          activeOpacity={0.7}>
+          <View style={styles.formTypeInfo}>
+            <View style={styles.iconContainer}>
+              <Icon name="file-document-outline" size={32} color="#007AFF" />
+            </View>
+            <View style={styles.textContainer}>
+              <Text style={styles.formTypeName}>{item.name}</Text>
+              {item.description && (
+                <Text style={styles.formTypeDescription} numberOfLines={2}>
+                  {item.description}
+                </Text>
+              )}
+              <View style={styles.metaContainer}>
+                <Text style={styles.version}>v{item.schemaVersion}</Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countText}>
+                    {formObservations.length}{' '}
+                    {formObservations.length === 1 ? 'entry' : 'entries'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+          <View style={styles.formTypeActions}>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={e => {
+                e.stopPropagation();
+                handleAddObservation(item);
+              }}>
+              <Icon name="plus" size={20} color="#FFFFFF" />
+              <Text style={styles.buttonText}>Add</Text>
             </TouchableOpacity>
+            <Icon
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={24}
+              color="#999"
+            />
           </View>
         </TouchableOpacity>
 
@@ -306,6 +383,23 @@ const FormManagementScreen = ({navigation}: any) => {
         {isExpanded && formObservations.length === 0 && (
           <Text style={styles.noObservations}>No observations found</Text>
         )}
+        {isExpanded && (
+          <View style={styles.observationsWrapper}>
+            {formObservations.length > 0 ? (
+              formObservations.map(observation =>
+                renderObservationItem(observation, item),
+              )
+            ) : (
+              <View style={styles.noObservationsContainer}>
+                <EmptyState
+                  icon="clipboard-text-outline"
+                  title="No Observations"
+                  message={`No observations have been created for ${item.name} yet.`}
+                />
+              </View>
+            )}
+          </View>
+        )}
       </View>
     );
   };
@@ -317,12 +411,40 @@ const FormManagementScreen = ({navigation}: any) => {
       {loading ? (
         <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
       ) : formSpecs.length > 0 ? (
+  if (loading && formSpecs.length === 0) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Loading forms...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Form Management</Text>
+        <Text style={styles.subtitle}>
+          {formSpecs.length} form{formSpecs.length !== 1 ? 's' : ''} available
+        </Text>
+      </View>
+
+      {formSpecs.length > 0 ? (
         <>
           <FlatList
             data={formSpecs}
             renderItem={renderFormSpecItem}
             keyExtractor={item => item.id}
             style={styles.formTypesList}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+              />
+            }
           />
 
           <TouchableOpacity
@@ -378,168 +500,169 @@ const FormManagementScreen = ({navigation}: any) => {
             server.
           </Text>
         </View>
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={handleResetDatabase}>
+              <Icon name="database-remove" size={20} color="#FFFFFF" />
+              <Text style={styles.buttonText}>Reset Database</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      ) : (
+        <EmptyState
+          icon="file-document-outline"
+          title="No Forms Available"
+          message="No form specifications have been downloaded yet. To get started:"
+        />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#F0F2F5',
+  },
+  header: {
     padding: 16,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 16,
+    color: '#333333',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666666',
   },
   formTypesList: {
     flex: 1,
   },
+  listContent: {
+    paddingVertical: 8,
+  },
   formTypeContainer: {
-    marginBottom: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginHorizontal: 16,
     overflow: 'hidden',
-    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 1},
-    shadowOpacity: 0.2,
-    shadowRadius: 1.41,
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   formTypeHeader: {
-    padding: 16,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
   },
   formTypeInfo: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E3F2FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  textContainer: {
+    flex: 1,
   },
   formTypeName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
   },
   formTypeDescription: {
     fontSize: 14,
     color: '#666',
-    marginTop: 4,
-  },
-  formTypeVersion: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 4,
-  },
-  formTypeActions: {
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  observationCount: {
-    fontSize: 14,
-    color: '#666',
     marginBottom: 8,
   },
+  metaContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  version: {
+    fontSize: 12,
+    color: '#999',
+  },
+  countBadge: {
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  countText: {
+    fontSize: 11,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  formTypeActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   addButton: {
-    backgroundColor: '#007bff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007AFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 4,
+    borderRadius: 8,
+    gap: 4,
   },
   buttonText: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
   },
   observationsWrapper: {
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#E5E5E5',
+    paddingTop: 8,
   },
-  observationItem: {
-    padding: 12,
+  noObservationsContainer: {
+    padding: 16,
+  },
+  footer: {
+    padding: 16,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
-    backgroundColor: '#f9f9f9',
-  },
-  observationId: {
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  observationActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginTop: 8,
-    gap: 8,
-  },
-  actionButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    backgroundColor: '#28a745',
-  },
-  editButton: {
-    backgroundColor: '#007bff',
-  },
-  deleteButton: {
-    backgroundColor: '#dc3545',
+    borderTopColor: '#E5E5E5',
   },
   resetButton: {
-    backgroundColor: '#dc3545',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FF3B30',
     padding: 12,
-    borderRadius: 4,
-    alignItems: 'center',
-    marginHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
   },
-  noForms: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 32,
-    color: '#666',
-  },
-  noFormsContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
   },
-  noFormsTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  noFormsMessage: {
+  loadingText: {
+    marginTop: 12,
     fontSize: 16,
     color: '#666',
-    textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 22,
-  },
-  noFormsStep: {
-    fontSize: 14,
-    color: '#555',
-    marginBottom: 8,
-    textAlign: 'left',
-    alignSelf: 'stretch',
-  },
-  noFormsNote: {
-    fontSize: 14,
-    color: '#888',
-    textAlign: 'center',
-    marginTop: 16,
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
-  noObservations: {
-    padding: 16,
-    textAlign: 'center',
-    color: '#666',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
 
