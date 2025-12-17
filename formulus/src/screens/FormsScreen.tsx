@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   RefreshControl,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import {useForms} from '../hooks/useForms';
 import {FormCard, EmptyState} from '../components/common';
 import {openFormplayerFromNative} from '../webview/FormulusMessageHandlers';

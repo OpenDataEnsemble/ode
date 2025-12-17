@@ -7,8 +7,8 @@ import {
   StyleSheet,
   Alert,
   Dimensions,
-  SafeAreaView,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import Signature, {SignatureViewRef} from 'react-native-signature-canvas';
 
 interface SignatureCaptureModalProps {

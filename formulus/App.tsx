@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {NavigationContainer, DefaultTheme} from '@react-navigation/native';
 import {StatusBar} from 'react-native';
+import {SafeAreaProvider} from 'react-native-safe-area-context';
 import 'react-native-url-polyfill/auto';
 import {FormService} from './src/services/FormService';
 import {SyncProvider} from './src/contexts/SyncContext';
@@ -119,42 +120,44 @@ function App(): React.JSX.Element {
   }, []);
 
   return (
-    <SyncProvider>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <NavigationContainer theme={LightNavigationTheme}>
-        <MainAppNavigator />
-        <FormplayerModal
-          ref={formplayerModalRef}
-          visible={formplayerVisible}
+    <SafeAreaProvider>
+      <SyncProvider>
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+        <NavigationContainer theme={LightNavigationTheme}>
+          <MainAppNavigator />
+          <FormplayerModal
+            ref={formplayerModalRef}
+            visible={formplayerVisible}
+            onClose={() => {
+              formplayerVisibleRef.current = false;
+              setFormplayerVisible(false);
+            }}
+          />
+        </NavigationContainer>
+
+        <QRScannerModal
+          visible={qrScannerVisible}
           onClose={() => {
-            formplayerVisibleRef.current = false;
-            setFormplayerVisible(false);
+            setQrScannerVisible(false);
+            setQrScannerData(null);
+          }}
+          fieldId={qrScannerData?.fieldId}
+          onResult={qrScannerData?.onResult}
+        />
+
+        <SignatureCaptureModal
+          visible={signatureCaptureVisible}
+          onClose={() => {
+            setSignatureCaptureVisible(false);
+            setSignatureCaptureData(null);
+          }}
+          fieldId={signatureCaptureData?.fieldId || ''}
+          onSignatureCapture={(result: any) => {
+            signatureCaptureData?.onResult?.(result);
           }}
         />
-      </NavigationContainer>
-
-      <QRScannerModal
-        visible={qrScannerVisible}
-        onClose={() => {
-          setQrScannerVisible(false);
-          setQrScannerData(null);
-        }}
-        fieldId={qrScannerData?.fieldId}
-        onResult={qrScannerData?.onResult}
-      />
-
-      <SignatureCaptureModal
-        visible={signatureCaptureVisible}
-        onClose={() => {
-          setSignatureCaptureVisible(false);
-          setSignatureCaptureData(null);
-        }}
-        fieldId={signatureCaptureData?.fieldId || ''}
-        onSignatureCapture={(result: any) => {
-          signatureCaptureData?.onResult?.(result);
-        }}
-      />
-    </SyncProvider>
+      </SyncProvider>
+    </SafeAreaProvider>
   );
 }
 
