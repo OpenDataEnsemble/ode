@@ -26,13 +26,13 @@ func (p *postgresDB) GetFormTypes(ctx context.Context) ([]string, error) {
 		WHERE deleted = false 
 		ORDER BY form_type
 	`
-	
+
 	rows, err := p.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query form types: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var formTypes []string
 	for rows.Next() {
 		var formType string
@@ -41,11 +41,11 @@ func (p *postgresDB) GetFormTypes(ctx context.Context) ([]string, error) {
 		}
 		formTypes = append(formTypes, formType)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating form types: %w", err)
 	}
-	
+
 	return formTypes, nil
 }
 
@@ -91,33 +91,33 @@ func (p *postgresDB) GetFormTypeSchema(ctx context.Context, formType string) (*F
 			agg_types
 		ORDER BY key
 	`
-	
+
 	rows, err := p.db.QueryContext(ctx, query, formType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze form type schema: %w", err)
 	}
 	defer rows.Close()
-	
+
 	var columns []FormTypeColumn
 	for rows.Next() {
 		var key, typesFound, sqlType string
 		var typeCount int
-		
+
 		if err := rows.Scan(&key, &typesFound, &typeCount, &sqlType); err != nil {
 			return nil, fmt.Errorf("failed to scan column info: %w", err)
 		}
-		
+
 		columns = append(columns, FormTypeColumn{
 			Key:      key,
 			DataType: typesFound,
 			SQLType:  sqlType,
 		})
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating column info: %w", err)
 	}
-	
+
 	return &FormTypeSchema{
 		FormType: formType,
 		Columns:  columns,
@@ -138,12 +138,12 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 			selectParts = append(selectParts, fmt.Sprintf("(data ->> '%s')::text AS data_%s", col.Key, col.Key))
 		}
 	}
-	
+
 	selectClause := ""
 	if len(selectParts) > 0 {
 		selectClause = ", " + strings.Join(selectParts, ", ")
 	}
-	
+
 	query := fmt.Sprintf(`
 		SELECT 
 			observation_id,
@@ -160,18 +160,18 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 		WHERE form_type = $1 AND deleted = false
 		ORDER BY created_at
 	`, selectClause)
-	
+
 	rows, err := p.db.QueryContext(ctx, query, formType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query observations for form type %s: %w", formType, err)
 	}
 	defer rows.Close()
-	
+
 	var observations []ObservationRow
 	for rows.Next() {
 		var obs ObservationRow
 		var geolocationBytes []byte
-		
+
 		// Create slice for scanning - base columns plus data fields
 		scanArgs := make([]interface{}, 9+len(schema.Columns))
 		scanArgs[0] = &obs.ObservationID
@@ -183,22 +183,22 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 		scanArgs[6] = &obs.Deleted
 		scanArgs[7] = &obs.Version
 		scanArgs[8] = &geolocationBytes
-		
+
 		// Add data field scan targets
 		dataValues := make([]interface{}, len(schema.Columns))
 		for i := range schema.Columns {
 			scanArgs[9+i] = &dataValues[i]
 		}
-		
+
 		if err := rows.Scan(scanArgs...); err != nil {
 			return nil, fmt.Errorf("failed to scan observation: %w", err)
 		}
-		
+
 		// Handle geolocation
 		if geolocationBytes != nil {
 			obs.Geolocation = json.RawMessage(geolocationBytes)
 		}
-		
+
 		// Build data fields map
 		obs.DataFields = make(map[string]interface{})
 		for i, col := range schema.Columns {
@@ -206,13 +206,13 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 				obs.DataFields["data_"+col.Key] = dataValues[i]
 			}
 		}
-		
+
 		observations = append(observations, obs)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating observations: %w", err)
 	}
-	
+
 	return observations, nil
 }

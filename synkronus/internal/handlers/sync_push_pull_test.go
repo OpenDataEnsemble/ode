@@ -21,21 +21,21 @@ func TestPushThenPull(t *testing.T) {
 			Records: []sync.Observation{
 				{
 					ObservationID: "test-obs-1",
-					FormType:     "test_form",
-					FormVersion:  "1.0",
-					Data:         json.RawMessage(`{"field1":"value1"}`),
-					CreatedAt:    "2025-06-25T12:00:00Z",
-					UpdatedAt:    "2025-06-25T12:00:00Z",
-					Deleted:      false,
+					FormType:      "test_form",
+					FormVersion:   "1.0",
+					Data:          json.RawMessage(`{"field1":"value1"}`),
+					CreatedAt:     "2025-06-25T12:00:00Z",
+					UpdatedAt:     "2025-06-25T12:00:00Z",
+					Deleted:       false,
 				},
 				{
 					ObservationID: "test-obs-2",
-					FormType:     "test_form",
-					FormVersion:  "1.0",
-					Data:         json.RawMessage(`{"field2":"value2"}`),
-					CreatedAt:    "2025-06-25T12:00:00Z",
-					UpdatedAt:    "2025-06-25T12:00:00Z",
-					Deleted:      false,
+					FormType:      "test_form",
+					FormVersion:   "1.0",
+					Data:          json.RawMessage(`{"field2":"value2"}`),
+					CreatedAt:     "2025-06-25T12:00:00Z",
+					UpdatedAt:     "2025-06-25T12:00:00Z",
+					Deleted:       false,
 				},
 			},
 		}
@@ -125,12 +125,12 @@ func TestPushThenPull(t *testing.T) {
 					Records: []sync.Observation{
 						{
 							ObservationID: "test-obs-1",
-							FormType:     "test_form",
-							FormVersion:  "1.0",
-							Data:         json.RawMessage(`{"field1":"updated_value1"}`),
-							CreatedAt:    "2025-06-25T12:00:00Z",
-							UpdatedAt:    "2025-06-25T12:05:00Z", // Updated time
-							Deleted:      false,
+							FormType:      "test_form",
+							FormVersion:   "1.0",
+							Data:          json.RawMessage(`{"field1":"updated_value1"}`),
+							CreatedAt:     "2025-06-25T12:00:00Z",
+							UpdatedAt:     "2025-06-25T12:05:00Z", // Updated time
+							Deleted:       false,
 						},
 					},
 				}
@@ -192,7 +192,7 @@ func TestPushThenPull(t *testing.T) {
 				// The new version should be greater than our previous version
 				t.Logf("4. Pulling changes since version %d...", currentVersion)
 				if pullResp.CurrentVersion <= currentVersion {
-					t.Errorf("expected new version (%d) to be greater than previous version (%d)", 
+					t.Errorf("expected new version (%d) to be greater than previous version (%d)",
 						pullResp.CurrentVersion, currentVersion)
 				} else {
 					t.Logf("Success! New version: %d > previous version: %d", pullResp.CurrentVersion, currentVersion)

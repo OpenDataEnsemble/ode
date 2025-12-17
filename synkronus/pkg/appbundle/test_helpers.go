@@ -72,6 +72,11 @@ func createTestBundleFromDir(t *testing.T, srcDir string) (string, error) {
 			return err
 		}
 
+		// Skip data.json files (test data, not part of bundle structure)
+		if strings.HasSuffix(relPath, "data.json") {
+			return nil
+		}
+
 		// Determine the target path in the zip based on the source directory
 		var zipPath string
 		switch {
@@ -81,6 +86,10 @@ func createTestBundleFromDir(t *testing.T, srcDir string) (string, error) {
 		case strings.HasPrefix(relPath, "forms/"):
 			// Files from testdata/forms/ go to forms/ in the zip
 			zipPath = relPath
+			// Rename uischema.json to ui.json to match validation expectations
+			if strings.HasSuffix(zipPath, "uischema.json") {
+				zipPath = strings.TrimSuffix(zipPath, "uischema.json") + "ui.json"
+			}
 		case strings.HasPrefix(relPath, "renderers/"):
 			// Files from testdata/renderers/ go to renderers/ in the zip
 			zipPath = relPath
