@@ -2,7 +2,7 @@
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
-import { FormInfo, FormObservation, AttachmentData } from '../src/webview/FormulusInterfaceDefinition';
+// Types are only used in JSDoc comments, not imported
 
 // Core type definitions
 interface JSDocTag {
@@ -25,11 +25,11 @@ interface MethodInfo {
 }
 
 function generateInjectionScript(interfaceFilePath: string): string {
-  const program = ts.createProgram([interfaceFilePath], { 
+  const program = ts.createProgram([interfaceFilePath], {
     target: ts.ScriptTarget.Latest,
-    module: ts.ModuleKind.CommonJS
+    module: ts.ModuleKind.CommonJS,
   });
-  
+
   const sourceFile = program.getSourceFile(interfaceFilePath);
   const typeChecker = program.getTypeChecker();
   const methods: MethodInfo[] = [];
@@ -44,57 +44,75 @@ function generateInjectionScript(interfaceFilePath: string): string {
       name: 'getVersion',
       parameters: [],
       returnType: 'string',
-      doc: '/** Get the current version of the Formulus API */'
+      doc: '/** Get the current version of the Formulus API */',
     },
     {
       name: 'getAvailableForms',
       parameters: [],
       returnType: 'FormInfo[]',
-      doc: '/** Get a list of all available forms */'
+      doc: '/** Get a list of all available forms */',
     },
     {
       name: 'openFormplayer',
       parameters: [
-        { name: 'formId', type: 'string', doc: 'The ID of the form to open' },
-        { name: 'params', type: 'Record<string, any>', doc: 'Additional parameters' }
+        {name: 'formId', type: 'string', doc: 'The ID of the form to open'},
+        {
+          name: 'params',
+          type: 'Record<string, any>',
+          doc: 'Additional parameters',
+        },
       ],
       returnType: 'void',
-      doc: '/** Open the form player with the specified form */'
-    }
+      doc: '/** Open the form player with the specified form */',
+    },
   ];
 
   // Find the FormulusInterface interface
   const processNode = (node: ts.Node) => {
-    if (ts.isInterfaceDeclaration(node) && node.name.text === 'FormulusInterface') {
-      node.members.forEach((member) => {
+    if (
+      ts.isInterfaceDeclaration(node) &&
+      node.name.text === 'FormulusInterface'
+    ) {
+      node.members.forEach(member => {
         if (ts.isMethodSignature(member)) {
           const methodName = member.name.getText();
           const signature = typeChecker.getSignatureFromDeclaration(member);
-          const returnType = signature ? 
-            typeChecker.typeToString(signature.getReturnType()) : 'void';
-          
+          const returnType = signature
+            ? typeChecker.typeToString(signature.getReturnType())
+            : 'void';
+
           const parameters: MethodParameter[] = [];
-          
+
           if (member.parameters) {
-            member.parameters.forEach((param) => {
+            member.parameters.forEach(param => {
               const paramName = param.name.getText();
               const paramType = typeChecker.typeToString(
-                typeChecker.getTypeAtLocation(param)
+                typeChecker.getTypeAtLocation(param),
               );
               parameters.push({
                 name: paramName,
                 type: paramType,
                 doc: `@param {${paramType}} ${paramName}`,
-                optional: !!param.questionToken || param.initializer !== undefined
+                optional:
+                  !!param.questionToken || param.initializer !== undefined,
               });
             });
           }
 
           // Skip if method already exists
           if (!methods.some(m => m.name === methodName)) {
-            const paramDocs = parameters.length > 0 ? 
-              `\n${parameters.map(p => ` * @param {${p.type}} ${p.name}${p.optional ? '?' : ''} - Parameter`).join('\n')}` : '';
-            
+            const paramDocs =
+              parameters.length > 0
+                ? `\n${parameters
+                    .map(
+                      p =>
+                        ` * @param {${p.type}} ${p.name}${
+                          p.optional ? '?' : ''
+                        } - Parameter`,
+                    )
+                    .join('\n')}`
+                : '';
+
             methods.push({
               name: methodName,
               parameters,
@@ -102,7 +120,7 @@ function generateInjectionScript(interfaceFilePath: string): string {
               doc: `/**
                * ${methodName}${paramDocs}
                * @returns {${returnType}}
-               */`
+               */`,
             });
           }
         }
@@ -127,33 +145,37 @@ function generateInjectionScript(interfaceFilePath: string): string {
   }
 
   // Generate the injection script
-  const methodImpls = methods.map((method: MethodInfo) => {
-    const params = method.parameters.map(p => p.name).join(', ');
-    const messageProps = method.parameters
-      .map(p => `            ${p.name}: ${p.name}`)
-      .join(',\n');
-    
-    // Special handling for methods that return values
-    const isVoidReturn = method.returnType === 'void';
-    const callbackName = `__formulus_cb_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    
-    // Add JSDoc comments
-    let jsDoc = method.doc;
-    if (!jsDoc) {
-      const paramDocs = method.parameters
-        .map(p => ` * @param {${p.type}} ${p.name} - ${p.doc || ''}`)
-        .join('\n');
-      jsDoc = `/**\n${paramDocs}\n * @returns {${method.returnType}}\n */`;
-    }
-    
-    return `
-        // ${method.name}: ${method.parameters.map(p => `${p.name}: ${p.type}`).join(', ')} => ${method.returnType}
+  const methodImpls = methods
+    .map((method: MethodInfo) => {
+      const params = method.parameters.map(p => p.name).join(', ');
+      const messageProps = method.parameters
+        .map(p => `            ${p.name}: ${p.name}`)
+        .join(',\n');
+
+      // Special handling for methods that return values
+      const isVoidReturn = method.returnType === 'void';
+
+      // Add JSDoc comments
+      let jsDoc = method.doc;
+      if (!jsDoc) {
+        const paramDocs = method.parameters
+          .map(p => ` * @param {${p.type}} ${p.name} - ${p.doc || ''}`)
+          .join('\n');
+        jsDoc = `/**\n${paramDocs}\n * @returns {${method.returnType}}\n */`;
+      }
+
+      return `
+        // ${method.name}: ${method.parameters
+        .map(p => `${p.name}: ${p.type}`)
+        .join(', ')} => ${method.returnType}
         ${method.name}: function(${params}) {
           ${isVoidReturn ? '' : 'return new Promise((resolve, reject) => {'}
           const messageId = 'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
           
           // Add response handler for methods that return values
-          ${!isVoidReturn ? `
+          ${
+            !isVoidReturn
+              ? `
           const callback = (event) => {
             try {
               let data;
@@ -182,7 +204,9 @@ function generateInjectionScript(interfaceFilePath: string): string {
             }
           };
           window.addEventListener('message', callback);
-          ` : ''}
+          `
+              : ''
+          }
           
           // Send the message to React Native
           globalThis.ReactNativeWebView.postMessage(JSON.stringify({
@@ -193,15 +217,18 @@ function generateInjectionScript(interfaceFilePath: string): string {
           
           ${isVoidReturn ? '' : '});'}
         },`;
-  }).join('\n');
+    })
+    .join('\n');
 
   // Add TypeScript type information
-  const typeDeclarations = methods.map((method: MethodInfo) => {
-    const params = method.parameters
-      .map(p => `${p.name}${p.optional ? '?' : ''}: ${p.type}`)
-      .join(', ');
-    return `    ${method.name}(${params}): ${method.returnType};`;
-  }).join('\n');
+  const typeDeclarations = methods
+    .map((method: MethodInfo) => {
+      const params = method.parameters
+        .map(p => `${p.name}${p.optional ? '?' : ''}: ${p.type}`)
+        .join(', ');
+      return `    ${method.name}(${params}): ${method.returnType};`;
+    })
+    .join('\n');
 
   return `// Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
@@ -335,16 +362,16 @@ function generateInjectionScript(interfaceFilePath: string): string {
  * Generates a JSDoc interface file based on the FormulusInterfaceDefinition
  */
 function generateJSDocInterface(interfacePath: string): string {
-  const program = ts.createProgram([interfacePath], { 
+  const program = ts.createProgram([interfacePath], {
     target: ts.ScriptTarget.Latest,
-    module: ts.ModuleKind.CommonJS
+    module: ts.ModuleKind.CommonJS,
   });
-  
+
   const sourceFile = program.getSourceFile(interfacePath);
   if (!sourceFile) {
     throw new Error(`Could not load source file: ${interfacePath}`);
   }
-  
+
   // Extract method information
   const methods = extractMethods(sourceFile);
 
@@ -385,7 +412,9 @@ const FormulusAPI = {
   methods.forEach(method => {
     // Add the JSDoc comment and method signature
     output += `  ${method.doc}
-  ${method.name}: function(${method.parameters.map(p => p.name).join(', ')}) {},\n\n`;
+  ${method.name}: function(${method.parameters
+      .map(p => p.name)
+      .join(', ')}) {},\n\n`;
   });
 
   // Close the object and add exports
@@ -410,9 +439,12 @@ if (typeof module !== 'undefined' && module.exports) {
  */
 function extractMethods(sourceFile: ts.SourceFile): MethodInfo[] {
   const methods: MethodInfo[] = [];
-  
+
   const visit = (node: ts.Node) => {
-    if (ts.isInterfaceDeclaration(node) && node.name.text === 'FormulusInterface') {
+    if (
+      ts.isInterfaceDeclaration(node) &&
+      node.name.text === 'FormulusInterface'
+    ) {
       for (const member of node.members) {
         if (ts.isMethodSignature(member)) {
           const methodName = member.name.getText(sourceFile);
@@ -420,59 +452,61 @@ function extractMethods(sourceFile: ts.SourceFile): MethodInfo[] {
           const parameters = member.parameters.map(param => ({
             name: param.name.getText(sourceFile),
             type: param.type?.getText(sourceFile) || 'any',
-            doc: '' // Will be filled from JSDoc if available
+            doc: '', // Will be filled from JSDoc if available
           }));
-          
+
           // Get return type
           const returnType = member.type?.getText(sourceFile) || 'void';
-          
+
           // Get JSDoc comment text if it exists
           const jsDocRanges = ts.getLeadingCommentRanges(
             sourceFile.text,
-            member.getFullStart()
+            member.getFullStart(),
           );
-          
+
           let doc = `/** ${methodName} */`; // Default doc if none found
-          
+
           if (jsDocRanges && jsDocRanges.length > 0) {
             const jsDocText = jsDocRanges[0];
             // Get the raw JSDoc text
             const rawJsDoc = sourceFile.text.substring(
               jsDocText.pos,
-              jsDocText.end
+              jsDocText.end,
             );
-            
+
             // Parse the JSDoc to extract the description and tags
             const lines = rawJsDoc
               .split('\n')
               .map(line => line.trim().replace(/^\* ?/, '').trim())
               .filter(line => line !== '/**' && line !== '*/');
-            
+
             const description: string[] = [];
             const tags: JSDocTag[] = [];
-            
+
             for (const line of lines) {
               if (line.startsWith('@')) {
                 const [tagName, ...rest] = line.slice(1).split(' ');
                 tags.push({
                   tagName,
-                  text: rest.join(' ').trim()
+                  text: rest.join(' ').trim(),
                 });
               } else if (line) {
                 description.push(line);
               }
             }
-            
+
             // Build the JSDoc comment
             doc = '/**\n';
             if (description.length > 0) {
               doc += ` * ${description.join('\n * ')}\n`;
             }
-            
+
             // Add parameter tags
             for (const tag of tags) {
               if (tag.tagName === 'param') {
-                const paramMatch = tag.text.match(/^\{([^}]+)\}\s+([^\s-]+)(?:\s+-\s+(.*))?/);
+                const paramMatch = tag.text.match(
+                  /^\{([^}]+)\}\s+([^\s-]+)(?:\s+-\s+(.*))?/,
+                );
                 if (paramMatch) {
                   const [_, type, name, desc = ''] = paramMatch;
                   const param = parameters.find(p => p.name === name);
@@ -493,7 +527,7 @@ function extractMethods(sourceFile: ts.SourceFile): MethodInfo[] {
                 doc += ` * @${tag.tagName} ${tag.text}\n`;
               }
             }
-            
+
             doc += ' */';
           }
           // Add the method to our list
@@ -502,17 +536,17 @@ function extractMethods(sourceFile: ts.SourceFile): MethodInfo[] {
             parameters: parameters.map(p => ({
               name: p.name,
               type: p.type,
-              doc: p.doc || '' // Ensure doc is always a string
+              doc: p.doc || '', // Ensure doc is always a string
             })),
             returnType,
-            doc: doc || '' // Ensure doc is always a string
+            doc: doc || '', // Ensure doc is always a string
           });
         }
       }
     }
     ts.forEachChild(node, visit);
   };
-  
+
   visit(sourceFile);
   return methods;
 }
@@ -521,32 +555,47 @@ function extractMethods(sourceFile: ts.SourceFile): MethodInfo[] {
 if (require.main === module) {
   try {
     console.log('Running as main module');
-    
+
     // Get the project root directory (one level up from scripts directory)
     const projectRoot = path.resolve(__dirname, '..');
-    const interfacePath = path.join(projectRoot, 'src', 'webview', 'FormulusInterfaceDefinition.ts');
-    const injectionScriptPath = path.join(projectRoot, 'assets', 'webview', 'FormulusInjectionScript.js');
-    const jsDocPath = path.join(projectRoot, 'assets', 'webview', 'formulus-api.js');
-    
+    const interfacePath = path.join(
+      projectRoot,
+      'src',
+      'webview',
+      'FormulusInterfaceDefinition.ts',
+    );
+    const injectionScriptPath = path.join(
+      projectRoot,
+      'assets',
+      'webview',
+      'FormulusInjectionScript.js',
+    );
+    const jsDocPath = path.join(
+      projectRoot,
+      'assets',
+      'webview',
+      'formulus-api.js',
+    );
+
     console.log('Project root:', projectRoot);
     console.log('Interface path:', interfacePath);
     console.log('Injection script path:', injectionScriptPath);
     console.log('JSDoc interface path:', jsDocPath);
-    
+
     // Check if interface file exists
     if (!fs.existsSync(interfacePath)) {
       console.error('Error: Interface file not found');
       console.error('Searched at:', interfacePath);
       process.exit(1);
     }
-    
+
     // Create output directory if it doesn't exist
     const outputDir = path.dirname(injectionScriptPath);
     if (!fs.existsSync(outputDir)) {
       console.log(`Creating directory: ${outputDir}`);
-      fs.mkdirSync(outputDir, { recursive: true });
+      fs.mkdirSync(outputDir, {recursive: true});
     }
-    
+
     // Generate and write the injection script
     console.log('Generating injection script...');
     let injectionScript = generateInjectionScript(interfacePath);
@@ -554,11 +603,13 @@ if (require.main === module) {
     // Remove TypeScript interface declarations and type assertions
     injectionScript = injectionScript
       .replace(/interface\s+\w+\s*{[^}]*}/gs, '') // Remove interface blocks
-      .replace(/\s+as\s+\w+/g, '');              // Remove type assertions
+      .replace(/\s+as\s+\w+/g, ''); // Remove type assertions
 
     fs.writeFileSync(injectionScriptPath, injectionScript);
-    console.log(`✅ Successfully generated injection script at ${injectionScriptPath}`);
-    
+    console.log(
+      `✅ Successfully generated injection script at ${injectionScriptPath}`,
+    );
+
     // Generate and write the JSDoc interface
     console.log('Generating JSDoc interface...');
     const jsDocInterface = generateJSDocInterface(interfacePath);

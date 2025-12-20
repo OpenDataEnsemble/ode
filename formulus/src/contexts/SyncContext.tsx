@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  ReactNode,
+} from 'react';
 
 export interface SyncProgress {
   current: number;
@@ -30,7 +36,7 @@ interface SyncProviderProps {
   children: ReactNode;
 }
 
-export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
+export const SyncProvider: React.FC<SyncProviderProps> = ({children}) => {
   const [syncState, setSyncState] = useState<SyncState>({
     isActive: false,
     canCancel: false,
@@ -89,11 +95,7 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
     clearError,
   };
 
-  return (
-    <SyncContext.Provider value={value}>
-      {children}
-    </SyncContext.Provider>
-  );
+  return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
 };
 
 export const useSyncContext = (): SyncContextType => {

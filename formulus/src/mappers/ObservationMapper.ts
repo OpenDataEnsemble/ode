@@ -12,10 +12,10 @@
 //  - Represents how data is stored in WatermelonDB
 //  - Handles database-specific concerns (like relationships, indexing)
 
-import { Observation as ApiObservation } from '../api/synkronus/generated';
-import { Observation as DomainObservation } from '../database/models/Observation';
-import { ObservationModel } from '../database/models/ObservationModel';
-import { ObservationGeolocation } from '../types/Geolocation';
+import {Observation as ApiObservation} from '../api/synkronus/generated';
+import {Observation as DomainObservation} from '../database/models/Observation';
+import {ObservationModel} from '../database/models/ObservationModel';
+import {ObservationGeolocation} from '../types/Geolocation';
 
 export class ObservationMapper {
   // API -> Domain
@@ -29,7 +29,7 @@ export class ObservationMapper {
       updatedAt: new Date(apiObs.updated_at),
       syncedAt: apiObs.synced_at ? new Date(apiObs.synced_at) : null,
       deleted: apiObs.deleted || false,
-      geolocation: apiObs.geolocation || null
+      geolocation: apiObs.geolocation || null,
     };
   }
 
@@ -44,7 +44,7 @@ export class ObservationMapper {
       updated_at: domainObs.updatedAt.toISOString(),
       synced_at: domainObs.syncedAt?.toISOString(),
       deleted: domainObs.deleted,
-      geolocation: domainObs.geolocation
+      geolocation: domainObs.geolocation,
     };
   }
 
@@ -54,12 +54,17 @@ export class ObservationMapper {
       id: domainObs.observationId,
       formType: domainObs.formType,
       formVersion: domainObs.formVersion,
-      data: typeof domainObs.data === 'string' ? domainObs.data : JSON.stringify(domainObs.data),
-      geolocation: domainObs.geolocation ? JSON.stringify(domainObs.geolocation) : '',
+      data:
+        typeof domainObs.data === 'string'
+          ? domainObs.data
+          : JSON.stringify(domainObs.data),
+      geolocation: domainObs.geolocation
+        ? JSON.stringify(domainObs.geolocation)
+        : '',
       deleted: domainObs.deleted,
       createdAt: domainObs.createdAt,
       updatedAt: domainObs.updatedAt,
-      syncedAt: domainObs.syncedAt || undefined
+      syncedAt: domainObs.syncedAt || undefined,
     };
   }
 
@@ -73,17 +78,18 @@ export class ObservationMapper {
         console.warn('Failed to parse geolocation data:', error);
       }
     }
-    
+
     return {
       observationId: model.id,
       formType: model.formType,
       formVersion: model.formVersion,
-      data: typeof model.data === 'string' ? JSON.parse(model.data) : model.data,
+      data:
+        typeof model.data === 'string' ? JSON.parse(model.data) : model.data,
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
       syncedAt: model.syncedAt,
       deleted: model.deleted,
-      geolocation
+      geolocation,
     };
   }
 }

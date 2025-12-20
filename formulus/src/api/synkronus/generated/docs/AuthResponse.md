@@ -1,23 +1,22 @@
 # AuthResponse
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**token** | **string** |  | [default to undefined]
-**refreshToken** | **string** |  | [default to undefined]
-**expiresAt** | **number** |  | [default to undefined]
+| Name             | Type       | Description | Notes                  |
+| ---------------- | ---------- | ----------- | ---------------------- |
+| **token**        | **string** |             | [default to undefined] |
+| **refreshToken** | **string** |             | [default to undefined] |
+| **expiresAt**    | **number** |             | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AuthResponse } from './api';
+import {AuthResponse} from './api';
 
 const instance: AuthResponse = {
-    token,
-    refreshToken,
-    expiresAt,
+  token,
+  refreshToken,
+  expiresAt,
 };
 ```
 

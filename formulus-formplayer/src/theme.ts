@@ -3,7 +3,7 @@ import { tokens } from './tokens-adapter';
 
 /**
  * Material Design 3 Theme Configuration with ODE Design Tokens
- * 
+ *
  * This theme implements modern Android / Material Design 3 guidelines
  * while using ODE design tokens for brand consistency:
  * - ODE brand colors (green primary #4F7F4E, gold secondary #E9B85B)

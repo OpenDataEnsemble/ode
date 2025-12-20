@@ -1,4 +1,4 @@
-import { ToastAndroid, Platform, Alert } from 'react-native';
+import {ToastAndroid, Platform, Alert} from 'react-native';
 
 /**
  * Cross-platform toast notification service
@@ -33,7 +33,9 @@ export class ToastService {
    * Show a toast specifically for geolocation unavailable
    */
   public static showGeolocationUnavailable(): void {
-    this.showShort('Location unavailable - observation saved without geolocation');
+    this.showShort(
+      'Location unavailable - observation saved without geolocation',
+    );
   }
 
   /**

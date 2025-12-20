@@ -1,23 +1,22 @@
 # HealthGet200Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**status** | **string** |  | [optional] [default to undefined]
-**timestamp** | **string** | Current server time | [optional] [default to undefined]
-**version** | **string** | Current API version | [optional] [default to undefined]
+| Name          | Type       | Description         | Notes                             |
+| ------------- | ---------- | ------------------- | --------------------------------- |
+| **status**    | **string** |                     | [optional] [default to undefined] |
+| **timestamp** | **string** | Current server time | [optional] [default to undefined] |
+| **version**   | **string** | Current API version | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { HealthGet200Response } from './api';
+import {HealthGet200Response} from './api';
 
 const instance: HealthGet200Response = {
-    status,
-    timestamp,
-    version,
+  status,
+  timestamp,
+  version,
 };
 ```
 

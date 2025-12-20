@@ -34,19 +34,30 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "sync-interface": "powershell -NoProfile -Command \"Copy-Item -Path '../formulus/src/webview/FormulusInterfaceDefinition.ts' -Destination './src/FormulusInterfaceDefinition.ts' -Force\"",
+    "sync-interface": "node scripts/sync-interface.js",
     "build": "npm run sync-interface && react-scripts build",
+    "upload:android": "npm run build && node scripts/clean-rn-assets.js && node scripts/copy-to-rn.js",
     "build:rn": "npm run build && npm run copy-to-rn",
-    "clean-rn-assets": "powershell -NoProfile -Command \"Remove-Item -Path '../formulus/android/app/src/main/assets/formplayer_dist' -Recurse -Force -ErrorAction SilentlyContinue; mkdir -Force -Path '../formulus/android/app/src/main/assets/formplayer_dist'\"",
-    "copy-to-rn": "npm run clean-rn-assets && powershell -NoProfile -Command \"Copy-Item -Path './build/*' -Destination '../formulus/android/app/src/main/assets/formplayer_dist' -Recurse -Force\"",
+    "clean-rn-assets": "node scripts/clean-rn-assets.js",
+    "copy-to-rn": "node scripts/copy-to-rn.js",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "lint": "eslint src --ext js,jsx,ts,tsx --max-warnings 9999",
+    "lint:fix": "eslint src --ext js,jsx,ts,tsx --fix --max-warnings 9999",
+    "format": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
+    "format:check": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --check"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
-      "react-app/jest"
+      "react-app/jest",
+      "prettier"
     ]
+  },
+  "devDependencies": {
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "8.10.2",
+    "prettier": "2.8.8"
   },
   "browserslist": {
     "production": [

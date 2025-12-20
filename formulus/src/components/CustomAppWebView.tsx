@@ -1,11 +1,18 @@
-import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle, useMemo } from 'react';
-import { StyleSheet, View, ActivityIndicator, AppState } from 'react-native';
-import { WebView, WebViewMessageEvent, WebViewNavigation } from 'react-native-webview';
-import { useIsFocused } from '@react-navigation/native';
-import { Platform } from 'react-native';
-import { readFileAssets } from 'react-native-fs';
-import { FormulusWebViewMessageManager } from '../webview/FormulusWebViewHandler';
-import { FormInitData } from '../webview/FormulusInterfaceDefinition';
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+} from 'react';
+import {View, ActivityIndicator, AppState} from 'react-native';
+import {WebView} from 'react-native-webview';
+import {useIsFocused} from '@react-navigation/native';
+import {Platform} from 'react-native';
+import {readFileAssets} from 'react-native-fs';
+import {FormulusWebViewMessageManager} from '../webview/FormulusWebViewHandler';
+import {FormInitData} from '../webview/FormulusInterfaceDefinition';
 
 export interface CustomAppWebViewHandle {
   reload: () => void;
@@ -22,9 +29,10 @@ interface CustomAppWebViewProps {
   onLoadEndProp?: () => void; // Propagate WebView's onLoadEnd event
 }
 
-const INJECTION_SCRIPT_PATH = Platform.OS === 'android' 
-  ? 'webview/FormulusInjectionScript.js'
-  : 'FormulusInjectionScript.js';
+const INJECTION_SCRIPT_PATH =
+  Platform.OS === 'android'
+    ? 'webview/FormulusInjectionScript.js'
+    : 'FormulusInjectionScript.js';
 
 const consoleLogScript = `
     (function() {
@@ -64,10 +72,13 @@ const consoleLogScript = `
     })();
   `;
 
-const CustomAppWebView = forwardRef<CustomAppWebViewHandle, CustomAppWebViewProps>(({ appUrl, appName, onLoadEndProp }, ref) => {
+const CustomAppWebView = forwardRef<
+  CustomAppWebViewHandle,
+  CustomAppWebViewProps
+>(({appUrl, appName, onLoadEndProp}, ref) => {
   const webViewRef = useRef<WebView | null>(null);
   const hasLoadedOnceRef = useRef(false);
-  
+
   const [injectionScript, setInjectionScript] =
     useState<string>(consoleLogScript);
   const injectionScriptRef = useRef<string>(consoleLogScript);

@@ -1,5 +1,11 @@
 import React from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, TextInput} from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {SortOption, FilterOption} from './FilterBar.types';
 
@@ -54,7 +60,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
           </TouchableOpacity>
         )}
       </View>
-      
+
       <View style={styles.controlsRow}>
         <View style={styles.sortContainer}>
           <Text style={styles.label}>Sort:</Text>
@@ -65,20 +71,18 @@ const FilterBar: React.FC<FilterBarProps> = ({
                 styles.optionButton,
                 sortOption === option.value && styles.optionButtonActive,
               ]}
-              onPress={() => onSortChange(option.value)}
-            >
+              onPress={() => onSortChange(option.value)}>
               <Text
                 style={[
                   styles.optionText,
                   sortOption === option.value && styles.optionTextActive,
-                ]}
-              >
+                ]}>
                 {option.label}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
-        
+
         {showFilter && onFilterChange && (
           <View style={styles.filterContainer}>
             <Text style={styles.label}>Filter:</Text>
@@ -89,14 +93,12 @@ const FilterBar: React.FC<FilterBarProps> = ({
                   styles.optionButton,
                   filterOption === option.value && styles.optionButtonActive,
                 ]}
-                onPress={() => onFilterChange(option.value)}
-              >
+                onPress={() => onFilterChange(option.value)}>
                 <Text
                   style={[
                     styles.optionText,
                     filterOption === option.value && styles.optionTextActive,
-                  ]}
-                >
+                  ]}>
                   {option.label}
                 </Text>
               </TouchableOpacity>
@@ -177,4 +179,3 @@ const styles = StyleSheet.create({
 });
 
 export default FilterBar;
-

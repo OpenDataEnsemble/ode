@@ -1,29 +1,27 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import { ControlProps, rankWith, schemaTypeIs, and, schemaMatches } from '@jsonforms/core';
-import { 
-  Button, 
-  Box, 
-  Typography, 
-  Card, 
-  CardMedia, 
+import {
+  Button,
+  Box,
+  Typography,
+  Card,
+  CardMedia,
   CardContent,
   IconButton,
-  Alert
+  Alert,
 } from '@mui/material';
 import { PhotoCamera, Delete, Refresh } from '@mui/icons-material';
 import FormulusClient from './FormulusInterface';
-import {
-  CameraResult
-} from './FormulusInterfaceDefinition';
+import { CameraResult } from './FormulusInterfaceDefinition';
 
 // Tester function to identify photo question types
 export const photoQuestionTester = rankWith(
   5, // High priority for photo questions
   and(
     schemaTypeIs('object'),
-    schemaMatches((schema) => schema.format === 'photo')
-  )
+    schemaMatches((schema) => schema.format === 'photo'),
+  ),
 );
 
 interface PhotoQuestionProps extends ControlProps {
@@ -37,12 +35,12 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   errors,
   schema,
   uischema,
-  enabled = true
+  enabled = true,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Safe error setter to prevent corruption
   const setSafeError = useCallback((errorMessage: string | null) => {
     if (errorMessage === null || errorMessage === undefined) {
@@ -55,13 +53,13 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     }
   }, []);
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
-  
+
   // Extract field ID from the path for use with the camera interface
   const fieldId = path.replace(/\//g, '_').replace(/^_/, '') || 'photo_field';
-  
+
   // Get the current photo data from the form data (now JSON format)
   const currentPhotoData = data || null;
-  
+
   // Set photo URL from stored data if available
   useEffect(() => {
     console.log('Photo data changed:', currentPhotoData);
@@ -79,61 +77,60 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   // Handle camera request with new Promise-based approach
   const handleTakePhoto = useCallback(async () => {
     if (!enabled) return;
-    
+
     setIsLoading(true);
     setSafeError(null);
-    
+
     try {
       console.log('Requesting camera for field:', fieldId);
-      
+
       // Use the new Promise-based camera API
       const cameraResult: CameraResult = await formulusClient.current.requestCamera(fieldId);
-      
+
       console.log('Camera result received:', cameraResult);
-      
+
       // Check if the result was successful
       if (cameraResult.status === 'success' && cameraResult.data) {
         // Store photo data in form - use file URI for display
         const displayUri = cameraResult.data.uri;
-        
+
         const photoData = {
           id: cameraResult.data.id,
           type: cameraResult.data.type,
           filename: cameraResult.data.filename,
           uri: cameraResult.data.uri,
           timestamp: cameraResult.data.timestamp,
-          metadata: cameraResult.data.metadata
+          metadata: cameraResult.data.metadata,
         };
         console.log('Created photo data object for sync protocol:', {
           id: photoData.id,
           filename: photoData.filename,
           uri: photoData.uri,
           persistentStorage: photoData.metadata.persistentStorage,
-          size: photoData.metadata.size
+          size: photoData.metadata.size,
         });
-        
+
         // Update the form data with the photo data
         console.log('Updating form data with photo data...');
         handleChange(path, photoData);
-        
+
         // Set the photo URL for display using the file URI
         console.log('Setting photo URL for display:', displayUri.substring(0, 50) + '...');
         setPhotoUrl(displayUri);
-        
+
         // Clear any previous errors on successful photo capture
         console.log('Clearing error state after successful photo capture');
         setSafeError(null);
-        
+
         console.log('Photo captured successfully:', photoData);
       } else {
         // Handle non-success results
         const errorMessage = cameraResult.message || `Camera operation ${cameraResult.status}`;
         throw new Error(errorMessage);
       }
-      
     } catch (err: any) {
       console.error('Error during camera request:', err);
-      
+
       // Handle different types of camera errors
       if (err && typeof err === 'object' && 'status' in err) {
         const cameraError = err as CameraResult;
@@ -149,7 +146,8 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           setSafeError('Unknown camera error');
         }
       } else {
-        const errorMessage = err?.message || err?.toString() || 'Failed to capture photo. Please try again.';
+        const errorMessage =
+          err?.message || err?.toString() || 'Failed to capture photo. Please try again.';
         console.log('Setting error message:', errorMessage);
         setSafeError(errorMessage);
       }
@@ -158,11 +156,10 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     }
   }, [fieldId, enabled, handleChange, path, setSafeError]);
 
-
   // Handle photo deletion
   const handleDeletePhoto = useCallback(() => {
     if (!enabled) return;
-    
+
     setPhotoUrl(null);
     handleChange(path, undefined);
     setSafeError(null);
@@ -181,7 +178,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
         {label}
         {isRequired && <span style={{ color: 'red' }}> *</span>}
       </Typography>
-      
+
       {description && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {description}
@@ -218,16 +215,16 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
                 File: {currentPhotoData.filename}
               </Typography>
               <Box>
-                <IconButton 
-                  onClick={handleTakePhoto} 
+                <IconButton
+                  onClick={handleTakePhoto}
                   disabled={!enabled || isLoading}
                   color="primary"
                   title="Retake photo"
                 >
                   <Refresh />
                 </IconButton>
-                <IconButton 
-                  onClick={handleDeletePhoto} 
+                <IconButton
+                  onClick={handleDeletePhoto}
                   disabled={!enabled}
                   color="error"
                   title="Delete photo"
@@ -239,14 +236,16 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           </CardContent>
         </Card>
       ) : (
-        <Box sx={{ 
-          border: '2px dashed', 
-          borderColor: 'divider',
-          borderRadius: 2, 
-          p: 3, 
-          textAlign: 'center',
-          backgroundColor: 'grey.50'
-        }}>
+        <Box
+          sx={{
+            border: '2px dashed',
+            borderColor: 'divider',
+            borderRadius: 2,
+            p: 3,
+            textAlign: 'center',
+            backgroundColor: 'grey.50',
+          }}
+        >
           <PhotoCamera sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
           <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
             {currentPhotoData?.filename ? 'Photo taken' : 'No photo taken yet'}
@@ -270,19 +269,23 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
             Debug Info:
           </Typography>
           <Typography variant="caption" component="pre" sx={{ fontSize: '0.7rem' }}>
-            {JSON.stringify({
-              fieldId,
-              path,
-              currentPhotoData,
-              hasPhotoData: !!currentPhotoData,
-              hasFilename: !!currentPhotoData?.filename,
-              hasUri: !!currentPhotoData?.uri,
-              photoUrl,
-              hasPhotoUrl: !!photoUrl,
-              shouldShowThumbnail: !!(currentPhotoData && currentPhotoData.filename && photoUrl),
-              isLoading,
-              error
-            }, null, 2)}
+            {JSON.stringify(
+              {
+                fieldId,
+                path,
+                currentPhotoData,
+                hasPhotoData: !!currentPhotoData,
+                hasFilename: !!currentPhotoData?.filename,
+                hasUri: !!currentPhotoData?.uri,
+                photoUrl,
+                hasPhotoUrl: !!photoUrl,
+                shouldShowThumbnail: !!(currentPhotoData && currentPhotoData.filename && photoUrl),
+                isLoading,
+                error,
+              },
+              null,
+              2,
+            )}
           </Typography>
         </Box>
       )}

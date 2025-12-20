@@ -89,10 +89,13 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	}
 
 	// Authentication routes
-	r.Route("/auth", func(r chi.Router) {
+	authRoutes := func(r chi.Router) {
 		r.Post("/login", h.Login)
 		r.Post("/refresh", h.RefreshToken)
-	})
+	}
+	r.Route("/auth", authRoutes)
+	// Also register under /api for portal compatibility
+	r.Route("/api/auth", authRoutes)
 
 	// Create attachment service
 	attachmentService, err := attachment.NewService(h.GetConfig())
@@ -121,7 +124,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		})
 
 		// App bundle routes
-		r.Route("/app-bundle", func(r chi.Router) {
+		appBundleRoutes := func(r chi.Router) {
 			// Read endpoints - accessible to all authenticated users
 			r.Get("/manifest", h.GetAppBundleManifest)
 			r.Get("/download/{path}", h.GetAppBundleFile)
@@ -131,7 +134,10 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 			// Write endpoints - require admin role
 			r.With(auth.RequireRole(models.RoleAdmin)).Post("/push", h.PushAppBundle)
 			r.With(auth.RequireRole(models.RoleAdmin)).Post("/switch/{version}", h.SwitchAppBundleVersion)
-		})
+		}
+		r.Route("/app-bundle", appBundleRoutes)
+		// Also register under /api for portal compatibility
+		r.Route("/api/app-bundle", appBundleRoutes)
 
 		// Form specifications routes
 		r.Route("/formspecs", func(r chi.Router) {
@@ -139,24 +145,34 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		})
 
 		// User management routes
-		r.Route("/users", func(r chi.Router) {
+		userRoutes := func(r chi.Router) {
 			// Admin-only routes
+			// Support both POST /users and POST /users/create for compatibility
+			// CLI uses POST /users, portal uses POST /users/create
+			r.With(auth.RequireRole(models.RoleAdmin)).Post("/", h.CreateUserHandler)
 			r.With(auth.RequireRole(models.RoleAdmin)).Post("/create", h.CreateUserHandler)
 			r.With(auth.RequireRole(models.RoleAdmin)).Delete("/delete/{username}", h.DeleteUserHandler)
 			r.With(auth.RequireRole(models.RoleAdmin)).Post("/reset-password", h.ResetPasswordHandler)
 			r.With(auth.RequireRole(models.RoleAdmin)).Get("/", h.ListUsersHandler)
 			// Authenticated user route
 			r.Post("/change-password", h.ChangePasswordHandler)
-		})
+		}
+		r.Route("/users", userRoutes)
+		// Also register under /api for portal compatibility
+		r.Route("/api/users", userRoutes)
 
 		// Data export routes
-		r.Route("/dataexport", func(r chi.Router) {
+		dataExportRoutes := func(r chi.Router) {
 			// Parquet export - accessible to read-only users and above
 			r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/parquet", h.ParquetExportHandler)
-		})
+		}
+		r.Route("/dataexport", dataExportRoutes)
+		// Also register under /api for portal compatibility
+		r.Route("/api/dataexport", dataExportRoutes)
 
 		// Version routes
 		r.Get("/version", h.GetVersion)
+		r.Get("/api/version", h.GetVersion)      // Also under /api for portal compatibility
 		r.Get("/api/versions", h.GetAPIVersions) // Not implemented yet
 	})
 

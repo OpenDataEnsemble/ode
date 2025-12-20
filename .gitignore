@@ -1,6 +1,8 @@
 synkronus/.env
 .vscode
 **/.vscode
+.idea
+**/.idea
 
 # Android release keys
 formulus/android/keystores/

@@ -1,5 +1,15 @@
 import React, { useMemo } from 'react';
-import { Box, Button, List, ListItem, ListItemText, Typography, Paper, Divider, Link } from '@mui/material';
+import {
+  Box,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  Typography,
+  Paper,
+  Divider,
+  Link,
+} from '@mui/material';
 import { JsonFormsRendererRegistryEntry } from '@jsonforms/core';
 import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import { ControlProps } from '@jsonforms/core';
@@ -16,22 +26,22 @@ interface SummaryItem {
   format?: string;
 }
 
-const FinalizeRenderer = ({ 
-  schema, 
-  uischema, 
-  data, 
-  handleChange, 
-  path, 
-  renderers, 
-  cells, 
-  enabled
+const FinalizeRenderer = ({
+  schema,
+  uischema,
+  data,
+  handleChange,
+  path,
+  renderers,
+  cells,
+  enabled,
 }: ControlProps) => {
   const { core } = useJsonForms();
   const errors = core?.errors || [];
   const { formInitData } = useFormContext();
   const fullSchema = core?.schema;
   const fullUISchema = formInitData?.uiSchema;
-  
+
   // Helper function to get field label from schema
   const getFieldLabel = (fieldPath: string, fieldSchema: any): string => {
     if (!fieldSchema) return fieldPath;
@@ -69,7 +79,9 @@ const FinalizeRenderer = ({
           return 'File selected';
         case 'audio':
           if (typeof value === 'object' && value.filename) {
-            const duration = value.metadata?.duration ? ` (${Math.round(value.metadata.duration)}s)` : '';
+            const duration = value.metadata?.duration
+              ? ` (${Math.round(value.metadata.duration)}s)`
+              : '';
             return `Audio: ${value.filename}${duration}`;
           }
           return 'Audio recorded';
@@ -95,12 +107,14 @@ const FinalizeRenderer = ({
     // Handle arrays
     if (Array.isArray(value)) {
       if (value.length === 0) return 'None';
-      return value.map((item, idx) => {
-        if (typeof item === 'object') {
-          return `${idx + 1}. ${JSON.stringify(item)}`;
-        }
-        return String(item);
-      }).join(', ');
+      return value
+        .map((item, idx) => {
+          if (typeof item === 'object') {
+            return `${idx + 1}. ${JSON.stringify(item)}`;
+          }
+          return String(item);
+        })
+        .join(', ');
     }
 
     // Handle objects
@@ -119,40 +133,41 @@ const FinalizeRenderer = ({
     return String(value);
   };
 
-
   // Helper function to find which page/screen a field is on
   const findFieldPageMemo = useMemo(() => {
     return (fieldPath: string): number => {
       if (!fullUISchema || !fullUISchema.elements) return -1;
-      
+
       // Normalize the field path (remove #/properties/ prefix and convert / to .)
       const normalizePath = (path: string) => {
         return path.replace(/^#\/properties\//, '').replace(/\//g, '.');
       };
-      
+
       const fieldName = normalizePath(fieldPath);
       const screens = fullUISchema.elements;
-      
+
       for (let i = 0; i < screens.length; i++) {
         const screen = screens[i];
         if (screen.type === 'Finalize') continue;
-        
+
         if ('elements' in screen && screen.elements) {
           const hasField = screen.elements.some((el: any) => {
             if (el.scope) {
               const scopePath = normalizePath(el.scope);
               // Exact match or field is nested under scope, or scope is nested under field
-              return scopePath === fieldName || 
-                     fieldName.startsWith(scopePath + '.') || 
-                     scopePath.startsWith(fieldName + '.');
+              return (
+                scopePath === fieldName ||
+                fieldName.startsWith(scopePath + '.') ||
+                scopePath.startsWith(fieldName + '.')
+              );
             }
             return false;
           });
-          
+
           if (hasField) return i;
         }
       }
-      
+
       return -1;
     };
   }, [fullUISchema]);
@@ -160,34 +175,41 @@ const FinalizeRenderer = ({
   // Extract all form fields and their values for summary
   const summaryItems = useMemo((): SummaryItem[] => {
     if (!fullSchema || !data || !fullSchema.properties) return [];
-    
+
     const items: SummaryItem[] = [];
-    
+
     const extractFields = (schemaObj: any, dataObj: any, basePath: string = '') => {
       if (!schemaObj || !schemaObj.properties) return;
-      
-      Object.keys(schemaObj.properties).forEach(key => {
+
+      Object.keys(schemaObj.properties).forEach((key) => {
         const fieldSchema = schemaObj.properties[key];
         const fieldPath = basePath ? `${basePath}/${key}` : key;
         const fieldValue = dataObj?.[key];
         const fullPath = `#/properties/${fieldPath}`;
-        
+
         // Skip if value is empty (null, undefined, empty string, empty array, empty object)
-        const isEmpty = 
-          fieldValue === null || 
-          fieldValue === undefined || 
+        const isEmpty =
+          fieldValue === null ||
+          fieldValue === undefined ||
           fieldValue === '' ||
           (Array.isArray(fieldValue) && fieldValue.length === 0) ||
-          (typeof fieldValue === 'object' && !Array.isArray(fieldValue) && Object.keys(fieldValue).length === 0);
-        
+          (typeof fieldValue === 'object' &&
+            !Array.isArray(fieldValue) &&
+            Object.keys(fieldValue).length === 0);
+
         if (isEmpty) {
           // Only include empty fields if they are required (to show what's missing)
           const isRequired = schemaObj.required?.includes(key);
           if (!isRequired) return;
         }
-        
+
         // Handle nested objects
-        if (fieldSchema.type === 'object' && fieldSchema.properties && typeof fieldValue === 'object' && !Array.isArray(fieldValue)) {
+        if (
+          fieldSchema.type === 'object' &&
+          fieldSchema.properties &&
+          typeof fieldValue === 'object' &&
+          !Array.isArray(fieldValue)
+        ) {
           extractFields(fieldSchema, fieldValue, fieldPath);
         } else {
           // Add to summary
@@ -198,14 +220,14 @@ const FinalizeRenderer = ({
             path: fullPath,
             pageIndex,
             type: fieldSchema.type,
-            format: fieldSchema.format
+            format: fieldSchema.format,
           });
         }
       });
     };
-    
+
     extractFields(fullSchema, data);
-    
+
     return items;
   }, [fullSchema, data, findFieldPageMemo]);
 
@@ -219,21 +241,25 @@ const FinalizeRenderer = ({
     // Check if there's a custom error message in the error object
     const customMessage = (error as any).params?.errorMessage;
     // Title case the path and add spaces before capitalized letters
-    const formattedPath = path ? path
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ')
-      .replace(/([A-Z])/g, ' $1')
-      .trim() : '';
-    return formattedPath ? `${formattedPath} ${customMessage || error.message}` : customMessage || error.message;
+    const formattedPath = path
+      ? path
+          .split(' ')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ')
+          .replace(/([A-Z])/g, ' $1')
+          .trim()
+      : '';
+    return formattedPath
+      ? `${formattedPath} ${customMessage || error.message}`
+      : customMessage || error.message;
   };
 
   const hasErrors = Array.isArray(errors) && errors.length > 0;
 
   const handleErrorClick = (path: string) => {
     // Dispatch a custom event that SwipeLayoutRenderer will listen for
-    const event = new CustomEvent('navigateToError', { 
-      detail: { path } 
+    const event = new CustomEvent('navigateToError', {
+      detail: { path },
     });
     window.dispatchEvent(event);
   };
@@ -241,8 +267,8 @@ const FinalizeRenderer = ({
   const handleFieldEdit = (item: SummaryItem) => {
     if (item.pageIndex >= 0) {
       // Navigate to the page containing this field
-      const navigateEvent = new CustomEvent('navigateToPage', { 
-        detail: { page: item.pageIndex } 
+      const navigateEvent = new CustomEvent('navigateToPage', {
+        detail: { page: item.pageIndex },
       });
       window.dispatchEvent(navigateEvent);
     } else {
@@ -268,7 +294,7 @@ const FinalizeRenderer = ({
       <Typography variant="h5" gutterBottom>
         Review and Finalize
       </Typography>
-      
+
       {hasErrors ? (
         <>
           <Typography variant="subtitle1" color="error" gutterBottom>
@@ -277,15 +303,13 @@ const FinalizeRenderer = ({
           <Paper sx={{ mb: 3 }}>
             <List>
               {errors.map((error: ErrorObject, index: number) => (
-                <ListItem 
+                <ListItem
                   key={index}
                   component="div"
                   sx={{ cursor: 'pointer' }}
                   onClick={() => handleErrorClick(error.instancePath)}
                 >
-                  <ListItemText 
-                    primary={formatErrorMessage(error)}
-                  />
+                  <ListItemText primary={formatErrorMessage(error)} />
                 </ListItem>
               ))}
             </List>
@@ -306,12 +330,12 @@ const FinalizeRenderer = ({
           <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
             Review all your entered data below. Click on any field to edit it.
           </Typography>
-          <Paper 
-            sx={{ 
-              flex: 1, 
-              overflow: 'auto', 
+          <Paper
+            sx={{
+              flex: 1,
+              overflow: 'auto',
               p: 2,
-              maxHeight: '100%'
+              maxHeight: '100%',
             }}
           >
             <List sx={{ width: '100%' }}>
@@ -325,28 +349,35 @@ const FinalizeRenderer = ({
                       px: 0,
                       '&:hover': {
                         backgroundColor: 'action.hover',
-                        borderRadius: 1
-                      }
+                        borderRadius: 1,
+                      },
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%' }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        width: '100%',
+                      }}
+                    >
                       <Box sx={{ flex: 1, minWidth: 0, mr: 2 }}>
-                        <Typography 
-                          variant="subtitle2" 
-                          sx={{ 
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
                             fontWeight: 600,
                             mb: 0.5,
-                            wordBreak: 'break-word'
+                            wordBreak: 'break-word',
                           }}
                         >
                           {item.label}
                         </Typography>
-                        <Typography 
-                          variant="body2" 
+                        <Typography
+                          variant="body2"
                           color="text.secondary"
-                          sx={{ 
+                          sx={{
                             wordBreak: 'break-word',
-                            whiteSpace: 'pre-wrap'
+                            whiteSpace: 'pre-wrap',
                           }}
                         >
                           {formatFieldValue(item.value, { type: item.type, format: item.format })}
@@ -365,9 +396,9 @@ const FinalizeRenderer = ({
                             textDecoration: 'none',
                             color: 'primary.main',
                             '&:hover': {
-                              textDecoration: 'underline'
+                              textDecoration: 'underline',
                             },
-                            flexShrink: 0
+                            flexShrink: 0,
                           }}
                         >
                           <EditIcon sx={{ fontSize: 16 }} />
@@ -400,9 +431,9 @@ const FinalizeRenderer = ({
   );
 };
 
-export const finalizeTester = (uischema: any) => uischema.type === 'Finalize' ? 3 : -1;
+export const finalizeTester = (uischema: any) => (uischema.type === 'Finalize' ? 3 : -1);
 
 export const finalizeRenderer: JsonFormsRendererRegistryEntry = {
   tester: finalizeTester,
   renderer: withJsonFormsControlProps(FinalizeRenderer),
-}; 
+};

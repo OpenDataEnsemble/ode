@@ -1,23 +1,22 @@
 # BuildInfo
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**commit** | **string** |  | [optional] [default to undefined]
-**build_time** | **string** |  | [optional] [default to undefined]
-**go_version** | **string** |  | [optional] [default to undefined]
+| Name           | Type       | Description | Notes                             |
+| -------------- | ---------- | ----------- | --------------------------------- |
+| **commit**     | **string** |             | [optional] [default to undefined] |
+| **build_time** | **string** |             | [optional] [default to undefined] |
+| **go_version** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { BuildInfo } from './api';
+import {BuildInfo} from './api';
 
 const instance: BuildInfo = {
-    commit,
-    build_time,
-    go_version,
+  commit,
+  build_time,
+  go_version,
 };
 ```
 

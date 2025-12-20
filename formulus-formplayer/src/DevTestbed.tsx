@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  webViewMock, 
-  sampleFormData, 
+import {
+  webViewMock,
+  sampleFormData,
   sampleFormDataWithGroupRoot,
   sampleFormDataWithVerticalLayoutRoot,
-  sampleFormDataWithMultipleRoots
+  sampleFormDataWithMultipleRoots,
 } from './webview-mock';
 import { FormInitData } from './FormulusInterfaceDefinition';
 
@@ -15,13 +15,13 @@ interface DevTestbedProps {
 const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
   const [messages, setMessages] = useState<any[]>([]);
   const [customFormData, setCustomFormData] = useState<string>(
-    JSON.stringify(sampleFormData, null, 2)
+    JSON.stringify(sampleFormData, null, 2),
   );
 
   useEffect(() => {
     console.log('[DevTestbed] Component mounted, isVisible:', isVisible);
     const messageListener = (message: any) => {
-      setMessages(prev => [...prev, { timestamp: new Date().toLocaleTimeString(), ...message }]);
+      setMessages((prev) => [...prev, { timestamp: new Date().toLocaleTimeString(), ...message }]);
     };
 
     webViewMock.addMessageListener(messageListener);
@@ -53,7 +53,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
     // Create a deep copy for "edit" mode - existing form with saved data
     const modifiedData: FormInitData = {
       ...sampleFormData,
-      observationId: "1234567890", // Existing observation ID
+      observationId: '1234567890', // Existing observation ID
       // Keep the existing savedData from sampleFormData
     };
     setCustomFormData(JSON.stringify(modifiedData, null, 2));
@@ -74,21 +74,21 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
   const handleQuickTest = () => {
     // Quick test with minimal data
     const quickData: FormInitData = {
-      formType: "TestForm",
+      formType: 'TestForm',
       observationId: null, // New form, no observation ID yet
       params: {
-        defaultData: { message: "Hello from Quick Test!" }
+        defaultData: { message: 'Hello from Quick Test!' },
       },
-      savedData: { message: "Hello from Quick Test!" },
+      savedData: { message: 'Hello from Quick Test!' },
       formSchema: {
-        type: "object",
+        type: 'object',
         properties: {
           message: {
-            type: "string",
-            title: "Message"
-          }
-        }
-      }
+            type: 'string',
+            title: 'Message',
+          },
+        },
+      },
     };
     console.log('[DevTestbed] Quick test with data:', quickData);
     webViewMock.simulateFormInit(quickData);
@@ -109,11 +109,12 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
       fieldId: 'profilePhoto',
       type: 'image' as const,
       filename: 'test_photo_manual.jpg',
-      base64: '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=',
+      base64:
+        '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=',
       url: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
-    
+
     if (typeof (globalThis as any).onAttachmentReady === 'function') {
       console.log('[DevTestbed] Calling globalThis.onAttachmentReady directly');
       (globalThis as any).onAttachmentReady(testAttachment);
@@ -125,34 +126,42 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
   if (!isVisible) return null;
 
   return (
-    <div style={{
-      height: '100vh',
-      padding: '20px',
-      backgroundColor: '#f8f9fa',
-      borderLeft: '1px solid #dee2e6',
-      overflow: 'auto',
-      boxSizing: 'border-box'
-    }}>
-      <div style={{
-        marginBottom: '20px',
-        padding: '16px',
-        backgroundColor: '#e8f5e8',
-        border: '1px solid #4caf50',
-        borderRadius: '8px'
-      }}>
-        <h3 style={{ 
-          margin: '0 0 8px 0', 
-          color: '#2e7d32',
-          fontSize: '16px',
-          fontWeight: 'bold'
-        }}>
+    <div
+      style={{
+        height: '100vh',
+        padding: '20px',
+        backgroundColor: '#f8f9fa',
+        borderLeft: '1px solid #dee2e6',
+        overflow: 'auto',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{
+          marginBottom: '20px',
+          padding: '16px',
+          backgroundColor: '#e8f5e8',
+          border: '1px solid #4caf50',
+          borderRadius: '8px',
+        }}
+      >
+        <h3
+          style={{
+            margin: '0 0 8px 0',
+            color: '#2e7d32',
+            fontSize: '16px',
+            fontWeight: 'bold',
+          }}
+        >
           🧪 Development Testbed
         </h3>
-        <p style={{ 
-          margin: '0', 
-          fontSize: '14px', 
-          color: '#388e3c' 
-        }}>
+        <p
+          style={{
+            margin: '0',
+            fontSize: '14px',
+            color: '#388e3c',
+          }}
+        >
           {webViewMock.isActiveMock() ? '✅ Mock Active' : '❌ Mock Inactive'}
         </p>
       </div>
@@ -170,7 +179,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
             padding: '8px',
             border: '1px solid #ccc',
             borderRadius: '4px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
           }}
           placeholder="Enter JSON form data..."
         />
@@ -184,7 +193,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
             }}
           >
             Send onFormInit
@@ -198,7 +207,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
             }}
           >
             Load Sample (new)
@@ -212,7 +221,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
             }}
           >
             Load Sample (edit)
@@ -220,8 +229,18 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
         </div>
 
         {/* SwipeLayout Testing Section */}
-        <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#e3f2fd', border: '1px solid #90caf9', borderRadius: '4px' }}>
-          <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#1565c0' }}>SwipeLayout Testing</h4>
+        <div
+          style={{
+            marginTop: '12px',
+            padding: '8px',
+            backgroundColor: '#e3f2fd',
+            border: '1px solid #90caf9',
+            borderRadius: '4px',
+          }}
+        >
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#1565c0' }}>
+            SwipeLayout Testing
+          </h4>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             <button
               onClick={handleLoadGroupRootSample}
@@ -232,7 +251,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '11px'
+                fontSize: '11px',
               }}
             >
               Group Root
@@ -246,7 +265,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '11px'
+                fontSize: '11px',
               }}
             >
               VerticalLayout Root
@@ -260,20 +279,33 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '11px'
+                fontSize: '11px',
               }}
             >
               Multiple Roots
             </button>
           </div>
-          <p style={{ margin: '6px 0 0 0', fontSize: '10px', color: '#1976d2', fontStyle: 'italic' }}>
-            These test forms demonstrate automatic SwipeLayout wrapping for different UI schema structures.
+          <p
+            style={{ margin: '6px 0 0 0', fontSize: '10px', color: '#1976d2', fontStyle: 'italic' }}
+          >
+            These test forms demonstrate automatic SwipeLayout wrapping for different UI schema
+            structures.
           </p>
         </div>
-        
+
         {/* Camera Testing Section */}
-        <div style={{ marginTop: '12px', padding: '8px', backgroundColor: '#fff3cd', border: '1px solid #ffeaa7', borderRadius: '4px' }}>
-          <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#856404' }}>Camera Testing</h4>
+        <div
+          style={{
+            marginTop: '12px',
+            padding: '8px',
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '4px',
+          }}
+        >
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#856404' }}>
+            Camera Testing
+          </h4>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <button
               onClick={handleSimulateCameraResponse}
@@ -284,7 +316,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '11px'
+                fontSize: '11px',
               }}
             >
               Simulate Camera Response
@@ -298,14 +330,14 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '11px'
+                fontSize: '11px',
               }}
             >
               Test Attachment Callback
             </button>
           </div>
         </div>
-        
+
         <div style={{ marginTop: '8px' }}>
           <button
             onClick={handleQuickTest}
@@ -316,7 +348,7 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
             }}
           >
             Quick Test
@@ -325,7 +357,14 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
       </div>
 
       <div style={{ marginBottom: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '8px',
+          }}
+        >
           <h4 style={{ margin: 0, color: '#666' }}>Messages from App</h4>
           <button
             onClick={handleClearMessages}
@@ -336,38 +375,45 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '11px'
+              fontSize: '11px',
             }}
           >
             Clear
           </button>
         </div>
-        <div style={{
-          maxHeight: '200px',
-          overflow: 'auto',
-          border: '1px solid #ccc',
-          borderRadius: '4px',
-          backgroundColor: '#fff'
-        }}>
+        <div
+          style={{
+            maxHeight: '200px',
+            overflow: 'auto',
+            border: '1px solid #ccc',
+            borderRadius: '4px',
+            backgroundColor: '#fff',
+          }}
+        >
           {messages.length === 0 ? (
             <div style={{ padding: '8px', color: '#666', fontStyle: 'italic' }}>
               No messages yet...
             </div>
           ) : (
             messages.map((msg, index) => (
-              <div key={index} style={{
-                padding: '8px',
-                borderBottom: index < messages.length - 1 ? '1px solid #eee' : 'none'
-              }}>
+              <div
+                key={index}
+                style={{
+                  padding: '8px',
+                  borderBottom: index < messages.length - 1 ? '1px solid #eee' : 'none',
+                }}
+              >
                 <div style={{ color: '#666', fontSize: '10px' }}>{msg.timestamp}</div>
                 <div style={{ color: '#333' }}>
                   Type: <strong>{msg.type}</strong>
                 </div>
-                {Object.keys(msg).filter(k => k !== 'timestamp' && k !== 'type').map(key => (
-                  <div key={key} style={{ color: '#666', fontSize: '11px' }}>
-                    {key}: {JSON.stringify(msg[key])}
-                  </div>
-                ))}
+                {Object.keys(msg)
+                  .filter((k) => k !== 'timestamp' && k !== 'type')
+                  .map((key) => (
+                    <div key={key} style={{ color: '#666', fontSize: '11px' }}>
+                      {key}: {JSON.stringify(msg[key])}
+                    </div>
+                  ))}
               </div>
             ))
           )}
@@ -375,11 +421,16 @@ const DevTestbed: React.FC<DevTestbedProps> = ({ isVisible }) => {
       </div>
 
       <div style={{ fontSize: '11px', color: '#666', lineHeight: '1.4' }}>
-        <strong>Usage:</strong><br/>
-        1. Modify the JSON data above<br/>
-        2. Click "Send onFormInit" to simulate native host<br/>
-        3. Watch messages from app below<br/>
-        4. Form should load with your data<br/>
+        <strong>Usage:</strong>
+        <br />
+        1. Modify the JSON data above
+        <br />
+        2. Click "Send onFormInit" to simulate native host
+        <br />
+        3. Watch messages from app below
+        <br />
+        4. Form should load with your data
+        <br />
         5. Use camera testing buttons to simulate photo responses
       </div>
     </div>

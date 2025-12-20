@@ -1,6 +1,5 @@
 import React from 'react';
 import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import colors from '../../theme/colors';
 
 export interface StatusTab {
@@ -16,7 +15,11 @@ interface StatusTabsProps {
   onTabChange: (tabId: string) => void;
 }
 
-const StatusTabs: React.FC<StatusTabsProps> = ({tabs, activeTab, onTabChange}) => {
+const StatusTabs: React.FC<StatusTabsProps> = ({
+  tabs,
+  activeTab,
+  onTabChange,
+}) => {
   return (
     <View style={styles.container}>
       {tabs.map(tab => {
@@ -26,19 +29,13 @@ const StatusTabs: React.FC<StatusTabsProps> = ({tabs, activeTab, onTabChange}) =
             key={tab.id}
             style={[styles.tab, isActive && styles.tabActive]}
             onPress={() => onTabChange(tab.id)}
-            activeOpacity={0.7}
-          >
+            activeOpacity={0.7}>
             {tab.icon && (
               <View
-                style={[
-                  styles.dot,
-                  {backgroundColor: tab.iconColor || '#999'},
-                ]}
+                style={[styles.dot, {backgroundColor: tab.iconColor || '#999'}]}
               />
             )}
-            <Text
-              style={[styles.tabLabel, isActive && styles.tabLabelActive]}
-            >
+            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -85,4 +82,3 @@ const styles = StyleSheet.create({
 });
 
 export default StatusTabs;
-

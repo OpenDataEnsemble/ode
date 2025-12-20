@@ -1,6 +1,6 @@
 /**
  * AppVersionService - Provides app version information from React Native app config
- * 
+ *
  * Uses react-native-device-info to get the actual app version instead of hardcoding
  */
 
@@ -33,10 +33,13 @@ export class AppVersionService {
       this.cachedVersion = DeviceInfo.getVersion();
       console.log('AppVersionService: App version:', this.cachedVersion);
       return this.cachedVersion;
-      
     } catch (error) {
       console.error('AppVersionService: Error getting app version:', error);
-      throw new Error(`Failed to get app version: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get app version: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
     }
   }
 
@@ -53,10 +56,13 @@ export class AppVersionService {
       this.cachedBuildNumber = DeviceInfo.getBuildNumber();
       console.log('AppVersionService: Build number:', this.cachedBuildNumber);
       return this.cachedBuildNumber;
-      
     } catch (error) {
       console.error('AppVersionService: Error getting build number:', error);
-      throw new Error(`Failed to get build number: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to get build number: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
     }
   }
 

@@ -1,22 +1,34 @@
-import { FormService as FormServiceType, FormSpec } from '../FormService';
-import { Observation } from '../../database/repositories/LocalRepoInterface';
+import {FormService as FormServiceType, FormSpec} from '../FormService';
+import {Observation} from '../../database/repositories/LocalRepoInterface';
 
 // Mock JSON schema files
-jest.mock('../../webview/personschema.json', () => ({
-  type: 'object',
-  properties: { name: { type: 'string' }, age: { type: 'number' } },
-  required: ['name'],
-}), { virtual: true });
+jest.mock(
+  '../../webview/personschema.json',
+  () => ({
+    type: 'object',
+    properties: {name: {type: 'string'}, age: {type: 'number'}},
+    required: ['name'],
+  }),
+  {virtual: true},
+);
 
-jest.mock('../../webview/personui.json', () => ({
-  elements: [
-    { type: 'Control', scope: '#/properties/name' },
-    { type: 'Control', scope: '#/properties/age' },
-  ],
-}), { virtual: true });
+jest.mock(
+  '../../webview/personui.json',
+  () => ({
+    elements: [
+      {type: 'Control', scope: '#/properties/name'},
+      {type: 'Control', scope: '#/properties/age'},
+    ],
+  }),
+  {virtual: true},
+);
 
 // Mock personData.json for the temporary block in getFormTypes
-jest.mock('../../webview/personData.json', () => ({ name: 'Test Person', age: 30 }), { virtual: true });
+jest.mock(
+  '../../webview/personData.json',
+  () => ({name: 'Test Person', age: 30}),
+  {virtual: true},
+);
 
 // Mock databaseService and its LocalRepo
 const mockGetObservationsByFormId = jest.fn();
@@ -56,7 +68,7 @@ describe('FormService', () => {
 
     // Ensure getLocalRepo itself is reset if its return value needs to change per test
     // (though here we consistently return the same set of mocks)
-    const { databaseService } = require('../../database');
+    const {databaseService} = require('../../database');
     databaseService.getLocalRepo.mockClear();
   });
 
@@ -79,7 +91,11 @@ describe('FormService', () => {
       const personForm = formSpecs.find(ft => ft.id === 'person');
       expect(personForm).toBeDefined();
       expect(personForm?.name).toBe('Person');
-      expect(personForm?.schema).toEqual({ type: 'object', properties: { name: { type: 'string' }, age: { type: 'number' } }, required: ['name'] });
+      expect(personForm?.schema).toEqual({
+        type: 'object',
+        properties: {name: {type: 'string'}, age: {type: 'number'}},
+        required: ['name'],
+      });
     });
   });
 
@@ -91,7 +107,7 @@ describe('FormService', () => {
         description: 'Form for collecting person information',
         schemaVersion: '1.0',
         schema: require('./personschema.json'),
-        uiSchema: require('./personui.json')
+        uiSchema: require('./personui.json'),
       });
       const formSpec = formServiceInstance.getFormSpecById('person');
       expect(formSpec).toBeDefined();
@@ -112,8 +128,8 @@ describe('FormService', () => {
       name: 'Test Form',
       description: 'A test form',
       schemaVersion: '1.0',
-      schema: { type: 'object', properties: { field: { type: 'string' } } },
-      uiSchema: { elements: [{ type: 'Control', scope: '#/properties/field' }] },
+      schema: {type: 'object', properties: {field: {type: 'string'}}},
+      uiSchema: {elements: [{type: 'Control', scope: '#/properties/field'}]},
     };
 
     test('should add a new form type', () => {
@@ -134,8 +150,8 @@ describe('FormService', () => {
         name: 'Updated Person Form',
         description: 'Updated description',
         schemaVersion: '1.1',
-        schema: { type: 'object', properties: { newField: { type: 'boolean' } } },
-        uiSchema: { elements: [] },
+        schema: {type: 'object', properties: {newField: {type: 'boolean'}}},
+        uiSchema: {elements: []},
       };
       formServiceInstance.addFormSpec(updatedPersonForm);
       const formSpec = formServiceInstance.getFormSpecById('person');
@@ -160,18 +176,40 @@ describe('FormService', () => {
       expect(formServiceInstance.getFormSpecById('person')).toBeUndefined();
 
       // Spy on console.error to ensure the temporary block's error path is hit
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       // Mock the require calls within the temporary block of getFormTypes to throw an error,
       // preventing it from re-adding the 'person' form.
       // These jest.doMock calls are scoped by jest.resetModules() in beforeEach.
-      jest.doMock('../../webview/personschema.json', () => { throw new Error('Mocked schema load failure for removeFormType test'); }, { virtual: true });
-      jest.doMock('../../webview/personui.json', () => { throw new Error('Mocked ui schema load failure for removeFormType test'); }, { virtual: true });
-      jest.doMock('../../webview/personData.json', () => { throw new Error('Mocked data load failure for removeFormType test'); }, { virtual: true });
+      jest.doMock(
+        '../../webview/personschema.json',
+        () => {
+          throw new Error('Mocked schema load failure for removeFormType test');
+        },
+        {virtual: true},
+      );
+      jest.doMock(
+        '../../webview/personui.json',
+        () => {
+          throw new Error(
+            'Mocked ui schema load failure for removeFormType test',
+          );
+        },
+        {virtual: true},
+      );
+      jest.doMock(
+        '../../webview/personData.json',
+        () => {
+          throw new Error('Mocked data load failure for removeFormType test');
+        },
+        {virtual: true},
+      );
 
       // The `doMock` calls should affect subsequent `require` calls from any module, including FormService's internals,
       // because jest.resetModules() in beforeEach clears the cache, and FormService instance is fresh.
-      
+
       const formSpecs = formServiceInstance.getFormSpecs(); // This call will trigger the temporary block with erroring mocks
       expect(formSpecs.length).toBe(0);
       expect(consoleErrorSpy).toHaveBeenCalled();
@@ -195,10 +233,24 @@ describe('FormService', () => {
 
   describe('getObservationsByFormType', () => {
     test('should call localRepo.getObservationsByFormId and return its result', async () => {
-      const mockObservations: Observation[] = [{ id: 'obs1', formType: 'person', data: {}, observationId: 'obs1', formVersion: '1', deleted: false, createdAt: new Date(), updatedAt: new Date(), syncedAt: new Date() }];
+      const mockObservations: Observation[] = [
+        {
+          id: 'obs1',
+          formType: 'person',
+          data: {},
+          observationId: 'obs1',
+          formVersion: '1',
+          deleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          syncedAt: new Date(),
+        },
+      ];
       mockGetObservationsByFormId.mockResolvedValue(mockObservations);
 
-      const result = await formServiceInstance.getObservationsByFormType('person');
+      const result = await formServiceInstance.getObservationsByFormType(
+        'person',
+      );
 
       expect(mockGetObservationsByFormId).toHaveBeenCalledWith('person');
       expect(result).toEqual(mockObservations);
@@ -215,19 +267,47 @@ describe('FormService', () => {
 
   describe('resetDatabase', () => {
     test('should delete all observations for all known form types', async () => {
-      const personObservations: Observation[] = [{ id: 'p_obs1', formType: 'person', data: {}, observationId: 'p_obs1', formVersion: '1', deleted: false, createdAt: new Date(), updatedAt: new Date(), syncedAt: new Date() }];
-      const anotherObservations: Observation[] = [{ id: 'a_obs1', formType: 'another', data: {}, observationId: 'a_obs1', formVersion: '1', deleted: false, createdAt: new Date(), updatedAt: new Date(), syncedAt: new Date() }];
-      
+      const personObservations: Observation[] = [
+        {
+          id: 'p_obs1',
+          formType: 'person',
+          data: {},
+          observationId: 'p_obs1',
+          formVersion: '1',
+          deleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          syncedAt: new Date(),
+        },
+      ];
+      const anotherObservations: Observation[] = [
+        {
+          id: 'a_obs1',
+          formType: 'another',
+          data: {},
+          observationId: 'a_obs1',
+          formVersion: '1',
+          deleted: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          syncedAt: new Date(),
+        },
+      ];
+
       formServiceInstance.addFormSpec({
-        id: 'another', name: 'Another', description: '', schemaVersion: '1.0', schema: {}, uiSchema: {}
+        id: 'another',
+        name: 'Another',
+        description: '',
+        schemaVersion: '1.0',
+        schema: {},
+        uiSchema: {},
       }); // Now 'person' and 'another' form types exist
 
-      mockGetObservationsByFormId
-        .mockImplementation(async (formId: string) => {
-          if (formId === 'person') return personObservations;
-          if (formId === 'another') return anotherObservations;
-          return [];
-        });
+      mockGetObservationsByFormId.mockImplementation(async (formId: string) => {
+        if (formId === 'person') return personObservations;
+        if (formId === 'another') return anotherObservations;
+        return [];
+      });
       mockDeleteObservation.mockResolvedValue(undefined);
 
       await formServiceInstance.resetDatabase();
@@ -240,28 +320,40 @@ describe('FormService', () => {
     });
 
     test('should throw error if localRepo is not available', async () => {
-      const { databaseService: mockedDBService } = require('../../database');
+      const {databaseService: mockedDBService} = require('../../database');
       mockedDBService.getLocalRepo.mockReturnValue(undefined); // Simulate repo not being available
-      
+
       // Re-initialize formService with the modified mock
       const FormServiceModule = require('../FormService');
       const FreshFormServiceClass = FormServiceModule.FormService;
       const freshFormServiceInstance = FreshFormServiceClass.getInstance();
 
-      await expect(freshFormServiceInstance.resetDatabase()).rejects.toThrow('Database repository is not available');
+      await expect(freshFormServiceInstance.resetDatabase()).rejects.toThrow(
+        'Database repository is not available',
+      );
     });
   });
 
   describe('debugDatabase', () => {
     test('should call localRepo.saveObservation for test data', async () => {
       mockSaveObservation.mockResolvedValue('new_id');
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleLogSpy = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => {});
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       await formServiceInstance.debugDatabase();
 
-      expect(mockSaveObservation).toHaveBeenCalledWith({ formType: 'person', data: { test: 'data1' } });
-      expect(mockSaveObservation).toHaveBeenCalledWith({ formType: 'test_form', data: { test: 'data2' } });
+      expect(mockSaveObservation).toHaveBeenCalledWith({
+        formType: 'person',
+        data: {test: 'data1'},
+      });
+      expect(mockSaveObservation).toHaveBeenCalledWith({
+        formType: 'test_form',
+        data: {test: 'data2'},
+      });
       expect(mockSaveObservation).toHaveBeenCalledTimes(2);
 
       consoleLogSpy.mockRestore();
@@ -270,28 +362,40 @@ describe('FormService', () => {
 
     test('should handle errors gracefully if saveObservation fails', async () => {
       mockSaveObservation.mockRejectedValue(new Error('DB save failed'));
-      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
 
       await formServiceInstance.debugDatabase(); // Should not throw
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('Error debugging database:', expect.any(Error));
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Error debugging database:',
+        expect.any(Error),
+      );
       consoleErrorSpy.mockRestore();
     });
   });
 
   // Test for the temporary block in getFormTypes if constructor fails to load initial form
   describe('getFormTypes temporary block', () => {
-
     beforeEach(async () => {
       jest.resetModules(); // Important: reset modules before changing mocks
       // Simulate the constructor's require for personschema.json failing
-      jest.doMock('../../webview/personschema.json', () => { 
-        throw new Error('Simulated error: Failed to load personschema.json in constructor'); 
-      }, { virtual: true });
-      
+      jest.doMock(
+        '../../webview/personschema.json',
+        () => {
+          throw new Error(
+            'Simulated error: Failed to load personschema.json in constructor',
+          );
+        },
+        {virtual: true},
+      );
+
       // Other mocks should still be in place or re-mocked if necessary
-      jest.doMock('../../webview/personui.json', () => ({ elements: [] }), { virtual: true });
-      jest.doMock('../../webview/personData.json', () => ({}), { virtual: true });
+      jest.doMock('../../webview/personui.json', () => ({elements: []}), {
+        virtual: true,
+      });
+      jest.doMock('../../webview/personData.json', () => ({}), {virtual: true});
       jest.doMock('../../database', () => ({
         databaseService: {
           getLocalRepo: jest.fn(() => ({
@@ -308,33 +412,53 @@ describe('FormService', () => {
       formServiceInstance = await ActualFormServiceClass.getInstance(); // This instance will have an empty formTypes array initially
     });
 
-
     test('should load temporary person form if initial formTypes is empty due to constructor schema load failure', async () => {
       // formServiceInstance from the describe's beforeEach has formTypes = [] due to constructor mock failure.
 
       // These mocks are for the require() calls *inside* the getFormTypes() method of that instance.
       // Due to hoisting, these should be active for the subsequent call to getFormTypes().
-      jest.doMock('../../webview/personschema.json', () => ({ 
-        type: 'object', properties: { tempName: { type: 'string' } } 
-      }), { virtual: true });
+      jest.doMock(
+        '../../webview/personschema.json',
+        () => ({
+          type: 'object',
+          properties: {tempName: {type: 'string'}},
+        }),
+        {virtual: true},
+      );
       // Ensure UI and Data schemas match the new tempName property for consistency in the temporary block
-      jest.doMock('../../webview/personui.json', () => ({ 
-        elements: [{ type: 'Control', scope: '#/properties/tempName' }] 
-      }), { virtual: true });
-      jest.doMock('../../webview/personData.json', () => ({ tempName: 'Temp Data' }), { virtual: true });
+      jest.doMock(
+        '../../webview/personui.json',
+        () => ({
+          elements: [{type: 'Control', scope: '#/properties/tempName'}],
+        }),
+        {virtual: true},
+      );
+      jest.doMock(
+        '../../webview/personData.json',
+        () => ({tempName: 'Temp Data'}),
+        {virtual: true},
+      );
       // The databaseService mock from the describe's beforeEach should still be in effect.
 
-      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-      
+      const consoleLogSpy = jest
+        .spyOn(console, 'log')
+        .mockImplementation(() => {});
+
       // Call getFormTypes() on the instance that had its constructor fail.
-      const formSpecs = await formServiceInstance.getFormSpecs(); 
-      
+      const formSpecs = await formServiceInstance.getFormSpecs();
+
       expect(formSpecs.length).toBe(1);
       expect(formSpecs[0].id).toBe('person');
       // Schema should match the one mocked above for the temporary block's internal require
-      expect(formSpecs[0].schema).toEqual({ type: 'object', properties: { tempName: { type: 'string' } } });
-      expect(consoleLogSpy).toHaveBeenCalledWith('Temporary form type created:', 'person');
-      
+      expect(formSpecs[0].schema).toEqual({
+        type: 'object',
+        properties: {tempName: {type: 'string'}},
+      });
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        'Temporary form type created:',
+        'person',
+      );
+
       consoleLogSpy.mockRestore();
 
       // Clean up mocks to prevent leakage to other tests, though beforeEach's resetModules should handle it.

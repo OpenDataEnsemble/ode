@@ -46,4 +46,3 @@ export const formatRelativeTime = (date: Date | string | null): string => {
 
   return dateObj.toLocaleDateString();
 };
-

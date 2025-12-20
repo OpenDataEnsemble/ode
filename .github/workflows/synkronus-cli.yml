@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - develop
+      - dev
     paths:
       - 'synkronus-cli/**'
       - '.github/workflows/synkronus-cli.yml'

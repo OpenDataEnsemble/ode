@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   RefreshControl,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {FormService, FormSpec} from '../services';
 import {Observation} from '../database/models/Observation';
@@ -58,6 +58,7 @@ const FormManagementScreen = () => {
     if (formService) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formService]);
 
   // Function to load form types and observations

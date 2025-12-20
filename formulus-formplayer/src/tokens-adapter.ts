@@ -1,6 +1,6 @@
 /**
  * Tokens Adapter
- * 
+ *
  * Adapts the @ode/tokens JSON export to match the structure expected by theme.ts
  * The JSON format from Style Dictionary includes { value: "..." } wrappers,
  * and uses "font" instead of "typography", so we transform it to match.
@@ -14,11 +14,11 @@ const extractValues = (obj: any): any => {
     // This is a { value: "..." } wrapper, extract the value
     return obj.value;
   }
-  
+
   if (Array.isArray(obj)) {
     return obj.map(extractValues);
   }
-  
+
   if (obj && typeof obj === 'object') {
     const result: any = {};
     for (const key in obj) {
@@ -26,7 +26,7 @@ const extractValues = (obj: any): any => {
     }
     return result;
   }
-  
+
   return obj;
 };
 

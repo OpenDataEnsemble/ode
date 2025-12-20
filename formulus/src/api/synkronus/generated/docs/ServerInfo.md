@@ -1,19 +1,18 @@
 # ServerInfo
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**version** | **string** |  | [optional] [default to undefined]
+| Name        | Type       | Description | Notes                             |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| **version** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { ServerInfo } from './api';
+import {ServerInfo} from './api';
 
 const instance: ServerInfo = {
-    version,
+  version,
 };
 ```
 

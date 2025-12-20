@@ -24,7 +24,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
     // Call the optional onError callback
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
@@ -39,28 +39,32 @@ class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div style={{
-          padding: '20px',
-          margin: '20px',
-          border: '2px solid #ff6b6b',
-          borderRadius: '8px',
-          backgroundColor: '#fff5f5',
-          color: '#c92a2a'
-        }}>
+        <div
+          style={{
+            padding: '20px',
+            margin: '20px',
+            border: '2px solid #ff6b6b',
+            borderRadius: '8px',
+            backgroundColor: '#fff5f5',
+            color: '#c92a2a',
+          }}
+        >
           <h2>🚨 Something went wrong</h2>
           <details style={{ marginTop: '10px' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
               Error Details (click to expand)
             </summary>
-            <pre style={{
-              marginTop: '10px',
-              padding: '10px',
-              backgroundColor: '#f8f8f8',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              fontSize: '12px',
-              overflow: 'auto'
-            }}>
+            <pre
+              style={{
+                marginTop: '10px',
+                padding: '10px',
+                backgroundColor: '#f8f8f8',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '12px',
+                overflow: 'auto',
+              }}
+            >
               {this.state.error?.toString()}
               {this.state.error?.stack}
             </pre>
@@ -74,7 +78,7 @@ class ErrorBoundary extends Component<Props, State> {
               color: 'white',
               border: 'none',
               borderRadius: '4px',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             Try Again

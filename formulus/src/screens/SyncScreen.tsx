@@ -5,10 +5,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  SafeAreaView,
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {formatRelativeTime} from '../utils/dateUtils';
@@ -20,14 +20,9 @@ import {getUserInfo} from '../api/synkronus/Auth';
 import colors from '../theme/colors';
 
 const SyncScreen = () => {
-  const {
-    syncState,
-    startSync,
-    updateProgress,
-    finishSync,
-    cancelSync,
-    clearError,
-  } = useSyncContext();
+  const syncContextValue = useSyncContext();
+  const {syncState, startSync, finishSync, cancelSync, clearError} =
+    syncContextValue;
   const [lastSync, setLastSync] = useState<string | null>(null);
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const [pendingUploads, setPendingUploads] = useState<{

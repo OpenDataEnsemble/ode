@@ -7,15 +7,15 @@ import {
   CircularProgress,
   Paper,
   IconButton,
-  Chip
+  Chip,
 } from '@mui/material';
-import { 
-  AttachFile as FileIcon, 
-  Delete as DeleteIcon, 
+import {
+  AttachFile as FileIcon,
+  Delete as DeleteIcon,
   InsertDriveFile as DocumentIcon,
   Image as ImageIcon,
   PictureAsPdf as PdfIcon,
-  Description as TextIcon
+  Description as TextIcon,
 } from '@mui/icons-material';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import { ControlProps, rankWith, schemaTypeIs, and, schemaMatches } from '@jsonforms/core';
@@ -27,8 +27,8 @@ export const fileQuestionTester = rankWith(
   5, // Priority (higher = more specific)
   and(
     schemaTypeIs('object'), // Expects object data type
-    schemaMatches((schema) => schema.format === 'select_file') // Matches format
-  )
+    schemaMatches((schema) => schema.format === 'select_file'), // Matches format
+  ),
 );
 
 const FileQuestionRenderer: React.FC<ControlProps> = ({
@@ -44,21 +44,21 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
   // State management
   const [isSelecting, setIsSelecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Refs
   const formulusClient = useRef(FormulusClient.getInstance());
-  
+
   // Extract field ID from path
   const fieldId = path.split('.').pop() || path;
-  
+
   // Handle file selection via React Native
   const handleFileSelection = useCallback(async () => {
     setIsSelecting(true);
     setError(null);
-    
+
     try {
       const result: FileResult = await formulusClient.current.requestFile(fieldId);
-      
+
       if (result.status === 'success' && result.data) {
         // Update form data with the file result
         handleChange(path, result.data);
@@ -89,10 +89,12 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
       return <ImageIcon sx={{ color: '#4CAF50' }} />;
     } else if (mimeType === 'application/pdf') {
       return <PdfIcon sx={{ color: '#F44336' }} />;
-    } else if (mimeType.startsWith('text/') || 
-               mimeType.includes('document') || 
-               mimeType.includes('spreadsheet') || 
-               mimeType.includes('presentation')) {
+    } else if (
+      mimeType.startsWith('text/') ||
+      mimeType.includes('document') ||
+      mimeType.includes('spreadsheet') ||
+      mimeType.includes('presentation')
+    ) {
       return <TextIcon sx={{ color: '#2196F3' }} />;
     } else {
       return <DocumentIcon sx={{ color: '#9E9E9E' }} />;
@@ -131,10 +133,10 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
   if (!visible) {
     return null;
   }
-  
+
   const hasData = data && typeof data === 'object' && data.type === 'file';
   const hasError = errors && (Array.isArray(errors) ? errors.length > 0 : errors.length > 0);
-  
+
   return (
     <Box sx={{ mb: 2 }}>
       {/* Title and Description */}
@@ -148,21 +150,21 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
           {schema.description}
         </Typography>
       )}
-      
+
       {/* Error Display */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
         </Alert>
       )}
-      
+
       {/* Validation Errors */}
       {hasError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {Array.isArray(errors) ? errors.join(', ') : errors}
         </Alert>
       )}
-      
+
       {/* File Selection Button */}
       {!hasData && (
         <Button
@@ -176,7 +178,7 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
           {isSelecting ? 'Selecting File...' : 'Select File'}
         </Button>
       )}
-      
+
       {/* File Display */}
       {hasData && (
         <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
@@ -189,42 +191,38 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
                     {data.filename}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                    <Chip 
-                      label={getFileTypeLabel(data.mimeType)} 
-                      size="small" 
-                      color="primary" 
+                    <Chip
+                      label={getFileTypeLabel(data.mimeType)}
+                      size="small"
+                      color="primary"
                       variant="outlined"
                     />
-                    <Chip 
-                      label={formatFileSize(data.size)} 
-                      size="small" 
-                      variant="outlined"
-                    />
+                    <Chip label={formatFileSize(data.size)} size="small" variant="outlined" />
                     {data.metadata.extension && (
-                      <Chip 
-                        label={`.${data.metadata.extension.toUpperCase()}`} 
-                        size="small" 
+                      <Chip
+                        label={`.${data.metadata.extension.toUpperCase()}`}
+                        size="small"
                         variant="outlined"
                       />
                     )}
                   </Box>
                 </Box>
               </Box>
-              
+
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                 <strong>URI:</strong> {data.uri}
               </Typography>
-              
+
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                 <strong>MIME Type:</strong> {data.mimeType}
               </Typography>
-              
+
               {data.metadata.originalPath && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                   <strong>Original Path:</strong> {data.metadata.originalPath}
                 </Typography>
               )}
-              
+
               {/* Replace File Button */}
               <Button
                 variant="outlined"
@@ -237,19 +235,14 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
                 Replace File
               </Button>
             </Box>
-            
-            <IconButton
-              onClick={handleDelete}
-              disabled={!enabled}
-              size="small"
-              sx={{ ml: 1 }}
-            >
+
+            <IconButton onClick={handleDelete} disabled={!enabled} size="small" sx={{ ml: 1 }}>
               <DeleteIcon />
             </IconButton>
           </Box>
         </Paper>
       )}
-      
+
       {/* Development Debug Info */}
       {process.env.NODE_ENV === 'development' && (
         <Box sx={{ mt: 2, p: 1, bgcolor: 'info.light', borderRadius: 1 }}>

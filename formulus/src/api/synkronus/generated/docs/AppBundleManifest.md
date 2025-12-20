@@ -1,25 +1,24 @@
 # AppBundleManifest
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**files** | [**Array&lt;AppBundleFile&gt;**](AppBundleFile.md) |  | [default to undefined]
-**version** | **string** |  | [default to undefined]
-**generatedAt** | **string** |  | [default to undefined]
-**hash** | **string** |  | [default to undefined]
+| Name            | Type                                               | Description | Notes                  |
+| --------------- | -------------------------------------------------- | ----------- | ---------------------- |
+| **files**       | [**Array&lt;AppBundleFile&gt;**](AppBundleFile.md) |             | [default to undefined] |
+| **version**     | **string**                                         |             | [default to undefined] |
+| **generatedAt** | **string**                                         |             | [default to undefined] |
+| **hash**        | **string**                                         |             | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AppBundleManifest } from './api';
+import {AppBundleManifest} from './api';
 
 const instance: AppBundleManifest = {
-    files,
-    version,
-    generatedAt,
-    hash,
+  files,
+  version,
+  generatedAt,
+  hash,
 };
 ```
 

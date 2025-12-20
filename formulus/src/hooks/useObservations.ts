@@ -34,17 +34,24 @@ export const useObservations = (): UseObservationsResult => {
       const allObservations: Observation[] = [];
       for (const formSpec of formSpecs) {
         try {
-          const formObservations = await formService.getObservationsByFormType(formSpec.id);
+          const formObservations = await formService.getObservationsByFormType(
+            formSpec.id,
+          );
           allObservations.push(...formObservations);
         } catch (err) {
-          console.error(`Failed to load observations for form ${formSpec.id}:`, err);
+          console.error(
+            `Failed to load observations for form ${formSpec.id}:`,
+            err,
+          );
         }
       }
 
       setObservations(allObservations);
     } catch (err) {
       console.error('Failed to load observations:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load observations');
+      setError(
+        err instanceof Error ? err.message : 'Failed to load observations',
+      );
     } finally {
       setLoading(false);
     }
@@ -61,7 +68,8 @@ export const useObservations = (): UseObservationsResult => {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(obs => {
         try {
-          const data = typeof obs.data === 'string' ? JSON.parse(obs.data) : obs.data;
+          const data =
+            typeof obs.data === 'string' ? JSON.parse(obs.data) : obs.data;
           const dataStr = JSON.stringify(data).toLowerCase();
           return (
             obs.observationId.toLowerCase().includes(query) ||
@@ -69,15 +77,19 @@ export const useObservations = (): UseObservationsResult => {
             dataStr.includes(query)
           );
         } catch {
-          return obs.observationId.toLowerCase().includes(query) || 
-                 obs.formType.toLowerCase().includes(query);
+          return (
+            obs.observationId.toLowerCase().includes(query) ||
+            obs.formType.toLowerCase().includes(query)
+          );
         }
       });
     }
 
     if (filterOption !== 'all') {
       filtered = filtered.filter(obs => {
-        const isSynced = obs.syncedAt && obs.syncedAt.getTime() > new Date('1980-01-01').getTime();
+        const isSynced =
+          obs.syncedAt &&
+          obs.syncedAt.getTime() > new Date('1980-01-01').getTime();
         return filterOption === 'synced' ? isSynced : !isSynced;
       });
     }
@@ -91,8 +103,12 @@ export const useObservations = (): UseObservationsResult => {
         case 'form-type':
           return a.formType.localeCompare(b.formType);
         case 'sync-status': {
-          const aSynced = a.syncedAt && a.syncedAt.getTime() > new Date('1980-01-01').getTime();
-          const bSynced = b.syncedAt && b.syncedAt.getTime() > new Date('1980-01-01').getTime();
+          const aSynced =
+            a.syncedAt &&
+            a.syncedAt.getTime() > new Date('1980-01-01').getTime();
+          const bSynced =
+            b.syncedAt &&
+            b.syncedAt.getTime() > new Date('1980-01-01').getTime();
           if (aSynced === bSynced) return 0;
           return aSynced ? 1 : -1;
         }
@@ -118,4 +134,3 @@ export const useObservations = (): UseObservationsResult => {
     filteredAndSorted,
   };
 };
-

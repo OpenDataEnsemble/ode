@@ -37,9 +37,12 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
       <TouchableOpacity
         style={styles.selector}
         onPress={() => setModalVisible(true)}
-        activeOpacity={0.7}
-      >
-        <Icon name="file-document-outline" size={18} color={colors.neutral[600]} />
+        activeOpacity={0.7}>
+        <Icon
+          name="file-document-outline"
+          size={18}
+          color={colors.neutral[600]}
+        />
         <Text style={styles.selectorText}>
           {selectedOption ? selectedOption.name : placeholder}
         </Text>
@@ -50,13 +53,11 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
         visible={modalVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
-      >
+        onRequestClose={() => setModalVisible(false)}>
         <TouchableOpacity
           style={styles.modalOverlay}
           activeOpacity={1}
-          onPress={() => setModalVisible(false)}
-        >
+          onPress={() => setModalVisible(false)}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Form Type</Text>
@@ -77,18 +78,20 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                   onPress={() => {
                     onSelect(item.id);
                     setModalVisible(false);
-                  }}
-                >
+                  }}>
                   <Text
                     style={[
                       styles.optionText,
                       selectedId === item.id && styles.optionTextSelected,
-                    ]}
-                  >
+                    ]}>
                     {item.name}
                   </Text>
                   {selectedId === item.id && (
-                    <Icon name="check" size={20} color={colors.brand.primary[500]} />
+                    <Icon
+                      name="check"
+                      size={20}
+                      color={colors.brand.primary[500]}
+                    />
                   )}
                 </TouchableOpacity>
               )}
@@ -174,4 +177,3 @@ const styles = StyleSheet.create({
 });
 
 export default FormTypeSelector;
-

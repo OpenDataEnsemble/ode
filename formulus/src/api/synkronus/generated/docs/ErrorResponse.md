@@ -1,19 +1,18 @@
 # ErrorResponse
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**error** | **string** |  | [optional] [default to undefined]
+| Name      | Type       | Description | Notes                             |
+| --------- | ---------- | ----------- | --------------------------------- |
+| **error** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { ErrorResponse } from './api';
+import {ErrorResponse} from './api';
 
 const instance: ErrorResponse = {
-    error,
+  error,
 };
 ```
 

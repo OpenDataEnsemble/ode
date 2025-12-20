@@ -19,7 +19,11 @@ const FormCard: React.FC<FormCardProps> = ({
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <Icon name="file-document-outline" size={32} color={colors.brand.primary[500]} />
+          <Icon
+            name="file-document-outline"
+            size={32}
+            color={colors.brand.primary[500]}
+          />
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.name}>{form.name}</Text>
@@ -33,7 +37,8 @@ const FormCard: React.FC<FormCardProps> = ({
             {observationCount > 0 && (
               <View style={styles.countBadge}>
                 <Text style={styles.countText}>
-                  {observationCount} {observationCount === 1 ? 'entry' : 'entries'}
+                  {observationCount}{' '}
+                  {observationCount === 1 ? 'entry' : 'entries'}
                 </Text>
               </View>
             )}
@@ -108,4 +113,3 @@ const styles = StyleSheet.create({
 });
 
 export default FormCard;
-

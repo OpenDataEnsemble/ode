@@ -1,6 +1,5 @@
 import {useState, useEffect, useCallback} from 'react';
 import {FormService, FormSpec} from '../services/FormService';
-import {Observation} from '../database/models/Observation';
 
 interface UseFormsResult {
   forms: FormSpec[];
@@ -15,7 +14,9 @@ export const useForms = (): UseFormsResult => {
   const [forms, setForms] = useState<FormSpec[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [observationCounts, setObservationCounts] = useState<Record<string, number>>({});
+  const [observationCounts, setObservationCounts] = useState<
+    Record<string, number>
+  >({});
 
   const loadForms = useCallback(async () => {
     try {
@@ -28,10 +29,15 @@ export const useForms = (): UseFormsResult => {
       const counts: Record<string, number> = {};
       for (const form of formSpecs) {
         try {
-          const observations = await formService.getObservationsByFormType(form.id);
+          const observations = await formService.getObservationsByFormType(
+            form.id,
+          );
           counts[form.id] = observations.length;
         } catch (err) {
-          console.error(`Failed to load observations for form ${form.id}:`, err);
+          console.error(
+            `Failed to load observations for form ${form.id}:`,
+            err,
+          );
           counts[form.id] = 0;
         }
       }
@@ -70,4 +76,3 @@ export const useForms = (): UseFormsResult => {
     observationCounts,
   };
 };
-

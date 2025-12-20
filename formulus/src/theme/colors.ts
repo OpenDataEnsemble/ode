@@ -1,7 +1,7 @@
 /**
  * ODE Design System Color Tokens
  * Based on @ode/tokens package
- * 
+ *
  * Primary: Green (#4F7F4E)
  * Secondary: Gold (#E9B85B)
  */
@@ -72,4 +72,3 @@ export const colors = {
 };
 
 export default colors;
-

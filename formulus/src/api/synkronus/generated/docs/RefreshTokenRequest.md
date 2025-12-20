@@ -1,19 +1,18 @@
 # RefreshTokenRequest
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**refreshToken** | **string** | Refresh token obtained from login or previous refresh | [default to undefined]
+| Name             | Type       | Description                                           | Notes                  |
+| ---------------- | ---------- | ----------------------------------------------------- | ---------------------- |
+| **refreshToken** | **string** | Refresh token obtained from login or previous refresh | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { RefreshTokenRequest } from './api';
+import {RefreshTokenRequest} from './api';
 
 const instance: RefreshTokenRequest = {
-    refreshToken,
+  refreshToken,
 };
 ```
 

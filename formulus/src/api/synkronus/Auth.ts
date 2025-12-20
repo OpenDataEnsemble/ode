@@ -1,5 +1,5 @@
-import { synkronusApi } from './index'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import {synkronusApi} from './index';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type UserRole = 'read-only' | 'read-write' | 'admin';
 
@@ -21,32 +21,35 @@ function decodeJwtPayload(token: string): any {
   }
 }
 
-export const login = async (username: string, password: string): Promise<UserInfo> => {
-    console.log('Logging in with', username)
-    const api = await synkronusApi.getApi()
+export const login = async (
+  username: string,
+  password: string,
+): Promise<UserInfo> => {
+  console.log('Logging in with', username);
+  const api = await synkronusApi.getApi();
 
-    const res = await api.login({
-        loginRequest: { username, password },
-    })
+  const res = await api.login({
+    loginRequest: {username, password},
+  });
 
-    const { token, refreshToken, expiresAt } = res.data
+  const {token, refreshToken, expiresAt} = res.data;
 
-    await AsyncStorage.setItem('@token', token)
-    await AsyncStorage.setItem('@refreshToken', refreshToken)
-    await AsyncStorage.setItem('@tokenExpiresAt', expiresAt.toString())
+  await AsyncStorage.setItem('@token', token);
+  await AsyncStorage.setItem('@refreshToken', refreshToken);
+  await AsyncStorage.setItem('@tokenExpiresAt', expiresAt.toString());
 
-    // Decode JWT to get user info
-    const claims = decodeJwtPayload(token);
-    const userInfo: UserInfo = {
-      username: claims?.username || username,
-      role: claims?.role || 'read-only',
-    };
+  // Decode JWT to get user info
+  const claims = decodeJwtPayload(token);
+  const userInfo: UserInfo = {
+    username: claims?.username || username,
+    role: claims?.role || 'read-only',
+  };
 
-    // Store user info
-    await AsyncStorage.setItem('@user', JSON.stringify(userInfo));
+  // Store user info
+  await AsyncStorage.setItem('@user', JSON.stringify(userInfo));
 
-    return userInfo;
-}
+  return userInfo;
+};
 
 export const getUserInfo = async (): Promise<UserInfo | null> => {
   try {
@@ -61,7 +64,12 @@ export const getUserInfo = async (): Promise<UserInfo | null> => {
 };
 
 export const logout = async (): Promise<void> => {
-  await AsyncStorage.multiRemove(['@token', '@refreshToken', '@tokenExpiresAt', '@user']);
+  await AsyncStorage.multiRemove([
+    '@token',
+    '@refreshToken',
+    '@tokenExpiresAt',
+    '@user',
+  ]);
 };
 
 // Function to retrieve the auth token from AsyncStorage
@@ -86,11 +94,13 @@ export const getApiAuthToken = async (): Promise<string | undefined> => {
 export const refreshToken = async () => {
   const api = await synkronusApi.getApi();
   const res = await api.refreshToken({
-    refreshTokenRequest: { refreshToken: (await AsyncStorage.getItem('@refreshToken')) ?? '' },
+    refreshTokenRequest: {
+      refreshToken: (await AsyncStorage.getItem('@refreshToken')) ?? '',
+    },
   });
-  const { token, refreshToken, expiresAt } = res.data;
+  const {token, refreshToken, expiresAt} = res.data;
   await AsyncStorage.setItem('@token', token);
   await AsyncStorage.setItem('@refreshToken', refreshToken);
   await AsyncStorage.setItem('@tokenExpiresAt', expiresAt.toString());
   return true;
-}
+};

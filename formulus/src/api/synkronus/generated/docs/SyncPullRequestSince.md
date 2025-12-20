@@ -4,19 +4,19 @@ Optional pagination cursor indicating the last seen change
 
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**version** | **number** |  | [optional] [default to undefined]
-**id** | **string** |  | [optional] [default to undefined]
+| Name        | Type       | Description | Notes                             |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| **version** | **number** |             | [optional] [default to undefined] |
+| **id**      | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { SyncPullRequestSince } from './api';
+import {SyncPullRequestSince} from './api';
 
 const instance: SyncPullRequestSince = {
-    version,
-    id,
+  version,
+  id,
 };
 ```
 

@@ -1,0 +1,12 @@
+node_modules
+coverage
+dist
+build
+storybook-static
+.next
+android
+ios
+synkronus
+synkronus-cli
+
+

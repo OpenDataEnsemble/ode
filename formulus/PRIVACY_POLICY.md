@@ -14,6 +14,7 @@ Formulus is a data collection application that prioritizes user privacy and data
 ## Data Collection and Storage
 
 ### What We DON'T Collect
+
 - Personal information about you
 - Your observation data or form responses
 - Usage analytics or behavioral data
@@ -21,7 +22,9 @@ Formulus is a data collection application that prioritizes user privacy and data
 - Location data (beyond what you explicitly choose to include in forms)
 
 ### What Data Stays on Your Device
+
 The following information is stored locally on your device only:
+
 - App settings and configuration
 - Authentication credentials for your sync server
 - Cached form specifications
@@ -29,6 +32,7 @@ The following information is stored locally on your device only:
 - Sync status and version information
 
 ### Your Data, Your Server
+
 - All observation data and attachments are synchronized exclusively with endpoints YOU provide
 - You configure the sync server URL in the app settings
 - We have no access to or control over your sync server
@@ -37,16 +41,19 @@ The following information is stored locally on your device only:
 ## Third-Party Services
 
 ### Google Play Store
+
 When you download Formulus from Google Play Store, Google may collect information according to their privacy policy. This is outside our control and governed by Google's terms.
 
 **Alternative Distribution**: If you prefer to avoid Google's data collection entirely, you can compile the APK directly from the source code and distribute it yourself, bypassing the Google Play Store completely.
 
 ### Your Sync Server
+
 When you configure a sync endpoint, all data synchronization occurs directly between the app and your chosen server. We are not involved in this data transfer.
 
 ## Permissions
 
 The app requests the following permissions:
+
 - **Internet Access**: To sync with your configured server endpoint
 - **Storage Access**: To save observation data and attachments locally
 - **Camera Access**: To capture photos when using photo fields (only when you initiate)
@@ -62,6 +69,7 @@ The app requests the following permissions:
 ## Your Rights and Control
 
 You have complete control over your data:
+
 - **Data Ownership**: All observation data belongs to you
 - **Data Portability**: Your data syncs to servers you control
 - **Data Deletion**: Uninstalling the app removes all local data
@@ -78,6 +86,7 @@ We may update this privacy policy occasionally. Any changes will be reflected in
 ## Data Processing Legal Basis
 
 Since we do not collect or process personal data:
+
 - No legal basis for data processing is required from our side
 - Your sync server operator is responsible for their own data processing compliance
 - You are the data controller for any data you collect using Formulus
@@ -85,12 +94,14 @@ Since we do not collect or process personal data:
 ## Contact Information
 
 If you have questions about this privacy policy, please contact us at:
+
 - Email: hello@sapiens-solutions.com
 - Website: https://opendataensemble.org
 
 ## Technical Details
 
 For transparency, here's how the app works technically:
+
 - Local data storage using AsyncStorage and React Native File System
 - Direct HTTPS connections to user-configured sync endpoints
 - No background data transmission to developer-controlled servers

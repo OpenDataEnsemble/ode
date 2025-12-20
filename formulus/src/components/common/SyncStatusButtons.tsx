@@ -28,14 +28,12 @@ const SyncStatusButtons: React.FC<SyncStatusButtonsProps> = ({
             key={button.id}
             style={[styles.button, isActive && styles.buttonActive]}
             onPress={() => onStatusChange(button.id)}
-            activeOpacity={0.7}
-          >
+            activeOpacity={0.7}>
             <Text
               style={[styles.buttonText, isActive && styles.buttonTextActive]}
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.8}
-            >
+              minimumFontScale={0.8}>
               {button.label}
             </Text>
           </TouchableOpacity>
@@ -85,4 +83,3 @@ const styles = StyleSheet.create({
 });
 
 export default SyncStatusButtons;
-

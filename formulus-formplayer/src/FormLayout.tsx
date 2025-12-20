@@ -6,7 +6,7 @@ interface FormLayoutProps {
    * The main form content to display
    */
   children: ReactNode;
-  
+
   /**
    * Previous button configuration
    */
@@ -15,7 +15,7 @@ interface FormLayoutProps {
     onClick: () => void;
     disabled?: boolean;
   };
-  
+
   /**
    * Next button configuration
    */
@@ -24,18 +24,18 @@ interface FormLayoutProps {
     onClick: () => void;
     disabled?: boolean;
   };
-  
+
   /**
    * Optional header content (e.g., progress bar)
    */
   header?: ReactNode;
-  
+
   /**
    * Additional padding at the bottom of content area (in pixels)
    * Default: 120px to ensure content is never hidden behind navigation
    */
   contentBottomPadding?: number;
-  
+
   /**
    * Whether to show navigation buttons
    * Default: true
@@ -45,13 +45,13 @@ interface FormLayoutProps {
 
 /**
  * FormLayout Component
- * 
+ *
  * A robust, responsive layout component for forms that:
  * - Prevents navigation buttons from overlapping form content
  * - Handles mobile keyboard appearance correctly
  * - Ensures all form fields are scrollable and accessible
  * - Uses dynamic viewport height (100dvh) for proper mobile support
- * 
+ *
  * Layout Structure:
  * - Header area (sticky at top, optional)
  * - Scrollable content area (flexible, with bottom padding)
@@ -63,7 +63,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   nextButton,
   header,
   contentBottomPadding = 120,
-  showNavigation = true
+  showNavigation = true,
 }) => {
   return (
     <Box
@@ -181,4 +181,3 @@ const FormLayout: React.FC<FormLayoutProps> = ({
 };
 
 export default FormLayout;
-

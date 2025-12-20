@@ -1,27 +1,26 @@
 # AppBundleFile
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**path** | **string** |  | [default to undefined]
-**size** | **number** |  | [default to undefined]
-**hash** | **string** |  | [default to undefined]
-**mimeType** | **string** |  | [default to undefined]
-**modTime** | **string** |  | [default to undefined]
+| Name         | Type       | Description | Notes                  |
+| ------------ | ---------- | ----------- | ---------------------- |
+| **path**     | **string** |             | [default to undefined] |
+| **size**     | **number** |             | [default to undefined] |
+| **hash**     | **string** |             | [default to undefined] |
+| **mimeType** | **string** |             | [default to undefined] |
+| **modTime**  | **string** |             | [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AppBundleFile } from './api';
+import {AppBundleFile} from './api';
 
 const instance: AppBundleFile = {
-    path,
-    size,
-    hash,
-    mimeType,
-    modTime,
+  path,
+  size,
+  hash,
+  mimeType,
+  modTime,
 };
 ```
 

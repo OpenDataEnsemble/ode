@@ -36,10 +36,10 @@ type ObservationRow struct {
 type DatabaseInterface interface {
 	// GetFormTypes returns all distinct form types in the observations table
 	GetFormTypes(ctx context.Context) ([]string, error)
-	
+
 	// GetFormTypeSchema analyzes the JSON data structure for a form type and returns column definitions
 	GetFormTypeSchema(ctx context.Context, formType string) (*FormTypeSchema, error)
-	
+
 	// GetObservationsForFormType returns all observations for a specific form type with flattened data
 	GetObservationsForFormType(ctx context.Context, formType string, schema *FormTypeSchema) ([]ObservationRow, error)
 }

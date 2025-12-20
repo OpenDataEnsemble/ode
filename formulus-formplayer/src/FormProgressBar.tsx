@@ -73,7 +73,7 @@ const countQuestions = (schema: JsonSchema | undefined, path: string = ''): numb
 const countAnsweredQuestions = (
   schema: JsonSchema | undefined,
   data: Record<string, any>,
-  path: string = ''
+  path: string = '',
 ): number => {
   if (!schema || !schema.properties || !data) {
     return 0;
@@ -92,12 +92,13 @@ const countAnsweredQuestions = (
         count += countAnsweredQuestions(fieldSchema, fieldValue, currentPath);
       }
     } else {
-      const isAnswered = fieldValue !== undefined && 
-                        fieldValue !== null && 
-                        fieldValue !== '' &&
-                        !(Array.isArray(fieldValue) && fieldValue.length === 0) &&
-                        !(typeof fieldValue === 'object' && Object.keys(fieldValue).length === 0);
-      
+      const isAnswered =
+        fieldValue !== undefined &&
+        fieldValue !== null &&
+        fieldValue !== '' &&
+        !(Array.isArray(fieldValue) && fieldValue.length === 0) &&
+        !(typeof fieldValue === 'object' && Object.keys(fieldValue).length === 0);
+
       if (isAnswered && fieldSchema.format !== 'finalize') {
         count++;
       }
@@ -117,44 +118,43 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   schema,
   uischema,
   mode = 'screens',
-  isOnFinalizePage = false
+  isOnFinalizePage = false,
 }) => {
   const progress = useMemo(() => {
     if (mode === 'screens' || mode === 'both') {
       if (totalScreens === 0) return 0;
-      
+
       if (isOnFinalizePage) {
         return 100;
       }
-      
+
       const completedScreens = currentPage + 1;
       const screenProgress = (completedScreens / totalScreens) * 100;
-      
+
       if (mode === 'screens') {
         return Math.round(screenProgress);
       }
-      
+
       if (schema && data) {
         const totalQuestions = countQuestions(schema);
         const answeredQuestions = countAnsweredQuestions(schema, data);
-        const questionProgress = totalQuestions > 0 
-          ? (answeredQuestions / totalQuestions) * 100 
-          : 0;
-        
+        const questionProgress =
+          totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
+
         return Math.round((screenProgress + questionProgress) / 2);
       }
-      
+
       return Math.round(screenProgress);
     } else if (mode === 'questions') {
       if (!schema || !data) return 0;
-      
+
       const totalQuestions = countQuestions(schema);
       if (totalQuestions === 0) return 0;
-      
+
       const answeredQuestions = countAnsweredQuestions(schema, data);
       return Math.round((answeredQuestions / totalQuestions) * 100);
     }
-    
+
     return 0;
   }, [currentPage, totalScreens, data, schema, mode, isOnFinalizePage]);
 
@@ -167,7 +167,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
       sx={{
         width: '100%',
         mb: 2,
-        px: { xs: 1, sm: 2 }
+        px: { xs: 1, sm: 2 },
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
@@ -181,8 +181,8 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
             backgroundColor: 'rgba(0, 0, 0, 0.1)',
             '& .MuiLinearProgress-bar': {
               borderRadius: 4,
-              transition: 'transform 0.4s ease-in-out'
-            }
+              transition: 'transform 0.4s ease-in-out',
+            },
           }}
         />
         <Typography
@@ -191,7 +191,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
             minWidth: '45px',
             textAlign: 'right',
             color: 'text.secondary',
-            fontWeight: 500
+            fontWeight: 500,
           }}
         >
           {progress}%
@@ -202,4 +202,3 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
 };
 
 export default FormProgressBar;
-

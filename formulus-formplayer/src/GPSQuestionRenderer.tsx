@@ -1,27 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  rankWith, 
-  ControlProps, 
-  formatIs
-} from '@jsonforms/core';
+import { rankWith, ControlProps, formatIs } from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
-import { 
-  Button, 
-  Typography, 
-  Box, 
-  Card, 
-  CardContent, 
+import {
+  Button,
+  Typography,
+  Box,
+  Card,
+  CardContent,
   Chip,
   Alert,
   CircularProgress,
   Grid,
-  Divider
+  Divider,
 } from '@mui/material';
-import { 
+import {
   LocationOn as LocationIcon,
   Refresh as RefreshIcon,
   Delete as DeleteIcon,
-  MyLocation as MyLocationIcon
+  MyLocation as MyLocationIcon,
 } from '@mui/icons-material';
 // GPS is now captured automatically by the native app for all forms.
 // This renderer is kept only for backward-compatibility with existing
@@ -43,11 +39,11 @@ interface LocationDisplayData {
 
 const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
   const { data, handleChange, path, errors, schema, enabled } = props;
-  
+
   const [isCapturing, setIsCapturing] = useState(false);
   const [locationData, setLocationData] = useState<LocationDisplayData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Parse existing location data if present
   useEffect(() => {
     if (data && typeof data === 'string') {
@@ -67,7 +63,9 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
     // observations outside of the form. This button is kept only so that
     // existing forms with a GPS question do not break visually.
     setIsCapturing(true);
-    setError('GPS location is now captured automatically by the app and does not need to be recorded here.');
+    setError(
+      'GPS location is now captured automatically by the app and does not need to be recorded here.',
+    );
     setTimeout(() => setIsCapturing(false), 500);
   };
 
@@ -78,7 +76,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
   };
 
   const formatCoordinate = (coord: number, type: 'lat' | 'lng'): string => {
-    const direction = type === 'lat' ? (coord >= 0 ? 'N' : 'S') : (coord >= 0 ? 'E' : 'W');
+    const direction = type === 'lat' ? (coord >= 0 ? 'N' : 'S') : coord >= 0 ? 'E' : 'W';
     return `${Math.abs(coord).toFixed(6)}° ${direction}`;
   };
 
@@ -99,7 +97,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
       <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
         {schema.title || 'GPS Location'}
       </Typography>
-      
+
       {/* Field Description */}
       {schema.description && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -131,12 +129,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
                 Location Captured
               </Typography>
               <Box sx={{ ml: 'auto' }}>
-                <Chip 
-                  label="GPS" 
-                  color="success" 
-                  size="small"
-                  icon={<MyLocationIcon />}
-                />
+                <Chip label="GPS" color="success" size="small" icon={<MyLocationIcon />} />
               </Box>
             </Box>
 
@@ -149,7 +142,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
                   {formatCoordinate(locationData.latitude, 'lat')}
                 </Typography>
               </Grid>
-              
+
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
                   Longitude
@@ -222,20 +215,26 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
         <Box>
           <Button
             variant="contained"
-            startIcon={isCapturing ? <CircularProgress size={20} color="inherit" /> : <LocationIcon />}
+            startIcon={
+              isCapturing ? <CircularProgress size={20} color="inherit" /> : <LocationIcon />
+            }
             onClick={handleCaptureLocation}
             disabled={isDisabled}
             fullWidth
-            sx={{ 
+            sx={{
               py: 1.5,
               fontSize: '1rem',
-              textTransform: 'none'
+              textTransform: 'none',
             }}
           >
             {isCapturing ? 'Capturing Location...' : 'Capture GPS Location'}
           </Button>
-          
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block', textAlign: 'center' }}>
+
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ mt: 1, display: 'block', textAlign: 'center' }}
+          >
             This will request your device's current GPS coordinates
           </Typography>
         </Box>
@@ -256,7 +255,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = (props) => {
 // Tester function to determine when this renderer should be used
 export const gpsQuestionTester = rankWith(
   10, // Priority - higher than default string renderer
-  formatIs('gps')
+  formatIs('gps'),
 );
 
 export default withJsonFormsControlProps(GPSQuestionRenderer);

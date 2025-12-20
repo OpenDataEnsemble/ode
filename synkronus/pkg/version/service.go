@@ -23,10 +23,10 @@ func NewService(db *sql.DB) Service {
 
 // SystemVersionInfo holds version and system information
 type SystemVersionInfo struct {
-	Server    ServerInfo    `json:"server"`
-	Database  DatabaseInfo  `json:"database,omitempty"`
-	System    SystemInfo    `json:"system"`
-	Build     BuildInfo     `json:"build"`
+	Server   ServerInfo   `json:"server"`
+	Database DatabaseInfo `json:"database,omitempty"`
+	System   SystemInfo   `json:"system"`
+	Build    BuildInfo    `json:"build"`
 }
 
 type ServerInfo struct {
@@ -42,7 +42,7 @@ type DatabaseInfo struct {
 type SystemInfo struct {
 	OS           string `json:"os"`
 	Architecture string `json:"architecture"`
-	CPUs        int    `json:"cpus"`
+	CPUs         int    `json:"cpus"`
 }
 
 type BuildInfo struct {
@@ -90,7 +90,7 @@ func (s *service) GetVersion(ctx context.Context) (*SystemVersionInfo, error) {
 		System: SystemInfo{
 			OS:           runtime.GOOS,
 			Architecture: runtime.GOARCH,
-			CPUs:        runtime.NumCPU(),
+			CPUs:         runtime.NumCPU(),
 		},
 		Build: BuildInfo{
 			Commit:    commit,

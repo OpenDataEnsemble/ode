@@ -1,19 +1,18 @@
 # FormDiff
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**form** | **string** |  | [optional] [default to undefined]
+| Name     | Type       | Description | Notes                             |
+| -------- | ---------- | ----------- | --------------------------------- |
+| **form** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { FormDiff } from './api';
+import {FormDiff} from './api';
 
 const instance: FormDiff = {
-    form,
+  form,
 };
 ```
 

@@ -63,4 +63,3 @@ const styles = StyleSheet.create({
 });
 
 export default EmptyState;
-

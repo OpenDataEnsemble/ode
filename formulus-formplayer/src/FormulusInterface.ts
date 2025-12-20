@@ -1,27 +1,27 @@
 /**
  * FormulusInterface.ts
- * 
+ *
  * This module implements the formplayer-side client for communicating with the Formulus React Native app
  * as described in the sequence diagram.
- * 
+ *
  * It uses the shared interface definition from FormulusInterfaceDefinition.ts.
  */
 
-import { 
-  FormulusInterface, 
-  CameraResult, 
-  QrcodeResult, 
-  SignatureResult, 
-  FileResult, 
-  AudioResult
+import {
+  FormulusInterface,
+  CameraResult,
+  QrcodeResult,
+  SignatureResult,
+  FileResult,
+  AudioResult,
 } from './FormulusInterfaceDefinition';
 
-import { 
-  FormInitData, 
-  AttachmentData, 
+import {
+  FormInitData,
+  AttachmentData,
   FormulusCallbacks,
   FORMULUS_INTERFACE_VERSION,
-  isCompatibleVersion
+  isCompatibleVersion,
 } from './FormulusInterfaceDefinition';
 
 // Re-export the types for convenience
@@ -33,19 +33,19 @@ class FormulusClient {
    * The current version of the interface
    */
   public static readonly VERSION = FORMULUS_INTERFACE_VERSION;
-  
+
   private static instance: FormulusClient;
   private formulus: FormulusInterface | null = null;
   private formData: FormInitData | null = null;
-  private onFormInitCallbacks: Array<(data: FormInitData) => void> = [];  
+  private onFormInitCallbacks: Array<(data: FormInitData) => void> = [];
 
   private constructor() {
     // Initialize and set up event listeners
-    this.setupEventListeners().catch(error => {
+    this.setupEventListeners().catch((error) => {
       console.error('Failed to setup event listeners:', error);
     });
   }
-  
+
   /**
    * Check if the current interface version is compatible with the required version
    * @param requiredVersion The minimum version required
@@ -70,11 +70,11 @@ class FormulusClient {
    */
   public submitObservationWithContext(
     formInitData: FormInitData,
-    finalData: Record<string, any>
+    finalData: Record<string, any>,
   ): Promise<string | void> {
     console.debug('Submitting form with context:', formInitData);
     console.debug('Final form data:', finalData);
-    
+
     if (!this.formulus) {
       console.warn('Formulus interface not available for form submission');
       return Promise.reject(new Error('Formulus interface not available for form submission'));
@@ -85,14 +85,11 @@ class FormulusClient {
       return this.formulus.updateObservation(
         formInitData.observationId,
         formInitData.formType,
-        finalData
+        finalData,
       );
     } else {
       console.debug('Creating new form of type:', formInitData.formType);
-      return this.formulus.submitObservation(
-        formInitData.formType,
-        finalData
-      );
+      return this.formulus.submitObservation(formInitData.formType, finalData);
     }
   }
 
@@ -101,7 +98,7 @@ class FormulusClient {
    */
   public requestCamera(fieldId: string): Promise<CameraResult> {
     console.debug('Requesting camera for field', fieldId);
-    
+
     if (this.formulus) {
       return this.formulus.requestCamera(fieldId);
     } else {
@@ -109,7 +106,7 @@ class FormulusClient {
       return Promise.reject({
         fieldId,
         status: 'error',
-        message: 'Formulus interface not available'
+        message: 'Formulus interface not available',
       } as CameraResult);
     }
   }
@@ -121,7 +118,7 @@ class FormulusClient {
    */
   public requestLocation(fieldId: string): Promise<void> {
     console.log('Requesting location for field', fieldId);
-    
+
     if (this.formulus) {
       return this.formulus.requestLocation(fieldId);
     }
@@ -135,7 +132,7 @@ class FormulusClient {
    */
   public requestFile(fieldId: string): Promise<FileResult> {
     console.log('Requesting file for field', fieldId);
-    
+
     if (this.formulus) {
       return this.formulus.requestFile(fieldId);
     } else {
@@ -143,7 +140,7 @@ class FormulusClient {
       return Promise.reject({
         fieldId,
         status: 'error',
-        message: 'Formulus interface not available'
+        message: 'Formulus interface not available',
       });
     }
   }
@@ -153,7 +150,7 @@ class FormulusClient {
    */
   public requestAudio(fieldId: string): Promise<AudioResult> {
     console.log('Requesting audio recording for field', fieldId);
-    
+
     if (this.formulus) {
       return this.formulus.requestAudio(fieldId);
     } else {
@@ -161,7 +158,7 @@ class FormulusClient {
       return Promise.reject({
         fieldId,
         status: 'error',
-        message: 'Formulus interface not available'
+        message: 'Formulus interface not available',
       });
     }
   }
@@ -171,7 +168,7 @@ class FormulusClient {
    */
   public launchIntent(fieldId: string, intentSpec: Record<string, any>): Promise<void> {
     console.log('Launching intent for field', fieldId, intentSpec);
-    
+
     if (this.formulus) {
       return this.formulus.launchIntent(fieldId, intentSpec);
     }
@@ -185,7 +182,7 @@ class FormulusClient {
    */
   public callSubform(fieldId: string, formId: string, options: Record<string, any>): Promise<void> {
     console.log('Calling subform for field', fieldId, formId, options);
-    
+
     if (this.formulus) {
       return this.formulus.callSubform(fieldId, formId, options);
     }
@@ -199,7 +196,7 @@ class FormulusClient {
    */
   public requestSignature(fieldId: string): Promise<SignatureResult> {
     console.log('Requesting signature for field', fieldId);
-    
+
     if (this.formulus) {
       return this.formulus.requestSignature(fieldId);
     } else {
@@ -207,7 +204,7 @@ class FormulusClient {
       return Promise.reject({
         fieldId,
         status: 'error',
-        message: 'Formulus interface not available'
+        message: 'Formulus interface not available',
       } as SignatureResult);
     }
   }
@@ -217,7 +214,7 @@ class FormulusClient {
    */
   public requestQrcode(fieldId: string): Promise<QrcodeResult> {
     console.log('Requesting QR code scanner for field', fieldId);
-    
+
     if (this.formulus) {
       return this.formulus.requestQrcode(fieldId);
     } else {
@@ -225,7 +222,7 @@ class FormulusClient {
       return Promise.reject({
         fieldId,
         status: 'error',
-        message: 'Formulus interface not available'
+        message: 'Formulus interface not available',
       } as QrcodeResult);
     }
   }
@@ -235,7 +232,7 @@ class FormulusClient {
    */
   public requestBiometric(fieldId: string): Promise<void> {
     console.log('Requesting biometric authentication for field', fieldId);
-    
+
     if (this.formulus) {
       return this.formulus.requestBiometric(fieldId);
     }
@@ -249,13 +246,15 @@ class FormulusClient {
    */
   public requestConnectivityStatus(): Promise<void> {
     console.log('Requesting connectivity status');
-    
+
     if (this.formulus) {
       return this.formulus.requestConnectivityStatus();
     }
 
     console.warn('Formulus interface not available for requestConnectivityStatus');
-    return Promise.reject(new Error('Formulus interface not available for requestConnectivityStatus'));
+    return Promise.reject(
+      new Error('Formulus interface not available for requestConnectivityStatus'),
+    );
   }
 
   /**
@@ -263,7 +262,7 @@ class FormulusClient {
    */
   public requestSyncStatus(): Promise<void> {
     console.log('Requesting sync status');
-    
+
     if (this.formulus) {
       return this.formulus.requestSyncStatus();
     }
@@ -275,9 +274,13 @@ class FormulusClient {
   /**
    * Run a local ML model through the Formulus RN app
    */
-  public runLocalModel(fieldId: string, modelId: string, input: Record<string, any>): Promise<void> {
+  public runLocalModel(
+    fieldId: string,
+    modelId: string,
+    input: Record<string, any>,
+  ): Promise<void> {
     console.log('Running local model', modelId, 'for field', fieldId, 'with input', input);
-    
+
     if (this.formulus) {
       return this.formulus.runLocalModel(fieldId, modelId, input);
     }
@@ -291,7 +294,7 @@ class FormulusClient {
    */
   public onFormInit(callback: (data: FormInitData) => void): void {
     this.onFormInitCallbacks.push(callback);
-    
+
     // If we already have form data, call the callback immediately
     if (this.formData) {
       callback(this.formData);
@@ -304,12 +307,10 @@ class FormulusClient {
   private handleFormInit(data: FormInitData): void {
     console.log('Form initialized with data', data);
     this.formData = data;
-    
+
     // Notify all registered callbacks
-    this.onFormInitCallbacks.forEach(callback => callback(data));
+    this.onFormInitCallbacks.forEach((callback) => callback(data));
   }
-
-
 
   /**
    * Set up event listeners and initialize the Formulus interface
@@ -321,7 +322,9 @@ class FormulusClient {
         this.formulus = await (window as any).getFormulus();
         console.log('Formulus API initialized successfully using getFormulus()');
       } else {
-        console.error('getFormulus() is not available on window. Formulus API will not be available.');
+        console.error(
+          'getFormulus() is not available on window. Formulus API will not be available.',
+        );
       }
     } catch (error) {
       console.error('Failed to initialize Formulus API with getFormulus():', error);

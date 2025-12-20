@@ -1,5 +1,9 @@
-import notifee, { AndroidImportance, AndroidStyle, AndroidAction } from '@notifee/react-native';
-import { SyncProgress } from '../contexts/SyncContext';
+import notifee, {
+  AndroidImportance,
+  AndroidStyle,
+  AndroidAction,
+} from '@notifee/react-native';
+import {SyncProgress} from '../contexts/SyncContext';
 
 class NotificationService {
   private syncNotificationId = 'sync_progress';
@@ -30,12 +34,15 @@ class NotificationService {
   async showSyncProgress(progress: SyncProgress) {
     await this.configure();
 
-    const percentage = progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : 0;
+    const percentage =
+      progress.total > 0
+        ? Math.round((progress.current / progress.total) * 100)
+        : 0;
     const phaseText = this.getPhaseText(progress.phase);
-    
+
     let title = 'Syncing data...';
     let message = `${phaseText}: ${progress.current}/${progress.total}`;
-    
+
     if (progress.details) {
       message += ` - ${progress.details}`;
     }
@@ -75,8 +82,11 @@ class NotificationService {
     await this.configure();
 
     // Cancel the ongoing notification completely
-    console.log('Canceling progress notification with ID:', this.syncNotificationId);
-    
+    console.log(
+      'Canceling progress notification with ID:',
+      this.syncNotificationId,
+    );
+
     // First, update the notification to make it non-ongoing, then cancel it
     await notifee.displayNotification({
       id: this.syncNotificationId,
@@ -88,7 +98,7 @@ class NotificationService {
         autoCancel: true,
       },
     });
-    
+
     // Now cancel it
     await notifee.cancelNotification(this.syncNotificationId);
     console.log('Progress notification cancellation completed');
@@ -96,10 +106,10 @@ class NotificationService {
     if (success) {
       // Show a fresh completion notification with timestamp
       const now = new Date();
-      const timeString = now.toLocaleTimeString('en-US', { 
-        hour12: false, 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      const timeString = now.toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
       });
 
       await notifee.displayNotification({
@@ -171,7 +181,9 @@ class NotificationService {
     // Clear all sync-related notifications to prevent stale data
     await notifee.cancelNotification(this.syncNotificationId);
     await notifee.cancelNotification(this.completionNotificationId);
-    await notifee.cancelNotification(`${this.completionNotificationId}_canceled`);
+    await notifee.cancelNotification(
+      `${this.completionNotificationId}_canceled`,
+    );
   }
 
   private getPhaseText(phase: SyncProgress['phase']): string {

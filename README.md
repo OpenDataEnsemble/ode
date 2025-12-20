@@ -46,7 +46,7 @@ We believe that diverse perspectives and varied skill sets make our project stro
 - Test the platform and report your experience
 - Share how you're using ODE in your work
 
-## CI/CD Pipeline 🚀
+## CI/CD Pipeline 
 
 This monorepo uses GitHub Actions for continuous integration and deployment:
 
@@ -84,6 +84,38 @@ docker run -d -p 8080:8080 \
 - [CI/CD Pipeline Details](.github/CICD.md) - Comprehensive CI/CD documentation
 - [Synkronus Docker Guide](synkronus/DOCKER.md) - Quick start guide
 - [Synkronus Deployment Guide](synkronus/DEPLOYMENT.md) - Production deployment
+
+## Code Quality: Linting & Formatting 
+
+ODE enforces consistent formatting and linting for the frontend projects both **locally** and in **CI**.
+
+### Formulus (React Native)
+
+- **Run linting**: `cd formulus && npm run lint`
+- **Run linting with auto-fix**: `cd formulus && npm run lint:fix`
+- **Format code**: `cd formulus && npm run format`
+- **Check formatting (no writes)**: `cd formulus && npm run format:check`
+
+### Formulus Formplayer (React Web)
+
+- **Run linting**: `cd formulus-formplayer && npm run lint`
+- **Run linting with auto-fix**: `cd formulus-formplayer && npm run lint:fix`
+- **Format code**: `cd formulus-formplayer && npm run format`
+- **Check formatting (no writes)**: `cd formulus-formplayer && npm run format:check`
+
+### What CI Enforces
+
+In the main CI workflow:
+
+- For `formulus`:
+  - Runs `npm run format:check` and `npm run lint` after install and before tests.
+- For `formulus-formplayer`:
+  - Runs `npm run lint`, `npm run format:check`, then tests and build.
+
+CI will **fail** if:
+
+- ESLint finds errors, or
+- Prettier formatting checks fail (unformatted files).
 
 ## Get Involved 📬 
 

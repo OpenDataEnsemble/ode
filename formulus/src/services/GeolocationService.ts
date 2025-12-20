@@ -1,7 +1,10 @@
 import Geolocation from 'react-native-geolocation-service';
-import { ObservationGeolocation, GeolocationConfig } from '../types/Geolocation';
-import { ensureLocationPermission, hasLocationPermission } from './LocationPermissions';
-import { RESULTS } from 'react-native-permissions';
+import {ObservationGeolocation, GeolocationConfig} from '../types/Geolocation';
+import {
+  ensureLocationPermission,
+  hasLocationPermission,
+} from './LocationPermissions';
+import {RESULTS} from 'react-native-permissions';
 
 /**
  * Service for on-demand geolocation capture for observations
@@ -9,7 +12,7 @@ import { RESULTS } from 'react-native-permissions';
  */
 export class GeolocationService {
   private static instance: GeolocationService;
-  
+
   // Configuration for geolocation
   private config: GeolocationConfig = {
     enableHighAccuracy: true,
@@ -42,14 +45,14 @@ export class GeolocationService {
       }
 
       // Get current position using react-native-geolocation-service
-      return new Promise<ObservationGeolocation | null>((resolve) => {
+      return new Promise<ObservationGeolocation | null>(resolve => {
         Geolocation.getCurrentPosition(
-          (position) => {
+          position => {
             const location = this.convertToObservationGeolocation(position);
             console.debug('Got location for observation:', location);
             resolve(location);
           },
-          (error) => {
+          error => {
             console.warn('Failed to get location for observation:', error);
             resolve(null);
           },
@@ -57,7 +60,7 @@ export class GeolocationService {
             ...this.config,
             forceRequestLocation: true,
             showLocationDialog: true,
-          }
+          },
         );
       });
     } catch (error) {
@@ -78,7 +81,9 @@ export class GeolocationService {
    * Start watching position (for future use if needed)
    * Returns a cleanup function to stop watching
    */
-  public startWatching(onUpdate: (location: ObservationGeolocation) => void): () => void {
+  public startWatching(
+    onUpdate: (location: ObservationGeolocation) => void,
+  ): () => void {
     let watchId: number | null = null;
 
     const startWatch = async () => {
@@ -89,11 +94,11 @@ export class GeolocationService {
       }
 
       watchId = Geolocation.watchPosition(
-        (position) => {
+        position => {
           const location = this.convertToObservationGeolocation(position);
           onUpdate(location);
         },
-        (error) => {
+        error => {
           console.warn('Location watch error:', error);
         },
         {
@@ -101,7 +106,7 @@ export class GeolocationService {
           distanceFilter: 25, // Battery-friendly: update when moved 25 meters
           interval: 10000, // 10 seconds
           fastestInterval: 5000, // 5 seconds
-        }
+        },
       );
     };
 
@@ -119,7 +124,9 @@ export class GeolocationService {
   /**
    * Convert react-native-geolocation-service position to our observation format
    */
-  private convertToObservationGeolocation(position: Geolocation.GeoPosition): ObservationGeolocation {
+  private convertToObservationGeolocation(
+    position: Geolocation.GeoPosition,
+  ): ObservationGeolocation {
     return {
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,

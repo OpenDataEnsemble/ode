@@ -19,18 +19,26 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const isSynced = observation.syncedAt && observation.syncedAt.getTime() > new Date('1980-01-01').getTime();
+  const isSynced =
+    observation.syncedAt &&
+    observation.syncedAt.getTime() > new Date('1980-01-01').getTime();
   const dateStr = observation.createdAt.toLocaleDateString();
-  const timeStr = observation.createdAt.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+  const timeStr = observation.createdAt.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   const getDataPreview = () => {
     try {
-      const data = typeof observation.data === 'string' 
-        ? JSON.parse(observation.data) 
-        : observation.data;
+      const data =
+        typeof observation.data === 'string'
+          ? JSON.parse(observation.data)
+          : observation.data;
       const keys = Object.keys(data).slice(0, 2);
       if (keys.length === 0) return 'No data';
-      return keys.map(key => `${key}: ${String(data[key]).substring(0, 20)}`).join(', ');
+      return keys
+        .map(key => `${key}: ${String(data[key]).substring(0, 20)}`)
+        .join(', ');
     } catch {
       return 'No data';
     }
@@ -40,16 +48,18 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.content}>
         <View style={styles.iconContainer}>
-          <Icon 
-            name={isSynced ? "check-circle" : "clock-outline"} 
-            size={24} 
-            color={isSynced ? colors.semantic.success[500] : colors.semantic.warning[500]} 
+          <Icon
+            name={isSynced ? 'check-circle' : 'clock-outline'}
+            size={24}
+            color={
+              isSynced
+                ? colors.semantic.success[500]
+                : colors.semantic.warning[500]
+            }
           />
         </View>
         <View style={styles.textContainer}>
-          {formName && (
-            <Text style={styles.formName}>{formName}</Text>
-          )}
+          {formName && <Text style={styles.formName}>{formName}</Text>}
           <Text style={styles.id} numberOfLines={1}>
             ID: {observation.observationId.substring(0, 20)}...
           </Text>
@@ -60,7 +70,11 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
             <Text style={styles.date}>
               {dateStr} at {timeStr}
             </Text>
-            <View style={[styles.statusBadge, isSynced ? styles.syncedBadge : styles.pendingBadge]}>
+            <View
+              style={[
+                styles.statusBadge,
+                isSynced ? styles.syncedBadge : styles.pendingBadge,
+              ]}>
               <Text style={styles.statusText}>
                 {isSynced ? 'Synced' : 'Pending'}
               </Text>
@@ -69,25 +83,27 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
         </View>
         <View style={styles.actions}>
           {onEdit && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
-              onPress={(e) => {
+              onPress={e => {
                 e.stopPropagation();
                 onEdit();
-              }}
-            >
+              }}>
               <Icon name="pencil" size={20} color={colors.brand.primary[500]} />
             </TouchableOpacity>
           )}
           {onDelete && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.actionButton}
-              onPress={(e) => {
+              onPress={e => {
                 e.stopPropagation();
                 onDelete();
-              }}
-            >
-              <Icon name="delete" size={20} color={colors.semantic.error[500]} />
+              }}>
+              <Icon
+                name="delete"
+                size={20}
+                color={colors.semantic.error[500]}
+              />
             </TouchableOpacity>
           )}
         </View>
@@ -171,4 +187,3 @@ const styles = StyleSheet.create({
 });
 
 export default ObservationCard;
-

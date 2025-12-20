@@ -1,0 +1,107 @@
+# Docker Compose configuration for Synkronus Portal Development
+# This setup includes:
+# - Synkronus Portal (frontend)
+# - Synkronus API server (backend)
+# - PostgreSQL database
+#
+# Usage:
+#   docker compose up -d          # Start all services
+#   docker compose down            # Stop all services
+#   docker compose logs -f         # View logs
+#   docker compose ps              # Check service status
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:17
+    container_name: synkronus-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev_password_change_in_production
+      POSTGRES_DB: synkronus
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - synkronus-network
+
+  # Synkronus API server (backend)
+  synkronus:
+    build:
+      context: ../synkronus
+      dockerfile: Dockerfile
+    container_name: synkronus-api
+    expose:
+      - "8080"
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      LOG_LEVEL: "debug"
+      DB_CONNECTION: "postgres://synkronus_user:dev_password_change_in_production@postgres:5432/synkronus?sslmode=disable"
+      # JWT Secret for development (CHANGE IN PRODUCTION!)
+      JWT_SECRET: "dev_jwt_secret_change_in_production_32chars"
+      ADMIN_USERNAME: "admin"
+      ADMIN_PASSWORD: "admin"
+      APP_BUNDLE_PATH: "/app/data/app-bundles"
+      MAX_VERSIONS_KEPT: "5"
+    volumes:
+      - app-bundles:/app/data/app-bundles
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - synkronus-network
+
+  # Synkronus Portal (frontend)
+  synkronus-portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: synkronus-portal
+    ports:
+      - "5173:80"
+    depends_on:
+      - synkronus
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      - synkronus-network
+
+# Named volumes for data persistence
+# These volumes persist even when containers are stopped or removed
+# They are only deleted if you explicitly use: docker compose down -v
+volumes:
+  postgres-data:
+    driver: local
+    # This volume stores all PostgreSQL database data
+    # It persists across container restarts and mode switches
+  app-bundles:
+    driver: local
+    # This volume stores uploaded app bundle ZIP files
+    # It persists across container restarts and mode switches
+
+# Network for service communication
+networks:
+  synkronus-network:
+    driver: bridge

@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {Observation} from '../database/models/Observation';
 import {FormService} from '../services/FormService';
@@ -24,7 +24,9 @@ interface ObservationDetailScreenProps {
   };
 }
 
-const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}) => {
+const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
+  route,
+}) => {
   const {observationId} = route.params;
   const navigation = useNavigation();
   const [observation, setObservation] = useState<Observation | null>(null);
@@ -33,19 +35,22 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
 
   useEffect(() => {
     loadObservation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [observationId]);
 
   const loadObservation = async () => {
     try {
       setLoading(true);
       const formService = await FormService.getInstance();
-      
+
       // Get all form types to find the observation
       const formSpecs = formService.getFormSpecs();
       let foundObservation: Observation | null = null;
-      
+
       for (const formSpec of formSpecs) {
-        const observations = await formService.getObservationsByFormType(formSpec.id);
+        const observations = await formService.getObservationsByFormType(
+          formSpec.id,
+        );
         const obs = observations.find(o => o.observationId === observationId);
         if (obs) {
           foundObservation = obs;
@@ -53,13 +58,13 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
           break;
         }
       }
-      
+
       if (!foundObservation) {
         Alert.alert('Error', 'Observation not found');
         navigation.goBack();
         return;
       }
-      
+
       setObservation(foundObservation);
     } catch (error) {
       console.error('Error loading observation:', error);
@@ -72,17 +77,20 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
 
   const handleEdit = async () => {
     if (!observation) return;
-    
+
     try {
       const result = await openFormplayerFromNative(
         observation.formType,
         {},
-        typeof observation.data === 'string' 
-          ? JSON.parse(observation.data) 
+        typeof observation.data === 'string'
+          ? JSON.parse(observation.data)
           : observation.data,
         observation.observationId,
       );
-      if (result.status === 'form_submitted' || result.status === 'form_updated') {
+      if (
+        result.status === 'form_submitted' ||
+        result.status === 'form_updated'
+      ) {
         await loadObservation();
         Alert.alert('Success', 'Observation updated successfully');
       }
@@ -94,7 +102,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
 
   const handleDelete = () => {
     if (!observation) return;
-    
+
     Alert.alert(
       'Delete Observation',
       'Are you sure you want to delete this observation? This action cannot be undone.',
@@ -122,7 +130,9 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
   const renderDataField = (key: string, value: any, level: number = 0) => {
     if (value === null || value === undefined) {
       return (
-        <View key={key} style={[styles.fieldContainer, {paddingLeft: level * 16}]}>
+        <View
+          key={key}
+          style={[styles.fieldContainer, {paddingLeft: level * 16}]}>
           <Text style={styles.fieldKey}>{key}:</Text>
           <Text style={styles.fieldValue}>null</Text>
         </View>
@@ -131,21 +141,29 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
 
     if (typeof value === 'object' && !Array.isArray(value)) {
       return (
-        <View key={key} style={[styles.fieldContainer, {paddingLeft: level * 16}]}>
+        <View
+          key={key}
+          style={[styles.fieldContainer, {paddingLeft: level * 16}]}>
           <Text style={styles.fieldKey}>{key}:</Text>
-          {Object.entries(value).map(([k, v]) => renderDataField(k, v, level + 1))}
+          {Object.entries(value).map(([k, v]) =>
+            renderDataField(k, v, level + 1),
+          )}
         </View>
       );
     }
 
     if (Array.isArray(value)) {
       return (
-        <View key={key} style={[styles.fieldContainer, {paddingLeft: level * 16}]}>
+        <View
+          key={key}
+          style={[styles.fieldContainer, {paddingLeft: level * 16}]}>
           <Text style={styles.fieldKey}>{key}:</Text>
           {value.map((item, index) => (
             <View key={index} style={styles.arrayItem}>
               {typeof item === 'object' && item !== null
-                ? Object.entries(item).map(([k, v]) => renderDataField(k, v, level + 2))
+                ? Object.entries(item).map(([k, v]) =>
+                    renderDataField(k, v, level + 2),
+                  )
                 : renderDataField(`${index}`, item, level + 1)}
             </View>
           ))}
@@ -154,7 +172,9 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
     }
 
     return (
-      <View key={key} style={[styles.fieldContainer, {paddingLeft: level * 16}]}>
+      <View
+        key={key}
+        style={[styles.fieldContainer, {paddingLeft: level * 16}]}>
         <Text style={styles.fieldKey}>{key}:</Text>
         <Text style={styles.fieldValue}>{String(value)}</Text>
       </View>
@@ -182,13 +202,20 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
     );
   }
 
-  const isSynced = observation.syncedAt && observation.syncedAt.getTime() > new Date('1980-01-01').getTime();
-  const data = typeof observation.data === 'string' ? JSON.parse(observation.data) : observation.data;
+  const isSynced =
+    observation.syncedAt &&
+    observation.syncedAt.getTime() > new Date('1980-01-01').getTime();
+  const data =
+    typeof observation.data === 'string'
+      ? JSON.parse(observation.data)
+      : observation.data;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}>
           <Icon name="arrow-left" size={24} color={colors.brand.primary[500]} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Observation Details</Text>
@@ -202,16 +229,22 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
         </View>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Basic Information</Text>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Form Type:</Text>
-            <Text style={styles.infoValue}>{formName || observation.formType}</Text>
+            <Text style={styles.infoValue}>
+              {formName || observation.formType}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Observation ID:</Text>
-            <Text style={[styles.infoValue, styles.monoText]}>{observation.observationId}</Text>
+            <Text style={[styles.infoValue, styles.monoText]}>
+              {observation.observationId}
+            </Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Created:</Text>
@@ -227,11 +260,19 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Status:</Text>
-            <View style={[styles.statusBadge, isSynced ? styles.syncedBadge : styles.pendingBadge]}>
+            <View
+              style={[
+                styles.statusBadge,
+                isSynced ? styles.syncedBadge : styles.pendingBadge,
+              ]}>
               <Icon
                 name={isSynced ? 'check-circle' : 'clock-outline'}
                 size={16}
-                color={isSynced ? colors.semantic.success[500] : colors.semantic.warning[500]}
+                color={
+                  isSynced
+                    ? colors.semantic.success[500]
+                    : colors.semantic.warning[500]
+                }
               />
               <Text style={styles.statusText}>
                 {isSynced ? 'Synced' : 'Pending'}
@@ -273,7 +314,9 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({route}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Form Data</Text>
           <View style={styles.dataContainer}>
-            {Object.entries(data).map(([key, value]) => renderDataField(key, value))}
+            {Object.entries(data).map(([key, value]) =>
+              renderDataField(key, value),
+            )}
           </View>
         </View>
       </ScrollView>
@@ -416,4 +459,3 @@ const styles = StyleSheet.create({
 });
 
 export default ObservationDetailScreen;
-

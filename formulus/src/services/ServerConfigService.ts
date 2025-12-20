@@ -58,7 +58,9 @@ export class ServerConfigService {
     }
   }
 
-  async testConnection(serverUrl: string): Promise<{success: boolean; message: string}> {
+  async testConnection(
+    serverUrl: string,
+  ): Promise<{success: boolean; message: string}> {
     if (!serverUrl.trim()) {
       return {success: false, message: 'Please enter a server URL'};
     }
@@ -81,7 +83,7 @@ export class ServerConfigService {
         method: 'GET',
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
       });
 
@@ -97,14 +99,21 @@ export class ServerConfigService {
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        return {success: false, message: 'Connection timeout. Check your network and server.'};
+        return {
+          success: false,
+          message: 'Connection timeout. Check your network and server.',
+        };
       }
 
       const errorMessage = error.message || 'Unknown error';
-      if (errorMessage.includes('Network request failed') || errorMessage.includes('Failed to fetch')) {
+      if (
+        errorMessage.includes('Network request failed') ||
+        errorMessage.includes('Failed to fetch')
+      ) {
         return {
           success: false,
-          message: 'Cannot reach server. Check:\n• Server is running\n• Correct IP/URL\n• Same network (for local IP)\n• Firewall settings',
+          message:
+            'Cannot reach server. Check:\n• Server is running\n• Correct IP/URL\n• Same network (for local IP)\n• Firewall settings',
         };
       }
 
@@ -117,4 +126,3 @@ export class ServerConfigService {
 }
 
 export const serverConfigService = ServerConfigService.getInstance();
-

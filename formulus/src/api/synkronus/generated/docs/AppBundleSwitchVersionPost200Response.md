@@ -1,19 +1,18 @@
 # AppBundleSwitchVersionPost200Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**message** | **string** |  | [optional] [default to undefined]
+| Name        | Type       | Description | Notes                             |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| **message** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { AppBundleSwitchVersionPost200Response } from './api';
+import {AppBundleSwitchVersionPost200Response} from './api';
 
 const instance: AppBundleSwitchVersionPost200Response = {
-    message,
+  message,
 };
 ```
 

@@ -1,8 +1,8 @@
-import React, { useCallback, useState, useEffect, useMemo } from "react";
-import { JsonFormsDispatch, withJsonFormsControlProps } from "@jsonforms/react";
-import { ControlProps, rankWith, uiTypeIs, RankedTester } from "@jsonforms/core";
-import { useSwipeable } from "react-swipeable";
-import { useFormContext } from "./App";
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import { JsonFormsDispatch, withJsonFormsControlProps } from '@jsonforms/react';
+import { ControlProps, rankWith, uiTypeIs, RankedTester } from '@jsonforms/core';
+import { useSwipeable } from 'react-swipeable';
+import { useFormContext } from './App';
 import { draftService } from './DraftService';
 import FormProgressBar from './FormProgressBar';
 import FormLayout from './FormLayout';
@@ -15,7 +15,7 @@ interface SwipeLayoutProps extends ControlProps {
 // Tester for SwipeLayout elements (explicitly defined)
 export const swipeLayoutTester: RankedTester = rankWith(
   3, // Higher rank for explicit SwipeLayout
-  uiTypeIs('SwipeLayout')
+  uiTypeIs('SwipeLayout'),
 );
 
 // Custom tester for Group elements that should be rendered as SwipeLayout
@@ -26,51 +26,52 @@ const isGroupElement = (uischema: any): boolean => {
 // Tester for Group elements that should be rendered as SwipeLayout
 export const groupAsSwipeLayoutTester: RankedTester = rankWith(
   2, // Lower rank than explicit SwipeLayout
-  isGroupElement
+  isGroupElement,
 );
 
-const SwipeLayoutRenderer = ({ 
-  schema, 
-  uischema, 
-  data, 
-  handleChange, 
-  path, 
-  renderers, 
-  cells, 
+const SwipeLayoutRenderer = ({
+  schema,
+  uischema,
+  data,
+  handleChange,
+  path,
+  renderers,
+  cells,
   enabled,
   currentPage,
-  onPageChange
+  onPageChange,
 }: SwipeLayoutProps) => {
   const [isNavigating, setIsNavigating] = useState(false);
-  
+
   // Handle both SwipeLayout and Group elements
   // Use type assertion to avoid TypeScript errors
   const uiType = (uischema as any).type;
   const isExplicitSwipeLayout = uiType === 'SwipeLayout';
-  
+
   // For SwipeLayout, use elements directly; for Group, wrap the group in an array
   const layouts = useMemo(() => {
-    return isExplicitSwipeLayout
-      ? (uischema as any).elements || []
-      : [uischema]; // For Group, treat the entire group as a single page
+    return isExplicitSwipeLayout ? (uischema as any).elements || [] : [uischema]; // For Group, treat the entire group as a single page
   }, [uischema, isExplicitSwipeLayout]);
 
-  if (typeof handleChange !== "function") {
+  if (typeof handleChange !== 'function') {
     console.warn("Property 'handleChange'<function>  was not supplied to SwipeLayoutRenderer");
-    handleChange = () => {}
+    handleChange = () => {};
   }
 
-  const navigateToPage = useCallback((newPage: number) => {
-    if (isNavigating) return;
-    
-    setIsNavigating(true);
-    onPageChange(newPage);
-    
-    // Add a small delay before allowing next navigation
-    setTimeout(() => {
-      setIsNavigating(false);
-    }, 100);
-  }, [isNavigating, onPageChange]);
+  const navigateToPage = useCallback(
+    (newPage: number) => {
+      if (isNavigating) return;
+
+      setIsNavigating(true);
+      onPageChange(newPage);
+
+      // Add a small delay before allowing next navigation
+      setTimeout(() => {
+        setIsNavigating(false);
+      }, 100);
+    },
+    [isNavigating, onPageChange],
+  );
 
   const handlers = useSwipeable({
     onSwipedLeft: () => navigateToPage(Math.min(currentPage + 1, layouts.length - 1)),
@@ -123,7 +124,7 @@ const SwipeLayoutRenderer = ({
       <div {...handlers} className="swipelayout_screen">
         {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
         {layouts.length > 0 && (
-          <JsonFormsDispatch 
+          <JsonFormsDispatch
             schema={schema}
             uischema={layouts[currentPage]}
             path={path}
@@ -144,14 +145,17 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
   const { data } = props;
 
   // Save partial data whenever the page changes or data changes
-  const handlePageChange = useCallback((page: number) => {
-    // Save the current form data before changing the page
-    if (data && formInitData) {
-      console.log('Saving draft data on page change:', data);
-      draftService.saveDraft(formInitData.formType, data, formInitData);
-    }
-    setCurrentPage(page);
-  }, [data, formInitData]);
+  const handlePageChange = useCallback(
+    (page: number) => {
+      // Save the current form data before changing the page
+      if (data && formInitData) {
+        console.log('Saving draft data on page change:', data);
+        draftService.saveDraft(formInitData.formType, data, formInitData);
+      }
+      setCurrentPage(page);
+    },
+    [data, formInitData],
+  );
 
   useEffect(() => {
     const handleNavigateToPage = (event: CustomEvent) => {
@@ -164,12 +168,12 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
     };
 
     window.addEventListener('navigateToPage', handleNavigateToPage as EventListener);
-    
+
     return () => {
       window.removeEventListener('navigateToPage', handleNavigateToPage as EventListener);
     };
   }, [data, formInitData]);
-  
+
   // Also save data when it changes (even without page change)
   useEffect(() => {
     if (data) {
@@ -180,17 +184,13 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
           draftService.saveDraft(formInitData.formType, data, formInitData);
         }
       }, 1000); // 1 second debounce
-      
+
       return () => clearTimeout(debounceTimer);
     }
   }, [data, formInitData]);
 
   return (
-    <SwipeLayoutRenderer
-      {...props}
-      currentPage={currentPage}
-      onPageChange={handlePageChange}
-    />
+    <SwipeLayoutRenderer {...props} currentPage={currentPage} onPageChange={handlePageChange} />
   );
 };
 

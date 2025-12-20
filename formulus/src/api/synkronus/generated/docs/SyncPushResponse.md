@@ -1,25 +1,24 @@
 # SyncPushResponse
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**current_version** | **number** | Current database version number after processing the push | [default to undefined]
-**success_count** | **number** |  | [default to undefined]
-**failed_records** | **Array&lt;object&gt;** |  | [optional] [default to undefined]
-**warnings** | [**Array&lt;SyncPushResponseWarningsInner&gt;**](SyncPushResponseWarningsInner.md) |  | [optional] [default to undefined]
+| Name                | Type                                                                               | Description                                               | Notes                             |
+| ------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------- |
+| **current_version** | **number**                                                                         | Current database version number after processing the push | [default to undefined]            |
+| **success_count**   | **number**                                                                         |                                                           | [default to undefined]            |
+| **failed_records**  | **Array&lt;object&gt;**                                                            |                                                           | [optional] [default to undefined] |
+| **warnings**        | [**Array&lt;SyncPushResponseWarningsInner&gt;**](SyncPushResponseWarningsInner.md) |                                                           | [optional] [default to undefined] |
 
 ## Example
 
 ```typescript
-import { SyncPushResponse } from './api';
+import {SyncPushResponse} from './api';
 
 const instance: SyncPushResponse = {
-    current_version,
-    success_count,
-    failed_records,
-    warnings,
+  current_version,
+  success_count,
+  failed_records,
+  warnings,
 };
 ```
 

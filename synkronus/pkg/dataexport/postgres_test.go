@@ -170,17 +170,17 @@ func TestPostgresDB_GetObservationsForFormType(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                string
-		formType            string
-		mockRows            *sqlmock.Rows
-		expectedObsCount    int
-		expectError         bool
+		name             string
+		formType         string
+		mockRows         *sqlmock.Rows
+		expectedObsCount int
+		expectError      bool
 	}{
 		{
 			name:     "successful observations query",
 			formType: "survey",
 			mockRows: sqlmock.NewRows([]string{
-				"observation_id", "form_type", "form_version", "created_at", "updated_at", 
+				"observation_id", "form_type", "form_version", "created_at", "updated_at",
 				"synced_at", "deleted", "version", "geolocation", "data_question", "data_rating",
 			}).AddRow(
 				"obs1", "survey", "1.0", "2023-01-01T00:00:00Z", "2023-01-01T00:00:00Z",
@@ -196,7 +196,7 @@ func TestPostgresDB_GetObservationsForFormType(t *testing.T) {
 			name:     "empty observations",
 			formType: "survey",
 			mockRows: sqlmock.NewRows([]string{
-				"observation_id", "form_type", "form_version", "created_at", "updated_at", 
+				"observation_id", "form_type", "form_version", "created_at", "updated_at",
 				"synced_at", "deleted", "version", "geolocation", "data_question", "data_rating",
 			}),
 			expectedObsCount: 0,
