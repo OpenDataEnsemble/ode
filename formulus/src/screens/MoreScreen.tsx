@@ -16,10 +16,10 @@ import {
 import MenuDrawer from '../components/MenuDrawer';
 import {logout} from '../api/synkronus/Auth';
 
-type MainAppDrawerScreen = 'Settings' | 'FormManagement';
+type MainAppDrawerScreen = 'FormManagement';
 
 const isMainAppDrawerScreen = (screen: string): screen is MainAppDrawerScreen => {
-  return screen === 'Settings' || screen === 'FormManagement';
+  return screen === 'FormManagement';
 };
 
 type MoreScreenNavigationProp = CompositeNavigationProp<
@@ -50,6 +50,8 @@ const MoreScreen: React.FC = () => {
     // Navigate to screens in the MainAppStack
     if (isMainAppDrawerScreen(screen)) {
       navigation.navigate(screen);
+    } else if (screen === 'Settings') {
+      navigation.navigate('Settings');
     } else if (screen === 'About') {
       navigation.navigate('About');
     } else if (screen === 'Help') {
