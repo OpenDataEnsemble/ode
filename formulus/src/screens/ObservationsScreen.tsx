@@ -124,8 +124,8 @@ const ObservationsScreen: React.FC = () => {
       ) {
         await refresh();
       }
-    } catch (error) {
-      console.error('Error editing observation:', error);
+    } catch (err) {
+      console.error('Error editing observation:', err);
       Alert.alert('Error', 'Failed to edit observation. Please try again.');
     }
   };
@@ -144,8 +144,8 @@ const ObservationsScreen: React.FC = () => {
               const formService = await FormService.getInstance();
               await formService.deleteObservation(observation.observationId);
               await refresh();
-            } catch (error) {
-              console.error('Error deleting observation:', error);
+            } catch (err) {
+              console.error('Error deleting observation:', err);
               Alert.alert('Error', 'Failed to delete observation.');
             }
           },

@@ -405,7 +405,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             <Text style={styles.headerTitle}>
               {currentObservationId ? 'Edit Observation' : 'New Observation'}
             </Text>
-            <View style={{width: 40}} />
+            <View style={styles.headerRightSpacer} />
           </View>
 
           <CustomAppWebView
@@ -448,6 +448,9 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     marginRight: 40, // To balance the close button width
+  },
+  headerRightSpacer: {
+    width: 40,
   },
   closeButton: {
     padding: 8,
