@@ -52,6 +52,8 @@ const MoreScreen: React.FC = () => {
       navigation.navigate(screen);
     } else if (screen === 'About') {
       navigation.navigate('About');
+    } else if (screen === 'Help') {
+      navigation.navigate('Help');
     } else {
       // Other screens not yet implemented - stay on Home for now
       console.log('Navigate to:', screen, '(not yet implemented)');

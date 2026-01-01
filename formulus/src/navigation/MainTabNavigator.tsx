@@ -7,6 +7,7 @@ import FormsScreen from '../screens/FormsScreen';
 import ObservationsScreen from '../screens/ObservationsScreen';
 import SyncScreen from '../screens/SyncScreen';
 import AboutScreen from '../screens/AboutScreen';
+import HelpScreen from '../screens/HelpScreen';
 import MoreScreen from '../screens/MoreScreen';
 import {MainTabParamList} from '../types/NavigationTypes';
 
@@ -71,6 +72,13 @@ const MainTabNavigator: React.FC = () => {
       <Tab.Screen
         name="About"
         component={AboutScreen}
+        options={{
+          tabBarButton: () => null,
+        }}
+      />
+      <Tab.Screen
+        name="Help"
+        component={HelpScreen}
         options={{
           tabBarButton: () => null,
         }}
