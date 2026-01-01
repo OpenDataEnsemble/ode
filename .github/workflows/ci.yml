@@ -171,9 +171,12 @@ jobs:
       
       - name: Run gofmt
         run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          # List all tracked Go files
+          UNFORMATTED_FILES=$(git ls-files '*.go' | xargs gofmt -s -l)
+          
+          if [ -n "$UNFORMATTED_FILES" ]; then
             echo "Code is not formatted. Run 'go fmt ./...'"
-            gofmt -s -d .
+            echo "$UNFORMATTED_FILES" | xargs gofmt -s -d
             exit 1
           fi
       
@@ -222,9 +225,12 @@ jobs:
       
       - name: Run gofmt
         run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          # List all tracked Go files
+          UNFORMATTED_FILES=$(git ls-files '*.go' | xargs gofmt -s -l)
+          
+          if [ -n "$UNFORMATTED_FILES" ]; then
             echo "Code is not formatted. Run 'go fmt ./...'"
-            gofmt -s -d .
+            echo "$UNFORMATTED_FILES" | xargs gofmt -s -d
             exit 1
           fi
       
