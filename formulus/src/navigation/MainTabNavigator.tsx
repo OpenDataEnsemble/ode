@@ -6,9 +6,11 @@ import HomeScreen from '../screens/HomeScreen';
 import FormsScreen from '../screens/FormsScreen';
 import ObservationsScreen from '../screens/ObservationsScreen';
 import SyncScreen from '../screens/SyncScreen';
+import AboutScreen from '../screens/AboutScreen';
 import MoreScreen from '../screens/MoreScreen';
+import {MainTabParamList} from '../types/NavigationTypes';
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<MainTabParamList>();
 
 const MainTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -67,6 +69,13 @@ const MainTabNavigator: React.FC = () => {
         }}
       />
       <Tab.Screen
+        name="About"
+        component={AboutScreen}
+        options={{
+          tabBarButton: () => null,
+        }}
+      />
+      <Tab.Screen
         name="More"
         component={MoreScreen}
         options={{
@@ -74,7 +83,7 @@ const MainTabNavigator: React.FC = () => {
             <Icon name="menu" size={size} color={color} />
           ),
         }}
-        listeners={({navigation, _route}) => ({
+        listeners={({navigation}) => ({
           tabPress: _e => {
             const state = navigation.getState();
             const currentRoute = state.routes[state.index];

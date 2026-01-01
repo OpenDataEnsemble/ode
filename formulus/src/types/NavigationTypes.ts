@@ -3,6 +3,7 @@ export type MainTabParamList = {
   Forms: undefined;
   Observations: undefined;
   Sync: undefined;
+  About: undefined;
   More: {openDrawer?: number} | undefined;
 };
 

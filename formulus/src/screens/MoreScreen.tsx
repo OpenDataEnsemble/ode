@@ -16,6 +16,12 @@ import {
 import MenuDrawer from '../components/MenuDrawer';
 import {logout} from '../api/synkronus/Auth';
 
+type MainAppDrawerScreen = 'Settings' | 'FormManagement';
+
+const isMainAppDrawerScreen = (screen: string): screen is MainAppDrawerScreen => {
+  return screen === 'Settings' || screen === 'FormManagement';
+};
+
 type MoreScreenNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'More'>,
   StackNavigationProp<MainAppStackParamList>
@@ -42,8 +48,10 @@ const MoreScreen: React.FC = () => {
   const handleNavigate = (screen: string) => {
     setDrawerVisible(false);
     // Navigate to screens in the MainAppStack
-    if (screen === 'Settings' || screen === 'FormManagement') {
-      navigation.navigate(screen as keyof MainAppStackParamList);
+    if (isMainAppDrawerScreen(screen)) {
+      navigation.navigate(screen);
+    } else if (screen === 'About') {
+      navigation.navigate('About');
     } else {
       // Other screens not yet implemented - stay on Home for now
       console.log('Navigate to:', screen, '(not yet implemented)');
