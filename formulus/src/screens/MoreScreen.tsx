@@ -18,7 +18,9 @@ import {logout} from '../api/synkronus/Auth';
 
 type MainAppDrawerScreen = 'FormManagement';
 
-const isMainAppDrawerScreen = (screen: string): screen is MainAppDrawerScreen => {
+const isMainAppDrawerScreen = (
+  screen: string,
+): screen is MainAppDrawerScreen => {
   return screen === 'FormManagement';
 };
 

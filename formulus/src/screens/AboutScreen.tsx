@@ -43,8 +43,8 @@ const AboutScreen: React.FC = () => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Formulus</Text>
           <Text style={styles.cardText}>
-            Formulus is the mobile app for collecting and synchronizing forms and
-            observations.
+            Formulus is the mobile app for collecting and synchronizing forms
+            and observations.
           </Text>
         </View>
 
@@ -63,7 +63,9 @@ const AboutScreen: React.FC = () => {
           </Text>
           <Text
             style={[styles.cardText, styles.link]}
-            onPress={() => Linking.openURL('https://forum.opendataensemble.org')}
+            onPress={() =>
+              Linking.openURL('https://forum.opendataensemble.org')
+            }
             suppressHighlighting={true}>
             https://forum.opendataensemble.org
           </Text>

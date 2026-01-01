@@ -9,12 +9,15 @@ export interface UserInfo {
 }
 
 const decodeBase64 = (input: string): string => {
-  const atobFn = (globalThis as any).atob as ((data: string) => string) | undefined;
+  const atobFn = (globalThis as any).atob as
+    | ((data: string) => string)
+    | undefined;
   if (typeof atobFn === 'function') {
     return atobFn(input);
   }
 
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
   let str = '';
   let i = 0;
 

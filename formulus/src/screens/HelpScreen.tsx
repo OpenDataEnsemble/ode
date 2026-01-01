@@ -19,7 +19,9 @@ const HelpScreen: React.FC = () => {
           </Text>
           <Text
             style={[styles.cardText, styles.link]}
-            onPress={() => Linking.openURL('https://forum.opendataensemble.org')}
+            onPress={() =>
+              Linking.openURL('https://forum.opendataensemble.org')
+            }
             suppressHighlighting={true}>
             https://forum.opendataensemble.org
           </Text>
@@ -30,8 +32,12 @@ const HelpScreen: React.FC = () => {
           <Text style={styles.cardText}>
             If something is not working as expected:
           </Text>
-          <Text style={styles.cardText}>1. Check your internet connection.</Text>
-          <Text style={styles.cardText}>2. Try syncing again from the Sync tab.</Text>
+          <Text style={styles.cardText}>
+            1. Check your internet connection.
+          </Text>
+          <Text style={styles.cardText}>
+            2. Try syncing again from the Sync tab.
+          </Text>
           <Text style={styles.cardText}>
             3. If the issue persists, reach out via the forum.
           </Text>
@@ -40,8 +46,8 @@ const HelpScreen: React.FC = () => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Administrator</Text>
           <Text style={styles.cardText}>
-            For account setup, server configuration, or access issues, contact your
-            system administrator.
+            For account setup, server configuration, or access issues, contact
+            your system administrator.
           </Text>
         </View>
       </ScrollView>
