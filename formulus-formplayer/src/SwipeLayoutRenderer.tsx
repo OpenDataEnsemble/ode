@@ -123,7 +123,7 @@ const SwipeLayoutRenderer = ({
     >
       <div {...handlers} className="swipelayout_screen">
         {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
-        {layouts.length > 0 && (
+        {layouts.length > 0 && layouts[currentPage] && (
           <JsonFormsDispatch
             schema={schema}
             uischema={layouts[currentPage]}

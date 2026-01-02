@@ -25,6 +25,7 @@ import FileQuestionRenderer, { fileQuestionTester } from './FileQuestionRenderer
 import AudioQuestionRenderer, { audioQuestionTester } from './AudioQuestionRenderer';
 import GPSQuestionRenderer, { gpsQuestionTester } from './GPSQuestionRenderer';
 import VideoQuestionRenderer, { videoQuestionTester } from './VideoQuestionRenderer';
+import HtmlLabelRenderer, { htmlLabelTester } from './HtmlLabelRenderer';
 import { shellMaterialRenderers } from './material-wrappers';
 
 import ErrorBoundary from './ErrorBoundary';
@@ -172,6 +173,7 @@ export const customRenderers = [
   { tester: audioQuestionTester, renderer: AudioQuestionRenderer },
   { tester: gpsQuestionTester, renderer: GPSQuestionRenderer },
   { tester: videoQuestionTester, renderer: VideoQuestionRenderer },
+  { tester: htmlLabelTester, renderer: HtmlLabelRenderer },
 ];
 
 function App() {
@@ -536,7 +538,7 @@ function App() {
 
   const ajv = new Ajv({
     allErrors: true,
-    strictTypes: false, // Allow custom formats without strict type checking
+    strict: false, // Allow custom keywords like x-formulus-validation
   });
   addErrors(ajv);
   addFormats(ajv);

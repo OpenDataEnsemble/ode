@@ -3,7 +3,6 @@ import {createStackNavigator} from '@react-navigation/stack';
 import {useFocusEffect} from '@react-navigation/native';
 import MainTabNavigator from './MainTabNavigator';
 import WelcomeScreen from '../screens/WelcomeScreen';
-import SettingsScreen from '../screens/SettingsScreen';
 import FormManagementScreen from '../screens/FormManagementScreen';
 import ObservationDetailScreen from '../screens/ObservationDetailScreen';
 import {MainAppStackParamList} from '../types/NavigationTypes';
@@ -49,11 +48,6 @@ const MainAppNavigator: React.FC = () => {
       <Stack.Screen
         name="MainApp"
         component={MainTabNavigator}
-        options={{headerShown: false}}
-      />
-      <Stack.Screen
-        name="Settings"
-        component={SettingsScreen}
         options={{headerShown: false}}
       />
       <Stack.Screen
