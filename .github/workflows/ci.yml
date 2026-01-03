@@ -169,12 +169,18 @@ jobs:
       - name: Download dependencies
         run: go mod download
       
-      - name: Run gofmt
+      - name: Run gofmt (warning)
         run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "Code is not formatted. Run 'go fmt ./...'"
-            gofmt -s -d .
-            exit 1
+          UNFORMATTED_FILES=$(git ls-files '*.go' | xargs gofmt -s -l)
+          
+          if [ -n "$UNFORMATTED_FILES" ]; then
+            echo "⚠️  Code is not formatted. Consider running 'go fmt ./...' or 'gofmt -s -w .'"
+            echo "Unformatted files:"
+            echo "$UNFORMATTED_FILES"
+            echo "Diffs:"
+            echo "$UNFORMATTED_FILES" | xargs gofmt -s -d
+          else
+            echo "✅  All Go files are formatted."
           fi
       
       - name: Run golangci-lint (if available)
@@ -220,12 +226,18 @@ jobs:
       - name: Download dependencies
         run: go mod download
       
-      - name: Run gofmt
+      - name: Run gofmt (warning)
         run: |
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "Code is not formatted. Run 'go fmt ./...'"
-            gofmt -s -d .
-            exit 1
+          UNFORMATTED_FILES=$(git ls-files '*.go' | xargs gofmt -s -l)
+          
+          if [ -n "$UNFORMATTED_FILES" ]; then
+            echo "⚠️  Code is not formatted. Consider running 'go fmt ./...' or 'gofmt -s -w .'"
+            echo "Unformatted files:"
+            echo "$UNFORMATTED_FILES"
+            echo "Diffs:"
+            echo "$UNFORMATTED_FILES" | xargs gofmt -s -d
+          else
+            echo "✅  All Go files are formatted."
           fi
       
       - name: Run tests

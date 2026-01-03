@@ -43,8 +43,8 @@ const FormsScreen: React.FC = () => {
       ) {
         await refresh();
       }
-    } catch (error) {
-      console.error('Error opening form:', error);
+    } catch (err) {
+      console.error('Error opening form:', err);
       Alert.alert('Error', 'Failed to open form. Please try again.');
     }
   };

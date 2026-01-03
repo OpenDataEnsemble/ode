@@ -9,24 +9,25 @@ import {
   Image,
   ScrollView,
   Alert,
+  type AlertButton,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
-import {StackNavigationProp} from '@react-navigation/stack';
+import {BottomTabNavigationProp} from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
 import {login, getUserInfo, UserInfo} from '../api/synkronus/Auth';
 import {serverConfigService} from '../services/ServerConfigService';
 import QRScannerModal from '../components/QRScannerModal';
 import {QRSettingsService} from '../services/QRSettingsService';
-import {MainAppStackParamList} from '../types/NavigationTypes';
+import {MainTabParamList} from '../types/NavigationTypes';
 import {colors} from '../theme/colors';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {ToastService} from '../services/ToastService';
 import {serverSwitchService} from '../services/ServerSwitchService';
 import {syncService} from '../services/SyncService';
 
-type SettingsScreenNavigationProp = StackNavigationProp<
-  MainAppStackParamList,
+type SettingsScreenNavigationProp = BottomTabNavigationProp<
+  MainTabParamList,
   'Settings'
 >;
 
@@ -92,7 +93,7 @@ const SettingsScreen = () => {
             ? `Unsynced observations: ${pendingObservations}\nUnsynced attachments: ${pendingAttachments}\n\nSync is recommended before switching.`
             : 'Switching servers will wipe all local data for the previous server.';
 
-          const buttons = hasPending
+          const buttons: AlertButton[] = hasPending
             ? [
                 {
                   text: 'Cancel',
@@ -213,7 +214,7 @@ const SettingsScreen = () => {
       const userInfo = await login(username, password);
       setLoggedInUser(userInfo);
       ToastService.showShort('Successfully logged in!');
-      navigation.navigate('MainApp');
+      navigation.navigate('Home');
     } catch (error: any) {
       console.error('Login failed:', error);
       const errorMessage =
@@ -257,7 +258,7 @@ const SettingsScreen = () => {
             const userInfo = await login(settings.username, settings.password);
             setLoggedInUser(userInfo);
             ToastService.showShort('Successfully logged in!');
-            navigation.navigate('MainApp');
+            navigation.navigate('Home');
           } catch (error: any) {
             console.error('Auto-login failed:', error);
             const errorMessage =

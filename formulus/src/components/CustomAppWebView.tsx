@@ -6,7 +6,7 @@ import React, {
   useImperativeHandle,
   useMemo,
 } from 'react';
-import {View, ActivityIndicator, AppState} from 'react-native';
+import {View, ActivityIndicator, AppState, StyleSheet} from 'react-native';
 import {WebView} from 'react-native-webview';
 import {useIsFocused} from '@react-navigation/native';
 import {Platform} from 'react-native';
@@ -249,7 +249,7 @@ const CustomAppWebView = forwardRef<
 
   if (!isScriptReady) {
     return (
-      <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
@@ -308,12 +308,20 @@ const CustomAppWebView = forwardRef<
       startInLoadingState={true}
       originWhitelist={['*']}
       renderLoading={() => (
-        <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}>
+        <View style={styles.centered}>
           <ActivityIndicator size="large" color="#007AFF" />
         </View>
       )}
     />
   );
+});
+
+const styles = StyleSheet.create({
+  centered: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
 
 export default CustomAppWebView;

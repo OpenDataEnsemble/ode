@@ -8,13 +8,49 @@ export interface UserInfo {
   role: UserRole;
 }
 
+const decodeBase64 = (input: string): string => {
+  const atobFn = (globalThis as any).atob as
+    | ((data: string) => string)
+    | undefined;
+  if (typeof atobFn === 'function') {
+    return atobFn(input);
+  }
+
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = '';
+  let i = 0;
+
+  // Basic base64 decoder fallback
+  while (i < input.length) {
+    const enc1 = chars.indexOf(input.charAt(i++));
+    const enc2 = chars.indexOf(input.charAt(i++));
+    const enc3 = chars.indexOf(input.charAt(i++));
+    const enc4 = chars.indexOf(input.charAt(i++));
+
+    const chr1 = enc1 * 4 + Math.floor(enc2 / 16);
+    const chr2 = (enc2 % 16) * 16 + Math.floor(enc3 / 4);
+    const chr3 = (enc3 % 4) * 64 + enc4;
+
+    str += String.fromCharCode(chr1);
+    if (enc3 !== 64) {
+      str += String.fromCharCode(chr2);
+    }
+    if (enc4 !== 64) {
+      str += String.fromCharCode(chr3);
+    }
+  }
+
+  return str;
+};
+
 // Decode JWT payload without verification (claims are in the middle part)
 function decodeJwtPayload(token: string): any {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
     const payload = parts[1];
-    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const decoded = decodeBase64(payload.replace(/-/g, '+').replace(/_/g, '/'));
     return JSON.parse(decoded);
   } catch {
     return null;
@@ -34,10 +70,10 @@ export const login = async (
     loginRequest: {username, password},
   });
 
-  const {token, refreshToken, expiresAt} = res.data;
+  const {token, refreshToken: refreshTokenValue, expiresAt} = res.data;
 
   await AsyncStorage.setItem('@token', token);
-  await AsyncStorage.setItem('@refreshToken', refreshToken);
+  await AsyncStorage.setItem('@refreshToken', refreshTokenValue);
   await AsyncStorage.setItem('@tokenExpiresAt', expiresAt.toString());
 
   // Decode JWT to get user info
@@ -100,9 +136,9 @@ export const refreshToken = async () => {
       refreshToken: (await AsyncStorage.getItem('@refreshToken')) ?? '',
     },
   });
-  const {token, refreshToken, expiresAt} = res.data;
+  const {token, refreshToken: refreshTokenValue, expiresAt} = res.data;
   await AsyncStorage.setItem('@token', token);
-  await AsyncStorage.setItem('@refreshToken', refreshToken);
+  await AsyncStorage.setItem('@refreshToken', refreshTokenValue);
   await AsyncStorage.setItem('@tokenExpiresAt', expiresAt.toString());
   return true;
 };
