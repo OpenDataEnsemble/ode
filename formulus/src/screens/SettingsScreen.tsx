@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: 12,
     fontSize: 16,
-    color: '#000000',
+    color: colors.neutral.black,
     backgroundColor: 'transparent',
   },
   qrButton: {
