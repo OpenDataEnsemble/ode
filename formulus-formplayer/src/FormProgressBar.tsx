@@ -167,10 +167,10 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
       sx={{
         width: '100%',
         mb: 2,
-        px: { xs: 1, sm: 2 },
+        px: 0,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, px: { xs: 1, sm: 2 } }}>
         <LinearProgress
           variant="determinate"
           value={progress}
@@ -192,6 +192,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
             textAlign: 'right',
             color: 'text.secondary',
             fontWeight: 500,
+            pr: { xs: 1, sm: 2 },
           }}
         >
           {progress}%

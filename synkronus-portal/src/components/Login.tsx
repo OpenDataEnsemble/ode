@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { Button, Input } from "@ode/components/react-web";
+
 import odeLogo from '../assets/ode_logo.png'
 import './Login.css'
 
@@ -11,8 +13,10 @@ export function Login() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (e?: FormEvent) => {
+    if (e) {
+      e.preventDefault()
+    }
     setError(null)
     setLoading(true)
 
@@ -38,34 +42,38 @@ export function Login() {
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="username">Username</label>
-            <input
-              id="username"
+            <Input
+              label="Username"
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChangeText={setUsername}
               required
-              autoComplete="username"
               disabled={loading}
+              className="login-input"
             />
           </div>
           
           <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
+            <Input
+              label="Password"
               type="password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChangeText={setPassword}
               required
-              autoComplete="current-password"
               disabled={loading}
+              className="login-input"
             />
           </div>
           
-          <button type="submit" disabled={loading} className="login-button">
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
+          <Button
+            variant="primary"
+            onPress={() => handleSubmit()}
+            disabled={loading}
+            loading={loading}
+            className="login-button"
+          >
+            Sign In
+          </Button>
         </form>
       </div>
     </div>

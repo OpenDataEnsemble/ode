@@ -82,7 +82,7 @@ jobs:
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: ./synkronus-portal
+          context: .
           file: ./synkronus-portal/Dockerfile
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}

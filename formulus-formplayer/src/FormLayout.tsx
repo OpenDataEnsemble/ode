@@ -109,78 +109,89 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100dvh', // Dynamic viewport height - adapts to mobile keyboard
+        height: '100dvh',
         width: '100%',
         overflow: 'hidden',
         position: 'relative',
-        // Ensure proper rendering on all devices
         WebkitOverflowScrolling: 'touch',
       }}
     >
-      {/* Header Area - Sticky at top (optional) */}
       {header && (
         <Box
           sx={{
             flexShrink: 0,
             position: 'sticky',
             top: 0,
-            zIndex: 10,
+            zIndex: 100,
             backgroundColor: 'background.default',
-            // Add subtle shadow for visual separation
+            paddingTop: 'env(safe-area-inset-top, 0px)',
             boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+            width: '100%',
+            overflow: 'hidden',
           }}
         >
           {header}
         </Box>
       )}
 
-      {/* Scrollable Content Area */}
       <Box
-        sx={{
+        sx={(theme) => ({
           flex: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          // Use -webkit-overflow-scrolling for smooth iOS scrolling
           WebkitOverflowScrolling: 'touch',
-          // Add padding to prevent content from being hidden behind navigation
-          paddingBottom: `${contentBottomPadding}px`,
-          // Ensure proper scrolling behavior when keyboard appears
+          paddingBottom:
+            showNavigation && (previousButton || nextButton) && !isKeyboardVisible
+              ? {
+                  xs: `calc(${theme.spacing(11)} + env(safe-area-inset-bottom, 0px))`,
+                  sm: `calc(${theme.spacing(12)} + env(safe-area-inset-bottom, 0px))`,
+                  md: `calc(${theme.spacing(13)} + env(safe-area-inset-bottom, 0px))`,
+                }
+              : theme.spacing(15),
           overscrollBehavior: 'contain',
-        }}
+          position: 'relative',
+        })}
       >
         {children}
       </Box>
 
-      {/* Navigation Bar - Sticky at bottom, non-overlapping */}
-      {/* Hide navigation when keyboard is visible to prevent covering content */}
       {showNavigation && (previousButton || nextButton) && !isKeyboardVisible && (
         <Paper
-          elevation={3}
-          sx={{
-            flexShrink: 0,
-            position: 'sticky',
+          elevation={4}
+          sx={(theme) => ({
+            position: 'fixed',
             bottom: 0,
-            zIndex: 10,
+            left: 0,
+            right: 0,
+            zIndex: theme.zIndex.appBar,
             width: '100%',
-            padding: { xs: 1.5, sm: 2 },
+            padding: {
+              xs: theme.spacing(1.5, 2),
+              sm: theme.spacing(2, 3),
+              md: theme.spacing(2.5, 4),
+            },
+            paddingBottom: {
+              xs: `calc(${theme.spacing(1.5)} + env(safe-area-inset-bottom, 0px))`,
+              sm: `calc(${theme.spacing(2)} + env(safe-area-inset-bottom, 0px))`,
+              md: `calc(${theme.spacing(2.5)} + env(safe-area-inset-bottom, 0px))`,
+            },
             backgroundColor: 'background.paper',
-            // Add border-top for visual separation
             borderTop: '1px solid',
             borderColor: 'divider',
-            // Ensure it stays above content
-            boxShadow: '0 -2px 8px rgba(0,0,0,0.1)',
+            boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
             transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out',
-          }}
+            boxSizing: 'border-box',
+          })}
         >
           <Stack
             direction="row"
             spacing={2}
             justifyContent="center"
             sx={{
-              // Full-width buttons on mobile, auto-width on larger screens
               '& > *': {
                 flex: { xs: 1, sm: '0 1 auto' },
-                minWidth: { xs: 'auto', sm: '120px' },
+                minWidth: { xs: 'auto', sm: '120px', md: '140px' },
+                maxWidth: { md: '200px' },
               },
             }}
           >
@@ -191,9 +202,13 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 disabled={previousButton.disabled}
                 fullWidth={false}
                 sx={{
-                  // Ensure buttons are touch-friendly (Material Design minimum: 48dp)
-                  minHeight: { xs: '48px', sm: '48px' },
-                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                  minHeight: { xs: '48px', sm: '48px', md: '52px' },
+                  fontSize: { xs: '0.875rem', sm: '0.875rem', md: '0.9375rem' },
+                  fontWeight: 600,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                  },
                 }}
               >
                 {previousButton.label || 'Previous'}
@@ -206,9 +221,13 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 disabled={nextButton.disabled}
                 fullWidth={false}
                 sx={{
-                  // Ensure buttons are touch-friendly (Material Design minimum: 48dp)
-                  minHeight: { xs: '48px', sm: '48px' },
-                  fontSize: { xs: '0.875rem', sm: '0.875rem' },
+                  minHeight: { xs: '48px', sm: '48px', md: '52px' },
+                  fontSize: { xs: '0.875rem', sm: '0.875rem', md: '0.9375rem' },
+                  fontWeight: 600,
+                  boxShadow: 2,
+                  '&:hover': {
+                    boxShadow: 4,
+                  },
                 }}
               >
                 {nextButton.label || 'Next'}
