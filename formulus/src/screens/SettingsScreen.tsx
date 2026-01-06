@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: 12,
     fontSize: 16,
-    color: tokens.neutral.black,
+    color: tokens.color.neutral.black,
     backgroundColor: 'transparent',
   },
   qrButton: {
