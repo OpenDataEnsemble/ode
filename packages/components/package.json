@@ -1,0 +1,56 @@
+{
+  "name": "@ode/components",
+  "version": "1.0.0",
+  "description": "ODE Design System - Unified UI components for React Native and React Web",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./react-web": "./src/react-web/index.ts",
+    "./react-native": "./src/react-native/index.ts",
+    "./src/react-web": "./src/react-web/index.ts",
+    "./src/react-native": "./src/react-native/index.ts",
+    "./src/shared/types": "./src/shared/types.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "lint": "eslint src --ext ts,tsx",
+    "format": "prettier \"src/**/*.{ts,tsx}\" --write"
+  },
+  "keywords": [
+    "design-system",
+    "components",
+    "ode",
+    "react-native",
+    "react",
+    "ui-components"
+  ],
+  "author": "ODE Design System Team",
+  "license": "MIT",
+  "peerDependencies": {
+    "@ode/tokens": "file:../tokens",
+    "react": ">=18.0.0"
+  },
+  "dependencies": {
+    "@ode/tokens": "file:../tokens"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.57.0",
+    "prettier": "^2.8.8",
+    "typescript": "^5.0.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OpenDataEnsemble/ode.git",
+    "directory": "packages/components"
+  }
+}

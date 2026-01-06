@@ -649,9 +649,10 @@ function App() {
           <div
             style={{
               width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
-              overflow: 'auto',
-              padding: '20px',
+              overflow: 'hidden', // Prevent outer scrolling - FormLayout handles scrolling internally
+              padding: '12px',
               boxSizing: 'border-box',
+              height: '100%', // Ensure it takes full height
             }}
           >
             <ErrorBoundary>

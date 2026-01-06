@@ -110,7 +110,7 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
       )}
 
       {normalizedError && (
-        <Alert severity="error" sx={{ width: '100%' }}>
+        <Alert severity="error" sx={{ width: '100%', mb: -1 }}>
           {normalizedError}
         </Alert>
       )}

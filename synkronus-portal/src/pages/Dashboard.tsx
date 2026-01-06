@@ -1,7 +1,40 @@
 import { useState, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../services/api'
+import { Button, Input, Badge } from "@ode/components/react-web";
+
+import { 
+  HiOutlineChartBar, HiChartBar,
+  HiOutlineCube, HiCube,
+  HiOutlineUsers, HiUsers,
+  HiOutlineClipboardDocumentList, HiClipboardDocumentList,
+  HiOutlineArrowDownTray, HiArrowDownTray,
+  HiOutlineCog6Tooth, HiCog6Tooth,
+  HiCheckCircle,
+  HiUser,
+  HiLockClosed,
+  HiRocketLaunch,
+  HiExclamationTriangle,
+  HiArrowUpTray,
+  HiArrowPath,
+  HiMagnifyingGlass,
+  HiKey,
+  HiTrash,
+  HiEye,
+  HiServer,
+  HiGlobeAlt,
+  HiClock,
+  HiHashtag,
+  HiComputerDesktop,
+  HiCalendar,
+  HiLink,
+  HiPlus,
+  HiXMark,
+  HiHeart,
+  HiDocumentText
+} from 'react-icons/hi2'
 import odeLogo from '../assets/ode_logo.png'
+import dashboardBackground from '../assets/dashboard-background.png'
 import './Dashboard.css'
 
 type TabType = 'overview' | 'app-bundles' | 'users' | 'observations' | 'data-export' | 'system'
@@ -585,7 +618,9 @@ export function Dashboard() {
   }
 
   return (
-    <div className="dashboard">
+    <div className="dashboard" style={{ '--dashboard-bg-image': `url(${dashboardBackground})` } as React.CSSProperties}>
+      <div className="gold-circle-1"></div>
+      <div className="gold-circle-2"></div>
       <header className="dashboard-header">
         <div className="header-content">
           <div className="logo-section">
@@ -597,10 +632,10 @@ export function Dashboard() {
               <span className="welcome-text">Welcome back,</span>
               <span className="username">{user?.username}</span>
             </div>
-            <span className={`role-badge role-${user?.role}`}>{user?.role}</span>
-          <button onClick={logout} className="logout-button">
-              <span>Logout</span>
-          </button>
+            <Badge variant={user?.role === 'admin' ? 'primary' : 'neutral'}>{user?.role}</Badge>
+          <Button variant="neutral" onPress={logout} className="logout-button">
+              Logout
+          </Button>
           </div>
         </div>
       </header>
@@ -608,64 +643,166 @@ export function Dashboard() {
       <main className="dashboard-content">
         <nav className="dashboard-tabs">
           <button
-            className={activeTab === 'overview' ? 'active' : ''}
+            className={`tab-button ${activeTab === 'overview' ? 'active' : ''} fade-left`}
             onClick={() => handleTabChange('overview')}
           >
-            <span className="tab-icon">📊</span>
+            <svg className="border-fade" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="border-fade-left-0" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#4f7f4e" stopOpacity="0" />
+                  <stop offset="15%" stopColor="#4f7f4e" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#4f7f4e" stopOpacity="1" />
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="100%" height="100%" rx="8" stroke="url(#border-fade-left-0)" />
+            </svg>
+            <span className="tab-icon">
+              {activeTab === 'overview' ? <HiChartBar /> : <HiOutlineChartBar />}
+            </span>
             <span>Overview</span>
           </button>
           <button
-            className={activeTab === 'app-bundles' ? 'active' : ''}
+            className={`tab-button ${activeTab === 'app-bundles' ? 'active' : ''} fade-right`}
             onClick={() => handleTabChange('app-bundles')}
           >
-            <span className="tab-icon">📦</span>
+            <svg className="border-fade" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="border-fade-right-0" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#4f7f4e" stopOpacity="1" />
+                  <stop offset="85%" stopColor="#4f7f4e" stopOpacity="1" />
+                  <stop offset="100%" stopColor="#4f7f4e" stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="100%" height="100%" rx="8" stroke="url(#border-fade-right-0)" />
+            </svg>
+            <span className="tab-icon">
+              {activeTab === 'app-bundles' ? <HiCube /> : <HiOutlineCube />}
+            </span>
             <span>App Bundles</span>
           </button>
           {user?.role === 'admin' && (
             <button
-              className={activeTab === 'users' ? 'active' : ''}
+              className={`tab-button ${activeTab === 'users' ? 'active' : ''} fade-left`}
               onClick={() => handleTabChange('users')}
             >
-              <span className="tab-icon">👥</span>
+              <svg className="border-fade" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="border-fade-left-1" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#4f7f4e" stopOpacity="0" />
+                    <stop offset="15%" stopColor="#4f7f4e" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#4f7f4e" stopOpacity="1" />
+                  </linearGradient>
+                </defs>
+                <rect x="0" y="0" width="100%" height="100%" rx="8" stroke="url(#border-fade-left-1)" />
+              </svg>
+              <span className="tab-icon">
+                {activeTab === 'users' ? <HiUsers /> : <HiOutlineUsers />}
+              </span>
               <span>Users</span>
             </button>
           )}
           <button
-            className={activeTab === 'observations' ? 'active' : ''}
+            className={`tab-button ${activeTab === 'observations' ? 'active' : ''} ${user?.role === 'admin' ? 'fade-right' : 'fade-left'}`}
             onClick={() => handleTabChange('observations')}
           >
-            <span className="tab-icon">📋</span>
+            <svg className="border-fade" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id={`border-fade-obs-${user?.role === 'admin' ? 'right' : 'left'}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                  {user?.role === 'admin' ? (
+                    <>
+                      <stop offset="0%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="85%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="100%" stopColor="#4f7f4e" stopOpacity="0" />
+                    </>
+                  ) : (
+                    <>
+                      <stop offset="0%" stopColor="#4f7f4e" stopOpacity="0" />
+                      <stop offset="15%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="100%" stopColor="#4f7f4e" stopOpacity="1" />
+                    </>
+                  )}
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="100%" height="100%" rx="8" stroke={`url(#border-fade-obs-${user?.role === 'admin' ? 'right' : 'left'})`} />
+            </svg>
+            <span className="tab-icon">
+              {activeTab === 'observations' ? <HiClipboardDocumentList /> : <HiOutlineClipboardDocumentList />}
+            </span>
             <span>Observations</span>
           </button>
           <button
-            className={activeTab === 'data-export' ? 'active' : ''}
+            className={`tab-button ${activeTab === 'data-export' ? 'active' : ''} ${user?.role === 'admin' ? 'fade-left' : 'fade-right'}`}
             onClick={() => handleTabChange('data-export')}
           >
-            <span className="tab-icon">📥</span>
+            <svg className="border-fade" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id={`border-fade-export-${user?.role === 'admin' ? 'left' : 'right'}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                  {user?.role === 'admin' ? (
+                    <>
+                      <stop offset="0%" stopColor="#4f7f4e" stopOpacity="0" />
+                      <stop offset="15%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="100%" stopColor="#4f7f4e" stopOpacity="1" />
+                    </>
+                  ) : (
+                    <>
+                      <stop offset="0%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="85%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="100%" stopColor="#4f7f4e" stopOpacity="0" />
+                    </>
+                  )}
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="100%" height="100%" rx="8" stroke={`url(#border-fade-export-${user?.role === 'admin' ? 'left' : 'right'})`} />
+            </svg>
+            <span className="tab-icon">
+              {activeTab === 'data-export' ? <HiArrowDownTray /> : <HiOutlineArrowDownTray />}
+            </span>
             <span>Data Export</span>
           </button>
           <button
-            className={activeTab === 'system' ? 'active' : ''}
+            className={`tab-button ${activeTab === 'system' ? 'active' : ''} ${user?.role === 'admin' ? 'fade-right' : 'fade-left'}`}
             onClick={() => handleTabChange('system')}
           >
-            <span className="tab-icon">⚙️</span>
+            <svg className="border-fade" preserveAspectRatio="none">
+              <defs>
+                <linearGradient id={`border-fade-system-${user?.role === 'admin' ? 'right' : 'left'}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                  {user?.role === 'admin' ? (
+                    <>
+                      <stop offset="0%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="85%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="100%" stopColor="#4f7f4e" stopOpacity="0" />
+                    </>
+                  ) : (
+                    <>
+                      <stop offset="0%" stopColor="#4f7f4e" stopOpacity="0" />
+                      <stop offset="15%" stopColor="#4f7f4e" stopOpacity="1" />
+                      <stop offset="100%" stopColor="#4f7f4e" stopOpacity="1" />
+                    </>
+                  )}
+                </linearGradient>
+              </defs>
+              <rect x="0" y="0" width="100%" height="100%" rx="8" stroke={`url(#border-fade-system-${user?.role === 'admin' ? 'right' : 'left'})`} />
+            </svg>
+            <span className="tab-icon">
+              {activeTab === 'system' ? <HiCog6Tooth /> : <HiOutlineCog6Tooth />}
+            </span>
             <span>System</span>
           </button>
         </nav>
 
         {error && (
           <div className="alert-banner error">
-            <span className="alert-icon">⚠️</span>
+            <span className="alert-icon"><HiExclamationTriangle /></span>
             <span>{error}</span>
-            <button onClick={() => setError(null)} className="alert-close">×</button>
+            <button onClick={() => setError(null)} className="alert-close"><HiXMark /></button>
           </div>
         )}
 
         {success && (
           <div className="alert-banner success">
-            <span className="alert-icon">✓</span>
+            <span className="alert-icon"><HiCheckCircle /></span>
             <span>{success}</span>
-            <button onClick={() => setSuccess(null)} className="alert-close">×</button>
+            <button onClick={() => setSuccess(null)} className="alert-close"><HiXMark /></button>
           </div>
         )}
 
@@ -678,21 +815,27 @@ export function Dashboard() {
               </div>
               <div className="stats-grid">
                 <div className="stat-card primary">
-                  <div className="stat-icon">✓</div>
+                  <div className="stat-icon">
+                    <HiCheckCircle />
+                  </div>
                   <div className="stat-content">
                     <h3>System Status</h3>
                     <p className="stat-value">Operational</p>
                   </div>
                 </div>
                 <div className="stat-card info">
-                  <div className="stat-icon">👤</div>
+                  <div className="stat-icon">
+                    <HiUser />
+                  </div>
                   <div className="stat-content">
                     <h3>User Role</h3>
                     <p className="stat-value">{user?.role || 'N/A'}</p>
                   </div>
                 </div>
                 <div className="stat-card success">
-                  <div className="stat-icon">🔐</div>
+                  <div className="stat-icon">
+                    <HiLockClosed />
+                  </div>
                   <div className="stat-content">
                     <h3>Username</h3>
                     <p className="stat-value">{user?.username || 'N/A'}</p>
@@ -700,7 +843,9 @@ export function Dashboard() {
                 </div>
               </div>
               <div className="welcome-card">
-                <div className="welcome-icon">🚀</div>
+                <div className="welcome-icon">
+                  <HiRocketLaunch />
+                </div>
                 <div>
                   <h3>Get Started</h3>
                   <p>Use the navigation tabs above to manage app bundles, users, export data, and view system information.</p>
@@ -728,24 +873,15 @@ export function Dashboard() {
                         id="bundle-upload"
                         disabled={loading}
                       />
-                      <button
-                        type="button"
-                        onClick={handleUploadClick}
+                      <Button
+                        variant="primary"
+                        onPress={handleUploadClick}
                         disabled={loading}
-                        className={`upload-button ${loading ? 'uploading' : ''}`}
+                        loading={loading}
+                        className="upload-button"
                       >
-                        {loading ? (
-                          <>
-                            <span className="button-spinner"></span>
-                            <span>Uploading...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>📤</span>
-                            <span>Upload Bundle</span>
-                          </>
-                        )}
-                      </button>
+                        <HiArrowUpTray /> Upload Bundle
+                      </Button>
                       <label className="auto-activate-toggle">
                         <input
                           type="checkbox"
@@ -757,10 +893,9 @@ export function Dashboard() {
                       </label>
                     </>
                   )}
-                  <button onClick={loadAppBundles} disabled={loading} className="refresh-button">
-                    <span>🔄</span>
-                    <span>Refresh</span>
-                  </button>
+                  <Button variant="neutral" onPress={loadAppBundles} disabled={loading} className="refresh-button">
+                    <HiArrowPath /> Refresh
+                  </Button>
                 </div>
               </div>
               
@@ -780,7 +915,7 @@ export function Dashboard() {
                 </div>
               ) : appBundles.length === 0 ? (
                 <div className="empty-state">
-                  <div className="empty-icon">📦</div>
+                  <div className="empty-icon"><HiCube /></div>
                   <h3>No App Bundles</h3>
                   <p>Upload your first app bundle to get started</p>
                 </div>
@@ -789,12 +924,12 @@ export function Dashboard() {
                   {appBundles.map((bundle) => (
                     <div key={bundle.version} className="bundle-card">
                       <div className="bundle-header">
-                        <div className="bundle-icon">📦</div>
+                        <div className="bundle-icon"><HiCube /></div>
                         <div className="bundle-info">
                           <h3>Version {bundle.version}</h3>
-                          <span className={`bundle-status ${bundle.isActive ? 'active' : 'inactive'}`}>
+                          <Badge variant={bundle.isActive ? 'success' : 'neutral'}>
                             {bundle.isActive ? '● Active' : '○ Inactive'}
-                          </span>
+                          </Badge>
                         </div>
                       </div>
                       {bundle.createdAt && (
@@ -804,24 +939,24 @@ export function Dashboard() {
                       )}
                       <div className="bundle-actions">
                         {user?.role === 'admin' && !bundle.isActive && (
-                          <button
-                            onClick={() => setShowSwitchConfirm(bundle.version)}
+                          <Button
+                            variant="primary"
+                            onPress={() => setShowSwitchConfirm(bundle.version)}
                             className="bundle-action-btn activate-btn"
-                            title="Activate this version"
+                            accessibilityLabel="Activate this version"
                           >
-                            <span>🔄</span>
-                            <span>Activate</span>
-                          </button>
+                            <HiArrowPath /> Activate
+                          </Button>
                         )}
-                        <button
-                          onClick={() => handleViewChanges(bundle.version)}
+                        <Button
+                          variant="neutral"
+                          onPress={() => handleViewChanges(bundle.version)}
                           className="bundle-action-btn changes-btn"
-                          title="View changes from current version"
+                          accessibilityLabel="View changes from current version"
                           disabled={bundle.isActive || !activeVersion}
                         >
-                          <span>📊</span>
-                          <span>Changes</span>
-                        </button>
+                          <HiChartBar /> Changes
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -831,10 +966,9 @@ export function Dashboard() {
               {/* View Manifest Button */}
               {activeVersion && (
                 <div className="manifest-section">
-                  <button onClick={handleViewManifest} className="view-manifest-btn">
-                    <span>📄</span>
-                    <span>View Current Manifest</span>
-                  </button>
+                  <Button variant="neutral" onPress={handleViewManifest} className="view-manifest-btn">
+                    <HiDocumentText /> View Current Manifest
+                  </Button>
                 </div>
               )}
             </div>
@@ -848,26 +982,23 @@ export function Dashboard() {
                   <p className="section-subtitle">Manage system users and permissions</p>
                 </div>
                 <div className="section-actions">
-                  <button onClick={handleOpenCreateUserModal} disabled={loading} className="create-button">
-                    <span>➕</span>
-                    <span>Create User</span>
-                  </button>
-                  <button onClick={loadUsers} disabled={loading} className="refresh-button">
-                    <span>🔄</span>
-                    <span>Refresh</span>
-                  </button>
+                  <Button variant="primary" onPress={handleOpenCreateUserModal} disabled={loading} className="create-button">
+                    <HiPlus /> Create User
+                  </Button>
+                  <Button variant="neutral" onPress={loadUsers} disabled={loading} className="refresh-button">
+                    <HiArrowPath /> Refresh
+                  </Button>
                 </div>
               </div>
 
               {/* Search Bar */}
               <div className="users-search-container">
                 <div className="search-input-wrapper">
-                  <span className="search-icon">🔍</span>
-                  <input
+                  <Input
                     type="text"
                     placeholder="Search users by username or role..."
                     value={userSearchQuery}
-                    onChange={(e) => setUserSearchQuery(e.target.value)}
+                    onChangeText={setUserSearchQuery}
                     className="search-input"
                   />
                   {userSearchQuery && (
@@ -876,7 +1007,7 @@ export function Dashboard() {
                       className="search-clear"
                       title="Clear search"
                     >
-                      ×
+                      <HiXMark />
                     </button>
                   )}
                 </div>
@@ -918,7 +1049,7 @@ export function Dashboard() {
                               </div>
                             </td>
                             <td>
-                              <span className={`role-badge role-${u.role}`}>{u.role}</span>
+                              <Badge variant={u.role === 'admin' ? 'primary' : u.role === 'read-write' ? 'secondary' : 'neutral'}>{u.role}</Badge>
                             </td>
                             <td>
                               <span className="created-date">
@@ -933,25 +1064,25 @@ export function Dashboard() {
                             </td>
                             <td>
                               <div className="table-actions">
-                                <button
-                                  onClick={() => {
+                                <Button
+                                  variant="neutral"
+                                  onPress={() => {
                                     setResetPasswordForm({ username: u.username, newPassword: '' })
                                     setShowResetPasswordModal(true)
                                   }}
                                   className="table-action-btn reset-password-btn"
-                                  title="Reset Password"
+                                  accessibilityLabel="Reset Password"
                                 >
-                                  <span>🔑</span>
-                                  <span>Reset Password</span>
-                                </button>
-                                <button
-                                  onClick={() => setShowDeleteConfirm(u.username)}
+                                  <HiKey /> Reset Password
+                                </Button>
+                                <Button
+                                  variant="neutral"
+                                  onPress={() => setShowDeleteConfirm(u.username)}
                                   className="table-action-btn delete-btn"
-                                  title="Delete User"
+                                  accessibilityLabel="Delete User"
                                 >
-                                  <span>🗑️</span>
-                                  <span>Delete</span>
-                                </button>
+                                  <HiTrash /> Delete
+                                </Button>
                               </div>
                             </td>
                           </tr>
@@ -967,7 +1098,7 @@ export function Dashboard() {
                     )
                   }).length === 0 && (
                     <div className="empty-state">
-                      <div className="empty-icon">👥</div>
+                      <div className="empty-icon"><HiUsers /></div>
                       <h3>{userSearchQuery ? 'No users found' : 'No Users Found'}</h3>
                       <p>
                         {userSearchQuery
@@ -988,16 +1119,15 @@ export function Dashboard() {
                   <h2>My Account</h2>
                   <p className="section-subtitle">Manage your account settings</p>
                 </div>
-                <button onClick={handleOpenChangePasswordModal} className="change-password-button">
-                  <span>🔑</span>
-                  <span>Change Password</span>
-                </button>
+                <Button variant="primary" onPress={handleOpenChangePasswordModal} className="change-password-button">
+                  <HiKey /> Change Password
+                </Button>
               </div>
               <div className="user-info-card">
                 <div className="user-avatar-large">{user?.username.charAt(0).toUpperCase()}</div>
                 <div className="user-info">
                   <h3>{user?.username}</h3>
-                  <span className={`role-badge role-${user?.role}`}>{user?.role}</span>
+                  <Badge variant={user?.role === 'admin' ? 'primary' : user?.role === 'read-write' ? 'secondary' : 'neutral'}>{user?.role}</Badge>
                 </div>
               </div>
             </div>
@@ -1010,10 +1140,9 @@ export function Dashboard() {
                   <h2>Observations</h2>
                   <p className="section-subtitle">View and search all observations</p>
                 </div>
-                <button onClick={loadObservations} disabled={loading} className="refresh-button">
-                  <span>🔄</span>
-                  <span>Refresh</span>
-                </button>
+                <Button variant="neutral" onPress={loadObservations} disabled={loading} className="refresh-button">
+                  <HiArrowPath /> Refresh
+                </Button>
               </div>
 
               {loading && observations.length === 0 ? (
@@ -1024,21 +1153,22 @@ export function Dashboard() {
               ) : (
                 <div className="observations-table-container">
                   <div className="search-bar">
-                    <input
+                    <Input
                       type="text"
                       placeholder="Search by Observation ID, Form Type, Form Version, or Version..."
                       value={observationSearchQuery}
-                      onChange={(e) => setObservationSearchQuery(e.target.value)}
+                      onChangeText={setObservationSearchQuery}
                       className="search-input"
                     />
                     {observationSearchQuery && (
-                      <button
-                        onClick={() => setObservationSearchQuery('')}
+                      <Button
+                        variant="neutral"
+                        onPress={() => setObservationSearchQuery('')}
                         className="clear-search-button"
-                        title="Clear search"
+                        accessibilityLabel="Clear search"
                       >
-                        ✕
-                      </button>
+                        <HiXMark />
+                      </Button>
                     )}
                   </div>
 
@@ -1106,21 +1236,21 @@ export function Dashboard() {
                             <td style={{ color: 'var(--color-neutral-200)', fontFamily: 'monospace' }}>{obs.version}</td>
                             <td>
                               {obs.deleted ? (
-                                <span className="status-badge deleted">Deleted</span>
+                                <Badge variant="error">Deleted</Badge>
                               ) : (
-                                <span className="status-badge active">Active</span>
+                                <Badge variant="success">Active</Badge>
                               )}
                             </td>
                             <td>
                               <div className="table-actions">
-                                <button
-                                  onClick={() => handleViewObservation(obs)}
+                                <Button
+                                  variant="neutral"
+                                  onPress={() => handleViewObservation(obs)}
                                   className="table-action-btn view-btn"
-                                  title="View Details"
+                                  accessibilityLabel="View Details"
                                 >
-                                  <span>👁️</span>
-                                  <span>View</span>
-                                </button>
+                                  <HiEye /> View
+                                </Button>
                               </div>
                             </td>
                           </tr>
@@ -1138,31 +1268,15 @@ export function Dashboard() {
                       obs.version?.toString().includes(query)
                     )
                   }).length === 0 && observationSearchQuery && (
-                    <div className="empty-state" style={{ textAlign: 'center', padding: '40px', marginTop: '24px', backgroundColor: 'var(--color-neutral-700)', borderRadius: '12px' }}>
-                      <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔍</div>
-                      <h3 style={{ color: 'var(--color-neutral-100)', marginBottom: '8px' }}>No observations found</h3>
-                      <p style={{ color: 'var(--color-neutral-300)', marginBottom: '16px' }}>
-                        No observations match your search query: "<strong style={{ color: 'var(--color-neutral-100)' }}>{observationSearchQuery}</strong>"
+                    <div className="observation-search-empty">
+                      <div className="observation-search-empty-icon"><HiMagnifyingGlass /></div>
+                      <h3>No observations found</h3>
+                      <p>
+                        No observations match your search query: "<strong>{observationSearchQuery}</strong>"
                       </p>
                       <button
                         onClick={() => setObservationSearchQuery('')}
-                        style={{
-                          marginTop: '16px',
-                          padding: '10px 20px',
-                          backgroundColor: 'rgba(79, 127, 78, var(--opacity-20))',
-                          border: '1px solid rgba(79, 127, 78, var(--opacity-40))',
-                          borderRadius: '8px',
-                          color: 'var(--color-neutral-100)',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          fontWeight: '500',
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.backgroundColor = 'rgba(79, 127, 78, var(--opacity-40))'
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.backgroundColor = 'rgba(79, 127, 78, var(--opacity-20))'
-                        }}
+                        className="clear-search-btn"
                       >
                         Clear Search
                       </button>
@@ -1170,7 +1284,7 @@ export function Dashboard() {
                   )}
                   {observations.length === 0 && !loading && !observationSearchQuery && (
                     <div className="empty-state">
-                      <div className="empty-icon">📋</div>
+                      <div className="empty-icon"><HiClipboardDocumentList /></div>
                       <p>No observations found</p>
                     </div>
                   )}
@@ -1186,30 +1300,22 @@ export function Dashboard() {
                 <p className="section-subtitle">Export observation data for analysis</p>
               </div>
               <div className="export-card">
-                <div className="export-icon">📊</div>
+                <div className="export-icon"><HiChartBar /></div>
                 <div className="export-content">
                   <h3>Export to Parquet</h3>
                   <p>Download all observation data as a ZIP archive containing Parquet files (one per form type) for analysis in Python, R, or other data science tools.</p>
-                  <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, var(--opacity-60))', marginTop: '8px' }}>
+                  <p className="additional-info">
                     The ZIP file contains separate Parquet files for each form type, making it easy to analyze observations by form.
                   </p>
-                  <button
-                    onClick={handleExportData}
+                  <Button
+                    variant="primary"
+                    onPress={handleExportData}
                     disabled={loading}
+                    loading={loading}
                     className="export-button"
                   >
-                    {loading ? (
-                      <>
-                        <span className="button-spinner"></span>
-                        <span>Exporting...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>📥</span>
-                        <span>Export Data</span>
-                      </>
-                    )}
-                  </button>
+                    <HiArrowDownTray /> Export Data
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1222,10 +1328,9 @@ export function Dashboard() {
                   <h2>System Information</h2>
                   <p className="section-subtitle">Server version and build details</p>
                 </div>
-                <button onClick={loadSystemInfo} disabled={loading} className="refresh-button">
-                  <span>🔄</span>
-                  <span>Refresh</span>
-                </button>
+                <Button variant="neutral" onPress={loadSystemInfo} disabled={loading} className="refresh-button">
+                  <HiArrowPath /> Refresh
+                </Button>
               </div>
               {loading && !systemInfo ? (
                 <div className="loading-state">
@@ -1235,24 +1340,24 @@ export function Dashboard() {
               ) : systemInfo || healthStatus ? (
                 <div>
                   {healthStatus && (
-                    <div className="health-status-section" style={{ marginBottom: '32px' }}>
-                      <h3 style={{ marginBottom: '16px', color: 'var(--color-neutral-white)', fontSize: '18px', fontWeight: '600' }}>Health Status</h3>
+                    <div className="health-status-section">
+                      <h3 className="health-status-title">Health Status</h3>
                       <div className="info-cards">
                         <div className="info-card">
-                          <div className="info-icon">💚</div>
+                          <div className="info-icon"><HiHeart /></div>
                           <div className="info-content">
                             <h3>Overall Status</h3>
-                            <p style={{ color: healthStatus.status === 'OK' || healthStatus.status === 'ok' ? 'var(--color-semantic-success-500)' : 'var(--color-semantic-error-500)' }}>
+                            <p className={healthStatus.status === 'OK' || healthStatus.status === 'ok' ? 'health-status-text' : 'health-status-text error'}>
                               {healthStatus.status || 'Unknown'}
                             </p>
                           </div>
                         </div>
                         {healthStatus.database && (
                           <div className="info-card">
-                            <div className="info-icon">🗄️</div>
+                            <div className="info-icon"><HiServer /></div>
                             <div className="info-content">
                               <h3>Database</h3>
-                              <p style={{ color: healthStatus.database.status === 'OK' || healthStatus.database.status === 'ok' ? 'var(--color-semantic-success-500)' : 'var(--color-semantic-error-500)' }}>
+                              <p className={healthStatus.database.status === 'OK' || healthStatus.database.status === 'ok' ? 'health-status-text' : 'health-status-text error'}>
                                 {healthStatus.database.status || 'Unknown'}
                                 {healthStatus.database.response_time && ` (${healthStatus.database.response_time}ms)`}
                               </p>
@@ -1261,10 +1366,10 @@ export function Dashboard() {
                         )}
                         {healthStatus.api && (
                           <div className="info-card">
-                            <div className="info-icon">🌐</div>
+                            <div className="info-icon"><HiGlobeAlt /></div>
                             <div className="info-content">
                               <h3>API</h3>
-                              <p style={{ color: healthStatus.api.status === 'OK' || healthStatus.api.status === 'ok' ? 'var(--color-semantic-success-500)' : 'var(--color-semantic-error-500)' }}>
+                              <p className={healthStatus.api.status === 'OK' || healthStatus.api.status === 'ok' ? 'health-status-text' : 'health-status-text error'}>
                                 {healthStatus.api.status || 'Unknown'}
                                 {healthStatus.api.uptime && ` (${Math.floor(healthStatus.api.uptime / 3600)}h)`}
                               </p>
@@ -1273,7 +1378,7 @@ export function Dashboard() {
                         )}
                         {healthStatus.timestamp && (
                           <div className="info-card">
-                            <div className="info-icon">🕒</div>
+                            <div className="info-icon"><HiClock /></div>
                             <div className="info-content">
                               <h3>Last Check</h3>
                               <p>{new Date(healthStatus.timestamp).toLocaleString()}</p>
@@ -1284,10 +1389,10 @@ export function Dashboard() {
                     </div>
                   )}
                   <div>
-                    <h3 style={{ marginBottom: '16px', color: 'var(--color-neutral-white)', fontSize: '18px', fontWeight: '600' }}>System Information</h3>
+                    <h3 className="system-info-title">System Information</h3>
                     <div className="info-cards">
                       <div className="info-card">
-                        <div className="info-icon">🔢</div>
+                        <div className="info-icon"><HiHashtag /></div>
                         <div className="info-content">
                           <h3>Server Version</h3>
                           <p>{systemInfo?.server?.version || systemInfo?.version || 'N/A'}</p>
@@ -1295,7 +1400,7 @@ export function Dashboard() {
                       </div>
                       {systemInfo?.build?.go_version && (
                         <div className="info-card">
-                          <div className="info-icon">⚙️</div>
+                          <div className="info-icon"><HiCog6Tooth /></div>
                           <div className="info-content">
                             <h3>Go Runtime</h3>
                             <p>{systemInfo.build.go_version}</p>
@@ -1304,10 +1409,10 @@ export function Dashboard() {
                       )}
                       {systemInfo?.system && (
                         <div className="info-card">
-                          <div className="info-icon">💻</div>
+                          <div className="info-icon"><HiComputerDesktop /></div>
                           <div className="info-content">
                             <h3>System</h3>
-                            <p style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                            <p className="system-info-text">
                               {systemInfo.system.os || 'N/A'} {systemInfo.system.architecture || ''}
                               {systemInfo.system.cpus && ` • ${systemInfo.system.cpus} CPUs`}
                             </p>
@@ -1316,7 +1421,7 @@ export function Dashboard() {
                       )}
                       {systemInfo?.database?.database_name && (
                         <div className="info-card">
-                          <div className="info-icon">📊</div>
+                          <div className="info-icon"><HiChartBar /></div>
                           <div className="info-content">
                             <h3>Database Name</h3>
                             <p>{systemInfo.database.database_name}</p>
@@ -1325,7 +1430,7 @@ export function Dashboard() {
                       )}
                       {systemInfo?.database?.type && (
                         <div className="info-card">
-                          <div className="info-icon">🗄️</div>
+                          <div className="info-icon"><HiServer /></div>
                           <div className="info-content">
                             <h3>Database Type</h3>
                             <p>{systemInfo.database.type}</p>
@@ -1334,16 +1439,16 @@ export function Dashboard() {
                       )}
                       {systemInfo?.database?.version && (
                         <div className="info-card">
-                          <div className="info-icon">🗄️</div>
+                          <div className="info-icon"><HiServer /></div>
                           <div className="info-content">
                             <h3>Database Version</h3>
-                            <p style={{ fontSize: '13px', lineHeight: '1.4' }}>{systemInfo.database.version}</p>
+                            <p className="system-info-text">{systemInfo.database.version}</p>
                           </div>
                         </div>
                       )}
                       {systemInfo?.build?.build_time && (
                         <div className="info-card">
-                          <div className="info-icon">🕒</div>
+                          <div className="info-icon"><HiClock /></div>
                           <div className="info-content">
                             <h3>Build Time</h3>
                             <p>{new Date(systemInfo.build.build_time).toLocaleString()}</p>
@@ -1352,7 +1457,7 @@ export function Dashboard() {
                       )}
                       {systemInfo?.build?.commit && (
                         <div className="info-card">
-                          <div className="info-icon">🔗</div>
+                          <div className="info-icon"><HiLink /></div>
                           <div className="info-content">
                             <h3>Git Commit</h3>
                             <p className="commit-hash">{systemInfo.build.commit}</p>
@@ -1360,16 +1465,16 @@ export function Dashboard() {
                         </div>
                       )}
                       <div className="info-card">
-                        <div className="info-icon">🌐</div>
+                        <div className="info-icon"><HiGlobeAlt /></div>
                         <div className="info-content">
-                          <h3>API Endpoint</h3>
-                          <p style={{ fontSize: '13px', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                            <h3>API Endpoint</h3>
+                          <p className="api-endpoint-text">
                             {import.meta.env.VITE_API_URL || '/api'}
                           </p>
                         </div>
                       </div>
                       <div className="info-card">
-                        <div className="info-icon">📅</div>
+                        <div className="info-icon"><HiCalendar /></div>
                         <div className="info-content">
                           <h3>Current Time</h3>
                           <p>{new Date().toLocaleString()}</p>
@@ -1380,7 +1485,7 @@ export function Dashboard() {
                 </div>
               ) : (
                 <div className="empty-state">
-                  <div className="empty-icon">⚙️</div>
+                  <div className="empty-icon"><HiCog6Tooth /></div>
                   <h3>No System Info</h3>
                   <p>Click refresh to load system information</p>
                 </div>
@@ -1400,29 +1505,25 @@ export function Dashboard() {
             </div>
             <form onSubmit={handleCreateUser} className="modal-form" autoComplete="off">
               <div className="form-group">
-                <label htmlFor="create-username">Username</label>
-                <input
+                <Input
+                  label="Username"
                   type="text"
-                  id="create-username"
-                  name="create-username"
                   value={createUserForm.username}
-                  onChange={(e) => setCreateUserForm({ ...createUserForm, username: e.target.value })}
-                  autoComplete="off"
+                  onChangeText={(text: string) => setCreateUserForm({ ...createUserForm, username: text })}
                   required
                   disabled={loading}
+                  className="modal-input"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="create-password">Password</label>
-                <input
+                <Input
+                  label="Password"
                   type="password"
-                  id="create-password"
-                  name="create-password"
                   value={createUserForm.password}
-                  onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
-                  autoComplete="new-password"
+                  onChangeText={(text: string) => setCreateUserForm({ ...createUserForm, password: text })}
                   required
                   disabled={loading}
+                  className="modal-input"
                 />
               </div>
               <div className="form-group">
@@ -1440,12 +1541,12 @@ export function Dashboard() {
                 </select>
               </div>
               <div className="modal-actions">
-                <button type="button" onClick={handleCloseCreateUserModal} disabled={loading}>
+                <Button variant="neutral" onPress={handleCloseCreateUserModal} disabled={loading}>
                   Cancel
-                </button>
-                <button type="submit" disabled={loading}>
-                  {loading ? 'Creating...' : 'Create User'}
-                </button>
+                </Button>
+                <Button variant="primary" onPress={() => handleCreateUser({ preventDefault: () => {} } as React.FormEvent)} disabled={loading} loading={loading}>
+                  Create User
+                </Button>
               </div>
             </form>
           </div>
@@ -1462,38 +1563,34 @@ export function Dashboard() {
             </div>
             <form onSubmit={handleResetPassword} className="modal-form" autoComplete="off">
               <div className="form-group">
-                <label htmlFor="reset-username">Username</label>
-                <input
+                <Input
+                  label="Username"
                   type="text"
-                  id="reset-username"
-                  name="reset-username"
                   value={resetPasswordForm.username}
-                  onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, username: e.target.value })}
-                  autoComplete="off"
+                  onChangeText={(text: string) => setResetPasswordForm({ ...resetPasswordForm, username: text })}
                   required
                   disabled={loading}
+                  className="modal-input"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="reset-new-password">New Password</label>
-                <input
+                <Input
+                  label="New Password"
                   type="password"
-                  id="reset-new-password"
-                  name="reset-new-password"
                   value={resetPasswordForm.newPassword}
-                  onChange={(e) => setResetPasswordForm({ ...resetPasswordForm, newPassword: e.target.value })}
-                  autoComplete="new-password"
+                  onChangeText={(text: string) => setResetPasswordForm({ ...resetPasswordForm, newPassword: text })}
                   required
                   disabled={loading}
+                  className="modal-input"
                 />
               </div>
               <div className="modal-actions">
-                <button type="button" onClick={handleCloseResetPasswordModal} disabled={loading}>
+                <Button variant="neutral" onPress={handleCloseResetPasswordModal} disabled={loading}>
                   Cancel
-                </button>
-                <button type="submit" disabled={loading}>
-                  {loading ? 'Resetting...' : 'Reset Password'}
-                </button>
+                </Button>
+                <Button variant="primary" onPress={() => handleResetPassword({ preventDefault: () => {} } as React.FormEvent)} disabled={loading} loading={loading}>
+                  Reset Password
+                </Button>
               </div>
             </form>
           </div>
@@ -1510,51 +1607,45 @@ export function Dashboard() {
             </div>
             <form onSubmit={handleChangePassword} className="modal-form" autoComplete="off">
               <div className="form-group">
-                <label htmlFor="change-current-password">Current Password</label>
-                <input
+                <Input
+                  label="Current Password"
                   type="password"
-                  id="change-current-password"
-                  name="change-current-password"
                   value={changePasswordForm.currentPassword}
-                  onChange={(e) => setChangePasswordForm({ ...changePasswordForm, currentPassword: e.target.value })}
-                  autoComplete="current-password"
+                  onChangeText={(text: string) => setChangePasswordForm({ ...changePasswordForm, currentPassword: text })}
                   required
                   disabled={loading}
+                  className="modal-input"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="change-new-password">New Password</label>
-                <input
+                <Input
+                  label="New Password"
                   type="password"
-                  id="change-new-password"
-                  name="change-new-password"
                   value={changePasswordForm.newPassword}
-                  onChange={(e) => setChangePasswordForm({ ...changePasswordForm, newPassword: e.target.value })}
-                  autoComplete="new-password"
+                  onChangeText={(text: string) => setChangePasswordForm({ ...changePasswordForm, newPassword: text })}
                   required
                   disabled={loading}
+                  className="modal-input"
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="change-confirm-password">Confirm New Password</label>
-                <input
+                <Input
+                  label="Confirm New Password"
                   type="password"
-                  id="change-confirm-password"
-                  name="change-confirm-password"
                   value={changePasswordForm.confirmPassword}
-                  onChange={(e) => setChangePasswordForm({ ...changePasswordForm, confirmPassword: e.target.value })}
-                  autoComplete="new-password"
+                  onChangeText={(text: string) => setChangePasswordForm({ ...changePasswordForm, confirmPassword: text })}
                   required
                   disabled={loading}
+                  className="modal-input"
                 />
               </div>
               <div className="modal-actions">
-                <button type="button" onClick={handleCloseChangePasswordModal} disabled={loading}>
+                <Button variant="neutral" onPress={handleCloseChangePasswordModal} disabled={loading}>
                   Cancel
-                </button>
-                <button type="submit" disabled={loading}>
-                  {loading ? 'Changing...' : 'Change Password'}
-                </button>
+                </Button>
+                <Button variant="primary" onPress={() => handleChangePassword({ preventDefault: () => {} } as React.FormEvent)} disabled={loading} loading={loading}>
+                  Change Password
+                </Button>
               </div>
             </form>
           </div>
@@ -1573,17 +1664,18 @@ export function Dashboard() {
               <p>Are you sure you want to delete user <strong>{showDeleteConfirm}</strong>? This action cannot be undone.</p>
             </div>
             <div className="modal-actions">
-              <button type="button" onClick={() => setShowDeleteConfirm(null)} disabled={loading}>
+              <Button variant="neutral" onPress={() => setShowDeleteConfirm(null)} disabled={loading}>
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDeleteUser(showDeleteConfirm)}
+              </Button>
+              <Button
+                variant="primary"
+                onPress={() => handleDeleteUser(showDeleteConfirm)}
                 disabled={loading}
+                loading={loading}
                 className="delete-confirm-btn"
               >
-                {loading ? 'Deleting...' : 'Delete User'}
-              </button>
+                Delete User
+              </Button>
             </div>
           </div>
         </div>
@@ -1601,17 +1693,18 @@ export function Dashboard() {
               <p>Are you sure you want to activate version <strong>{showSwitchConfirm}</strong>? This will switch the active app bundle to this version.</p>
             </div>
             <div className="modal-actions">
-              <button type="button" onClick={() => setShowSwitchConfirm(null)} disabled={loading}>
+              <Button variant="neutral" onPress={() => setShowSwitchConfirm(null)} disabled={loading}>
                 Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSwitchVersion(showSwitchConfirm)}
+              </Button>
+              <Button
+                variant="primary"
+                onPress={() => handleSwitchVersion(showSwitchConfirm)}
                 disabled={loading}
+                loading={loading}
                 className="activate-confirm-btn"
               >
-                {loading ? 'Activating...' : 'Activate Version'}
-              </button>
+                Activate Version
+              </Button>
             </div>
           </div>
         </div>
@@ -1656,15 +1749,15 @@ export function Dashboard() {
                           <td>{file.size} bytes</td>
                           <td className="hash-value">{file.hash}</td>
                           <td>
-                            <button
-                              onClick={() => handleDownloadFile(file.path)}
+                            <Button
+                              variant="neutral"
+                              onPress={() => handleDownloadFile(file.path)}
                               className="file-download-btn"
-                              title="Download file"
+                              accessibilityLabel="Download file"
                               disabled={loading}
                             >
-                              <span>⬇️</span>
-                              <span>Download</span>
-                            </button>
+                              <span>⬇️</span> Download
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -1674,9 +1767,9 @@ export function Dashboard() {
               </div>
             </div>
             <div className="modal-actions">
-              <button type="button" onClick={() => setShowManifestModal(false)}>
+              <Button variant="neutral" onPress={() => setShowManifestModal(false)}>
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1694,7 +1787,7 @@ export function Dashboard() {
               <div className="observation-details">
                 <div className="info-row">
                   <strong>Observation ID:</strong>
-                  <code className="observation-id-code" style={{ display: 'block', marginTop: '8px' }}>
+                  <code className="observation-id-code observation-id-code-block">
                     {selectedObservation.observation_id}
                   </code>
                 </div>
@@ -1714,9 +1807,9 @@ export function Dashboard() {
                   <strong>Status:</strong>
                   <span>
                     {selectedObservation.deleted ? (
-                      <span className="status-badge deleted">Deleted</span>
+                      <Badge variant="error">Deleted</Badge>
                     ) : (
-                      <span className="status-badge active">Active</span>
+                      <Badge variant="success">Active</Badge>
                     )}
                   </span>
                 </div>
@@ -1735,7 +1828,7 @@ export function Dashboard() {
                 {selectedObservation.geolocation && (
                   <div className="info-row">
                     <strong>Geolocation:</strong>
-                    <div style={{ marginTop: '8px' }}>
+                    <div className="geolocation-info">
                       <div>Latitude: {selectedObservation.geolocation.latitude}</div>
                       <div>Longitude: {selectedObservation.geolocation.longitude}</div>
                       {selectedObservation.geolocation.accuracy && (
@@ -1745,21 +1838,9 @@ export function Dashboard() {
                   </div>
                 )}
                 {selectedObservation.data && (
-                  <div className="info-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
-                    <strong style={{ marginBottom: '8px' }}>Data:</strong>
-                    <pre style={{
-                      background: 'rgba(0, 0, 0, var(--opacity-30))',
-                      padding: '16px',
-                      borderRadius: '8px',
-                      overflow: 'auto',
-                      maxHeight: '400px',
-                      width: '100%',
-                      fontSize: '13px',
-                      color: 'var(--color-neutral-200)',
-                      fontFamily: 'monospace',
-                      whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word'
-                    }}>
+                  <div className="info-row column-layout">
+                    <strong>Data:</strong>
+                    <pre className="observation-data-pre">
                       {typeof selectedObservation.data === 'string' 
                         ? selectedObservation.data 
                         : JSON.stringify(selectedObservation.data, null, 2)}
@@ -1769,9 +1850,9 @@ export function Dashboard() {
               </div>
             </div>
             <div className="modal-actions">
-              <button type="button" onClick={() => setShowObservationModal(false)}>
+              <Button variant="neutral" onPress={() => setShowObservationModal(false)}>
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1830,9 +1911,9 @@ export function Dashboard() {
               )}
             </div>
             <div className="modal-actions">
-              <button type="button" onClick={() => setShowChangesModal(false)}>
+              <Button variant="neutral" onPress={() => setShowChangesModal(false)}>
                 Close
-              </button>
+              </Button>
             </div>
           </div>
         </div>

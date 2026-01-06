@@ -4,23 +4,56 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files for all packages (monorepo structure)
+# Copy tokens package (with package-lock.json and config file needed for prepare script)
+COPY packages/tokens/package*.json ./packages/tokens/
+COPY packages/tokens/package-lock.json ./packages/tokens/
+COPY packages/tokens/style-dictionary.config.js ./packages/tokens/
+COPY packages/tokens/config.json ./packages/tokens/
+COPY packages/tokens/src ./packages/tokens/src
+# Copy components package  
+COPY packages/components/package*.json ./packages/components/
+# Copy portal package (with package-lock.json)
+COPY synkronus-portal/package*.json ./synkronus-portal/
+COPY synkronus-portal/package-lock.json ./synkronus-portal/
 
-# Install dependencies
+# Install dependencies for tokens (needed by components)
+# The prepare script will build tokens during npm ci
+WORKDIR /app/packages/tokens
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Install dependencies for components (needed by portal)
+# Note: components doesn't have package-lock.json, so use npm install
+WORKDIR /app/packages/components
+RUN npm install
 
-# Build the application
+# Install dependencies for portal
+WORKDIR /app/synkronus-portal
+RUN npm ci
+
+# Copy source code for all packages
+WORKDIR /app
+COPY packages/tokens ./packages/tokens
+COPY packages/components ./packages/components
+COPY synkronus-portal ./synkronus-portal
+
+# Build tokens first (if needed)
+WORKDIR /app/packages/tokens
+RUN npm run build || true
+
+# Build components (if needed)
+WORKDIR /app/packages/components
+RUN npm run build || true
+
+# Build the portal application
+WORKDIR /app/synkronus-portal
 RUN npm run build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine
 
 # Copy built assets from builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/synkronus-portal/dist /usr/share/nginx/html
 
 # Copy custom nginx configuration for SPA routing
 # Backend API: http://demo.synkronus.cloud (remote demo server)

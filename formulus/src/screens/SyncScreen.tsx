@@ -96,6 +96,23 @@ const SyncScreen = () => {
     if (syncState.isActive) return;
 
     try {
+      const userInfo = await getUserInfo();
+      if (!userInfo) {
+        Alert.alert(
+          'Authentication Error',
+          'Please log in to update app bundle',
+        );
+        return;
+      }
+
+      if (!updateAvailable && !isAdmin) {
+        Alert.alert(
+          'Permission Denied',
+          'Admin privileges required to force update app bundle',
+        );
+        return;
+      }
+
       startSync(false);
       await syncService.updateAppBundle();
       const syncTime = new Date().toISOString();
@@ -111,7 +128,15 @@ const SyncScreen = () => {
     } catch (error) {
       const errorMessage = (error as Error).message;
       finishSync(errorMessage);
-      Alert.alert('Error', 'Failed to update app bundle!\n' + errorMessage);
+
+      if (errorMessage.includes('401')) {
+        Alert.alert(
+          'Authentication Error',
+          'Your session has expired. Please log in again.',
+        );
+      } else {
+        Alert.alert('Error', 'Failed to update app bundle!\n' + errorMessage);
+      }
     }
   }, [
     syncState.isActive,
@@ -119,6 +144,8 @@ const SyncScreen = () => {
     finishSync,
     updatePendingUploads,
     updatePendingObservations,
+    updateAvailable,
+    isAdmin,
   ]);
 
   const checkForUpdates = useCallback(async (force: boolean = false) => {
@@ -132,10 +159,10 @@ const SyncScreen = () => {
         const manifest = await synkronusApi.getManifest();
         setServerBundleVersion(manifest.version);
       } catch (err) {
-        // Server manifest unavailable
+        setServerBundleVersion(currentVersion);
       }
     } catch (error) {
-      // Update check failed
+      console.warn('Update check failed:', error);
     }
   }, []);
 
@@ -149,7 +176,7 @@ const SyncScreen = () => {
     if (pendingObservations > 0 || pendingUploads.count > 0) {
       return 'Pending Sync';
     }
-    return 'Ready';
+    return 'All synced';
   };
 
   const status = getDataSyncStatus();
@@ -253,13 +280,9 @@ const SyncScreen = () => {
               {status}
             </Text>
             {!syncState.isActive &&
+              !syncState.error &&
               (pendingObservations > 0 || pendingUploads.count > 0) && (
                 <Text style={styles.statusCardSubtext}>Tap to sync now</Text>
-              )}
-            {!syncState.isActive &&
-              pendingObservations === 0 &&
-              pendingUploads.count === 0 && (
-                <Text style={styles.statusCardSubtext}>All synced</Text>
               )}
           </TouchableOpacity>
 
