@@ -25,6 +25,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {ToastService} from '../services/ToastService';
 import {serverSwitchService} from '../services/ServerSwitchService';
 import {syncService} from '../services/SyncService';
+import { tokens } from '@ode/tokens/dist/react-native/tokens';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -450,7 +451,7 @@ const styles = StyleSheet.create({
     height: 56,
     paddingHorizontal: 12,
     fontSize: 16,
-    color: colors.neutral.black,
+    color: tokens.neutral.black,
     backgroundColor: 'transparent',
   },
   qrButton: {
