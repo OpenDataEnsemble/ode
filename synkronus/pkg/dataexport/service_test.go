@@ -164,7 +164,7 @@ func TestService_ExportParquetZip(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			defer zipReader.Close()
+			defer func() { _ = zipReader.Close() }()
 
 			// Read ZIP content
 			zipData, err := io.ReadAll(zipReader)

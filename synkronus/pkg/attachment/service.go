@@ -74,7 +74,7 @@ func (s *service) Save(ctx context.Context, attachmentID string, file io.Reader)
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer func() { _ = dst.Close() }()
 
 	// Copy file content
 	_, err = io.Copy(dst, file)

@@ -73,10 +73,8 @@ func TestLogger(t *testing.T) {
 				if logEntry["key"] != "value" {
 					t.Errorf("Expected key value to be 'value', got %s", logEntry["key"])
 				}
-			} else {
-				if output != "" {
-					t.Errorf("Expected empty output, got %s", output)
-				}
+			} else if output != "" {
+				t.Errorf("Expected empty output, got %s", output)
 			}
 		})
 	}

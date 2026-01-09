@@ -18,7 +18,7 @@ func createTestBundleFromDir(t *testing.T, srcDir string) (string, error) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer tmpFile.Close()
+	defer func() { _ = tmpFile.Close() }()
 
 	// Create a new zip writer
 	w := zip.NewWriter(tmpFile)
@@ -152,15 +152,15 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 		// Add app/index.html
 		fw, err := w.Create("app/index.html")
 		if err != nil {
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to create app/index.html: %w", err)
 		}
 		_, err = fw.Write([]byte("<html><body>Test App</body></html>"))
 		if err != nil {
-			w.Close()
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = w.Close()
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to write app/index.html: %w", err)
 		}
 
@@ -176,9 +176,9 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 
 		for _, dir := range dirs {
 			if _, err := w.Create(dir); err != nil {
-				w.Close()
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
+				_ = w.Close()
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 			}
 		}
@@ -187,31 +187,31 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 		if includeForms {
 			fw, err := w.Create("forms/sample/schema.json")
 			if err != nil {
-				w.Close()
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
+				_ = w.Close()
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to create sample form: %w", err)
 			}
 			_, err = fw.Write([]byte(`{"type":"object","properties":{"name":{"type":"string"}}}`))
 			if err != nil {
-				w.Close()
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
+				_ = w.Close()
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to write sample form: %w", err)
 			}
 
 			fw, err = w.Create("forms/sample/ui.json")
 			if err != nil {
-				w.Close()
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
+				_ = w.Close()
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to create sample UI: %w", err)
 			}
 			_, err = fw.Write([]byte(`{"ui:order":["name"]}`))
 			if err != nil {
-				w.Close()
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
+				_ = w.Close()
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to write sample UI: %w", err)
 			}
 		}
@@ -220,16 +220,16 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 		if includeCells {
 			fw, err := w.Create("renderers/sample/renderer.jsx")
 			if err != nil {
-				w.Close()
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
+				_ = w.Close()
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to create sample renderer: %w", err)
 			}
 			_, err = fw.Write([]byte("export default function SampleRenderer() { return null; }"))
 			if err != nil {
-				w.Close()
-				tmpFile.Close()
-				os.Remove(tmpFile.Name())
+				_ = w.Close()
+				_ = tmpFile.Close()
+				_ = os.Remove(tmpFile.Name())
 				return "", fmt.Errorf("failed to write sample renderer: %w", err)
 			}
 		}
@@ -237,14 +237,14 @@ func createTestBundle(t *testing.T, includeApp, includeForms, includeCells bool)
 
 	// Close the zip writer
 	if err := w.Close(); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to close zip writer: %w", err)
 	}
 
 	// Close the file
 	if err := tmpFile.Close(); err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to close temp file: %w", err)
 	}
 

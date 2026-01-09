@@ -23,7 +23,7 @@ func (h *Handler) ParquetExportHandler(w http.ResponseWriter, r *http.Request) {
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to export parquet data")
 		return
 	}
-	defer zipReader.Close()
+	defer func() { _ = zipReader.Close() }()
 
 	// Set headers for ZIP file download
 	w.Header().Set("Content-Type", "application/zip")

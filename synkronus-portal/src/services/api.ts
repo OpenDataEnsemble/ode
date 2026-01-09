@@ -180,12 +180,39 @@ export const api = {
     });
   },
 
-  async getAppBundleChanges(current?: string, target?: string): Promise<any> {
+  async getAppBundleChanges(
+    current?: string,
+    target?: string,
+  ): Promise<{
+    compare_version_a?: string;
+    compare_version_b?: string;
+    added?: Array<{ path: string; hash: string; size: number }>;
+    removed?: Array<{ path: string; hash: string; size: number }>;
+    modified?: Array<{
+      path: string;
+      hash_a: string;
+      hash_b: string;
+      size_a: number;
+      size_b: number;
+    }>;
+  }> {
     const params = new URLSearchParams();
     if (current) params.append('current', current);
     if (target) params.append('target', target);
     const query = params.toString();
-    return request<any>(`/app-bundle/changes${query ? `?${query}` : ''}`, {
+    return request<{
+      compare_version_a?: string;
+      compare_version_b?: string;
+      added?: Array<{ path: string; hash: string; size: number }>;
+      removed?: Array<{ path: string; hash: string; size: number }>;
+      modified?: Array<{
+        path: string;
+        hash_a: string;
+        hash_b: string;
+        size_a: number;
+        size_b: number;
+      }>;
+    }>(`/app-bundle/changes${query ? `?${query}` : ''}`, {
       method: 'GET',
     });
   },

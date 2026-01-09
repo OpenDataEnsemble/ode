@@ -36,7 +36,7 @@ func (h *Handler) PushAppBundle(w http.ResponseWriter, r *http.Request) {
 		SendErrorResponse(w, http.StatusBadRequest, err, "Failed to get bundle file from form")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Log the upload
 	h.log.Info("Processing app bundle upload", "filename", header.Filename, "size", header.Size, "user", user.Username)

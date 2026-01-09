@@ -1,0 +1,17 @@
+version: "2"
+
+linters:
+  disable-all: true
+  enable:
+    - staticcheck  # Best static analysis tool
+    - govet       # Catches common Go mistakes
+    - errcheck    # Ensures errors are handled
+    - unused      # Finds unused code
+    - gocritic    # Opinionated code analysis
+
+issues:
+  exclude-rules:
+    - path: _test\.go$  # More relaxed rules for tests
+      linters:
+        - gocritic
+

@@ -136,7 +136,7 @@ func (s *manifestService) GetManifest(ctx context.Context, req AttachmentManifes
 	if err != nil {
 		return nil, fmt.Errorf("failed to query attachment operations: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var operations []AttachmentOperation
 	var totalDownloadSize int64
@@ -169,7 +169,8 @@ func (s *manifestService) GetManifest(ctx context.Context, req AttachmentManifes
 		}
 
 		// Generate download URL for download operations
-		if op.Operation == "create" || op.Operation == "update" {
+		switch op.Operation {
+		case "create", "update":
 			op.Operation = "download" // Normalize to download for client
 			downloadURL := s.generateDownloadURL(op.AttachmentID)
 			op.DownloadURL = &downloadURL
@@ -178,7 +179,7 @@ func (s *manifestService) GetManifest(ctx context.Context, req AttachmentManifes
 				totalDownloadSize += int64(*op.Size)
 			}
 			downloadCount++
-		} else if op.Operation == "delete" {
+		case "delete":
 			deleteCount++
 		}
 

@@ -23,7 +23,7 @@ func TestBundleWithTestData(t *testing.T) {
 	// Open the zip file
 	zipFile, err := zip.OpenReader(bundlePath)
 	require.NoError(t, err, "Failed to open test bundle")
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	service := &Service{
 		bundlePath:   t.TempDir(),
@@ -58,7 +58,7 @@ func TestBundleWithoutRenderers(t *testing.T) {
 	// Open the zip file
 	zipFile, err := zip.OpenReader(bundlePath)
 	require.NoError(t, err, "Failed to open test bundle")
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	t.Run("ValidateBundleStructure", func(t *testing.T) {
 		err := service.validateBundleStructure(&zipFile.Reader)
@@ -108,7 +108,7 @@ func TestInvalidBundles(t *testing.T) {
 
 			zipFile, err := zip.OpenReader(bundlePath)
 			require.NoError(t, err, "Failed to open test bundle")
-			defer zipFile.Close()
+			defer func() { _ = zipFile.Close() }()
 
 			err = service.validateBundleStructure(&zipFile.Reader)
 			if tc.expectedError != nil {
@@ -142,9 +142,9 @@ func createTestFormBundle(t *testing.T, forms map[string]map[string]any) (string
 	// Add required directories
 	for _, dir := range []string{"app/", "forms/"} {
 		if _, err := w.Create(dir); err != nil {
-			w.Close()
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = w.Close()
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
@@ -152,16 +152,16 @@ func createTestFormBundle(t *testing.T, forms map[string]map[string]any) (string
 	// Add app/index.html
 	fw, err := w.Create("app/index.html")
 	if err != nil {
-		w.Close()
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = w.Close()
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to create app/index.html: %w", err)
 	}
 	_, err = fw.Write([]byte("<html><body>Test App</body></html>"))
 	if err != nil {
-		w.Close()
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = w.Close()
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to write app/index.html: %w", err)
 	}
 
@@ -170,34 +170,34 @@ func createTestFormBundle(t *testing.T, forms map[string]map[string]any) (string
 		// Create form directory
 		formDir := fmt.Sprintf("forms/%s/", formName)
 		if _, err := w.Create(formDir); err != nil {
-			w.Close()
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = w.Close()
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to create form directory: %w", err)
 		}
 
 		// Add schema.json
 		schemaData, err := json.Marshal(schema)
 		if err != nil {
-			w.Close()
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = w.Close()
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to marshal schema: %w", err)
 		}
 
 		schemaPath := fmt.Sprintf("forms/%s/schema.json", formName)
 		fw, err := w.Create(schemaPath)
 		if err != nil {
-			w.Close()
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = w.Close()
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to create schema.json: %w", err)
 		}
 		_, err = fw.Write(schemaData)
 		if err != nil {
-			w.Close()
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = w.Close()
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to write schema.json: %w", err)
 		}
 
@@ -205,28 +205,28 @@ func createTestFormBundle(t *testing.T, forms map[string]map[string]any) (string
 		uiPath := fmt.Sprintf("forms/%s/ui.json", formName)
 		fw, err = w.Create(uiPath)
 		if err != nil {
-			w.Close()
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = w.Close()
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to create ui.json: %w", err)
 		}
 		_, err = fw.Write([]byte(`{"ui:order":[]}`))
 		if err != nil {
-			w.Close()
-			tmpFile.Close()
-			os.Remove(tmpFile.Name())
+			_ = w.Close()
+			_ = tmpFile.Close()
+			_ = os.Remove(tmpFile.Name())
 			return "", fmt.Errorf("failed to write ui.json: %w", err)
 		}
 	}
 
 	if err := w.Close(); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to close zip writer: %w", err)
 	}
 
 	if err := tmpFile.Close(); err != nil {
-		os.Remove(tmpFile.Name())
+		_ = os.Remove(tmpFile.Name())
 		return "", fmt.Errorf("failed to close temp file: %w", err)
 	}
 
@@ -255,7 +255,7 @@ func TestFormVersionChanges(t *testing.T) {
 	// Process the first version
 	zip1, err := zip.OpenReader(bundle1)
 	require.NoError(t, err)
-	defer zip1.Close()
+	defer func() { _ = zip1.Close() }()
 
 	// Validate first version
 	err = service.validateBundleStructure(&zip1.Reader)
@@ -279,7 +279,7 @@ func TestFormVersionChanges(t *testing.T) {
 	// Process the second version
 	zip2, err := zip.OpenReader(bundle2)
 	require.NoError(t, err)
-	defer zip2.Close()
+	defer func() { _ = zip2.Close() }()
 
 	t.Run("ValidateFieldAddition", func(t *testing.T) {
 		err = service.validateBundleStructure(&zip2.Reader)
@@ -302,7 +302,7 @@ func TestFormVersionChanges(t *testing.T) {
 	// Process the third version
 	zip3, err := zip.OpenReader(bundle3)
 	require.NoError(t, err)
-	defer zip3.Close()
+	defer func() { _ = zip3.Close() }()
 
 	t.Run("ValidateFieldRemoval", func(t *testing.T) {
 		err = service.validateBundleStructure(&zip3.Reader)
@@ -329,7 +329,7 @@ func TestFormVersionChanges(t *testing.T) {
 	// Process the fourth version
 	zip4, err := zip.OpenReader(bundle4)
 	require.NoError(t, err)
-	defer zip4.Close()
+	defer func() { _ = zip4.Close() }()
 
 	t.Run("ValidateNewForm", func(t *testing.T) {
 		err = service.validateBundleStructure(&zip4.Reader)
@@ -368,7 +368,7 @@ func TestMissingRendererReferences(t *testing.T) {
 
 		zipFile, err := zip.OpenReader(bundle)
 		require.NoError(t, err)
-		defer zipFile.Close()
+		defer func() { _ = zipFile.Close() }()
 
 		err = service.validateFormRendererReferences(&zipFile.Reader)
 		require.NoError(t, err, "Built-in renderer reference should be valid")
@@ -384,7 +384,7 @@ func TestMissingRendererReferences(t *testing.T) {
 
 		zipFile, err := zip.OpenReader(bundle)
 		require.NoError(t, err)
-		defer zipFile.Close()
+		defer func() { _ = zipFile.Close() }()
 
 		err = service.validateFormRendererReferences(&zipFile.Reader)
 		require.Error(t, err, "Should fail with missing renderer reference")
@@ -395,7 +395,7 @@ func TestMissingRendererReferences(t *testing.T) {
 		// Create a temporary file for the zip
 		tmpFile, err := os.CreateTemp("", "test-bundle-*.zip")
 		require.NoError(t, err, "Failed to create temp file")
-		defer os.Remove(tmpFile.Name())
+		defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 		w := zip.NewWriter(tmpFile)
 
@@ -439,7 +439,7 @@ func TestMissingRendererReferences(t *testing.T) {
 		// Reopen for reading
 		zipFile, err := zip.OpenReader(tmpFile.Name())
 		require.NoError(t, err, "Failed to open test bundle")
-		defer zipFile.Close()
+		defer func() { _ = zipFile.Close() }()
 
 		err = service.validateFormRendererReferences(&zipFile.Reader)
 		require.NoError(t, err, "Valid custom renderer reference should pass validation")
@@ -479,7 +479,7 @@ func TestCoreFieldsValidation(t *testing.T) {
 		// Process the first version to extract and store core field hashes
 		zip1, err := zip.OpenReader(bundle1)
 		require.NoError(t, err)
-		defer zip1.Close()
+		defer func() { _ = zip1.Close() }()
 
 		// Generate app info to store core field hashes
 		_, err = service.generateAppInfo(&zip1.Reader, "1.0.0")
@@ -508,7 +508,7 @@ func TestCoreFieldsValidation(t *testing.T) {
 		// Process the second version
 		zip2, err := zip.OpenReader(bundle2)
 		require.NoError(t, err)
-		defer zip2.Close()
+		defer func() { _ = zip2.Close() }()
 
 		err = service.validateBundleStructure(&zip2.Reader)
 		require.Error(t, err, "Should fail when modifying core field type")
@@ -539,7 +539,7 @@ func TestCoreFieldsValidation(t *testing.T) {
 
 		zipFile, err := zip.OpenReader(bundle)
 		require.NoError(t, err)
-		defer zipFile.Close()
+		defer func() { _ = zipFile.Close() }()
 
 		err = service.validateBundleStructure(&zipFile.Reader)
 		require.NoError(t, err, "Non-core form validation should pass")

@@ -88,7 +88,7 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Set the appropriate headers
 	etag := fmt.Sprintf("\"%s\"", fileInfo.Hash)
@@ -112,7 +112,7 @@ func (h *Handler) GetAppBundleFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) streamFile(w http.ResponseWriter, file io.ReadCloser, fileInfo *appbundle.File) {
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Set content type and headers
 	w.Header().Set("Content-Type", fileInfo.MimeType)

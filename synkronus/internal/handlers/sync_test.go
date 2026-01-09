@@ -72,7 +72,7 @@ func TestPull(t *testing.T) {
 
 			// Check response
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Check status code
 			if resp.StatusCode != tc.expectedStatus {
@@ -228,7 +228,7 @@ func TestPush(t *testing.T) {
 
 			// Check response
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Check status code
 			if resp.StatusCode != tc.expectedStatus {

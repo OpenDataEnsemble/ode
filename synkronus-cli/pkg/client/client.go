@@ -86,7 +86,7 @@ func (c *Client) GetVersion() (*SystemVersionInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("version request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		var errResp struct {
@@ -135,7 +135,7 @@ func (c *Client) GetAppBundleManifest() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -162,7 +162,7 @@ func (c *Client) GetAppBundleVersions() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -200,7 +200,7 @@ func (c *Client) GetAppBundleChanges(currentVersion, targetVersion string) (*App
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -232,7 +232,7 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -250,7 +250,7 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	// Copy response body to file
 	_, err = io.Copy(out, resp.Body)
@@ -274,7 +274,7 @@ func (c *Client) DownloadParquetExport(destPath string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -292,7 +292,7 @@ func (c *Client) DownloadParquetExport(destPath string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	// Copy response body to file
 	_, err = io.Copy(out, resp.Body)
@@ -312,7 +312,7 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Create multipart form
 	body := &bytes.Buffer{}
@@ -350,7 +350,7 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -378,7 +378,7 @@ func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{},
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -457,7 +457,7 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -501,7 +501,7 @@ func (c *Client) SyncPush(clientID string, transmissionID string, records []map[
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)

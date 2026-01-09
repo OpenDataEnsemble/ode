@@ -116,6 +116,34 @@ interface HealthStatus {
   };
 }
 
+interface Observation {
+  observation_id: string;
+  form_type?: string;
+  form_version?: string;
+  version: number;
+  created_at: string;
+  updated_at: string;
+  synced_at?: string;
+  deleted?: boolean;
+  data?: unknown;
+  geolocation?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  };
+}
+
+interface SyncPullResponse {
+  records?: Observation[];
+}
+
+interface AppBundleUploadResponse {
+  manifest?: {
+    version: string;
+  };
+  version?: string;
+}
+
 export function Dashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
@@ -161,10 +189,10 @@ export function Dashboard() {
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
   // Observations state
-  const [observations, setObservations] = useState<any[]>([]);
+  const [observations, setObservations] = useState<Observation[]>([]);
   const [observationSearchQuery, setObservationSearchQuery] = useState('');
   const [showObservationModal, setShowObservationModal] = useState(false);
-  const [selectedObservation, setSelectedObservation] = useState<any | null>(null);
+  const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
 
   // App bundle modals
   const [autoActivate, setAutoActivate] = useState(false);
@@ -313,7 +341,7 @@ export function Dashboard() {
     }
   };
 
-  const handleViewObservation = (observation: any) => {
+  const handleViewObservation = (observation: Observation) => {
     setSelectedObservation(observation);
     setShowObservationModal(true);
   };
@@ -325,7 +353,7 @@ export function Dashboard() {
       // Use sync/pull to get all observations
       // Generate a temporary client_id for the portal
       const clientId = `portal-${Date.now()}`;
-      const response = await api.post<any>('/sync/pull', {
+      const response = await api.post<SyncPullResponse>('/sync/pull', {
         client_id: clientId,
         since: { version: 0 },
         limit: 1000,
@@ -398,13 +426,13 @@ export function Dashboard() {
         }
       });
 
-      const result = await new Promise<any>((resolve, reject) => {
+      const result = await new Promise<AppBundleUploadResponse>((resolve, reject) => {
         xhr.addEventListener('load', () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             try {
               const result = JSON.parse(xhr.responseText);
               resolve(result);
-            } catch (e) {
+            } catch {
               reject(new Error('Invalid response from server'));
             }
           } else {
@@ -413,7 +441,7 @@ export function Dashboard() {
               reject(
                 new Error(errorData.message || errorData.error || `Upload failed: ${xhr.status}`),
               );
-            } catch (e) {
+            } catch {
               reject(new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`));
             }
           }

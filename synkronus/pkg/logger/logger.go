@@ -213,7 +213,6 @@ func (l *Logger) log(level Level, msg string, args ...any) {
 	// Get a buffer from the pool
 	buf := l.bufferPool.Get().(*bytes.Buffer)
 	buf.Reset()
-	defer l.bufferPool.Put(buf)
 
 	// Encode the entry
 	encoder := json.NewEncoder(buf)
@@ -239,6 +238,7 @@ func (l *Logger) log(level Level, msg string, args ...any) {
 	if err := encoder.Encode(logData); err != nil {
 		fmt.Fprintf(os.Stderr, "Error marshaling log entry: %v\n", err)
 		l.putEntry(e)
+		l.bufferPool.Put(buf)
 		return
 	}
 
@@ -255,6 +255,9 @@ func (l *Logger) log(level Level, msg string, args ...any) {
 
 	// Return the entry to the pool
 	l.putEntry(e)
+
+	// Put buffer back to pool (must be done before os.Exit)
+	l.bufferPool.Put(buf)
 
 	// Handle fatal level
 	if level == LevelFatal {

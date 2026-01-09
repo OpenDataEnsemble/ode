@@ -153,7 +153,7 @@ func (s *Service) GetFile(ctx context.Context, path string) (io.ReadCloser, *Fil
 	// Get the file hash
 	hash, err := s.hashFile(fullPath)
 	if err != nil {
-		file.Close()
+		_ = file.Close()
 		return nil, nil, fmt.Errorf("failed to hash file: %w", err)
 	}
 
@@ -211,7 +211,7 @@ func (s *Service) GetLatestVersionFile(ctx context.Context, path string) (io.Rea
 	// Get file hash
 	hash, err := s.hashFile(latestPath)
 	if err != nil {
-		file.Close()
+		_ = file.Close()
 		return nil, nil, fmt.Errorf("failed to hash file: %w", err)
 	}
 
@@ -346,7 +346,7 @@ func (s *Service) hashFile(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open file for hashing: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {

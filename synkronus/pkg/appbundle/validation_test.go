@@ -93,15 +93,15 @@ func TestValidateBundleStructure(t *testing.T) {
 
 			tempFile, err := os.CreateTemp("", "test-bundle-*.zip")
 			require.NoError(t, err, "failed to create temp file")
-			defer os.Remove(tempFile.Name())
+			defer func() { _ = os.Remove(tempFile.Name()) }()
 
 			_, err = tempFile.Write(zipData.Bytes())
 			require.NoError(t, err, "failed to write zip data")
-			tempFile.Close()
+			_ = tempFile.Close()
 
 			zipFile, err := zip.OpenReader(tempFile.Name())
 			require.NoError(t, err, "failed to open zip file")
-			defer zipFile.Close()
+			defer func() { _ = zipFile.Close() }()
 
 			service := &Service{
 				bundlePath:   filepath.Join(t.TempDir(), "bundle"),
@@ -181,15 +181,15 @@ func TestValidateFormRendererReferences(t *testing.T) {
 
 			tempFile, err := os.CreateTemp("", "test-bundle-*.zip")
 			require.NoError(t, err, "failed to create temp file")
-			defer os.Remove(tempFile.Name())
+			defer func() { _ = os.Remove(tempFile.Name()) }()
 
 			_, err = tempFile.Write(zipData.Bytes())
 			require.NoError(t, err, "failed to write zip data")
-			tempFile.Close()
+			_ = tempFile.Close()
 
 			zipFile, err := zip.OpenReader(tempFile.Name())
 			require.NoError(t, err, "failed to open zip file")
-			defer zipFile.Close()
+			defer func() { _ = zipFile.Close() }()
 
 			service := &Service{
 				bundlePath:   filepath.Join(t.TempDir(), "bundle"),
@@ -641,16 +641,16 @@ func TestValidateFormSchema(t *testing.T) {
 			// Create a temporary file for the zip
 			tempFile, err := os.CreateTemp("", "test-bundle-*.zip")
 			require.NoError(t, err, "failed to create temp file")
-			defer os.Remove(tempFile.Name())
+			defer func() { _ = os.Remove(tempFile.Name()) }()
 
 			_, err = tempFile.Write(zipData.Bytes())
 			require.NoError(t, err, "failed to write zip data")
-			tempFile.Close()
+			_ = tempFile.Close()
 
 			// Open the zip file
 			zipFile, err := zip.OpenReader(tempFile.Name())
 			require.NoError(t, err, "failed to open zip file")
-			defer zipFile.Close()
+			defer func() { _ = zipFile.Close() }()
 
 			// Create a test service
 			service := &Service{

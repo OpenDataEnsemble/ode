@@ -92,7 +92,7 @@ func main() {
 		log.Info("Exiting due to database initialization error")
 		return
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Run database migrations
 	log.Info("Starting database migrations...")

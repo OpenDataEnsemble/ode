@@ -33,7 +33,7 @@ func createTestBundle(t *testing.T, files map[string]string) string {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer tmpFile.Close()
+	defer func() { _ = tmpFile.Close() }()
 
 	_, err = tmpFile.Write(buf.Bytes())
 	if err != nil {
@@ -189,7 +189,7 @@ func TestValidateBundle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			bundlePath := createTestBundle(t, tt.files)
-			defer os.Remove(bundlePath)
+			defer func() { _ = os.Remove(bundlePath) }()
 
 			err := ValidateBundle(bundlePath)
 			if tt.wantErr {
@@ -200,10 +200,8 @@ func TestValidateBundle(t *testing.T) {
 				if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
 					t.Errorf("ValidateBundle() error = %v, want error containing %q", err, tt.errMsg)
 				}
-			} else {
-				if err != nil {
-					t.Errorf("ValidateBundle() unexpected error = %v", err)
-				}
+			} else if err != nil {
+				t.Errorf("ValidateBundle() unexpected error = %v", err)
 			}
 		})
 	}
@@ -221,7 +219,7 @@ func TestGetBundleInfo(t *testing.T) {
 	}
 
 	bundlePath := createTestBundle(t, files)
-	defer os.Remove(bundlePath)
+	defer func() { _ = os.Remove(bundlePath) }()
 
 	info, err := GetBundleInfo(bundlePath)
 	if err != nil {

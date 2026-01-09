@@ -21,8 +21,8 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary file: %w", err)
 	}
-	defer os.Remove(tempZipFile.Name())
-	defer tempZipFile.Close()
+	defer func() { _ = os.Remove(tempZipFile.Name()) }()
+	defer func() { _ = tempZipFile.Close() }()
 
 	// Copy the zip content to the temporary file
 	if _, err := io.Copy(tempZipFile, zipReader); err != nil {
@@ -39,7 +39,7 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 	if err != nil {
 		return nil, fmt.Errorf("failed to open zip file: %w", err)
 	}
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	// Validate the bundle structure
 	if err := s.validateBundleStructure(&zipFile.Reader); err != nil {
@@ -107,20 +107,25 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 		// Create the target file
 		dstFile, err := os.Create(targetPath)
 		if err != nil {
-			srcFile.Close()
+			_ = srcFile.Close()
 			return nil, fmt.Errorf("failed to create file %s: %w", cleanPath, err)
 		}
 
 		// Copy the content
 		if _, err := io.Copy(dstFile, srcFile); err != nil {
-			srcFile.Close()
-			dstFile.Close()
+			_ = srcFile.Close()
+			_ = dstFile.Close()
 			return nil, fmt.Errorf("failed to copy file %s: %w", cleanPath, err)
 		}
 
 		// Close the files
-		srcFile.Close()
-		dstFile.Close()
+		if err := srcFile.Close(); err != nil {
+			_ = dstFile.Close()
+			return nil, fmt.Errorf("failed to close source file: %w", err)
+		}
+		if err := dstFile.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close destination file: %w", err)
+		}
 	}
 
 	// Clean up old versions if needed
@@ -249,7 +254,7 @@ func (s *Service) SwitchVersion(ctx context.Context, version string) error {
 	// Atomic rename (works across all platforms)
 	if err := os.Rename(tempFile, versionFile); err != nil {
 		// Clean up temp file if rename fails
-		os.Remove(tempFile)
+		_ = os.Remove(tempFile)
 		return fmt.Errorf("failed to update current version: %w", err)
 	}
 
@@ -325,14 +330,14 @@ func (s *Service) copyFile(src, dst string, mode os.FileMode) error {
 	if err != nil {
 		return fmt.Errorf("failed to open source file: %w", err)
 	}
-	defer srcFile.Close()
+	defer func() { _ = srcFile.Close() }()
 
 	// Create the destination file
 	dstFile, err := os.OpenFile(dst, os.O_RDWR|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {
 		return fmt.Errorf("failed to create destination file: %w", err)
 	}
-	defer dstFile.Close()
+	defer func() { _ = dstFile.Close() }()
 
 	// Copy the content
 	if _, err := io.Copy(dstFile, srcFile); err != nil {

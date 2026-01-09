@@ -70,7 +70,7 @@ func TestPushAppBundle(t *testing.T) {
 				if err != nil {
 					return nil, err
 				}
-				defer file.Close()
+				defer func() { _ = file.Close() }()
 
 				// Copy the file content to the form
 				_, err = io.Copy(part, file)

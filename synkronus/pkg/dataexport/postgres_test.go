@@ -12,7 +12,7 @@ func TestPostgresDB_GetFormTypes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create mock database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	pgDB := NewPostgresDB(db)
 
@@ -75,7 +75,7 @@ func TestPostgresDB_GetFormTypeSchema(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create mock database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	pgDB := NewPostgresDB(db)
 
@@ -157,7 +157,7 @@ func TestPostgresDB_GetObservationsForFormType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create mock database: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	pgDB := NewPostgresDB(db)
 

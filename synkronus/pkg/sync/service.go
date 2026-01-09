@@ -113,15 +113,8 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 	queryBuilder.WriteString(" ORDER BY version ASC, observation_id ASC")
 
 	// Add limit + 1 to check if there are more records
-	// Calculate the correct parameter index based on whether we have schema types or not
-	limitParamIndex := 1 // for sinceVersion
-	if len(schemaTypes) > 0 {
-		limitParamIndex = 2 // for sinceVersion and schemaTypes
-	}
-	if cursor != nil {
-		limitParamIndex += 3 // for cursor.Version, cursor.Version, cursor.ID
-	}
-	limitParamIndex++ // for the limit parameter itself
+	// Use argIndex which already accounts for all previous parameters
+	limitParamIndex := argIndex + 1 // for the limit parameter itself
 
 	queryBuilder.WriteString(" LIMIT $")
 	queryBuilder.WriteString(strconv.Itoa(limitParamIndex))
@@ -135,7 +128,7 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 		s.log.Error("Failed to query observations", "error", err)
 		return nil, fmt.Errorf("failed to query observations: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var records []Observation
 	for rows.Next() {
@@ -171,7 +164,7 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 	}
 
 	// Determine change cutoff (version of the last record returned)
-	var changeCutoff int64 = sinceVersion
+	var changeCutoff = sinceVersion
 	if len(records) > 0 {
 		changeCutoff = records[len(records)-1].Version
 	}

@@ -128,7 +128,7 @@ func (s *Service) validateFormSchema(file *zip.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to open form schema: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Parse the schema
 	var schema map[string]any
@@ -217,7 +217,9 @@ func (s *Service) validateFormRendererReferences(zipReader *zip.Reader) error {
 			// Parse the schema
 			var schema map[string]any
 			err = json.NewDecoder(f).Decode(&schema)
-			f.Close() // Close the file immediately after reading
+			if closeErr := f.Close(); closeErr != nil {
+				return fmt.Errorf("failed to close file: %w", closeErr)
+			}
 			if err != nil {
 				return fmt.Errorf("failed to parse form schema: %w", err)
 			}

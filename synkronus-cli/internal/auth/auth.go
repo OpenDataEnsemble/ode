@@ -46,7 +46,7 @@ func Login(username, password string) (*TokenResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("login request failed for endpoint %s: %w", loginURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
@@ -73,7 +73,7 @@ func Login(username, password string) (*TokenResponse, error) {
 	viper.Set("auth.token", tokenResp.Token)
 	viper.Set("auth.refresh_token", tokenResp.RefreshToken)
 	viper.Set("auth.expires_at", tokenResp.ExpiresAt)
-	viper.WriteConfig()
+	_ = viper.WriteConfig()
 
 	return &tokenResp, nil
 }
@@ -98,7 +98,7 @@ func RefreshToken() (*TokenResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("refresh request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
@@ -122,7 +122,7 @@ func RefreshToken() (*TokenResponse, error) {
 	viper.Set("auth.token", tokenResp.Token)
 	viper.Set("auth.refresh_token", tokenResp.RefreshToken)
 	viper.Set("auth.expires_at", tokenResp.ExpiresAt)
-	viper.WriteConfig()
+	_ = viper.WriteConfig()
 
 	return &tokenResp, nil
 }

@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           refreshToken,
           isAuthenticated: true,
         });
-      } catch (error) {
+      } catch {
         // Invalid stored data, clear it
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
@@ -44,36 +44,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (credentials: LoginRequest) => {
-    try {
-      const response = await api.login(credentials);
+    const response = await api.login(credentials);
 
-      // Decode JWT to get user info (simple base64 decode of payload)
-      const tokenParts = response.token.split('.');
-      if (tokenParts.length !== 3) {
-        throw new Error('Invalid token format');
-      }
-
-      const payload = JSON.parse(atob(tokenParts[1]));
-      const user: User = {
-        username: payload.username || credentials.username,
-        role: payload.role || 'user',
-      };
-
-      // Store tokens and user info
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('expiresAt', response.expiresAt.toString());
-
-      setAuthState({
-        user,
-        token: response.token,
-        refreshToken: response.refreshToken,
-        isAuthenticated: true,
-      });
-    } catch (error) {
-      throw error;
+    // Decode JWT to get user info (simple base64 decode of payload)
+    const tokenParts = response.token.split('.');
+    if (tokenParts.length !== 3) {
+      throw new Error('Invalid token format');
     }
+
+    const payload = JSON.parse(atob(tokenParts[1]));
+    const user: User = {
+      username: payload.username || credentials.username,
+      role: payload.role || 'user',
+    };
+
+    // Store tokens and user info
+    localStorage.setItem('token', response.token);
+    localStorage.setItem('refreshToken', response.refreshToken);
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('expiresAt', response.expiresAt.toString());
+
+    setAuthState({
+      user,
+      token: response.token,
+      refreshToken: response.refreshToken,
+      isAuthenticated: true,
+    });
   };
 
   const logout = () => {
@@ -142,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

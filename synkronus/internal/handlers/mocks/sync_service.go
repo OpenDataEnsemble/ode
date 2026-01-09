@@ -75,7 +75,7 @@ func (m *MockSyncService) GetRecordsSinceVersion(ctx context.Context, sinceVersi
 	}
 
 	// Determine change cutoff
-	var changeCutoff int64 = sinceVersion
+	var changeCutoff = sinceVersion
 	if len(filteredRecords) > 0 {
 		changeCutoff = filteredRecords[len(filteredRecords)-1].Version
 	}

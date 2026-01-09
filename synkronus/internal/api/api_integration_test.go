@@ -358,15 +358,18 @@ func TestProtectedEndpoints(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			if tc.withAuth {
 				// Determine which token to use based on test case
-				tokenToUse := validToken
-				if tc.invalidToken {
+				var tokenToUse string
+				switch {
+				case tc.invalidToken:
 					tokenToUse = invalidToken
-				} else if tc.expiredToken {
+				case tc.expiredToken:
 					tokenToUse = expiredToken
-				} else if tc.readOnlyUser {
+				case tc.readOnlyUser:
 					tokenToUse = readOnlyToken
-				} else if tc.adminUser {
+				case tc.adminUser:
 					tokenToUse = adminToken
+				default:
+					tokenToUse = validToken
 				}
 				req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", tokenToUse))
 			}
@@ -376,7 +379,7 @@ func TestProtectedEndpoints(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to send request: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Check status code
 			if resp.StatusCode != tc.expectedStatus {

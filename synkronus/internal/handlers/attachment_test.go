@@ -82,8 +82,8 @@ func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 			var b bytes.Buffer
 			w := multipart.NewWriter(&b)
 			part, _ := w.CreateFormFile("file", "test.txt")
-			part.Write([]byte("test content"))
-			w.Close()
+			_, _ = part.Write([]byte("test content"))
+			_ = w.Close()
 
 			// Create request
 			req := httptest.NewRequest("PUT", "/attachments/"+tc.attachmentID, &b)

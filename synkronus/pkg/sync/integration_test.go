@@ -317,7 +317,7 @@ func TestDatabaseIntegration_VersionConsistency(t *testing.T) {
 		t.Fatalf("Failed to get initial version: %v", err)
 	}
 
-	var lastVersion int64 = initialVersion
+	var lastVersion = initialVersion
 	const numOperations = 5
 
 	for i := 0; i < numOperations; i++ {

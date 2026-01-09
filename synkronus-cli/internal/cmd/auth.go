@@ -26,7 +26,7 @@ func init() {
 
 			if username == "" {
 				fmt.Print("Username: ")
-				fmt.Scanln(&username)
+				_, _ = fmt.Scanln(&username)
 			}
 
 			fmt.Print("Password: ")
@@ -96,7 +96,7 @@ func init() {
 			utils.PrintHeading("Authentication Status")
 			fmt.Printf("%s\n", utils.FormatKeyValue("Username", claims.Username))
 			fmt.Printf("%s\n", utils.FormatKeyValue("Role", claims.Role))
-			fmt.Printf("%s\n", utils.FormatKeyValue("Expires at", claims.RegisteredClaims.ExpiresAt.Time))
+			fmt.Printf("%s\n", utils.FormatKeyValue("Expires at", claims.ExpiresAt.Time))
 			return nil
 		},
 	}

@@ -76,8 +76,8 @@ func init() {
 	rootCmd.PersistentFlags().String("api-url", "http://localhost:8080", "Synkronus API URL")
 	rootCmd.PersistentFlags().String("api-version", "1.0.0", "API version to use")
 
-	viper.BindPFlag("api.url", rootCmd.PersistentFlags().Lookup("api-url"))
-	viper.BindPFlag("api.version", rootCmd.PersistentFlags().Lookup("api-version"))
+	_ = viper.BindPFlag("api.url", rootCmd.PersistentFlags().Lookup("api-url"))
+	_ = viper.BindPFlag("api.version", rootCmd.PersistentFlags().Lookup("api-version"))
 
 	// Add completion command
 	rootCmd.AddCommand(completionCmd)
@@ -125,7 +125,7 @@ func initConfig() {
 
 	// If a config file is found, read it in
 	if err := viper.ReadInConfig(); err == nil {
-		//fmt.Printf("# Using config file: %s\n", viper.ConfigFileUsed())
+		// fmt.Printf("# Using config file: %s\n", viper.ConfigFileUsed())
 	} else {
 		// Create default config if it doesn't exist
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
@@ -135,7 +135,7 @@ func initConfig() {
 			if configPath != "" {
 				configDir := filepath.Dir(configPath)
 				if _, err := os.Stat(configDir); os.IsNotExist(err) {
-					os.MkdirAll(configDir, 0755)
+					_ = os.MkdirAll(configDir, 0755)
 				}
 				viper.SetConfigFile(configPath)
 			} else {
@@ -143,7 +143,7 @@ func initConfig() {
 				legacyPath := filepath.Join(os.Getenv("HOME"), ".synkronus.yaml")
 				configDir := filepath.Dir(legacyPath)
 				if _, err := os.Stat(configDir); os.IsNotExist(err) {
-					os.MkdirAll(configDir, 0755)
+					_ = os.MkdirAll(configDir, 0755)
 				}
 				viper.SetConfigFile(legacyPath)
 			}
@@ -151,7 +151,7 @@ func initConfig() {
 			for k, v := range defaultConfig {
 				viper.Set(k, v)
 			}
-			viper.WriteConfig()
+			_ = viper.WriteConfig()
 		}
 	}
 }

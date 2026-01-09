@@ -64,7 +64,7 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 		SendErrorResponse(w, http.StatusBadRequest, err, "Failed to get file from form data")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Save the attachment
 	err = h.service.Save(r.Context(), attachmentID, file)
@@ -109,7 +109,7 @@ func (h *AttachmentHandler) DownloadAttachment(w http.ResponseWriter, r *http.Re
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to get attachment")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Set headers for file download
 	w.Header().Set("Content-Type", "application/octet-stream")

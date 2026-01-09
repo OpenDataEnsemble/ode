@@ -51,7 +51,7 @@ func (s *service) ExportParquetZip(ctx context.Context) (io.ReadCloser, error) {
 	// Process each form type
 	for _, formType := range formTypes {
 		if err := s.exportFormTypeToZip(ctx, formType, zipWriter); err != nil {
-			zipWriter.Close()
+			_ = zipWriter.Close()
 			return nil, fmt.Errorf("failed to export form type %s: %w", formType, err)
 		}
 	}
@@ -119,7 +119,7 @@ func (s *service) writeParquetData(observations []ObservationRow, schema *FormTy
 	if err != nil {
 		return fmt.Errorf("failed to create parquet writer: %w", err)
 	}
-	defer pqWriter.Close()
+	defer func() { _ = pqWriter.Close() }()
 
 	if err := pqWriter.Write(record); err != nil {
 		return fmt.Errorf("failed to write parquet record: %w", err)

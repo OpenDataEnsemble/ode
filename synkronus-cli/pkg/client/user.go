@@ -42,7 +42,7 @@ func (c *Client) CreateUser(reqBody UserCreateRequest) (map[string]interface{}, 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusForbidden {
 		return nil, fmt.Errorf("only admin can create users")
 	}
@@ -69,7 +69,7 @@ func (c *Client) DeleteUser(username string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		var apiErr map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
@@ -94,7 +94,7 @@ func (c *Client) ResetUserPassword(reqBody UserResetPasswordRequest) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		var apiErr map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
@@ -119,7 +119,7 @@ func (c *Client) ChangeOwnPassword(reqBody UserChangePasswordRequest) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		var apiErr map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
@@ -139,7 +139,7 @@ func (c *Client) ListUsers() ([]map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		var apiErr map[string]interface{}
 		_ = json.NewDecoder(resp.Body).Decode(&apiErr)

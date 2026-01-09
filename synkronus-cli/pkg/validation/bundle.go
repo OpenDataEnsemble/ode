@@ -25,7 +25,7 @@ func ValidateBundle(bundlePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open bundle: %w", err)
 	}
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	// Track required top-level directories
 	hasAppDir := false
@@ -181,7 +181,9 @@ func validateFormRendererReferences(zipReader *zip.Reader) error {
 			// Parse the schema
 			var schema map[string]interface{}
 			err = json.NewDecoder(f).Decode(&schema)
-			f.Close() // Close the file immediately after reading
+			if closeErr := f.Close(); closeErr != nil {
+				return fmt.Errorf("failed to close file: %w", closeErr)
+			}
 			if err != nil {
 				return fmt.Errorf("failed to parse form schema: %w", err)
 			}
@@ -268,7 +270,7 @@ func validateJSONFile(file *zip.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 
 	var jsonData interface{}
 	decoder := json.NewDecoder(rc)
@@ -295,7 +297,7 @@ func GetBundleInfo(bundlePath string) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open bundle: %w", err)
 	}
-	defer zipFile.Close()
+	defer func() { _ = zipFile.Close() }()
 
 	// Count files and directories
 	fileCount := 0

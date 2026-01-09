@@ -60,10 +60,8 @@ func Load(log *logger.Logger) (*Config, error) {
 			if log != nil {
 				log.Info("Successfully loaded .env file", "path", cwdEnvPath)
 			}
-		} else {
-			if log != nil {
-				log.Error("Error loading .env file", "path", cwdEnvPath, "error", err)
-			}
+		} else if log != nil {
+			log.Error("Error loading .env file", "path", cwdEnvPath, "error", err)
 		}
 	}
 
@@ -86,16 +84,12 @@ func Load(log *logger.Logger) (*Config, error) {
 					if log != nil {
 						log.Info("Successfully loaded .env file", "path", envPath)
 					}
-				} else {
-					if log != nil {
-						log.Error("Error loading .env file", "path", envPath, "error", err)
-					}
+				} else if log != nil {
+					log.Error("Error loading .env file", "path", envPath, "error", err)
 				}
 			}
-		} else {
-			if log != nil {
-				log.Error("Error getting executable path", "error", err)
-			}
+		} else if log != nil {
+			log.Error("Error getting executable path", "error", err)
 		}
 	}
 
@@ -118,10 +112,8 @@ func Load(log *logger.Logger) (*Config, error) {
 					if log != nil {
 						log.Info("Successfully loaded .env file", "path", envPath)
 					}
-				} else {
-					if log != nil {
-						log.Error("Error loading .env file", "path", envPath, "error", err)
-					}
+				} else if log != nil {
+					log.Error("Error loading .env file", "path", envPath, "error", err)
 				}
 			}
 		}

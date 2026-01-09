@@ -52,18 +52,18 @@ export default defineConfig({
           console.log(`[Vite Proxy] Rewriting ${path} -> ${rewritten}`)
           return rewritten
         },
-        configure: (proxy, _options) => {
-          proxy.on('error', (err, req, _res) => {
+        configure: (proxy) => {
+          proxy.on('error', (err, req) => {
             console.error('[Vite Proxy] Error:', err)
             console.error('[Vite Proxy] Request URL:', req.url)
             console.error('[Vite Proxy] Target:', process.env.DOCKER_ENV === 'true' || process.env.VITE_API_URL?.includes('synkronus:')
               ? 'http://synkronus:8080'
               : process.env.API_URL || 'http://localhost:8080')
           })
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             console.log('[Vite Proxy] Proxying request:', req.method, req.url, '->', proxyReq.path)
           })
-          proxy.on('proxyRes', (proxyRes, req, _res) => {
+          proxy.on('proxyRes', (proxyRes, req) => {
             console.log('[Vite Proxy] Response:', proxyRes.statusCode, req.url)
           })
         },

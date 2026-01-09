@@ -117,7 +117,7 @@ Examples:
 	pullCmd.Flags().StringSlice("schema-types", []string{}, "Comma-separated list of schema types to filter")
 	pullCmd.Flags().Int("limit", 0, "Maximum number of records to return")
 	pullCmd.Flags().String("page-token", "", "Pagination token from previous response")
-	pullCmd.MarkFlagRequired("client-id")
+	_ = pullCmd.MarkFlagRequired("client-id")
 	syncCmd.AddCommand(pullCmd)
 
 	// Push command

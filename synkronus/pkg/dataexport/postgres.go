@@ -31,7 +31,7 @@ func (p *postgresDB) GetFormTypes(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query form types: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var formTypes []string
 	for rows.Next() {
@@ -111,7 +111,7 @@ func (p *postgresDB) GetFormTypeSchema(ctx context.Context, formType string) (*F
 	if err != nil {
 		return nil, fmt.Errorf("failed to analyze form type schema: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []FormTypeColumn
 	for rows.Next() {
@@ -184,7 +184,7 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 	if err != nil {
 		return nil, fmt.Errorf("failed to query observations for form type %s: %w", formType, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var observations []ObservationRow
 	for rows.Next() {

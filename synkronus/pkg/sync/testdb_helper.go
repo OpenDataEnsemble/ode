@@ -66,13 +66,13 @@ func SetupTestDatabase(t *testing.T) (*sql.DB, func()) {
 
 	// Test connection with timeout
 	if err := pingWithTimeout(db, 5*time.Second); err != nil {
-		db.Close()
+		_ = db.Close()
 		t.Skipf("Test database not available: %v\nEnsure PostgreSQL is running and accessible", err)
 	}
 
 	// Ensure clean test environment
 	if err := ensureTestSchema(db); err != nil {
-		db.Close()
+		_ = db.Close()
 		t.Fatalf("Failed to setup test schema: %v", err)
 	}
 
@@ -81,7 +81,7 @@ func SetupTestDatabase(t *testing.T) (*sql.DB, func()) {
 			if err := ResetTestData(db); err != nil {
 				t.Errorf("Failed to reset test data: %v", err)
 			}
-			db.Close()
+			_ = db.Close()
 		}
 	}
 

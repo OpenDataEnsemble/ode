@@ -238,7 +238,7 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	bundle01Path := filepath.Join("..", "..", "testdata", "bundles", "valid_bundle01.zip")
 	bundle01File, err := os.Open(bundle01Path)
 	require.NoError(t, err, "Failed to open bundle01")
-	defer bundle01File.Close()
+	defer func() { _ = bundle01File.Close() }()
 
 	_, err = service.PushBundle(context.Background(), bundle01File)
 	require.NoError(t, err, "Failed to push initial bundle")
@@ -271,7 +271,7 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	bundle02Path := filepath.Join("..", "..", "testdata", "bundles", "valid_bundle02.zip")
 	bundle02File, err := os.Open(bundle02Path)
 	require.NoError(t, err, "Failed to open bundle02")
-	defer bundle02File.Close()
+	defer func() { _ = bundle02File.Close() }()
 
 	_, err = service.PushBundle(context.Background(), bundle02File)
 	require.NoError(t, err, "Failed to push second bundle")
@@ -317,7 +317,7 @@ func TestBundleChanges_FieldAddition(t *testing.T) {
 	file, _, err := service.GetFile(context.Background(), "app/THIS_IS_VERSION_2.txt")
 	require.NoError(t, err, "Failed to download file")
 	fileContent, err := io.ReadAll(file)
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	require.NoError(t, err, "Failed to read file content")
 	require.Equal(t, "Something...", string(fileContent))
 
@@ -408,7 +408,7 @@ func TestPushBundleGeneratesAppInfo(t *testing.T) {
 			// Open the test bundle
 			bundleFile, err := os.Open(tc.bundlePath)
 			require.NoError(t, err, "Failed to open test bundle")
-			defer bundleFile.Close()
+			defer func() { _ = bundleFile.Close() }()
 
 			// Push the bundle
 			_, err = service.PushBundle(context.Background(), bundleFile)

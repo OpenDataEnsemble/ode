@@ -25,7 +25,7 @@ func TestGetAppBundleManifest(t *testing.T) {
 
 	// Check response
 	resp := w.Result()
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check status code
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
@@ -107,7 +107,7 @@ func TestGetAppBundleFile(t *testing.T) {
 
 			// Check response
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Check status code
 			assert.Equal(t, tc.expectedStatus, resp.StatusCode, "Expected status code %d, got %d", tc.expectedStatus, resp.StatusCode)
@@ -148,7 +148,7 @@ func TestGetAppBundleFileWithPreview(t *testing.T) {
 
 		// Check response
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Should return 200 OK
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
@@ -175,7 +175,7 @@ func TestGetAppBundleFileWithPreview(t *testing.T) {
 
 		// Check response
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Should return 200 OK
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
@@ -202,7 +202,7 @@ func TestGetAppBundleFileWithPreview(t *testing.T) {
 
 		// Check response
 		resp := w.Result()
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Should still return 200 OK
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "Expected status code %d, got %d", http.StatusOK, resp.StatusCode)
@@ -227,7 +227,7 @@ func TestGetAppBundleFileNotModified(t *testing.T) {
 	// Serve the first request
 	r.ServeHTTP(w1, req1)
 	resp1 := w1.Result()
-	defer resp1.Body.Close()
+	defer func() { _ = resp1.Body.Close() }()
 
 	// Get the ETag from the first response
 	etag := resp1.Header.Get("etag")
@@ -241,7 +241,7 @@ func TestGetAppBundleFileNotModified(t *testing.T) {
 	// Serve the second request
 	r.ServeHTTP(w2, req2)
 	resp2 := w2.Result()
-	defer resp2.Body.Close()
+	defer func() { _ = resp2.Body.Close() }()
 
 	// Check that the second response has a 304 Not Modified status
 	assert.Equal(t, http.StatusNotModified, resp2.StatusCode, "Expected status code %d, got %d", http.StatusNotModified, resp2.StatusCode)
@@ -258,7 +258,7 @@ func TestGetAppBundleManifestNotModified(t *testing.T) {
 
 	// Get the ETag from the first response
 	resp1 := w1.Result()
-	defer resp1.Body.Close()
+	defer func() { _ = resp1.Body.Close() }()
 	etag := resp1.Header.Get("etag")
 
 	// Second request with If-None-Match header
@@ -269,7 +269,7 @@ func TestGetAppBundleManifestNotModified(t *testing.T) {
 
 	// Check response
 	resp2 := w2.Result()
-	defer resp2.Body.Close()
+	defer func() { _ = resp2.Body.Close() }()
 
 	// Should return 304 Not Modified
 	assert.Equal(t, http.StatusNotModified, resp2.StatusCode, "Expected status code %d, got %d", http.StatusNotModified, resp2.StatusCode)
@@ -327,7 +327,7 @@ func TestCompareAppBundleVersions(t *testing.T) {
 
 			// Check response
 			resp := w.Result()
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			assert.Equal(t, tc.expectedCode, resp.StatusCode)
 

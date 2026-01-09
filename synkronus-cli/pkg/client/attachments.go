@@ -17,7 +17,7 @@ func (c *Client) UploadAttachment(attachmentID string, filePath string) (map[str
 	if err != nil {
 		return nil, fmt.Errorf("error opening file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Create a buffer to store the request body
 	body := &bytes.Buffer{}
@@ -36,7 +36,7 @@ func (c *Client) UploadAttachment(attachmentID string, filePath string) (map[str
 	}
 
 	// Close the writer to finalize the form
-	writer.Close()
+	_ = writer.Close()
 
 	// Create request
 	url := fmt.Sprintf("%s/attachments/%s", c.BaseURL, attachmentID)
@@ -53,7 +53,7 @@ func (c *Client) UploadAttachment(attachmentID string, filePath string) (map[str
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -82,7 +82,7 @@ func (c *Client) DownloadAttachment(attachmentID string, outputPath string) erro
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -94,7 +94,7 @@ func (c *Client) DownloadAttachment(attachmentID string, outputPath string) erro
 	if err != nil {
 		return fmt.Errorf("error creating output file: %w", err)
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	// Copy response body to file
 	_, err = io.Copy(out, resp.Body)
@@ -119,7 +119,7 @@ func (c *Client) AttachmentExists(attachmentID string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	switch resp.StatusCode {
 	case http.StatusOK:
