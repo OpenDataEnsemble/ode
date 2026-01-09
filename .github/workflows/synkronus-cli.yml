@@ -16,9 +16,62 @@ on:
     types: [published]
 
 jobs:
+  format-check:
+    name: Check Go formatting
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: synkronus-cli/go.sum
+      
+      - name: Check formatting
+        working-directory: synkronus-cli
+        run: |
+          UNFORMATTED_FILES=$(git ls-files '*.go' | xargs gofmt -s -l)
+          
+          if [ -n "$UNFORMATTED_FILES" ]; then
+            echo "❌ Code is not formatted. Please run 'go fmt ./...' or 'gofmt -s -w .'"
+            echo "Unformatted files:"
+            echo "$UNFORMATTED_FILES"
+            echo ""
+            echo "Diffs:"
+            echo "$UNFORMATTED_FILES" | xargs gofmt -s -d
+            exit 1
+          else
+            echo "✅ All Go files are formatted."
+          fi
+
+  lint:
+    name: Lint with golangci-lint
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+          cache-dependency-path: synkronus-cli/go.sum
+      
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: synkronus-cli
+          args: --timeout=5m
+
   build-cli:
     name: Build synkronus-cli (CI)
     if: github.event_name != 'release'
+    needs: [format-check, lint]
     runs-on: ubuntu-latest
 
     strategy:

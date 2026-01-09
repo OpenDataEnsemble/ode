@@ -169,28 +169,27 @@ jobs:
       - name: Download dependencies
         run: go mod download
       
-      - name: Run gofmt (warning)
+      - name: Run gofmt
         run: |
           UNFORMATTED_FILES=$(git ls-files '*.go' | xargs gofmt -s -l)
           
           if [ -n "$UNFORMATTED_FILES" ]; then
-            echo "⚠️  Code is not formatted. Consider running 'go fmt ./...' or 'gofmt -s -w .'"
+            echo "❌ Code is not formatted. Please run 'go fmt ./...' or 'gofmt -s -w .'"
             echo "Unformatted files:"
             echo "$UNFORMATTED_FILES"
             echo "Diffs:"
             echo "$UNFORMATTED_FILES" | xargs gofmt -s -d
+            exit 1
           else
             echo "✅  All Go files are formatted."
           fi
       
-      - name: Run golangci-lint (if available)
-        run: |
-          if command -v golangci-lint &> /dev/null; then
-            golangci-lint run
-          else
-            echo "golangci-lint not installed, skipping..."
-          fi
-        continue-on-error: true
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ./synkronus
+          args: --timeout=5m
       
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...
@@ -226,19 +225,27 @@ jobs:
       - name: Download dependencies
         run: go mod download
       
-      - name: Run gofmt (warning)
+      - name: Run gofmt
         run: |
           UNFORMATTED_FILES=$(git ls-files '*.go' | xargs gofmt -s -l)
           
           if [ -n "$UNFORMATTED_FILES" ]; then
-            echo "⚠️  Code is not formatted. Consider running 'go fmt ./...' or 'gofmt -s -w .'"
+            echo "❌ Code is not formatted. Please run 'go fmt ./...' or 'gofmt -s -w .'"
             echo "Unformatted files:"
             echo "$UNFORMATTED_FILES"
             echo "Diffs:"
             echo "$UNFORMATTED_FILES" | xargs gofmt -s -d
+            exit 1
           else
             echo "✅  All Go files are formatted."
           fi
+      
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ./synkronus-cli
+          args: --timeout=5m
       
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out ./...

@@ -38,6 +38,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            synkronus-portal/package-lock.json
+            packages/tokens/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd packages/tokens && npm ci
+          cd ../components && npm install || true
+          cd ../../synkronus-portal && npm ci
+
+      - name: Run ESLint
+        working-directory: synkronus-portal
+        run: npm run lint
+
+      - name: Check Prettier formatting
+        working-directory: synkronus-portal
+        run: npm run format:check
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:

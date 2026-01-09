@@ -19,20 +19,25 @@
   left: -50%;
   width: 200%;
   height: 200%;
-  background: 
+  background:
     radial-gradient(circle at 25% 35%, var(--color-brand-primary-500, #4f7f4e) 0%, transparent 35%),
-    radial-gradient(circle at 75% 65%, var(--color-brand-secondary-500, #e9b85b) 0%, transparent 35%);
+    radial-gradient(
+      circle at 75% 65%,
+      var(--color-brand-secondary-500, #e9b85b) 0%,
+      transparent 35%
+    );
   opacity: var(--opacity-6, 0.06);
   animation: backgroundPulse 25s ease-in-out infinite;
   pointer-events: none;
 }
 
 @keyframes backgroundPulse {
-  0%, 100% { 
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
     opacity: var(--opacity-6, 0.06);
   }
-  50% { 
+  50% {
     transform: translate(3%, 3%) scale(1.05);
     opacity: var(--opacity-8, 0.08);
   }
@@ -46,13 +51,14 @@
   padding: var(--spacing-8, 32px);
   width: 100%;
   max-width: 420px;
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, var(--opacity-40, 0.4)),
     inset 0 1px 0 rgba(255, 255, 255, var(--opacity-5, 0.05));
   border: var(--border-width-thin, 1px) solid rgba(79, 127, 78, var(--opacity-20, 0.2));
   position: relative;
   z-index: 1;
-  animation: slideUpFade var(--duration-slower, 500ms) var(--easing-ease-out, cubic-bezier(0, 0, 0.2, 1));
+  animation: slideUpFade var(--duration-slower, 500ms)
+    var(--easing-ease-out, cubic-bezier(0, 0, 0.2, 1));
 }
 
 @keyframes slideUpFade {
@@ -79,7 +85,8 @@
   height: var(--logo-sm, 80px);
   object-fit: contain;
   filter: drop-shadow(0 4px 12px rgba(79, 127, 78, var(--opacity-30, 0.3)));
-  transition: filter var(--duration-normal, 250ms) var(--easing-ease-out, cubic-bezier(0, 0, 0.2, 1));
+  transition: filter var(--duration-normal, 250ms)
+    var(--easing-ease-out, cubic-bezier(0, 0, 0.2, 1));
 }
 
 .login-logo:hover {
@@ -195,7 +202,8 @@
   font-weight: var(--font-weight-medium, 500);
   font-size: var(--font-size-sm, 14px);
   backdrop-filter: blur(10px);
-  animation: slideDown var(--duration-normal, 250ms) var(--easing-ease-out, cubic-bezier(0, 0, 0.2, 1));
+  animation: slideDown var(--duration-normal, 250ms)
+    var(--easing-ease-out, cubic-bezier(0, 0, 0.2, 1));
 }
 
 @keyframes slideDown {

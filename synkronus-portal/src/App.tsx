@@ -1,7 +1,7 @@
-import { AuthProvider } from './contexts/AuthContext'
-import { ProtectedRoute } from './components/ProtectedRoute'
-import { Dashboard } from './pages/Dashboard'
-import './App.css'
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { Dashboard } from './pages/Dashboard';
+import './App.css';
 
 function App() {
   return (
@@ -10,7 +10,7 @@ function App() {
         <Dashboard />
       </ProtectedRoute>
     </AuthProvider>
-  )
+  );
 }
 
-export default App
+export default App;

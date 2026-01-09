@@ -38,6 +38,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache-dependency-path: synkronus/go.sum
+      
+      - name: Check Go formatting
+        working-directory: ./synkronus
+        run: |
+          UNFORMATTED_FILES=$(git ls-files '*.go' | xargs gofmt -s -l)
+          
+          if [ -n "$UNFORMATTED_FILES" ]; then
+            echo "❌ Code is not formatted. Please run 'go fmt ./...' or 'gofmt -s -w .'"
+            echo "Unformatted files:"
+            echo "$UNFORMATTED_FILES"
+            exit 1
+          else
+            echo "✅ All Go files are formatted."
+          fi
+      
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          working-directory: ./synkronus
+          args: --timeout=5m
+      
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
         with:
