@@ -187,7 +187,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.0.0
           working-directory: ./synkronus
           args: --timeout=5m
       
@@ -243,8 +243,9 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.0.0
           working-directory: ./synkronus-cli
+          args: --timeout=5m
           args: --timeout=5m
       
       - name: Run tests
