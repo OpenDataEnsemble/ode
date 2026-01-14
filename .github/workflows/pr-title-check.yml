@@ -42,8 +42,6 @@ jobs:
           subjectPatternError: |
             The subject must be a non-empty string.
             See https://www.conventionalcommits.org/ for more information.
-          # Scopes that are allowed (optional - leave empty to allow any scope)
-          scopes: []
           # Wording for the PR title
           # This will be used in the status check message
           titleWording: |
