@@ -344,14 +344,9 @@ function generateInjectionScript(interfaceFilePath: string): string {
     }));
   }
   
-  // Add TypeScript type information
-  interface FormulusInterface {
-    ${typeDeclarations}
-  }
-  
   // Make the API available globally in browser environments
   if (typeof window !== 'undefined') {
-    window.formulus = globalThis.formulus as FormulusInterface;
+    window.formulus = globalThis.formulus;
   }
   
 })();

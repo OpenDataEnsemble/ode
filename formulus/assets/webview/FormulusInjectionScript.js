@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-01-22T20:15:02.370Z
+// Last generated: 2026-01-22T23:45:06.734Z
 
 (function() {
   // Enhanced API availability detection and recovery
@@ -1014,10 +1014,6 @@
     globalThis.ReactNativeWebView.postMessage(JSON.stringify({
       type: 'onFormulusReady'
     }));
-  }
-  
-  // Add TypeScript type information
-  >;
   }
   
   // Make the API available globally in browser environments
