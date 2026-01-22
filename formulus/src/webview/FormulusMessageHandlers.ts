@@ -5,6 +5,7 @@ It handles the messages received from the WebView and executes the corresponding
 import {GeolocationService} from '../services/GeolocationService';
 import {WebViewMessageEvent, WebView} from 'react-native-webview';
 import RNFS from 'react-native-fs';
+import * as Keychain from 'react-native-keychain';
 
 export type HandlerArgs = {
   data: any;
@@ -1002,6 +1003,23 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           error,
         );
         return [];
+      }
+    },
+
+    onGetCurrentUser: async (): Promise<{username: string, displayName?: string}> => {
+      try {
+        const credentials = await Keychain.getGenericPassword();
+        if (credentials) {
+          return {
+            username: credentials.username,
+            displayName: credentials.username
+          };
+        } else {
+          throw new Error('No user credentials found');
+        }
+      } catch (error) {
+        console.error('FormulusMessageHandlers: Failed to get current user:', error);
+        throw new Error('Unable to retrieve user information');
       }
     },
     onGetObservations: async (
