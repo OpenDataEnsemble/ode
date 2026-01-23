@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  * 
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2026-01-22T20:15:06.665Z
+ * Last generated: 2026-01-22T23:58:02.172Z
  * 
  * @example
  * // In your JavaScript file:
