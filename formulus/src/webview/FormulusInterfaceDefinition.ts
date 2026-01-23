@@ -438,7 +438,7 @@ export interface FormulusInterface {
    * Get information about the currently authenticated user
    * @returns {Promise<{username: string, displayName?: string}>} User information
    */
-  getCurrentUser(): Promise<{username: string, displayName?: string}>;
+  getCurrentUser(): Promise<{username: string; displayName?: string}>;
 }
 
 /**

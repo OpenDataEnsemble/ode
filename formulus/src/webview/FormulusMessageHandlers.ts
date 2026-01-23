@@ -1006,19 +1006,25 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       }
     },
 
-    onGetCurrentUser: async (): Promise<{username: string, displayName?: string}> => {
+    onGetCurrentUser: async (): Promise<{
+      username: string;
+      displayName?: string;
+    }> => {
       try {
         const credentials = await Keychain.getGenericPassword();
         if (credentials) {
           return {
             username: credentials.username,
-            displayName: credentials.username
+            displayName: credentials.username,
           };
         } else {
           throw new Error('No user credentials found');
         }
       } catch (error) {
-        console.error('FormulusMessageHandlers: Failed to get current user:', error);
+        console.error(
+          'FormulusMessageHandlers: Failed to get current user:',
+          error,
+        );
         throw new Error('Unable to retrieve user information');
       }
     },
