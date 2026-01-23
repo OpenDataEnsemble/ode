@@ -220,16 +220,6 @@ function generateInjectionScript(interfaceFilePath: string): string {
     })
     .join('\n');
 
-  // Add TypeScript type information
-  const typeDeclarations = methods
-    .map((method: MethodInfo) => {
-      const params = method.parameters
-        .map(p => `${p.name}${p.optional ? '?' : ''}: ${p.type}`)
-        .join(', ');
-      return `    ${method.name}(${params}): ${method.returnType};`;
-    })
-    .join('\n');
-
   return `// Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
 // Last generated: ${new Date().toISOString()}
