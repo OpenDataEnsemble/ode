@@ -141,7 +141,7 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: formulus-android-apk-${{ github.event_name }}-${{ github.run_id }}
           path: |

@@ -59,7 +59,7 @@ jobs:
         run: npm run build:rn
       
       - name: Upload formplayer assets artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: formplayer-assets
           path: formulus/android/app/src/main/assets/formplayer_dist
