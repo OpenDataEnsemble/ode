@@ -339,9 +339,16 @@ const FinalizeRenderer = ({
               overflow: 'auto',
               p: 2,
               maxHeight: '100%',
+              backgroundColor: 'transparent', // Remove background - let it be transparent
+              boxShadow: 'none', // Remove shadow since there's no background
             }}
           >
-            <List sx={{ width: '100%' }}>
+            <List
+              sx={{
+                width: '100%',
+                backgroundColor: 'transparent', // Ensure List is transparent
+              }}
+            >
               {summaryItems.map((item, index) => (
                 <React.Fragment key={index}>
                   <ListItem
@@ -350,6 +357,7 @@ const FinalizeRenderer = ({
                       alignItems: 'stretch',
                       py: 1.5,
                       px: 0,
+                      backgroundColor: 'transparent', // Ensure items are transparent
                       '&:hover': {
                         backgroundColor: 'action.hover',
                         borderRadius: 1,
@@ -410,7 +418,7 @@ const FinalizeRenderer = ({
                       )}
                     </Box>
                   </ListItem>
-                  {index < summaryItems.length - 1 && <Divider />}
+                  {index < summaryItems.length - 1 && <Divider sx={{ opacity: 1 }} />}
                 </React.Fragment>
               ))}
             </List>

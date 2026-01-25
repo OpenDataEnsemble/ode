@@ -156,11 +156,23 @@ const QrcodeQuestionRenderer: React.FC<QrcodeQuestionProps> = ({
       helperText="Scan the code or enter it manually if needed."
       metadata={
         process.env.NODE_ENV === 'development' ? (
-          <Box sx={{ p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-            <Typography variant="caption" component="div">
+          <Box
+            sx={{
+              p: 1,
+              bgcolor: 'background.paper',
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Typography variant="caption" component="div" color="text.secondary">
               Debug Info:
             </Typography>
-            <Typography variant="caption" component="pre" sx={{ fontSize: '0.7rem' }}>
+            <Typography
+              variant="caption"
+              component="pre"
+              sx={{ fontSize: '0.7rem', color: 'text.secondary' }}
+            >
               {JSON.stringify(
                 {
                   fieldId,
@@ -225,7 +237,7 @@ const QrcodeQuestionRenderer: React.FC<QrcodeQuestionProps> = ({
             borderRadius: 2,
             p: 3,
             textAlign: 'center',
-            backgroundColor: 'grey.50',
+            backgroundColor: 'background.paper',
           }}
         >
           <QrCodeScanner sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />

@@ -1,8 +1,6 @@
 // Mock implementation of ReactNativeWebView for development testing
 import {
-  FormulusInterface,
   FormInitData,
-  AttachmentData,
   CameraResult,
   QrcodeResult,
   SignatureResult,
@@ -101,11 +99,37 @@ class WebViewMock {
         // Notify any listeners that the app is ready
         this.messageListeners.forEach((listener) => listener(parsedMessage));
 
+        // Helper function to detect browser dark mode preference
+        const detectDarkMode = () => {
+          return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        };
+
         // Auto-trigger form initialization after a short delay
         setTimeout(() => {
           console.log('[WebView Mock] Auto-triggering onFormInit with sample data');
-          this.simulateFormInit(sampleFormData);
+          // Detect browser dark mode preference for development
+          const prefersDarkMode = detectDarkMode();
+          const sampleDataWithDarkMode = {
+            ...sampleFormData,
+            params: {
+              ...sampleFormData.params,
+              darkMode: prefersDarkMode,
+            },
+          };
+          console.log('[WebView Mock] Browser dark mode preference:', prefersDarkMode);
+          this.simulateFormInit(sampleDataWithDarkMode);
         }, 500); // 500ms delay to ensure everything is ready
+
+        // Listen for changes in browser dark mode preference (optional, for dynamic updates)
+        if (window.matchMedia) {
+          const darkModeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+          darkModeQuery.addEventListener('change', (e) => {
+            console.log('[WebView Mock] Browser dark mode preference changed to:', e.matches);
+            console.log(
+              '[WebView Mock] Note: Reload the page to apply the new dark mode preference',
+            );
+          });
+        }
       }
     } catch (error) {
       console.error('[WebView Mock] Failed to parse message:', error);
@@ -1096,7 +1120,6 @@ class WebViewMock {
 
     // Generate mock audio file data
     const mockFilename = `audio_${Date.now()}.m4a`;
-    const mockUri = `file:///mock/audio/cache/${mockFilename}`;
     const dummyAudioUrl = `${window.location.origin}/dummyaudio.m4a`;
     const base64Placeholder = 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='; // tiny WAV header stub
 

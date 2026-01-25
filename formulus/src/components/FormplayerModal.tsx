@@ -15,6 +15,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  useColorScheme,
 } from 'react-native';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
@@ -55,6 +56,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({visible, onClose}, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const colorScheme = useColorScheme();
 
     // Internal state to track current form and observation data
     const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -213,6 +215,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       const formParams = {
         locale: 'en',
         theme: 'default',
+        darkMode: colorScheme === 'dark',
         //schema: formType.schema,
         //uischema: formType.uiSchema,
         ...params,

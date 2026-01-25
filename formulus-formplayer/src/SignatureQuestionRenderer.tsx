@@ -209,8 +209,10 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Set white background
-        ctx.fillStyle = 'white';
+        // Set background color based on theme - use dark gray for dark mode, white for light mode
+        const isDark =
+          window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        ctx.fillStyle = isDark ? '#212121' : 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
     }
@@ -233,8 +235,17 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
       helperText="Capture a clear signature. You can use native capture or draw on canvas."
       metadata={
         process.env.NODE_ENV === 'development' ? (
-          <Box sx={{ mt: 1, p: 1, bgcolor: 'info.light', borderRadius: 1 }}>
-            <Typography variant="caption" sx={{ fontFamily: 'monospace' }}>
+          <Box
+            sx={{
+              mt: 1,
+              p: 1,
+              bgcolor: 'background.paper',
+              borderRadius: 1,
+              border: '1px solid',
+              borderColor: 'divider',
+            }}
+          >
+            <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
               Debug: fieldId="{fieldId}", path="{path}", format="signature"
             </Typography>
           </Box>
@@ -256,16 +267,17 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
               mb: 2,
               display: 'flex',
               justifyContent: 'center',
-              backgroundColor: 'grey.50',
+              backgroundColor: 'background.paper',
             }}
           >
             <canvas
               ref={canvasRef}
               style={{
-                border: '1px solid #ddd',
+                border: '1px solid',
+                borderColor: 'divider',
                 borderRadius: '4px',
                 cursor: 'crosshair',
-                backgroundColor: 'white',
+                backgroundColor: 'background.paper',
                 touchAction: 'none',
               }}
               onMouseDown={startDrawing}
@@ -353,7 +365,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
 
       {/* Signature Display */}
       {hasData && (
-        <Paper sx={{ p: 2, bgcolor: 'grey.50' }}>
+        <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Box sx={{ flex: 1 }}>
               <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
@@ -361,11 +373,12 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
               </Typography>
               <Box
                 sx={{
-                  border: '1px solid #ddd',
+                  border: '1px solid',
+                  borderColor: 'divider',
                   borderRadius: 1,
                   p: 1,
                   mb: 2,
-                  backgroundColor: 'white',
+                  backgroundColor: 'background.paper',
                   display: 'flex',
                   justifyContent: 'center',
                 }}

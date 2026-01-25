@@ -12,7 +12,7 @@ import { JsonForms } from '@jsonforms/react';
 import { materialRenderers, materialCells } from '@jsonforms/material-renderers';
 import { JsonSchema7, JsonFormsRendererRegistryEntry } from '@jsonforms/core';
 import { Alert, Snackbar, CircularProgress, Box, Typography, ThemeProvider } from '@mui/material';
-import { theme } from './theme';
+import { createTheme, getThemeOptions } from './theme';
 import Ajv from 'ajv';
 import addErrors from 'ajv-errors';
 import addFormats from 'ajv-formats';
@@ -214,6 +214,7 @@ function App() {
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
   const [showDraftSelector, setShowDraftSelector] = useState(false);
   const [pendingFormInit, setPendingFormInit] = useState<FormInitData | null>(null);
+  const [darkMode, setDarkMode] = useState<boolean>(false);
   const [extensionRenderers, setExtensionRenderers] = useState<JsonFormsRendererRegistryEntry[]>(
     [],
   );
@@ -240,6 +241,10 @@ function App() {
         } = initData;
 
         setFormInitData(initData);
+
+        // Extract dark mode preference from params
+        const isDarkMode = params?.darkMode === true;
+        setDarkMode(isDarkMode);
 
         // Load extensions if provided
         if (extensions) {
@@ -625,6 +630,12 @@ function App() {
     return instance;
   }, [extensionDefinitions]);
 
+  // Create dynamic theme based on dark mode preference
+  // Must be called before any early returns to follow React Hooks rules
+  const currentTheme = useMemo(() => {
+    return createTheme(getThemeOptions(darkMode ? 'dark' : 'light'));
+  }, [darkMode]);
+
   // Show draft selector if we have pending form init and available drafts
   if (showDraftSelector && pendingFormInit) {
     return (
@@ -675,12 +686,32 @@ function App() {
         <Typography variant="h6" color="error">
           {loadError || 'Failed to load form'}
         </Typography>
-        <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1, maxWidth: '80%' }}>
-          <Typography variant="subtitle2">Debug Information:</Typography>
+        <Box
+          sx={{
+            mt: 2,
+            p: 2,
+            bgcolor: 'background.paper',
+            borderRadius: 1,
+            maxWidth: '80%',
+            border: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="subtitle2" color="text.secondary">
+            Debug Information:
+          </Typography>
           <Typography
             variant="body2"
             component="pre"
-            sx={{ mt: 1, p: 1, bgcolor: '#f5f5f5', overflow: 'auto', maxHeight: '200px' }}
+            sx={{
+              mt: 1,
+              p: 1,
+              bgcolor: 'background.default',
+              overflow: 'auto',
+              maxHeight: '200px',
+              color: 'text.secondary',
+              borderRadius: 1,
+            }}
           >
             {JSON.stringify(
               {
@@ -705,10 +736,11 @@ function App() {
     uiSchemaType: uischema?.type || 'MISSING',
     dataKeys: Object.keys(data),
     formType: formInitData?.formType,
+    darkMode: darkMode,
   });
 
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={currentTheme}>
       <FormContext.Provider value={{ formInitData }}>
         <div
           className="App"
@@ -716,6 +748,8 @@ function App() {
             display: 'flex',
             height: '100dvh', // Use dynamic viewport height for mobile keyboard support
             width: '100%',
+            backgroundColor: currentTheme.palette.background.default, // Ensure dark background
+            color: currentTheme.palette.text.primary,
           }}
         >
           {/* Main app content - 60% width in development mode */}
@@ -726,22 +760,28 @@ function App() {
               padding: '12px',
               boxSizing: 'border-box',
               height: '100%', // Ensure it takes full height
+              backgroundColor: 'transparent', // Use theme background
             }}
           >
             <ErrorBoundary>
               {loadError ? (
-                <div
-                  style={{
+                <Box
+                  sx={{
                     padding: '20px',
-                    backgroundColor: '#ffebee',
-                    border: '1px solid #f44336',
+                    backgroundColor: 'error.light',
+                    border: '1px solid',
+                    borderColor: 'error.main',
                     borderRadius: '4px',
-                    color: '#c62828',
+                    color: 'error.dark',
                   }}
                 >
-                  <h3>Error Loading Form</h3>
-                  <p>{loadError}</p>
-                </div>
+                  <Typography variant="h6" color="error">
+                    Error Loading Form
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    {loadError}
+                  </Typography>
+                </Box>
               ) : (
                 <>
                   <JsonForms
