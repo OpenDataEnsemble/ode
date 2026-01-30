@@ -415,6 +415,16 @@ export const getThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
             },
           },
         },
+        defaultProps: {
+          inputProps: {
+            readOnly: true,
+            inputMode: 'none',
+          },
+          MenuProps: {
+            disableAutoFocus: true,
+            disableEnforceFocus: true,
+          },
+        },
       },
       // Paper/Card styling for elevation
       MuiPaper: {
