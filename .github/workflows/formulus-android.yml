@@ -1,4 +1,4 @@
-name: Formulus Android Build
+name: Formulus Android & Formplayer Assets
 
 on:
   push:
@@ -7,61 +7,82 @@ on:
       - dev
     paths:
       - 'formulus/**'
+      - 'formulus-formplayer/**'
+      - 'packages/tokens/**'
       - '.github/workflows/formulus-android.yml'
-    #paths-ignore:
-    #  - 'formulus/android/app/src/main/assets/formplayer_dist/**'
   pull_request:
     paths:
       - 'formulus/**'
+      - 'formulus-formplayer/**'
+      - 'packages/tokens/**'
       - '.github/workflows/formulus-android.yml'
-  workflow_run:
-    workflows: ["Update Formplayer Assets"]
-    types:
-      - completed
-    branches:
-      - main
-      - dev
   release:
     types: [published]
 
+env:
+  NODE_VERSION_ASSETS: '20'
+  NODE_VERSION_ANDROID: '18.x'
+
 jobs:
-  build-android:
-    name: Build Formulus Android APK
+  build-formplayer-assets:
+    name: Build Formplayer Assets
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-
-    env:
-      NODE_VERSION: '18.x'
+      contents: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
 
-      - name: Download formplayer assets artifact (from update workflow)
-        id: download-assets
-        if: github.event_name == 'workflow_run'
-        uses: dawidd6/action-download-artifact@v3
+      - name: Set up Node.js for assets
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION_ASSETS }}
+          cache: 'npm'
+          cache-dependency-path: |
+            formulus-formplayer/package-lock.json
+            packages/tokens/package-lock.json
+
+      - name: Install and build @ode/tokens
+        working-directory: packages/tokens
+        run: |
+          npm install
+          npm run build
+
+      - name: Install formplayer dependencies
+        working-directory: formulus-formplayer
+        run: npm ci
+
+      - name: Build and bundle formplayer
+        working-directory: formulus-formplayer
+        run: npm run build:rn
+
+      - name: Upload formplayer assets artifact
+        uses: actions/upload-artifact@v4
         with:
           name: formplayer-assets
           path: formulus/android/app/src/main/assets/formplayer_dist
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          workflow: update-formplayer-assets.yml
-          run_id: ${{ github.event.workflow_run.id }}
-          allow_no_artifact: true
-      
-      - name: Check if assets exist
-        id: check-assets
-        run: |
-          if [ -d "formulus/android/app/src/main/assets/formplayer_dist" ] && [ -n "$(ls -A formulus/android/app/src/main/assets/formplayer_dist 2>/dev/null)" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Formplayer assets found (from artifact or repo)"
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Formplayer assets not found, will build them"
-          fi
+          retention-days: 7
+
+  build-android:
+    name: Build Formulus Android APK
+    runs-on: ubuntu-latest
+    needs: build-formplayer-assets
+    permissions:
+      contents: write
+
+    env:
+      NODE_VERSION: ${{ env.NODE_VERSION_ANDROID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download formplayer assets artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: formplayer-assets
+          path: formulus/android/app/src/main/assets/formplayer_dist
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -85,16 +106,6 @@ jobs:
         run: |
           npm install
           npm run build
-
-      - name: Install npm dependencies (formplayer)
-        if: steps.check-assets.outputs.exists != 'true'
-        working-directory: formulus-formplayer
-        run: npm ci
-
-      - name: Build and bundle formplayer
-        if: steps.check-assets.outputs.exists != 'true'
-        working-directory: formulus-formplayer
-        run: npm run build:rn
 
       - name: Set up Java
         uses: actions/setup-java@v4
