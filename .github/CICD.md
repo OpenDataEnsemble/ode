@@ -59,96 +59,42 @@ The workflow requires these permissions:
 
 - `GITHUB_TOKEN` - Automatically provided by GitHub Actions
 
-### Update Formplayer Assets
-
-**Workflow File**: `.github/workflows/update-formplayer-assets.yml`
-
-#### Purpose
-
-Automates the build and synchronization of formplayer assets between `formulus-formplayer` (React web app) and `formulus` (React Native app). This eliminates the need for manual asset synchronization PRs and ensures formulus always has the latest built assets.
-
-#### Triggers
-
-- **Push to `main`/`dev`**: Builds assets and commits them to the repository
-- **Pull Requests**: Builds assets for validation (does not commit)
-
-#### Path Filters
-
-The workflow only runs when files in these paths change:
-- `formulus-formplayer/**` - Any file in the formulus-formplayer project
-- `.github/workflows/update-formplayer-assets.yml` - The workflow itself
-
-#### Workflow Behavior
-
-**On Pull Requests:**
-1. Builds formplayer assets using `npm run build:rn`
-2. Validates that assets were built successfully
-3. Uploads assets as GitHub Actions artifact
-4. Does NOT commit assets (validation only)
-
-**On Merge (Push to main/dev):**
-1. Builds formplayer assets using `npm run build:rn`
-2. Checks if assets have changed
-3. Commits updated assets to repository with `[skip ci]` message
-4. Uploads assets as GitHub Actions artifact
-5. Prevents infinite loops by ignoring asset-only commits
-
-#### Asset Location
-
-Assets are copied to:
-```
-formulus/android/app/src/main/assets/formplayer_dist/
-```
-
-#### Permissions Required
-
-- `contents: write` - To commit assets to the repository
-
-#### Benefits
-
-- **Automated**: No manual PRs needed for asset synchronization
-- **Consistent**: All developers get latest assets automatically on `git pull`
-- **Efficient**: Android builds use committed assets (no build step needed)
-- **Safe**: Prevents workflow loops with `[skip ci]` and path filters
-
 ### Formulus Android Build
 
 **Workflow File**: `.github/workflows/formulus-android.yml`
 
 #### Purpose
 
-Builds Android APK for the Formulus React Native application, automatically handling formplayer asset dependencies.
+Builds Android APK for the Formulus React Native application, and builds/consumes Formplayer assets in a single, two‑job workflow.
 
 #### Triggers
 
-- **Push to `main`/`dev`** (formulus changes only): Builds release APK using committed assets
-- **Pull Requests** (formulus changes only): Builds debug APK for validation
-- **Workflow Run** (after formplayer assets update): Builds APK using downloaded artifacts
+- **Push to `main`/`dev`** (formulus or formulus-formplayer changes): Builds Formplayer assets and then a release APK using those assets
+- **Pull Requests** (formulus or formulus-formplayer changes): Builds Formplayer assets and then a debug APK for validation
 - **Release**: Publishes APK to GitHub Release
 
 #### Path Filters
 
 The workflow runs when files in these paths change:
 - `formulus/**` - Any file in the formulus project
+- `formulus-formplayer/**` - Any file in the formulus-formplayer project
+- `packages/tokens/**` - Shared design tokens and build inputs
 - `.github/workflows/formulus-android.yml` - The workflow itself
-
-**Note**: The workflow does NOT directly trigger on `formulus-formplayer/**` changes. Instead, it runs via `workflow_run` after the Update Formplayer Assets workflow completes.
 
 #### Asset Handling
 
-The workflow intelligently handles formplayer assets:
+The workflow intelligently handles formplayer assets using two jobs:
 
-1. **Via workflow_run** (formplayer changed):
-   - Downloads assets artifact from Update Formplayer Assets workflow
-   - Uses downloaded assets for Android build
+1. **`build-formplayer-assets` job**:
+   - Builds `@ode/tokens`
+   - Builds Formplayer assets using `npm run build:rn` in `formulus-formplayer`
+   - Uploads the built assets from `formulus/android/app/src/main/assets/formplayer_dist/` as a GitHub Actions artifact
 
-2. **Direct trigger** (formulus-only changes):
-   - Uses committed assets from repository
-   - No formplayer build needed
+2. **`build-android` job** (depends on assets job):
+   - Downloads the Formplayer assets artifact into `formulus/android/app/src/main/assets/formplayer_dist/`
+   - Builds the Android APK (debug for PRs, release for main/dev/release events)
 
-3. **Fallback**:
-   - If assets don't exist, builds them automatically
-   - Ensures builds always succeed
+Formplayer assets are **not committed to git** and are ignored via `.gitignore`. CI builds always use the assets artifact produced in the same workflow run, ensuring a single, consistent source of truth for each build.
 
 #### Build Types
 
@@ -165,18 +111,17 @@ The workflow intelligently handles formplayer assets:
 
 #### Workflow Integration
 
-The Formulus Android Build workflow integrates with Update Formplayer Assets:
+Formplayer asset building and Android APK building are now handled within the same workflow:
 
 ```
-Formplayer Changes → Update Assets Workflow → Android Build (via workflow_run)
-Formulus Changes → Android Build (direct, uses committed assets)
+Formplayer or Formulus Changes → build-formplayer-assets job → build-android job (consumes artifact) → APK artifact / Release upload
 ```
 
 This ensures:
-- No duplicate builds
-- Single source of truth for assets
-- Efficient parallel execution
-- Automatic asset synchronization
+- No duplicate cross-workflow wiring
+- A single workflow owns both asset and APK builds
+- Each APK is built against the exact assets produced in the same run
+- Formplayer build outputs do not pollute git history
 
 ## Using Published Images
 
@@ -290,25 +235,19 @@ echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 
 ### How It Works
 
-The automated asset synchronization process ensures formulus always has the latest formplayer assets:
+The automated asset build process ensures Formulus Android builds always have matching Formplayer assets:
 
 1. **Developer makes changes** to `formulus-formplayer`
-2. **Opens/updates PR** → Update Formplayer Assets workflow validates build
-3. **PR merged to main/dev** → Update Formplayer Assets workflow:
-   - Builds assets
-   - Commits them to repository
-   - Uploads artifact
-4. **Android build triggered** → Formulus Android Build workflow:
-   - Downloads artifact (if formplayer changed)
-   - Or uses committed assets (if formulus-only change)
-   - Builds Android APK
+2. **Opens/updates PR** (or pushes to `main`/`dev`) → the Formulus Android workflow:
+   - Runs the `build-formplayer-assets` job to build Formplayer assets and upload them as an artifact
+   - Runs the `build-android` job, which downloads the artifact and builds the APK
 
 ### Benefits
 
-- **No manual work**: Assets are automatically built and committed
-- **No conflicts**: Single automated process commits assets
-- **Always up-to-date**: Formulus always has latest assets
-- **Faster builds**: Android builds use committed assets (no build step)
+- **No manual work**: Assets are automatically built and passed between jobs via artifacts
+- **No conflicts**: Assets are not committed to git, avoiding noisy diffs and merge issues
+- **Always consistent**: Each Android build uses the assets built in that same workflow run
+- **Clean repository**: Built assets live only in CI artifacts and local workspaces, not in version control
 
 ### Local Development
 
