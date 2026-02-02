@@ -71,7 +71,7 @@ services:
 
   # PostgreSQL database
   postgres:
-    image: postgres:17
+    image: postgres:18
     environment:
       # Root PostgreSQL user and password (used to create application databases)
       POSTGRES_USER: postgres
