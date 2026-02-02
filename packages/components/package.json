@@ -42,8 +42,8 @@
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^8.57.0",
     "prettier": "^2.8.8",
     "typescript": "^5.0.4"
