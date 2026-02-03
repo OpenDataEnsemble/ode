@@ -7,14 +7,14 @@ import React, {
   createContext,
   useContext,
   useMemo,
-} from 'react';
-import './App.css';
-import { JsonForms } from '@jsonforms/react';
+} from "react";
+import "./App.css";
+import { JsonForms } from "@jsonforms/react";
 import {
   materialRenderers,
   materialCells,
-} from '@jsonforms/material-renderers';
-import { JsonSchema7, JsonFormsRendererRegistryEntry } from '@jsonforms/core';
+} from "@jsonforms/material-renderers";
+import { JsonSchema7, JsonFormsRendererRegistryEntry } from "@jsonforms/core";
 import {
   Alert,
   Snackbar,
@@ -22,59 +22,59 @@ import {
   Box,
   Typography,
   ThemeProvider,
-} from '@mui/material';
-import { createTheme, getThemeOptions } from './theme/theme';
-import Ajv from 'ajv';
-import addErrors from 'ajv-errors';
-import addFormats from 'ajv-formats';
+} from "@mui/material";
+import { createTheme, getThemeOptions } from "./theme/theme";
+import Ajv from "ajv";
+import addErrors from "ajv-errors";
+import addFormats from "ajv-formats";
 
 // Import the FormulusInterface client
-import FormulusClient from './services/FormulusInterface';
-import { FormInitData } from './types/FormulusInterfaceDefinition';
+import FormulusClient from "./services/FormulusInterface";
+import { FormInitData } from "./types/FormulusInterfaceDefinition";
 
 import SwipeLayoutRenderer, {
   swipeLayoutTester,
   groupAsSwipeLayoutTester,
-} from './renderers/SwipeLayoutRenderer';
-import { finalizeRenderer, finalizeTester } from './renderers/FinalizeRenderer';
+} from "./renderers/SwipeLayoutRenderer";
+import { finalizeRenderer, finalizeTester } from "./renderers/FinalizeRenderer";
 import PhotoQuestionRenderer, {
   photoQuestionTester,
-} from './renderers/PhotoQuestionRenderer';
+} from "./renderers/PhotoQuestionRenderer";
 import SignatureQuestionRenderer, {
   signatureQuestionTester,
-} from './renderers/SignatureQuestionRenderer';
+} from "./renderers/SignatureQuestionRenderer";
 import FileQuestionRenderer, {
   fileQuestionTester,
-} from './renderers/FileQuestionRenderer';
+} from "./renderers/FileQuestionRenderer";
 import AudioQuestionRenderer, {
   audioQuestionTester,
-} from './renderers/AudioQuestionRenderer';
+} from "./renderers/AudioQuestionRenderer";
 import GPSQuestionRenderer, {
   gpsQuestionTester,
-} from './renderers/GPSQuestionRenderer';
+} from "./renderers/GPSQuestionRenderer";
 import VideoQuestionRenderer, {
   videoQuestionTester,
-} from './renderers/VideoQuestionRenderer';
+} from "./renderers/VideoQuestionRenderer";
 import HtmlLabelRenderer, {
   htmlLabelTester,
-} from './renderers/HtmlLabelRenderer';
+} from "./renderers/HtmlLabelRenderer";
 import AdateQuestionRenderer, {
   adateQuestionTester,
-} from './renderers/AdateQuestionRenderer';
-import { shellMaterialRenderers } from './theme/material-wrappers';
+} from "./renderers/AdateQuestionRenderer";
+import { shellMaterialRenderers } from "./theme/material-wrappers";
 
-import ErrorBoundary from './components/ErrorBoundary';
-import { draftService } from './services/DraftService';
-import DraftSelector from './components/DraftSelector';
-import { loadExtensions } from './services/ExtensionsLoader';
+import ErrorBoundary from "./components/ErrorBoundary";
+import { draftService } from "./services/DraftService";
+import DraftSelector from "./components/DraftSelector";
+import { loadExtensions } from "./services/ExtensionsLoader";
 
 // Import development dependencies (Vite will tree-shake these in production)
-import { webViewMock } from './mocks/webview-mock';
-import DevTestbed from './mocks/DevTestbed';
+import { webViewMock } from "./mocks/webview-mock";
+import DevTestbed from "./mocks/DevTestbed";
 
 // Initialize the mock in development mode (synchronously)
 if (import.meta.env.DEV) {
-  console.log('[App] Initializing WebView mock for development');
+  console.log("[App] Initializing WebView mock for development");
   webViewMock.init();
 }
 
@@ -99,59 +99,59 @@ const ensureSwipeLayoutRoot = (uiSchema: FormUISchema | null): FormUISchema => {
   if (!uiSchema) {
     // If no UI schema, create a basic SwipeLayout with empty elements
     return {
-      type: 'SwipeLayout',
+      type: "SwipeLayout",
       elements: [],
     };
   }
 
   // If root is already SwipeLayout, return as is
-  if (uiSchema.type === 'SwipeLayout') {
+  if (uiSchema.type === "SwipeLayout") {
     return { ...uiSchema };
   }
 
   // If root is not SwipeLayout, wrap the entire schema in a SwipeLayout
   if (
-    uiSchema.type === 'Group' ||
-    uiSchema.type === 'VerticalLayout' ||
-    uiSchema.type === 'HorizontalLayout' ||
+    uiSchema.type === "Group" ||
+    uiSchema.type === "VerticalLayout" ||
+    uiSchema.type === "HorizontalLayout" ||
     uiSchema.elements
   ) {
     console.log(
-      `Root UI schema type is "${uiSchema.type}", wrapping in SwipeLayout`,
+      `Root UI schema type is "${uiSchema.type}", wrapping in SwipeLayout`
     );
     return {
-      type: 'SwipeLayout',
+      type: "SwipeLayout",
       elements: [uiSchema],
     };
   }
 
   // If there are multiple root elements (array), wrap them in SwipeLayout
   if (Array.isArray(uiSchema)) {
-    console.log('Multiple root elements detected, wrapping in SwipeLayout');
+    console.log("Multiple root elements detected, wrapping in SwipeLayout");
     return {
-      type: 'SwipeLayout',
+      type: "SwipeLayout",
       elements: uiSchema,
     };
   }
 
   // Fallback: create SwipeLayout with the original schema as a single element
   return {
-    type: 'SwipeLayout',
+    type: "SwipeLayout",
     elements: [uiSchema],
   };
 };
 
 // Function to process UI schema and ensure Finalize element is present
 const processUISchemaWithFinalize = (
-  uiSchema: FormUISchema | null,
+  uiSchema: FormUISchema | null
 ): FormUISchema => {
   if (!uiSchema || !uiSchema.elements) {
     // If no UI schema or no elements, create a basic one with just Finalize
     return {
-      type: 'VerticalLayout',
+      type: "VerticalLayout",
       elements: [
         {
-          type: 'Finalize',
+          type: "Finalize",
         },
       ],
     };
@@ -164,24 +164,24 @@ const processUISchemaWithFinalize = (
   // Check for existing Finalize elements and remove them
   const existingFinalizeIndices: number[] = [];
   elements.forEach((element, index) => {
-    if (element && element.type === 'Finalize') {
+    if (element && element.type === "Finalize") {
       existingFinalizeIndices.push(index);
     }
   });
 
   if (existingFinalizeIndices.length > 0) {
     console.warn(
-      `Found ${existingFinalizeIndices.length} existing Finalize element(s) in UI schema. Removing them as they will be automatically added.`,
+      `Found ${existingFinalizeIndices.length} existing Finalize element(s) in UI schema. Removing them as they will be automatically added.`
     );
     // Remove existing Finalize elements (in reverse order to maintain indices)
-    existingFinalizeIndices.reverse().forEach(index => {
+    existingFinalizeIndices.reverse().forEach((index) => {
       elements.splice(index, 1);
     });
   }
 
   // Always add our Finalize element as the last element
   elements.push({
-    type: 'Finalize',
+    type: "Finalize",
   });
 
   processedUISchema.elements = elements;
@@ -219,17 +219,17 @@ export const customRenderers = [
 function App() {
   // Initialize WebView mock ONLY in development mode and ONLY if ReactNativeWebView doesn't exist
   if (
-    process.env.NODE_ENV === 'development' &&
+    process.env.NODE_ENV === "development" &&
     webViewMock &&
     !window.ReactNativeWebView
   ) {
     console.log(
-      'Development mode detected and no ReactNativeWebView found, initializing WebView mock...',
+      "Development mode detected and no ReactNativeWebView found, initializing WebView mock..."
     );
     webViewMock.init();
     console.log(
-      'WebView mock initialized, isActive:',
-      webViewMock.isActiveMock(),
+      "WebView mock initialized, isActive:",
+      webViewMock.isActiveMock()
     );
   } /* else if (process.env.NODE_ENV !== 'development') {
     console.log('Production mode detected, NOT initializing WebView mock');
@@ -250,7 +250,7 @@ function App() {
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
   const [showDraftSelector, setShowDraftSelector] = useState(false);
   const [pendingFormInit, setPendingFormInit] = useState<FormInitData | null>(
-    null,
+    null
   );
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [extensionRenderers, setExtensionRenderers] = useState<
@@ -299,10 +299,10 @@ function App() {
 
             // Log errors but don't fail form initialization
             if (extensionResult.errors.length > 0) {
-              console.warn('Extension loading errors:', extensionResult.errors);
+              console.warn("Extension loading errors:", extensionResult.errors);
             }
           } catch (error) {
-            console.error('Failed to load extensions:', error);
+            console.error("Failed to load extensions:", error);
             // Continue without extensions - not fatal
             setExtensionRenderers([]);
             setExtensionFunctions(new Map());
@@ -317,10 +317,10 @@ function App() {
 
         if (!formSchema) {
           console.warn(
-            'formSchema was not provided. Form rendering might fail or be incomplete.',
+            "formSchema was not provided. Form rendering might fail or be incomplete."
           );
           setLoadError(
-            'Form schema is missing. Form rendering might fail or be incomplete.',
+            "Form schema is missing. Form rendering might fail or be incomplete."
           );
           setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
           // First ensure SwipeLayout root, then process to ensure Finalize element is present
@@ -332,7 +332,7 @@ function App() {
           setSchema(formSchema as FormSchema);
           // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
-            uiSchema as FormUISchema,
+            uiSchema as FormUISchema
           );
           const processedUISchema =
             processUISchemaWithFinalize(swipeLayoutUISchema);
@@ -340,18 +340,18 @@ function App() {
         }
 
         if (savedData && Object.keys(savedData).length > 0) {
-          console.log('Preloading saved data:', savedData);
+          console.log("Preloading saved data:", savedData);
           setData(savedData as FormData);
         } else {
           const defaultData =
-            params && typeof params === 'object'
-              ? (params.defaultData ?? params)
+            params && typeof params === "object"
+              ? params.defaultData ?? params
               : {};
-          console.log('Preloading initialization form values:', defaultData);
+          console.log("Preloading initialization form values:", defaultData);
           setData(defaultData as FormData);
         }
 
-        console.log('Form params (if any, beyond schemas/data):', params);
+        console.log("Form params (if any, beyond schemas/data):", params);
         setLoadError(null); // Clear any previous load errors
 
         if (
@@ -360,20 +360,20 @@ function App() {
         ) {
           window.ReactNativeWebView.postMessage(
             JSON.stringify({
-              type: 'formplayerInitialized',
+              type: "formplayerInitialized",
               formType: receivedFormType,
-              status: 'success',
-            }),
+              status: "success",
+            })
           );
         }
         setIsLoading(false);
         isLoadingRef.current = false;
       } catch (error) {
-        console.error('Error initializing form:', error);
+        console.error("Error initializing form:", error);
         const errorMessage =
           error instanceof Error
             ? error.message
-            : 'Unknown error during form initialization';
+            : "Unknown error during form initialization";
         setLoadError(`Error initializing form: ${errorMessage}`);
         setIsLoading(false);
         isLoadingRef.current = false;
@@ -386,32 +386,32 @@ function App() {
       setData,
       setLoadError,
       setIsLoading,
-    ],
+    ]
   ); // isLoadingRef is a ref, not needed in deps
 
   // Handler for data received via window.onFormInit
   const handleFormInitByNative = useCallback(
     (initData: FormInitData) => {
-      console.log('Received onFormInit event with data:', initData);
+      console.log("Received onFormInit event with data:", initData);
 
       try {
         const { formType: receivedFormType, savedData, formSchema } = initData;
 
         if (!receivedFormType) {
           console.error(
-            'formType is crucial and was not provided in onFormInit. Cannot proceed.',
+            "formType is crucial and was not provided in onFormInit. Cannot proceed."
           );
-          setLoadError('Form ID is missing. Cannot initialize form.');
+          setLoadError("Form ID is missing. Cannot initialize form.");
           if (
             window.ReactNativeWebView &&
             window.ReactNativeWebView.postMessage
           ) {
             window.ReactNativeWebView.postMessage(
               JSON.stringify({
-                type: 'formplayerError',
+                type: "formplayerError",
                 formType: receivedFormType,
-                message: 'formType missing in onFormInit',
-              }),
+                message: "formType missing in onFormInit",
+              })
             );
           }
           return; // Exit early
@@ -423,29 +423,29 @@ function App() {
         if (!hasExistingSavedData) {
           const availableDrafts = draftService.getDraftsForForm(
             receivedFormType,
-            (formSchema as any)?.version,
+            (formSchema as any)?.version
           );
           if (availableDrafts.length > 0) {
             console.log(
-              `Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`,
+              `Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`
             );
             setPendingFormInit(initData);
             setShowDraftSelector(true);
             setIsLoading(false);
             isLoadingRef.current = false;
-            return { status: 'draft_selector_shown' }; // Don't proceed with normal initialization
+            return { status: "draft_selector_shown" }; // Don't proceed with normal initialization
           }
         }
 
         // Proceed with normal form initialization
         initializeForm(initData);
-        return { status: 'ok' };
+        return { status: "ok" };
       } catch (error) {
-        console.error('Error processing onFormInit data:', error);
+        console.error("Error processing onFormInit data:", error);
         const errorMessage =
           error instanceof Error
             ? error.message
-            : 'Unknown error during form initialization';
+            : "Unknown error during form initialization";
         setLoadError(`Error processing form data: ${errorMessage}`);
         if (
           window.ReactNativeWebView &&
@@ -453,19 +453,19 @@ function App() {
         ) {
           window.ReactNativeWebView.postMessage(
             JSON.stringify({
-              type: 'formplayerError',
+              type: "formplayerError",
               formType: initData?.formType,
-              status: 'error',
+              status: "error",
               message: errorMessage,
-            }),
+            })
           );
         }
         setIsLoading(false);
         isLoadingRef.current = false;
-        return { status: 'error' };
+        return { status: "error" };
       }
     },
-    [initializeForm],
+    [initializeForm]
   );
 
   // Effect for initializing form via window.onFormInit
@@ -474,7 +474,7 @@ function App() {
     const globalAny = window as any;
     if (globalAny.__formplayerOnInitRegistered) {
       console.log(
-        'window.onFormInit already registered for this WebView lifecycle, skipping re-registration.',
+        "window.onFormInit already registered for this WebView lifecycle, skipping re-registration."
       );
       return;
     }
@@ -485,48 +485,48 @@ function App() {
     setIsLoading(true);
     isLoadingRef.current = true;
 
-    console.log('Registering window.onFormInit handler.');
+    console.log("Registering window.onFormInit handler.");
     globalAny.onFormInit = handleFormInitByNative;
 
     // Signal to native that the WebView is ready to receive onFormInit
     console.log(
-      'Signaling readiness to native host (formplayerReadyToReceiveInit).',
+      "Signaling readiness to native host (formplayerReadyToReceiveInit)."
     );
     if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
       window.ReactNativeWebView.postMessage(
         JSON.stringify({
-          type: 'formplayerReadyToReceiveInit',
-        }),
+          type: "formplayerReadyToReceiveInit",
+        })
       );
     } else {
       console.warn(
-        'ReactNativeWebView.postMessage not available. Cannot signal readiness.',
+        "ReactNativeWebView.postMessage not available. Cannot signal readiness."
       );
-      console.log('Debug - NODE_ENV:', process.env.NODE_ENV);
+      console.log("Debug - NODE_ENV:", process.env.NODE_ENV);
       console.log(
-        'Debug - webViewMock.isActiveMock():',
-        webViewMock.isActiveMock(),
+        "Debug - webViewMock.isActiveMock():",
+        webViewMock.isActiveMock()
       );
-      console.log('Debug - isLoadingRef.current:', isLoadingRef.current);
+      console.log("Debug - isLoadingRef.current:", isLoadingRef.current);
 
       // Potentially set an error or handle standalone mode if WebView context isn't available
       // For example, if running in a standard browser for development
       if (isLoadingRef.current) {
         // Avoid setting error if already handled by timeout or success
         if (
-          process.env.NODE_ENV === 'development' &&
+          process.env.NODE_ENV === "development" &&
           webViewMock.isActiveMock()
         ) {
           console.log(
-            'Development mode: WebView mock is active, continuing without error',
+            "Development mode: WebView mock is active, continuing without error"
           );
           // Don't set error in development mode when mock is active
         } else {
           console.log(
-            'Setting error message because mock is not active or not in development',
+            "Setting error message because mock is not active or not in development"
           );
           setLoadError(
-            'Cannot communicate with native host. Formplayer might be running in a standalone browser.',
+            "Cannot communicate with native host. Formplayer might be running in a standalone browser."
           );
           setIsLoading(false);
           isLoadingRef.current = false;
@@ -538,9 +538,9 @@ function App() {
     const initTimeout = setTimeout(() => {
       if (isLoadingRef.current) {
         // Check ref to see if still loading
-        console.warn('onFormInit was not called within timeout period (10s).');
+        console.warn("onFormInit was not called within timeout period (10s).");
         setLoadError(
-          'Failed to initialize form: No data received from native host. Please try again.',
+          "Failed to initialize form: No data received from native host. Please try again."
         );
         setIsLoading(false);
         isLoadingRef.current = false;
@@ -550,10 +550,10 @@ function App() {
         ) {
           window.ReactNativeWebView.postMessage(
             JSON.stringify({
-              type: 'error',
+              type: "error",
               message:
-                'Initialization timeout in WebView: onFormInit not called.',
-            }),
+                "Initialization timeout in WebView: onFormInit not called.",
+            })
           );
         }
       }
@@ -566,7 +566,7 @@ function App() {
       // re-register handlers or resend readiness within the same WebView lifecycle.
       if (globalAny.onFormInit === handleFormInitByNative) {
         globalAny.onFormInit = undefined;
-        console.log('Unregistered window.onFormInit handler.');
+        console.log("Unregistered window.onFormInit handler.");
       }
     };
   }, [handleFormInitByNative]); // Dependency: re-run if handleFormInitByNative changes
@@ -580,19 +580,19 @@ function App() {
       if (!uischema) return;
 
       const path = event.detail.path;
-      const field = path.split('/').pop();
+      const field = path.split("/").pop();
       const screens = uischema.elements;
 
       for (let i = 0; i < screens.length; i++) {
         const screen = screens[i];
         // Skip the Finalize screen
-        if (screen.type === 'Finalize') continue;
+        if (screen.type === "Finalize") continue;
 
         // Type guard to ensure elements exists
-        if ('elements' in screen && screen.elements) {
+        if ("elements" in screen && screen.elements) {
           if (screen.elements.some((el: any) => el.scope?.includes(field))) {
             // Dispatch a custom event that SwipeLayoutWrapper will listen for
-            const navigateEvent = new CustomEvent('navigateToPage', {
+            const navigateEvent = new CustomEvent("navigateToPage", {
               detail: { page: i },
             });
             window.dispatchEvent(navigateEvent);
@@ -613,49 +613,49 @@ function App() {
 
       if (!payloadFormInit) {
         console.error(
-          '[App.tsx] Cannot finalize form: formInitData is missing',
+          "[App.tsx] Cannot finalize form: formInitData is missing"
         );
         setSubmitError(
-          'Cannot submit form because initialization data is missing.',
+          "Cannot submit form because initialization data is missing."
         );
         return;
       }
 
-      console.log('[App.tsx] Submitting form data:', payloadData);
+      console.log("[App.tsx] Submitting form data:", payloadData);
       formulusClient.current
         .submitObservationWithContext(payloadFormInit, payloadData)
         .then(() => {
           // Only clean up drafts after a successful save
           draftService.deleteDraftsForFormInstance(
             payloadFormInit.formType,
-            payloadFormInit.observationId,
+            payloadFormInit.observationId
           );
           setSubmitError(null);
           setShowFinalizeMessage(true);
         })
-        .catch(error => {
-          console.error('[App.tsx] Error submitting form:', error);
-          setSubmitError('Failed to submit form. Please try again.');
+        .catch((error) => {
+          console.error("[App.tsx] Error submitting form:", error);
+          setSubmitError("Failed to submit form. Please try again.");
         });
     };
 
     window.addEventListener(
-      'navigateToError',
-      handleNavigateToError as EventListener,
+      "navigateToError",
+      handleNavigateToError as EventListener
     );
     window.addEventListener(
-      'finalizeForm',
-      handleFinalizeForm as EventListener,
+      "finalizeForm",
+      handleFinalizeForm as EventListener
     );
 
     return () => {
       window.removeEventListener(
-        'navigateToError',
-        handleNavigateToError as EventListener,
+        "navigateToError",
+        handleNavigateToError as EventListener
       );
       window.removeEventListener(
-        'finalizeForm',
-        handleFinalizeForm as EventListener,
+        "finalizeForm",
+        handleFinalizeForm as EventListener
       );
     };
   }, [data, formInitData, uischema]); // Include all dependencies
@@ -665,7 +665,7 @@ function App() {
     (draftId: string) => {
       const draft = draftService.getDraft(draftId);
       if (draft && pendingFormInit) {
-        console.log('Resuming draft:', draftId, draft);
+        console.log("Resuming draft:", draftId, draft);
 
         // Create new FormInitData with draft data as savedData
         const initDataWithDraft: FormInitData = {
@@ -681,13 +681,13 @@ function App() {
         setPendingFormInit(null);
       }
     },
-    [pendingFormInit, initializeForm],
+    [pendingFormInit, initializeForm]
   );
 
   // Handler for starting a new form (ignoring drafts)
   const handleStartNewForm = useCallback(() => {
     if (pendingFormInit) {
-      console.log('Starting new form, ignoring drafts');
+      console.log("Starting new form, ignoring drafts");
       initializeForm(pendingFormInit);
       setShowDraftSelector(false);
       setPendingFormInit(null);
@@ -703,7 +703,7 @@ function App() {
         draftService.saveDraft(formInitData.formType, data, formInitData);
       }
     },
-    [formInitData],
+    [formInitData]
   );
 
   // Create AJV instance with extension definitions support
@@ -716,21 +716,21 @@ function App() {
     addFormats(instance);
 
     // Add custom format validators
-    instance.addFormat('photo', () => true); // Accept any value for photo format
-    instance.addFormat('qrcode', () => true); // Accept any value for qrcode format
-    instance.addFormat('signature', () => true); // Accept any value for signature format
-    instance.addFormat('select_file', () => true); // Accept any value for file selection format
-    instance.addFormat('audio', () => true); // Accept any value for audio format
-    instance.addFormat('gps', () => true); // Accept any value for GPS format
-    instance.addFormat('video', () => true); // Accept any value for video format
-    instance.addFormat('adate', (data: any) => {
+    instance.addFormat("photo", () => true); // Accept any value for photo format
+    instance.addFormat("qrcode", () => true); // Accept any value for qrcode format
+    instance.addFormat("signature", () => true); // Accept any value for signature format
+    instance.addFormat("select_file", () => true); // Accept any value for file selection format
+    instance.addFormat("audio", () => true); // Accept any value for audio format
+    instance.addFormat("gps", () => true); // Accept any value for GPS format
+    instance.addFormat("video", () => true); // Accept any value for video format
+    instance.addFormat("adate", (data: any) => {
       // Allow null, undefined, or empty string (for optional fields)
-      if (data === null || data === undefined || data === '') {
+      if (data === null || data === undefined || data === "") {
         return true;
       }
       // Validate YYYY-MM-DD format (may contain ?? for unknown parts)
       const dateRegex = /^(\d{4}|\?\?\?\?)-(\d{2}|\?\?)-(\d{2}|\?\?)$/;
-      return typeof data === 'string' && dateRegex.test(data);
+      return typeof data === "string" && dateRegex.test(data);
     });
 
     // Add extension definitions to AJV for $ref support
@@ -747,7 +747,7 @@ function App() {
   // Create dynamic theme based on dark mode preference
   // Must be called before any early returns to follow React Hooks rules
   const currentTheme = useMemo(() => {
-    return createTheme(getThemeOptions(darkMode ? 'dark' : 'light'));
+    return createTheme(getThemeOptions(darkMode ? "dark" : "light"));
   }, [darkMode]);
 
   // Show draft selector if we have pending form init and available drafts
@@ -768,17 +768,18 @@ function App() {
     return (
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100dvh',
-        }}>
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100dvh",
+        }}
+      >
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
           Loading form...
         </Typography>
-        <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
+        <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>
           Waiting for data from Formulus...
         </Typography>
       </Box>
@@ -789,25 +790,27 @@ function App() {
     return (
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: '100dvh',
-        }}>
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100dvh",
+        }}
+      >
         <Typography variant="h6" color="error">
-          {loadError || 'Failed to load form'}
+          {loadError || "Failed to load form"}
         </Typography>
         <Box
           sx={{
             mt: 2,
             p: 2,
-            bgcolor: 'background.paper',
+            bgcolor: "background.paper",
             borderRadius: 1,
-            maxWidth: '80%',
-            border: '1px solid',
-            borderColor: 'divider',
-          }}>
+            maxWidth: "80%",
+            border: "1px solid",
+            borderColor: "divider",
+          }}
+        >
           <Typography variant="subtitle2" color="text.secondary">
             Debug Information:
           </Typography>
@@ -817,12 +820,13 @@ function App() {
             sx={{
               mt: 1,
               p: 1,
-              bgcolor: 'background.default',
-              overflow: 'auto',
-              maxHeight: '200px',
-              color: 'text.secondary',
+              bgcolor: "background.default",
+              overflow: "auto",
+              maxHeight: "200px",
+              color: "text.secondary",
               borderRadius: 1,
-            }}>
+            }}
+          >
             {JSON.stringify(
               {
                 hasSchema: !!schema,
@@ -832,7 +836,7 @@ function App() {
                 error: loadError,
               },
               null,
-              2,
+              2
             )}
           </Typography>
         </Box>
@@ -841,9 +845,9 @@ function App() {
   }
 
   // Log render with current state
-  console.log('Rendering form with:', {
-    schemaType: schema?.type || 'MISSING',
-    uiSchemaType: uischema?.type || 'MISSING',
+  console.log("Rendering form with:", {
+    schemaType: schema?.type || "MISSING",
+    uiSchemaType: uischema?.type || "MISSING",
     dataKeys: Object.keys(data),
     formType: formInitData?.formType,
     darkMode: darkMode,
@@ -855,33 +859,36 @@ function App() {
         <div
           className="App"
           style={{
-            display: 'flex',
-            height: '100dvh', // Use dynamic viewport height for mobile keyboard support
-            width: '100%',
+            display: "flex",
+            height: "100dvh", // Use dynamic viewport height for mobile keyboard support
+            width: "100%",
             backgroundColor: currentTheme.palette.background.default, // Ensure dark background
             color: currentTheme.palette.text.primary,
-          }}>
+          }}
+        >
           {/* Main app content - 60% width in development mode */}
           <div
             style={{
-              width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
-              overflow: 'hidden', // Prevent outer scrolling - FormLayout handles scrolling internally
-              padding: '4px',
-              boxSizing: 'border-box',
-              height: '100%', // Ensure it takes full height
-              backgroundColor: 'transparent', // Use theme background
-            }}>
+              width: process.env.NODE_ENV === "development" ? "60%" : "100%",
+              overflow: "hidden", // Prevent outer scrolling - FormLayout handles scrolling internally
+              padding: "8px",
+              boxSizing: "border-box",
+              height: "100%", // Ensure it takes full height
+              backgroundColor: "transparent", // Use theme background
+            }}
+          >
             <ErrorBoundary>
               {loadError ? (
                 <Box
                   sx={{
-                    padding: '20px',
-                    backgroundColor: 'error.light',
-                    border: '1px solid',
-                    borderColor: 'error.main',
-                    borderRadius: '4px',
-                    color: 'error.dark',
-                  }}>
+                    padding: "20px",
+                    backgroundColor: "error.light",
+                    border: "1px solid",
+                    borderColor: "error.main",
+                    borderRadius: "4px",
+                    color: "error.dark",
+                  }}
+                >
                   <Typography variant="h6" color="error">
                     Error Loading Form
                   </Typography>
@@ -910,10 +917,12 @@ function App() {
                   <Snackbar
                     open={showFinalizeMessage}
                     autoHideDuration={6000}
-                    onClose={() => setShowFinalizeMessage(false)}>
+                    onClose={() => setShowFinalizeMessage(false)}
+                  >
                     <Alert
                       onClose={() => setShowFinalizeMessage(false)}
-                      severity="info">
+                      severity="info"
+                    >
                       Form submitted successfully!
                     </Alert>
                   </Snackbar>
@@ -921,10 +930,12 @@ function App() {
                   <Snackbar
                     open={Boolean(submitError)}
                     autoHideDuration={6000}
-                    onClose={() => setSubmitError(null)}>
+                    onClose={() => setSubmitError(null)}
+                  >
                     <Alert
                       onClose={() => setSubmitError(null)}
-                      severity="error">
+                      severity="error"
+                    >
                       {submitError}
                     </Alert>
                   </Snackbar>
@@ -934,13 +945,14 @@ function App() {
           </div>
 
           {/* Development testbed - 40% width in development mode */}
-          {process.env.NODE_ENV === 'development' && DevTestbed && (
+          {process.env.NODE_ENV === "development" && DevTestbed && (
             <div
               style={{
-                width: '40%',
-                borderLeft: '2px solid #e0e0e0',
-                backgroundColor: '#fafafa',
-              }}>
+                width: "40%",
+                borderLeft: "2px solid #e0e0e0",
+                backgroundColor: "#fafafa",
+              }}
+            >
               <ErrorBoundary>
                 <DevTestbed isVisible={true} />
               </ErrorBoundary>
