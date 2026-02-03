@@ -1,4 +1,4 @@
-name: Synkronus Docker Build & Publish
+name: Synkronus & Portal Docker Build & Publish
 
 on:
   push:
@@ -7,10 +7,16 @@ on:
       - dev
     paths:
       - 'synkronus/**'
+      - 'synkronus-portal/**'
+      - 'packages/**'
+      - 'Dockerfile'
       - '.github/workflows/synkronus-docker.yml'
   pull_request:
     paths:
       - 'synkronus/**'
+      - 'synkronus-portal/**'
+      - 'packages/**'
+      - 'Dockerfile'
       - '.github/workflows/synkronus-docker.yml'
   workflow_dispatch:
     inputs:
@@ -23,11 +29,11 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: opendataensemble/synkronus
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    name: Build and push combined Synkronus image
     permissions:
       contents: write
       packages: write
@@ -57,7 +63,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/opendataensemble/synkronus
           tags: |
             # For main branch: latest + version tag (manual dispatch) or release tag
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
@@ -78,15 +84,15 @@ jobs:
             type=sha,prefix=sha-,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' }}
           labels: |
             org.opencontainers.image.title=Synkronus
-            org.opencontainers.image.description=Synchronization API for offline-first applications
+            org.opencontainers.image.description=Synchronization API and Web Portal for offline-first applications
             org.opencontainers.image.vendor=Open Data Ensemble
       
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v5
         with:
-          context: ./synkronus
-          file: ./synkronus/Dockerfile
+          context: .
+          file: ./Dockerfile
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -98,6 +104,6 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v1
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-name: ${{ env.REGISTRY }}/opendataensemble/synkronus
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true

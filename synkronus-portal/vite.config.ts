@@ -6,13 +6,36 @@ export default defineConfig({
   plugins: [
     react({
       babel: {
-        plugins: [['babel-plugin-react-compiler']],
+        // Disable React Compiler - it causes issues in production builds
+        // The compiler is experimental and can break React internals
+        plugins: [],
       },
     }),
   ],
-  // Disable caching in development to prevent stale code issues
+  // Ensure React is properly resolved and deduplicated
+  resolve: {
+    dedupe: ['react', 'react-dom'],
+  },
   optimizeDeps: {
-    force: true, // Force re-optimization of dependencies
+    include: ['react', 'react-dom'],
+  },
+  build: {
+    // Ensure React is not bundled multiple times
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      output: {
+        // Let Vite handle chunking automatically for proper module resolution
+        manualChunks: undefined,
+      },
+    },
+    // Ensure proper module format
+    target: 'esnext',
+    modulePreload: {
+      polyfill: true,
+    },
   },
   server: {
     host: '0.0.0.0', // Allow external connections (needed for Docker)
