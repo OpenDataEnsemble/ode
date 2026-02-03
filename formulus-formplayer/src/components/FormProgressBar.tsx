@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Box, LinearProgress, Typography } from "@mui/material";
+import React, { useMemo } from 'react';
+import { Box, LinearProgress, Typography } from '@mui/material';
 
 type JsonSchema = {
   type?: string | string[];
@@ -33,7 +33,7 @@ interface FormProgressBarProps {
    * 'screens': Based on screens completed
    * 'questions': Based on questions answered
    */
-  mode?: "screens" | "questions" | "both";
+  mode?: 'screens' | 'questions' | 'both';
   /**
    * Whether the user is currently on the Finalize page
    */
@@ -45,7 +45,7 @@ interface FormProgressBarProps {
  */
 const countQuestions = (
   schema: JsonSchema | undefined,
-  path: string = ""
+  path: string = '',
 ): number => {
   if (!schema || !schema.properties) {
     return 0;
@@ -58,10 +58,10 @@ const countQuestions = (
     const currentPath = path ? `${path}.${key}` : key;
     const fieldSchema = value as JsonSchema;
 
-    if (fieldSchema.type === "object" && fieldSchema.properties) {
+    if (fieldSchema.type === 'object' && fieldSchema.properties) {
       count += countQuestions(fieldSchema, currentPath);
     } else {
-      if (fieldSchema.format !== "finalize") {
+      if (fieldSchema.format !== 'finalize') {
         count++;
       }
     }
@@ -76,7 +76,7 @@ const countQuestions = (
 const countAnsweredQuestions = (
   schema: JsonSchema | undefined,
   data: Record<string, any>,
-  path: string = ""
+  path: string = '',
 ): number => {
   if (!schema || !schema.properties || !data) {
     return 0;
@@ -90,21 +90,21 @@ const countAnsweredQuestions = (
     const fieldSchema = value as JsonSchema;
     const fieldValue = data[key];
 
-    if (fieldSchema.type === "object" && fieldSchema.properties) {
-      if (fieldValue && typeof fieldValue === "object") {
+    if (fieldSchema.type === 'object' && fieldSchema.properties) {
+      if (fieldValue && typeof fieldValue === 'object') {
         count += countAnsweredQuestions(fieldSchema, fieldValue, currentPath);
       }
     } else {
       const isAnswered =
         fieldValue !== undefined &&
         fieldValue !== null &&
-        fieldValue !== "" &&
+        fieldValue !== '' &&
         !(Array.isArray(fieldValue) && fieldValue.length === 0) &&
         !(
-          typeof fieldValue === "object" && Object.keys(fieldValue).length === 0
+          typeof fieldValue === 'object' && Object.keys(fieldValue).length === 0
         );
 
-      if (isAnswered && fieldSchema.format !== "finalize") {
+      if (isAnswered && fieldSchema.format !== 'finalize') {
         count++;
       }
     }
@@ -121,11 +121,11 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   totalScreens,
   data,
   schema,
-  mode = "screens",
+  mode = 'screens',
   isOnFinalizePage = false,
 }) => {
   const progress = useMemo(() => {
-    if (mode === "screens" || mode === "both") {
+    if (mode === 'screens' || mode === 'both') {
       if (totalScreens === 0) return 0;
 
       if (isOnFinalizePage) {
@@ -135,7 +135,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
       const completedScreens = currentPage + 1;
       const screenProgress = (completedScreens / totalScreens) * 100;
 
-      if (mode === "screens") {
+      if (mode === 'screens') {
         return Math.round(screenProgress);
       }
 
@@ -149,7 +149,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
       }
 
       return Math.round(screenProgress);
-    } else if (mode === "questions") {
+    } else if (mode === 'questions') {
       if (!schema || !data) return 0;
 
       const totalQuestions = countQuestions(schema);
@@ -169,20 +169,18 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   return (
     <Box
       sx={{
-        width: "100%",
-        mb: 0.5,
+        width: '100%',
+        mb: 2,
         px: 0,
-      }}
-    >
+      }}>
       <Box
         sx={{
-          display: "flex",
-          alignItems: "center",
+          display: 'flex',
+          alignItems: 'center',
           gap: 1,
           mb: 0.5,
           px: { xs: 1, sm: 2 },
-        }}
-      >
+        }}>
         <LinearProgress
           variant="determinate"
           value={progress}
@@ -190,23 +188,22 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
             flexGrow: 1,
             height: 8,
             borderRadius: 4,
-            backgroundColor: "rgba(0, 0, 0, 0.1)",
-            "& .MuiLinearProgress-bar": {
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            '& .MuiLinearProgress-bar': {
               borderRadius: 4,
-              transition: "transform 0.4s ease-in-out",
+              transition: 'transform 0.4s ease-in-out',
             },
           }}
         />
         <Typography
           variant="caption"
           sx={{
-            minWidth: "45px",
-            textAlign: "right",
-            color: "text.secondary",
+            minWidth: '45px',
+            textAlign: 'right',
+            color: 'text.secondary',
             fontWeight: 500,
             pr: { xs: 1, sm: 2 },
-          }}
-        >
+          }}>
           {progress}%
         </Typography>
       </Box>
