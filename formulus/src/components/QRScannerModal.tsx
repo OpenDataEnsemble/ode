@@ -42,8 +42,10 @@ interface QRScannerModalProps {
 // Only load QRScannerModalImpl if VisionCamera native module is linked
 let QRScannerModalImpl: React.ComponentType<QRScannerModalProps> | null = null;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { NativeModules } = require('react-native');
   if (NativeModules.CameraView) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     QRScannerModalImpl = require('./QRScannerModalImpl').default;
   }
 } catch (e) {
@@ -87,8 +89,8 @@ const QRScannerModal: React.FC<QRScannerModalProps> = props => {
       <View style={styles.container}>
         <View style={styles.fallbackContainer}>
           <Text style={styles.fallbackText}>
-            QR scanner not available. Camera module (react-native-vision-camera) is
-            not linked. Re-enable it in react-native.config.js and rebuild.
+            QR scanner not available. Camera module (react-native-vision-camera)
+            is not linked. Re-enable it in react-native.config.js and rebuild.
           </Text>
           <TouchableOpacity style={styles.button} onPress={props.onClose}>
             <Text style={styles.buttonText}>Close</Text>

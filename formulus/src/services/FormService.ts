@@ -271,7 +271,9 @@ export class FormService {
     whereClause?: string | null;
   }): Promise<Observation[]> {
     const localRepo = databaseService.getLocalRepo();
-    let observations = await localRepo.getObservationsByFormType(options.formType);
+    let observations = await localRepo.getObservationsByFormType(
+      options.formType,
+    );
 
     if (options.whereClause && options.whereClause.trim()) {
       observations = this.filterObservationsByWhereClause(
@@ -304,7 +306,10 @@ export class FormService {
     while ((match = dataFieldRegex.exec(whereClause)) !== null) {
       const field = match[1] || match[4] || match[7];
       const operator = (match[2] || match[5] || match[8]).replace(/<>/g, '!=');
-      const value = (match[3] || match[6] || match[9] || '').replace(/''/g, "'");
+      const value = (match[3] || match[6] || match[9] || '').replace(
+        /''/g,
+        "'",
+      );
       if (field) conditions.push({ field, operator, value });
     }
 
@@ -314,7 +319,10 @@ export class FormService {
     while ((match = jsonExtractRegex.exec(whereClause)) !== null) {
       const field = match[1] || match[4] || match[7];
       const operator = (match[2] || match[5] || match[8]).replace(/<>/g, '!=');
-      const value = (match[3] || match[6] || match[9] || '').replace(/''/g, "'");
+      const value = (match[3] || match[6] || match[9] || '').replace(
+        /''/g,
+        "'",
+      );
       if (field) conditions.push({ field, operator, value });
     }
 
@@ -330,19 +338,37 @@ export class FormService {
         let matches: boolean;
         if (isNumeric) {
           switch (cond.operator) {
-            case '=': matches = numVal === condNum; break;
-            case '!=': matches = numVal !== condNum; break;
-            case '>=': matches = numVal >= condNum; break;
-            case '<=': matches = numVal <= condNum; break;
-            case '>': matches = numVal > condNum; break;
-            case '<': matches = numVal < condNum; break;
-            default: matches = strVal === cond.value;
+            case '=':
+              matches = numVal === condNum;
+              break;
+            case '!=':
+              matches = numVal !== condNum;
+              break;
+            case '>=':
+              matches = numVal >= condNum;
+              break;
+            case '<=':
+              matches = numVal <= condNum;
+              break;
+            case '>':
+              matches = numVal > condNum;
+              break;
+            case '<':
+              matches = numVal < condNum;
+              break;
+            default:
+              matches = strVal === cond.value;
           }
         } else {
           switch (cond.operator) {
-            case '=': matches = strVal === cond.value; break;
-            case '!=': matches = strVal !== cond.value; break;
-            default: matches = false;
+            case '=':
+              matches = strVal === cond.value;
+              break;
+            case '!=':
+              matches = strVal !== cond.value;
+              break;
+            default:
+              matches = false;
           }
         }
         if (!matches) return false;

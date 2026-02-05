@@ -93,11 +93,15 @@ export class ExtensionService {
       renderers: {},
     };
 
-    console.log(`[ExtensionService] Loading extensions for app: ${customAppPath}, form: ${formName || 'none'}`);
+    console.log(
+      `[ExtensionService] Loading extensions for app: ${customAppPath}, form: ${formName || 'none'}`,
+    );
 
     // Load app-level extensions
     const appExtPath = `${customAppPath}/forms/ext.json`;
-    console.log(`[ExtensionService] Loading app-level ext.json from: ${appExtPath}`);
+    console.log(
+      `[ExtensionService] Loading app-level ext.json from: ${appExtPath}`,
+    );
     const appLevelExt = await this.loadExtensionFile(appExtPath);
     if (appLevelExt) {
       console.log(`[ExtensionService] App-level extensions loaded:`, {
@@ -106,13 +110,17 @@ export class ExtensionService {
       });
       this.mergeExtension(result, appLevelExt);
     } else {
-      console.warn(`[ExtensionService] App-level ext.json not found or failed to load: ${appExtPath}`);
+      console.warn(
+        `[ExtensionService] App-level ext.json not found or failed to load: ${appExtPath}`,
+      );
     }
 
     // Load form-level extensions (higher precedence)
     if (formName) {
       const formExtPath = `${customAppPath}/forms/${formName}/ext.json`;
-      console.log(`[ExtensionService] Loading form-level ext.json from: ${formExtPath}`);
+      console.log(
+        `[ExtensionService] Loading form-level ext.json from: ${formExtPath}`,
+      );
       const formLevelExt = await this.loadExtensionFile(formExtPath);
       if (formLevelExt) {
         console.log(`[ExtensionService] Form-level extensions loaded:`, {
@@ -152,25 +160,28 @@ export class ExtensionService {
       }
 
       const content = await RNFS.readFile(filePath, 'utf8');
-      const rawExtension = JSON.parse(content) as any;
+      const rawExtension = JSON.parse(content) as Record<string, unknown>;
 
       console.log(`[ExtensionService] Loaded ext.json from ${filePath}:`, {
         hasSchemas: !!rawExtension.schemas,
         hasDefinitions: !!rawExtension.definitions,
         hasFunctions: !!rawExtension.functions,
-        functionKeys: rawExtension.functions ? Object.keys(rawExtension.functions) : [],
+        functionKeys: rawExtension.functions
+          ? Object.keys(rawExtension.functions)
+          : [],
         hasRenderers: !!rawExtension.renderers,
       });
 
       // Normalize the extension format to match ExtensionDefinition interface
       const extension: ExtensionDefinition = {
         // Handle both "schemas.definitions" and direct "definitions"
-        definitions: rawExtension.definitions || rawExtension.schemas?.definitions || {},
-        
+        definitions:
+          rawExtension.definitions || rawExtension.schemas?.definitions || {},
+
         // Transform functions from {key: {path, export}} to {key: {name, module, export}}
         functions: rawExtension.functions
           ? Object.entries(rawExtension.functions).reduce(
-              (acc, [key, func]: [string, any]) => {
+              (acc, [key, func]: [string, Record<string, unknown>]) => {
                 acc[key] = {
                   name: key, // Use key as name
                   module: func.path || func.module || '', // Support both "path" and "module"
@@ -181,21 +192,26 @@ export class ExtensionService {
               {} as Record<string, ExtensionFunction>,
             )
           : undefined,
-        
+
         // Transform renderers (similar structure)
         renderers: rawExtension.renderers
           ? Object.entries(rawExtension.renderers).reduce(
-              (acc, [key, renderer]: [string, any]) => {
+              (acc, [key, renderer]: [string, Record<string, unknown>]) => {
                 // Handle both flat structure and nested structure
                 const rendererObj = renderer.renderer || renderer;
                 const testerObj = renderer.tester || {};
-                
+
                 acc[key] = {
                   name: key,
                   format: renderer.format || rendererObj?.format || '',
-                  module: rendererObj?.path || rendererObj?.module || renderer.module || '',
+                  module:
+                    rendererObj?.path ||
+                    rendererObj?.module ||
+                    renderer.module ||
+                    '',
                   tester: testerObj?.export || renderer.tester?.export,
-                  renderer: rendererObj?.export || renderer.renderer?.export || key,
+                  renderer:
+                    rendererObj?.export || renderer.renderer?.export || key,
                 };
                 return acc;
               },
@@ -223,11 +239,18 @@ export class ExtensionService {
 
       return extension;
     } catch (error) {
-      if ((error as any).code === 'ENOENT') {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        (error as NodeJS.ErrnoException).code === 'ENOENT'
+      ) {
         // File doesn't exist - this is OK
         return null;
       }
-      console.warn(`[ExtensionService] Failed to load extension file ${filePath}:`, error);
+      console.warn(
+        `[ExtensionService] Failed to load extension file ${filePath}:`,
+        error,
+      );
       return null;
     }
   }

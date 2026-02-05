@@ -303,7 +303,10 @@ export class FormulusWebViewMessageManager {
         pendingRequest.callbackName === 'onFormInit'
       ) {
         this.formInitRetryCount += 1;
-        if (this.formInitRetryCount > FormulusWebViewMessageManager.FORM_INIT_MAX_RETRIES) {
+        if (
+          this.formInitRetryCount >
+          FormulusWebViewMessageManager.FORM_INIT_MAX_RETRIES
+        ) {
           console.error(
             `${this.logPrefix} Form init failed after ${this.formInitRetryCount} retries. Formplayer may not have loaded.`,
           );

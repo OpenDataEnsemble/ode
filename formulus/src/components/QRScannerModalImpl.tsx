@@ -134,7 +134,9 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
             <TouchableOpacity style={styles.button} onPress={requestPermission}>
               <Text style={styles.buttonText}>Grant Permission</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
@@ -149,7 +151,9 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
         <View style={styles.container}>
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>No camera device found</Text>
-            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={handleCancel}>
               <Text style={styles.cancelButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
@@ -171,7 +175,9 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
         <View style={styles.overlay}>
           <View style={styles.topOverlay}>
             <Text style={styles.instructionText}>
-              {scannedData ? 'Code Scanned!' : 'Point camera at QR code or barcode'}
+              {scannedData
+                ? 'Code Scanned!'
+                : 'Point camera at QR code or barcode'}
             </Text>
           </View>
           <View style={styles.scanFrame}>
@@ -189,16 +195,22 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
                   {scannedData}
                 </Text>
                 <View style={styles.buttonRow}>
-                  <TouchableOpacity style={styles.retryButton} onPress={handleRetry}>
+                  <TouchableOpacity
+                    style={styles.retryButton}
+                    onPress={handleRetry}>
                     <Text style={styles.buttonText}>Scan Again</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.confirmButton} onPress={handleConfirm}>
+                  <TouchableOpacity
+                    style={styles.confirmButton}
+                    onPress={handleConfirm}>
                     <Text style={styles.buttonText}>Confirm</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ) : (
-              <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={handleCancel}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
             )}

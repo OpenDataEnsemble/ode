@@ -24,8 +24,15 @@ import { FormulusMessageHandlers } from './FormulusMessageHandlers.types';
 // NitroSound is disabled for emulator in react-native.config.js - do not load the module
 // to avoid "Sound HybridObject not registered" console errors. Load lazily only when
 // the native module is available (re-enable in react-native.config.js and rebuild).
-let NitroSound: { startRecorder: (path: string, opts: unknown) => Promise<void>; stopRecorder: () => Promise<void> } | null = null;
-type AudioSet = { AudioSamplingRate: number; AudioEncodingBitRate: number; AudioChannels: number };
+let NitroSound: {
+  startRecorder: (path: string, opts: unknown) => Promise<void>;
+  stopRecorder: () => Promise<void>;
+} | null = null;
+type AudioSet = {
+  AudioSamplingRate: number;
+  AudioEncodingBitRate: number;
+  AudioChannels: number;
+};
 import { FormService } from '../services/FormService';
 import { Observation, ObservationData } from '../database/models/Observation';
 
@@ -795,6 +802,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // Lazy-load NitroSound only when audio is requested (avoids console error on startup when disabled)
       if (!NitroSound) {
         try {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
           const ns = require('react-native-nitro-sound');
           NitroSound = ns.default;
         } catch {
@@ -1008,20 +1016,18 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       //TODO: Handle deleted etc.
       return await service.getObservationsByFormType(formTypeString);
     },
-    onGetObservationsByQuery: async (
-      payload: {
-        options?: {
-          formType: string;
-          isDraft?: boolean;
-          includeDeleted?: boolean;
-          whereClause?: string | null;
-        };
-        formType?: string;
+    onGetObservationsByQuery: async (payload: {
+      options?: {
+        formType: string;
         isDraft?: boolean;
         includeDeleted?: boolean;
         whereClause?: string | null;
-      },
-    ) => {
+      };
+      formType?: string;
+      isDraft?: boolean;
+      includeDeleted?: boolean;
+      whereClause?: string | null;
+    }) => {
       const options = (payload?.options ?? payload) as {
         formType: string;
         isDraft?: boolean;
@@ -1044,7 +1050,10 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         data.observationId ?? null,
       );
     },
-    onFormplayerInitialized: (_data: { formType?: string; status?: string }) => {
+    onFormplayerInitialized: (_data: {
+      formType?: string;
+      status?: string;
+    }) => {
       // Reserved for future hooks (e.g., native-side loading indicators or analytics).
     },
     onFormulusReady: () => {
