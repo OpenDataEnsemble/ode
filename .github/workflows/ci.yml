@@ -131,9 +131,8 @@ jobs:
         continue-on-error: false
       
       - name: Run tests
-      ## Ignoring formulus-formplayer testing for Q2
-        ## run: npm test -- --coverage --watchAll=false
-        continue-on-error: true # We want to continue even if tests fail since tests are not set yet
+        run: npm test -- --coverage --watchAll=false
+        continue-on-error: true # Tests not fully set up yet
       
       - name: Build
         run: npm run build
