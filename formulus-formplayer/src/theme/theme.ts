@@ -400,6 +400,20 @@ export const getThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
           },
         },
       },
+      MuiRadioGroup: {
+        styleOverrides: {
+          root: {
+            flexDirection: 'column',
+          },
+        },
+      },
+      MuiFormGroup: {
+        styleOverrides: {
+          root: {
+            flexDirection: 'column',
+          },
+        },
+      },
       // Switch styling
       MuiSwitch: {
         styleOverrides: {
