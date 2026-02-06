@@ -170,7 +170,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
     <Box
       sx={{
         width: '100%',
-        mb: 2,
+        mb: 1,
         px: 0,
       }}>
       <Box
