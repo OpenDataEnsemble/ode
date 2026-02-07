@@ -142,6 +142,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     const handleClose = useCallback(() => {
       if (isClosing || isSubmitting) return;
 
+      if (webViewRef.current?.canGoBack?.()) {
+        webViewRef.current.goBack();
+        return;
+      }
+
       Alert.alert(
         'Close form?',
         'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',

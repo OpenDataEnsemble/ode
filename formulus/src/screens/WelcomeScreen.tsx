@@ -13,7 +13,13 @@ const WelcomeScreen = () => {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
 
   const handleGetStarted = () => {
-    navigation.navigate('MainApp');
+    // Use reset instead of navigate so that "Welcome" is removed from the
+    // stack history.  This prevents the hardware back button from returning
+    // the user to the Welcome screen after they've configured the server.
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainApp' }],
+    });
   };
 
   return (

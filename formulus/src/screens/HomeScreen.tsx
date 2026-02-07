@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, View, ActivityIndicator, Platform } from 'react-native';
+import { Alert, BackHandler, StyleSheet, View, ActivityIndicator, Platform } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
@@ -11,6 +12,34 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (Platform.OS !== 'android') {
+        return;
+      }
+
+      const onBackPress = () => {
+        if (customAppRef.current?.canGoBack?.()) {
+          customAppRef.current.goBack();
+          return true;
+        }
+
+        Alert.alert('Exit app?', 'Are you sure you want to exit Formulus?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() },
+        ]);
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener(
+        'hardwareBackPress',
+        onBackPress,
+      );
+
+      return () => subscription.remove();
+    }, []),
+  );
 
   const checkAndSetAppUri = async () => {
     try {

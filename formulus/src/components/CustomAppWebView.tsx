@@ -2,13 +2,14 @@ import React, {
   useRef,
   useEffect,
   useState,
+  useCallback,
   forwardRef,
   useImperativeHandle,
   useMemo,
   SyntheticEvent,
 } from 'react';
 import { View, ActivityIndicator, AppState, StyleSheet } from 'react-native';
-import { WebView } from 'react-native-webview';
+import { WebView, WebViewNavigation } from 'react-native-webview';
 import { useIsFocused } from '@react-navigation/native';
 import { Platform } from 'react-native';
 import { readFileAssets, MainBundlePath, readFile } from 'react-native-fs';
@@ -20,6 +21,7 @@ export interface CustomAppWebViewHandle {
   reload: () => void;
   goBack: () => void;
   goForward: () => void;
+  canGoBack: () => boolean;
   injectJavaScript: (script: string) => void;
   sendFormInit: (formData: FormInitData) => Promise<void>;
   sendAttachmentData: (attachmentData: File) => Promise<void>;
@@ -29,12 +31,65 @@ interface CustomAppWebViewProps {
   appUrl: string;
   appName?: string; // To identify the source of logs
   onLoadEndProp?: () => void; // Propagate WebView's onLoadEnd event
+  onCanGoBackChange?: (canGoBack: boolean) => void; // Notify parent when WebView back-navigability changes
 }
 
 const INJECTION_SCRIPT_PATH =
   Platform.OS === 'android'
     ? 'webview/FormulusInjectionScript.js'
     : 'FormulusInjectionScript.js';
+
+const hashNavigationTrackingScript = `
+    (function() {
+      if (window.__formulusHashNavInstalled) return;
+      window.__formulusHashNavInstalled = true;
+
+      // Track the initial URL so we can determine canGoBack.
+      // We consider "can go back" = the browser history length is > 1
+      // AND we are not at the initial entry point.
+      var initialHref = window.location.href;
+      var navigationDepth = 0;
+
+      function notifyCanGoBack() {
+        var canGoBack = navigationDepth > 0;
+        try {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'hashNavigationStateChange',
+            canGoBack: canGoBack,
+            url: window.location.href,
+            depth: navigationDepth
+          }));
+        } catch(e) { /* ignore if bridge not ready */ }
+      }
+
+      // Intercept pushState / replaceState so we can track depth accurately
+      var origPushState = history.pushState;
+      history.pushState = function() {
+        origPushState.apply(this, arguments);
+        navigationDepth++;
+        notifyCanGoBack();
+      };
+
+      var origReplaceState = history.replaceState;
+      history.replaceState = function() {
+        origReplaceState.apply(this, arguments);
+        // replaceState doesn't add depth
+        notifyCanGoBack();
+      };
+
+      window.addEventListener('popstate', function() {
+        navigationDepth = Math.max(0, navigationDepth - 1);
+        notifyCanGoBack();
+      });
+
+      window.addEventListener('hashchange', function() {
+        // hashchange after pushState is already handled, but if the hash
+        // was changed directly (e.g. location.hash = ...) we catch it here.
+        // We bump depth only if it wasn't already bumped by pushState.
+        notifyCanGoBack();
+      });
+    })();
+  `;
 
 const consoleLogScript = `
     (function() {
@@ -101,9 +156,16 @@ const consoleLogScript = `
 const CustomAppWebView = forwardRef<
   CustomAppWebViewHandle,
   CustomAppWebViewProps
->(({ appUrl, appName, onLoadEndProp }, ref) => {
+>(({ appUrl, appName, onLoadEndProp, onCanGoBackChange }, ref) => {
   const webViewRef = useRef<WebView | null>(null);
   const hasLoadedOnceRef = useRef(false);
+
+  const canGoBackRef = useRef(false);
+
+  const onCanGoBackChangeRef = useRef(onCanGoBackChange);
+  useEffect(() => {
+    onCanGoBackChangeRef.current = onCanGoBackChange;
+  }, [onCanGoBackChange]);
 
   const [injectionScript, setInjectionScript] =
     useState<string>(consoleLogScript);
@@ -123,8 +185,8 @@ const CustomAppWebView = forwardRef<
           script = await readFile(iosPath, 'utf8');
         }
 
-        // Combine and set state
-        const fullScript = consoleLogScript + '\n' + script;
+        const fullScript =
+          consoleLogScript + '\n' + hashNavigationTrackingScript + '\n' + script;
         setInjectionScript(fullScript);
         setIsScriptReady(true);
       } catch (err) {
@@ -144,6 +206,15 @@ const CustomAppWebView = forwardRef<
     manager.handleWebViewMessage = event => {
       try {
         const eventData = JSON.parse(event.nativeEvent.data);
+
+        if (eventData.type === 'hashNavigationStateChange') {
+          const newCanGoBack = !!eventData.canGoBack;
+          if (canGoBackRef.current !== newCanGoBack) {
+            canGoBackRef.current = newCanGoBack;
+            onCanGoBackChangeRef.current?.(newCanGoBack);
+          }
+          return;
+        }
 
         // Handle API re-injection requests from WebView
         if (eventData.type === 'requestApiReinjection') {
@@ -193,6 +264,17 @@ const CustomAppWebView = forwardRef<
     return manager;
   }, [appName]);
 
+  const handleNavigationStateChange = useCallback(
+    (navState: WebViewNavigation) => {
+      const newCanGoBack = navState.canGoBack;
+      if (canGoBackRef.current !== newCanGoBack) {
+        canGoBackRef.current = newCanGoBack;
+        onCanGoBackChange?.(newCanGoBack);
+      }
+    },
+    [onCanGoBackChange],
+  );
+
   // Expose imperative handle
   useImperativeHandle(
     ref,
@@ -200,6 +282,7 @@ const CustomAppWebView = forwardRef<
       reload: () => webViewRef.current?.reload?.(),
       goBack: () => webViewRef.current?.goBack?.(),
       goForward: () => webViewRef.current?.goForward?.(),
+      canGoBack: () => canGoBackRef.current,
       injectJavaScript: (script: string) =>
         webViewRef.current?.injectJavaScript(script),
       sendFormInit: (formData: FormInitData) =>
@@ -295,6 +378,7 @@ const CustomAppWebView = forwardRef<
     <WebView
       ref={webViewRef}
       source={{ uri: appUrl }}
+      onNavigationStateChange={handleNavigationStateChange}
       onMessage={messageManager.handleWebViewMessage}
       onError={handleError}
       onLoadStart={() =>
