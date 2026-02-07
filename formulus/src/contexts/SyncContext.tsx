@@ -5,6 +5,7 @@ import React, {
   useCallback,
   ReactNode,
 } from 'react';
+import { syncService as syncServiceInstance } from '../services/SyncService';
 
 export interface SyncProgress {
   current: number;
@@ -70,6 +71,7 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
   }, []);
 
   const cancelSync = useCallback(() => {
+    syncServiceInstance.cancelSync();
     setSyncState(prev => ({
       ...prev,
       isActive: false,

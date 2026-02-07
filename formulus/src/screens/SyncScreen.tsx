@@ -161,7 +161,7 @@ const SyncScreen = () => {
         return;
       }
 
-      startSync(false);
+      startSync(true);
       await syncService.updateAppBundle();
       const syncTime = new Date().toISOString();
       setLastSync(syncTime);

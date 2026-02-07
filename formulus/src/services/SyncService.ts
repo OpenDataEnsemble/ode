@@ -323,9 +323,10 @@ export class SyncService {
     }
 
     this.isSyncing = true;
-    this.autoLoginRetryCount = 0; // Reset retry count for new bundle update
+    this.canCancel = true;
+    this.shouldCancel = false;
+    this.autoLoginRetryCount = 0;
     this.updateStatus('Starting app bundle sync...');
-    // Expose progress to the UI so users can see bundle download progress.
     this.updateProgress({
       current: 0,
       total: 100,
@@ -334,11 +335,14 @@ export class SyncService {
     });
 
     try {
-      // Get manifest to know what version we're downloading
+      if (this.shouldCancel) throw new Error('Sync cancelled');
+
       const manifest = await this.withAutoLoginRetry(
         () => synkronusApi.getManifest(),
         'get manifest',
       );
+
+      if (this.shouldCancel) throw new Error('Sync cancelled');
 
       await this.downloadAppBundle();
 
@@ -365,6 +369,8 @@ export class SyncService {
       throw error;
     } finally {
       this.isSyncing = false;
+      this.canCancel = false;
+      this.shouldCancel = false;
     }
   }
 
