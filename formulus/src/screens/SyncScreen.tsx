@@ -479,7 +479,6 @@ const SyncScreen = () => {
               />
             </View>
             <Text style={styles.progressText}>
-              {syncState.progress.current}/{syncState.progress.total} -{' '}
               {Math.round(
                 (syncState.progress.current / syncState.progress.total) * 100,
               )}
