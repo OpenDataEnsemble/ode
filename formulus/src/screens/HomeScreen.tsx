@@ -13,6 +13,7 @@ import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
 import { colors } from '../theme/colors';
+import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const HomeScreen = ({ navigation }: { navigation: any }) => {
@@ -93,6 +94,14 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     });
     return unsubscribe;
   }, [navigation]);
+
+  useEffect(() => {
+    const onBundleUpdated: Listener = () => {
+      checkAndSetAppUri();
+    };
+    appEvents.addListener('bundleUpdated', onBundleUpdated);
+    return () => appEvents.removeListener('bundleUpdated', onBundleUpdated);
+  }, []);
 
   useEffect(() => {
     if (localUri) {

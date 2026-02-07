@@ -1,5 +1,6 @@
 import { synkronusApi } from '../api/synkronus';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { appEvents } from '../webview/FormulusMessageHandlers';
 import { SyncProgress } from '../contexts/SyncContext';
 import { notificationService } from './NotificationService';
 import { FormService } from './FormService';
@@ -363,6 +364,8 @@ export class SyncService {
         phase: 'attachments_download',
         details: 'App bundle sync completed',
       });
+
+      appEvents.emit('bundleUpdated');
     } catch (error) {
       console.error('App sync failed', error);
       this.updateStatus('App sync failed');
