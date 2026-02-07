@@ -165,15 +165,16 @@ export class SyncService {
     this.isSyncing = true;
     this.canCancel = true;
     this.shouldCancel = false;
-    this.autoLoginRetryCount = 0; // Reset retry count for new sync operation
+    this.autoLoginRetryCount = 0;
     this.updateStatus('Starting sync...');
 
-    // Clear any stale notifications before starting new sync
     notificationService
       .clearAllSyncNotifications()
       .catch(error =>
         console.warn('Failed to clear stale notifications:', error),
       );
+
+    await notificationService.startForegroundService();
 
     try {
       // Phase 1: Pull - Get manifest and download changes
@@ -291,7 +292,7 @@ export class SyncService {
       this.isSyncing = false;
       this.canCancel = false;
       this.shouldCancel = false;
-      // Note: Don't call hideSyncProgress() here as showSyncComplete() already handles notification cleanup
+      await notificationService.stopForegroundService();
     }
   }
 
@@ -335,6 +336,8 @@ export class SyncService {
       details: 'Preparing app bundle download...',
     });
 
+    await notificationService.startForegroundService();
+
     try {
       if (this.shouldCancel) throw new Error('Sync cancelled');
 
@@ -374,6 +377,7 @@ export class SyncService {
       this.isSyncing = false;
       this.canCancel = false;
       this.shouldCancel = false;
+      await notificationService.stopForegroundService();
     }
   }
 

@@ -1,7 +1,9 @@
+import { Platform } from 'react-native';
 import notifee, {
   AndroidImportance,
   AndroidStyle,
   AndroidAction,
+  AndroidForegroundServiceType,
 } from '@notifee/react-native';
 import { SyncProgress } from '../contexts/SyncContext';
 
@@ -10,6 +12,7 @@ class NotificationService {
   private completionNotificationId = 'sync_completion';
   private channelId = 'sync_channel';
   private isConfigured = false;
+  private foregroundServiceRunning = false;
 
   async configure() {
     if (this.isConfigured) return;
@@ -171,6 +174,35 @@ class NotificationService {
         ongoing: false, // Ensure it's not ongoing
       },
     });
+  }
+
+  async startForegroundService() {
+    if (Platform.OS !== 'android' || this.foregroundServiceRunning) return;
+    await this.configure();
+
+    await notifee.displayNotification({
+      id: this.syncNotificationId,
+      title: 'Syncing data...',
+      body: 'Sync in progress',
+      android: {
+        channelId: this.channelId,
+        asForegroundService: true,
+        foregroundServiceTypes: [AndroidForegroundServiceType.DATA_SYNC],
+        ongoing: true,
+        progress: { max: 100, current: 0, indeterminate: true },
+      },
+    });
+    this.foregroundServiceRunning = true;
+  }
+
+  async stopForegroundService() {
+    if (Platform.OS !== 'android' || !this.foregroundServiceRunning) return;
+    try {
+      await notifee.stopForegroundService();
+    } catch (e) {
+      console.warn('Failed to stop foreground service:', e);
+    }
+    this.foregroundServiceRunning = false;
   }
 
   async hideSyncProgress() {
