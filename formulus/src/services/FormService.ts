@@ -444,43 +444,6 @@ export class FormService {
   }
 
   /**
-   * Reset the database by deleting all observations
-   * @returns Promise that resolves when the database is reset
-   */
-  public async resetDatabase(): Promise<void> {
-    const localRepo = databaseService.getLocalRepo();
-    if (!localRepo) {
-      throw new Error('Database repository is not available');
-    }
-
-    try {
-      // Get all observations across all form types
-      const allFormSpecs = this.getFormSpecs();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let allObservations: any[] = [];
-
-      for (const formSpec of allFormSpecs) {
-        const observations = await localRepo.getObservationsByFormType(
-          formSpec.id,
-        );
-        allObservations = [...allObservations, ...observations];
-      }
-
-      // Delete each observation
-      for (const observation of allObservations) {
-        await localRepo.deleteObservation(observation.id);
-      }
-
-      console.log(
-        `Database reset complete. Deleted ${allObservations.length} observations.`,
-      );
-    } catch (error) {
-      console.error('Error resetting database:', error);
-      throw error;
-    }
-  }
-
-  /**
    * Debug the database schema and migrations
    * This is a diagnostic function to help troubleshoot database issues
    */
