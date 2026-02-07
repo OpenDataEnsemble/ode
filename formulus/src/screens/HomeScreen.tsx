@@ -1,5 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Alert, BackHandler, StyleSheet, View, ActivityIndicator, Platform } from 'react-native';
+import {
+  Alert,
+  BackHandler,
+  StyleSheet,
+  View,
+  ActivityIndicator,
+  Platform,
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import CustomAppWebView, {
@@ -27,7 +34,11 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
 
         Alert.alert('Exit app?', 'Are you sure you want to exit Formulus?', [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Exit', style: 'destructive', onPress: () => BackHandler.exitApp() },
+          {
+            text: 'Exit',
+            style: 'destructive',
+            onPress: () => BackHandler.exitApp(),
+          },
         ]);
         return true;
       };

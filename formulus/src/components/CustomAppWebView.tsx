@@ -186,7 +186,11 @@ const CustomAppWebView = forwardRef<
         }
 
         const fullScript =
-          consoleLogScript + '\n' + hashNavigationTrackingScript + '\n' + script;
+          consoleLogScript +
+          '\n' +
+          hashNavigationTrackingScript +
+          '\n' +
+          script;
         setInjectionScript(fullScript);
         setIsScriptReady(true);
       } catch (err) {

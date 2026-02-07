@@ -22,7 +22,6 @@ const MainAppNavigator: React.FC = () => {
     checkConfiguration();
   }, []);
 
-
   useFocusEffect(
     React.useCallback(() => {
       const checkConfig = async () => {
