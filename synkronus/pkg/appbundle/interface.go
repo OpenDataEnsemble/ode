@@ -63,4 +63,7 @@ type AppBundleServiceInterface interface {
 
 	// CompareAppInfos compares two versions and returns the change log
 	CompareAppInfos(ctx context.Context, versionA, versionB string) (*ChangeLog, error)
+
+	// GetBundleZipPath returns the filesystem path to the active bundle's zip archive
+	GetBundleZipPath(ctx context.Context) (string, error)
 }

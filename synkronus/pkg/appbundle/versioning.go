@@ -123,6 +123,21 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 		dstFile.Close()
 	}
 
+	// Save the original zip to the version directory for direct download
+	if _, err := tempZipFile.Seek(0, 0); err != nil {
+		return nil, fmt.Errorf("failed to rewind zip for saving: %w", err)
+	}
+	bundleZipPath := filepath.Join(versionPath, "bundle.zip")
+	bundleZipFile, err := os.Create(bundleZipPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create bundle.zip: %w", err)
+	}
+	if _, err := io.Copy(bundleZipFile, tempZipFile); err != nil {
+		bundleZipFile.Close()
+		return nil, fmt.Errorf("failed to save bundle.zip: %w", err)
+	}
+	bundleZipFile.Close()
+
 	// Clean up old versions if needed
 	if err := s.cleanupOldVersions(); err != nil {
 		s.log.Error("Failed to clean up old versions", "error", err)
