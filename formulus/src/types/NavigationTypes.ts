@@ -12,6 +12,5 @@ export type MainTabParamList = {
 export type MainAppStackParamList = {
   Welcome: undefined;
   MainApp: undefined;
-  FormManagement: undefined;
   ObservationDetail: { observationId: string };
 };

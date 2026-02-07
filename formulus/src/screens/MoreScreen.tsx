@@ -5,29 +5,16 @@ import {
   useFocusEffect,
   useRoute,
   useNavigation,
-  CompositeNavigationProp,
 } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { StackNavigationProp } from '@react-navigation/stack';
-import {
-  MainTabParamList,
-  MainAppStackParamList,
-} from '../types/NavigationTypes';
+import { MainTabParamList } from '../types/NavigationTypes';
 import MenuDrawer from '../components/MenuDrawer';
 import { logout } from '../api/synkronus/Auth';
 import { colors } from '../theme/colors';
 
-type MainAppDrawerScreen = 'FormManagement';
-
-const isMainAppDrawerScreen = (
-  screen: string,
-): screen is MainAppDrawerScreen => {
-  return screen === 'FormManagement';
-};
-
-type MoreScreenNavigationProp = CompositeNavigationProp<
-  BottomTabNavigationProp<MainTabParamList, 'More'>,
-  StackNavigationProp<MainAppStackParamList>
+type MoreScreenNavigationProp = BottomTabNavigationProp<
+  MainTabParamList,
+  'More'
 >;
 
 const MoreScreen: React.FC = () => {
@@ -52,18 +39,13 @@ const MoreScreen: React.FC = () => {
 
   const handleNavigate = (screen: string) => {
     setDrawerVisible(false);
-    // Navigate to screens in the MainAppStack
-    if (isMainAppDrawerScreen(screen)) {
-      navigation.navigate(screen);
-    } else if (screen === 'Settings') {
+    if (screen === 'Settings') {
       navigation.navigate('Settings');
     } else if (screen === 'About') {
       navigation.navigate('About');
     } else if (screen === 'Help') {
       navigation.navigate('Help');
     } else {
-      // Other screens not yet implemented - stay on Home for now
-      console.log('Navigate to:', screen, '(not yet implemented)');
       navigation.navigate('Home');
     }
   };
