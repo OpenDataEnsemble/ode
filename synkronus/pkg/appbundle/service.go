@@ -420,7 +420,7 @@ func (s *Service) hashManifest(manifest *Manifest) (string, error) {
 
 // ensureCurrentVersionSet checks if a current version is set, and if not,
 // sets the latest available version as current
-func (s *Service) ensureCurrentVersionSet(ctx context.Context) error {
+func (s *Service) ensureCurrentVersionSet(_ context.Context) error {
 	// Check if CURRENT_VERSION file exists
 	versionFile := filepath.Join(s.versionsPath, "CURRENT_VERSION")
 	if _, err := os.Stat(versionFile); err == nil {
@@ -472,7 +472,7 @@ func (s *Service) ensureCurrentVersionSet(ctx context.Context) error {
 }
 
 // GetBundleZipPath returns the filesystem path to the active bundle's zip archive
-func (s *Service) GetBundleZipPath(ctx context.Context) (string, error) {
+func (s *Service) GetBundleZipPath(_ context.Context) (string, error) {
 	zipPath := filepath.Join(s.bundlePath, "bundle.zip")
 	if _, err := os.Stat(zipPath); err != nil {
 		if os.IsNotExist(err) {

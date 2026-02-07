@@ -196,9 +196,9 @@ const SyncScreen = () => {
     isAdmin,
   ]);
 
-  const checkForUpdates = useCallback(async (force: boolean = false) => {
+  const checkForUpdates = useCallback(async () => {
     try {
-      const hasUpdate = await syncService.checkForUpdates(force);
+      const hasUpdate = await syncService.checkForUpdates();
       setUpdateAvailable(hasUpdate);
       const currentVersion = (await AsyncStorage.getItem('@appVersion')) || '0';
       setAppBundleVersion(currentVersion);
@@ -243,7 +243,7 @@ const SyncScreen = () => {
 
     const initialize = async () => {
       await syncService.initialize();
-      await checkForUpdates(true);
+      await checkForUpdates();
       const userInfo = await getUserInfo();
       setIsAdmin(userInfo?.role === 'admin');
       const lastSyncTime = await AsyncStorage.getItem('@lastSync');
@@ -297,7 +297,7 @@ const SyncScreen = () => {
     if (!syncState.isActive && !syncState.error) {
       updatePendingUploads();
       updatePendingObservations();
-      checkForUpdates(false);
+      checkForUpdates();
     }
   }, [
     syncState.isActive,
