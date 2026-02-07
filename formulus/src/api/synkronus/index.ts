@@ -14,6 +14,7 @@ import { getApiAuthToken } from './Auth';
 import { databaseService } from '../../database/DatabaseService';
 import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { clientIdService } from '../../services/ClientIdService';
+import { unzip } from 'react-native-zip-archive';
 
 interface DownloadResult {
   success: boolean;
@@ -151,6 +152,80 @@ class SynkronusApi {
     const api = await this.getApi();
     const response = await api.getAppBundleManifest();
     return response.data;
+  }
+
+  /**
+   * Downloads the app bundle as a single zip, extracts to a temp directory,
+   * then atomically swaps into place so the old bundle stays intact until
+   * the new one is fully ready.
+   */
+  async downloadAndInstallBundleZip(
+    progressCallback?: (progressPercent: number) => void,
+  ): Promise<void> {
+    const config = await this.getConfig();
+    const authToken =
+      this.fastGetToken_cachedToken ?? (await this.fastGetToken());
+
+    const zipUrl = `${config.basePath}/app-bundle/download-zip`;
+    const tempZipPath = `${RNFS.CachesDirectoryPath}/bundle_temp.zip`;
+    const tempExtractPath = `${RNFS.CachesDirectoryPath}/bundle_staging`;
+    const appDir = `${RNFS.DocumentDirectoryPath}/app`;
+    const formsDir = `${RNFS.DocumentDirectoryPath}/forms`;
+
+    // Clean up any leftover temp artifacts
+    if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
+    if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
+
+    // Download the zip
+    const downloadResult = await RNFS.downloadFile({
+      fromUrl: zipUrl,
+      toFile: tempZipPath,
+      headers: { Authorization: `Bearer ${authToken}` },
+      background: true,
+      progressInterval: 500,
+      progress: res => {
+        if (res.contentLength > 0) {
+          const percent = Math.round(
+            (res.bytesWritten / res.contentLength) * 50,
+          );
+          progressCallback?.(percent);
+        }
+      },
+    }).promise;
+
+    if (downloadResult.statusCode !== 200) {
+      if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
+      throw new Error(
+        `Bundle zip download failed (HTTP ${downloadResult.statusCode})`,
+      );
+    }
+
+    progressCallback?.(50);
+
+    // Extract to staging directory
+    await RNFS.mkdir(tempExtractPath);
+    await unzip(tempZipPath, tempExtractPath);
+    progressCallback?.(80);
+
+    // Atomic swap: remove old dirs, move staging content into place
+    if (await RNFS.exists(appDir)) await RNFS.unlink(appDir);
+    if (await RNFS.exists(formsDir)) await RNFS.unlink(formsDir);
+
+    const stagingAppDir = `${tempExtractPath}/app`;
+    const stagingFormsDir = `${tempExtractPath}/forms`;
+
+    if (await RNFS.exists(stagingAppDir))
+      await RNFS.moveFile(stagingAppDir, appDir);
+    if (await RNFS.exists(stagingFormsDir))
+      await RNFS.moveFile(stagingFormsDir, formsDir);
+
+    progressCallback?.(95);
+
+    // Clean up temp files
+    if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
+    if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
+
+    progressCallback?.(100);
   }
 
   private getAttachmentsDownloadManifest(
