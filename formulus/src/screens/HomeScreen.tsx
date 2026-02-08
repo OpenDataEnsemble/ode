@@ -19,6 +19,7 @@ import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [webViewKey, setWebViewKey] = useState(0);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
 
   useFocusEffect(
@@ -98,6 +99,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   useEffect(() => {
     const onBundleUpdated: Listener = () => {
       checkAndSetAppUri();
+      setWebViewKey(prev => prev + 1);
     };
     appEvents.addListener('bundleUpdated', onBundleUpdated);
     return () => appEvents.removeListener('bundleUpdated', onBundleUpdated);
@@ -130,6 +132,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         />
       ) : (
         <CustomAppWebView
+          key={webViewKey}
           ref={customAppRef}
           appUrl={localUri}
           appName="custom_app"
