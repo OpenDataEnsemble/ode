@@ -8,8 +8,8 @@
 
 import React, { createContext, useContext, ReactNode } from 'react';
 
-/** Extension function type (query name, params, form data) => result */
-export type ExtensionFunction = (...args: unknown[]) => unknown;
+/** Extension function type - accepts any callable (builtins, loaded extensions) */
+export type ExtensionFunction = (...args: any[]) => any;
 
 /**
  * Context value for form evaluation
