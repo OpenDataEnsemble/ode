@@ -260,7 +260,13 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       loadChoices();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dynamicConfigQuery, dynamicConfigParamsStr, visible, enabled, currentFormDataStr]);
+  }, [
+    dynamicConfigQuery,
+    dynamicConfigParamsStr,
+    visible,
+    enabled,
+    currentFormDataStr,
+  ]);
 
   // Early returns after all hooks
   if (!visible) {

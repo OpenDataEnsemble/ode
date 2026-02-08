@@ -9,9 +9,7 @@
 import React, { createContext, useContext, ReactNode } from "react";
 
 /** Extension function type (query name, params, form data) => result */
-export type ExtensionFunction = (
-  ...args: unknown[]
-) => unknown;
+export type ExtensionFunction = (...args: unknown[]) => unknown;
 
 /**
  * Context value for form evaluation
