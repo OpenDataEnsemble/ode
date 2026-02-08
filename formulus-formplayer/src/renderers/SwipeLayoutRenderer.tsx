@@ -201,7 +201,9 @@ const SwipeLayoutRenderer = ({
         if (missingFields.length > 0) {
           const message = `Missing required ${
             missingFields.length === 1 ? 'field' : 'fields'
-          }: ${missingFields.slice(0, 2).join(', ')}${missingFields.length > 2 ? '...' : ''}`;
+          }: ${missingFields.slice(0, 2).join(', ')}${
+            missingFields.length > 2 ? '...' : ''
+          }`;
 
           setPendingNavigation(newPage);
           setSnackbarMessage(message);

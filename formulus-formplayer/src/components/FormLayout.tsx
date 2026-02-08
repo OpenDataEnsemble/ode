@@ -142,9 +142,15 @@ const FormLayout: React.FC<FormLayoutProps> = ({
             (previousButton || nextButton) &&
             !isKeyboardVisible
               ? {
-                  xs: `calc(${theme.spacing(11)} + env(safe-area-inset-bottom, 0px))`,
-                  sm: `calc(${theme.spacing(12)} + env(safe-area-inset-bottom, 0px))`,
-                  md: `calc(${theme.spacing(13)} + env(safe-area-inset-bottom, 0px))`,
+                  xs: `calc(${theme.spacing(
+                    11,
+                  )} + env(safe-area-inset-bottom, 0px))`,
+                  sm: `calc(${theme.spacing(
+                    12,
+                  )} + env(safe-area-inset-bottom, 0px))`,
+                  md: `calc(${theme.spacing(
+                    13,
+                  )} + env(safe-area-inset-bottom, 0px))`,
                 }
               : theme.spacing(15),
           overscrollBehavior: 'contain',
@@ -171,9 +177,15 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 md: theme.spacing(1.5, 2.5),
               },
               paddingBottom: {
-                xs: `calc(${theme.spacing(1)} + env(safe-area-inset-bottom, 0px))`,
-                sm: `calc(${theme.spacing(1.5)} + env(safe-area-inset-bottom, 0px))`,
-                md: `calc(${theme.spacing(1.5)} + env(safe-area-inset-bottom, 0px))`,
+                xs: `calc(${theme.spacing(
+                  1,
+                )} + env(safe-area-inset-bottom, 0px))`,
+                sm: `calc(${theme.spacing(
+                  1.5,
+                )} + env(safe-area-inset-bottom, 0px))`,
+                md: `calc(${theme.spacing(
+                  1.5,
+                )} + env(safe-area-inset-bottom, 0px))`,
               },
               backgroundColor: 'background.paper',
               borderTop: 'none',

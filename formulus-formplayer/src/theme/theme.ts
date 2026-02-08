@@ -172,7 +172,9 @@ export const getThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
         styleOverrides: {
           root: {
             borderRadius: tokens.border.radius.full, // Fully rounded buttons (pill shape)
-            padding: `${parsePx(tokens.spacing[3])}px ${parsePx(tokens.spacing[6])}px`, // 12px 24px
+            padding: `${parsePx(tokens.spacing[3])}px ${parsePx(
+              tokens.spacing[6],
+            )}px`, // 12px 24px
             minHeight: `${tokens.touchTarget.comfortable}px`, // 48px - from tokens
             fontSize: parsePx(tokens.typography.fontSize.sm),
             fontWeight: tokens.typography.fontWeight.medium,
@@ -216,12 +218,16 @@ export const getThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
           },
           sizeSmall: {
             minHeight: `${tokens.touchTarget.comfortable}px`, // Still maintain 48dp for accessibility
-            padding: `${parsePx(tokens.spacing[3])}px ${parsePx(tokens.spacing[4])}px`,
+            padding: `${parsePx(tokens.spacing[3])}px ${parsePx(
+              tokens.spacing[4],
+            )}px`,
             fontSize: parsePx(tokens.typography.fontSize.sm),
           },
           sizeLarge: {
             minHeight: `${tokens.touchTarget.large}px`, // 56px
-            padding: `${parsePx(tokens.spacing[4])}px ${parsePx(tokens.spacing[8])}px`,
+            padding: `${parsePx(tokens.spacing[4])}px ${parsePx(
+              tokens.spacing[8],
+            )}px`,
             fontSize: parsePx(tokens.typography.fontSize.base),
           },
         },

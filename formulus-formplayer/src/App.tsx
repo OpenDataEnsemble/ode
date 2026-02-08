@@ -410,7 +410,7 @@ function App() {
         } else {
           const defaultData =
             params && typeof params === 'object'
-              ? params.defaultData ?? params
+              ? (params.defaultData ?? params)
               : {};
           console.log('Preloading initialization form values:', defaultData);
           setData(defaultData as FormData);

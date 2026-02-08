@@ -32,6 +32,8 @@ export interface ExtensionMetadata {
       module: string;
       tester?: string;
       renderer?: string;
+      /** Optional path to module containing tester (when tester is in a separate file) */
+      testerModule?: string;
     }
   >;
   basePath?: string; // Base path for loading modules

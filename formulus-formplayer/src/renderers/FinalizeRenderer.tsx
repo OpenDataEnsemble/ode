@@ -85,7 +85,9 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           return 'Audio recorded';
         case 'gps':
           if (typeof value === 'object' && value.latitude && value.longitude) {
-            return `Location: ${value.latitude.toFixed(6)}, ${value.longitude.toFixed(6)}`;
+            return `Location: ${value.latitude.toFixed(
+              6,
+            )}, ${value.longitude.toFixed(6)}`;
           }
           return 'GPS location captured';
         case 'video':
