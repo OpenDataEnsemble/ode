@@ -1,12 +1,12 @@
 /**
  * FormEvaluationContext.tsx
- * 
+ *
  * Provides extension functions to form evaluation context.
  * Allows renderers and other form components to access custom functions
  * defined in ext.json files.
  */
 
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from "react";
 
 /**
  * Context value for form evaluation
@@ -30,9 +30,8 @@ const defaultContextValue: FormEvaluationContextValue = {
 /**
  * Form evaluation context
  */
-const FormEvaluationContext = createContext<FormEvaluationContextValue>(
-  defaultContextValue,
-);
+const FormEvaluationContext =
+  createContext<FormEvaluationContextValue>(defaultContextValue);
 
 /**
  * Hook to access form evaluation context

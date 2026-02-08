@@ -186,6 +186,76 @@ Corresponding UI schema:
 }
 ```
 
+## Ranking Renderer (AnthroCollect)
+
+Custom renderers that need the Formulus API and form parameters (e.g., person scope, age filters) can use the `FormContext` provided by the formplayer.
+
+### ext.json for ranking renderer
+
+```json
+{
+  "renderers": {
+    "ranking": {
+      "name": "RankingRenderer",
+      "format": "ranking",
+      "module": "extensions/renderers/RankingRenderer.jsx",
+      "tester": "rankingTester",
+      "renderer": "RankingRenderer",
+      "testerModule": "extensions/testers/rankingTester.js"
+    }
+  }
+}
+```
+
+- **module**: Path to renderer (relative to app `forms/` directory)
+- **testerModule**: Optional. Path to module containing the tester when it lives in a separate file. The tester matches when `uischema.options.renderer === 'ranking'`.
+
+### FormContext API for custom renderers
+
+Custom renderers receive JsonForms props (data, handleChange, path, uischema, schema, label, visible). For Formulus-specific data, use the FormContext exposed on `window.__formplayerFormContext`:
+
+```tsx
+import React from 'react';
+
+function RankingRenderer(props) {
+  const FormContext = window.__formplayerFormContext;
+  const { formulusApi, formParams } = FormContext
+    ? React.useContext(FormContext)
+    : { formulusApi: null, formParams: {} };
+  // formulusApi: FormulusInterface for anthroData.getPersonsByScopeAndFilter(formulusApi, ...)
+  // formParams: { p_id, scope, age_min, age_max, ... } from openFormplayer(formType, params, savedData)
+}
+```
+
+- **formulusApi**: The Formulus API instance (e.g., for `getObservationsByQuery`, etc.). Available after the formplayer loads.
+- **formParams**: Parameters passed when opening the form via `openFormplayer(formType, params, savedData)`. Typically includes `p_id`, `scope`, `age_min`, `age_max` for person filtering.
+
+### UI schema for ranking control
+
+```json
+{
+  "type": "Control",
+  "scope": "#/properties/demo_ranking",
+  "options": {
+    "renderer": "ranking",
+    "sexFilter": "female"
+  }
+}
+```
+
+### Form params when opening ranking forms
+
+When opening `p_ranking_female` or `p_ranking_male`, pass params so the ranking renderer can filter persons:
+
+```javascript
+openFormplayer('p_ranking_female', {
+  p_id: 'person-uuid-or-focal',
+  scope: 'household',
+  age_min: 18,
+  age_max: 65
+}, savedData);
+```
+
 ## Assumptions
 
 1. Extension modules use ES6 module syntax (`import`/`export`)

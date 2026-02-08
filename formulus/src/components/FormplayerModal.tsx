@@ -249,13 +249,19 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               (acc, [key, renderer]) => {
                 // Remove leading slash from module path to avoid double-slash in URL
                 const modulePath = (renderer.module || '').replace(/^\/+/, '');
-                acc[key] = {
+                const entry: Record<string, unknown> = {
                   name: renderer.name,
                   format: renderer.format,
                   module: modulePath,
                   tester: renderer.tester,
                   renderer: renderer.renderer,
                 };
+                if (renderer.testerModule) {
+                  entry.testerModule = (
+                    renderer.testerModule as string
+                  ).replace(/^\/+/, '');
+                }
+                acc[key] = entry;
                 return acc;
               },
               {} as Record<string, unknown>,

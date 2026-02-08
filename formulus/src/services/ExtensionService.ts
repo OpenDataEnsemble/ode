@@ -39,6 +39,8 @@ export interface ExtensionRenderer {
   // Export names
   tester?: string; // Tester function export name
   renderer?: string; // Renderer component export name (defaults to name)
+  /** Path to module containing tester (when tester is in a separate file) */
+  testerModule?: string;
   // Optional dependencies
   dependencies?: string[];
 }
@@ -199,8 +201,20 @@ export class ExtensionService {
               (acc, [key, renderer]: [string, Record<string, unknown>]) => {
                 // Handle both flat structure and nested structure
                 const rendererObj = renderer.renderer || renderer;
-                const testerObj = renderer.tester || {};
+                const testerObj =
+                  typeof renderer.tester === 'object'
+                    ? renderer.tester || {}
+                    : {};
 
+                const testerModulePath =
+                  (testerObj as { path?: string; module?: string })?.path ||
+                  (testerObj as { path?: string; module?: string })?.module ||
+                  (renderer as { testerModule?: string }).testerModule;
+                const testerExport =
+                  (testerObj as { export?: string })?.export ??
+                  (typeof renderer.tester === 'string'
+                    ? renderer.tester
+                    : undefined);
                 acc[key] = {
                   name: key,
                   format: renderer.format || rendererObj?.format || '',
@@ -209,9 +223,10 @@ export class ExtensionService {
                     rendererObj?.module ||
                     renderer.module ||
                     '',
-                  tester: testerObj?.export || renderer.tester?.export,
+                  tester: testerExport || `${key}Tester`,
                   renderer:
                     rendererObj?.export || renderer.renderer?.export || key,
+                  ...(testerModulePath && { testerModule: testerModulePath }),
                 };
                 return acc;
               },
