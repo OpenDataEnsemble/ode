@@ -349,7 +349,7 @@ function App() {
 
             // Merge loaded functions with built-ins (loaded functions take precedence)
             extensionResult.functions.forEach((func, name) => {
-              allFunctions.set(name, func);
+              allFunctions.set(name, func as ExtensionFunction);
             });
 
             setExtensionRenderers(extensionResult.renderers);
