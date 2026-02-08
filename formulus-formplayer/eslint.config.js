@@ -13,6 +13,7 @@ export default defineConfig([
     '**/coverage/**',
     '**/__tests__/**',
     '**/scripts/**',
+    '**/prettier.config.cjs',
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,
