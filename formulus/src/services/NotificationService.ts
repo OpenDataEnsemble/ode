@@ -92,7 +92,9 @@ class NotificationService {
     setTimeout(async () => {
       try {
         await notifee.cancelNotification(this.syncNotificationId);
-      } catch (_) {}
+      } catch (_) {
+        // ignore
+      }
     }, 1000);
   }
 

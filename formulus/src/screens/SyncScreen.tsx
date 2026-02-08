@@ -246,11 +246,13 @@ const SyncScreen = () => {
   const getStatusText = (): string => {
     if (syncState.isActive) {
       if (activeOperation === 'update') return 'Updating app...';
-      if (activeOperation === 'sync_then_update') return 'Syncing & updating...';
+      if (activeOperation === 'sync_then_update')
+        return 'Syncing & updating...';
       return 'Syncing...';
     }
     if (syncState.error) return 'Error';
-    if (pendingObservations > 0 || pendingUploads.count > 0) return 'Pending sync';
+    if (pendingObservations > 0 || pendingUploads.count > 0)
+      return 'Pending sync';
     return 'All synced';
   };
 
@@ -339,8 +341,10 @@ const SyncScreen = () => {
     return 'Syncing Data';
   };
 
-  const isSyncButtonActive = activeOperation === 'sync' || activeOperation === 'sync_then_update';
-  const isUpdateButtonActive = activeOperation === 'update' || activeOperation === 'sync_then_update';
+  const isSyncButtonActive =
+    activeOperation === 'sync' || activeOperation === 'sync_then_update';
+  const isUpdateButtonActive =
+    activeOperation === 'update' || activeOperation === 'sync_then_update';
 
   return (
     <SafeAreaView style={styles.container}>
