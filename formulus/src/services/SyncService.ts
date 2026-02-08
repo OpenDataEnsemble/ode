@@ -174,9 +174,8 @@ export class SyncService {
         console.warn('Failed to clear stale notifications:', error),
       );
 
-    await notificationService.startForegroundService();
-
     try {
+      await notificationService.startForegroundService();
       // Phase 1: Pull - Get manifest and download changes
       this.updateProgress({
         current: 0,
@@ -336,9 +335,9 @@ export class SyncService {
       details: 'Preparing app bundle download...',
     });
 
-    await notificationService.startForegroundService();
-
     try {
+      await notificationService.startForegroundService();
+
       if (this.shouldCancel) throw new Error('Sync cancelled');
 
       const manifest = await this.withAutoLoginRetry(
