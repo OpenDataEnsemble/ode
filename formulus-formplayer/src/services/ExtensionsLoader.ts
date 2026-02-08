@@ -158,7 +158,7 @@ async function loadRenderer(
     const testerName = metadata.tester || `${metadata.name}Tester`;
     let tester = module[testerName] || module.default?.tester;
     if (!tester && metadata.testerModule) {
-      let testerModulePath = basePath
+      const testerModulePath = basePath
         ? `${basePath}/${metadata.testerModule}`
         : metadata.testerModule;
       let testerModule: any;

@@ -8,6 +8,11 @@
 
 import React, { createContext, useContext, ReactNode } from "react";
 
+/** Extension function type (query name, params, form data) => result */
+export type ExtensionFunction = (
+  ...args: unknown[]
+) => unknown;
+
 /**
  * Context value for form evaluation
  */
@@ -17,14 +22,14 @@ export interface FormEvaluationContextValue {
    * Key: function name (e.g., "getDynamicChoiceList")
    * Value: the actual function
    */
-  functions: Map<string, Function>;
+  functions: Map<string, ExtensionFunction>;
 }
 
 /**
  * Default context value (empty functions map)
  */
 const defaultContextValue: FormEvaluationContextValue = {
-  functions: new Map(),
+  functions: new Map<string, ExtensionFunction>(),
 };
 
 /**
@@ -48,7 +53,7 @@ export interface FormEvaluationProviderProps {
   /**
    * Map of extension functions to provide
    */
-  functions: Map<string, Function>;
+  functions: Map<string, ExtensionFunction>;
   /**
    * Child components
    */

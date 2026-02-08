@@ -72,7 +72,10 @@ import { draftService } from "./services/DraftService";
 import DraftSelector from "./components/DraftSelector";
 import { loadExtensions } from "./services/ExtensionsLoader";
 import { getBuiltinExtensions } from "./builtinExtensions";
-import { FormEvaluationProvider } from "./FormEvaluationContext";
+import {
+  FormEvaluationProvider,
+  type ExtensionFunction,
+} from "./FormEvaluationContext";
 
 // Import development dependencies (Vite will tree-shake these in production)
 import { webViewMock } from "./mocks/webview-mock";
@@ -279,10 +282,8 @@ function App() {
     JsonFormsRendererRegistryEntry[]
   >([]);
   // Store extension functions for potential future use (e.g., validation context injection)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [extensionFunctions, setExtensionFunctions] = useState<
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    Map<string, Function>
+    Map<string, ExtensionFunction>
   >(new Map());
   const [extensionDefinitions, setExtensionDefinitions] = useState<
     Record<string, any>
