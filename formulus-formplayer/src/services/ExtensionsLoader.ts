@@ -5,7 +5,7 @@
  * from custom app extensions.
  */
 
-import { JsonFormsRendererRegistryEntry, RankedTester } from "@jsonforms/core";
+import { JsonFormsRendererRegistryEntry, RankedTester } from '@jsonforms/core';
 
 /**
  * Extension metadata passed from Formulus
@@ -56,7 +56,7 @@ export interface ExtensionLoadResult {
  * Load extensions dynamically
  */
 export async function loadExtensions(
-  metadata: ExtensionMetadata
+  metadata: ExtensionMetadata,
 ): Promise<ExtensionLoadResult> {
   const result: ExtensionLoadResult = {
     renderers: [],
@@ -65,7 +65,7 @@ export async function loadExtensions(
     errors: [],
   };
 
-  const basePath = metadata.basePath || "";
+  const basePath = metadata.basePath || '';
 
   // Load renderers
   if (metadata.renderers) {
@@ -80,7 +80,7 @@ export async function loadExtensions(
         }
       } catch (error) {
         result.errors.push({
-          type: "renderer_load_error",
+          type: 'renderer_load_error',
           message: `Failed to load renderer ${key}: ${
             error instanceof Error ? error.message : String(error)
           }`,
@@ -99,12 +99,12 @@ export async function loadExtensions(
         if (loadedFunction) {
           result.functions.set(funcMeta.name, loadedFunction);
           console.log(
-            `[ExtensionsLoader] Registered extension function "${funcMeta.name}" from module "${funcMeta.module}" (metadata key: ${key})`
+            `[ExtensionsLoader] Registered extension function "${funcMeta.name}" from module "${funcMeta.module}" (metadata key: ${key})`,
           );
         }
       } catch (error) {
         result.errors.push({
-          type: "function_load_error",
+          type: 'function_load_error',
           message: `Failed to load function ${key}: ${
             error instanceof Error ? error.message : String(error)
           }`,
@@ -123,7 +123,7 @@ export async function loadExtensions(
  */
 async function loadRenderer(
   metadata: ExtensionRendererMetadata,
-  basePath: string
+  basePath: string,
 ): Promise<LoadedRenderer | null> {
   try {
     // Construct module path
@@ -144,7 +144,7 @@ async function loadRenderer(
       );
     } catch {
       // Fallback: try with .js extension
-      const modulePathWithExt = modulePath.endsWith(".js")
+      const modulePathWithExt = modulePath.endsWith('.js')
         ? modulePath
         : `${modulePath}.js`;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -169,7 +169,7 @@ async function loadRenderer(
           /* @vite-ignore */ /* webpackIgnore: true */ testerModulePath
         );
       } catch {
-        const pathWithExt = testerModulePath.endsWith(".js")
+        const pathWithExt = testerModulePath.endsWith('.js')
           ? testerModulePath
           : `${testerModulePath}.js`;
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -183,7 +183,7 @@ async function loadRenderer(
     if (!tester) {
       throw new Error(
         `Tester function "${testerName}" not found in module ${metadata.module}` +
-          (metadata.testerModule ? ` or ${metadata.testerModule}` : "")
+          (metadata.testerModule ? ` or ${metadata.testerModule}` : ''),
       );
     }
 
@@ -193,7 +193,7 @@ async function loadRenderer(
       module[rendererName] || module.default?.renderer || module.default;
     if (!renderer) {
       throw new Error(
-        `Renderer component "${rendererName}" not found in module ${metadata.module}`
+        `Renderer component "${rendererName}" not found in module ${metadata.module}`,
       );
     }
 
@@ -212,7 +212,7 @@ async function loadRenderer(
  */
 async function loadFunction(
   metadata: ExtensionFunctionMetadata,
-  basePath: string
+  basePath: string,
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
 ): Promise<Function | null> {
   try {
@@ -232,7 +232,7 @@ async function loadFunction(
         /* @vite-ignore */ /* webpackIgnore: true */ modulePath
       );
     } catch {
-      const modulePathWithExt = modulePath.endsWith(".js")
+      const modulePathWithExt = modulePath.endsWith('.js')
         ? modulePath
         : `${modulePath}.js`;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -245,9 +245,9 @@ async function loadFunction(
     // Get function
     const exportName = metadata.export || metadata.name;
     const func = module[exportName] || module.default;
-    if (!func || typeof func !== "function") {
+    if (!func || typeof func !== 'function') {
       throw new Error(
-        `Function "${exportName}" not found or not a function in module ${metadata.module}`
+        `Function "${exportName}" not found or not a function in module ${metadata.module}`,
       );
     }
 

@@ -6,11 +6,11 @@
  * from database queries at runtime.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { withJsonFormsControlProps } from "@jsonforms/react";
-import { ControlProps, rankWith } from "@jsonforms/core";
-import { useFormEvaluation } from "./FormEvaluationContext";
-import { useJsonForms } from "@jsonforms/react";
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { withJsonFormsControlProps } from '@jsonforms/react';
+import { ControlProps, rankWith } from '@jsonforms/core';
+import { useFormEvaluation } from './FormEvaluationContext';
+import { useJsonForms } from '@jsonforms/react';
 import {
   Autocomplete,
   TextField,
@@ -18,7 +18,7 @@ import {
   Typography,
   Alert,
   CircularProgress,
-} from "@mui/material";
+} from '@mui/material';
 
 /**
  * Interface for x-dynamicEnum configuration
@@ -38,16 +38,16 @@ interface DynamicEnumConfig {
  */
 function resolveSchemaFromScope(
   scope: string | undefined,
-  rootSchema: any
+  rootSchema: any,
 ): any {
   if (!scope || !rootSchema) return rootSchema;
 
   // Parse scope like "#/properties/field_name" or "#/properties/nested/properties/field"
-  const parts = scope.split("/").filter((p) => p && p !== "#");
+  const parts = scope.split('/').filter(p => p && p !== '#');
 
   let resolved = rootSchema;
   for (const part of parts) {
-    if (resolved && typeof resolved === "object") {
+    if (resolved && typeof resolved === 'object') {
       resolved = resolved[part];
     } else {
       return rootSchema; // Fallback to root if path invalid
@@ -65,8 +65,8 @@ export const dynamicEnumTester = rankWith(
   (uischema: any, schema: any, _context: any) => {
     // Resolve the actual field schema from the scope
     const fieldSchema = resolveSchemaFromScope(uischema?.scope, schema);
-    return !!(fieldSchema as any)?.["x-dynamicEnum"];
-  }
+    return !!(fieldSchema as any)?.['x-dynamicEnum'];
+  },
 );
 
 /**
@@ -75,27 +75,27 @@ export const dynamicEnumTester = rankWith(
  */
 function resolveTemplateParams(
   params: Record<string, any>,
-  formData: Record<string, any>
+  formData: Record<string, any>,
 ): Record<string, any> {
   const resolved: Record<string, any> = {};
 
   for (const [key, value] of Object.entries(params)) {
     if (
-      typeof value === "string" &&
-      value.startsWith("{{") &&
-      value.endsWith("}}")
+      typeof value === 'string' &&
+      value.startsWith('{{') &&
+      value.endsWith('}}')
     ) {
       // Extract path: {{data.village}} -> data.village
       const path = value.slice(2, -2).trim();
 
       // Remove "data." prefix if present (form data is already the data object)
-      const dataPath = path.startsWith("data.") ? path.slice(5) : path;
+      const dataPath = path.startsWith('data.') ? path.slice(5) : path;
 
       // Get nested value
-      const pathParts = dataPath.split(".");
+      const pathParts = dataPath.split('.');
       let resolvedValue: any = formData;
       for (const part of pathParts) {
-        if (resolvedValue && typeof resolvedValue === "object") {
+        if (resolvedValue && typeof resolvedValue === 'object') {
           resolvedValue = resolvedValue[part];
         } else {
           resolvedValue = undefined;
@@ -129,7 +129,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
   const ctx = useJsonForms();
 
   const [choices, setChoices] = useState<Array<{ const: any; title: string }>>(
-    []
+    [],
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,26 +137,26 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
 
   // Get x-dynamicEnum configuration first
   const dynamicConfig = useMemo(() => {
-    return (schema as any)?.["x-dynamicEnum"] as DynamicEnumConfig | undefined;
+    return (schema as any)?.['x-dynamicEnum'] as DynamicEnumConfig | undefined;
   }, [schema]);
 
   // Get current form data for template parameter resolution
   const currentFormData = useMemo(
     () => ctx?.core?.data || {},
-    [ctx?.core?.data]
+    [ctx?.core?.data],
   );
 
   // Handle value change - must be defined before any early returns
   const handleValueChange = useCallback(
     (_event: any, newValue: { const: any; title: string } | null) => {
-      handleChange(path, newValue ? newValue.const : "");
+      handleChange(path, newValue ? newValue.const : '');
     },
-    [handleChange, path]
+    [handleChange, path],
   );
 
   // Find selected option based on current data value - must be before early returns
   const selectedOption = useMemo(() => {
-    return choices.find((opt) => opt.const === data) || null;
+    return choices.find(opt => opt.const === data) || null;
   }, [choices, data]);
 
   // Get display label from schema or uischema - computed before early returns
@@ -164,8 +164,8 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
     return (
       (uischema as any)?.label ||
       schema.title ||
-      path.split(".").pop() ||
-      "Field"
+      path.split('.').pop() ||
+      'Field'
     );
   }, [uischema, schema, path]);
 
@@ -175,25 +175,25 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
   // Load choices when component mounts or params change
   const loadChoices = useCallback(async () => {
     if (!dynamicConfig) {
-      setError("x-dynamicEnum configuration is missing");
+      setError('x-dynamicEnum configuration is missing');
       return;
     }
 
     // Validate configuration
     if (!dynamicConfig.query) {
-      setError("x-dynamicEnum: query is required");
+      setError('x-dynamicEnum: query is required');
       return;
     }
 
-    const functionName = dynamicConfig.function || "getDynamicChoiceList";
+    const functionName = dynamicConfig.function || 'getDynamicChoiceList';
     const func = functions.get(functionName);
 
     if (!func) {
-      const availableFunctions = Array.from(functions.keys()).join(", ");
+      const availableFunctions = Array.from(functions.keys()).join(', ');
       setError(
         `Function "${functionName}" not found. Available: ${
-          availableFunctions || "none"
-        }.`
+          availableFunctions || 'none'
+        }.`,
       );
       return;
     }
@@ -206,7 +206,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       const resolvedParams = dynamicConfig.params
         ? resolveTemplateParams(
             dynamicConfig.params,
-            currentFormData as Record<string, any>
+            currentFormData as Record<string, any>,
           )
         : {};
 
@@ -214,10 +214,10 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       const paramsWithConfig = {
         ...resolvedParams,
         _config: {
-          valueField: dynamicConfig.valueField || "observationId",
-          labelField: dynamicConfig.labelField || "data.name",
+          valueField: dynamicConfig.valueField || 'observationId',
+          labelField: dynamicConfig.labelField || 'data.name',
           distinct: dynamicConfig.distinct || false,
-          distinctField: dynamicConfig.labelField || "data.name",
+          distinctField: dynamicConfig.labelField || 'data.name',
         },
       };
 
@@ -225,7 +225,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       const result = await func(
         dynamicConfig.query,
         paramsWithConfig,
-        currentFormData
+        currentFormData,
       );
 
       if (!Array.isArray(result)) {
@@ -237,11 +237,11 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       // Update local schema with dynamic enum
       const updatedSchema = {
         ...localSchema,
-        enum: result.map((item) => item.const),
+        enum: result.map(item => item.const),
       };
       setLocalSchema(updatedSchema);
     } catch (err: any) {
-      const errorMessage = err?.message || "Failed to load dynamic choices";
+      const errorMessage = err?.message || 'Failed to load dynamic choices';
       setError(`${errorMessage}`);
       console.error(`Error loading dynamic choices for ${path}:`, err);
     } finally {
@@ -294,7 +294,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       {/* Field Label */}
       <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
         {label}
-        {schema.required && <span style={{ color: "red" }}> *</span>}
+        {schema.required && <span style={{ color: 'red' }}> *</span>}
       </Typography>
 
       {/* Description */}
@@ -307,7 +307,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       {/* Validation Errors */}
       {hasValidationErrors && (
         <Alert severity="error" sx={{ mb: 1 }}>
-          {Array.isArray(errors) ? errors.join(", ") : String(errors)}
+          {Array.isArray(errors) ? errors.join(', ') : String(errors)}
         </Alert>
       )}
       {/* Control */}
@@ -326,9 +326,8 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
           <Typography
             variant="body2"
             color="primary"
-            sx={{ cursor: "pointer", textDecoration: "underline" }}
-            onClick={loadChoices}
-          >
+            sx={{ cursor: 'pointer', textDecoration: 'underline' }}
+            onClick={loadChoices}>
             Retry
           </Typography>
         </Box>
@@ -341,20 +340,20 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
           value={selectedOption}
           onChange={handleValueChange}
           options={choices}
-          getOptionLabel={(option) => option.title || String(option.const)}
+          getOptionLabel={option => option.title || String(option.const)}
           isOptionEqualToValue={(option, value) => option.const === value.const}
           disabled={!enabled}
           sx={{ mt: 1 }}
-          renderInput={(params) => (
+          renderInput={params => (
             <TextField
               {...params}
               error={!!hasValidationErrors}
               helperText={
                 hasValidationErrors
                   ? Array.isArray(errors)
-                    ? errors.join(", ")
+                    ? errors.join(', ')
                     : String(errors)
-                  : ""
+                  : ''
               }
               placeholder="Select an option..."
             />

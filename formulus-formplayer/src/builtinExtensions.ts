@@ -65,18 +65,18 @@ function calculateAge(dateOfBirth: string | null | undefined): number | null {
 export async function getDynamicChoiceList(
   queryName: string,
   params: Record<string, any> = {},
-  _formData: Record<string, any> = {}
+  _formData: Record<string, any> = {},
 ): Promise<Array<{ const: any; title: string }>> {
   // Check if Formulus bridge is available
   if (!window.formulus?.getObservationsByQuery) {
-    console.error("getDynamicChoiceList: getObservationsByQuery not available");
+    console.error('getDynamicChoiceList: getObservationsByQuery not available');
     return [];
   }
 
   try {
     // Extract configuration
     const config = params._config || {};
-    const valueField = config.valueField || "observationId";
+    const valueField = config.valueField || 'observationId';
     const labelField = config.labelField || valueField;
     const distinct = config.distinct || false;
 
@@ -86,14 +86,14 @@ export async function getDynamicChoiceList(
 
     // Get filter params (excluding _config, where, and whereClause)
     const filterParams = Object.entries(params).filter(
-      ([key]) => key !== "_config" && key !== "where" && key !== "whereClause"
+      ([key]) => key !== '_config' && key !== 'where' && key !== 'whereClause',
     );
 
     // Build WHERE clause from filter params if we have any
     if (filterParams.length > 0) {
       // Check if any filter values are null/undefined/empty - if so, return empty result
       const hasEmptyValue = filterParams.some(
-        ([_, value]) => value === null || value === undefined || value === ""
+        ([_, value]) => value === null || value === undefined || value === '',
       );
 
       if (hasEmptyValue) {
@@ -107,7 +107,7 @@ export async function getDynamicChoiceList(
           const escapedValue = String(value).replace(/'/g, "''");
           return `data.${fieldPath} = '${escapedValue}'`;
         })
-        .join(" AND ");
+        .join(' AND ');
 
       // Combine with existing WHERE clause if present
       if (whereClause) {
@@ -119,7 +119,7 @@ export async function getDynamicChoiceList(
 
     // Helper to extract nested value from object path (e.g., 'data.hh_village_name')
     const getNestedValue = (obj: any, path: string): any => {
-      return path.split(".").reduce((current, key) => current?.[key], obj);
+      return path.split('.').reduce((current, key) => current?.[key], obj);
     };
 
     // Check if WHERE clause uses age_from_dob() syntax
@@ -142,8 +142,8 @@ export async function getDynamicChoiceList(
         const condition = parts[i].trim();
         // Remove leading/trailing parentheses and NOT
         const cleanCondition = condition
-          .replace(/^NOT\s+/i, "")
-          .replace(/^\(+|\)+$/g, "")
+          .replace(/^NOT\s+/i, '')
+          .replace(/^\(+|\)+$/g, '')
           .trim();
         if (
           cleanCondition &&
@@ -156,7 +156,7 @@ export async function getDynamicChoiceList(
 
       // Rebuild WHERE clause without age conditions
       if (nonAgeConditions.length > 0) {
-        whereClause = nonAgeConditions.join(" AND ");
+        whereClause = nonAgeConditions.join(' AND ');
       } else {
         whereClause = null; // No non-age conditions, fetch all and filter in JS
       }
@@ -188,7 +188,7 @@ export async function getDynamicChoiceList(
       // Find all age conditions and their positions
       let match;
       while ((match = ageConditionPattern.exec(originalWhereClause)) !== null) {
-        const hasNot = !!(match[1] && match[1].trim().toUpperCase() === "NOT");
+        const hasNot = !!(match[1] && match[1].trim().toUpperCase() === 'NOT');
         const beforeText = originalWhereClause.substring(0, match.index);
 
         ageConditions.push({
@@ -213,26 +213,26 @@ export async function getDynamicChoiceList(
 
             // Helper to evaluate a single age condition
             const evaluateCondition = (
-              condition: (typeof ageConditions)[0]
+              condition: (typeof ageConditions)[0],
             ): boolean => {
               let result: boolean;
               switch (condition.operator) {
-                case ">=":
+                case '>=':
                   result = age >= condition.threshold;
                   break;
-                case "<=":
+                case '<=':
                   result = age <= condition.threshold;
                   break;
-                case ">":
+                case '>':
                   result = age > condition.threshold;
                   break;
-                case "<":
+                case '<':
                   result = age < condition.threshold;
                   break;
-                case "=":
+                case '=':
                   result = age === condition.threshold;
                   break;
-                case "!=":
+                case '!=':
                   result = age !== condition.threshold;
                   break;
                 default:
@@ -263,19 +263,19 @@ export async function getDynamicChoiceList(
                       (originalWhereClause
                         .substring(condition.position)
                         .match(
-                          /age_from_dob\([^)]+\)\s*(>=|<=|>|<|=|!=)\s*\d+/i
+                          /age_from_dob\([^)]+\)\s*(>=|<=|>|<|=|!=)\s*\d+/i,
                         )?.[0]?.length || 0),
-                    nextCondition.position
+                    nextCondition.position,
                   );
 
                   // Check for OR (takes precedence in parsing)
                   if (/\bOR\b/i.test(betweenText)) {
-                    logics.push("OR");
+                    logics.push('OR');
                   } else if (/\bAND\b/i.test(betweenText)) {
-                    logics.push("AND");
+                    logics.push('AND');
                   } else {
                     // Default to AND if no explicit operator
-                    logics.push("AND");
+                    logics.push('AND');
                   }
                 }
               }
@@ -288,7 +288,7 @@ export async function getDynamicChoiceList(
               const firstConditionStart = ageConditions[0].position;
               const beforeFirst = originalWhereClause.substring(
                 0,
-                firstConditionStart
+                firstConditionStart,
               );
               const lastCondition = ageConditions[ageConditions.length - 1];
               const lastConditionEnd =
@@ -303,7 +303,7 @@ export async function getDynamicChoiceList(
               const notBefore = /NOT\s*\(/i.test(beforeFirst.trim().slice(-10));
               const closingParenAfter = /^\s*\)/.test(afterLast);
               const hasOpeningParen = /\(\s*$/.test(
-                beforeFirst.trim().slice(-5)
+                beforeFirst.trim().slice(-5),
               );
 
               // Check if conditions are grouped in parentheses
@@ -315,41 +315,41 @@ export async function getDynamicChoiceList(
               if (logics.length === 0) {
                 // Single condition
                 finalResult = results[0];
-              } else if (logics.every((l) => l === "AND")) {
+              } else if (logics.every(l => l === 'AND')) {
                 // All AND: all must be true
-                finalResult = results.every((r) => r);
-              } else if (logics.every((l) => l === "OR")) {
+                finalResult = results.every(r => r);
+              } else if (logics.every(l => l === 'OR')) {
                 // All OR: at least one must be true
-                finalResult = results.some((r) => r);
+                finalResult = results.some(r => r);
               } else {
                 // Mixed AND/OR - need to respect grouping
                 // For (A AND B) OR C pattern:
                 // - If grouped and first logic is AND, evaluate grouped part first
                 if (
                   isGrouped &&
-                  logics[0] === "AND" &&
-                  logics.some((l) => l === "OR")
+                  logics[0] === 'AND' &&
+                  logics.some(l => l === 'OR')
                 ) {
                   // Find where OR starts (after grouped AND conditions)
-                  const orIndex = logics.findIndex((l) => l === "OR");
+                  const orIndex = logics.findIndex(l => l === 'OR');
                   if (orIndex > 0) {
                     // Evaluate grouped AND conditions: (A AND B)
                     const groupedResult = results
                       .slice(0, orIndex + 1)
-                      .every((r) => r);
+                      .every(r => r);
                     // Then OR with remaining conditions: OR C
                     const remainingResults = results.slice(orIndex + 1);
                     finalResult =
-                      groupedResult || remainingResults.some((r) => r);
+                      groupedResult || remainingResults.some(r => r);
                   } else {
                     // Fallback: OR all results
-                    finalResult = results.some((r) => r);
+                    finalResult = results.some(r => r);
                   }
                 } else {
                   // Fallback: evaluate sequentially (left to right)
                   finalResult = results[0];
                   for (let i = 0; i < logics.length; i++) {
-                    if (logics[i] === "OR") {
+                    if (logics[i] === 'OR') {
                       finalResult = finalResult || results[i + 1];
                     } else {
                       finalResult = finalResult && results[i + 1];
@@ -386,13 +386,13 @@ export async function getDynamicChoiceList(
 
     // Filter out null/undefined values
     choices = choices.filter(
-      (choice) => choice.const != null && choice.const !== ""
+      choice => choice.const != null && choice.const !== '',
     );
 
     // Apply distinct if requested
     if (distinct) {
       const seen = new Set();
-      choices = choices.filter((choice) => {
+      choices = choices.filter(choice => {
         const key = String(choice.const);
         if (seen.has(key)) return false;
         seen.add(key);
@@ -402,7 +402,7 @@ export async function getDynamicChoiceList(
 
     return choices;
   } catch (error: unknown) {
-    console.error("getDynamicChoiceList error:", error);
+    console.error('getDynamicChoiceList error:', error);
     return [];
   }
 }
@@ -411,7 +411,7 @@ export async function getDynamicChoiceList(
 type BuiltinExtensionFn = (
   queryName: string,
   params: Record<string, any>,
-  formData?: Record<string, any>
+  formData?: Record<string, any>,
 ) => Promise<Array<{ const: any; title: string }>>;
 
 /**
@@ -420,6 +420,6 @@ type BuiltinExtensionFn = (
  */
 export function getBuiltinExtensions(): Map<string, BuiltinExtensionFn> {
   const functions = new Map<string, BuiltinExtensionFn>();
-  functions.set("getDynamicChoiceList", getDynamicChoiceList);
+  functions.set('getDynamicChoiceList', getDynamicChoiceList);
   return functions;
 }
