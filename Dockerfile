@@ -22,7 +22,7 @@ ENV CGO_ENABLED=0 GOOS=linux
 RUN go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus
 
 # Stage 2: Build the React application (Portal)
-FROM node:20-alpine AS portal-builder
+FROM node:24-alpine AS portal-builder
 
 WORKDIR /app
 
