@@ -734,6 +734,9 @@ function App() {
     ({ data }: { data: FormData }) => {
       setData(data);
 
+      // Expose current form data globally for extension renderers
+      (window as any).formulusCurrentFormData = data;
+
       // Save draft data whenever form data changes
       if (formInitData) {
         draftService.saveDraft(formInitData.formType, data, formInitData);
@@ -747,6 +750,7 @@ function App() {
     const instance = new Ajv({
       allErrors: true,
       strict: false, // Allow custom keywords like x-formulus-validation
+      $data: true,
     });
     addErrors(instance);
     addFormats(instance);
