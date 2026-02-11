@@ -57,7 +57,7 @@ jobs:
         run: npm run build:rn
 
       - name: Upload formplayer assets artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: formplayer-assets
           path: formulus/android/app/src/main/assets/formplayer_dist
@@ -75,7 +75,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download formplayer assets artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: formplayer-assets
           path: formulus/android/app/src/main/assets/formplayer_dist
@@ -148,7 +148,7 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: formulus-android-apk-${{ github.event_name }}-${{ github.run_id }}
           path: |
