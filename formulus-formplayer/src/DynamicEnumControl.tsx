@@ -52,7 +52,7 @@ function resolveSchemaFromScope(scope: string | undefined, rootSchema: any): any
  */
 export const dynamicEnumTester = rankWith(
   100, // High priority for x-dynamicEnum fields
-  (uischema: any, schema: any, context: any) => {
+  (uischema: any, schema: any, _context: any) => {
     // Resolve the actual field schema from the scope
     const fieldSchema = resolveSchemaFromScope(uischema?.scope, schema);
     return !!(fieldSchema as any)?.['x-dynamicEnum'];

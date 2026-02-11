@@ -17,7 +17,7 @@ export interface FormEvaluationContextValue {
    * Key: function name (e.g., "getDynamicChoiceList")
    * Value: the actual function
    */
-  functions: Map<string, Function>;
+  functions: Map<string, (...args: any[]) => any>;
 }
 
 /**
@@ -49,7 +49,7 @@ export interface FormEvaluationProviderProps {
   /**
    * Map of extension functions to provide
    */
-  functions: Map<string, Function>;
+  functions: Map<string, (...args: any[]) => any>;
   /**
    * Child components
    */

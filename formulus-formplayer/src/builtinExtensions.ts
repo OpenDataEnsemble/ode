@@ -62,7 +62,7 @@ function calculateAge(dateOfBirth: string | null | undefined): number | null {
 export async function getDynamicChoiceList(
   queryName: string,
   params: Record<string, any> = {},
-  formData: Record<string, any> = {},
+  _formData: Record<string, any> = {},
 ): Promise<Array<{ const: any; title: string }>> {
   // Check if Formulus bridge is available
   if (!window.formulus?.getObservationsByQuery) {
@@ -316,7 +316,7 @@ export async function getDynamicChoiceList(
             return finalResult;
           }
           });
-        } catch (filterError: unknown) {
+        } catch (_filterError: unknown) {
           // If filtering fails, return empty array (better than crashing)
           observations = [];
         }
@@ -358,8 +358,8 @@ export async function getDynamicChoiceList(
  * Get all built-in extension functions as a Map
  * @returns Map of function name to function
  */
-export function getBuiltinExtensions(): Map<string, Function> {
-  const functions = new Map<string, Function>();
+export function getBuiltinExtensions(): Map<string, (...args: any[]) => any> {
+  const functions = new Map<string, (...args: any[]) => any>();
   functions.set('getDynamicChoiceList', getDynamicChoiceList);
   return functions;
 }

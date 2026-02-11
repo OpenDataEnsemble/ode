@@ -263,10 +263,8 @@ function App() {
     JsonFormsRendererRegistryEntry[]
   >([]);
   // Store extension functions for potential future use (e.g., validation context injection)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [extensionFunctions, setExtensionFunctions] = useState<
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    Map<string, Function>
+    Map<string, (...args: any[]) => any>
   >(new Map());
   const [extensionDefinitions, setExtensionDefinitions] = useState<
     Record<string, any>
