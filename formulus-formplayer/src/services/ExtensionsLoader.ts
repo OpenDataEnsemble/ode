@@ -44,6 +44,7 @@ export interface LoadedRenderer {
  */
 export interface ExtensionLoadResult {
   renderers: JsonFormsRendererRegistryEntry[];
+  // Functions with explicit signature for type safety
   functions: Map<string, (...args: any[]) => any>;
   definitions: Record<string, any>;
   errors: Array<{ type: string; message: string; details?: any }>;
@@ -189,8 +190,7 @@ async function loadRenderer(
 async function loadFunction(
   metadata: ExtensionFunctionMetadata,
   basePath: string,
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-): Promise<Function | null> {
+): Promise<((...args: any[]) => any) | null> {
   try {
     // Construct module path
     const modulePath = basePath
