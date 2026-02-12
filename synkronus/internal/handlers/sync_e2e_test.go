@@ -348,6 +348,9 @@ func (m *mockAppBundleService) GetLatestAppInfo(ctx context.Context) (*appbundle
 func (m *mockAppBundleService) CompareAppInfos(ctx context.Context, versionA, versionB string) (*appbundle.ChangeLog, error) {
 	return &appbundle.ChangeLog{}, nil
 }
+func (m *mockAppBundleService) GetBundleZipPath(ctx context.Context) (string, error) {
+	return "/mock/bundle.zip", nil
+}
 
 type mockUserService struct{}
 

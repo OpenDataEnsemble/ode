@@ -13,11 +13,13 @@ import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
 import { colors } from '../theme/colors';
+import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [webViewKey, setWebViewKey] = useState(0);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
 
   useFocusEffect(
@@ -95,6 +97,15 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   }, [navigation]);
 
   useEffect(() => {
+    const onBundleUpdated: Listener = () => {
+      checkAndSetAppUri();
+      setWebViewKey(prev => prev + 1);
+    };
+    appEvents.addListener('bundleUpdated', onBundleUpdated);
+    return () => appEvents.removeListener('bundleUpdated', onBundleUpdated);
+  }, []);
+
+  useEffect(() => {
     if (localUri) {
       // Defer to avoid synchronous setState in effect
       Promise.resolve().then(() => {
@@ -121,6 +132,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         />
       ) : (
         <CustomAppWebView
+          key={webViewKey}
           ref={customAppRef}
           appUrl={localUri}
           appName="custom_app"

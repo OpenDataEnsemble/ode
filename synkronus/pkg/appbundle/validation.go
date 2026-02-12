@@ -60,13 +60,13 @@ func (s *Service) validateBundleStructure(zipReader *zip.Reader) error {
 				formDirs[formParts[1]] = struct{}{}
 			}
 		}
-		// AnthroCollect-style: app/forms/{formName}/...
+		// AnthroCollect-style: app/forms/{formName}/schema.json|ui.json
 		if strings.HasPrefix(file.Name, "app/forms/") && !strings.HasSuffix(file.Name, "/") {
 			if file.Name == "app/forms/ext.json" || strings.HasSuffix(file.Name, "/ext.json") {
 				continue
 			}
 			formParts := strings.Split(file.Name, "/")
-			if len(formParts) >= 3 {
+			if len(formParts) == 4 && (formParts[3] == "schema.json" || formParts[3] == "ui.json") {
 				formDirs[formParts[2]] = struct{}{}
 			}
 		}
@@ -152,14 +152,18 @@ func getFormNameFromSchemaPath(path string) string {
 	return ""
 }
 
-// validateFormFileAppForms validates app/forms/{formName}/schema.json or ui.json
+// validateFormFileAppForms validates app/forms/{formName}/schema.json or ui.json.
+// Files at other depths (e.g. extensions, helpers) are allowed and skipped.
 func (s *Service) validateFormFileAppForms(file *zip.File) error {
 	if file.FileInfo().IsDir() {
 		return nil
 	}
 	parts := strings.Split(file.Name, "/")
-	if len(parts) != 4 || (parts[3] != "schema.json" && parts[3] != "ui.json") {
-		return fmt.Errorf("%w: invalid form file path: %s", ErrInvalidFormStructure, file.Name)
+	if len(parts) != 4 {
+		return nil
+	}
+	if parts[3] != "schema.json" && parts[3] != "ui.json" {
+		return nil
 	}
 	if parts[3] == "schema.json" {
 		return s.validateFormSchema(file)

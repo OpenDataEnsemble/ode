@@ -165,6 +165,11 @@ func (m *MockAppBundleService) GetLatestAppInfo(ctx context.Context) (*appbundle
 	}, nil
 }
 
+// GetBundleZipPath returns the path to the active bundle's zip archive
+func (m *MockAppBundleService) GetBundleZipPath(ctx context.Context) (string, error) {
+	return "/mock/bundle.zip", nil
+}
+
 // CompareAppInfos compares two versions and returns the change log
 func (m *MockAppBundleService) CompareAppInfos(ctx context.Context, versionA, versionB string) (*appbundle.ChangeLog, error) {
 	// Return a mock change log

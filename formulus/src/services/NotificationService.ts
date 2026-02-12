@@ -1,110 +1,107 @@
+import { Platform } from 'react-native';
 import notifee, {
   AndroidImportance,
-  AndroidStyle,
-  AndroidAction,
+  AndroidForegroundServiceType,
 } from '@notifee/react-native';
 import { SyncProgress } from '../contexts/SyncContext';
 
 class NotificationService {
   private syncNotificationId = 'sync_progress';
-  private completionNotificationId = 'sync_completion';
   private channelId = 'sync_channel';
   private isConfigured = false;
+  private foregroundServiceRunning = false;
 
   async configure() {
     if (this.isConfigured) return;
-
-    // Request permissions
     await notifee.requestPermission();
-
-    // Create notification channel for Android
     await notifee.createChannel({
       id: this.channelId,
       name: 'Sync Progress',
       description: 'Shows progress of data synchronization',
       importance: AndroidImportance.DEFAULT,
-      sound: undefined, // No sound
+      sound: undefined,
       vibration: false,
     });
-
     this.isConfigured = true;
-    console.log('Notifee notification service configured');
   }
 
   async showSyncProgress(progress: SyncProgress) {
-    await this.configure();
+    if (!this.foregroundServiceRunning) return;
 
     const percentage =
       progress.total > 0
         ? Math.round((progress.current / progress.total) * 100)
         : 0;
-    const phaseText = this.getPhaseText(progress.phase);
 
-    const title = 'Syncing data...';
-    let message = `${phaseText}: ${progress.current}/${progress.total}`;
-
-    if (progress.details) {
-      message += ` - ${progress.details}`;
+    try {
+      await notifee.displayNotification({
+        id: this.syncNotificationId,
+        title: this.getPhaseText(progress.phase),
+        body: `${percentage}%`,
+        android: {
+          channelId: this.channelId,
+          ongoing: true,
+          progress: {
+            max: 100,
+            current: percentage,
+            indeterminate: progress.total === 0,
+          },
+        },
+      });
+    } catch (e) {
+      console.warn('Failed to update sync progress notification:', e);
     }
+  }
 
-    const cancelAction: AndroidAction = {
-      title: 'Cancel',
-      pressAction: {
-        id: 'cancel_sync',
-      },
-    };
+  async startForegroundService() {
+    if (Platform.OS !== 'android' || this.foregroundServiceRunning) return;
+    await this.configure();
 
     await notifee.displayNotification({
       id: this.syncNotificationId,
-      title,
-      body: message,
+      title: 'Syncing...',
+      body: 'Starting...',
       android: {
         channelId: this.channelId,
-        ongoing: true, // Makes notification persistent
-        style: {
-          type: AndroidStyle.BIGTEXT,
-          text: message,
-        },
-        progress: {
-          max: 100,
-          current: percentage,
-          indeterminate: progress.total === 0,
-        },
-        actions: [cancelAction],
-        pressAction: {
-          id: 'default',
-        },
+        asForegroundService: true,
+        foregroundServiceTypes: [
+          AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+        ],
+        ongoing: true,
+        progress: { max: 100, current: 0, indeterminate: true },
       },
     });
+    this.foregroundServiceRunning = true;
+  }
+
+  async stopForegroundService() {
+    if (Platform.OS !== 'android' || !this.foregroundServiceRunning) return;
+    this.foregroundServiceRunning = false;
+    try {
+      await notifee.stopForegroundService();
+    } catch (e) {
+      console.warn('Failed to stop foreground service:', e);
+    }
+    try {
+      await notifee.cancelNotification(this.syncNotificationId);
+    } catch (e) {
+      console.warn('Failed to cancel foreground notification:', e);
+    }
+    // Delayed cleanup: catch any fire-and-forget showSyncProgress calls
+    // that were already in-flight when we stopped the service
+    setTimeout(async () => {
+      try {
+        await notifee.cancelNotification(this.syncNotificationId);
+      } catch (_) {
+        // ignore
+      }
+    }, 1000);
   }
 
   async showSyncComplete(success: boolean, error?: string) {
     await this.configure();
 
-    // Cancel the ongoing notification completely
-    console.log(
-      'Canceling progress notification with ID:',
-      this.syncNotificationId,
-    );
-
-    // First, update the notification to make it non-ongoing, then cancel it
-    await notifee.displayNotification({
-      id: this.syncNotificationId,
-      title: 'Sync completing...',
-      body: 'Finalizing sync...',
-      android: {
-        channelId: this.channelId,
-        ongoing: false, // Make it non-ongoing so it can be cancelled
-        autoCancel: true,
-      },
-    });
-
-    // Now cancel it
-    await notifee.cancelNotification(this.syncNotificationId);
-    console.log('Progress notification cancellation completed');
-
     if (success) {
-      // Show a fresh completion notification with timestamp
       const now = new Date();
       const timeString = now.toLocaleTimeString('en-US', {
         hour12: false,
@@ -113,34 +110,26 @@ class NotificationService {
       });
 
       await notifee.displayNotification({
-        id: `sync_completed_${Date.now()}`, // Unique ID each time
+        id: `sync_done_${Date.now()}`,
         title: `Sync completed @ ${timeString}`,
         body: 'All data synchronized successfully',
         android: {
           channelId: this.channelId,
           autoCancel: true,
-          smallIcon: 'ic_launcher',
           ongoing: false,
-          // No actions at all - completely fresh notification
-          pressAction: {
-            id: 'default',
-          },
+          pressAction: { id: 'default' },
         },
       });
     } else {
-      // For errors, show a simple error notification
       await notifee.displayNotification({
-        id: `sync_failed_${Date.now()}`, // Unique ID each time
+        id: `sync_done_${Date.now()}`,
         title: 'Sync failed',
         body: error || 'An error occurred during synchronization',
         android: {
           channelId: this.channelId,
           autoCancel: true,
-          smallIcon: 'ic_launcher',
           ongoing: false,
-          pressAction: {
-            id: 'default',
-          },
+          pressAction: { id: 'default' },
         },
       });
     }
@@ -148,27 +137,15 @@ class NotificationService {
 
   async showSyncCanceled() {
     await this.configure();
-
-    // Remove the ongoing notification
-    await notifee.cancelNotification(this.syncNotificationId);
-
-    // Small delay to ensure the previous notification is fully canceled
-    await new Promise<void>(resolve => setTimeout(() => resolve(), 100));
-
-    // Show cancellation notification with different ID
     await notifee.displayNotification({
-      id: `${this.completionNotificationId}_canceled`,
+      id: `sync_done_${Date.now()}`,
       title: 'Sync canceled',
-      body: 'Data synchronization was canceled by user',
+      body: 'Synchronization was canceled',
       android: {
         channelId: this.channelId,
         autoCancel: true,
-        smallIcon: 'ic_launcher',
-        pressAction: {
-          id: 'default',
-        },
-        actions: [], // Explicitly remove all actions (no Cancel button)
-        ongoing: false, // Ensure it's not ongoing
+        ongoing: false,
+        pressAction: { id: 'default' },
       },
     });
   }
@@ -178,22 +155,17 @@ class NotificationService {
   }
 
   async clearAllSyncNotifications() {
-    // Clear all sync-related notifications to prevent stale data
-    await notifee.cancelNotification(this.syncNotificationId);
-    await notifee.cancelNotification(this.completionNotificationId);
-    await notifee.cancelNotification(
-      `${this.completionNotificationId}_canceled`,
-    );
+    await notifee.cancelAllNotifications();
   }
 
   private getPhaseText(phase: SyncProgress['phase']): string {
     switch (phase) {
       case 'pull':
-        return 'Downloading';
+        return 'Downloading data';
       case 'push':
         return 'Uploading observations';
       case 'attachments_download':
-        return 'Downloading attachments';
+        return 'Updating app bundle';
       case 'attachments_upload':
         return 'Uploading attachments';
       default:

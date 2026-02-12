@@ -21,6 +21,8 @@ import { databaseService } from '../database/DatabaseService';
 import { getUserInfo } from '../api/synkronus/Auth';
 import colors from '../theme/colors';
 
+type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
+
 const SyncScreen = () => {
   const syncContextValue = useSyncContext();
   const {
@@ -43,6 +45,7 @@ const SyncScreen = () => {
   const [serverBundleVersion, setServerBundleVersion] =
     useState<string>('Unknown');
   const [animatedProgress] = useState(new Animated.Value(0));
+  const [activeOperation, setActiveOperation] = useState<ActiveOperation>(null);
 
   const updatePendingUploads = useCallback(async () => {
     try {
@@ -76,129 +79,155 @@ const SyncScreen = () => {
     }
   }, []);
 
-  const handleSync = useCallback(async () => {
-    if (syncState.isActive) {
-      console.log('Sync already active, ignoring request');
-      return;
+  const refreshAfterOperation = useCallback(async () => {
+    const syncTime = new Date().toISOString();
+    setLastSync(syncTime);
+    try {
+      await AsyncStorage.setItem('@lastSync', syncTime);
+    } catch (e) {
+      console.warn('Failed to save last sync time:', e);
     }
+    try {
+      await updatePendingUploads();
+    } catch (e) {
+      console.warn('Failed to update pending uploads:', e);
+    }
+    try {
+      await updatePendingObservations();
+    } catch (e) {
+      console.warn('Failed to update pending observations:', e);
+    }
+  }, [updatePendingUploads, updatePendingObservations]);
+
+  const handleSync = useCallback(async () => {
+    if (syncState.isActive) return;
 
     let syncError: string | undefined;
 
     try {
-      console.log('Starting sync...');
       startSync(true);
+      setActiveOperation('sync');
 
-      // Add timeout to prevent infinite hanging (30 minutes max)
       const syncPromise = syncService.syncObservations(true);
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(
-          () => {
-            reject(new Error('Sync operation timed out after 30 minutes'));
-          },
+          () => reject(new Error('Sync timed out after 30 minutes')),
           30 * 60 * 1000,
         );
       });
 
-      const finalVersion = await Promise.race([syncPromise, timeoutPromise]);
-      console.log('✅ Sync completed successfully, version:', finalVersion);
-
-      // Update UI state even if these fail
-      try {
-        await updatePendingUploads();
-      } catch (e) {
-        console.warn('Failed to update pending uploads:', e);
-      }
-
-      try {
-        await updatePendingObservations();
-      } catch (e) {
-        console.warn('Failed to update pending observations:', e);
-      }
-
-      const syncTime = new Date().toISOString();
-      setLastSync(syncTime);
-      try {
-        await AsyncStorage.setItem('@lastSync', syncTime);
-      } catch (e) {
-        console.warn('Failed to save last sync time:', e);
-      }
+      await Promise.race([syncPromise, timeoutPromise]);
+      await refreshAfterOperation();
     } catch (error) {
-      console.error('❌ Sync error in handleSync:', error);
       syncError = (error as Error).message || 'Unknown error occurred';
-      Alert.alert('Error', 'Failed to sync!\n' + syncError);
+      Alert.alert('Sync Failed', syncError);
     } finally {
-      // Always call finishSync to clear loading state
-      console.log('Calling finishSync, error:', syncError);
       finishSync(syncError);
-      console.log('✅ Sync finished, isActive should be false now');
+      setActiveOperation(null);
     }
-  }, [
-    updatePendingUploads,
-    updatePendingObservations,
-    syncState.isActive,
-    startSync,
-    finishSync,
-  ]);
+  }, [syncState.isActive, startSync, finishSync, refreshAfterOperation]);
 
-  const handleCustomAppUpdate = useCallback(async () => {
-    if (syncState.isActive) return;
-
+  const performAppBundleUpdate = useCallback(async () => {
     try {
-      const userInfo = await getUserInfo();
-      if (!userInfo) {
-        Alert.alert(
-          'Authentication Error',
-          'Please log in to update app bundle',
-        );
-        return;
-      }
+      startSync(true);
+      setActiveOperation('update');
 
-      if (!updateAvailable && !isAdmin) {
-        Alert.alert(
-          'Permission Denied',
-          'Admin privileges required to force update app bundle',
-        );
-        return;
-      }
-
-      startSync(false);
       await syncService.updateAppBundle();
-      const syncTime = new Date().toISOString();
-      setLastSync(syncTime);
-      await AsyncStorage.setItem('@lastSync', syncTime);
       setUpdateAvailable(false);
+      await refreshAfterOperation();
       finishSync();
-      await updatePendingUploads();
-      await updatePendingObservations();
+
       const formService = await import('../services/FormService');
       const fs = await formService.FormService.getInstance();
       await fs.invalidateCache();
     } catch (error) {
       const errorMessage = (error as Error).message;
       finishSync(errorMessage);
-
       if (errorMessage.includes('401')) {
         Alert.alert(
           'Authentication Error',
           'Your session has expired. Please log in again.',
         );
       } else {
-        Alert.alert('Error', 'Failed to update app bundle!\n' + errorMessage);
+        Alert.alert('Update Failed', errorMessage);
       }
+    } finally {
+      setActiveOperation(null);
     }
+  }, [startSync, finishSync, refreshAfterOperation]);
+
+  const performSyncThenUpdate = useCallback(async () => {
+    try {
+      startSync(true);
+      setActiveOperation('sync_then_update');
+
+      await syncService.syncObservations(true);
+      await syncService.updateAppBundle();
+      setUpdateAvailable(false);
+      await refreshAfterOperation();
+      finishSync();
+
+      const formService = await import('../services/FormService');
+      const fs = await formService.FormService.getInstance();
+      await fs.invalidateCache();
+    } catch (error) {
+      const errorMessage = (error as Error).message;
+      finishSync(errorMessage);
+      Alert.alert('Operation Failed', errorMessage);
+    } finally {
+      setActiveOperation(null);
+    }
+  }, [startSync, finishSync, refreshAfterOperation]);
+
+  const handleCustomAppUpdate = useCallback(async () => {
+    if (syncState.isActive) return;
+
+    const userInfo = await getUserInfo();
+    if (!userInfo) {
+      Alert.alert('Authentication Error', 'Please log in to update app bundle');
+      return;
+    }
+
+    if (!updateAvailable && !isAdmin) {
+      Alert.alert(
+        'Permission Denied',
+        'Admin privileges required to force update app bundle',
+      );
+      return;
+    }
+
+    const hasPendingData = pendingObservations > 0 || pendingUploads.count > 0;
+
+    if (hasPendingData) {
+      const pendingCount = pendingObservations + pendingUploads.count;
+      Alert.alert(
+        'Unsynchronized Data',
+        `You have ${pendingCount} unsynchronized item${pendingCount !== 1 ? 's' : ''}. Sync your data before updating to avoid data loss.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Sync & Update',
+            onPress: () => performSyncThenUpdate(),
+          },
+        ],
+      );
+      return;
+    }
+
+    await performAppBundleUpdate();
   }, [
     syncState.isActive,
-    startSync,
-    finishSync,
-    updatePendingUploads,
-    updatePendingObservations,
     updateAvailable,
     isAdmin,
+    pendingObservations,
+    pendingUploads.count,
+    performAppBundleUpdate,
+    performSyncThenUpdate,
   ]);
 
-  const checkForUpdates = useCallback(async (force: boolean = false) => {
+  const checkForUpdates = useCallback(async () => {
     try {
-      const hasUpdate = await syncService.checkForUpdates(force);
+      const hasUpdate = await syncService.checkForUpdates();
       setUpdateAvailable(hasUpdate);
       const currentVersion = (await AsyncStorage.getItem('@appVersion')) || '0';
       setAppBundleVersion(currentVersion);
@@ -214,20 +243,20 @@ const SyncScreen = () => {
     }
   }, []);
 
-  const getDataSyncStatus = (): string => {
+  const getStatusText = (): string => {
     if (syncState.isActive) {
-      return syncState.progress?.details || 'Syncing...';
+      if (activeOperation === 'update') return 'Updating app...';
+      if (activeOperation === 'sync_then_update')
+        return 'Syncing & updating...';
+      return 'Syncing...';
     }
-    if (syncState.error) {
-      return 'Error';
-    }
-    if (pendingObservations > 0 || pendingUploads.count > 0) {
-      return 'Pending Sync';
-    }
+    if (syncState.error) return 'Error';
+    if (pendingObservations > 0 || pendingUploads.count > 0)
+      return 'Pending sync';
     return 'All synced';
   };
 
-  const status = getDataSyncStatus();
+  const status = getStatusText();
   const statusColor = syncState.isActive
     ? colors.brand.primary[500]
     : syncState.error
@@ -243,7 +272,7 @@ const SyncScreen = () => {
 
     const initialize = async () => {
       await syncService.initialize();
-      await checkForUpdates(true);
+      await checkForUpdates();
       const userInfo = await getUserInfo();
       setIsAdmin(userInfo?.role === 'admin');
       const lastSyncTime = await AsyncStorage.getItem('@lastSync');
@@ -267,7 +296,6 @@ const SyncScreen = () => {
     updateProgress,
   ]);
 
-  // Smoothly animate progress changes so the bar doesn't "twitch"
   useEffect(() => {
     if (!syncState.progress || !syncState.isActive) {
       Animated.timing(animatedProgress, {
@@ -297,7 +325,7 @@ const SyncScreen = () => {
     if (!syncState.isActive && !syncState.error) {
       updatePendingUploads();
       updatePendingObservations();
-      checkForUpdates(false);
+      checkForUpdates();
     }
   }, [
     syncState.isActive,
@@ -307,13 +335,22 @@ const SyncScreen = () => {
     checkForUpdates,
   ]);
 
+  const getProgressTitle = (): string => {
+    if (activeOperation === 'sync_then_update') return 'Syncing & Updating';
+    if (activeOperation === 'update') return 'Updating App Bundle';
+    return 'Syncing Data';
+  };
+
+  const isSyncButtonActive =
+    activeOperation === 'sync' || activeOperation === 'sync_then_update';
+  const isUpdateButtonActive =
+    activeOperation === 'update' || activeOperation === 'sync_then_update';
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Sync</Text>
-        <Text style={styles.subtitle}>
-          {syncState.isActive ? 'Syncing...' : 'Synchronize your data'}
-        </Text>
+        <Text style={styles.subtitle}>Synchronize your data</Text>
       </View>
 
       <ScrollView
@@ -455,16 +492,8 @@ const SyncScreen = () => {
           <View style={styles.progressCard}>
             <View style={styles.progressHeader}>
               <Icon name="sync" size={20} color={colors.brand.primary[500]} />
-              <Text style={styles.progressTitle}>Sync Progress</Text>
+              <Text style={styles.progressTitle}>{getProgressTitle()}</Text>
             </View>
-            <Text style={styles.progressMode}>
-              {syncState.progress.phase === 'attachments_download'
-                ? 'App bundle update'
-                : 'Data sync'}
-            </Text>
-            <Text style={styles.progressDetails}>
-              {syncState.progress.details || 'Syncing...'}
-            </Text>
             <View style={styles.progressBar}>
               <Animated.View
                 style={[
@@ -479,7 +508,6 @@ const SyncScreen = () => {
               />
             </View>
             <Text style={styles.progressText}>
-              {syncState.progress.current}/{syncState.progress.total} -{' '}
               {Math.round(
                 (syncState.progress.current / syncState.progress.total) * 100,
               )}
@@ -521,13 +549,13 @@ const SyncScreen = () => {
             ]}
             onPress={handleSync}
             disabled={syncState.isActive}>
-            {syncState.isActive ? (
+            {isSyncButtonActive ? (
               <ActivityIndicator size="small" color={colors.neutral.white} />
             ) : (
               <Icon name="sync" size={20} color={colors.neutral.white} />
             )}
             <Text style={styles.actionButtonText}>
-              {syncState.isActive ? 'Syncing...' : 'Sync Data'}
+              {isSyncButtonActive ? 'Syncing...' : 'Sync Data'}
             </Text>
           </TouchableOpacity>
 
@@ -540,7 +568,7 @@ const SyncScreen = () => {
             ]}
             onPress={handleCustomAppUpdate}
             disabled={syncState.isActive || (!updateAvailable && !isAdmin)}>
-            {syncState.isActive ? (
+            {isUpdateButtonActive ? (
               <ActivityIndicator
                 size="small"
                 color={colors.brand.primary[500]}
@@ -553,15 +581,15 @@ const SyncScreen = () => {
               />
             )}
             <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>
-              {syncState.isActive ? 'Updating...' : 'Update App Bundle'}
+              {isUpdateButtonActive ? 'Updating...' : 'Update App Bundle'}
             </Text>
           </TouchableOpacity>
 
-          {updateAvailable && (
+          {!syncState.isActive && updateAvailable && (
             <Text style={styles.updateNotification}>Update available</Text>
           )}
 
-          {!updateAvailable && !isAdmin && (
+          {!syncState.isActive && !updateAvailable && !isAdmin && (
             <Text style={styles.hintText}>No updates available</Text>
           )}
         </View>
@@ -749,17 +777,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.brand.primary[500],
-  },
-  progressDetails: {
-    fontSize: 14,
-    color: colors.neutral[600],
-    marginBottom: 12,
-  },
-  progressMode: {
-    fontSize: 12,
-    color: colors.neutral[500],
-    marginBottom: 4,
-    fontStyle: 'italic',
   },
   progressBar: {
     height: 8,

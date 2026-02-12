@@ -291,6 +291,10 @@ func (s *Service) generateManifest() (*Manifest, error) {
 		// Use forward slashes for consistency across platforms
 		relPath = filepath.ToSlash(relPath)
 
+		if relPath == "bundle.zip" {
+			return nil
+		}
+
 		// Include app/forms/ in the manifest. Some bundles (e.g. AnthroCollect) put
 		// form schemas only under app/forms/<formType>/schema.json. The Formulus
 		// client downloads these via downloadAppFiles (prefix "app/") and
@@ -416,7 +420,7 @@ func (s *Service) hashManifest(manifest *Manifest) (string, error) {
 
 // ensureCurrentVersionSet checks if a current version is set, and if not,
 // sets the latest available version as current
-func (s *Service) ensureCurrentVersionSet(ctx context.Context) error {
+func (s *Service) ensureCurrentVersionSet(_ context.Context) error {
 	// Check if CURRENT_VERSION file exists
 	versionFile := filepath.Join(s.versionsPath, "CURRENT_VERSION")
 	if _, err := os.Stat(versionFile); err == nil {
@@ -465,6 +469,18 @@ func (s *Service) ensureCurrentVersionSet(ctx context.Context) error {
 	s.currentVersion = latestVersion
 
 	return nil
+}
+
+// GetBundleZipPath returns the filesystem path to the active bundle's zip archive
+func (s *Service) GetBundleZipPath(_ context.Context) (string, error) {
+	zipPath := filepath.Join(s.bundlePath, "bundle.zip")
+	if _, err := os.Stat(zipPath); err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("bundle zip not available")
+		}
+		return "", fmt.Errorf("failed to check bundle zip: %w", err)
+	}
+	return zipPath, nil
 }
 
 // RefreshManifest forces a refresh of the manifest

@@ -125,6 +125,20 @@ func (h *Handler) streamFile(w http.ResponseWriter, file io.ReadCloser, fileInfo
 	}
 }
 
+// DownloadBundleZip serves the active app bundle as a zip file
+func (h *Handler) DownloadBundleZip(w http.ResponseWriter, r *http.Request) {
+	zipPath, err := h.appBundleService.GetBundleZipPath(r.Context())
+	if err != nil {
+		h.log.Error("Failed to get bundle zip", "error", err)
+		SendErrorResponse(w, http.StatusNotFound, err, "Bundle zip not available")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", `attachment; filename="bundle.zip"`)
+	http.ServeFile(w, r, zipPath)
+}
+
 // CompareAppBundleVersions handles the /app-bundle/changes endpoint
 func (h *Handler) CompareAppBundleVersions(w http.ResponseWriter, r *http.Request) {
 	h.log.Info("App bundle comparison requested")
