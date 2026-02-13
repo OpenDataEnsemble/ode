@@ -7,7 +7,7 @@ import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import * as Keychain from 'react-native-keychain';
 import { Alert } from 'react-native';
-import ImagePicker from 'react-native-image-picker';
+import * as ImagePicker from 'react-native-image-picker';
 import {
   pick,
   types,
