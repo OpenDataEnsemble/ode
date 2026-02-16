@@ -9,12 +9,14 @@ on:
       - 'formulus/**'
       - 'formulus-formplayer/**'
       - 'packages/tokens/**'
+      - 'packages/components/**'
       - '.github/workflows/formulus-android.yml'
   pull_request:
     paths:
       - 'formulus/**'
       - 'formulus-formplayer/**'
       - 'packages/tokens/**'
+      - 'packages/components/**'
       - '.github/workflows/formulus-android.yml'
   release:
     types: [published]
@@ -92,12 +94,18 @@ jobs:
             formulus-formplayer/package.json
             packages/tokens/package-lock.json
             packages/tokens/package.json
+            packages/components/package-lock.json
+            packages/components/package.json
 
       - name: Install and build @ode/tokens
         working-directory: packages/tokens
         run: |
           npm install
           npm run build
+
+      - name: Install @ode/components dependencies
+        working-directory: packages/components
+        run: npm install
 
       - name: Install npm dependencies (formulus)
         working-directory: formulus
