@@ -1,6 +1,6 @@
 /**
  * FormEvaluationContext.tsx
- * 
+ *
  * Provides extension functions to form evaluation context.
  * Allows renderers and other form components to access custom functions
  * defined in ext.json files.
@@ -17,6 +17,7 @@ export interface FormEvaluationContextValue {
    * Key: function name (e.g., "getDynamicChoiceList")
    * Value: the actual function
    */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   functions: Map<string, Function>;
 }
 
@@ -30,9 +31,8 @@ const defaultContextValue: FormEvaluationContextValue = {
 /**
  * Form evaluation context
  */
-const FormEvaluationContext = createContext<FormEvaluationContextValue>(
-  defaultContextValue,
-);
+const FormEvaluationContext =
+  createContext<FormEvaluationContextValue>(defaultContextValue);
 
 /**
  * Hook to access form evaluation context
@@ -49,6 +49,7 @@ export interface FormEvaluationProviderProps {
   /**
    * Map of extension functions to provide
    */
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
   functions: Map<string, Function>;
   /**
    * Child components

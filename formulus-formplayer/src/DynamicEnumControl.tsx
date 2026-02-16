@@ -1,6 +1,6 @@
 /**
  * DynamicEnumControl.tsx
- * 
+ *
  * Custom JSON Forms renderer for dynamic choice lists.
  * Supports x-dynamicEnum schema property to populate enum/oneOf values
  * from database queries at runtime.
@@ -11,7 +11,14 @@ import { withJsonFormsControlProps } from '@jsonforms/react';
 import { ControlProps, rankWith } from '@jsonforms/core';
 import { useFormEvaluation } from './FormEvaluationContext';
 import { useJsonForms } from '@jsonforms/react';
-import { Autocomplete, TextField, Box, Typography, Alert, CircularProgress } from '@mui/material';
+import {
+  Autocomplete,
+  TextField,
+  Box,
+  Typography,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
 
 /**
  * Interface for x-dynamicEnum configuration
@@ -29,12 +36,15 @@ interface DynamicEnumConfig {
  * Helper to resolve the actual field schema from a scope path
  * Example: scope="#/properties/test_village" -> schema.properties.test_village
  */
-function resolveSchemaFromScope(scope: string | undefined, rootSchema: any): any {
+function resolveSchemaFromScope(
+  scope: string | undefined,
+  rootSchema: any,
+): any {
   if (!scope || !rootSchema) return rootSchema;
-  
+
   // Parse scope like "#/properties/field_name" or "#/properties/nested/properties/field"
   const parts = scope.split('/').filter(p => p && p !== '#');
-  
+
   let resolved = rootSchema;
   for (const part of parts) {
     if (resolved && typeof resolved === 'object') {
@@ -43,7 +53,7 @@ function resolveSchemaFromScope(scope: string | undefined, rootSchema: any): any
       return rootSchema; // Fallback to root if path invalid
     }
   }
-  
+
   return resolved || rootSchema;
 }
 
@@ -52,7 +62,7 @@ function resolveSchemaFromScope(scope: string | undefined, rootSchema: any): any
  */
 export const dynamicEnumTester = rankWith(
   100, // High priority for x-dynamicEnum fields
-  (uischema: any, schema: any, context: any) => {
+  (uischema: any, schema: any, _context: any) => {
     // Resolve the actual field schema from the scope
     const fieldSchema = resolveSchemaFromScope(uischema?.scope, schema);
     return !!(fieldSchema as any)?.['x-dynamicEnum'];
@@ -65,18 +75,22 @@ export const dynamicEnumTester = rankWith(
  */
 function resolveTemplateParams(
   params: Record<string, any>,
-  formData: Record<string, any>
+  formData: Record<string, any>,
 ): Record<string, any> {
   const resolved: Record<string, any> = {};
-  
+
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
+    if (
+      typeof value === 'string' &&
+      value.startsWith('{{') &&
+      value.endsWith('}}')
+    ) {
       // Extract path: {{data.village}} -> data.village
       const path = value.slice(2, -2).trim();
-      
+
       // Remove "data." prefix if present (form data is already the data object)
       const dataPath = path.startsWith('data.') ? path.slice(5) : path;
-      
+
       // Get nested value
       const pathParts = dataPath.split('.');
       let resolvedValue: any = formData;
@@ -94,7 +108,7 @@ function resolveTemplateParams(
       resolved[key] = value;
     }
   }
-  
+
   return resolved;
 }
 
@@ -113,17 +127,19 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
 }) => {
   const { functions } = useFormEvaluation();
   const ctx = useJsonForms();
-  
-  const [choices, setChoices] = useState<Array<{ const: any; title: string }>>([]);
+
+  const [choices, setChoices] = useState<Array<{ const: any; title: string }>>(
+    [],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localSchema, setLocalSchema] = useState(schema);
-  
+
   // Get x-dynamicEnum configuration first
   const dynamicConfig = useMemo(() => {
     return (schema as any)?.['x-dynamicEnum'] as DynamicEnumConfig | undefined;
   }, [schema]);
-  
+
   // Get current form data for template parameter resolution
   const currentFormData = ctx?.core?.data || {};
 
@@ -132,7 +148,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
     (_event: any, newValue: { const: any; title: string } | null) => {
       handleChange(path, newValue ? newValue.const : '');
     },
-    [handleChange, path]
+    [handleChange, path],
   );
 
   // Find selected option based on current data value - must be before early returns
@@ -142,9 +158,14 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
 
   // Get display label from schema or uischema - computed before early returns
   const label = useMemo(() => {
-    return (uischema as any)?.label || schema.title || path.split('.').pop() || 'Field';
+    return (
+      (uischema as any)?.label ||
+      schema.title ||
+      path.split('.').pop() ||
+      'Field'
+    );
   }, [uischema, schema, path]);
-  
+
   const description = schema.description;
   const hasValidationErrors = errors && errors.length > 0;
 
@@ -167,7 +188,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
     if (!func) {
       const availableFunctions = Array.from(functions.keys()).join(', ');
       setError(
-        `Function "${functionName}" not found. Available: ${availableFunctions || 'none'}.`
+        `Function "${functionName}" not found. Available: ${availableFunctions || 'none'}.`,
       );
       return;
     }
@@ -178,7 +199,10 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
     try {
       // Resolve template parameters (if any - they will be ignored if unresolved)
       const resolvedParams = dynamicConfig.params
-        ? resolveTemplateParams(dynamicConfig.params, currentFormData as Record<string, any>)
+        ? resolveTemplateParams(
+            dynamicConfig.params,
+            currentFormData as Record<string, any>,
+          )
         : {};
 
       // Add configuration for valueField, labelField, and distinct
@@ -193,14 +217,18 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       };
 
       // Call the function with correct signature: (queryName, params, formData)
-      const result = await func(dynamicConfig.query, paramsWithConfig, currentFormData);
+      const result = await func(
+        dynamicConfig.query,
+        paramsWithConfig,
+        currentFormData,
+      );
 
       if (!Array.isArray(result)) {
         throw new Error(`Function returned ${typeof result}, expected array`);
       }
 
       setChoices(result);
-      
+
       // Update local schema with dynamic enum
       const updatedSchema = {
         ...localSchema,
@@ -260,14 +288,14 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
         {label}
         {schema.required && <span style={{ color: 'red' }}> *</span>}
       </Typography>
-      
+
       {/* Description */}
       {description && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           {description}
         </Typography>
       )}
-      
+
       {/* Validation Errors */}
       {hasValidationErrors && (
         <Alert severity="error" sx={{ mb: 1 }}>
@@ -291,8 +319,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
             variant="body2"
             color="primary"
             sx={{ cursor: 'pointer', textDecoration: 'underline' }}
-            onClick={loadChoices}
-          >
+            onClick={loadChoices}>
             Retry
           </Typography>
         </Box>
@@ -305,15 +332,21 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
           value={selectedOption}
           onChange={handleValueChange}
           options={choices}
-          getOptionLabel={(option) => option.title || String(option.const)}
+          getOptionLabel={option => option.title || String(option.const)}
           isOptionEqualToValue={(option, value) => option.const === value.const}
           disabled={!enabled}
           sx={{ mt: 1 }}
-          renderInput={(params) => (
+          renderInput={params => (
             <TextField
               {...params}
               error={!!hasValidationErrors}
-              helperText={hasValidationErrors ? (Array.isArray(errors) ? errors.join(', ') : String(errors)) : ''}
+              helperText={
+                hasValidationErrors
+                  ? Array.isArray(errors)
+                    ? errors.join(', ')
+                    : String(errors)
+                  : ''
+              }
               placeholder="Select an option..."
             />
           )}
