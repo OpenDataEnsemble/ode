@@ -55,6 +55,9 @@ import GPSQuestionRenderer, {
 import VideoQuestionRenderer, {
   videoQuestionTester,
 } from './renderers/VideoQuestionRenderer';
+import QrcodeQuestionRenderer, {
+  qrcodeQuestionTester,
+} from './renderers/QrcodeQuestionRenderer';
 import HtmlLabelRenderer, {
   htmlLabelTester,
 } from './renderers/HtmlLabelRenderer';
@@ -215,6 +218,7 @@ export const customRenderers = [
   { tester: audioQuestionTester, renderer: AudioQuestionRenderer },
   { tester: gpsQuestionTester, renderer: GPSQuestionRenderer },
   { tester: videoQuestionTester, renderer: VideoQuestionRenderer },
+  { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
   { tester: htmlLabelTester, renderer: HtmlLabelRenderer },
   { tester: adateQuestionTester, renderer: AdateQuestionRenderer },
   // Dynamic choice list renderer for x-dynamicEnum fields
@@ -263,7 +267,7 @@ function App() {
     JsonFormsRendererRegistryEntry[]
   >([]);
   // Store extension functions for potential future use (e.g., validation context injection)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   const [extensionFunctions, setExtensionFunctions] = useState<
     // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
     Map<string, Function>
@@ -295,7 +299,10 @@ function App() {
         try {
           const properties = (formSchema as any)?.properties || {};
           const dynamicEnumFields = Object.entries(properties)
-            .filter(([, propSchema]: [string, any]) => !!propSchema?.['x-dynamicEnum'])
+            .filter(
+              ([, propSchema]: [string, any]) =>
+                !!propSchema?.['x-dynamicEnum'],
+            )
             .map(([key]) => key);
 
           console.log('[Formplayer] Form init received', {
@@ -306,7 +313,10 @@ function App() {
             dynamicEnumFields,
           });
         } catch (schemaLogError) {
-          console.warn('[Formplayer] Failed to log schema details', schemaLogError);
+          console.warn(
+            '[Formplayer] Failed to log schema details',
+            schemaLogError,
+          );
         }
 
         // Extract dark mode preference from params
@@ -320,17 +330,20 @@ function App() {
         if (extensions) {
           try {
             const extensionResult = await loadExtensions(extensions);
-            
+
             // Merge loaded functions with built-ins (loaded functions take precedence)
             extensionResult.functions.forEach((func, name) => {
               allFunctions.set(name, func);
             });
-            
+
             setExtensionRenderers(extensionResult.renderers);
             setExtensionFunctions(allFunctions);
             setExtensionDefinitions(extensionResult.definitions);
 
-            console.log('[Formplayer] Final extension functions:', Array.from(allFunctions.keys()));
+            console.log(
+              '[Formplayer] Final extension functions:',
+              Array.from(allFunctions.keys()),
+            );
 
             // Log errors but don't fail form initialization
             if (extensionResult.errors.length > 0) {
@@ -836,10 +849,15 @@ function App() {
             p: 3,
             backgroundColor: 'background.paper',
           }}>
-          <Typography variant="h6" color="error" sx={{ mb: 2, textAlign: 'center' }}>
+          <Typography
+            variant="h6"
+            color="error"
+            sx={{ mb: 2, textAlign: 'center' }}>
             Error Loading Form
           </Typography>
-          <Typography variant="body2" sx={{ textAlign: 'center', color: 'text.secondary' }}>
+          <Typography
+            variant="body2"
+            sx={{ textAlign: 'center', color: 'text.secondary' }}>
             {loadError}
           </Typography>
         </Box>
