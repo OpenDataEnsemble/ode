@@ -35,6 +35,7 @@ import { databaseService } from '../database';
 import { colors } from '../theme/colors';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
+import { scanCustomQuestionTypes } from '../services/CustomQuestionTypeScanner';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
 
@@ -217,9 +218,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       };
 
       // Load extensions for this form
+      const customAppPath = RNFS.DocumentDirectoryPath + '/app';
       let extensions = undefined;
       try {
-        const customAppPath = RNFS.DocumentDirectoryPath + '/app';
         const extensionService = ExtensionService.getInstance();
         const mergedExtensions = await extensionService.getCustomAppExtensions(
           customAppPath,
@@ -291,6 +292,25 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         return;
       }
 
+      // Scan custom question types (reads JS files, screens against blocklist)
+      let customQuestionTypes = undefined;
+      try {
+        const scanResult = await scanCustomQuestionTypes(customAppPath);
+        if (Object.keys(scanResult.custom_types).length > 0) {
+          customQuestionTypes = {
+            custom_types: scanResult.custom_types,
+          };
+        }
+        if (scanResult.errors.length > 0) {
+          console.warn(
+            'Some custom question types failed screening:',
+            scanResult.errors,
+          );
+        }
+      } catch (error) {
+        console.warn('Failed to scan custom question types:', error);
+      }
+
       const formInitData = {
         formType: formType.id,
         observationId: observationId,
@@ -299,6 +319,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         formSchema: formType.schema,
         uiSchema: formType.uiSchema ?? {},
         extensions,
+        customQuestionTypes,
       } as FormInitData;
 
       if (!webViewRef.current) {

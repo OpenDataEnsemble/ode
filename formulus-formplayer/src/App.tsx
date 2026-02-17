@@ -75,6 +75,7 @@ import DraftSelector from './components/DraftSelector';
 import { loadExtensions } from './services/ExtensionsLoader';
 import { getBuiltinExtensions } from './builtinExtensions';
 import { FormEvaluationProvider } from './FormEvaluationContext';
+import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
 
 // Import development dependencies (Vite will tree-shake these in production)
 import { webViewMock } from './mocks/webview-mock';
@@ -281,6 +282,11 @@ function App() {
   const [extensionDefinitions, setExtensionDefinitions] = useState<
     Record<string, any>
   >({});
+  // Custom question type renderers (loaded from custom_app)
+  const [customTypeRenderers, setCustomTypeRenderers] = useState<
+    JsonFormsRendererRegistryEntry[]
+  >([]);
+  const [customTypeFormats, setCustomTypeFormats] = useState<string[]>([]);
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -379,6 +385,32 @@ function App() {
           setExtensionFunctions(allFunctions);
           setExtensionDefinitions({});
           console.log('[Formplayer] Using only built-in extensions');
+        }
+
+        // Load custom question types if provided
+        const customQTManifest = initData.customQuestionTypes;
+        if (customQTManifest) {
+          try {
+            const customQTResult = await loadCustomQuestionTypes(customQTManifest);
+            setCustomTypeRenderers(customQTResult.renderers);
+            setCustomTypeFormats(customQTResult.formats);
+            console.log(
+              `[Formplayer] Loaded ${customQTResult.renderers.length} custom question type(s)`,
+            );
+            if (customQTResult.errors.length > 0) {
+              console.warn(
+                '[Formplayer] Custom question type loading errors:',
+                customQTResult.errors,
+              );
+            }
+          } catch (error) {
+            console.error('[Formplayer] Failed to load custom question types:', error);
+            setCustomTypeRenderers([]);
+            setCustomTypeFormats([]);
+          }
+        } else {
+          setCustomTypeRenderers([]);
+          setCustomTypeFormats([]);
         }
 
         if (!formSchema) {
@@ -799,6 +831,16 @@ function App() {
       return typeof data === 'string' && dateRegex.test(data);
     });
 
+    // Register custom question type formats with AJV
+    if (customTypeFormats.length > 0) {
+      customTypeFormats.forEach((fmt) => {
+        instance.addFormat(fmt, () => true);
+      });
+      console.log(
+        `[Formplayer] Registered ${customTypeFormats.length} custom format(s) with AJV`,
+      );
+    }
+
     // Add extension definitions to AJV for $ref support
     if (Object.keys(extensionDefinitions).length > 0) {
       // Add each definition individually so $ref can reference them
@@ -808,7 +850,7 @@ function App() {
     }
 
     return instance;
-  }, [extensionDefinitions]);
+  }, [extensionDefinitions, customTypeFormats]);
 
   // Create dynamic theme based on dark mode preference and custom app colors.
   // When a custom app provides themeColors, they override the default palette
@@ -986,6 +1028,7 @@ function App() {
                         ...shellMaterialRenderers,
                         ...materialRenderers,
                         ...customRenderers,
+                        ...customTypeRenderers, // Custom question types from custom_app
                         ...extensionRenderers, // Extension renderers (highest priority)
                       ]}
                       cells={materialCells}
