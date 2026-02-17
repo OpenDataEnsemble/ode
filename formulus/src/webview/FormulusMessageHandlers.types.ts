@@ -61,7 +61,11 @@ export interface FormulusMessageHandlers {
     whereClause?: string | null;
   }) => Promise<Observation[]>;
   onOpenFormplayer?: (data: FormInitData) => Promise<FormCompletionResult>;
-  onGetCurrentUser?: () => Promise<{ username: string; displayName?: string }>;
+  onGetCurrentUser?: () => Promise<{
+    username: string;
+    displayName?: string;
+    role?: 'read-only' | 'read-write' | 'admin';
+  }>;
   // Called when the Formplayer WebView signals that it has completed initialization
   // via a `formplayerInitialized` message. Primarily used for logging/diagnostics.
   onFormplayerInitialized?: (data: {

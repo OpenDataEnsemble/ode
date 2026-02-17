@@ -6,6 +6,7 @@ import { GeolocationService } from '../services/GeolocationService';
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import * as Keychain from 'react-native-keychain';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'react-native-image-picker';
 import {
@@ -962,17 +963,40 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onGetCurrentUser: async (): Promise<{
       username: string;
       displayName?: string;
+      role?: 'read-only' | 'read-write' | 'admin';
     }> => {
       try {
         const credentials = await Keychain.getGenericPassword();
-        if (credentials) {
-          return {
-            username: credentials.username,
-            displayName: credentials.username,
-          };
-        } else {
+        if (!credentials) {
           throw new Error('No user credentials found');
         }
+
+        // Retrieve role from stored user info (set during login)
+        let role: 'read-only' | 'read-write' | 'admin' | undefined;
+        try {
+          const userJson = await AsyncStorage.getItem('@user');
+          if (userJson) {
+            const userInfo = JSON.parse(userJson);
+            if (
+              userInfo.role === 'admin' ||
+              userInfo.role === 'read-write' ||
+              userInfo.role === 'read-only'
+            ) {
+              role = userInfo.role;
+            }
+          }
+        } catch (roleError) {
+          console.warn(
+            'FormulusMessageHandlers: Failed to retrieve user role:',
+            roleError,
+          );
+        }
+
+        return {
+          username: credentials.username,
+          displayName: credentials.username,
+          role,
+        };
       } catch (error) {
         console.error(
           'FormulusMessageHandlers: Failed to get current user:',

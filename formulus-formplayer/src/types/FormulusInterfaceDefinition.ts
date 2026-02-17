@@ -8,7 +8,7 @@
  * If you've checked out the monorepo use:
  * cp ..\formulus\src\webview\FormulusInterfaceDefinition.ts .\src\FormulusInterfaceDefinition.ts
  *
- * Current Version: 1.0.17
+ * Current Version: 1.0.18
  */
 
 /**
@@ -458,9 +458,13 @@ export interface FormulusInterface {
 
   /**
    * Get information about the currently authenticated user
-   * @returns {Promise<{username: string, displayName?: string}>} User information
+   * @returns {Promise<{username: string, displayName?: string, role?: 'read-only' | 'read-write' | 'admin'}>} User information including role
    */
-  getCurrentUser(): Promise<{ username: string; displayName?: string }>;
+  getCurrentUser(): Promise<{
+    username: string;
+    displayName?: string;
+    role?: 'read-only' | 'read-write' | 'admin';
+  }>;
 }
 
 /**
