@@ -21,6 +21,10 @@ on:
   release:
     types: [published]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '24'
 
@@ -72,23 +76,9 @@ jobs:
     permissions:
       contents: write
 
-    env:
-      # Use workspace-relative path so we can cache Gradle home (deps + build cache)
-      GRADLE_USER_HOME: ${{ github.workspace }}/.gradle
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Restore Gradle cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            .gradle/caches
-            .gradle/wrapper/dists
-          key: gradle-android-${{ runner.os }}-${{ hashFiles('formulus/android/**/*.gradle', 'formulus/android/**/*.gradle.kts', 'formulus/android/gradle/wrapper/gradle-wrapper.properties', 'formulus/android/gradle.properties', 'formulus/package-lock.json') }}
-          restore-keys: |
-            gradle-android-${{ runner.os }}-
 
       - name: Download formplayer assets artifact
         uses: actions/download-artifact@v7
@@ -130,6 +120,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Make Gradle wrapper executable
         working-directory: formulus/android
@@ -162,12 +153,12 @@ jobs:
       - name: Build debug APK (PR)
         if: github.event_name == 'pull_request'
         working-directory: formulus/android
-        run: ./gradlew assembleDebug --no-daemon --build-cache
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Build release APK (main/dev/release)
         if: github.event_name != 'pull_request'
         working-directory: formulus/android
-        run: ./gradlew assembleRelease --no-daemon --build-cache
+        run: ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6
