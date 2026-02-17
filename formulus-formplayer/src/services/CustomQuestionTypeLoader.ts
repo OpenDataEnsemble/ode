@@ -178,7 +178,7 @@ export async function loadCustomQuestionTypes(
   if (result.errors.length > 0) {
     console.warn(
       `[CustomQuestionTypeLoader] ${result.errors.length} format(s) failed to load:`,
-      result.errors.map(e => e.format).join(', '),
+      result.errors.map((e) => e.format).join(', '),
     );
   }
 
