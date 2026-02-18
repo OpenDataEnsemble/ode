@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import colors from '../../theme/colors';
+import { useAppTheme } from '../../contexts/AppThemeContext';
 
 interface EmptyStateProps {
   icon?: React.ComponentProps<typeof Icon>['name'];
@@ -18,13 +19,17 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   actionLabel,
   onAction,
 }) => {
+  const { themeColors } = useAppTheme();
+
   return (
     <View style={styles.container}>
       <Icon name={icon} size={64} color={colors.neutral[400]} />
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
       {actionLabel && onAction && (
-        <Text style={styles.actionText} onPress={onAction}>
+        <Text
+          style={[styles.actionText, { color: themeColors.primary }]}
+          onPress={onAction}>
           {actionLabel}
         </Text>
       )}
@@ -56,7 +61,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 16,
-    color: colors.brand.primary[500],
+    // color is applied inline via themeColors.primary
     fontWeight: '500',
     marginTop: 8,
   },

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { SortOption, FilterOption } from './FilterBar.types';
 import { colors } from '../../theme/colors';
-import { Input as ODEInput } from '@ode/components/react-native';
+import Input from './Input';
 import Button from './Button';
 
 export type { SortOption, FilterOption };
@@ -49,7 +49,7 @@ const FilterBar: React.FC<FilterBarProps> = ({
           color={colors.neutral[500]}
           style={styles.searchIcon}
         />
-        <ODEInput
+        <Input
           placeholder="Search..."
           value={searchQuery}
           onChangeText={onSearchChange}

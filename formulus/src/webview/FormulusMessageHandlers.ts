@@ -992,11 +992,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           );
         }
 
-        return {
-          username: credentials.username,
-          displayName: credentials.username,
+          return {
+            username: credentials.username,
+            displayName: credentials.username,
           role,
-        };
+          };
       } catch (error) {
         console.error(
           'FormulusMessageHandlers: Failed to get current user:',

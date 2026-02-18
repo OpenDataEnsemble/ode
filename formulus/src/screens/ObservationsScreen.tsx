@@ -9,7 +9,7 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { Input as ODEInput } from '@ode/components/react-native';
+import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useObservations } from '../hooks/useObservations';
@@ -27,6 +27,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { Observation } from '../database/models/Observation';
 import colors from '../theme/colors';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 type ObservationsScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -34,6 +35,7 @@ type ObservationsScreenNavigationProp = StackNavigationProp<
 >;
 
 const ObservationsScreen: React.FC = () => {
+  const { themeColors } = useAppTheme();
   const navigation = useNavigation<ObservationsScreenNavigationProp>();
   const observationsHook = useObservations();
   const {
@@ -172,7 +174,7 @@ const ObservationsScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.brand.primary[500]} />
+          <ActivityIndicator size="large" color={themeColors.primary} />
           <Text style={styles.loadingText}>Loading observations...</Text>
         </View>
       </SafeAreaView>
@@ -211,7 +213,7 @@ const ObservationsScreen: React.FC = () => {
           <Icon
             name={showSearch ? 'close' : 'magnify'}
             size={24}
-            color={colors.brand.primary[500]}
+            color={themeColors.primary}
           />
         </TouchableOpacity>
       </View>
