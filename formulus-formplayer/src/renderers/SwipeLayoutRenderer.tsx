@@ -19,6 +19,82 @@ import { draftService } from '../services/DraftService';
 import FormProgressBar from '../components/FormProgressBar';
 import FormLayout from '../components/FormLayout';
 
+// ---------------------------------------------------------------------------
+// Page visibility helpers
+// ---------------------------------------------------------------------------
+
+/** Resolve a data value from a JSON Pointer scope (e.g. "#/properties/sexo"). */
+const resolveDataValue = (scope: string, data: any): any => {
+  if (!scope || !data) return undefined;
+  const parts = scope.replace(/^#\/properties\//, '').split('/');
+  let value = data;
+  for (const part of parts) {
+    if (value != null && typeof value === 'object') {
+      value = value[part];
+    } else {
+      return undefined;
+    }
+  }
+  return value;
+};
+
+/** Evaluate a JSON Schema condition object against a concrete value. */
+const evaluateConditionSchema = (schema: any, value: any): boolean => {
+  if (!schema) return true;
+
+  if ('const' in schema) return value === schema.const;
+  if ('enum' in schema)
+    return Array.isArray(schema.enum) && schema.enum.includes(value);
+  if ('not' in schema) return !evaluateConditionSchema(schema.not, value);
+  if ('pattern' in schema && typeof value === 'string')
+    return new RegExp(schema.pattern).test(value);
+  if ('minimum' in schema && typeof value === 'number')
+    return value >= schema.minimum;
+  if ('maximum' in schema && typeof value === 'number')
+    return value <= schema.maximum;
+
+  return true;
+};
+
+/** Check whether a single UI‑schema element is visible given current data. */
+const isElementVisible = (element: any, data: any): boolean => {
+  if (!element?.rule) return true;
+
+  const { effect, condition } = element.rule;
+  if (!condition?.scope || !condition?.schema) return true;
+
+  const value = resolveDataValue(condition.scope, data);
+  const conditionMet = evaluateConditionSchema(condition.schema, value);
+
+  if (effect === 'SHOW') return conditionMet;
+  if (effect === 'HIDE') return !conditionMet;
+  // ENABLE / DISABLE do not affect visibility
+  return true;
+};
+
+/**
+ * Determine whether a page (typically a VerticalLayout) has any visible
+ * content.  A page is hidden only when **every** child element is hidden by a
+ * rule.  Finalize pages and pages without children are always visible.
+ */
+const isPageVisible = (page: any, data: any): boolean => {
+  if (!page) return false;
+  if (page.type === 'Finalize') return true;
+
+  // The page itself may carry a rule
+  if (page.rule && !isElementVisible(page, data)) return false;
+
+  // Pages without child elements (e.g. a bare Control) are always visible
+  if (!page.elements || page.elements.length === 0) return true;
+
+  // Visible if at least one child is visible
+  return page.elements.some((el: any) => isElementVisible(el, data));
+};
+
+// ---------------------------------------------------------------------------
+// Testers
+// ---------------------------------------------------------------------------
+
 interface SwipeLayoutProps extends ControlProps {
   currentPage: number;
   onPageChange: (page: number) => void;
@@ -37,6 +113,10 @@ export const groupAsSwipeLayoutTester: RankedTester = rankWith(
   2,
   isGroupElement,
 );
+
+// ---------------------------------------------------------------------------
+// SwipeLayoutRenderer
+// ---------------------------------------------------------------------------
 
 const SwipeLayoutRenderer = ({
   schema,
@@ -73,6 +153,61 @@ const SwipeLayoutRenderer = ({
     );
     handleChange = () => {};
   }
+
+  // ----- Visibility-aware navigation helpers -----
+
+  /** Indices of pages that are currently visible given the form data. */
+  const visiblePageIndices = useMemo(() => {
+    return layouts
+      .map((_: any, idx: number) => idx)
+      .filter((idx: number) => isPageVisible(layouts[idx], data));
+  }, [layouts, data]);
+
+  /** Next visible page after `currentPage`, or null. */
+  const nextVisiblePage = useMemo((): number | null => {
+    for (const idx of visiblePageIndices) {
+      if (idx > currentPage) return idx;
+    }
+    return null;
+  }, [visiblePageIndices, currentPage]);
+
+  /** Previous visible page before `currentPage`, or null. */
+  const prevVisiblePage = useMemo((): number | null => {
+    for (let i = visiblePageIndices.length - 1; i >= 0; i--) {
+      if (visiblePageIndices[i] < currentPage) return visiblePageIndices[i];
+    }
+    return null;
+  }, [visiblePageIndices, currentPage]);
+
+  /** Position of `currentPage` among visible pages (for the progress bar). */
+  const visiblePosition = useMemo(() => {
+    const idx = visiblePageIndices.indexOf(currentPage);
+    if (idx >= 0) return idx;
+    // Fallback: count visible pages that precede the current one
+    return visiblePageIndices.filter((i: number) => i < currentPage).length;
+  }, [visiblePageIndices, currentPage]);
+
+  const totalVisibleScreens = visiblePageIndices.length;
+
+  // Auto-skip: if the current page becomes hidden (e.g. data changed on a
+  // prior page), jump to the nearest visible page.
+  useEffect(() => {
+    if (layouts.length === 0) return;
+    if (isPageVisible(layouts[currentPage], data)) return;
+
+    // Prefer advancing forward, fall back to going backward
+    const next = visiblePageIndices.find((i: number) => i > currentPage);
+    if (next !== undefined) {
+      onPageChange(next);
+      return;
+    }
+    const prev = [...visiblePageIndices].reverse().find(i => i < currentPage);
+    if (prev !== undefined) {
+      onPageChange(prev);
+    }
+  }, [currentPage, data, layouts, visiblePageIndices, onPageChange]);
+
+  // ----- Required-field validation -----
 
   const getMissingRequiredFieldsOnPage = useCallback((): string[] => {
     if (!core?.schema || !data || !layouts[currentPage]) return [];
@@ -120,7 +255,10 @@ const SwipeLayoutRenderer = ({
       return controls;
     };
 
-    const pageControls = getPageControls(currentPageElement);
+    // Only validate controls that are actually visible
+    const pageControls = getPageControls(currentPageElement).filter(control =>
+      isElementVisible(control, data),
+    );
 
     pageControls.forEach(control => {
       if (!control.scope) return;
@@ -176,6 +314,8 @@ const SwipeLayoutRenderer = ({
     return missingFields;
   }, [core, data, layouts, currentPage]);
 
+  // ----- Navigation -----
+
   const performNavigation = useCallback(
     (newPage: number) => {
       if (isNavigating) return;
@@ -230,18 +370,14 @@ const SwipeLayoutRenderer = ({
   );
 
   const handlers = useSwipeable({
-    onSwipedLeft: () =>
-      navigateToPage(Math.min(currentPage + 1, layouts.length - 1)),
-    onSwipedRight: () => navigateToPage(Math.max(currentPage - 1, 0)),
+    onSwipedLeft: () => {
+      if (nextVisiblePage !== null) navigateToPage(nextVisiblePage);
+    },
+    onSwipedRight: () => {
+      if (prevVisiblePage !== null) navigateToPage(prevVisiblePage);
+    },
   });
 
-  // Calculate total screens including Finalize (so progress reaches 100% only on Finalize)
-  const totalScreens = useMemo(() => {
-    // Include all screens including Finalize so progress reaches 100% only when on Finalize page
-    return layouts.length;
-  }, [layouts]);
-
-  // Check if we're on the Finalize page
   const isOnFinalizePage = useMemo(() => {
     return layouts[currentPage]?.type === 'Finalize';
   }, [layouts, currentPage]);
@@ -259,19 +395,21 @@ const SwipeLayoutRenderer = ({
 
   const handleGoBack = useCallback(() => {
     setSnackbarOpen(false);
-    if (pendingNavigation !== null && currentPage > 0) {
-      performNavigation(currentPage - 1);
+    if (pendingNavigation !== null && prevVisiblePage !== null) {
+      performNavigation(prevVisiblePage);
     }
     setPendingNavigation(null);
     setSnackbarMessage('');
-  }, [pendingNavigation, currentPage, performNavigation]);
+  }, [pendingNavigation, prevVisiblePage, performNavigation]);
+
+  // ----- Render -----
 
   return (
     <FormLayout
       header={
         <FormProgressBar
-          currentPage={currentPage}
-          totalScreens={totalScreens}
+          currentPage={visiblePosition}
+          totalScreens={totalVisibleScreens}
           data={data}
           schema={schema}
           uischema={uischema}
@@ -280,18 +418,17 @@ const SwipeLayoutRenderer = ({
         />
       }
       previousButton={
-        currentPage > 0
+        prevVisiblePage !== null
           ? {
-              onClick: () => navigateToPage(Math.max(currentPage - 1, 0)),
+              onClick: () => navigateToPage(prevVisiblePage),
               disabled: isNavigating,
             }
           : undefined
       }
       nextButton={
-        currentPage < layouts.length - 1
+        nextVisiblePage !== null
           ? {
-              onClick: () =>
-                navigateToPage(Math.min(currentPage + 1, layouts.length - 1)),
+              onClick: () => navigateToPage(nextVisiblePage),
               disabled: isNavigating,
             }
           : undefined
@@ -335,7 +472,10 @@ const SwipeLayoutRenderer = ({
   );
 };
 
-// Create a wrapper component that manages the page state
+// ---------------------------------------------------------------------------
+// Wrapper – manages page state and draft persistence
+// ---------------------------------------------------------------------------
+
 const SwipeLayoutWrapper = (props: ControlProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const { formInitData } = useFormContext();
