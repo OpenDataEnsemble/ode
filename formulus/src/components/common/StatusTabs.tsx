@@ -32,7 +32,10 @@ const StatusTabs: React.FC<StatusTabsProps> = ({
             key={tab.id}
             style={[
               styles.tab,
-              isActive && { borderBottomWidth: 2, borderBottomColor: themeColors.primary },
+              isActive && {
+                borderBottomWidth: 2,
+                borderBottomColor: themeColors.primary,
+              },
             ]}
             onPress={() => onTabChange(tab.id)}
             activeOpacity={0.7}>

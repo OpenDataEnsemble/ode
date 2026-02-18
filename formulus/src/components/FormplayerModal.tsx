@@ -448,12 +448,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <View style={[styles.container, { backgroundColor: themeColors.surface }]}>
+        <View
+          style={[styles.container, { backgroundColor: themeColors.surface }]}>
           <View
-            style={[
-              styles.header,
-              { borderBottomColor: themeColors.divider },
-            ]}>
+            style={[styles.header, { borderBottomColor: themeColors.divider }]}>
             <TouchableOpacity
               onPress={handleClose}
               style={[

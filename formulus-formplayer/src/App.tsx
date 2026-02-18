@@ -23,11 +23,7 @@ import {
   Typography,
   ThemeProvider,
 } from '@mui/material';
-import {
-  createTheme,
-  getThemeOptions,
-  CustomThemeColors,
-} from './theme/theme';
+import { createTheme, getThemeOptions, CustomThemeColors } from './theme/theme';
 import { tokens } from './theme/tokens-adapter';
 import Ajv from 'ajv';
 import addErrors from 'ajv-errors';
@@ -271,8 +267,9 @@ function App() {
     null,
   );
   const [darkMode, setDarkMode] = useState<boolean>(false);
-  const [customThemeColors, setCustomThemeColors] =
-    useState<CustomThemeColors | undefined>(undefined);
+  const [customThemeColors, setCustomThemeColors] = useState<
+    CustomThemeColors | undefined
+  >(undefined);
   const [extensionRenderers, setExtensionRenderers] = useState<
     JsonFormsRendererRegistryEntry[]
   >([]);

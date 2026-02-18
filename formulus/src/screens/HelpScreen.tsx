@@ -20,7 +20,11 @@ const HelpScreen: React.FC = () => {
             We would love to hear your feedback and welcome contributions.
           </Text>
           <Text
-            style={[styles.cardText, styles.link, { color: themeColors.primary }]}
+            style={[
+              styles.cardText,
+              styles.link,
+              { color: themeColors.primary },
+            ]}
             onPress={() =>
               Linking.openURL('https://forum.opendataensemble.org')
             }

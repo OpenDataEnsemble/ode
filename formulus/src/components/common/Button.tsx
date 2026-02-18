@@ -120,7 +120,7 @@ const Button: React.FC<ButtonProps> = ({
   const backgroundColor = isDanger
     ? isPressed
       ? 'transparent'
-      : variantColors.defaultBg ?? 'transparent'
+      : (variantColors.defaultBg ?? 'transparent')
     : isActiveOrPressed
       ? variantColors.activeBg
       : 'transparent';
@@ -141,7 +141,9 @@ const Button: React.FC<ButtonProps> = ({
   const fontSize = FONT_SIZE[size];
 
   return (
-    <View style={[styles.wrapper, fullWidth && { width: '100%' }, style]} pointerEvents="box-none">
+    <View
+      style={[styles.wrapper, fullWidth && { width: '100%' }, style]}
+      pointerEvents="box-none">
       <TouchableOpacity
         activeOpacity={0.8}
         onPress={onPress}
@@ -164,13 +166,19 @@ const Button: React.FC<ButtonProps> = ({
         accessibilityState={{ disabled: disabled || loading }}>
         {loading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color={textColor} style={styles.loader} />
-            <Text style={[styles.text, { color: textColor, fontSize }, textStyle]}>
+            <ActivityIndicator
+              size="small"
+              color={textColor}
+              style={styles.loader}
+            />
+            <Text
+              style={[styles.text, { color: textColor, fontSize }, textStyle]}>
               {title}
             </Text>
           </View>
         ) : (
-          <Text style={[styles.text, { color: textColor, fontSize }, textStyle]}>
+          <Text
+            style={[styles.text, { color: textColor, fontSize }, textStyle]}>
             {title}
           </Text>
         )}

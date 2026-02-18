@@ -9,10 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
 import { SyncProvider } from './src/contexts/SyncContext';
-import {
-  AppThemeProvider,
-  useAppTheme,
-} from './src/contexts/AppThemeContext';
+import { AppThemeProvider, useAppTheme } from './src/contexts/AppThemeContext';
 import { appEvents, Listener } from './src/webview/FormulusMessageHandlers.ts';
 import FormplayerModal, {
   FormplayerModalHandle,

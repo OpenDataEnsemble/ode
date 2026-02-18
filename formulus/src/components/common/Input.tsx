@@ -7,13 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  ViewStyle,
-} from 'react-native';
+import { View, Text, TextInput, StyleSheet, ViewStyle } from 'react-native';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import { colors } from '../../theme/colors';
 
@@ -46,7 +40,7 @@ const Input: React.FC<InputProps> = ({
   const { themeColors } = useAppTheme();
 
   const borderColor = error
-    ? colors.semantic?.error?.[500] ?? '#F44336'
+    ? (colors.semantic?.error?.[500] ?? '#F44336')
     : isFocused
       ? themeColors.primary
       : colors.neutral[400];
@@ -75,12 +69,14 @@ const Input: React.FC<InputProps> = ({
           {
             borderColor,
             borderWidth,
-            backgroundColor: disabled ? colors.neutral[100] : colors.neutral.white,
+            backgroundColor: disabled
+              ? colors.neutral[100]
+              : colors.neutral.white,
           },
         ]}
         testID={testID ? `${testID}-input` : undefined}
         accessibilityLabel={label || placeholder}
-        accessibilityState={{ disabled, invalid: !!error } as any}
+        accessibilityState={{ disabled }}
       />
       {error && (
         <Text style={styles.error} role="alert">

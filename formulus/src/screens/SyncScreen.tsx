@@ -364,8 +364,10 @@ const SyncScreen = () => {
             style={[
               styles.statusCard,
               !syncState.isActive &&
-                (pendingObservations > 0 || pendingUploads.count > 0) &&
-                { borderWidth: 2, borderColor: themeColors.primaryLight },
+                (pendingObservations > 0 || pendingUploads.count > 0) && {
+                  borderWidth: 2,
+                  borderColor: themeColors.primaryLight,
+                },
             ]}
             onPress={() => {
               if (
@@ -492,12 +494,26 @@ const SyncScreen = () => {
         </View>
 
         {syncState.isActive && syncState.progress && (
-          <View style={[styles.progressCard, { backgroundColor: themeColors.primary + '14', borderLeftColor: themeColors.primary }]}>
+          <View
+            style={[
+              styles.progressCard,
+              {
+                backgroundColor: themeColors.primary + '14',
+                borderLeftColor: themeColors.primary,
+              },
+            ]}>
             <View style={styles.progressHeader}>
               <Icon name="sync" size={20} color={themeColors.primary} />
-              <Text style={[styles.progressTitle, { color: themeColors.primary }]}>{getProgressTitle()}</Text>
+              <Text
+                style={[styles.progressTitle, { color: themeColors.primary }]}>
+                {getProgressTitle()}
+              </Text>
             </View>
-            <View style={[styles.progressBar, { backgroundColor: themeColors.primary + '33' }]}>
+            <View
+              style={[
+                styles.progressBar,
+                { backgroundColor: themeColors.primary + '33' },
+              ]}>
               <Animated.View
                 style={[
                   styles.progressFill,
@@ -568,16 +584,9 @@ const SyncScreen = () => {
             onPress={handleCustomAppUpdate}
             disabled={syncState.isActive || (!updateAvailable && !isAdmin)}>
             {isUpdateButtonActive ? (
-              <ActivityIndicator
-                size="small"
-                color={themeColors.primary}
-              />
+              <ActivityIndicator size="small" color={themeColors.primary} />
             ) : (
-              <Icon
-                name="download"
-                size={20}
-                color={themeColors.primary}
-              />
+              <Icon name="download" size={20} color={themeColors.primary} />
             )}
             <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>
               {isUpdateButtonActive ? 'Updating...' : 'Update App Bundle'}

@@ -75,7 +75,9 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.optionItem,
-                    selectedId === item.id && { backgroundColor: themeColors.primary + '14' },
+                    selectedId === item.id && {
+                      backgroundColor: themeColors.primary + '14',
+                    },
                   ]}
                   onPress={() => {
                     onSelect(item.id);
@@ -84,16 +86,15 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                   <Text
                     style={[
                       styles.optionText,
-                      selectedId === item.id && { color: themeColors.primary, fontWeight: '600' },
+                      selectedId === item.id && {
+                        color: themeColors.primary,
+                        fontWeight: '600',
+                      },
                     ]}>
                     {item.name}
                   </Text>
                   {selectedId === item.id && (
-                    <Icon
-                      name="check"
-                      size={20}
-                      color={themeColors.primary}
-                    />
+                    <Icon name="check" size={20} color={themeColors.primary} />
                   )}
                 </TouchableOpacity>
               )}

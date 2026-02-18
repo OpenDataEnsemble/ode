@@ -21,7 +21,11 @@ const FormCard: React.FC<FormCardProps> = ({
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.content}>
-        <View style={[styles.iconContainer, { backgroundColor: themeColors.primary + '14' }]}>
+        <View
+          style={[
+            styles.iconContainer,
+            { backgroundColor: themeColors.primary + '14' },
+          ]}>
           <Icon
             name="file-document-outline"
             size={32}
@@ -38,8 +42,13 @@ const FormCard: React.FC<FormCardProps> = ({
           <View style={styles.metaContainer}>
             <Text style={styles.version}>v{form.schemaVersion}</Text>
             {observationCount > 0 && (
-              <View style={[styles.countBadge, { backgroundColor: themeColors.primary + '14' }]}>
-                <Text style={[styles.countText, { color: themeColors.primary }]}>
+              <View
+                style={[
+                  styles.countBadge,
+                  { backgroundColor: themeColors.primary + '14' },
+                ]}>
+                <Text
+                  style={[styles.countText, { color: themeColors.primary }]}>
                   {observationCount}{' '}
                   {observationCount === 1 ? 'entry' : 'entries'}
                 </Text>

@@ -312,14 +312,21 @@ const SettingsScreen = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: themeColors.primary }, styles.centered]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: themeColors.primary },
+          styles.centered,
+        ]}>
         <ActivityIndicator size="large" color={themeColors.onPrimary} />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.primary }]} edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: themeColors.primary }]}
+      edges={['top']}>
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image source={Logo} style={styles.logo} resizeMode="contain" />
@@ -349,11 +356,7 @@ const SettingsScreen = () => {
               style={styles.qrButton}
               onPress={() => setShowQRScanner(true)}
               accessibilityLabel="Scan QR code">
-              <Icon
-                name="qrcode-scan"
-                size={24}
-                color={themeColors.primary}
-              />
+              <Icon name="qrcode-scan" size={24} color={themeColors.primary} />
             </TouchableOpacity>
           </View>
         </View>

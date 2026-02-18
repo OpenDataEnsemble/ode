@@ -103,10 +103,7 @@ export const getThemeOptions = (
           customColors?.secondaryLight,
           tokens.color.brand.secondary[400],
         ),
-        dark: c(
-          customColors?.secondaryDark,
-          tokens.color.brand.secondary[600],
-        ),
+        dark: c(customColors?.secondaryDark, tokens.color.brand.secondary[600]),
         contrastText: c(customColors?.onSecondary, tokens.color.neutral.white),
       },
       error: {
