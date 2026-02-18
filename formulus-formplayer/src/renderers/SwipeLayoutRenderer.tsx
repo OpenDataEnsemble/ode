@@ -298,9 +298,7 @@ const SwipeLayoutRenderer = ({
           const errorPath = error.instancePath || error.path;
           return (
             errorPath &&
-            fieldPath.includes(
-              errorPath.replace(/^\//, '').replace(/\//g, '/'),
-            )
+            fieldPath.includes(errorPath.replace(/^\//, '').replace(/\//g, '/'))
           );
         });
 
