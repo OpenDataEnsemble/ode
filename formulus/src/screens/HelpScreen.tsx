@@ -2,8 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 const HelpScreen: React.FC = () => {
+  const { themeColors } = useAppTheme();
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -18,7 +20,11 @@ const HelpScreen: React.FC = () => {
             We would love to hear your feedback and welcome contributions.
           </Text>
           <Text
-            style={[styles.cardText, styles.link]}
+            style={[
+              styles.cardText,
+              styles.link,
+              { color: themeColors.primary },
+            ]}
             onPress={() =>
               Linking.openURL('https://forum.opendataensemble.org')
             }
@@ -103,7 +109,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   link: {
-    color: colors.brand.primary[500],
+    // color is applied inline via themeColors.primary
     marginTop: 12,
     fontWeight: '600',
   },

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import colors from '../../theme/colors';
+import { useAppTheme } from '../../contexts/AppThemeContext';
 
 export interface StatusTab {
   id: string;
@@ -20,6 +21,8 @@ const StatusTabs: React.FC<StatusTabsProps> = ({
   activeTab,
   onTabChange,
 }) => {
+  const { themeColors } = useAppTheme();
+
   return (
     <View style={styles.container}>
       {tabs.map(tab => {
@@ -27,7 +30,13 @@ const StatusTabs: React.FC<StatusTabsProps> = ({
         return (
           <TouchableOpacity
             key={tab.id}
-            style={[styles.tab, isActive && styles.tabActive]}
+            style={[
+              styles.tab,
+              isActive && {
+                borderBottomWidth: 2,
+                borderBottomColor: themeColors.primary,
+              },
+            ]}
             onPress={() => onTabChange(tab.id)}
             activeOpacity={0.7}>
             {tab.icon && (
@@ -38,7 +47,11 @@ const StatusTabs: React.FC<StatusTabsProps> = ({
                 ]}
               />
             )}
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+            <Text
+              style={[
+                styles.tabLabel,
+                isActive && { color: themeColors.primary, fontWeight: '600' },
+              ]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -63,10 +76,7 @@ const styles = StyleSheet.create({
     marginRight: 24,
     paddingVertical: 4,
   },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.brand.primary[500],
-  },
+  // tabActive styles are now applied inline via themeColors.primary
   dot: {
     width: 8,
     height: 8,
@@ -78,10 +88,7 @@ const styles = StyleSheet.create({
     color: colors.neutral[600],
     fontWeight: '500',
   },
-  tabLabelActive: {
-    color: colors.brand.primary[500],
-    fontWeight: '600',
-  },
+  // tabLabelActive styles are now applied inline via themeColors.primary
 });
 
 export default StatusTabs;

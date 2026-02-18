@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { FormSpec } from '../../services/FormService';
 import colors from '../../theme/colors';
+import { useAppTheme } from '../../contexts/AppThemeContext';
 
 interface FormCardProps {
   form: FormSpec;
@@ -15,14 +16,20 @@ const FormCard: React.FC<FormCardProps> = ({
   observationCount = 0,
   onPress,
 }) => {
+  const { themeColors } = useAppTheme();
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.content}>
-        <View style={styles.iconContainer}>
+        <View
+          style={[
+            styles.iconContainer,
+            { backgroundColor: themeColors.primary + '14' },
+          ]}>
           <Icon
             name="file-document-outline"
             size={32}
-            color={colors.brand.primary[500]}
+            color={themeColors.primary}
           />
         </View>
         <View style={styles.textContainer}>
@@ -35,8 +42,13 @@ const FormCard: React.FC<FormCardProps> = ({
           <View style={styles.metaContainer}>
             <Text style={styles.version}>v{form.schemaVersion}</Text>
             {observationCount > 0 && (
-              <View style={styles.countBadge}>
-                <Text style={styles.countText}>
+              <View
+                style={[
+                  styles.countBadge,
+                  { backgroundColor: themeColors.primary + '14' },
+                ]}>
+                <Text
+                  style={[styles.countText, { color: themeColors.primary }]}>
                   {observationCount}{' '}
                   {observationCount === 1 ? 'entry' : 'entries'}
                 </Text>
@@ -71,7 +83,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: colors.brand.primary[50],
+    // backgroundColor is applied inline via themeColors.primary + '14'
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -100,14 +112,14 @@ const styles = StyleSheet.create({
     color: colors.neutral[500],
   },
   countBadge: {
-    backgroundColor: colors.brand.primary[50],
+    // backgroundColor is applied inline via themeColors.primary + '14'
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
   },
   countText: {
     fontSize: 11,
-    color: colors.brand.primary[500],
+    // color is applied inline via themeColors.primary
     fontWeight: '500',
   },
 });

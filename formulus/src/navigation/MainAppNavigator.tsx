@@ -6,12 +6,16 @@ import WelcomeScreen from '../screens/WelcomeScreen';
 import ObservationDetailScreen from '../screens/ObservationDetailScreen';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { serverConfigService } from '../services/ServerConfigService';
-import { colors } from '../theme/colors';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 const Stack = createStackNavigator<MainAppStackParamList>();
 
 const MainAppNavigator: React.FC = () => {
   const [isConfigured, setIsConfigured] = useState<boolean | null>(null);
+
+  // Theme colors come from AppThemeContext — they update automatically
+  // when the custom app's config is loaded or the color scheme changes.
+  const { themeColors } = useAppTheme();
 
   useEffect(() => {
     const checkConfiguration = async () => {
@@ -38,9 +42,9 @@ const MainAppNavigator: React.FC = () => {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: colors.neutral.white },
-        headerTintColor: colors.neutral.black,
-        headerTitleStyle: { color: colors.neutral.black },
+        headerStyle: { backgroundColor: themeColors.surface },
+        headerTintColor: themeColors.onBackground,
+        headerTitleStyle: { color: themeColors.onBackground },
       }}
       initialRouteName={isConfigured ? 'MainApp' : 'Welcome'}>
       <Stack.Screen

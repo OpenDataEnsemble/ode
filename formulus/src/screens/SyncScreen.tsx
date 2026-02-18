@@ -21,10 +21,12 @@ import { databaseService } from '../database/DatabaseService';
 import { getUserInfo } from '../api/synkronus/Auth';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
 const SyncScreen = () => {
+  const { themeColors } = useAppTheme();
   const syncContextValue = useSyncContext();
   const {
     syncState,
@@ -259,7 +261,7 @@ const SyncScreen = () => {
 
   const status = getStatusText();
   const statusColor = syncState.isActive
-    ? colors.brand.primary[500]
+    ? themeColors.primary
     : syncState.error
       ? colors.semantic.error[500]
       : pendingObservations > 0 || pendingUploads.count > 0
@@ -362,8 +364,10 @@ const SyncScreen = () => {
             style={[
               styles.statusCard,
               !syncState.isActive &&
-                (pendingObservations > 0 || pendingUploads.count > 0) &&
-                styles.statusCardClickable,
+                (pendingObservations > 0 || pendingUploads.count > 0) && {
+                  borderWidth: 2,
+                  borderColor: themeColors.primaryLight,
+                },
             ]}
             onPress={() => {
               if (
@@ -490,16 +494,31 @@ const SyncScreen = () => {
         </View>
 
         {syncState.isActive && syncState.progress && (
-          <View style={styles.progressCard}>
+          <View
+            style={[
+              styles.progressCard,
+              {
+                backgroundColor: themeColors.primary + '14',
+                borderLeftColor: themeColors.primary,
+              },
+            ]}>
             <View style={styles.progressHeader}>
-              <Icon name="sync" size={20} color={colors.brand.primary[500]} />
-              <Text style={styles.progressTitle}>{getProgressTitle()}</Text>
+              <Icon name="sync" size={20} color={themeColors.primary} />
+              <Text
+                style={[styles.progressTitle, { color: themeColors.primary }]}>
+                {getProgressTitle()}
+              </Text>
             </View>
-            <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressBar,
+                { backgroundColor: themeColors.primary + '33' },
+              ]}>
               <Animated.View
                 style={[
                   styles.progressFill,
                   {
+                    backgroundColor: themeColors.primary,
                     width: animatedProgress.interpolate({
                       inputRange: [0, 100],
                       outputRange: ['0%', '100%'],
@@ -565,16 +584,9 @@ const SyncScreen = () => {
             onPress={handleCustomAppUpdate}
             disabled={syncState.isActive || (!updateAvailable && !isAdmin)}>
             {isUpdateButtonActive ? (
-              <ActivityIndicator
-                size="small"
-                color={colors.brand.primary[500]}
-              />
+              <ActivityIndicator size="small" color={themeColors.primary} />
             ) : (
-              <Icon
-                name="download"
-                size={20}
-                color={colors.brand.primary[500]}
-              />
+              <Icon name="download" size={20} color={themeColors.primary} />
             )}
             <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>
               {isUpdateButtonActive ? 'Updating...' : 'Update App Bundle'}
@@ -635,10 +647,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  statusCardClickable: {
-    borderWidth: 2,
-    borderColor: colors.brand.primary[200],
-  },
+  // statusCardClickable styles are now applied inline via themeColors
   statusCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -756,12 +765,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   progressCard: {
-    backgroundColor: colors.brand.primary[50],
+    // bg and border colors are overridden inline via themeColors
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: colors.brand.primary[500],
   },
   progressHeader: {
     flexDirection: 'row',
@@ -772,18 +780,18 @@ const styles = StyleSheet.create({
   progressTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.brand.primary[500],
+    // color is applied inline via themeColors.primary
   },
   progressBar: {
     height: 8,
-    backgroundColor: colors.brand.primary[200],
+    // backgroundColor is applied inline via themeColors
     borderRadius: 4,
     marginBottom: 8,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.brand.primary[500],
+    // backgroundColor is applied inline via themeColors.primary
     borderRadius: 4,
   },
   progressText: {

@@ -36,6 +36,7 @@ import { colors } from '../theme/colors';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -61,6 +62,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const colorScheme = useColorScheme();
+
+    // Theme colors from the AppThemeContext — updates automatically when
+    // the custom app config is loaded or the color scheme changes.
+    const { themeColors } = useAppTheme();
 
     // Internal state to track current form and observation data
     const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -198,12 +203,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       setCurrentOperationId(operationId);
       setFormSubmitted(false); // Reset submission flag for new form
 
+      // Forward the custom app's theme colors to the Formplayer WebView so
+      // that form UI elements (buttons, inputs, headers) match the branding.
+      // `themeColors` comes from useAppTheme() and is always up-to-date.
+      const isDark = colorScheme === 'dark';
+
       const formParams = {
         locale: 'en',
         theme: 'default',
-        darkMode: colorScheme === 'dark',
-        //schema: formType.schema,
-        //uischema: formType.uiSchema,
+        darkMode: isDark,
+        themeColors, // ← custom app palette forwarded to Formplayer
         ...params,
       };
 
@@ -439,8 +448,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <View style={styles.container}>
-          <View style={styles.header}>
+        <View
+          style={[styles.container, { backgroundColor: themeColors.surface }]}>
+          <View
+            style={[styles.header, { borderBottomColor: themeColors.divider }]}>
             <TouchableOpacity
               onPress={handleClose}
               style={[
@@ -454,11 +465,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                 color={
                   isSubmitting || isClosing
                     ? colors.neutral[400]
-                    : colors.neutral.black
+                    : themeColors.onBackground
                 }
               />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>
+            <Text
+              style={[styles.headerTitle, { color: themeColors.onBackground }]}>
               {currentObservationId ? 'Edit Observation' : 'New Observation'}
             </Text>
             <View style={styles.headerRightSpacer} />

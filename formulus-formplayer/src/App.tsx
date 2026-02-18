@@ -23,7 +23,7 @@ import {
   Typography,
   ThemeProvider,
 } from '@mui/material';
-import { createTheme, getThemeOptions } from './theme/theme';
+import { createTheme, getThemeOptions, CustomThemeColors } from './theme/theme';
 import { tokens } from './theme/tokens-adapter';
 import Ajv from 'ajv';
 import addErrors from 'ajv-errors';
@@ -267,6 +267,9 @@ function App() {
     null,
   );
   const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [customThemeColors, setCustomThemeColors] = useState<
+    CustomThemeColors | undefined
+  >(undefined);
   const [extensionRenderers, setExtensionRenderers] = useState<
     JsonFormsRendererRegistryEntry[]
   >([]);
@@ -325,6 +328,17 @@ function App() {
         // Extract dark mode preference from params
         const isDarkMode = params?.darkMode === true;
         setDarkMode(isDarkMode);
+
+        // Extract custom app theme colors (forwarded by Formulus native host).
+        // When present, these override the default @ode/tokens palette so that
+        // form UI matches the custom app's branding.
+        if (params?.themeColors && typeof params.themeColors === 'object') {
+          setCustomThemeColors(params.themeColors as CustomThemeColors);
+          console.log(
+            '[Formplayer] Using custom app theme colors:',
+            (params.themeColors as CustomThemeColors).primary,
+          );
+        }
 
         // Start with built-in extensions (always available)
         const allFunctions = getBuiltinExtensions();
@@ -796,11 +810,14 @@ function App() {
     return instance;
   }, [extensionDefinitions]);
 
-  // Create dynamic theme based on dark mode preference
-  // Must be called before any early returns to follow React Hooks rules
+  // Create dynamic theme based on dark mode preference and custom app colors.
+  // When a custom app provides themeColors, they override the default palette
+  // so that form controls (buttons, inputs, etc.) match the app's branding.
   const currentTheme = useMemo(() => {
-    return createTheme(getThemeOptions(darkMode ? 'dark' : 'light'));
-  }, [darkMode]);
+    return createTheme(
+      getThemeOptions(darkMode ? 'dark' : 'light', customThemeColors),
+    );
+  }, [darkMode, customThemeColors]);
 
   // Set CSS custom properties from tokens for use in CSS files
   // Must be called before any early returns to follow React Hooks rules

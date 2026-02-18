@@ -40,68 +40,123 @@ const getDarkElevationShadow = (level: 'sm' | 'md' | 'lg'): string =>
       : `0 8px 24px rgba(0, 0, 0, ${(tokens as any).opacity?.['60'] ?? 0.6})`);
 
 /**
+ * Theme colors that a custom app can pass to override the default palette.
+ * These arrive via `formParams.themeColors` from the Formulus native host.
+ * When not provided, the Formplayer falls back to `@ode/tokens`.
+ */
+export interface CustomThemeColors {
+  primary?: string;
+  primaryLight?: string;
+  primaryDark?: string;
+  onPrimary?: string;
+
+  secondary?: string;
+  secondaryLight?: string;
+  secondaryDark?: string;
+  onSecondary?: string;
+
+  background?: string;
+  surface?: string;
+  onBackground?: string;
+  onSurface?: string;
+
+  error?: string;
+  errorLight?: string;
+  errorDark?: string;
+  onError?: string;
+
+  warning?: string;
+  success?: string;
+  info?: string;
+
+  divider?: string;
+}
+
+/**
  * Get theme options based on the mode (light or dark)
  * @param mode - 'light' or 'dark'
+ * @param customColors - Optional color overrides from the custom app's theme
  * @returns ThemeOptions for Material-UI
  */
-export const getThemeOptions = (mode: 'light' | 'dark'): ThemeOptions => {
+export const getThemeOptions = (
+  mode: 'light' | 'dark',
+  customColors?: CustomThemeColors,
+): ThemeOptions => {
   const isDark = mode === 'dark';
+
+  // Helper: use custom app color if provided, otherwise fall back to @ode/tokens.
+  const c = (custom: string | undefined, fallback: string): string =>
+    custom ?? fallback;
 
   return {
     palette: {
       mode: mode,
       primary: {
-        main: tokens.color.brand.primary[500], // #4F7F4E - ODE Primary Green
-        light: tokens.color.brand.primary[400],
-        dark: tokens.color.brand.primary[600],
-        contrastText: tokens.color.neutral.white,
+        main: c(customColors?.primary, tokens.color.brand.primary[500]),
+        light: c(customColors?.primaryLight, tokens.color.brand.primary[400]),
+        dark: c(customColors?.primaryDark, tokens.color.brand.primary[600]),
+        contrastText: c(customColors?.onPrimary, tokens.color.neutral.white),
       },
       secondary: {
-        main: tokens.color.brand.secondary[500], // #E9B85B - ODE Secondary Gold
-        light: tokens.color.brand.secondary[400],
-        dark: tokens.color.brand.secondary[600],
-        contrastText: tokens.color.neutral.white,
+        main: c(customColors?.secondary, tokens.color.brand.secondary[500]),
+        light: c(
+          customColors?.secondaryLight,
+          tokens.color.brand.secondary[400],
+        ),
+        dark: c(customColors?.secondaryDark, tokens.color.brand.secondary[600]),
+        contrastText: c(customColors?.onSecondary, tokens.color.neutral.white),
       },
       error: {
-        main: tokens.color.semantic.error[500],
-        light: tokens.color.semantic.error[50],
-        dark: tokens.color.semantic.error[600],
-        contrastText: tokens.color.neutral.white,
+        main: c(customColors?.error, tokens.color.semantic.error[500]),
+        light: c(customColors?.errorLight, tokens.color.semantic.error[50]),
+        dark: c(customColors?.errorDark, tokens.color.semantic.error[600]),
+        contrastText: c(customColors?.onError, tokens.color.neutral.white),
       },
       warning: {
-        main: tokens.color.semantic.warning[500],
+        main: c(customColors?.warning, tokens.color.semantic.warning[500]),
         light: tokens.color.semantic.warning[50],
         dark: tokens.color.semantic.warning[600],
         contrastText: tokens.color.neutral.white,
       },
       info: {
-        main: tokens.color.semantic.info[500],
+        main: c(customColors?.info, tokens.color.semantic.info[500]),
         light: tokens.color.semantic.info[50],
         dark: tokens.color.semantic.info[600],
         contrastText: tokens.color.neutral.white,
       },
       success: {
-        main: tokens.color.semantic.success[500],
+        main: c(customColors?.success, tokens.color.semantic.success[500]),
         light: tokens.color.semantic.success[50],
         dark: tokens.color.semantic.success[600],
         contrastText: tokens.color.neutral.white,
       },
       background: {
-        default: isDark ? tokens.color.neutral[900] : tokens.color.neutral[50], // Dark: #212121 (main background - deep dark gray), Light: #FAFAFA
-        paper: isDark ? tokens.color.neutral[800] : tokens.color.neutral.white, // Dark: #424242 (elevated surfaces - medium dark gray), Light: #FFFFFF
+        default: c(
+          customColors?.background,
+          isDark ? tokens.color.neutral[900] : tokens.color.neutral[50],
+        ),
+        paper: c(
+          customColors?.surface,
+          isDark ? tokens.color.neutral[800] : tokens.color.neutral.white,
+        ),
       },
       text: {
-        primary: isDark
-          ? tokens.color.neutral.white
-          : tokens.color.neutral[900], // Dark: #FFFFFF (pure white), Light: #212121
-        secondary: isDark
-          ? tokens.color.neutral[300]
-          : tokens.color.neutral[600], // Dark: #E0E0E0 (lighter gray), Light: #757575
+        primary: c(
+          customColors?.onBackground,
+          isDark ? tokens.color.neutral.white : tokens.color.neutral[900],
+        ),
+        secondary: c(
+          customColors?.onSurface,
+          isDark ? tokens.color.neutral[300] : tokens.color.neutral[600],
+        ),
         disabled: isDark
           ? tokens.color.neutral[600]
-          : tokens.color.neutral[400], // Dark: #757575, Light: #BDBDBD
+          : tokens.color.neutral[400],
       },
-      divider: isDark ? tokens.color.neutral[700] : tokens.color.neutral[200], // Dark: #616161 (lighter gray for better visibility), Light: #EEEEEE
+      divider: c(
+        customColors?.divider,
+        isDark ? tokens.color.neutral[700] : tokens.color.neutral[200],
+      ),
       grey: {
         50: tokens.color.neutral[50],
         100: tokens.color.neutral[100],

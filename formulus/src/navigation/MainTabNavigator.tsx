@@ -12,6 +12,7 @@ import HelpScreen from '../screens/HelpScreen';
 import MoreScreen from '../screens/MoreScreen';
 import { colors } from '../theme/colors';
 import { MainTabParamList } from '../types/NavigationTypes';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -45,16 +46,20 @@ const MainTabNavigator: React.FC = () => {
   const baseTabBarHeight = 60;
   const tabBarHeight = baseTabBarHeight + insets.bottom;
 
+  // Theme colors come from AppThemeContext — they update automatically
+  // when the custom app's config is loaded or the color scheme changes.
+  const { themeColors } = useAppTheme();
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.brand.primary[500],
+        tabBarActiveTintColor: themeColors.primary,
         tabBarInactiveTintColor: colors.neutral[500],
         tabBarStyle: {
-          backgroundColor: colors.neutral.white,
+          backgroundColor: themeColors.surface,
           borderTopWidth: 1,
-          borderTopColor: colors.ui.gray.light,
+          borderTopColor: themeColors.divider,
           paddingBottom: Math.max(insets.bottom, 4),
           paddingTop: 4,
           height: tabBarHeight,

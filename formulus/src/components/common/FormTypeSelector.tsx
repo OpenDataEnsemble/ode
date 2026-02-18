@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import colors from '../../theme/colors';
+import { useAppTheme } from '../../contexts/AppThemeContext';
 
 interface FormTypeOption {
   id: string;
@@ -28,6 +29,7 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
   onSelect,
   placeholder = 'All Forms',
 }) => {
+  const { themeColors } = useAppTheme();
   const [modalVisible, setModalVisible] = useState(false);
 
   const selectedOption = options.find(opt => opt.id === selectedId);
@@ -73,7 +75,9 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.optionItem,
-                    selectedId === item.id && styles.optionItemSelected,
+                    selectedId === item.id && {
+                      backgroundColor: themeColors.primary + '14',
+                    },
                   ]}
                   onPress={() => {
                     onSelect(item.id);
@@ -82,16 +86,15 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                   <Text
                     style={[
                       styles.optionText,
-                      selectedId === item.id && styles.optionTextSelected,
+                      selectedId === item.id && {
+                        color: themeColors.primary,
+                        fontWeight: '600',
+                      },
                     ]}>
                     {item.name}
                   </Text>
                   {selectedId === item.id && (
-                    <Icon
-                      name="check"
-                      size={20}
-                      color={colors.brand.primary[500]}
-                    />
+                    <Icon name="check" size={20} color={themeColors.primary} />
                   )}
                 </TouchableOpacity>
               )}
@@ -163,17 +166,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[100],
   },
-  optionItemSelected: {
-    backgroundColor: colors.brand.primary[50],
-  },
+  // optionItemSelected styles are now applied inline via themeColors
   optionText: {
     fontSize: 16,
     color: colors.neutral[900],
   },
-  optionTextSelected: {
-    color: colors.brand.primary[500],
-    fontWeight: '600',
-  },
+  // optionTextSelected styles are now applied inline via themeColors
 });
 
 export default FormTypeSelector;

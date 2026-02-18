@@ -16,6 +16,7 @@ import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useNavigation } from '@react-navigation/native';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 interface ObservationDetailScreenProps {
   route: {
@@ -30,6 +31,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
 }) => {
   const { observationId } = route.params;
   const navigation = useNavigation();
+  const { themeColors } = useAppTheme();
   const [observation, setObservation] = useState<Observation | null>(null);
   const [formName, setFormName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -129,12 +131,14 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   };
 
   const renderDataField = (key: string, value: unknown, level: number = 0) => {
+    const fieldKeyStyle = [styles.fieldKey, { color: themeColors.primary }];
+
     if (value === null || value === undefined) {
       return (
         <View
           key={key}
           style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
-          <Text style={styles.fieldKey}>{key}:</Text>
+          <Text style={fieldKeyStyle}>{key}:</Text>
           <Text style={styles.fieldValue}>null</Text>
         </View>
       );
@@ -145,7 +149,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
         <View
           key={key}
           style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
-          <Text style={styles.fieldKey}>{key}:</Text>
+          <Text style={fieldKeyStyle}>{key}:</Text>
           {Object.entries(value).map(([k, v]) =>
             renderDataField(k, v, level + 1),
           )}
@@ -158,7 +162,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
         <View
           key={key}
           style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
-          <Text style={styles.fieldKey}>{key}:</Text>
+          <Text style={fieldKeyStyle}>{key}:</Text>
           {value.map((item, index) => (
             <View key={index} style={styles.arrayItem}>
               {typeof item === 'object' && item !== null
@@ -176,7 +180,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       <View
         key={key}
         style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
-        <Text style={styles.fieldKey}>{key}:</Text>
+        <Text style={fieldKeyStyle}>{key}:</Text>
         <Text style={styles.fieldValue}>{String(value)}</Text>
       </View>
     );
@@ -186,7 +190,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.brand.primary[500]} />
+          <ActivityIndicator size="large" color={themeColors.primary} />
           <Text style={styles.loadingText}>Loading observation...</Text>
         </View>
       </SafeAreaView>
@@ -217,7 +221,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}>
-          <Icon name="arrow-left" size={24} color={colors.brand.primary[500]} />
+          <Icon name="arrow-left" size={24} color={themeColors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Observation Details</Text>
         <View style={styles.headerActions}>
@@ -451,7 +455,7 @@ const styles = StyleSheet.create({
   fieldKey: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.brand.primary[500],
+    // color is applied inline via themeColors.primary
     marginBottom: 4,
   },
   fieldValue: {

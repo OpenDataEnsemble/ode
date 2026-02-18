@@ -4,6 +4,7 @@ import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../../database/models/Observation';
 import colors from '../../theme/colors';
 import Button from './Button';
+import { useAppTheme } from '../../contexts/AppThemeContext';
 
 interface ObservationCardProps {
   observation: Observation;
@@ -20,6 +21,7 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
   onEdit,
   onDelete,
 }) => {
+  const { themeColors } = useAppTheme();
   const isSynced =
     observation.syncedAt &&
     observation.syncedAt.getTime() > new Date('1980-01-01').getTime();
@@ -60,7 +62,11 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
           />
         </View>
         <View style={styles.textContainer}>
-          {formName && <Text style={styles.formName}>{formName}</Text>}
+          {formName && (
+            <Text style={[styles.formName, { color: themeColors.primary }]}>
+              {formName}
+            </Text>
+          )}
           <Text style={styles.id} numberOfLines={1}>
             ID: {observation.observationId.substring(0, 20)}...
           </Text>
@@ -144,7 +150,7 @@ const styles = StyleSheet.create({
   formName: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.brand.primary[500],
+    // color is applied inline via themeColors.primary
     marginBottom: 4,
   },
   id: {

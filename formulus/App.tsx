@@ -1,10 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
-import { StatusBar } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  NavigationContainer,
+  DefaultTheme,
+  DarkTheme,
+} from '@react-navigation/native';
+import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
 import { SyncProvider } from './src/contexts/SyncContext';
+import { AppThemeProvider, useAppTheme } from './src/contexts/AppThemeContext';
 import { appEvents, Listener } from './src/webview/FormulusMessageHandlers.ts';
 import FormplayerModal, {
   FormplayerModalHandle,
@@ -14,21 +19,32 @@ import SignatureCaptureModal from './src/components/SignatureCaptureModal';
 import MainAppNavigator from './src/navigation/MainAppNavigator';
 import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
 
-const LightNavigationTheme = {
-  ...DefaultTheme,
-  dark: false,
-  colors: {
-    ...DefaultTheme.colors,
-    background: '#ffffff',
-    card: '#ffffff',
-    text: '#000000',
-    primary: '#007AFF',
-    border: DefaultTheme.colors.border,
-    notification: DefaultTheme.colors.notification,
-  },
-};
+/**
+ * Inner component that consumes the AppTheme context to build a dynamic
+ * React Navigation theme matching the custom app's branding.
+ */
+function AppInner(): React.JSX.Element {
+  const colorScheme = useColorScheme();
+  const { themeColors } = useAppTheme();
 
-function App(): React.JSX.Element {
+  // Build the React Navigation theme dynamically from the custom app's colors.
+  const navigationTheme = useMemo(() => {
+    const base = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+    return {
+      ...base,
+      dark: colorScheme === 'dark',
+      colors: {
+        ...base.colors,
+        primary: themeColors.primary,
+        background: themeColors.background,
+        card: themeColors.surface,
+        text: themeColors.onBackground,
+        border: themeColors.divider,
+        notification: themeColors.error,
+      },
+    };
+  }, [colorScheme, themeColors]);
+
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [qrScannerData, setQrScannerData] = useState<{
     fieldId: string;
@@ -134,42 +150,59 @@ function App(): React.JSX.Element {
   }, []);
 
   return (
+    <>
+      <StatusBar
+        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={themeColors.surface}
+      />
+      <NavigationContainer theme={navigationTheme}>
+        <MainAppNavigator />
+        <FormplayerModal
+          ref={formplayerModalRef}
+          visible={formplayerVisible}
+          onClose={() => {
+            formplayerVisibleRef.current = false;
+            setFormplayerVisible(false);
+          }}
+        />
+      </NavigationContainer>
+
+      <QRScannerModal
+        visible={qrScannerVisible}
+        onClose={() => {
+          setQrScannerVisible(false);
+          setQrScannerData(null);
+        }}
+        fieldId={qrScannerData?.fieldId}
+        onResult={qrScannerData?.onResult}
+      />
+
+      <SignatureCaptureModal
+        visible={signatureCaptureVisible}
+        onClose={() => {
+          setSignatureCaptureVisible(false);
+          setSignatureCaptureData(null);
+        }}
+        fieldId={signatureCaptureData?.fieldId || ''}
+        onSignatureCapture={(result: unknown) => {
+          signatureCaptureData?.onResult?.(result);
+        }}
+      />
+    </>
+  );
+}
+
+/**
+ * Root component.  Wraps everything in the AppThemeProvider so that the
+ * custom app's brand colors are available to all native UI elements.
+ */
+function App(): React.JSX.Element {
+  return (
     <SafeAreaProvider>
       <SyncProvider>
-        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-        <NavigationContainer theme={LightNavigationTheme}>
-          <MainAppNavigator />
-          <FormplayerModal
-            ref={formplayerModalRef}
-            visible={formplayerVisible}
-            onClose={() => {
-              formplayerVisibleRef.current = false;
-              setFormplayerVisible(false);
-            }}
-          />
-        </NavigationContainer>
-
-        <QRScannerModal
-          visible={qrScannerVisible}
-          onClose={() => {
-            setQrScannerVisible(false);
-            setQrScannerData(null);
-          }}
-          fieldId={qrScannerData?.fieldId}
-          onResult={qrScannerData?.onResult}
-        />
-
-        <SignatureCaptureModal
-          visible={signatureCaptureVisible}
-          onClose={() => {
-            setSignatureCaptureVisible(false);
-            setSignatureCaptureData(null);
-          }}
-          fieldId={signatureCaptureData?.fieldId || ''}
-          onSignatureCapture={(result: unknown) => {
-            signatureCaptureData?.onResult?.(result);
-          }}
-        />
+        <AppThemeProvider>
+          <AppInner />
+        </AppThemeProvider>
       </SyncProvider>
     </SafeAreaProvider>
   );

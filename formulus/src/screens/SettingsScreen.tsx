@@ -10,7 +10,7 @@ import {
   Alert,
   AlertButton,
 } from 'react-native';
-import { Input as ODEInput } from '@ode/components/react-native';
+import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -25,6 +25,7 @@ import { MainTabParamList } from '../types/NavigationTypes';
 import { colors } from '../theme/colors';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
+import { useAppTheme } from '../contexts/AppThemeContext';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
 import { Button } from '../components/common';
@@ -37,6 +38,7 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
+  const { themeColors } = useAppTheme();
   const [serverUrl, setServerUrl] = useState('');
   const [initialServerUrl, setInitialServerUrl] = useState('');
   const [username, setUsername] = useState('');
@@ -310,14 +312,21 @@ const SettingsScreen = () => {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centered]}>
-        <ActivityIndicator size="large" color={colors.brand.primary[500]} />
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: themeColors.primary },
+          styles.centered,
+        ]}>
+        <ActivityIndicator size="large" color={themeColors.onPrimary} />
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: themeColors.primary }]}
+      edges={['top']}>
       <View style={styles.header}>
         <View style={styles.logoContainer}>
           <Image source={Logo} style={styles.logo} resizeMode="contain" />
@@ -347,11 +356,7 @@ const SettingsScreen = () => {
               style={styles.qrButton}
               onPress={() => setShowQRScanner(true)}
               accessibilityLabel="Scan QR code">
-              <Icon
-                name="qrcode-scan"
-                size={24}
-                color={colors.brand.primary[500]}
-              />
+              <Icon name="qrcode-scan" size={24} color={themeColors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -392,7 +397,7 @@ const SettingsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.brand.primary[500],
+    // backgroundColor is applied inline via themeColors.primary
   },
   centered: {
     justifyContent: 'center',
@@ -421,7 +426,7 @@ const styles = StyleSheet.create({
   },
   version: {
     fontSize: 12,
-    color: colors.brand.primary[200],
+    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 4,
   },
   card: {

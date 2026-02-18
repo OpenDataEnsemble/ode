@@ -14,6 +14,7 @@ import CustomAppWebView, {
 } from '../components/CustomAppWebView';
 import { colors } from '../theme/colors';
 import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const HomeScreen = ({ navigation }: { navigation: any }) => {
@@ -21,6 +22,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [webViewKey, setWebViewKey] = useState(0);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
+  const { reloadTheme } = useAppTheme();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -72,6 +74,11 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         console.log('[HomeScreen] Using placeholder URI:', placeholderUri);
         setLocalUri(placeholderUri);
       } else {
+        // (Re-)load the custom app's config so that all native UI elements
+        // (tab bar, headers, modals) update to match the app's branding.
+        // This triggers a context update → re-render across all consumers.
+        await reloadTheme();
+
         const customAppUri = `file://${filePath}`;
         console.log('[HomeScreen] Using custom app URI:', customAppUri);
         setLocalUri(customAppUri);

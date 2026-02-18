@@ -10,9 +10,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { appVersionService } from '../services/AppVersionService';
+import { useAppTheme } from '../contexts/AppThemeContext';
 import logo from '../../assets/images/logo.png';
 
 const AboutScreen: React.FC = () => {
+  const { themeColors } = useAppTheme();
   const [version, setVersion] = useState<string>('');
 
   useEffect(() => {
@@ -66,7 +68,11 @@ const AboutScreen: React.FC = () => {
             hear your feedback and welcome contributions.
           </Text>
           <Text
-            style={[styles.cardText, styles.link]}
+            style={[
+              styles.cardText,
+              styles.link,
+              { color: themeColors.primary },
+            ]}
             onPress={() =>
               Linking.openURL('https://forum.opendataensemble.org')
             }
@@ -150,7 +156,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   link: {
-    color: colors.brand.primary[500],
+    // color is applied inline via themeColors.primary
     marginTop: 12,
     fontWeight: '600',
   },

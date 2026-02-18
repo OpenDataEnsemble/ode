@@ -15,8 +15,10 @@ import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useFocusEffect } from '@react-navigation/native';
 import colors from '../theme/colors';
 import { FormSpec } from '../services';
+import { useAppTheme } from '../contexts/AppThemeContext';
 
 const FormsScreen: React.FC = () => {
+  const { themeColors } = useAppTheme();
   const { forms, loading, error, refresh, getObservationCount } = useForms();
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -65,7 +67,7 @@ const FormsScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.brand.primary[500]} />
+          <ActivityIndicator size="large" color={themeColors.primary} />
           <Text style={styles.loadingText}>Loading forms...</Text>
         </View>
       </SafeAreaView>
