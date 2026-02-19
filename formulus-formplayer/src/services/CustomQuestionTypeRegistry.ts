@@ -10,7 +10,10 @@
  *   // renderers can then be spread into the JsonForms renderers array
  */
 
-import type { JsonFormsRendererRegistryEntry, RankedTester } from '@jsonforms/core';
+import type {
+  JsonFormsRendererRegistryEntry,
+  RankedTester,
+} from '@jsonforms/core';
 import { rankWith, schemaMatches } from '@jsonforms/core';
 import type { CustomQuestionTypeProps } from '../types/CustomQuestionTypeContract';
 import { createCustomQuestionTypeRenderer } from '../renderers/CustomQuestionTypeAdapter';
@@ -25,7 +28,7 @@ import type React from 'react';
 function createFormatTester(formatName: string): RankedTester {
   return rankWith(
     6,
-    schemaMatches((schema) => {
+    schemaMatches(schema => {
       const schemaObj = schema as Record<string, unknown>;
       return schemaObj?.format === formatName;
     }),

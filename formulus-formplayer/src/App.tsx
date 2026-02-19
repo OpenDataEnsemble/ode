@@ -236,11 +236,12 @@ export const customRenderers = [
 if (typeof window !== 'undefined') {
   (window as any).React = React;
   (window as any).MaterialUI = MUI;
-  console.log('[App] Exposed React and MaterialUI to global scope for custom renderers');
+  console.log(
+    '[App] Exposed React and MaterialUI to global scope for custom renderers',
+  );
 }
 
 function App() {
-
   // Initialize WebView mock ONLY in development mode and ONLY if ReactNativeWebView doesn't exist
   if (
     process.env.NODE_ENV === 'development' &&
@@ -357,7 +358,10 @@ function App() {
         }
 
         // Start with built-in extensions (always available)
-        const allFunctions = getBuiltinExtensions() as Map<string, (...args: any[]) => any>;
+        const allFunctions = getBuiltinExtensions() as Map<
+          string,
+          (...args: any[]) => any
+        >;
 
         // Load extensions if provided
         if (extensions) {
@@ -401,7 +405,8 @@ function App() {
         const customQTManifest = initData.customQuestionTypes;
         if (customQTManifest) {
           try {
-            const customQTResult = await loadCustomQuestionTypes(customQTManifest);
+            const customQTResult =
+              await loadCustomQuestionTypes(customQTManifest);
             setCustomTypeRenderers(customQTResult.renderers);
             setCustomTypeFormats(customQTResult.formats);
             console.log(
@@ -414,7 +419,10 @@ function App() {
               );
             }
           } catch (error) {
-            console.error('[Formplayer] Failed to load custom question types:', error);
+            console.error(
+              '[Formplayer] Failed to load custom question types:',
+              error,
+            );
             setCustomTypeRenderers([]);
             setCustomTypeFormats([]);
           }
@@ -845,7 +853,7 @@ function App() {
     // Custom question types use "format": "formatName" in schemas (not "type")
     // This is required because JSON Schema only allows standard types in the "type" field
     if (customTypeFormats.length > 0) {
-      customTypeFormats.forEach((formatName) => {
+      customTypeFormats.forEach(formatName => {
         // Register as format so AJV accepts "format": "formatName" in schemas
         instance.addFormat(formatName, () => true);
       });

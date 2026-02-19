@@ -55,14 +55,13 @@ class CustomQuestionErrorBoundary extends Component<
             backgroundColor: '#ffebee',
             color: '#c62828',
             margin: '8px 0',
-          }}
-        >
+          }}>
           <strong style={{ display: 'block', marginBottom: '8px' }}>
             ⚠️ Custom Question Type Error
           </strong>
           <div style={{ fontSize: '0.9em', marginBottom: '8px' }}>
-            The custom question type <code>"{this.props.formatName}"</code> encountered an error
-            and could not be rendered.
+            The custom question type <code>"{this.props.formatName}"</code>{' '}
+            encountered an error and could not be rendered.
           </div>
           <details style={{ fontSize: '0.85em', marginTop: '8px' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
@@ -76,8 +75,7 @@ class CustomQuestionErrorBoundary extends Component<
                 borderRadius: '4px',
                 overflow: 'auto',
                 fontSize: '0.8em',
-              }}
-            >
+              }}>
               {this.state.error?.message || 'Unknown error'}
               {this.state.error?.stack && (
                 <>
@@ -87,7 +85,12 @@ class CustomQuestionErrorBoundary extends Component<
               )}
             </pre>
           </details>
-          <div style={{ fontSize: '0.85em', marginTop: '8px', fontStyle: 'italic' }}>
+          <div
+            style={{
+              fontSize: '0.85em',
+              marginTop: '8px',
+              fontStyle: 'italic',
+            }}>
             The form will continue to function, but this field cannot be edited.
           </div>
         </div>
@@ -123,7 +126,8 @@ export function createCustomQuestionTypeRenderer(
     required,
   }) => {
     // Build the simplified props for the custom component
-    const hasErrors = errors && (Array.isArray(errors) ? errors.length > 0 : true);
+    const hasErrors =
+      errors && (Array.isArray(errors) ? errors.length > 0 : true);
     const errorMessage = hasErrors
       ? Array.isArray(errors)
         ? errors.map((e: any) => e.message || String(e)).join(', ')
@@ -168,7 +172,9 @@ export function createCustomQuestionTypeRenderer(
     }
 
     // Merge with x-config (x-config takes precedence for explicit configuration)
-    const xConfig = schemaObj['x-config'] as Record<string, unknown> | undefined;
+    const xConfig = schemaObj['x-config'] as
+      | Record<string, unknown>
+      | undefined;
     if (xConfig) {
       Object.assign(config, xConfig);
     }
@@ -192,8 +198,7 @@ export function createCustomQuestionTypeRenderer(
         title={label}
         description={description}
         required={required}
-        error={errors}
-      >
+        error={errors}>
         <CustomQuestionErrorBoundary formatName={formatName}>
           <CustomComponent {...customProps} />
         </CustomQuestionErrorBoundary>
