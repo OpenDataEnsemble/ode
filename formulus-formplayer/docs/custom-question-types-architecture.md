@@ -32,13 +32,20 @@ formulus/src/                               (FORMULUS — runs in React Native)
 ```
 custom_app/
 └── question_types/
-    ├── x-ranking/
-    │   └── index.js       ← default export: React component
-    ├── x-dynamicEnum/
-    │   └── index.js
-    └── x-custom-text/
-        └── index.js
+    ├── ranking/
+    │   └── renderer.js    ← default export: React component
+    ├── select-person/
+    │   └── renderer.js
+    └── test-simple/
+        └── renderer.js
 ```
+
+**Note:** The folder name becomes the format string. For example:
+- `question_types/ranking/renderer.js` → `format: "ranking"`
+- `question_types/select-person/renderer.js` → `format: "select-person"`
+- `question_types/test-simple/renderer.js` → `format: "test-simple"`
+
+**Important:** The scanner specifically looks for `renderer.js` (not `index.js`). The file must be named `renderer.js` in each question type directory.
 
 ---
 
@@ -79,9 +86,21 @@ const factory = new Function(
   sourceString  // ← sent from RN as a string, not a file path
 );
 
+// React and MaterialUI are accessed from global scope
+const ReactLib = window.React || globalThis.React || self.React;
+const MUILib = window.MaterialUI || globalThis.MaterialUI || self.MaterialUI;
+
+factory(moduleObj, exports, ReactLib, MUILib);
+
 // Custom code CAN access:    React, MaterialUI, module, exports
 // Custom code CANNOT access:  fetch, document, localStorage, window, etc.
 ```
+
+**Important Implementation Details:**
+- React and MaterialUI are injected into the global scope by the WebView before custom question types are loaded
+- The sandbox factory function receives these as explicit parameters, ensuring they're the only globals accessible
+- If React or MaterialUI are not found in the global scope, loading fails with a clear error message
+- The code supports both CommonJS patterns: `module.exports = Component` and `module.exports.default = Component`
 
 ---
 
@@ -99,14 +118,14 @@ When the custom_app archive is unzipped, files land on the device filesystem:
 │   ├── p_focal/schema.json
 │   └── ...
 └── question_types/
-    ├── x-ranking/index.js          ← pairwise Elo ranking UI
-    ├── x-dynamicEnum/index.js      ← dynamic choice list from DB queries
-    └── x-custom-text/index.js      ← enhanced text input
+    ├── ranking/renderer.js          ← pairwise Elo ranking UI
+    ├── select-person/renderer.js    ← person selection with search
+    └── test-simple/renderer.js      ← simple test renderer
 ```
 
 ### 2. Formulus RN Scans, Reads & Screens
 
-`CustomQuestionTypeScanner.ts` scans `question_types/`, reads each `index.js` as a raw string,
+`CustomQuestionTypeScanner.ts` scans `question_types/`, reads each `renderer.js` as a raw string,
 and screens it against the blocklist:
 
 ```typescript
@@ -116,7 +135,7 @@ const folders = await RNFS.readDir(questionTypesDir);
 
 for (const folder of folders) {
   if (folder.isDirectory()) {
-    const source = await RNFS.readFile(`${folder.path}/index.js`, 'utf8');
+    const source = await RNFS.readFile(`${folder.path}/renderer.js`, 'utf8');
 
     // Screen against blocklist
     const violation = screenSource(source);
@@ -136,18 +155,20 @@ for (const folder of folders) {
 ```json
 {
   "custom_types": {
-    "x-ranking": {
-      "source": "(function() { 'use strict'; ... module.exports = RankingRenderer; })()"
+    "ranking": {
+      "source": "(function() { 'use strict'; ... module.exports = { default: RankingRenderer }; })()"
     },
-    "x-dynamicEnum": {
-      "source": "(function() { 'use strict'; ... module.exports = DynamicEnumControl; })()"
+    "select-person": {
+      "source": "(function() { 'use strict'; ... module.exports = { default: SelectPersonRenderer }; })()"
     },
-    "x-custom-text": {
-      "source": "(function() { 'use strict'; ... module.exports = CustomTextRenderer; })()"
+    "test-simple": {
+      "source": "(function() { 'use strict'; ... module.exports = { default: TestSimpleRenderer }; })()"
     }
   }
 }
 ```
+
+**Note:** The format name matches the folder name in `question_types/`. The scanner reads the file content and includes it as a source string in the manifest.
 
 ### 3. FormInitData Carries the Source Strings
 
@@ -183,26 +204,57 @@ the WebView. Then `CustomQuestionTypeLoader.ts` evaluates each source in a scope
 
 ```typescript
 // CustomQuestionTypeLoader.ts — evaluateModuleInSandbox()
-const exports = {};
+const exports: Record<string, unknown> = {};
 const moduleObj = { exports };
 
+// Access React and MaterialUI from global scope
+const ReactLib = window.React || globalThis.React || self.React;
+const MUILib = window.MaterialUI || globalThis.MaterialUI || self.MaterialUI;
+
+if (!ReactLib) {
+  throw new Error('React is not available in the global scope');
+}
+
+// Create factory with restricted scope
 const factory = new Function(
   'module', 'exports', 'React', 'MaterialUI',
-  meta.source,
+  sourceString
 );
 
-factory(moduleObj, exports, React, MaterialUI);
+factory(moduleObj, exports, ReactLib, MUILib);
 
-// Extract only the component
+// Extract the component (supports both default and named exports)
 const component = moduleObj.exports.default ?? moduleObj.exports;
+
+// Validate it's a function
+if (typeof component !== 'function') {
+  throw new Error(`Module does not export a valid React component`);
+}
 ```
+
+**Error Handling:**
+- Each module evaluation is wrapped in try-catch
+- Failed modules are logged with detailed error messages
+- Loading continues for other modules even if one fails
+- Errors are collected and returned in the result for debugging
 
 ### 5. Registry & Rendering
 
 `CustomQuestionTypeRegistry.ts` takes each loaded component and:
 - Auto-generates a tester: `rankWith(6, schemaMatches(s => s.format === name))`
+  - Priority 6 is higher than default Material renderers (3-5) but lower than specialized built-ins (10+)
 - Creates a renderer entry via `CustomQuestionTypeAdapter.tsx`
-- Registers the format with AJV: `ajv.addFormat('x-ranking', () => true)`
+- Returns renderer entries and format strings for AJV registration
+
+**Renderer Creation:**
+- Each custom question type is wrapped in `QuestionShell` for consistent styling
+- An `ErrorBoundary` catches any crashes in custom components
+- The adapter maps JSON Forms `ControlProps` to simplified `CustomQuestionTypeProps`
+- Config is extracted from schema properties (excluding reserved ones) and merged with `x-config`
+
+**AJV Format Registration:**
+- Format strings are registered with AJV to prevent validation errors for unknown formats
+- Registration happens in `App.tsx` after loading: `ajv.addFormat(formatName, () => true)`
 
 ---
 
@@ -212,9 +264,9 @@ const component = moduleObj.exports.default ?? moduleObj.exports;
 ┌─────────────────────────────────────────────────────────────┐
 │  DEVICE STORAGE (after custom_app unzip)                    │
 │                                                             │
-│  /Documents/app/question_types/x-ranking/index.js           │
-│  /Documents/app/question_types/x-dynamicEnum/index.js       │
-│  /Documents/app/question_types/x-custom-text/index.js       │
+│  /Documents/app/question_types/ranking/renderer.js          │
+│  /Documents/app/question_types/select-person/renderer.js    │
+│  /Documents/app/question_types/test-simple/renderer.js      │
 └────────────────────────┬────────────────────────────────────┘
                          │ RNFS.readFile() → string
                          ▼
@@ -224,7 +276,7 @@ const component = moduleObj.exports.default ?? moduleObj.exports;
 │  1. Reads each index.js as a raw string                     │
 │  2. Screens against blocklist (fetch, eval, etc.)           │
 │  3. Builds manifest with source strings:                    │
-│     { "x-ranking": { source: "..." } }                      │
+│     { "ranking": { source: "..." } }                        │
 │  4. Rejected modules → logged as warnings                   │
 └────────────────────────┬────────────────────────────────────┘
                          │ FormInitData.customQuestionTypes
@@ -242,10 +294,13 @@ const component = moduleObj.exports.default ?? moduleObj.exports;
 │  CustomQuestionTypeLoader.ts — SANDBOX                      │
 │                                                             │
 │  For each entry in manifest.custom_types:                   │
-│    new Function('module','exports','React','MaterialUI',    │
-│                 source)                                     │
-│    Extracts module.exports.default (React component)        │
-│    Validates it's a function                                │
+│    1. Access React/MaterialUI from global scope            │
+│    2. new Function('module','exports','React','MaterialUI',│
+│                    source)                                   │
+│    3. Execute factory(moduleObj, exports, React, MUI)      │
+│    4. Extract module.exports.default or module.exports      │
+│    5. Validate it's a function                              │
+│    6. Collect errors if evaluation fails                    │
 │    ❌ No access to: fetch, document, localStorage, etc.     │
 └────────────────────────┬────────────────────────────────────┘
                          │
@@ -257,6 +312,7 @@ const component = moduleObj.exports.default ?? moduleObj.exports;
 │    Auto-generates a tester:                                 │
 │      rankWith(6, schemaMatches(s => s.format === name))     │
 │    Creates renderer entry via adapter                       │
+│    Returns: { renderers[], formats[] }                      │
 └────────────────────────┬────────────────────────────────────┘
                          │
               ┌──────────┴──────────┐
@@ -265,8 +321,9 @@ const component = moduleObj.exports.default ?? moduleObj.exports;
 │  AJV Registration    │  │  JsonForms Renderers Array       │
 │                      │  │                                  │
 │  ajv.addFormat(      │  │  [                               │
-│    'x-ranking',      │  │    ...builtInRenderers,          │
-│    () => true        │  │    ...customTypeRenderers, ← NEW │
+│    'ranking',        │  │    ...builtInRenderers,          │
+│    'select-person',  │  │    ...customTypeRenderers, ← NEW │
+│    () => true        │  │  ]                               │
 │  )                   │  │  ]                               │
 │                      │  │                                  │
 │  Prevents AJV from   │  │  Testers run top-to-bottom,      │
@@ -282,13 +339,20 @@ const component = moduleObj.exports.default ?? moduleObj.exports;
 │  ─────────────────────       ────────────────────────       │
 │  data                        value                          │
 │  handleChange(path, val)     onChange(val)                  │
-│  errors (string)             validation { error, msg }      │
-│  schema['x-config']          config                         │
+│  errors (string/array)       validation { error, msg }      │
+│  schema (all props)          config (merged with x-config)  │
 │  enabled                     enabled                        │
 │  path                        fieldPath                      │
 │  label, description          label, description             │
 │                                                             │
+│  Config extraction:                                          │
+│    - All schema properties (except reserved) → config       │
+│    - x-config properties override schema properties          │
+│    - Reserved: type, title, description, format, enum, etc.│
+│                                                             │
 │  Wraps in: QuestionShell + ErrorBoundary                    │
+│    - ErrorBoundary shows user-friendly error UI             │
+│    - Form continues to function if component crashes        │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
@@ -307,68 +371,199 @@ const component = moduleObj.exports.default ?? moduleObj.exports;
 
 ### Ranking Question
 
-Used in `p_focal` — pairwise Elo ranking of people by social attributes:
+Used for pairwise comparison ranking of people (similar to ODK-X OMO style):
 
 ```json
 {
-  "ranking_result": {
-    "type": "object",
-    "format": "x-ranking",
-    "x-config": {
-      "sexFilter": "female",
-      "hardLimit": 250
-    }
-  }
-}
-```
-
-### Dynamic Enum Question
-
-Used across many forms — dropdown choices populated from database queries:
-
-```json
-{
-  "selected_person": {
-    "type": "string",
-    "format": "x-dynamicEnum",
-    "x-config": {
-      "query": "p_consent",
-      "params": {
-        "scope": "{{data.scope}}"
+  "ranking_field": {
+    "type": "array",
+    "format": "ranking",
+    "title": "Rank People",
+    "description": "Rank the people in order of preference",
+    "items": {
+      "type": "string"
+    },
+    "people": [
+      {
+        "id": "person1",
+        "name": "John Doe",
+        "age": 35,
+        "clan": "Alpha",
+        "sex": "male",
+        "photo_uriFragment": null
       },
-      "valueField": "observationId",
-      "labelField": "data.name"
-    }
+      {
+        "id": "person2",
+        "name": "Jane Smith",
+        "age": 28,
+        "clan": "Beta",
+        "sex": "female",
+        "photo_uriFragment": null
+      }
+    ],
+    "promptText": "Select the person you prefer"
   }
 }
 ```
 
-### Custom Text Question
+**Key points:**
+- `format: "ranking"` (no "x-" prefix needed)
+- `people` array is passed directly in schema (becomes `config.people`)
+- `promptText` is optional and becomes `config.promptText`
+- Value stored is an array of person IDs in ranked order
+- Uses Elo-style pairwise comparison algorithm
 
-Enhanced text input with configurable multiline and placeholder:
+### Select Person Question
+
+Used for selecting a person from a list with optional search:
 
 ```json
 {
-  "notes": {
+  "select_person_field": {
     "type": "string",
-    "format": "x-custom-text",
-    "maxLength": 500,
+    "format": "select-person",
+    "title": "Select Person",
+    "description": "Choose a person from the list",
+    "showSearch": true,
+    "showPhoto": false,
+    "people": [
+      {
+        "id": "person1",
+        "name": "John Doe",
+        "age": 35,
+        "clan": "Alpha",
+        "sex": "male"
+      },
+      {
+        "id": "person2",
+        "name": "Jane Smith",
+        "age": 28,
+        "clan": "Beta",
+        "sex": "female"
+      }
+    ]
+  }
+}
+```
+
+**Key points:**
+- `format: "select-person"` (no "x-" prefix needed)
+- `people` array is passed directly in schema (becomes `config.people`)
+- `showSearch` (default: true) enables searchable autocomplete
+- `showPhoto` (default: false) shows person photos if available
+- Value stored is the selected person's ID (string)
+
+### Simple Test Question
+
+Minimal example for testing the custom question type system:
+
+```json
+{
+  "test_custom_field": {
+    "type": "string",
+    "format": "test-simple",
+    "title": "Test Custom Question Type",
+    "description": "This field uses the test-simple custom question type renderer",
+    "placeholder": "Enter test value here...",
+    "maxLength": 50
+  }
+}
+```
+
+**Key points:**
+- `format: "test-simple"` (no "x-" prefix needed)
+- `placeholder` is passed directly in schema (becomes `config.placeholder`)
+- Standard JSON Schema validation (`maxLength`) still applies
+
+### Using x-config (Alternative)
+
+You can also use `x-config` for explicit configuration that overrides schema properties:
+
+```json
+{
+  "custom_field": {
+    "type": "string",
+    "format": "my-custom-type",
+    "title": "My Field",
+    "maxLength": 100,
     "x-config": {
-      "placeholder": "Enter field notes...",
-      "helperText": "Describe any notable observations"
+      "customParam": "value",
+      "maxLength": 200
     }
   }
 }
 ```
+
+In this case, `config.maxLength` will be `200` (from `x-config`), not `100` (from schema property).
 
 **What happens for each:**
 
-1. `format: "x-ranking"` → tester matches → the ranking renderer is used
-2. `x-config` → passed as `props.config` to the author's component
-3. Standard JSON Schema keywords (`type`, `maxLength`, etc.) → validated by AJV as normal
-4. AJV doesn't reject the custom format strings because we registered them
+1. `format: "ranking"` → tester matches → the ranking renderer is used
+2. Schema properties (except reserved ones) → passed as `props.config` to the author's component
+3. `x-config` properties → override schema properties in config
+4. Standard JSON Schema keywords (`type`, `maxLength`, etc.) → validated by AJV as normal
+5. AJV doesn't reject the custom format strings because we registered them
 
 ---
+
+## Implementation Details
+
+### Security Model Implementation
+
+**Source Extraction Flow:**
+1. RN side (`CustomQuestionTypeScanner`) reads JS files as raw strings
+2. Static blocklist screening rejects dangerous patterns (fetch, eval, localStorage, etc.)
+3. Clean source strings are passed in `FormInitData.customQuestionTypes`
+4. WebView side (`CustomQuestionTypeLoader`) evaluates source in scoped sandbox
+5. Only React, MaterialUI, module, and exports are accessible to custom code
+
+**Global Scope Access:**
+- React and MaterialUI must be available in the WebView's global scope before loading
+- The loader checks `window`, `globalThis`, and `self` for these libraries
+- If not found, loading fails with a clear error message
+- This ensures custom code can use React hooks and Material UI components
+
+**Error Handling:**
+- Each module evaluation is wrapped in try-catch
+- Failed modules are logged but don't stop other modules from loading
+- Errors are collected and returned: `{ format: string, error: string }[]`
+- The registry only processes successfully loaded components
+
+### Module Export Patterns
+
+Custom question type modules can export components in multiple ways:
+```javascript
+// Pattern 1: Object with default property (recommended)
+module.exports = {
+  default: function MyComponent(props) { ... }
+};
+
+// Pattern 2: Direct default export
+module.exports.default = function MyComponent(props) { ... };
+
+// Pattern 3: Direct export (also supported)
+module.exports = function MyComponent(props) { ... };
+
+// Pattern 4: Named export (also supported)
+module.exports.MyComponent = function MyComponent(props) { ... };
+```
+
+The loader checks `module.exports.default` first, then falls back to `module.exports`. The recommended pattern is Pattern 1 (object with default property) as used in the AnthroCollect examples.
+
+### Config Extraction
+
+The adapter extracts configuration from the schema:
+- All schema properties except reserved ones become `config`
+- Reserved properties: `type`, `title`, `description`, `format`, `enum`, `const`, `default`, `required`, `properties`, `items`, `oneOf`, `anyOf`, `allOf`, `$ref`, `$schema`, validation keywords, etc.
+- Properties from `x-config` override schema properties
+- This allows passing parameters like `maxStars: 5` directly in the schema
+
+### Tester Priority
+
+Custom question type testers use priority 6:
+- Higher than default Material renderers (priority 3-5)
+- Lower than specialized built-in question types (priority 10+)
+- Ensures custom types are selected when format matches, but built-ins take precedence for their specific formats
 
 ## Implementation Plan (completed)
 
@@ -388,7 +583,10 @@ All changes below have been implemented.
 |------|--------|
 | `FormulusInterfaceDefinition.ts` | `modulePath` → `source` (mirror) |
 | `CustomQuestionTypeContract.ts` | `modulePath` → `source` in `CustomQuestionTypeManifest` |
-| `CustomQuestionTypeLoader.ts` | Rewritten: `import()` → `new Function()` sandbox |
+| `CustomQuestionTypeLoader.ts` | Rewritten: `import()` → `new Function()` sandbox with React/MUI from global scope |
+| `CustomQuestionTypeRegistry.ts` | Auto-generates testers with priority 6, creates renderer entries |
+| `CustomQuestionTypeAdapter.tsx` | Maps ControlProps → CustomQuestionTypeProps, wraps in ErrorBoundary |
+| `App.tsx` | Orchestrates loading, registers formats with AJV, merges with built-in renderers |
 
 ### Key Files — Full Reference
 
