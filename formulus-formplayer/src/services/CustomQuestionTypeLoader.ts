@@ -16,6 +16,8 @@
  *  3. Extracts and validates the default export (must be a React component function)
  *  4. Passes all loaded components to the registry
  *  5. Returns renderer entries + format strings for AJV registration
+ *
+ * Custom question types use "format": "formatName" in schemas (not "type").
  */
 
 import type { JsonFormsRendererRegistryEntry } from '@jsonforms/core';
@@ -53,13 +55,23 @@ function evaluateModuleInSandbox(
   const moduleObj = { exports };
 
   // Get React from the global scope (it's available in the WebView)
-  const ReactLib = (window as unknown as Record<string, unknown>).React;
+  // Try multiple ways to access it (window, globalThis, self)
+  const ReactLib =
+    (window as unknown as Record<string, unknown>).React ||
+    (globalThis as unknown as Record<string, unknown>).React ||
+    (self as unknown as Record<string, unknown>).React;
+  
   if (!ReactLib) {
+    console.error('[CustomQuestionTypeLoader] React not found in window, globalThis, or self');
+    console.error('[CustomQuestionTypeLoader] Available window keys:', Object.keys(window).slice(0, 20));
     throw new Error('React is not available in the global scope');
   }
 
   // Get MUI from the global scope (custom components may use Material UI)
-  const MUILib = (window as unknown as Record<string, unknown>).MaterialUI;
+  const MUILib =
+    (window as unknown as Record<string, unknown>).MaterialUI ||
+    (globalThis as unknown as Record<string, unknown>).MaterialUI ||
+    (self as unknown as Record<string, unknown>).MaterialUI;
 
   try {
     // Create a factory function with a restricted scope.
@@ -154,7 +166,7 @@ export async function loadCustomQuestionTypes(
 
   if (result.errors.length > 0) {
     console.warn(
-      `[CustomQuestionTypeLoader] ${result.errors.length} type(s) failed to load:`,
+      `[CustomQuestionTypeLoader] ${result.errors.length} format(s) failed to load:`,
       result.errors.map((e) => e.format).join(', '),
     );
   }

@@ -2,13 +2,20 @@
  * CustomQuestionTypeScanner.ts
  *
  * Scans the custom_app's `question_types/` directory on the device filesystem,
- * reads each module's source code, and screens it against a blocklist of
- * dangerous patterns before passing it to FormPlayer.
+ * reads each module's source code (from renderer.js files), and screens it
+ * against a blocklist of dangerous patterns before passing it to FormPlayer.
  *
  * This runs on the Formulus RN side (not in the WebView).
  *
  * Security: This is the first line of defense. Source code that contains
  * dangerous API calls is rejected before it ever reaches the WebView.
+ *
+ * File structure:
+ *   question_types/{formatName}/renderer.js
+ *
+ * Schema usage:
+ *   { "type": "string", "format": "{formatName}", ... }
+ *   The format name must match the directory name.
  */
 
 import RNFS from 'react-native-fs';
@@ -19,7 +26,7 @@ export interface ScannedQuestionType {
 }
 
 export interface ScanResult {
-  /** Successfully scanned custom types, keyed by format name (folder name) */
+  /** Successfully scanned custom question types, keyed by format name (folder name) */
   custom_types: Record<string, ScannedQuestionType>;
   /** Errors encountered during scanning (types that were rejected or couldn't be read) */
   errors: Array<{ name: string; error: string }>;
@@ -72,10 +79,13 @@ function screenSource(source: string): string | null {
  * Scan the `question_types/` directory inside the custom app path.
  *
  * For each subdirectory found:
- *  1. Check for an `index.js` file
+ *  1. Check for a `renderer.js` file
  *  2. Read the file contents as a string
  *  3. Screen the source against the blocklist
  *  4. If clean, include in the result
+ *
+ * The directory name becomes the format name used in schemas.
+ * Example: "ranking/" directory → use "format": "ranking" in schema
  *
  * @param customAppPath - The root path of the custom app (e.g., RNFS.DocumentDirectoryPath + '/app')
  * @returns Scanned question types and any errors
@@ -90,8 +100,9 @@ export async function scanCustomQuestionTypes(
 
   const questionTypesDir = `${customAppPath}/question_types`;
 
-  // Check if the question_types directory exists
   const dirExists = await RNFS.exists(questionTypesDir);
+
+  // Check if the question_types directory exists
   if (!dirExists) {
     console.log(
       '[CustomQuestionTypeScanner] No question_types/ directory found at:',
@@ -118,27 +129,27 @@ export async function scanCustomQuestionTypes(
       continue;
     }
 
-    const formatName = folder.name; // e.g., "x-ranking"
-    const indexPath = `${folder.path}/index.js`;
+    const formatName = folder.name; // e.g., "ranking"
+    const rendererPath = `${folder.path}/renderer.js`;
 
     try {
-      // Check if index.js exists
-      const fileExists = await RNFS.exists(indexPath);
+      // Check if renderer.js exists
+      const fileExists = await RNFS.exists(rendererPath);
       if (!fileExists) {
         result.errors.push({
           name: formatName,
-          error: `No index.js found in question_types/${formatName}/`,
+          error: `No renderer.js found in question_types/${formatName}/`,
         });
         continue;
       }
 
       // Read the source code
-      const source = await RNFS.readFile(indexPath, 'utf8');
+      const source = await RNFS.readFile(rendererPath, 'utf8');
 
       if (!source || source.trim().length === 0) {
         result.errors.push({
           name: formatName,
-          error: 'index.js is empty',
+          error: 'renderer.js is empty',
         });
         continue;
       }

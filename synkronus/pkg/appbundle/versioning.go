@@ -39,7 +39,7 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 	if err != nil {
 		return nil, fmt.Errorf("failed to open zip file: %w", err)
 	}
-	defer zipFile.Close()
+	// Note: We'll close zipFile explicitly before copying tempZipFile to bundle.zip
 
 	// Validate the bundle structure
 	if err := s.validateBundleStructure(&zipFile.Reader); err != nil {
@@ -122,6 +122,9 @@ func (s *Service) PushBundle(ctx context.Context, zipReader io.Reader) (*Manifes
 		srcFile.Close()
 		dstFile.Close()
 	}
+
+	// Close the zip reader before copying the temp file
+	zipFile.Close()
 
 	// Save the original zip to the version directory for direct download
 	if _, err := tempZipFile.Seek(0, 0); err != nil {

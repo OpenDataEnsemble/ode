@@ -5,10 +5,10 @@
  * Form authors create components that accept these props — no JSON Forms knowledge needed.
  *
  * Usage in JSON Schema:
- *   { "type": "number", "format": "x-rating-stars", "x-config": { "maxStars": 5 } }
+ *   { "type": "string", "format": "rating-stars", "x-config": { "maxStars": 5 } }
  *
  * Usage in custom_app:
- *   custom_app/question_types/rating-stars/index.js
+ *   custom_app/question_types/rating-stars/renderer.js
  *   export default function RatingStars({ value, config, onChange, validation }) { ... }
  */
 
@@ -20,9 +20,10 @@ export interface CustomQuestionTypeProps {
   value: unknown;
 
   /**
-   * Configuration from the schema's `x-config` property.
-   * For example, if schema has `"x-config": { "maxStars": 5 }`,
-   * then `config.maxStars === 5`.
+   * Configuration extracted from schema properties.
+   * Includes all properties alongside "format" (except reserved ones like type, title, etc.)
+   * and properties from "x-config" (x-config takes precedence).
+   * For example, if schema has `"format": "rating", "maxStars": 5`, then `config.maxStars === 5`.
    */
   config: Record<string, unknown>;
 

@@ -208,16 +208,22 @@ class SynkronusApi {
     progressCallback?.(80);
 
     // Atomic swap: remove old dirs, move staging content into place
-    if (await RNFS.exists(appDir)) await RNFS.unlink(appDir);
-    if (await RNFS.exists(formsDir)) await RNFS.unlink(formsDir);
+    if (await RNFS.exists(appDir)) {
+      await RNFS.unlink(appDir);
+    }
+    if (await RNFS.exists(formsDir)) {
+      await RNFS.unlink(formsDir);
+    }
 
     const stagingAppDir = `${tempExtractPath}/app`;
     const stagingFormsDir = `${tempExtractPath}/forms`;
 
-    if (await RNFS.exists(stagingAppDir))
+    if (await RNFS.exists(stagingAppDir)) {
       await RNFS.moveFile(stagingAppDir, appDir);
-    if (await RNFS.exists(stagingFormsDir))
+    }
+    if (await RNFS.exists(stagingFormsDir)) {
       await RNFS.moveFile(stagingFormsDir, formsDir);
+    }
 
     progressCallback?.(95);
 

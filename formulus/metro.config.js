@@ -29,6 +29,18 @@ const extraModules = {
     projectRoot,
     'node_modules/react-native-svg',
   ),
+  '@ode/components/react-native': path.resolve(
+    monorepoRoot,
+    'packages/components/src/react-native/index.ts',
+  ),
+  '@ode/components/react-web': path.resolve(
+    monorepoRoot,
+    'packages/components/src/react-web/index.ts',
+  ),
+  '@ode/tokens/dist/react-native/tokens-resolved': path.resolve(
+    monorepoRoot,
+    'packages/tokens/dist/react-native/tokens-resolved.js',
+  ),
 };
 
 /**
@@ -44,10 +56,18 @@ const config = {
     unstable_enablePackageExports: true,
     extraNodeModules: extraModules,
     resolveRequest(context, moduleName, platform) {
+      // Handle forced modules (react, react-native)
       if (forcedModules[moduleName]) {
         return {
           type: 'sourceFile',
           filePath: path.join(forcedModules[moduleName], 'index.js'),
+        };
+      }
+      // Handle @ode/components subpath exports
+      if (extraModules[moduleName]) {
+        return {
+          type: 'sourceFile',
+          filePath: extraModules[moduleName],
         };
       }
       return context.resolveRequest(context, moduleName, platform);

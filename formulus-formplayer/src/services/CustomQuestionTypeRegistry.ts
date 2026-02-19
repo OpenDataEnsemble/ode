@@ -26,7 +26,8 @@ function createFormatTester(formatName: string): RankedTester {
   return rankWith(
     6,
     schemaMatches((schema) => {
-      return (schema as Record<string, unknown>)?.format === formatName;
+      const schemaObj = schema as Record<string, unknown>;
+      return schemaObj?.format === formatName;
     }),
   );
 }

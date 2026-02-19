@@ -28,6 +28,7 @@ import { tokens } from './theme/tokens-adapter';
 import Ajv from 'ajv';
 import addErrors from 'ajv-errors';
 import addFormats from 'ajv-formats';
+import * as MUI from '@mui/material';
 
 // Import the FormulusInterface client
 import FormulusClient from './services/FormulusInterface';
@@ -230,7 +231,16 @@ export const customRenderers = [
   numberStepperRenderer,
 ];
 
+// Expose React and MaterialUI to global scope for custom question type renderers
+// This must be done synchronously at module load time so renderers can access them
+if (typeof window !== 'undefined') {
+  (window as any).React = React;
+  (window as any).MaterialUI = MUI;
+  console.log('[App] Exposed React and MaterialUI to global scope for custom renderers');
+}
+
 function App() {
+
   // Initialize WebView mock ONLY in development mode and ONLY if ReactNativeWebView doesn't exist
   if (
     process.env.NODE_ENV === 'development' &&
@@ -347,7 +357,7 @@ function App() {
         }
 
         // Start with built-in extensions (always available)
-        const allFunctions = getBuiltinExtensions();
+        const allFunctions = getBuiltinExtensions() as Map<string, (...args: any[]) => any>;
 
         // Load extensions if provided
         if (extensions) {
@@ -395,7 +405,7 @@ function App() {
             setCustomTypeRenderers(customQTResult.renderers);
             setCustomTypeFormats(customQTResult.formats);
             console.log(
-              `[Formplayer] Loaded ${customQTResult.renderers.length} custom question type(s)`,
+              `[Formplayer] Loaded ${customQTResult.renderers.length} custom question type(s): ${customQTResult.formats.join(', ')}`,
             );
             if (customQTResult.errors.length > 0) {
               console.warn(
@@ -832,12 +842,15 @@ function App() {
     });
 
     // Register custom question type formats with AJV
+    // Custom question types use "format": "formatName" in schemas (not "type")
+    // This is required because JSON Schema only allows standard types in the "type" field
     if (customTypeFormats.length > 0) {
-      customTypeFormats.forEach((fmt) => {
-        instance.addFormat(fmt, () => true);
+      customTypeFormats.forEach((formatName) => {
+        // Register as format so AJV accepts "format": "formatName" in schemas
+        instance.addFormat(formatName, () => true);
       });
       console.log(
-        `[Formplayer] Registered ${customTypeFormats.length} custom format(s) with AJV`,
+        `[Formplayer] Registered ${customTypeFormats.length} custom question type format(s) with AJV`,
       );
     }
 
