@@ -115,12 +115,19 @@ export class FormService {
         }
 
         const formSpecFolders = await RNFS.readDir(formSpecsDir);
+<<<<<<< HEAD
         // Skip non-form directories (e.g. extensions/, question_types/, .hidden, temp_*)
+=======
+        // Skip non-form directories (e.g. extensions/, question_types/, .hidden)
+>>>>>>> ea89e8f (feat: enhance module resolution and improve custom question type handling)
         const formDirs = formSpecFolders.filter(
           f =>
             f.isDirectory() &&
             !f.name.startsWith('.') &&
+<<<<<<< HEAD
             !f.name.startsWith('temp_') &&
+=======
+>>>>>>> ea89e8f (feat: enhance module resolution and improve custom question type handling)
             f.name !== 'extensions' &&
             f.name !== 'question_types',
         );
