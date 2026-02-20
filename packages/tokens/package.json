@@ -11,6 +11,8 @@
     },
     "./dist/react-native/tokens-resolved": "./dist/react-native/tokens-resolved.js",
     "./dist/react-native/tokens-resolved.js": "./dist/react-native/tokens-resolved.js",
+    "./dist/js/tokens": "./dist/js/tokens.js",
+    "./dist/css/tokens.css": "./dist/css/tokens.css",
     "./dist/json/tokens.json": "./dist/json/tokens.json"
   },
   "files": [

@@ -43,7 +43,7 @@ import {
   HiChevronDown,
   HiCircleStack,
 } from 'react-icons/hi2';
-import { ColorBrandPrimary500 } from '@ode/tokens/dist/js/tokens';
+import { ColorBrandPrimary500 } from '@ode/tokens';
 import odeLogo from '../assets/ode_logo.png';
 import dashboardBackgroundDark from '../assets/dashboard-background.png';
 import dashboardBackgroundLight from '../assets/dashboard-background-light.png';
