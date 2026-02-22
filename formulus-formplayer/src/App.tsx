@@ -777,6 +777,7 @@ function App() {
     const instance = new Ajv({
       allErrors: true,
       strict: false, // Allow custom keywords like x-formulus-validation
+      $data: true,
     });
     addErrors(instance);
     addFormats(instance);
