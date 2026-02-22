@@ -11,7 +11,7 @@ import {
   RankedTester,
 } from '@jsonforms/core';
 import { useSwipeable } from 'react-swipeable';
-import { Snackbar } from '@mui/material';
+import { Snackbar, Box, Typography } from '@mui/material';
 import { Button } from '@ode/components/react-web';
 import { tokens } from '../theme/tokens-adapter';
 import { useFormContext } from '../App';
@@ -402,20 +402,83 @@ const SwipeLayoutRenderer = ({
     setSnackbarMessage('');
   }, [pendingNavigation, prevVisiblePage, performNavigation]);
 
+  // ----- Header options (author-configurable) -----
+
+  const uiOptions = (uischema as any)?.options || {};
+  const headerTitle: string | undefined =
+    uiOptions.headerTitle || (schema as any)?.title || undefined;
+  const headerFields: string[] = (uiOptions.headerFields || []).slice(0, 2);
+
   // ----- Render -----
 
   return (
     <FormLayout
       header={
-        <FormProgressBar
-          currentPage={visiblePosition}
-          totalScreens={totalVisibleScreens}
-          data={data}
-          schema={schema}
-          uischema={uischema}
-          mode="screens"
-          isOnFinalizePage={isOnFinalizePage}
-        />
+        <>
+          {/* Author-configured form title and sticky fields */}
+          {(headerTitle || headerFields.length > 0) && (
+            <Box sx={{ px: 2, pt: 1, pb: headerFields.length > 0 ? 0 : 0.5 }}>
+              {headerTitle && (
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    lineHeight: 1.3,
+                    color: 'text.primary',
+                    mb: headerFields.length > 0 ? 0.5 : 0,
+                  }}>
+                  {headerTitle}
+                </Typography>
+              )}
+              {headerFields.length > 0 && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 0.5,
+                    pb: 0.5,
+                  }}>
+                  {headerFields.map((fieldKey: string) => {
+                    const fieldSchema = (schema as any)?.properties?.[fieldKey];
+                    const label = fieldSchema?.title || fieldKey;
+                    const value = data?.[fieldKey];
+                    const displayValue =
+                      value != null && value !== '' ? String(value) : '—';
+                    return (
+                      <Typography
+                        key={fieldKey}
+                        variant="caption"
+                        sx={{
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: 1,
+                          backgroundColor: 'action.hover',
+                          fontSize: '0.75rem',
+                          color:
+                            displayValue === '—'
+                              ? 'text.disabled'
+                              : 'text.primary',
+                          fontWeight: displayValue === '—' ? 400 : 600,
+                        }}>
+                        {label}: {displayValue}
+                      </Typography>
+                    );
+                  })}
+                </Box>
+              )}
+            </Box>
+          )}
+          <FormProgressBar
+            currentPage={visiblePosition}
+            totalScreens={totalVisibleScreens}
+            data={data}
+            schema={schema}
+            uischema={uischema}
+            mode="screens"
+            isOnFinalizePage={isOnFinalizePage}
+          />
+        </>
       }
       previousButton={
         prevVisiblePage !== null
