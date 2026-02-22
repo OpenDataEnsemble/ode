@@ -1,27 +1,5 @@
-# Multi-stage build for combined Synkronus + Portal
-# Stage 1: Build the Go application (Synkronus)
-FROM golang:1.24.2-alpine AS synkronus-builder
-
-# Install build dependencies
-RUN apk add --no-cache git
-
-# Set working directory
-WORKDIR /app
-
-# Copy go mod files
-COPY synkronus/go.mod synkronus/go.sum ./
-
-# Download dependencies
-RUN go mod download
-
-# Copy source code
-COPY synkronus/ .
-
-# Build the application
-ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus
-
-# Stage 2: Build the React application (Portal)
+# Multi-stage build: Portal (React) -> Synkronus (Go with embedded portal) -> single runtime image
+# Stage 1: Build the React application (Portal)
 FROM node:24-alpine AS portal-builder
 
 WORKDIR /app
@@ -67,98 +45,54 @@ RUN npm run build || true
 WORKDIR /app/synkronus-portal
 RUN npm run build
 
-# Stage 3: Combine both in final image
-FROM nginx:alpine
+# Stage 2: Build the Go application (Synkronus) with embedded portal
+FROM golang:1.24.2-alpine AS synkronus-builder
 
-# Install runtime dependencies for synkronus (wget for healthcheck, su-exec for user switching)
-RUN apk --no-cache add ca-certificates tzdata wget su-exec
+RUN apk add --no-cache git
 
-# Create non-root user for synkronus
+WORKDIR /build
+
+# Copy go mod files and download dependencies
+COPY synkronus/go.mod synkronus/go.sum ./
+RUN go mod download
+
+# Copy Synkronus source
+COPY synkronus/ ./
+
+# Embed the portal build into the binary (must exist at go build time)
+COPY --from=portal-builder /app/synkronus-portal/dist ./portal/dist
+
+# Build the application
+ENV CGO_ENABLED=0 GOOS=linux
+RUN go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus
+
+# Stage 3: Minimal runtime image — single Go server (API + portal)
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates tzdata wget
+
+# Non-root user
 RUN addgroup -g 1000 synkronus && \
     adduser -D -u 1000 -G synkronus synkronus
 
-# Copy synkronus binary and assets from builder
 WORKDIR /app
-COPY --from=synkronus-builder /app/synkronus /app/synkronus
-COPY --from=synkronus-builder /app/openapi /app/openapi
-COPY --from=synkronus-builder /app/static /app/static
 
-# Create directories for data storage with proper permissions
+# Binary and assets (portal is embedded in the binary)
+COPY --from=synkronus-builder /build/synkronus /app/synkronus
+COPY --from=synkronus-builder /build/openapi /app/openapi
+COPY --from=synkronus-builder /build/static /app/static
+
 RUN mkdir -p /app/data/app-bundles && \
     chown -R synkronus:synkronus /app
 
-# Copy portal built assets
-COPY --from=portal-builder /app/synkronus-portal/dist /usr/share/nginx/html
+USER synkronus
 
-# Create nginx configuration
-# Proxy /api requests to local synkronus backend on port 8080
-RUN echo 'server { \
-    listen 0.0.0.0:80; \
-    listen [::]:80; \
-    server_name _; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    \
-    # Serve portal frontend \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-    \
-    # Proxy API requests to local synkronus backend \
-    location /api { \
-        rewrite ^/api(.*)$ $1 break; \
-        proxy_pass http://127.0.0.1:8080; \
-        proxy_http_version 1.1; \
-        proxy_set_header Upgrade $http_upgrade; \
-        proxy_set_header Connection "upgrade"; \
-        proxy_set_header Host $host; \
-        proxy_set_header X-Real-IP $remote_addr; \
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
-        proxy_set_header X-Forwarded-Proto $scheme; \
-        proxy_set_header X-Forwarded-Host $host; \
-        proxy_set_header Authorization $http_authorization; \
-        proxy_pass_request_headers on; \
-        proxy_connect_timeout 60s; \
-        proxy_send_timeout 60s; \
-        proxy_read_timeout 60s; \
-        proxy_buffering off; \
-        client_max_body_size 100M; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
-
-# Create startup script to run both services
-RUN printf '#!/bin/sh\n\
-set -e\n\
-\n\
-# Function to handle shutdown\n\
-cleanup() {\n\
-    echo "Shutting down..."\n\
-    kill -TERM "$synkronus_pid" 2>/dev/null || true\n\
-    nginx -s quit 2>/dev/null || true\n\
-    wait "$synkronus_pid" 2>/dev/null || true\n\
-    exit 0\n\
-}\n\
-\n\
-# Trap signals for graceful shutdown\n\
-trap cleanup SIGTERM SIGINT\n\
-\n\
-# Start synkronus in background as non-root user\n\
-su-exec synkronus /app/synkronus &\n\
-synkronus_pid=$!\n\
-\n\
-# Wait a moment for synkronus to start\n\
-sleep 2\n\
-\n\
-# Start nginx in foreground (this blocks, shell remains PID 1 for signal handling)\n\
-nginx -g "daemon off;"\n\
-' > /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
+# Go server listens on 80 so existing port mapping 8080:80 still works
+ENV PORT=80
 
 EXPOSE 80
 
-# Health check - check synkronus health endpoint through nginx proxy
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 -O - http://127.0.0.1/api/health || exit 1
+  CMD wget --no-verbose --tries=1 -O - http://127.0.0.1/health || exit 1
 
-# Use custom entrypoint to run both services
-ENTRYPOINT ["/docker-entrypoint.sh"]
-
+CMD ["/app/synkronus"]
