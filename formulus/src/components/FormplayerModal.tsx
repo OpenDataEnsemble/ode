@@ -37,6 +37,7 @@ import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { geolocationService } from '../services/GeolocationService';
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -128,7 +129,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         resolveFormOperationByType(currentFormType, completionResult);
       }
 
-      // Call the parent's onClose immediately
+      geolocationService.clearCache();
       onClose();
 
       // Reset closing state after a short delay to prevent rapid re-opening issues
@@ -195,7 +196,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
     ) => {
-      // Set internal state for the current form and observation
+      // Start GPS acquisition early so the fix is ready at save time
+      geolocationService.preCacheLocation();
+
       setCurrentFormType(formType.id);
       setCurrentObservationId(observationId);
       setCurrentObservationData(existingObservationData);
