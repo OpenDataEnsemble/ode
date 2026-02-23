@@ -62,6 +62,9 @@ COPY synkronus/ ./
 # Embed the portal build into the binary (must exist at go build time)
 COPY --from=portal-builder /app/synkronus-portal/dist ./portal/dist
 
+# Fail the build if the portal was not copied (ensures published image serves portal at /)
+RUN test -f ./portal/dist/index.html || (echo "ERROR: portal dist missing; portal will 404 at /" && exit 1)
+
 # Build the application
 ENV CGO_ENABLED=0 GOOS=linux
 RUN go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus

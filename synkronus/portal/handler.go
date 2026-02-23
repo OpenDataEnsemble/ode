@@ -34,7 +34,20 @@ func Handler() http.Handler {
 			}
 		}
 		// SPA fallback: serve index.html so the client router can handle the path.
+		// If index.html is missing from the embed (e.g. broken Docker build), serve a minimal fallback so GET / never 404s.
+		if f, err := root.Open("index.html"); err != nil {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(fallbackIndexHTML))
+			return
+		} else {
+			f.Close()
+		}
 		r.URL.Path = "/index.html"
 		fileServer.ServeHTTP(w, r)
 	})
 }
+
+// fallbackIndexHTML is served when the embedded dist has no index.html (e.g. broken build).
+// Ensures GET / never returns 404 so the published image always serves something at /.
+const fallbackIndexHTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Synkronus</title></head><body><p>Synkronus portal. If you see this, the embedded portal build may be missing; pull the latest image or rebuild.</p></body></html>`

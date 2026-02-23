@@ -180,7 +180,9 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 
 	// Serve embedded React portal (SPA) for all other GET requests.
 	// API routes above take precedence; unmatched paths get index.html for client-side routing.
+	// Explicit GET / ensures the root path is always served (some chi versions treat /* differently).
 	portalHandler := portal.Handler()
+	r.Get("/", portalHandler.ServeHTTP)
 	r.Get("/*", portalHandler.ServeHTTP)
 
 	return r
