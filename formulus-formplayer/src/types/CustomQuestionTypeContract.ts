@@ -64,4 +64,3 @@ export interface CustomQuestionTypeManifest {
     }
   >;
 }
-

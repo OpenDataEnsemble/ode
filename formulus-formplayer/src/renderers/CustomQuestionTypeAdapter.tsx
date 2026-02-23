@@ -54,8 +54,7 @@ class CustomQuestionErrorBoundary extends Component<
             borderRadius: '4px',
             backgroundColor: '#fce4ec',
             color: '#c62828',
-          }}
-        >
+          }}>
           <strong>Custom question type "{this.props.formatName}" failed</strong>
           <br />
           <small>{this.state.error?.message}</small>
@@ -94,7 +93,11 @@ export function createCustomQuestionTypeRenderer(
     // Build the simplified props for the custom component
     const customProps: CustomQuestionTypeProps = {
       value: data,
-      config: (schema as Record<string, unknown>)?.['x-config'] as Record<string, unknown> ?? {},
+      config:
+        ((schema as Record<string, unknown>)?.['x-config'] as Record<
+          string,
+          unknown
+        >) ?? {},
       onChange: (newValue: unknown) => handleChange(path, newValue),
       validation: {
         error: Boolean(errors && errors.length > 0),
@@ -111,8 +114,7 @@ export function createCustomQuestionTypeRenderer(
         title={label}
         description={description}
         required={required}
-        error={errors}
-      >
+        error={errors}>
         <CustomQuestionErrorBoundary formatName={formatName}>
           <CustomComponent {...customProps} />
         </CustomQuestionErrorBoundary>

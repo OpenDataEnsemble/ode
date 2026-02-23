@@ -81,7 +81,8 @@ function evaluateModuleInSandbox(
   }
 
   // Extract the component from exports (support both default and module.exports patterns)
-  const component = (moduleObj.exports as Record<string, unknown>).default ?? moduleObj.exports;
+  const component =
+    (moduleObj.exports as Record<string, unknown>).default ?? moduleObj.exports;
 
   if (typeof component !== 'function') {
     throw new Error(
@@ -109,8 +110,13 @@ export async function loadCustomQuestionTypes(
     errors: [],
   };
 
-  if (!manifest?.custom_types || Object.keys(manifest.custom_types).length === 0) {
-    console.log('[CustomQuestionTypeLoader] No custom question types in manifest');
+  if (
+    !manifest?.custom_types ||
+    Object.keys(manifest.custom_types).length === 0
+  ) {
+    console.log(
+      '[CustomQuestionTypeLoader] No custom question types in manifest',
+    );
     return result;
   }
 
@@ -155,7 +161,7 @@ export async function loadCustomQuestionTypes(
   if (result.errors.length > 0) {
     console.warn(
       `[CustomQuestionTypeLoader] ${result.errors.length} type(s) failed to load:`,
-      result.errors.map((e) => e.format).join(', '),
+      result.errors.map(e => e.format).join(', '),
     );
   }
 

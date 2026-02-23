@@ -391,7 +391,8 @@ function App() {
         const customQTManifest = initData.customQuestionTypes;
         if (customQTManifest) {
           try {
-            const customQTResult = await loadCustomQuestionTypes(customQTManifest);
+            const customQTResult =
+              await loadCustomQuestionTypes(customQTManifest);
             setCustomTypeRenderers(customQTResult.renderers);
             setCustomTypeFormats(customQTResult.formats);
             console.log(
@@ -404,7 +405,10 @@ function App() {
               );
             }
           } catch (error) {
-            console.error('[Formplayer] Failed to load custom question types:', error);
+            console.error(
+              '[Formplayer] Failed to load custom question types:',
+              error,
+            );
             setCustomTypeRenderers([]);
             setCustomTypeFormats([]);
           }
@@ -834,7 +838,7 @@ function App() {
 
     // Register custom question type formats with AJV
     if (customTypeFormats.length > 0) {
-      customTypeFormats.forEach((fmt) => {
+      customTypeFormats.forEach(fmt => {
         instance.addFormat(fmt, () => true);
       });
       console.log(
