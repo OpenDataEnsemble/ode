@@ -42,23 +42,21 @@ export class FormObservationRepository implements LocalRepoInterface {
         .toString(36)
         .substring(2, 9)}`;
 
-      // Attempt to capture geolocation (non-blocking)
+      // Use pre-cached GPS when available, fall back to fresh capture
       let geolocation = null;
       try {
-        geolocation =
-          await geolocationService.getCurrentLocationForObservation();
+        geolocation = geolocationService.getCachedLocation();
+        if (!geolocation) {
+          geolocation =
+            await geolocationService.getCurrentLocationForObservation();
+        }
         if (geolocation) {
-          console.debug('Captured geolocation for observation:', id);
           ToastService.showGeolocationCaptured();
         } else {
-          console.debug('No geolocation available for observation:', id);
           ToastService.showGeolocationUnavailable();
         }
       } catch (geoError) {
-        console.warn(
-          'Failed to capture geolocation for observation:',
-          geoError,
-        );
+        console.warn('Failed to capture geolocation:', geoError);
         ToastService.showGeolocationUnavailable();
       }
 
