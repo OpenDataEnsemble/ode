@@ -1,19 +1,14 @@
 /**
  * CustomQuestionTypeLoader.ts
  *
- * Loads custom question type components from source strings provided by the
- * Formulus RN side. Instead of dynamically importing files from the filesystem,
- * this loader evaluates each module's source in a scoped sandbox using
- * `new Function()`, which restricts what the code can access.
- *
- * Security layers:
- *  1. RN-side static blocklist (in CustomQuestionTypeScanner) rejects dangerous patterns
- *  2. Scoped evaluation here only exposes React — no fetch, document, localStorage, etc.
+ * Loads custom question type modules from the custom_app archive.
+ * The native Formulus RN side scans `custom_app/question_types/` and
+ * provides a manifest mapping format names to module paths.
  *
  * This loader:
  *  1. Iterates over the manifest
- *  2. Evaluates each source string in a scoped sandbox
- *  3. Extracts and validates the default export (must be a React component function)
+ *  2. Dynamically imports each module
+ *  3. Validates the default export is a function (React component)
  *  4. Passes all loaded components to the registry
  *  5. Returns renderer entries + format strings for AJV registration
  */
@@ -36,69 +31,9 @@ export interface CustomQuestionTypeLoadResult {
 }
 
 /**
- * Evaluate a module source string in a scoped sandbox.
+ * Load custom question types from a manifest.
  *
- * The code only has access to the variables we explicitly pass in:
- *  - module / exports (CommonJS-style export mechanism)
- *  - React (so the component can use createElement, hooks, etc.)
- *
- * Dangerous globals (fetch, XMLHttpRequest, document, localStorage, etc.)
- * are NOT available in this scope.
- */
-function evaluateModuleInSandbox(
-  source: string,
-  formatName: string,
-): React.ComponentType<CustomQuestionTypeProps> {
-  const exports: Record<string, unknown> = {};
-  const moduleObj = { exports };
-
-  // Get React from the global scope (it's available in the WebView)
-  const ReactLib = (window as unknown as Record<string, unknown>).React;
-  if (!ReactLib) {
-    throw new Error('React is not available in the global scope');
-  }
-
-  // Get MUI from the global scope (custom components may use Material UI)
-  const MUILib = (window as unknown as Record<string, unknown>).MaterialUI;
-
-  try {
-    // Create a factory function with a restricted scope.
-    // The code can only access: module, exports, React, MaterialUI
-    // It CANNOT access: fetch, XMLHttpRequest, document, localStorage, etc.
-    const factory = new Function(
-      'module',
-      'exports',
-      'React',
-      'MaterialUI',
-      source,
-    );
-
-    factory(moduleObj, exports, ReactLib, MUILib);
-  } catch (err) {
-    throw new Error(
-      `Failed to evaluate module source: ${err instanceof Error ? err.message : String(err)}`,
-    );
-  }
-
-  // Extract the component from exports (support both default and module.exports patterns)
-  const component =
-    (moduleObj.exports as Record<string, unknown>).default ?? moduleObj.exports;
-
-  if (typeof component !== 'function') {
-    throw new Error(
-      `Module "${formatName}" does not export a valid React component. ` +
-        `Expected a function, got ${typeof component}. ` +
-        `Make sure your module uses module.exports = Component or exports.default = Component.`,
-    );
-  }
-
-  return component as React.ComponentType<CustomQuestionTypeProps>;
-}
-
-/**
- * Load custom question types from a manifest containing source strings.
- *
- * @param manifest - The manifest describing available custom question types (with source code)
+ * @param manifest - The manifest describing available custom question types
  * @returns Loaded renderers, format strings, and any errors
  */
 export async function loadCustomQuestionTypes(
@@ -128,11 +63,23 @@ export async function loadCustomQuestionTypes(
   for (const [formatName, meta] of Object.entries(manifest.custom_types)) {
     try {
       console.log(
-        `[CustomQuestionTypeLoader] Evaluating "${formatName}" (${meta.source.length} bytes)`,
+        `[CustomQuestionTypeLoader] Loading "${formatName}" from ${meta.modulePath}`,
       );
 
-      // Evaluate the source in a scoped sandbox
-      const component = evaluateModuleInSandbox(meta.source, formatName);
+      // Dynamic import of the module
+      const module = await import(/* @vite-ignore */ meta.modulePath);
+
+      // Get the default export
+      const component = module.default ?? module;
+
+      // Validate that the export is a function (React component)
+      if (typeof component !== 'function') {
+        throw new Error(
+          `Module does not export a valid React component. ` +
+            `Expected a function, got ${typeof component}. ` +
+            `Make sure your module has a default export.`,
+        );
+      }
 
       loadedComponents.set(formatName, component);
       result.formats.push(formatName);

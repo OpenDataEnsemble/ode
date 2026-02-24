@@ -52,15 +52,14 @@ export interface CustomQuestionTypeProps {
 
 /**
  * Manifest passed from the native side describing available custom question types.
- * Each entry maps a format string to the source code of the module that renders it.
- * The RN side reads the JS file and passes the source string here for sandboxed evaluation.
+ * Each entry maps a format string to the path of the module that renders it.
  */
 export interface CustomQuestionTypeManifest {
   custom_types: Record<
     string,
     {
-      /** The JS source code of the module (read by RN via RNFS.readFile) */
-      source: string;
+      /** Path to the JS module (e.g., "file:///path/to/question_types/rating-stars/index.js") */
+      modulePath: string;
     }
   >;
 }
