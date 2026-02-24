@@ -9,6 +9,16 @@ export type MainTabParamList = {
   More: { openDrawer?: number } | undefined;
 };
 
+export const VISIBLE_MAIN_TABS = [
+  'Home',
+  'Forms',
+  'Observations',
+  'Sync',
+  'More',
+] as const;
+
+export type VisibleMainTab = (typeof VISIBLE_MAIN_TABS)[number];
+
 export type MainAppStackParamList = {
   Welcome: undefined;
   MainApp: undefined;

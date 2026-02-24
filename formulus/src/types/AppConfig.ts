@@ -8,6 +8,7 @@
  * (tab bar, headers, modals) and to forward theme colors to the Formplayer
  * WebView so that forms match the custom app's look and feel.
  */
+import { VisibleMainTab } from './NavigationTypes';
 
 /**
  * Color tokens for a single mode (light or dark).
@@ -73,6 +74,17 @@ export interface AppTheme {
 }
 
 /**
+ * Native navigation configuration for the Formulus tab bar.
+ */
+export interface NavigationConfig {
+  /**
+   * Visible native tabs in display order.
+   * Accepts string values from app.config.json and is validated at runtime.
+   */
+  tabs: string[];
+}
+
+/**
  * Root shape of app.config.json.
  */
 export interface AppConfig {
@@ -84,4 +96,13 @@ export interface AppConfig {
   version: string;
   /** Theme definition with light and dark palettes */
   theme: AppTheme;
+  /**
+   * Optional native navigation settings.
+   * If omitted, Formulus shows all default native tabs.
+   */
+  navigation?: NavigationConfig;
 }
+
+// Keep this alias exported so app-config consumers can strongly type
+// validated tab selections after runtime filtering.
+export type { VisibleMainTab };
