@@ -58,7 +58,7 @@ export interface FormInitData {
   operationId?: string;
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
-    custom_types: Record<string, { source: string }>;
+    custom_types: Record<string, { modulePath: string }>;
   };
 }
 
