@@ -11,7 +11,12 @@ import AboutScreen from '../screens/AboutScreen';
 import HelpScreen from '../screens/HelpScreen';
 import MoreScreen from '../screens/MoreScreen';
 import { colors } from '../theme/colors';
-import { MainTabParamList } from '../types/NavigationTypes';
+import AppConfigService from '../services/AppConfigService';
+import {
+  MainTabParamList,
+  VisibleMainTab,
+  VISIBLE_MAIN_TABS,
+} from '../types/NavigationTypes';
 import { useAppTheme } from '../contexts/AppThemeContext';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -41,6 +46,64 @@ const renderMoreIcon = ({ color, size }: TabBarIconProps) => (
   <Icon name="menu" size={size} color={color} />
 );
 
+const TAB_COMPONENTS: Record<
+  VisibleMainTab,
+  React.ComponentType<Record<string, unknown>>
+> = {
+  Home: HomeScreen as React.ComponentType<Record<string, unknown>>,
+  Forms: FormsScreen as React.ComponentType<Record<string, unknown>>,
+  Observations: ObservationsScreen as React.ComponentType<
+    Record<string, unknown>
+  >,
+  Sync: SyncScreen as React.ComponentType<Record<string, unknown>>,
+  More: MoreScreen as React.ComponentType<Record<string, unknown>>,
+};
+
+const TAB_ICONS: Record<
+  VisibleMainTab,
+  (props: TabBarIconProps) => React.ReactElement
+> = {
+  Home: renderHomeIcon,
+  Forms: renderFormsIcon,
+  Observations: renderObservationsIcon,
+  Sync: renderSyncIcon,
+  More: renderMoreIcon,
+};
+
+const isVisibleMainTab = (value: string): value is VisibleMainTab =>
+  (VISIBLE_MAIN_TABS as readonly string[]).includes(value);
+
+const getConfiguredTabs = (): {
+  tabs: VisibleMainTab[];
+  tabConfigPresent: boolean;
+} => {
+  const config = AppConfigService.getInstance().getConfig();
+  const requestedTabs = config?.navigation?.tabs;
+
+  if (requestedTabs === undefined) {
+    return { tabs: [...VISIBLE_MAIN_TABS], tabConfigPresent: false };
+  }
+
+  if (!Array.isArray(requestedTabs)) {
+    console.warn(
+      '[Navigation] app.config.json navigation.tabs must be an array. Falling back to defaults.',
+    );
+    return { tabs: [...VISIBLE_MAIN_TABS], tabConfigPresent: true };
+  }
+
+  const tabs = requestedTabs.filter(tab => {
+    const isValid = isVisibleMainTab(tab);
+    if (!isValid) {
+      console.warn(
+        `[Navigation] Invalid tab "${tab}" in app.config.json. Skipping.`,
+      );
+    }
+    return isValid;
+  });
+
+  return { tabs, tabConfigPresent: true };
+};
+
 const MainTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
   const baseTabBarHeight = 60;
@@ -49,6 +112,9 @@ const MainTabNavigator: React.FC = () => {
   // Theme colors come from AppThemeContext — they update automatically
   // when the custom app's config is loaded or the color scheme changes.
   const { themeColors } = useAppTheme();
+  const { tabs: configuredTabs, tabConfigPresent } = getConfiguredTabs();
+  const hideTabBar = tabConfigPresent && configuredTabs.length === 0;
+  const tabsToRender = hideTabBar ? (['Home'] as const) : configuredTabs;
 
   return (
     <Tab.Navigator
@@ -57,6 +123,7 @@ const MainTabNavigator: React.FC = () => {
         tabBarActiveTintColor: themeColors.primary,
         tabBarInactiveTintColor: colors.neutral[500],
         tabBarStyle: {
+          display: hideTabBar ? 'none' : 'flex',
           backgroundColor: themeColors.surface,
           borderTopWidth: 1,
           borderTopColor: themeColors.divider,
@@ -65,34 +132,33 @@ const MainTabNavigator: React.FC = () => {
           height: tabBarHeight,
         },
       }}>
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{
-          tabBarIcon: renderHomeIcon,
-        }}
-      />
-      <Tab.Screen
-        name="Forms"
-        component={FormsScreen}
-        options={{
-          tabBarIcon: renderFormsIcon,
-        }}
-      />
-      <Tab.Screen
-        name="Observations"
-        component={ObservationsScreen}
-        options={{
-          tabBarIcon: renderObservationsIcon,
-        }}
-      />
-      <Tab.Screen
-        name="Sync"
-        component={SyncScreen}
-        options={{
-          tabBarIcon: renderSyncIcon,
-        }}
-      />
+      {tabsToRender.map(tabName => (
+        <Tab.Screen
+          key={tabName}
+          name={tabName}
+          component={TAB_COMPONENTS[tabName]}
+          options={{
+            tabBarIcon: TAB_ICONS[tabName],
+          }}
+          listeners={
+            tabName === 'More'
+              ? ({ navigation }) => ({
+                  tabPress: () => {
+                    const state = navigation.getState();
+                    const currentRoute = state.routes[state.index];
+                    if (currentRoute?.name === 'More') {
+                      (
+                        navigation as { setParams: (params: object) => void }
+                      ).setParams({
+                        openDrawer: Date.now(),
+                      });
+                    }
+                  },
+                })
+              : undefined
+          }
+        />
+      ))}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
@@ -113,22 +179,6 @@ const MainTabNavigator: React.FC = () => {
         options={{
           tabBarButton: () => null,
         }}
-      />
-      <Tab.Screen
-        name="More"
-        component={MoreScreen}
-        options={{
-          tabBarIcon: renderMoreIcon,
-        }}
-        listeners={({ navigation }) => ({
-          tabPress: () => {
-            const state = navigation.getState();
-            const currentRoute = state.routes[state.index];
-            if (currentRoute?.name === 'More') {
-              navigation.setParams({ openDrawer: Date.now() });
-            }
-          },
-        })}
       />
     </Tab.Navigator>
   );
