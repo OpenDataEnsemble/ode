@@ -5,11 +5,21 @@
  * Form authors create components that accept these props — no JSON Forms knowledge needed.
  *
  * Usage in JSON Schema:
- *   { "type": "number", "format": "x-rating-stars", "x-config": { "maxStars": 5 } }
+ *   {
+ *     "type": "string",
+ *     "format": "select-person",
+ *     "title": "Select the focal person",
+ *     "showSearch": true,
+ *     "people": [ { "id": "p1", "name": "John Doe" }, ... ]
+ *   }
  *
  * Usage in custom_app:
- *   custom_app/question_types/rating-stars/index.js
- *   export default function RatingStars({ value, config, onChange, validation }) { ... }
+ *   custom_app/question_types/select-person/index.js
+ *   export default function SelectPerson({ value, config, onChange }) {
+ *     const people = config.people;
+ *     const showSearch = config.showSearch;
+ *     ...
+ *   }
  */
 
 /**
@@ -20,9 +30,10 @@ export interface CustomQuestionTypeProps {
   value: unknown;
 
   /**
-   * Configuration from the schema's `x-config` property.
-   * For example, if schema has `"x-config": { "maxStars": 5 }`,
-   * then `config.maxStars === 5`.
+   * The full JSON Schema object for this field, exposed as `config`.
+   * Custom properties live directly on the schema — access them like
+   * `config.people`, `config.showSearch`, `config.query`, etc.
+   * Standard keys like `type`, `format`, `title` are also available.
    */
   config: Record<string, unknown>;
 
@@ -40,7 +51,7 @@ export interface CustomQuestionTypeProps {
   /** Whether the field is currently enabled/editable */
   enabled: boolean;
 
-  /** The field's unique path in the form data (e.g., "satisfaction") */
+  /** The field's unique path in the form data (e.g., "ranking_field") */
   fieldPath: string;
 
   /** Display label from the schema's `title` property */
@@ -58,7 +69,7 @@ export interface CustomQuestionTypeManifest {
   custom_types: Record<
     string,
     {
-      /** Path to the JS module (e.g., "file:///path/to/question_types/rating-stars/index.js") */
+      /** Path to the JS module (e.g., "file:///path/to/question_types/ranking/index.js") */
       modulePath: string;
     }
   >;

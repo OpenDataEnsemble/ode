@@ -93,11 +93,7 @@ export function createCustomQuestionTypeRenderer(
     // Build the simplified props for the custom component
     const customProps: CustomQuestionTypeProps = {
       value: data,
-      config:
-        ((schema as Record<string, unknown>)?.['x-config'] as Record<
-          string,
-          unknown
-        >) ?? {},
+      config: (schema as Record<string, unknown>) ?? {},
       onChange: (newValue: unknown) => handleChange(path, newValue),
       validation: {
         error: Boolean(errors && errors.length > 0),
