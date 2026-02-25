@@ -14,6 +14,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/portal"
 )
 
 // NewRouter creates a new router with all API routes configured
@@ -176,6 +177,11 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		r.Get("/api/version", h.GetVersion)      // Also under /api for portal compatibility
 		r.Get("/api/versions", h.GetAPIVersions) // Not implemented yet
 	})
+
+	// Serve embedded React portal (SPA) for all other GET requests.
+	// API routes above take precedence; unmatched paths get index.html for client-side routing.
+	portalHandler := portal.Handler()
+	r.Get("/*", portalHandler.ServeHTTP)
 
 	return r
 }

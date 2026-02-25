@@ -38,6 +38,7 @@ import { ExtensionService } from '../services/ExtensionService';
 import { scanCustomQuestionTypes } from '../services/CustomQuestionTypeScanner';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { geolocationService } from '../services/GeolocationService';
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -86,6 +87,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     // Track if form has been successfully submitted to avoid double resolution
     const [formSubmitted, setFormSubmitted] = useState(false);
 
+    // Author-configurable display name shown in the native header bar
+    const [currentFormDisplayName, setCurrentFormDisplayName] = useState<
+      string | null
+    >(null);
+
     // Add state to track closing process and prevent multiple close attempts
     const [isClosing, setIsClosing] = useState(false);
     const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,7 +135,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         resolveFormOperationByType(currentFormType, completionResult);
       }
 
-      // Call the parent's onClose immediately
+      geolocationService.clearCache();
       onClose();
 
       // Reset closing state after a short delay to prevent rapid re-opening issues
@@ -196,9 +202,25 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
     ) => {
-      // Set internal state for the current form and observation
+      // Start GPS acquisition early so the fix is ready at save time
+      geolocationService.preCacheLocation();
+
       setCurrentFormType(formType.id);
       setCurrentObservationId(observationId);
+
+      // Resolve display name: ui schema headerTitle > schema title > form spec name
+      const uiSchemaObj = formType.uiSchema as
+        | Record<string, unknown>
+        | undefined;
+      const schemaObj = formType.schema as Record<string, unknown> | undefined;
+      const uiOptions = uiSchemaObj?.options as
+        | Record<string, unknown>
+        | undefined;
+      const displayName =
+        (uiOptions?.headerTitle as string) ||
+        (schemaObj?.title as string) ||
+        formType.name;
+      setCurrentFormDisplayName(displayName);
       setCurrentObservationData(existingObservationData);
       setCurrentParams(params);
       setCurrentOperationId(operationId);
@@ -451,6 +473,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         // Reset form state when modal is closed
         setTimeout(() => {
           setCurrentFormType(null);
+          setCurrentFormDisplayName(null);
           setCurrentObservationId(null);
           setCurrentObservationData(null);
           setIsClosing(false); // Reset closing state when modal is fully closed
@@ -491,8 +514,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               />
             </TouchableOpacity>
             <Text
-              style={[styles.headerTitle, { color: themeColors.onBackground }]}>
-              {currentObservationId ? 'Edit Observation' : 'New Observation'}
+              style={[styles.headerTitle, { color: themeColors.onBackground }]}
+              numberOfLines={1}>
+              {currentFormDisplayName ||
+                (currentObservationId ? 'Edit Observation' : 'New Observation')}
             </Text>
             <View style={styles.headerRightSpacer} />
           </View>

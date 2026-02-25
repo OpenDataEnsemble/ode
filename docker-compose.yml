@@ -1,7 +1,7 @@
 # Docker Compose configuration for Synkronus
 # This setup includes:
 # - PostgreSQL database (separate container)
-# - Synkronus API + Portal (combined container)
+# - Synkronus: single Go server (API + embedded portal)
 #
 # Usage:
 #   docker compose up -d          # Start all services
@@ -31,21 +31,21 @@ services:
     networks:
       - synkronus-network
 
-  # Synkronus API + Portal (combined container)
+  # Synkronus: single Go server (API + embedded portal)
   synkronus:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: synkronus
     ports:
-      - "8080:80"  # Map host port 8080 to container port 80 (nginx)
+      - "8080:80"  # Host 8080 -> container 80 (Go server)
     environment:
       # Database connection - must match postgres service credentials
       DB_CONNECTION: "postgres://postgres:your_password@postgres:5432/synkronus?sslmode=disable"
       # JWT Secret (MUST be changed in production!)
       # Generate with: openssl rand -base64 32
       JWT_SECRET: "your-secret-key-minimum-32-characters-long"  # CHANGE THIS IN PRODUCTION!
-      PORT: "8080"  # Internal port for Synkronus API
+      PORT: "80"  # Go server listens on 80
       LOG_LEVEL: "info"  # Options: debug, info, warn, error
     volumes:
       - app-bundles:/app/data/app-bundles
@@ -54,7 +54,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "-", "http://127.0.0.1/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "-", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 3s
       retries: 3

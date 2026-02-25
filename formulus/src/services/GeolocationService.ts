@@ -16,16 +16,17 @@ import { RESULTS } from 'react-native-permissions';
 export class GeolocationService {
   private static instance: GeolocationService;
 
-  // Configuration for geolocation
   private config: GeolocationConfig = {
     enableHighAccuracy: true,
-    timeout: 10000, // 10 seconds
-    maximumAge: 10000, // 10 seconds - use cached location if very recent
+    timeout: 10000,
+    maximumAge: 10000,
   };
 
-  private constructor() {
-    // No continuous tracking - we get location on demand
-  }
+  private cachedLocation: ObservationGeolocation | null = null;
+  private cachedAt: number = 0;
+  private static readonly CACHE_MAX_AGE_MS = 120_000; // 2 minutes
+
+  private constructor() {}
 
   public static getInstance(): GeolocationService {
     if (!GeolocationService.instance) {
@@ -122,6 +123,34 @@ export class GeolocationService {
         watchId = null;
       }
     };
+  }
+
+  /** Fire-and-forget: start acquiring GPS so the result is cached for later. */
+  public preCacheLocation(): void {
+    this.getCurrentLocationForObservation()
+      .then(location => {
+        if (location) {
+          this.cachedLocation = location;
+          this.cachedAt = Date.now();
+        }
+      })
+      .catch(() => {});
+  }
+
+  /** Return cached location if fresh enough, otherwise null. */
+  public getCachedLocation(): ObservationGeolocation | null {
+    if (
+      this.cachedLocation &&
+      Date.now() - this.cachedAt < GeolocationService.CACHE_MAX_AGE_MS
+    ) {
+      return this.cachedLocation;
+    }
+    return null;
+  }
+
+  public clearCache(): void {
+    this.cachedLocation = null;
+    this.cachedAt = 0;
   }
 
   /**

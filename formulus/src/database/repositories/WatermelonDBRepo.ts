@@ -35,23 +35,21 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     try {
       console.log('Saving observation:', input);
 
-      // Attempt to capture geolocation (non-blocking)
+      // Use pre-cached GPS when available, fall back to fresh capture
       let geolocation = null;
       try {
-        geolocation =
-          await geolocationService.getCurrentLocationForObservation();
+        geolocation = geolocationService.getCachedLocation();
+        if (!geolocation) {
+          geolocation =
+            await geolocationService.getCurrentLocationForObservation();
+        }
         if (geolocation) {
-          console.debug('Captured geolocation for observation');
           ToastService.showGeolocationCaptured();
         } else {
-          console.debug('No geolocation available for observation');
           ToastService.showGeolocationUnavailable();
         }
       } catch (geoError) {
-        console.warn(
-          'Failed to capture geolocation for observation:',
-          geoError,
-        );
+        console.warn('Failed to capture geolocation:', geoError);
         ToastService.showGeolocationUnavailable();
       }
 
