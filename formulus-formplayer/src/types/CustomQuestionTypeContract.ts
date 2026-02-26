@@ -49,6 +49,12 @@ export interface CustomQuestionTypeProps {
 
   /** Optional description from the schema's `description` property */
   description?: string;
+  /**
+   * JSONForms context context if required.
+   * Provides access to the whole form's `core.data` (all values in the form),
+   * `core.schema` (the root schema), and other global JSONForms state.
+   */
+  jsonFormsContext?: any;
 }
 
 /**
