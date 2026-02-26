@@ -14,6 +14,7 @@ import {
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { getUserInfo, UserInfo, UserRole } from '../api/synkronus/Auth';
 import { colors } from '../theme/colors';
+import { useAppTheme } from '../contexts/AppThemeContext';
 import Button from './common/Button';
 
 interface MenuItem {
@@ -52,6 +53,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onLogout,
   allowClose = true,
 }) => {
+  const { themeColors } = useAppTheme();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 60;
@@ -106,32 +108,69 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
       <View style={styles.overlay}>
         {allowClose && (
           <TouchableOpacity
-            style={styles.backdrop}
+            style={[styles.backdrop, { backgroundColor: colors.ui.background }]}
             activeOpacity={1}
             onPress={onClose}
           />
         )}
-        <View style={[styles.drawer, { bottom: bottomPadding }]}>
+        <View
+          style={[
+            styles.drawer,
+            {
+              bottom: bottomPadding,
+              backgroundColor: themeColors.surface,
+              shadowColor: themeColors.surface,
+            },
+          ]}>
           <SafeAreaView
             style={styles.safeArea}
             edges={['top', 'left', 'right']}>
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>Menu</Text>
+            <View
+              style={[
+                styles.header,
+                { borderBottomColor: themeColors.divider },
+              ]}>
+              <Text
+                style={[styles.headerTitle, { color: themeColors.onSurface }]}>
+                Menu
+              </Text>
               {allowClose && (
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Icon name="close" size={24} color={colors.neutral.black} />
+                  <Icon
+                    name="close"
+                    size={24}
+                    color={themeColors.onSurface}
+                  />
                 </TouchableOpacity>
               )}
             </View>
 
             {/* User Info Section */}
             {userInfo ? (
-              <View style={styles.userSection}>
-                <View style={styles.userAvatar}>
-                  <Icon name="account" size={32} color={colors.neutral.white} />
+              <View
+                style={[
+                  styles.userSection,
+                  {
+                    backgroundColor: themeColors.background,
+                    borderBottomColor: themeColors.divider,
+                  },
+                ]}>
+                <View
+                  style={[
+                    styles.userAvatar,
+                    { backgroundColor: themeColors.primary },
+                  ]}>
+                  <Icon
+                    name="account"
+                    size={32}
+                    color={themeColors.onPrimary}
+                  />
                 </View>
                 <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{userInfo.username}</Text>
+                  <Text
+                    style={[styles.userName, { color: themeColors.onSurface }]}>
+                    {userInfo.username}
+                  </Text>
                   <View
                     style={[
                       styles.roleBadge,
@@ -142,17 +181,36 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 </View>
               </View>
             ) : (
-              <View style={styles.userSection}>
+              <View
+                style={[
+                  styles.userSection,
+                  {
+                    backgroundColor: themeColors.background,
+                    borderBottomColor: themeColors.divider,
+                  },
+                ]}>
                 <View style={[styles.userAvatar, styles.userAvatarInactive]}>
                   <Icon
                     name="account-off"
                     size={32}
-                    color={colors.neutral[500]}
+                    color={themeColors.onSurface}
                   />
                 </View>
                 <View style={styles.userInfo}>
-                  <Text style={styles.userNameInactive}>Not logged in</Text>
-                  <Text style={styles.loginHint}>Go to Settings to login</Text>
+                  <Text
+                    style={[
+                      styles.userNameInactive,
+                      { color: themeColors.onSurface },
+                    ]}>
+                    Not logged in
+                  </Text>
+                  <Text
+                    style={[
+                      styles.loginHint,
+                      { color: themeColors.onSurface },
+                    ]}>
+                    Go to Settings to login
+                  </Text>
                 </View>
               </View>
             )}
@@ -161,20 +219,30 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
               {visibleItems.map((item, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.menuItem}
+                  style={[
+                    styles.menuItem,
+                    { borderBottomColor: themeColors.divider },
+                  ]}
                   onPress={() => onNavigate(item.screen)}>
                   <Icon
                     name={item.icon}
                     size={24}
-                    color={colors.neutral[800]}
+                    color={themeColors.onSurface}
                   />
-                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <Text
+                    style={[styles.menuLabel, { color: themeColors.onSurface }]}>
+                    {item.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             {userInfo && (
-              <View style={styles.footer}>
+              <View
+                style={[
+                  styles.footer,
+                  { borderTopColor: themeColors.divider },
+                ]}>
                 <Button
                   title="Logout"
                   onPress={onLogout}
@@ -197,7 +265,6 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: colors.ui.background,
   },
   drawer: {
     position: 'absolute',
@@ -205,8 +272,6 @@ const styles = StyleSheet.create({
     top: 0,
     width: '80%',
     maxWidth: 320,
-    backgroundColor: colors.neutral.white,
-    shadowColor: colors.neutral.black,
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -221,12 +286,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.ui.gray.light,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.neutral.black,
   },
   closeButton: {
     padding: 4,
@@ -235,15 +298,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: colors.ui.gray.lightest,
     borderBottomWidth: 1,
-    borderBottomColor: colors.ui.gray.light,
   },
   userAvatar: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: colors.semantic.info.ios,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -257,18 +317,15 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.neutral[800],
     marginBottom: 4,
   },
   userNameInactive: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.neutral[500],
     marginBottom: 4,
   },
   loginHint: {
     fontSize: 12,
-    color: colors.neutral[600],
   },
   roleBadge: {
     alignSelf: 'flex-start',
@@ -298,17 +355,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
   },
   menuLabel: {
     flex: 1,
     marginLeft: 16,
     fontSize: 16,
-    color: colors.neutral[800],
   },
   footer: {
     borderTopWidth: 1,
-    borderTopColor: colors.ui.gray.light,
     padding: 16,
   },
 });

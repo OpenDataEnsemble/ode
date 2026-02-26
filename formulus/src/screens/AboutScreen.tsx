@@ -34,38 +34,85 @@ const AboutScreen: React.FC = () => {
   return (
     <BlurredScreenBackground>
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-        <Text style={styles.title}>About</Text>
-        <Text style={styles.subtitle}>Information about this app</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.brandRow}>
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
-          <View style={styles.brandText}>
-            <Text style={styles.appName}>ODE</Text>
-            {!!version && <Text style={styles.version}>v{version}</Text>}
-          </View>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: themeColors.surface,
+              borderBottomColor: themeColors.divider,
+            },
+          ]}>
+          <Text style={[styles.title, { color: themeColors.onSurface }]}>
+            About
+          </Text>
+          <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
+            Information about this app
+          </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Formulus</Text>
-          <Text style={styles.cardText}>
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.brandRow}>
+            <Image source={logo} style={styles.logo} resizeMode="contain" />
+            <View style={styles.brandText}>
+              <Text style={[styles.appName, { color: themeColors.onSurface }]}>
+                ODE
+              </Text>
+              {!!version && (
+                <Text style={[styles.version, { color: themeColors.onSurface }]}>
+                  v{version}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: themeColors.surface,
+                shadowColor: themeColors.surface,
+              },
+            ]}>
+            <Text
+              style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+              Formulus
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
             Formulus is the mobile app for collecting and synchronizing forms
             and observations.
           </Text>
-        </View>
+          </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Support</Text>
-          <Text style={styles.cardText}>
-            If you need help, contact your system administrator.
-          </Text>
-        </View>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: themeColors.surface,
+                shadowColor: themeColors.surface,
+              },
+            ]}>
+            <Text
+              style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+              Support
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              If you need help, contact your system administrator.
+            </Text>
+          </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Free & Open Source</Text>
-          <Text style={styles.cardText}>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: themeColors.surface,
+                shadowColor: themeColors.surface,
+              },
+            ]}>
+            <Text
+              style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+              Free & Open Source
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
             This application is free and open source software. We would love to
             hear your feedback and welcome contributions.
           </Text>
@@ -94,19 +141,15 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 16,
-    backgroundColor: colors.neutral.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.neutral[900],
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.neutral[600],
   },
   content: {
     padding: 16,
@@ -128,19 +171,15 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.neutral[900],
   },
   version: {
     marginTop: 2,
     fontSize: 12,
-    color: colors.neutral[600],
   },
   card: {
-    backgroundColor: colors.neutral.white,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: colors.neutral.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -149,16 +188,13 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.neutral[900],
     marginBottom: 8,
   },
   cardText: {
     fontSize: 14,
-    color: colors.neutral[600],
     lineHeight: 20,
   },
   link: {
-    // color is applied inline via themeColors.primary
     marginTop: 12,
     fontWeight: '600',
   },

@@ -325,21 +325,28 @@ const SettingsScreen = () => {
     <BlurredScreenBackground>
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={[styles.header, { backgroundColor: themeColors.primary }]}>
-        <View style={styles.logoContainer}>
-          <Image source={Logo} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.brandName}>ODE</Text>
-        </View>
-        <Text style={styles.version}>v1.0.0</Text>
+          <View style={styles.logoContainer}>
+            <Image source={Logo} style={styles.logo} resizeMode="contain" />
+            <Text
+              style={[styles.brandName, { color: themeColors.onPrimary }]}>
+              ODE
+            </Text>
+          </View>
+          <Text
+            style={[styles.version, { color: themeColors.onPrimary }]}>
+            v1.0.0
+          </Text>
         </View>
 
         <ScrollView
-        style={styles.card}
-        contentContainerStyle={styles.cardContent}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag">
-        <Text style={styles.title}>
-          Please enter the server you want to connect to.
-        </Text>
+          style={[styles.card, { backgroundColor: 'transparent' }]}
+          contentContainerStyle={styles.cardContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
+          <Text
+            style={[styles.title, { color: themeColors.onSurface }]}>
+            Please enter the server you want to connect to.
+          </Text>
 
         <View style={styles.inputContainer}>
           <View style={styles.inputWithIcon}>
@@ -418,17 +425,14 @@ const styles = StyleSheet.create({
   brandName: {
     fontSize: 32,
     fontWeight: '700',
-    color: colors.neutral.white,
     letterSpacing: 1,
   },
   version: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 4,
   },
   card: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
   },
@@ -440,7 +444,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.neutral[900],
     marginBottom: 24,
   },
   inputContainer: {

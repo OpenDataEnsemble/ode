@@ -177,7 +177,10 @@ const ObservationsScreen: React.FC = () => {
         <SafeAreaView style={styles.container}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
-            <Text style={styles.loadingText}>Loading observations...</Text>
+            <Text
+              style={[styles.loadingText, { color: themeColors.onBackground }]}>
+              Loading observations...
+            </Text>
           </View>
         </SafeAreaView>
       </BlurredScreenBackground>
@@ -203,50 +206,78 @@ const ObservationsScreen: React.FC = () => {
   return (
     <BlurredScreenBackground>
       <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Text style={styles.title}>Observations</Text>
-          {finalFiltered.length > 0 && (
-            <Text style={styles.subtitle}>
-              {finalFiltered.length} observation
-              {finalFiltered.length !== 1 ? 's' : ''}
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: themeColors.surface,
+              borderBottomColor: themeColors.divider,
+            },
+          ]}>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.title, { color: themeColors.onSurface }]}>
+              Observations
             </Text>
-          )}
+            {finalFiltered.length > 0 && (
+              <Text
+                style={[styles.subtitle, { color: themeColors.onSurface }]}>
+                {finalFiltered.length} observation
+                {finalFiltered.length !== 1 ? 's' : ''}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={() => setShowSearch(!showSearch)}>
+            <Icon
+              name={showSearch ? 'close' : 'magnify'}
+              size={24}
+              color={themeColors.primary}
+            />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={() => setShowSearch(!showSearch)}>
-          <Icon
-            name={showSearch ? 'close' : 'magnify'}
-            size={24}
-            color={themeColors.primary}
-          />
-        </TouchableOpacity>
-      </View>
 
-      {showSearch && (
-        <View style={styles.searchContainer}>
-          <Icon
-            name="magnify"
-            size={20}
-            color={colors.neutral[500]}
-            style={styles.searchIcon}
-          />
-          <ODEInput
-            placeholder="Search observations..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchInput}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Icon name="close-circle" size={20} color={colors.neutral[500]} />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
+        {showSearch && (
+          <View
+            style={[
+              styles.searchContainer,
+              {
+                backgroundColor: themeColors.surface,
+                borderColor: themeColors.divider,
+              },
+            ]}>
+            <Icon
+              name="magnify"
+              size={20}
+              color={themeColors.onSurface}
+              style={styles.searchIcon}
+            />
+            <ODEInput
+              placeholder="Search observations..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchInput}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Icon
+                  name="close-circle"
+                  size={20}
+                  color={themeColors.onSurface}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
-      <View style={styles.filtersContainer}>
+        <View
+          style={[
+            styles.filtersContainer,
+            {
+              backgroundColor: themeColors.surface,
+              borderBottomColor: themeColors.divider,
+            },
+          ]}>
         <View style={styles.filterRow}>
           <FormTypeSelector
             options={formTypes}
@@ -302,9 +333,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     padding: 16,
-    backgroundColor: colors.neutral.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
   },
   headerLeft: {
     flex: 1,
@@ -312,12 +341,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.neutral[900],
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.neutral[600],
   },
   searchButton: {
     padding: 4,
@@ -326,14 +353,12 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral.white,
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.neutral[200],
   },
   searchIcon: {
     marginRight: 8,
@@ -343,10 +368,8 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   filtersContainer: {
-    backgroundColor: colors.neutral.white,
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
     gap: 12,
   },
   filterRow: {
@@ -366,7 +389,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: colors.neutral[600],
   },
 });
 

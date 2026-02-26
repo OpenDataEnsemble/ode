@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, useColorScheme } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
-import colors from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
+import colors from '../../theme/colors';
 
 interface EmptyStateProps {
   icon?: React.ComponentProps<typeof Icon>['name'];
@@ -20,12 +20,18 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   onAction,
 }) => {
   const { themeColors } = useAppTheme();
+  const isDark = useColorScheme() === 'dark';
+  const titleColor = themeColors.onBackground;
+  const messageColor = isDark
+    ? colors.neutral[400]
+    : themeColors.onBackground;
+  const iconColor = isDark ? colors.neutral[400] : themeColors.onSurface;
 
   return (
     <View style={styles.container}>
-      <Icon name={icon} size={64} color={colors.neutral[400]} />
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.message}>{message}</Text>
+      <Icon name={icon} size={64} color={iconColor} />
+      <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
+      <Text style={[styles.message, { color: messageColor }]}>{message}</Text>
       {actionLabel && onAction && (
         <Text
           style={[styles.actionText, { color: themeColors.primary }]}
@@ -47,14 +53,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.neutral[900],
     marginTop: 16,
     marginBottom: 8,
     textAlign: 'center',
   },
   message: {
     fontSize: 14,
-    color: colors.neutral[600],
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 16,

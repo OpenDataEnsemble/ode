@@ -69,8 +69,11 @@ const FormsScreen: React.FC = () => {
       <BlurredScreenBackground>
         <SafeAreaView style={styles.container}>
           <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeColors.primary} />
-          <Text style={styles.loadingText}>Loading forms...</Text>
+            <ActivityIndicator size="large" color={themeColors.primary} />
+            <Text
+              style={[styles.loadingText, { color: themeColors.onBackground }]}>
+              Loading forms...
+            </Text>
           </View>
         </SafeAreaView>
       </BlurredScreenBackground>
@@ -96,14 +99,23 @@ const FormsScreen: React.FC = () => {
   return (
     <BlurredScreenBackground>
       <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Forms</Text>
-        {forms.length > 0 && (
-          <Text style={styles.subtitle}>
-            {forms.length} form{forms.length !== 1 ? 's' : ''} available
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: themeColors.surface,
+              borderBottomColor: themeColors.divider,
+            },
+          ]}>
+          <Text style={[styles.title, { color: themeColors.onSurface }]}>
+            Forms
           </Text>
-        )}
-      </View>
+          {forms.length > 0 && (
+            <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
+              {forms.length} form{forms.length !== 1 ? 's' : ''} available
+            </Text>
+          )}
+        </View>
 
       {forms.length === 0 ? (
         <EmptyState
@@ -133,19 +145,15 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 16,
-    backgroundColor: colors.neutral.white,
     borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.neutral[900],
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: colors.neutral[600],
   },
   listContent: {
     paddingVertical: 8,
@@ -158,7 +166,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: colors.neutral[600],
   },
 });
 
