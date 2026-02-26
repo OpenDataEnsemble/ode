@@ -178,18 +178,17 @@ class SynkronusApi {
               } else {
                 await RNFS.unlink(itemPath);
               }
-            } catch (itemError) {
+            } catch (_itemError) {
               // Continue with other items even if one fails
             }
           }
-        } catch (readDirError) {
+        } catch (_readDirError) {
           // Continue to try removing the directory itself
         }
       }
       await RNFS.unlink(path);
     } catch (error) {
-      const errorMsg =
-        error instanceof Error ? error.message : String(error);
+      const errorMsg = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to clean directory ${path}: ${errorMsg}`);
     }
   }
@@ -217,7 +216,7 @@ class SynkronusApi {
     if (await RNFS.exists(tempZipPath)) {
       try {
         await RNFS.unlink(tempZipPath);
-      } catch (error) {
+      } catch (_error) {
         // Non-fatal, continue
       }
     }
@@ -225,12 +224,12 @@ class SynkronusApi {
     // Use a unique path for each extraction to avoid conflicts
     const timestamp = Date.now();
     const actualExtractPath = `${RNFS.DocumentDirectoryPath}/bundle_staging_${timestamp}`;
-    
+
     // Try to clean up old staging directories (non-fatal)
     if (await RNFS.exists(tempExtractPath)) {
       try {
         await this.removeDirectoryRecursive(tempExtractPath);
-      } catch (error) {
+      } catch (_error) {
         // Non-fatal - we're using a unique path anyway
       }
     }
@@ -278,7 +277,7 @@ class SynkronusApi {
     // Extract to staging directory
     try {
       await unzip(tempZipPath, actualExtractPath);
-      
+
       // Verify extraction succeeded by checking if app directory exists
       const stagingAppDir = `${actualExtractPath}/app`;
       if (!(await RNFS.exists(stagingAppDir))) {
@@ -286,14 +285,14 @@ class SynkronusApi {
           'Extraction completed but app directory not found in extracted files',
         );
       }
-      
+
       progressCallback?.(80);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       // Attempt to clean up the failed extraction directory
       try {
         await this.removeDirectoryRecursive(actualExtractPath);
-      } catch (cleanupError) {
+      } catch (_cleanupError) {
         // Non-fatal cleanup error
       }
       throw new Error(
@@ -305,11 +304,11 @@ class SynkronusApi {
     if (await RNFS.exists(appDir)) {
       try {
         await this.removeDirectoryRecursive(appDir);
-      } catch (error) {
+      } catch (_error) {
         // Try direct unlink as fallback
         try {
           await RNFS.unlink(appDir);
-        } catch (unlinkError) {
+        } catch (_unlinkError) {
           // Both methods failed, continue anyway
         }
       }
@@ -317,11 +316,11 @@ class SynkronusApi {
     if (await RNFS.exists(formsDir)) {
       try {
         await this.removeDirectoryRecursive(formsDir);
-      } catch (error) {
+      } catch (_error) {
         // Try direct unlink as fallback
         try {
           await RNFS.unlink(formsDir);
-        } catch (unlinkError) {
+        } catch (_unlinkError) {
           // Both methods failed, continue anyway
         }
       }
@@ -343,14 +342,14 @@ class SynkronusApi {
     if (await RNFS.exists(tempZipPath)) {
       try {
         await RNFS.unlink(tempZipPath);
-      } catch (error) {
+      } catch (_error) {
         // Non-fatal cleanup error
       }
     }
     if (await RNFS.exists(actualExtractPath)) {
       try {
         await this.removeDirectoryRecursive(actualExtractPath);
-      } catch (error) {
+      } catch (_error) {
         // Non-fatal cleanup error
       }
     }
