@@ -7,7 +7,7 @@
  */
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
-import { withJsonFormsControlProps } from '@jsonforms/react';
+import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import type { ControlProps } from '@jsonforms/core';
 import QuestionShell from '../components/QuestionShell';
 import type { CustomQuestionTypeProps } from '../types/CustomQuestionTypeContract';
@@ -136,6 +136,8 @@ export function createCustomQuestionTypeRenderer(
       }
     }
 
+    const jsonFormsContext = useJsonForms();
+
     const customProps: CustomQuestionTypeProps = {
       value: data,
       config,
@@ -148,6 +150,7 @@ export function createCustomQuestionTypeRenderer(
       fieldPath: path,
       label: label ?? '',
       description: description,
+      jsonFormsContext,
     };
 
     return (
