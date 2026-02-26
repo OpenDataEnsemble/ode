@@ -76,7 +76,6 @@ export async function loadCustomQuestionTypes(
       const exportsShim = moduleShim.exports;
 
       // Evaluate the source in a function scope with CommonJS shims
-      // eslint-disable-next-line no-new-func
       const factory = new Function(
         'module',
         'exports',
@@ -103,7 +102,10 @@ export async function loadCustomQuestionTypes(
         );
       }
 
-      loadedComponents.set(formatName, component);
+      loadedComponents.set(
+        formatName,
+        component as React.ComponentType<CustomQuestionTypeProps>,
+      );
       result.formats.push(formatName);
 
       console.log(
