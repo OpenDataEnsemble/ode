@@ -28,6 +28,7 @@ import { tokens } from './theme/tokens-adapter';
 import Ajv from 'ajv';
 import addErrors from 'ajv-errors';
 import addFormats from 'ajv-formats';
+import * as MUI from '@mui/material';
 
 // Import the FormulusInterface client
 import FormulusClient from './services/FormulusInterface';
@@ -229,6 +230,16 @@ export const customRenderers = [
   // Number/integer fields with simple +/- buttons via InputAdornment
   numberStepperRenderer,
 ];
+
+// Expose React and MaterialUI to global scope for custom question type renderers
+// This must be done synchronously at module load time so renderers can access them
+if (typeof window !== 'undefined') {
+  (window as any).React = React;
+  (window as any).MaterialUI = MUI;
+  console.log(
+    '[App] Exposed React and MaterialUI to global scope for custom renderers',
+  );
+}
 
 function App() {
   // Initialize WebView mock ONLY in development mode and ONLY if ReactNativeWebView doesn't exist

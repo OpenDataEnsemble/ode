@@ -5,19 +5,13 @@
  * Form authors create components that accept these props — no JSON Forms knowledge needed.
  *
  * Usage in JSON Schema:
- *   {
- *     "type": "string",
- *     "format": "select-person",
- *     "title": "Select the focal person",
- *     "showSearch": true,
- *     "people": [ { "id": "p1", "name": "John Doe" }, ... ]
- *   }
+ *   { "type": "string", "format": "select-person", "showSearch": true, "people": [...] }
  *
  * Usage in custom_app:
  *   custom_app/question_types/select-person/index.js
- *   export default function SelectPerson({ value, config, onChange }) {
- *     const people = config.people;
- *     const showSearch = config.showSearch;
+ *   export default function SelectPerson({ value, config, onChange, validation }) {
+ *     const people = config.people;       // custom property
+ *     const showSearch = config.showSearch; // custom property
  *     ...
  *   }
  */

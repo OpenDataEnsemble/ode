@@ -91,13 +91,58 @@ export function createCustomQuestionTypeRenderer(
     required,
   }) => {
     // Build the simplified props for the custom component
+    const hasErrors =
+      errors && (Array.isArray(errors) ? errors.length > 0 : true);
+    const errorMessage = hasErrors
+      ? Array.isArray(errors)
+        ? errors.map((e: any) => e.message || String(e)).join(', ')
+        : String(errors)
+      : '';
+
+    // Extract all schema properties (except reserved ones) as config
+    // This allows parameters alongside "format" to be passed to the renderer
+    const schemaObj = schema as Record<string, unknown>;
+    const RESERVED_PROPERTIES = new Set([
+      'type',
+      'title',
+      'description',
+      'format',
+      'enum',
+      'const',
+      'default',
+      'required',
+      'properties',
+      'items',
+      'oneOf',
+      'anyOf',
+      'allOf',
+      '$ref',
+      '$schema',
+      'additionalProperties',
+      'pattern',
+      'minLength',
+      'maxLength',
+      'minimum',
+      'maximum',
+      'minItems',
+      'maxItems',
+    ]);
+
+    // Extract all non-reserved properties as config
+    const config: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(schemaObj)) {
+      if (!RESERVED_PROPERTIES.has(key) && !key.startsWith('$')) {
+        config[key] = value;
+      }
+    }
+
     const customProps: CustomQuestionTypeProps = {
       value: data,
-      config: (schema as Record<string, unknown>) ?? {},
+      config,
       onChange: (newValue: unknown) => handleChange(path, newValue),
       validation: {
-        error: Boolean(errors && errors.length > 0),
-        message: errors ?? '',
+        error: Boolean(hasErrors),
+        message: errorMessage,
       },
       enabled: enabled ?? true,
       fieldPath: path,
