@@ -55,9 +55,9 @@ const ode = {
     weightRegular: (t.font?.weight?.regular ?? '400') as '400',
     weightBold: (t.font?.weight?.bold ?? '700') as '700',
   },
-  /** Blur by mode: light = less blur (filter.blur['2']), dark = filter.blur['4']. */
-  blurRadiusLight: parsePx(t.filter?.blur?.['2']) || 2,
-  blurRadiusDark: parsePx(t.filter?.blur?.['4']) || 4,
+  /** Blur by mode: light = filter.blur['4'], dark = filter.blur['7'] (a bit more blurred). */
+  blurRadiusLight: parsePx(t.filter?.blur?.['4']) || 4,
+  blurRadiusDark: parsePx(t.filter?.blur?.['7']) || 7,
 };
 
 /** Adjustable welcome background. Use ODE opacity tokens for consistency. */

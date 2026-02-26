@@ -143,6 +143,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           ref={customAppRef}
           appUrl={localUri}
           appName="custom_app"
+          onNavigateToSync={() => navigation.navigate('Sync')}
         />
       )}
     </View>

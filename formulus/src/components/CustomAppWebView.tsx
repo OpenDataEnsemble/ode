@@ -32,6 +32,8 @@ interface CustomAppWebViewProps {
   appName?: string; // To identify the source of logs
   onLoadEndProp?: () => void; // Propagate WebView's onLoadEnd event
   onCanGoBackChange?: (canGoBack: boolean) => void; // Notify parent when WebView back-navigability changes
+  /** Called when placeholder posts formulusNavigateToSync (e.g. "Login Now" button). */
+  onNavigateToSync?: () => void;
 }
 
 const INJECTION_SCRIPT_PATH =
@@ -156,7 +158,7 @@ const consoleLogScript = `
 const CustomAppWebView = forwardRef<
   CustomAppWebViewHandle,
   CustomAppWebViewProps
->(({ appUrl, appName, onLoadEndProp, onCanGoBackChange }, ref) => {
+>(({ appUrl, appName, onLoadEndProp, onCanGoBackChange, onNavigateToSync }, ref) => {
   const webViewRef = useRef<WebView | null>(null);
   const hasLoadedOnceRef = useRef(false);
 
@@ -166,6 +168,11 @@ const CustomAppWebView = forwardRef<
   useEffect(() => {
     onCanGoBackChangeRef.current = onCanGoBackChange;
   }, [onCanGoBackChange]);
+
+  const onNavigateToSyncRef = useRef(onNavigateToSync);
+  useEffect(() => {
+    onNavigateToSyncRef.current = onNavigateToSync;
+  }, [onNavigateToSync]);
 
   const [injectionScript, setInjectionScript] =
     useState<string>(consoleLogScript);
@@ -217,6 +224,12 @@ const CustomAppWebView = forwardRef<
             canGoBackRef.current = newCanGoBack;
             onCanGoBackChangeRef.current?.(newCanGoBack);
           }
+          return;
+        }
+
+        // Handle placeholder "Login Now" → navigate to Sync tab
+        if (eventData.type === 'formulusNavigateToSync') {
+          onNavigateToSyncRef.current?.();
           return;
         }
 
