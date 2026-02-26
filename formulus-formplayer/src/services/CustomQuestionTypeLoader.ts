@@ -40,12 +40,14 @@ export interface CustomQuestionTypeLoadResult {
 /**
  * Evaluate a module source string in a scoped sandbox.
  *
- * The code only has access to the variables we explicitly pass in:
+ * The code has access to the variables we explicitly pass in:
  *  - module / exports (CommonJS-style export mechanism)
  *  - React (so the component can use createElement, hooks, etc.)
+ *  - MaterialUI (full @mui/material package)
+ *  - formulus (window.formulus API for safe database queries via getObservationsByQuery)
  *
  * Dangerous globals (fetch, XMLHttpRequest, document, localStorage, etc.)
- * are NOT available in this scope.
+ * are NOT available in this scope, but formulus API provides safe data access.
  */
 function evaluateModuleInSandbox(
   source: string,
@@ -78,19 +80,25 @@ function evaluateModuleInSandbox(
     (globalThis as unknown as Record<string, unknown>).MaterialUI ||
     (self as unknown as Record<string, unknown>).MaterialUI;
 
+  // Get Formulus API from global scope (for safe database queries)
+  const FormulusAPI =
+    (window as unknown as Record<string, unknown>).formulus || null;
+
   try {
     // Create a factory function with a restricted scope.
-    // The code can only access: module, exports, React, MaterialUI
+    // The code can access: module, exports, React, MaterialUI, formulus (for database queries)
     // It CANNOT access: fetch, XMLHttpRequest, document, localStorage, etc.
+    // formulus API provides safe access to getObservationsByQuery, etc.
     const factory = new Function(
       'module',
       'exports',
       'React',
       'MaterialUI',
+      'formulus',
       source,
     );
 
-    factory(moduleObj, exports, ReactLib, MUILib);
+    factory(moduleObj, exports, ReactLib, MUILib, FormulusAPI);
   } catch (err) {
     throw new Error(
       `Failed to evaluate module source: ${err instanceof Error ? err.message : String(err)}`,
