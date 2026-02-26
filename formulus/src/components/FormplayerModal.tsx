@@ -239,9 +239,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       };
 
       // Load extensions for this form
+      const customAppPath = RNFS.DocumentDirectoryPath + '/app';
       let extensions = undefined;
       try {
-        const customAppPath = RNFS.DocumentDirectoryPath + '/app';
         const extensionService = ExtensionService.getInstance();
         const mergedExtensions = await extensionService.getCustomAppExtensions(
           customAppPath,
@@ -313,6 +313,38 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         return;
       }
 
+      // Scan custom question types (reads directories, builds modulePath manifest)
+      let customQuestionTypes = undefined;
+      try {
+        const qtDir = `${customAppPath}/forms/question_types`;
+        const qtDirExists = await RNFS.exists(qtDir);
+        if (qtDirExists) {
+          const folders = await RNFS.readDir(qtDir);
+          const custom_types: Record<string, { modulePath: string }> = {};
+          for (const folder of folders) {
+            if (folder.isDirectory()) {
+              const indexPath = `${folder.path}/index.js`;
+              if (await RNFS.exists(indexPath)) {
+                custom_types[folder.name] = {
+                  modulePath: `file://${indexPath}`,
+                };
+                console.log(
+                  `[FormplayerModal] Found custom question type: ${folder.name}`,
+                );
+              }
+            }
+          }
+          if (Object.keys(custom_types).length > 0) {
+            customQuestionTypes = { custom_types };
+            console.log(
+              `[FormplayerModal] Loaded ${Object.keys(custom_types).length} custom question type(s)`,
+            );
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to scan custom question types:', error);
+      }
+
       const formInitData = {
         formType: formType.id,
         observationId: observationId,
@@ -321,6 +353,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         formSchema: formType.schema,
         uiSchema: formType.uiSchema ?? {},
         extensions,
+        customQuestionTypes,
       } as FormInitData;
 
       if (!webViewRef.current) {
