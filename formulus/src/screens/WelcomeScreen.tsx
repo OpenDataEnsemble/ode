@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  Image,
-  ImageBackground,
-  StyleSheet,
-  ImageSourcePropType,
-} from 'react-native';
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -15,28 +8,23 @@ import { useColorScheme } from 'react-native';
 import { colors } from '../theme/colors';
 import { Button } from '../components/common';
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import logo from '../../assets/images/logo.png';
-import welcomeBgLight from '../../assets/images/welcome-bg-light.png';
-import welcomeBgDark from '../../assets/images/welcome-bg-dark.png';
 
 type WelcomeScreenNavigationProp = StackNavigationProp<MainAppStackParamList>;
 
 type Tokens = {
   border: { width: { thin: string }; radius: { full: string } };
-  opacity: Record<string, string>;
   spacing: Record<string, string>;
   font: { size: Record<string, string>; weight: { regular: string; bold: string } };
   logo: { xl: string };
-  filter: { blur: Record<string, string> };
 };
 
 const t = tokens as Tokens;
 
-/** Parse ODE token value in px to number for React Native. */
 const parsePx = (value: string | undefined): number =>
   parseInt(String(value ?? '').replace('px', ''), 10) || 0;
 
-/** ODE tokens for Welcome screen (all from @ode/tokens). */
 const ode = {
   borderWidthThin: parsePx(t.border?.width?.thin) || 1,
   radiusFull: parsePx(t.border?.radius?.full) || 9999,
@@ -55,25 +43,12 @@ const ode = {
     weightRegular: (t.font?.weight?.regular ?? '400') as '400',
     weightBold: (t.font?.weight?.bold ?? '700') as '700',
   },
-  /** Blur by mode: light = filter.blur['4'], dark = filter.blur['7'] (a bit more blurred). */
-  blurRadiusLight: parsePx(t.filter?.blur?.['4']) || 4,
-  blurRadiusDark: parsePx(t.filter?.blur?.['7']) || 7,
-};
-
-/** Adjustable welcome background. Use ODE opacity tokens for consistency. */
-const welcomeBackground = {
-  imageVisibility: Number(t.opacity?.['30']) || 0.3,
-  blurRadiusLight: ode.blurRadiusLight,
-  blurRadiusDark: ode.blurRadiusDark,
-  saturation: 1,
 };
 
 const WelcomeScreen = () => {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const backgroundImage: ImageSourcePropType = isDark ? welcomeBgDark : welcomeBgLight;
-  const overlayColor = isDark ? colors.neutral.black : colors.neutral.white;
 
   const handleGetStarted = () => {
     navigation.reset({
@@ -88,23 +63,7 @@ const WelcomeScreen = () => {
   const textSecondary = isDark ? colors.neutral[400] : colors.neutral[600];
 
   return (
-    <View style={[styles.root, { backgroundColor: overlayColor }]}>
-      <ImageBackground
-        source={backgroundImage}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-        blurRadius={isDark ? welcomeBackground.blurRadiusDark : welcomeBackground.blurRadiusLight}
-      >
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: overlayColor,
-              opacity: 1 - welcomeBackground.imageVisibility,
-            },
-          ]}
-        />
-      </ImageBackground>
+    <BlurredScreenBackground>
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <View
@@ -175,15 +134,11 @@ const WelcomeScreen = () => {
           </View>
         </View>
       </SafeAreaView>
-    </View>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.neutral.white,
-  },
   container: {
     flex: 1,
   },

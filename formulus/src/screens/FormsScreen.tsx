@@ -16,6 +16,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import colors from '../theme/colors';
 import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 
 const FormsScreen: React.FC = () => {
   const { themeColors } = useAppTheme();
@@ -65,31 +66,36 @@ const FormsScreen: React.FC = () => {
 
   if (loading && forms.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
+      <BlurredScreenBackground>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={themeColors.primary} />
           <Text style={styles.loadingText}>Loading forms...</Text>
-        </View>
-      </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </BlurredScreenBackground>
     );
   }
 
   if (error && forms.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <EmptyState
+      <BlurredScreenBackground>
+        <SafeAreaView style={styles.container}>
+          <EmptyState
           icon="alert-circle-outline"
           title="Error Loading Forms"
           message={error}
           actionLabel="Retry"
           onAction={refresh}
-        />
-      </SafeAreaView>
+          />
+        </SafeAreaView>
+      </BlurredScreenBackground>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <BlurredScreenBackground>
+      <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Forms</Text>
         {forms.length > 0 && (
@@ -116,14 +122,14 @@ const FormsScreen: React.FC = () => {
           }
         />
       )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     padding: 16,

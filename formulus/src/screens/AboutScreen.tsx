@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { appVersionService } from '../services/AppVersionService';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import logo from '../../assets/images/logo.png';
 
 const AboutScreen: React.FC = () => {
@@ -31,8 +32,9 @@ const AboutScreen: React.FC = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
+    <BlurredScreenBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
         <Text style={styles.title}>About</Text>
         <Text style={styles.subtitle}>Information about this app</Text>
       </View>
@@ -81,14 +83,14 @@ const AboutScreen: React.FC = () => {
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     padding: 16,

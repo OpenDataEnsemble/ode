@@ -22,6 +22,7 @@ import { getUserInfo } from '../api/synkronus/Auth';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
@@ -350,9 +351,10 @@ const SyncScreen = () => {
     activeOperation === 'update' || activeOperation === 'sync_then_update';
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Sync</Text>
+    <BlurredScreenBackground>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Sync</Text>
         <Text style={styles.subtitle}>Synchronize your data</Text>
       </View>
 
@@ -602,14 +604,14 @@ const SyncScreen = () => {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     padding: 16,

@@ -29,6 +29,7 @@ import { useAppTheme } from '../contexts/AppThemeContext';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
 import { Button } from '../components/common';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import Logo from '../../assets/images/logo.png';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
@@ -312,30 +313,26 @@ const SettingsScreen = () => {
 
   if (isLoading) {
     return (
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: themeColors.primary },
-          styles.centered,
-        ]}>
-        <ActivityIndicator size="large" color={themeColors.onPrimary} />
-      </View>
+      <BlurredScreenBackground>
+        <View style={[styles.container, styles.centered]}>
+          <ActivityIndicator size="large" color={themeColors.primary} />
+        </View>
+      </BlurredScreenBackground>
     );
   }
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.primary }]}
-      edges={['top']}>
-      <View style={styles.header}>
+    <BlurredScreenBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: themeColors.primary }]}>
         <View style={styles.logoContainer}>
           <Image source={Logo} style={styles.logo} resizeMode="contain" />
           <Text style={styles.brandName}>ODE</Text>
         </View>
         <Text style={styles.version}>v1.0.0</Text>
-      </View>
+        </View>
 
-      <ScrollView
+        <ScrollView
         style={styles.card}
         contentContainerStyle={styles.cardContent}
         keyboardShouldPersistTaps="handled"
@@ -383,21 +380,21 @@ const SettingsScreen = () => {
           disabled={isButtonDisabled}
           fullWidth
         />
-      </ScrollView>
+        </ScrollView>
 
-      <QRScannerModal
+        <QRScannerModal
         visible={showQRScanner}
         onClose={() => setShowQRScanner(false)}
         onResult={handleQRResult}
-      />
-    </SafeAreaView>
+        />
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor is applied inline via themeColors.primary
   },
   centered: {
     justifyContent: 'center',

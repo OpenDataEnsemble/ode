@@ -3,12 +3,14 @@ import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 
 const HelpScreen: React.FC = () => {
   const { themeColors } = useAppTheme();
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
+    <BlurredScreenBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
         <Text style={styles.title}>Help & Support</Text>
         <Text style={styles.subtitle}>Get help and share feedback</Text>
       </View>
@@ -57,14 +59,14 @@ const HelpScreen: React.FC = () => {
           </Text>
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     padding: 16,

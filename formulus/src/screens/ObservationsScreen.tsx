@@ -28,6 +28,7 @@ import { MainAppStackParamList } from '../types/NavigationTypes';
 import { Observation } from '../database/models/Observation';
 import colors from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 
 type ObservationsScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -172,31 +173,36 @@ const ObservationsScreen: React.FC = () => {
 
   if (loading && filteredAndSorted.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeColors.primary} />
-          <Text style={styles.loadingText}>Loading observations...</Text>
-        </View>
-      </SafeAreaView>
+      <BlurredScreenBackground>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={themeColors.primary} />
+            <Text style={styles.loadingText}>Loading observations...</Text>
+          </View>
+        </SafeAreaView>
+      </BlurredScreenBackground>
     );
   }
 
   if (error && filteredAndSorted.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <EmptyState
-          icon="alert-circle-outline"
-          title="Error Loading Observations"
-          message={error}
-          actionLabel="Retry"
-          onAction={refresh}
-        />
-      </SafeAreaView>
+      <BlurredScreenBackground>
+        <SafeAreaView style={styles.container}>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Error Loading Observations"
+            message={error}
+            actionLabel="Retry"
+            onAction={refresh}
+          />
+        </SafeAreaView>
+      </BlurredScreenBackground>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <BlurredScreenBackground>
+      <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.title}>Observations</Text>
@@ -282,14 +288,14 @@ const ObservationsScreen: React.FC = () => {
           }
         />
       )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
   },
   header: {
     flexDirection: 'row',
