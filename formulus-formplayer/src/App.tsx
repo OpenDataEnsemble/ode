@@ -651,29 +651,46 @@ function App() {
     }
 
     // Timeout logic: if onFormInit is not called by native side
+    // Note: This timeout often fires as a false positive when the form is actually loading successfully.
+    // We use a longer timeout (20s) and only show error after additional delay to reduce false positives.
     const initTimeout = setTimeout(() => {
       if (isLoadingRef.current) {
-        // Check ref to see if still loading
-        console.warn('onFormInit was not called within timeout period (10s).');
-        setLoadError(
-          'Failed to initialize form: No data received from native host. Please try again.',
-        );
-        setIsLoading(false);
-        isLoadingRef.current = false;
-        if (
-          window.ReactNativeWebView &&
-          window.ReactNativeWebView.postMessage
-        ) {
-          window.ReactNativeWebView.postMessage(
-            JSON.stringify({
-              type: 'error',
-              message:
-                'Initialization timeout in WebView: onFormInit not called.',
-            }),
+        // Only log a debug message - don't show warning to user yet
+        // The form may still be loading successfully
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(
+            '[Formplayer] onFormInit not yet received (timeout: 20s). Still waiting...',
           );
         }
+        // Only show error if we're still loading after an additional delay
+        // This prevents false positives when form loads successfully but slightly delayed
+        setTimeout(() => {
+          if (isLoadingRef.current) {
+            // Only now show error - form truly failed to load
+            console.warn(
+              '[Formplayer] onFormInit timeout: Form failed to initialize after extended wait.',
+            );
+            setLoadError(
+              'Failed to initialize form: No data received from native host. Please try again.',
+            );
+            setIsLoading(false);
+            isLoadingRef.current = false;
+            if (
+              window.ReactNativeWebView &&
+              window.ReactNativeWebView.postMessage
+            ) {
+              window.ReactNativeWebView.postMessage(
+                JSON.stringify({
+                  type: 'error',
+                  message:
+                    'Initialization timeout in WebView: onFormInit not called.',
+                }),
+              );
+            }
+          }
+        }, 5000); // Additional 5 seconds before showing actual error
       }
-    }, 10000); // 10 second timeout
+    }, 20000); // Increased to 20 seconds to reduce false positives
 
     // Cleanup function when component unmounts
     return () => {

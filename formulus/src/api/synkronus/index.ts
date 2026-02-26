@@ -155,6 +155,46 @@ class SynkronusApi {
   }
 
   /**
+   * Recursively removes a directory and all its contents.
+   * Handles nested directories and permission issues gracefully.
+   */
+  private async removeDirectoryRecursive(path: string): Promise<void> {
+    if (!(await RNFS.exists(path))) {
+      return;
+    }
+
+    try {
+      const stat = await RNFS.stat(path);
+      if (stat.isDirectory()) {
+        try {
+          const items = await RNFS.readDir(path);
+          // Process items in reverse order to handle nested directories
+          for (let i = items.length - 1; i >= 0; i--) {
+            const item = items[i];
+            const itemPath = `${path}/${item.name}`;
+            try {
+              if (item.isDirectory()) {
+                await this.removeDirectoryRecursive(itemPath);
+              } else {
+                await RNFS.unlink(itemPath);
+              }
+            } catch (itemError) {
+              // Continue with other items even if one fails
+            }
+          }
+        } catch (readDirError) {
+          // Continue to try removing the directory itself
+        }
+      }
+      await RNFS.unlink(path);
+    } catch (error) {
+      const errorMsg =
+        error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to clean directory ${path}: ${errorMsg}`);
+    }
+  }
+
+  /**
    * Downloads the app bundle as a single zip, extracts to a temp directory,
    * then atomically swaps into place so the old bundle stays intact until
    * the new one is fully ready.
@@ -167,14 +207,33 @@ class SynkronusApi {
       this.fastGetToken_cachedToken ?? (await this.fastGetToken());
 
     const zipUrl = `${config.basePath}/app-bundle/download-zip`;
-    const tempZipPath = `${RNFS.CachesDirectoryPath}/bundle_temp.zip`;
-    const tempExtractPath = `${RNFS.CachesDirectoryPath}/bundle_staging`;
+    // Use DocumentDirectoryPath for app data (more reliable than CachesDirectoryPath)
+    const tempZipPath = `${RNFS.DocumentDirectoryPath}/bundle_temp.zip`;
+    const tempExtractPath = `${RNFS.DocumentDirectoryPath}/bundle_staging`;
     const appDir = `${RNFS.DocumentDirectoryPath}/app`;
     const formsDir = `${RNFS.DocumentDirectoryPath}/forms`;
 
     // Clean up any leftover temp artifacts
-    if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-    if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
+    if (await RNFS.exists(tempZipPath)) {
+      try {
+        await RNFS.unlink(tempZipPath);
+      } catch (error) {
+        // Non-fatal, continue
+      }
+    }
+
+    // Use a unique path for each extraction to avoid conflicts
+    const timestamp = Date.now();
+    const actualExtractPath = `${RNFS.DocumentDirectoryPath}/bundle_staging_${timestamp}`;
+    
+    // Try to clean up old staging directories (non-fatal)
+    if (await RNFS.exists(tempExtractPath)) {
+      try {
+        await this.removeDirectoryRecursive(tempExtractPath);
+      } catch (error) {
+        // Non-fatal - we're using a unique path anyway
+      }
+    }
 
     // Download the zip
     const downloadResult = await RNFS.downloadFile({
@@ -202,21 +261,74 @@ class SynkronusApi {
 
     progressCallback?.(50);
 
+    // Create fresh extract directory
+    try {
+      await RNFS.mkdir(actualExtractPath);
+    } catch (error) {
+      // Directory might already exist
+      if (
+        !(error instanceof Error && error.message.includes('already exists'))
+      ) {
+        throw new Error(
+          `Failed to create extract directory: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
     // Extract to staging directory
-    await RNFS.mkdir(tempExtractPath);
-    await unzip(tempZipPath, tempExtractPath);
-    progressCallback?.(80);
+    try {
+      await unzip(tempZipPath, actualExtractPath);
+      
+      // Verify extraction succeeded by checking if app directory exists
+      const stagingAppDir = `${actualExtractPath}/app`;
+      if (!(await RNFS.exists(stagingAppDir))) {
+        throw new Error(
+          'Extraction completed but app directory not found in extracted files',
+        );
+      }
+      
+      progressCallback?.(80);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      // Attempt to clean up the failed extraction directory
+      try {
+        await this.removeDirectoryRecursive(actualExtractPath);
+      } catch (cleanupError) {
+        // Non-fatal cleanup error
+      }
+      throw new Error(
+        `Failed to extract bundle: ${errorMsg}. This may indicate a corrupted ZIP file or permission issue.`,
+      );
+    }
 
     // Atomic swap: remove old dirs, move staging content into place
     if (await RNFS.exists(appDir)) {
-      await RNFS.unlink(appDir);
+      try {
+        await this.removeDirectoryRecursive(appDir);
+      } catch (error) {
+        // Try direct unlink as fallback
+        try {
+          await RNFS.unlink(appDir);
+        } catch (unlinkError) {
+          // Both methods failed, continue anyway
+        }
+      }
     }
     if (await RNFS.exists(formsDir)) {
-      await RNFS.unlink(formsDir);
+      try {
+        await this.removeDirectoryRecursive(formsDir);
+      } catch (error) {
+        // Try direct unlink as fallback
+        try {
+          await RNFS.unlink(formsDir);
+        } catch (unlinkError) {
+          // Both methods failed, continue anyway
+        }
+      }
     }
 
-    const stagingAppDir = `${tempExtractPath}/app`;
-    const stagingFormsDir = `${tempExtractPath}/forms`;
+    const stagingAppDir = `${actualExtractPath}/app`;
+    const stagingFormsDir = `${actualExtractPath}/forms`;
 
     if (await RNFS.exists(stagingAppDir)) {
       await RNFS.moveFile(stagingAppDir, appDir);
@@ -228,8 +340,20 @@ class SynkronusApi {
     progressCallback?.(95);
 
     // Clean up temp files
-    if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-    if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
+    if (await RNFS.exists(tempZipPath)) {
+      try {
+        await RNFS.unlink(tempZipPath);
+      } catch (error) {
+        // Non-fatal cleanup error
+      }
+    }
+    if (await RNFS.exists(actualExtractPath)) {
+      try {
+        await this.removeDirectoryRecursive(actualExtractPath);
+      } catch (error) {
+        // Non-fatal cleanup error
+      }
+    }
 
     progressCallback?.(100);
   }
