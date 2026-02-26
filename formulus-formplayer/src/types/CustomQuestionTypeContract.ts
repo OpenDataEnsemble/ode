@@ -63,8 +63,8 @@ export interface CustomQuestionTypeManifest {
   custom_types: Record<
     string,
     {
-      /** Path to the JS module (e.g., "file:///path/to/question_types/ranking/index.js") */
-      modulePath: string;
+      /** The JavaScript source code of the renderer module */
+      source: string;
     }
   >;
 }
