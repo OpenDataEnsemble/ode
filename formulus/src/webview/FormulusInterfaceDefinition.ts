@@ -46,6 +46,7 @@ export interface ExtensionMetadata {
  * @property {any} [formSchema] - JSON Schema for the form structure and validation (optional)
  * @property {any} [uiSchema] - UI Schema for form rendering layout (optional)
  * @property {ExtensionMetadata} [extensions] - Custom app extensions (optional)
+ * @property {object} [customQuestionTypes] - Custom question type manifest from custom_app (optional)
  */
 export interface FormInitData {
   formType: string;
@@ -56,6 +57,9 @@ export interface FormInitData {
   uiSchema?: unknown;
   operationId?: string;
   extensions?: ExtensionMetadata;
+  customQuestionTypes?: {
+    custom_types: Record<string, { source: string }>;
+  };
 }
 
 /**
