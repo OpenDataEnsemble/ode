@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -14,7 +15,13 @@ import {
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { getUserInfo, UserInfo, UserRole } from '../api/synkronus/Auth';
 import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
-import { useAppTheme } from '../contexts/AppThemeContext';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
+import { useAppTheme, ThemeMode } from '../contexts/AppThemeContext';
 import Button from './common/Button';
 
 interface MenuItem {
@@ -46,6 +53,36 @@ const hasMinRole = (
   return ROLE_LEVELS[userRole] >= ROLE_LEVELS[minRole];
 };
 
+const DIVIDER_HEIGHT = 1;
+
+const FadingDivider = ({ color }: { color: string }) => (
+  <View style={styles.fadingDividerWrap}>
+    <Svg height={DIVIDER_HEIGHT} width="100%" preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient
+            id="menuDividerGradient"
+            x1="0%"
+            y1="0"
+            x2="100%"
+            y2="0"
+            gradientUnits="userSpaceOnUse">
+            <Stop offset="0" stopColor={color} stopOpacity="0" />
+            <Stop offset="0.15" stopColor={color} stopOpacity="1" />
+            <Stop offset="0.85" stopColor={color} stopOpacity="1" />
+            <Stop offset="1" stopColor={color} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+      <Rect
+        x={0}
+        y={0}
+        width="100%"
+        height={DIVIDER_HEIGHT}
+        fill="url(#menuDividerGradient)"
+      />
+    </Svg>
+  </View>
+);
+
 const MenuDrawer: React.FC<MenuDrawerProps> = ({
   visible,
   onClose,
@@ -53,8 +90,22 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onLogout,
   allowClose = true,
 }) => {
-  const { themeColors } = useAppTheme();
+  const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
+  const textColor = isDark
+    ? (themeColors.onSurface as string)
+    : (colors.neutral[900] as string);
+  const sectionDividerColor = isDark
+    ? withAlpha(colors.neutral.white as string, 0.16)
+    : (themeColors.divider as string);
+  const cardOuterBg = isDark
+    ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
+    : withAlpha(colors.neutral[900] as string, 0.04);
+  const cardInnerBg = isDark
+    ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
+    : withAlpha(colors.neutral[900] as string, 0.02);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [appSettingsOpen, setAppSettingsOpen] = useState<boolean>(true);
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 60;
   const bottomPadding = TAB_BAR_HEIGHT + insets.bottom;
@@ -66,11 +117,6 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   }, [visible]);
 
   const menuItems: MenuItem[] = [
-    {
-      icon: 'cog',
-      label: 'App Settings',
-      screen: 'Settings',
-    },
     {
       icon: 'information',
       label: 'About',
@@ -111,7 +157,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
             style={[
               styles.backdrop,
               {
-                backgroundColor: withAlpha(colors.neutral.black, 0.65),
+                backgroundColor: withAlpha(colors.neutral.black, 0.45),
                 marginBottom: bottomPadding,
               },
             ]}
@@ -124,22 +170,26 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
             styles.drawer,
             {
               bottom: bottomPadding,
-              backgroundColor: withAlpha(themeColors.surface as string, CONTAINER_ALPHA),
+              backgroundColor: isDark
+                ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
+                : (colors.neutral[50] as string),
               shadowColor: themeColors.surface,
-              borderWidth: 1,
-              borderColor: themeColors.divider as string,
+              borderLeftWidth: odeBorderWidth.hairline,
+              borderLeftColor: isDark
+                ? withAlpha(colors.neutral.white as string, 0.4)
+                : withAlpha(colors.neutral.black as string, 0.18),
+              borderTopWidth: odeBorderWidth.hairline,
+              borderBottomWidth: odeBorderWidth.hairline,
+              borderTopColor: sectionDividerColor,
+              borderBottomColor: sectionDividerColor,
             },
           ]}>
           <SafeAreaView
             style={styles.safeArea}
             edges={['top', 'left', 'right']}>
-            <View
-              style={[
-                styles.header,
-                { borderBottomColor: themeColors.divider },
-              ]}>
+            <View style={styles.header}>
               <Text
-                style={[styles.headerTitle, { color: themeColors.onSurface }]}>
+                style={[styles.headerTitle, { color: textColor }]}>
                 Menu
               </Text>
               {allowClose && (
@@ -152,114 +202,191 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 </TouchableOpacity>
               )}
             </View>
+            <FadingDivider color={sectionDividerColor} />
 
             {/* User Info Section */}
             {userInfo ? (
-              <View
-                style={[
-                  styles.userSection,
-                  {
-                    backgroundColor: withAlpha(themeColors.background as string, CONTAINER_ALPHA),
-                    borderBottomColor: themeColors.divider,
-                    borderWidth: 1,
-                    borderColor: themeColors.divider as string,
-                  },
-                ]}>
+              <>
                 <View
-                  style={[
-                    styles.userAvatar,
-                    { backgroundColor: themeColors.primary },
-                  ]}>
-                  <Icon
-                    name="account"
-                    size={32}
-                    color={themeColors.onPrimary}
-                  />
-                </View>
-                <View style={styles.userInfo}>
-                  <Text
-                    style={[styles.userName, { color: themeColors.onSurface }]}>
-                    {userInfo.username}
-                  </Text>
+                  style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
                   <View
                     style={[
-                      styles.roleBadge,
-                      getRoleBadgeStyle(userInfo.role),
+                      styles.userAvatar,
+                      { backgroundColor: themeColors.primary },
                     ]}>
-                    <Text style={styles.roleBadgeText}>{userInfo.role}</Text>
+                    <Icon
+                      name="account"
+                      size={32}
+                      color={themeColors.onPrimary}
+                    />
+                  </View>
+                  <View style={styles.userInfo}>
+                    <Text
+                      style={[styles.userName, { color: textColor }]}>
+                      {userInfo.username}
+                    </Text>
+                    <View
+                      style={[
+                        styles.roleBadge,
+                        getRoleBadgeStyle(userInfo.role),
+                      ]}>
+                      <Text style={styles.roleBadgeText}>{userInfo.role}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+                <FadingDivider color={sectionDividerColor} />
+              </>
             ) : (
-              <View
-                style={[
-                  styles.userSection,
-                  {
-                    backgroundColor: withAlpha(themeColors.background as string, CONTAINER_ALPHA),
-                    borderBottomColor: themeColors.divider,
-                    borderWidth: 1,
-                    borderColor: themeColors.divider as string,
-                  },
-                ]}>
-                <View style={[styles.userAvatar, styles.userAvatarInactive]}>
-                  <Icon
-                    name="account-off"
-                    size={32}
-                    color={themeColors.onSurface}
-                  />
-                </View>
+              <>
+                <View
+                  style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
+                  <View
+                    style={[
+                      styles.userAvatar,
+                      styles.userAvatarInactive,
+                      isDark && styles.userAvatarInactiveDark,
+                    ]}>
+                    <Icon
+                      name="account-off"
+                      size={32}
+                      color={isDark ? (colors.neutral[400] as string) : themeColors.onSurface}
+                    />
+                  </View>
                 <View style={styles.userInfo}>
                   <Text
                     style={[
                       styles.userNameInactive,
-                      { color: themeColors.onSurface },
+                      { color: textColor },
                     ]}>
                     Not logged in
                   </Text>
                   <Text
                     style={[
                       styles.loginHint,
-                      { color: themeColors.onSurface },
+                      { color: textColor },
                     ]}>
-                    Go to Settings to login
+                    Click the Login at the bottom
                   </Text>
                 </View>
-              </View>
+                </View>
+                <FadingDivider color={sectionDividerColor} />
+              </>
             )}
 
             <ScrollView style={styles.menuList}>
+              {/* App Settings dropdown with Themes section, divided by thin lines */}
+              <View style={styles.menuItem}>
+                <View style={styles.themeContent}>
+                  <TouchableOpacity
+                    style={styles.appSettingsHeader}
+                    activeOpacity={0.8}
+                    onPress={() => setAppSettingsOpen(open => !open)}>
+                    <View style={styles.appSettingsTitleRow}>
+                      <Icon
+                        name="cog"
+                        size={24}
+                        color={textColor}
+                      />
+                      <Text
+                        style={[styles.menuLabel, { color: textColor }]}>
+                        App Settings
+                      </Text>
+                    </View>
+                    <Icon
+                      name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={textColor}
+                      style={styles.appSettingsChevron}
+                    />
+                  </TouchableOpacity>
+                  {appSettingsOpen && (
+                    <View
+                      style={[
+                        styles.themesCardOuter,
+                        { borderColor: sectionDividerColor, backgroundColor: cardOuterBg },
+                      ]}>
+                      <View
+                        style={[
+                          styles.themesCardInner,
+                          { backgroundColor: cardInnerBg },
+                        ]}>
+                        <Text
+                          style={[
+                            styles.themesTitle,
+                            { color: textColor },
+                          ]}>
+                          Themes
+                        </Text>
+                        <View style={styles.themeOptionsColumn}>
+                          {(['system', 'dark', 'light'] as ThemeMode[]).map(
+                            mode => (
+                              <TouchableOpacity
+                                key={mode}
+                                style={[
+                                  styles.themeChip,
+                                  {
+                                  borderColor:
+                                    themeMode === mode
+                                      ? (themeColors.primary as string)
+                                      : isDark
+                                        ? (colors.neutral[500] as string)
+                                        : (colors.neutral[400] as string),
+                                  },
+                                ]}
+                                activeOpacity={0.8}
+                                onPress={() => setThemeMode(mode)}>
+                                <Text
+                                  style={[
+                                    styles.themeChipLabel,
+                                    {
+                                    color:
+                                      themeMode === mode
+                                        ? (themeColors.primary as string)
+                                        : isDark
+                                          ? (colors.neutral[200] as string)
+                                          : (colors.neutral[700] as string),
+                                    },
+                                  ]}>
+                                  {mode === 'system'
+                                    ? 'System'
+                                    : mode === 'dark'
+                                      ? 'Dark'
+                                      : 'Light'}
+                                </Text>
+                              </TouchableOpacity>
+                            ),
+                          )}
+                        </View>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
+              <FadingDivider color={sectionDividerColor} />
+
               {visibleItems.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.menuItem,
-                    { borderBottomColor: themeColors.divider },
-                  ]}
-                  onPress={() => onNavigate(item.screen)}>
+                <React.Fragment key={index}>
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => onNavigate(item.screen)}>
                   <Icon
                     name={item.icon}
                     size={24}
-                    color={themeColors.onSurface}
+                    color={textColor}
                   />
                   <Text
-                    style={[styles.menuLabel, { color: themeColors.onSurface }]}>
+                    style={[styles.menuLabel, { color: textColor }]}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>
+                <FadingDivider color={sectionDividerColor} />
+              </React.Fragment>
               ))}
             </ScrollView>
 
-            {userInfo && (
-              <View
-                style={[
-                  styles.footer,
-                  {
-                    backgroundColor: withAlpha(themeColors.surface as string, CONTAINER_ALPHA),
-                    borderTopColor: themeColors.divider,
-                    borderWidth: 1,
-                    borderColor: themeColors.divider as string,
-                  },
-                ]}>
+            <FadingDivider color={sectionDividerColor} />
+            <View style={[styles.footer, { backgroundColor: cardOuterBg }]}>
+              {userInfo ? (
                 <Button
                   title="Logout"
                   onPress={onLogout}
@@ -267,8 +394,19 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   size="medium"
                   fullWidth
                 />
-              </View>
-            )}
+              ) : (
+                <Button
+                  title="Login"
+                  onPress={() => {
+                    onClose();
+                    onNavigate('Settings');
+                  }}
+                  variant="primary"
+                  size="medium"
+                  fullWidth
+                />
+              )}
+            </View>
           </SafeAreaView>
         </View>
       </View>
@@ -289,10 +427,13 @@ const styles = StyleSheet.create({
     top: 0,
     width: '80%',
     maxWidth: 320,
+    borderTopLeftRadius: odeRadius.card,
+    borderBottomLeftRadius: odeRadius.card,
+    overflow: 'hidden',
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 16,
+    elevation: 10,
   },
   safeArea: {
     flex: 1,
@@ -301,21 +442,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    padding: odeSpacing.md,
+  },
+  fadingDividerWrap: {
+    alignSelf: 'stretch',
+    height: DIVIDER_HEIGHT,
+    overflow: 'hidden',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: odeTypography.sectionTitle,
+    fontWeight: '700',
   },
   closeButton: {
-    padding: 4,
+    padding: odeSpacing.xxs,
   },
   userSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    padding: odeSpacing.md,
   },
   userAvatar: {
     width: 50,
@@ -327,28 +471,31 @@ const styles = StyleSheet.create({
   userAvatarInactive: {
     backgroundColor: colors.ui.gray.medium,
   },
+  userAvatarInactiveDark: {
+    backgroundColor: colors.neutral[600] as string,
+  },
   userInfo: {
-    marginLeft: 12,
+    marginLeft: odeSpacing.sm,
     flex: 1,
   },
   userName: {
-    fontSize: 16,
+    fontSize: odeTypography.body,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: odeSpacing.xs,
   },
   userNameInactive: {
-    fontSize: 16,
+    fontSize: odeTypography.body,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: odeSpacing.xs,
   },
   loginHint: {
-    fontSize: 12,
+    fontSize: odeTypography.caption,
   },
   roleBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: odeSpacing.xs,
+    paddingVertical: odeSpacing.xxs,
+    borderRadius: odeRadius.inner,
   },
   roleBadgeAdmin: {
     backgroundColor: colors.semantic.error.ios,
@@ -361,7 +508,7 @@ const styles = StyleSheet.create({
   },
   roleBadgeText: {
     color: colors.neutral.white,
-    fontSize: 11,
+    fontSize: odeTypography.caption,
     fontWeight: '600',
   },
   menuList: {
@@ -370,17 +517,75 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
+    padding: odeSpacing.md,
   },
   menuLabel: {
     flex: 1,
-    marginLeft: 16,
-    fontSize: 16,
+    marginLeft: odeSpacing.sm,
+    fontSize: odeTypography.body,
+  },
+  themeContent: {
+    flex: 1,
+    marginLeft: 0,
+  },
+  appSettingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  appSettingsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.xs,
+  },
+  appSettingsChevron: {
+    marginRight: odeSpacing.md,
+  },
+  sectionLabel: {
+    marginTop: odeSpacing.sm,
+    fontSize: odeTypography.caption,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  themeOptionsColumn: {
+    flexDirection: 'column',
+    marginTop: odeSpacing.xs,
+    gap: odeSpacing.sm,
+    alignItems: 'center',
+  },
+  themeChip: {
+    paddingHorizontal: odeSpacing.lg,
+    paddingVertical: odeSpacing.sm,
+    borderRadius: odeRadius.inner,
+    borderWidth: odeBorderWidth.hairline,
+    backgroundColor: 'transparent',
+    minWidth: '70%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeChipLabel: {
+    fontSize: odeTypography.caption,
+    fontWeight: '600',
   },
   footer: {
-    borderTopWidth: 1,
-    padding: 16,
+    padding: odeSpacing.md,
+    borderBottomLeftRadius: odeRadius.card,
+  },
+  themesCardOuter: {
+    borderRadius: odeRadius.card,
+    marginTop: odeSpacing.sm,
+    borderWidth: odeBorderWidth.hairline,
+  },
+  themesCardInner: {
+    borderRadius: odeRadius.inner,
+    overflow: 'hidden',
+    padding: odeSpacing.md,
+  },
+  themesTitle: {
+    fontSize: odeTypography.sectionTitle,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: odeSpacing.sm,
   },
 });
 

@@ -6,7 +6,6 @@ import {
   Image,
   ScrollView,
   Linking,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
@@ -22,9 +21,8 @@ import {
 import logo from '../../assets/images/logo.png';
 
 const AboutScreen: React.FC = () => {
-  const { themeColors } = useAppTheme();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
   const titleColor = isDark
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
@@ -63,10 +61,9 @@ const AboutScreen: React.FC = () => {
           style={[
             styles.header,
             {
-              backgroundColor: withAlpha(
-                themeColors.surface as string,
-                CONTAINER_ALPHA,
-              ),
+              backgroundColor: isDark
+                ? (themeColors.surface as string)
+                : (colors.neutral[50] as string),
               borderWidth: 1,
               borderBottomWidth: 1,
               borderColor: themeColors.divider as string,
@@ -80,7 +77,9 @@ const AboutScreen: React.FC = () => {
           style={styles.scrollTransparent}
           contentContainerStyle={styles.content}>
           <View style={styles.brandRow}>
-            <Image source={logo} style={styles.logo} resizeMode="contain" />
+            <View style={styles.logoWrapper}>
+              <Image source={logo} style={styles.logo} resizeMode="contain" />
+            </View>
             <View style={styles.brandText}>
               <Text style={[styles.appName, { color: themeColors.onSurface }]}>
                 ODE
@@ -223,9 +222,21 @@ const styles = StyleSheet.create({
     marginBottom: odeSpacing.md,
     gap: odeSpacing.xs,
   },
+  logoWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.brand.primary[500] as string,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
   logo: {
     width: 56,
     height: 56,
+    backgroundColor: 'transparent',
   },
   brandText: {
     alignItems: 'center',

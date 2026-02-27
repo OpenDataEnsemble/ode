@@ -4,7 +4,7 @@ import {
   DefaultTheme,
   DarkTheme,
 } from '@react-navigation/native';
-import { StatusBar, useColorScheme } from 'react-native';
+import { StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
@@ -24,15 +24,15 @@ import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
  * React Navigation theme matching the custom app's branding.
  */
 function AppInner(): React.JSX.Element {
-  const colorScheme = useColorScheme();
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
 
   // Build the React Navigation theme dynamically from the custom app's colors.
   const navigationTheme = useMemo(() => {
-    const base = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+    const base = isDark ? DarkTheme : DefaultTheme;
     return {
       ...base,
-      dark: colorScheme === 'dark',
+      dark: isDark,
       colors: {
         ...base.colors,
         primary: themeColors.primary,
@@ -43,7 +43,7 @@ function AppInner(): React.JSX.Element {
         notification: themeColors.error,
       },
     };
-  }, [colorScheme, themeColors]);
+  }, [isDark, themeColors]);
 
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [qrScannerData, setQrScannerData] = useState<{
@@ -152,7 +152,7 @@ function AppInner(): React.JSX.Element {
   return (
     <>
       <StatusBar
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={themeColors.surface}
       />
       <NavigationContainer theme={navigationTheme}>

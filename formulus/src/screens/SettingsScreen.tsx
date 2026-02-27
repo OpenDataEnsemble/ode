@@ -39,7 +39,8 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
   const [serverUrl, setServerUrl] = useState('');
   const [initialServerUrl, setInitialServerUrl] = useState('');
   const [username, setUsername] = useState('');
@@ -335,22 +336,22 @@ const SettingsScreen = () => {
           style={[
             styles.header,
             {
-              backgroundColor: withAlpha(themeColors.primary as string, CONTAINER_ALPHA),
-              borderWidth: 1,
-              borderColor: themeColors.divider as string,
+              backgroundColor: themeColors.primary as string,
             },
           ]}>
           <View style={styles.logoContainer}>
-            <Image source={Logo} style={styles.logo} resizeMode="contain" />
+            <View
+              style={[
+                styles.logoWrapper,
+                { borderColor: themeColors.onPrimary as string },
+              ]}>
+              <Image source={Logo} style={styles.logo} resizeMode="contain" />
+            </View>
             <Text
               style={[styles.brandName, { color: themeColors.onPrimary }]}>
               ODE
             </Text>
           </View>
-          <Text
-            style={[styles.version, { color: themeColors.onPrimary }]}>
-            v1.0.0
-          </Text>
         </View>
 
         <ScrollView
@@ -363,46 +364,55 @@ const SettingsScreen = () => {
             Please enter the server you want to connect to.
           </Text>
 
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWithIcon}>
+          <View style={styles.inputContainer}>
             <ODEInput
               placeholder="Server URL"
               value={serverUrl}
               onChangeText={setServerUrl}
-              style={styles.odeInputFlex}
+              rightAccessory={
+                <TouchableOpacity
+                  style={styles.qrButton}
+                  onPress={() => setShowQRScanner(true)}
+                  accessibilityLabel="Scan QR code">
+                  <Icon
+                    name="qrcode-scan"
+                    size={24}
+                    color={themeColors.primary}
+                  />
+                </TouchableOpacity>
+              }
             />
-            <TouchableOpacity
-              style={styles.qrButton}
-              onPress={() => setShowQRScanner(true)}
-              accessibilityLabel="Scan QR code">
-              <Icon name="qrcode-scan" size={24} color={themeColors.primary} />
-            </TouchableOpacity>
           </View>
-        </View>
 
-        <ODEInput
-          placeholder="Username"
-          value={username}
-          onChangeText={setUsername}
-        />
+          <ODEInput
+            placeholder="Username"
+            value={username}
+            onChangeText={setUsername}
+          />
 
-        <ODEInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+          <ODEInput
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-        <Button
-          title={isLoggingIn ? 'Logging in...' : 'Login'}
-          onPress={handleLogin}
-          variant="primary"
-          size="large"
-          loading={isLoggingIn}
-          disabled={isButtonDisabled}
-          fullWidth
-        />
+          <Button
+            title={isLoggingIn ? 'Logging in...' : 'Login'}
+            onPress={handleLogin}
+            variant="primary"
+            size="large"
+            loading={isLoggingIn}
+            disabled={isButtonDisabled}
+            fullWidth
+          />
         </ScrollView>
+
+        <View style={styles.versionContainer}>
+          <Text style={[styles.version, { color: themeColors.onSurface }]}>
+            v1.0.0
+          </Text>
+        </View>
 
         <QRScannerModal
         visible={showQRScanner}
@@ -435,10 +445,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  logoWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
   logo: {
     width: 40,
     height: 40,
-    marginRight: 12,
+    backgroundColor: 'transparent',
   },
   brandName: {
     fontSize: 32,
@@ -462,24 +483,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    marginBottom: 24,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: 0,
-  },
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  odeInputFlex: {
-    flex: 1,
-    marginBottom: 0,
+    marginBottom: 1,
   },
   qrButton: {
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
+    paddingRight: 16,
+  },
+  versionContainer: {
     alignItems: 'center',
+    paddingBottom: 8,
   },
 });
 

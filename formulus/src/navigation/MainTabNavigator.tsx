@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  useColorScheme,
-  View,
-  StyleSheet,
-  Platform,
-  Pressable,
-} from 'react-native';
+import { View, StyleSheet, Platform, Pressable } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -175,12 +169,11 @@ const FadingTopLine = ({ borderColor }: { borderColor: string }) => (
 );
 
 const TabBarBackground = () => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
   const tabBarBackgroundColor = isDark
     ? colors.neutral[900]
-    : themeColors.surface;
+    : (colors.neutral[50] as string);
   const borderColor = isDark ? themeColors.divider : colors.neutral[300];
   return (
     <View style={[styles.tabBarBackground, { backgroundColor: tabBarBackgroundColor }]}>

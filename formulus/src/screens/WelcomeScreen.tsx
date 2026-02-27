@@ -4,11 +4,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
-import { useColorScheme } from 'react-native';
 import { colors } from '../theme/colors';
 import { Button } from '../components/common';
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useAppTheme } from '../contexts/AppThemeContext';
 import logo from '../../assets/images/logo.png';
 
 type WelcomeScreenNavigationProp = StackNavigationProp<MainAppStackParamList>;
@@ -47,8 +47,8 @@ const ode = {
 
 const WelcomeScreen = () => {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
 
   const handleGetStarted = () => {
     navigation.reset({

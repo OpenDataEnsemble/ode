@@ -6,9 +6,9 @@ import {
   ImageSourcePropType,
   useWindowDimensions,
 } from 'react-native';
-import { useColorScheme } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import { colors } from '../theme/colors';
+import { useAppTheme } from '../contexts/AppThemeContext';
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
 import welcomeBgLight from '../../assets/images/welcome-bg-light.png';
 import welcomeBgDark from '../../assets/images/welcome-bg-dark.png';
@@ -68,8 +68,8 @@ interface BlurredScreenBackgroundProps {
 const BlurredScreenBackground: React.FC<BlurredScreenBackgroundProps> = ({
   children,
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
   const backgroundImage: ImageSourcePropType = isDark
     ? welcomeBgDark
     : welcomeBgLight;

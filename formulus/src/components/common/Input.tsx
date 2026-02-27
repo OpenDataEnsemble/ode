@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, ViewStyle } from 'react-native';
 import { useAppTheme } from '../../contexts/AppThemeContext';
-import { colors } from '../../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
 
 export interface InputProps {
   label?: string;
@@ -22,6 +22,8 @@ export interface InputProps {
   secureTextEntry?: boolean;
   style?: ViewStyle;
   testID?: string;
+  /** Optional element rendered on the right inside the input border (e.g. icon button). */
+  rightAccessory?: React.ReactNode;
 }
 
 const Input: React.FC<InputProps> = ({
@@ -35,9 +37,10 @@ const Input: React.FC<InputProps> = ({
   secureTextEntry = false,
   style,
   testID,
+  rightAccessory,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
 
   const borderColor = error
     ? (colors.semantic?.error?.[500] ?? '#F44336')
@@ -47,6 +50,11 @@ const Input: React.FC<InputProps> = ({
 
   const borderWidth = isFocused ? 2 : 1;
 
+  const inputBackgroundColor =
+    resolvedMode === 'dark'
+      ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
+      : colors.neutral.white;
+
   return (
     <View style={[styles.container, style]} testID={testID}>
       {label && (
@@ -55,29 +63,31 @@ const Input: React.FC<InputProps> = ({
           {required && <Text style={styles.required}> *</Text>}
         </Text>
       )}
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        placeholder={placeholder}
-        placeholderTextColor={colors.neutral[400]}
-        editable={!disabled}
-        secureTextEntry={secureTextEntry}
+      <View
         style={[
-          styles.input,
+          styles.inputWrapper,
           {
             borderColor,
             borderWidth,
-            backgroundColor: disabled
-              ? colors.neutral[100]
-              : colors.neutral.white,
+            backgroundColor: disabled ? colors.neutral[100] : inputBackgroundColor,
           },
-        ]}
-        testID={testID ? `${testID}-input` : undefined}
-        accessibilityLabel={label || placeholder}
-        accessibilityState={{ disabled }}
-      />
+        ]}>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder={placeholder}
+          placeholderTextColor={colors.neutral[400]}
+          editable={!disabled}
+          secureTextEntry={secureTextEntry}
+          style={styles.input}
+          testID={testID ? `${testID}-input` : undefined}
+          accessibilityLabel={label || placeholder}
+          accessibilityState={{ disabled }}
+        />
+        {rightAccessory}
+      </View>
       {error && (
         <Text style={styles.error} role="alert">
           {error}
@@ -101,13 +111,20 @@ const styles = StyleSheet.create({
   required: {
     color: colors.semantic?.error?.[500] ?? '#F44336',
   },
-  input: {
+  inputWrapper: {
     width: '100%',
-    padding: 16,
+    minHeight: 56,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  input: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     fontSize: 16,
     lineHeight: 24,
     minHeight: 56,
-    borderRadius: 6,
     color: colors.neutral[900],
   },
   error: {

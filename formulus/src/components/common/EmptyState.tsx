@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import colors from '../../theme/colors';
@@ -19,8 +19,8 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   actionLabel,
   onAction,
 }) => {
-  const { themeColors } = useAppTheme();
-  const isDark = useColorScheme() === 'dark';
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
   const titleColor = themeColors.onBackground;
   const messageColor = isDark
     ? colors.neutral[400]

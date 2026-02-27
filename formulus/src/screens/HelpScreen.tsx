@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   Linking,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
@@ -19,9 +18,8 @@ import {
 } from '../theme/odeDesign';
 
 const HelpScreen: React.FC = () => {
-  const { themeColors } = useAppTheme();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
   const titleColor = isDark
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
@@ -45,10 +43,9 @@ const HelpScreen: React.FC = () => {
           style={[
             styles.header,
             {
-              backgroundColor: withAlpha(
-                themeColors.surface as string,
-                CONTAINER_ALPHA,
-              ),
+              backgroundColor: isDark
+                ? (themeColors.surface as string)
+                : (colors.neutral[50] as string),
               borderWidth: 1,
               borderBottomWidth: 1,
               borderColor: themeColors.divider as string,

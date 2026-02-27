@@ -19,12 +19,14 @@
     "prebuild": "npm run generate && npm run generate:placeholder-tokens"
   },
   "dependencies": {
-    "@ode/components": "file:../packages/components",
-    "@ode/tokens": "file:../packages/tokens",
     "@notifee/react-native": "^9.1.8",
     "@nozbe/watermelondb": "^0.28.0",
+    "@ode/components": "file:../packages/components",
+    "@ode/tokens": "file:../packages/tokens",
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-community/blur": "^4.4.1",
     "@react-native-documents/picker": "^12.0.0",
+    "@react-native-vector-icons/fontawesome6": "^12.3.1",
     "@react-native-vector-icons/material-design-icons": "^12.4.0",
     "@react-native-vector-icons/material-icons": "^12.4.0",
     "@react-navigation/bottom-tabs": "^7.9.0",

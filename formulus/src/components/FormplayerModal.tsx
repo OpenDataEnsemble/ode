@@ -15,7 +15,6 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
@@ -62,11 +61,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const colorScheme = useColorScheme();
 
-    // Theme colors from the AppThemeContext — updates automatically when
-    // the custom app config is loaded or the color scheme changes.
-    const { themeColors } = useAppTheme();
+    // Theme colors & resolved mode from AppThemeContext.
+    const { themeColors, resolvedMode } = useAppTheme();
 
     // Internal state to track current form and observation data
     const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -227,8 +224,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
       // Forward the custom app's theme colors to the Formplayer WebView so
       // that form UI elements (buttons, inputs, headers) match the branding.
-      // `themeColors` comes from useAppTheme() and is always up-to-date.
-      const isDark = colorScheme === 'dark';
+      const isDark = resolvedMode === 'dark';
 
       const formParams = {
         locale: 'en',

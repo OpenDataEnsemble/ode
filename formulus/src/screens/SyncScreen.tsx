@@ -9,7 +9,6 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
@@ -34,9 +33,8 @@ import {
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
 const SyncScreen = () => {
-  const { themeColors } = useAppTheme();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
   const titleColor = isDark
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
@@ -371,10 +369,9 @@ const SyncScreen = () => {
           style={[
             styles.header,
             {
-              backgroundColor: withAlpha(
-                themeColors.surface as string,
-                CONTAINER_ALPHA,
-              ),
+              backgroundColor: isDark
+                ? (themeColors.surface as string)
+                : (colors.neutral[50] as string),
               borderWidth: 1,
               borderBottomWidth: 1,
               borderColor: themeColors.divider as string,

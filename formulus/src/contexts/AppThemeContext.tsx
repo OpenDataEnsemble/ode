@@ -24,10 +24,13 @@ import React, {
   useState,
 } from 'react';
 import { useColorScheme } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AppConfigService from '../services/AppConfigService';
 import { ThemeColors } from '../types/AppConfig';
 
 // ── Context shape ──────────────────────────────────────────────────────
+
+export type ThemeMode = 'system' | 'light' | 'dark';
 
 interface AppThemeContextValue {
   /** Resolved theme colors for the current color scheme (light / dark). */
@@ -36,6 +39,12 @@ interface AppThemeContextValue {
   isReady: boolean;
   /** Force-reload the config (e.g. after a new app bundle is extracted). */
   reloadTheme: () => Promise<void>;
+  /** Current theme mode selection (system / light / dark). */
+  themeMode: ThemeMode;
+  /** Update the theme mode selection. */
+  setThemeMode: (mode: ThemeMode) => void;
+  /** Resolved light/dark mode after applying themeMode override. */
+  resolvedMode: 'light' | 'dark';
 }
 
 const AppThemeContext = createContext<AppThemeContextValue | undefined>(
@@ -52,19 +61,30 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({
   children,
 }) => {
   const colorScheme = useColorScheme();
-  const mode = colorScheme === 'dark' ? 'dark' : 'light';
+  const systemMode = colorScheme === 'dark' ? 'dark' : 'light';
 
   // A counter that bumps every time the config is (re-)loaded so that
   // consumers re-derive themeColors even though the object reference
   // inside AppConfigService changed.
   const [configVersion, setConfigVersion] = useState(0);
   const [isReady, setIsReady] = useState(false);
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+
+  const THEME_MODE_STORAGE_KEY = 'formulus-theme-mode';
 
   // Initial config load on mount.
   useEffect(() => {
     (async () => {
       try {
+        // Load remote app theme config
         await AppConfigService.getInstance().loadConfig();
+        // Load persisted theme mode override
+        const storedMode = (await AsyncStorage.getItem(
+          THEME_MODE_STORAGE_KEY,
+        )) as ThemeMode | null;
+        if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'system') {
+          setThemeModeState(storedMode);
+        }
       } catch (err) {
         console.warn('[AppThemeProvider] Initial config load failed:', err);
       } finally {
@@ -84,18 +104,40 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({
     setConfigVersion(v => v + 1);
   }, []);
 
+  const setThemeMode = useCallback(
+    async (mode: ThemeMode) => {
+      try {
+        setThemeModeState(mode);
+        await AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, mode);
+      } catch (err) {
+        console.warn('[AppThemeProvider] Failed to persist theme mode:', err);
+      }
+    },
+    [],
+  );
+
+  const resolvedMode: 'light' | 'dark' =
+    themeMode === 'system' ? systemMode : themeMode;
+
   // Re-derive colors whenever the color scheme changes OR the config is
   // reloaded (configVersion bumps).
   const themeColors = useMemo(() => {
     // configVersion is captured so eslint is happy — the actual value is
     // not used; it just forces recomputation.
     void configVersion;
-    return AppConfigService.getInstance().getThemeColors(mode);
-  }, [mode, configVersion]);
+    return AppConfigService.getInstance().getThemeColors(resolvedMode);
+  }, [resolvedMode, configVersion]);
 
   const value = useMemo<AppThemeContextValue>(
-    () => ({ themeColors, isReady, reloadTheme }),
-    [themeColors, isReady, reloadTheme],
+    () => ({
+      themeColors,
+      isReady,
+      reloadTheme,
+      themeMode,
+      setThemeMode,
+      resolvedMode,
+    }),
+    [themeColors, isReady, reloadTheme, themeMode, setThemeMode, resolvedMode],
   );
 
   return (

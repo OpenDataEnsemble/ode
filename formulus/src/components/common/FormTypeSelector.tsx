@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Modal,
   FlatList,
-  useColorScheme,
 } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
@@ -30,12 +29,11 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
   onSelect,
   placeholder = 'All Forms',
 }) => {
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
   const [modalVisible, setModalVisible] = useState(false);
   const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   const cardInnerBg = themeColors.surface as string;
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = resolvedMode === 'dark';
   const selectorTextColor = isDark
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
