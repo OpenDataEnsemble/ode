@@ -18,6 +18,5 @@ export class VersionMismatchError extends Error {
 /**
  * Type guard to check if an error is a VersionMismatchError.
  */
-export const isVersionMismatchError = (
-  e: unknown,
-): e is VersionMismatchError => e instanceof VersionMismatchError;
+export const isVersionMismatchError = (e: unknown): e is VersionMismatchError =>
+  e instanceof VersionMismatchError;

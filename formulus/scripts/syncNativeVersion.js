@@ -1,10 +1,10 @@
 /**
  * Syncs version from package.json to native app manifests.
- * 
+ *
  * This script ensures that:
  * - Android build.gradle versionName matches package.json.version
  * - iOS version fields are kept in sync (if applicable)
- * 
+ *
  * Run this before building native apps to prevent version drift.
  */
 
@@ -80,7 +80,9 @@ function updateAndroidVersion(version) {
 function syncNativeVersions() {
   try {
     const version = getPackageVersion();
-    console.log(`Syncing native app versions from package.json (version: ${version})...`);
+    console.log(
+      `Syncing native app versions from package.json (version: ${version})...`,
+    );
 
     updateAndroidVersion(version);
 
@@ -91,11 +93,13 @@ function syncNativeVersions() {
     console.log('✓ Native version sync complete');
   } catch (error) {
     console.error('✗ Failed to sync native versions:', error);
+    // eslint-disable-next-line no-undef
     process.exit(1);
   }
 }
 
 // Run if executed directly
+// eslint-disable-next-line no-undef
 if (import.meta.url === `file://${process.argv[1]}`) {
   syncNativeVersions();
 }

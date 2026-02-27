@@ -23,9 +23,9 @@ export interface SynkronusDownloadOptions {
  * Downloads a file from Synkronus server with required headers.
  * Automatically includes x-formulus-version header.
  */
-export function synkronusDownload(
-  options: SynkronusDownloadOptions,
-): { promise: Promise<RNFS.DownloadResult> } {
+export function synkronusDownload(options: SynkronusDownloadOptions): {
+  promise: Promise<RNFS.DownloadResult>;
+} {
   return RNFS.downloadFile({
     fromUrl: options.fromUrl,
     toFile: options.toFile,

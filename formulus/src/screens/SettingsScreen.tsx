@@ -15,10 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
-import {
-  login,
-  isVersionMismatchError,
-} from '../api/synkronus/Auth';
+import { login, isVersionMismatchError } from '../api/synkronus/Auth';
 import { serverConfigService } from '../services/ServerConfigService';
 import QRScannerModal, {
   ScannerModalResults,

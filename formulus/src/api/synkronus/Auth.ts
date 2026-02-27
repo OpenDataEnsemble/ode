@@ -1,10 +1,6 @@
 import { synkronusApi } from './index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
-import {
-  VersionMismatchError,
-  isVersionMismatchError,
-} from '../../errors/VersionMismatchError';
 
 export type UserRole = 'read-only' | 'read-write' | 'admin';
 
@@ -23,7 +19,6 @@ export interface HttpError extends Error {
       status?: number;
       code?: string;
       synkronus_version?: string;
-      formulus_version?: string;
     };
   };
   status?: number;
@@ -32,19 +27,20 @@ export interface HttpError extends Error {
     status?: number;
     code?: string;
     synkronus_version?: string;
-    formulus_version?: string;
   };
   data?: {
     status?: number;
     code?: string;
     synkronus_version?: string;
-    formulus_version?: string;
   };
   code?: string | number;
 }
 
 // Re-export VersionMismatchError for convenience
-export { VersionMismatchError, isVersionMismatchError } from '../../errors/VersionMismatchError';
+export {
+  VersionMismatchError,
+  isVersionMismatchError,
+} from '../../errors/VersionMismatchError';
 
 const decodeBase64 = (input: string): string => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
