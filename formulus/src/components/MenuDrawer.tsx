@@ -13,7 +13,7 @@ import {
 } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { getUserInfo, UserInfo, UserRole } from '../api/synkronus/Auth';
-import { colors } from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import Button from './common/Button';
 
@@ -118,8 +118,10 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
             styles.drawer,
             {
               bottom: bottomPadding,
-              backgroundColor: themeColors.surface,
+              backgroundColor: withAlpha(themeColors.surface as string, CONTAINER_ALPHA),
               shadowColor: themeColors.surface,
+              borderWidth: 1,
+              borderColor: themeColors.divider as string,
             },
           ]}>
           <SafeAreaView
@@ -151,8 +153,10 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 style={[
                   styles.userSection,
                   {
-                    backgroundColor: themeColors.background,
+                    backgroundColor: withAlpha(themeColors.background as string, CONTAINER_ALPHA),
                     borderBottomColor: themeColors.divider,
+                    borderWidth: 1,
+                    borderColor: themeColors.divider as string,
                   },
                 ]}>
                 <View
@@ -185,8 +189,10 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 style={[
                   styles.userSection,
                   {
-                    backgroundColor: themeColors.background,
+                    backgroundColor: withAlpha(themeColors.background as string, CONTAINER_ALPHA),
                     borderBottomColor: themeColors.divider,
+                    borderWidth: 1,
+                    borderColor: themeColors.divider as string,
                   },
                 ]}>
                 <View style={[styles.userAvatar, styles.userAvatarInactive]}>
@@ -241,7 +247,12 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
               <View
                 style={[
                   styles.footer,
-                  { borderTopColor: themeColors.divider },
+                  {
+                    backgroundColor: withAlpha(themeColors.surface as string, CONTAINER_ALPHA),
+                    borderTopColor: themeColors.divider,
+                    borderWidth: 1,
+                    borderColor: themeColors.divider as string,
+                  },
                 ]}>
                 <Button
                   title="Logout"

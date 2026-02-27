@@ -22,7 +22,7 @@ import QRScannerModal, {
 } from '../components/QRScannerModal';
 import { QRSettingsService } from '../services/QRSettingsService';
 import { MainTabParamList } from '../types/NavigationTypes';
-import { colors } from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
 import { useAppTheme } from '../contexts/AppThemeContext';
@@ -314,7 +314,12 @@ const SettingsScreen = () => {
   if (isLoading) {
     return (
       <BlurredScreenBackground>
-        <View style={[styles.container, styles.centered]}>
+        <View
+          style={[
+            styles.container,
+            styles.centered,
+            { backgroundColor: 'transparent' },
+          ]}>
           <ActivityIndicator size="large" color={themeColors.primary} />
         </View>
       </BlurredScreenBackground>
@@ -323,8 +328,18 @@ const SettingsScreen = () => {
 
   return (
     <BlurredScreenBackground>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={[styles.header, { backgroundColor: themeColors.primary }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top']}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: withAlpha(themeColors.primary as string, CONTAINER_ALPHA),
+              borderWidth: 1,
+              borderColor: themeColors.divider as string,
+            },
+          ]}>
           <View style={styles.logoContainer}>
             <Image source={Logo} style={styles.logo} resizeMode="contain" />
             <Text
@@ -411,6 +426,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    overflow: 'hidden',
   },
   logoContainer: {
     flexDirection: 'row',

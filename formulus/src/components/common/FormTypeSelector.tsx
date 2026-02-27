@@ -6,9 +6,10 @@ import {
   StyleSheet,
   Modal,
   FlatList,
+  useColorScheme,
 } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
-import colors from '../../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 
 interface FormTypeOption {
@@ -31,7 +32,15 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
 }) => {
   const { themeColors } = useAppTheme();
   const [modalVisible, setModalVisible] = useState(false);
+  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const selectorTextColor = isDark
+    ? (themeColors.onSurface as string)
+    : (colors.neutral[900] as string);
 
+  const optionsWithAll = [{ id: null, name: placeholder }, ...options];
   const selectedOption = options.find(opt => opt.id === selectedId);
 
   return (
@@ -40,8 +49,9 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
         style={[
           styles.selector,
           {
-            backgroundColor: themeColors.surface,
+            backgroundColor: withAlpha(themeColors.surface as string, CONTAINER_ALPHA),
             borderColor: themeColors.divider,
+            borderWidth: 1,
           },
         ]}
         onPress={() => setModalVisible(true)}
@@ -52,7 +62,7 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
           color={themeColors.onSurface}
         />
         <Text
-          style={[styles.selectorText, { color: themeColors.onSurface }]}>
+          style={[styles.selectorText, { color: selectorTextColor }]}>
           {selectedOption ? selectedOption.name : placeholder}
         </Text>
         <Icon
@@ -68,68 +78,79 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
         animationType="fade"
         onRequestClose={() => setModalVisible(false)}>
         <TouchableOpacity
-          style={[styles.modalOverlay, { backgroundColor: colors.ui.background }]}
+          style={[
+            styles.modalOverlay,
+            { backgroundColor: withAlpha(colors.neutral.black, 0.35) },
+          ]}
           activeOpacity={1}
           onPress={() => setModalVisible(false)}>
           <View
             style={[
-              styles.modalContent,
+              styles.modalContentOuter,
               {
-                backgroundColor: themeColors.surface,
-                shadowColor: themeColors.surface,
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
+                backgroundColor: cardOuterBg,
               },
             ]}>
             <View
-              style={[
-                styles.modalHeader,
-                { borderBottomColor: themeColors.divider },
-              ]}>
-              <Text
-                style={[styles.modalTitle, { color: themeColors.onSurface }]}>
-                Select Form Type
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Icon
-                  name="close"
-                  size={24}
-                  color={themeColors.onSurface}
-                />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={[{ id: null, name: placeholder }, ...options]}
-              keyExtractor={item => item.id || 'all'}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[
-                    styles.optionItem,
-                    { borderBottomColor: themeColors.divider },
-                    selectedId === item.id && {
-                      backgroundColor: themeColors.primary + '14',
-                    },
-                  ]}
-                  onPress={() => {
-                    onSelect(item.id);
-                    setModalVisible(false);
-                  }}>
-                  <Text
-                    style={[
-                      styles.optionText,
-                      { color: themeColors.onSurface },
-                      selectedId === item.id && {
-                        color: themeColors.primary,
-                        fontWeight: '600',
-                      },
-                    ]}>
-                    {item.name}
-                  </Text>
-                  {selectedId === item.id && (
-                    <Icon name="check" size={20} color={themeColors.primary} />
-                  )}
+              style={[styles.modalContentInner, { backgroundColor: cardInnerBg }]}>
+              <View
+                style={[
+                  styles.modalHeader,
+                  { borderBottomColor: themeColors.divider as string },
+                ]}>
+                <Text
+                  style={[styles.modalTitle, { color: themeColors.onSurface }]}>
+                  Select Form Type
+                </Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Icon
+                    name="close"
+                    size={24}
+                    color={themeColors.onSurface}
+                  />
                 </TouchableOpacity>
-              )}
-            />
+              </View>
+
+              <FlatList
+                data={optionsWithAll}
+                keyExtractor={item => item.id || 'all'}
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.optionItem,
+                      {
+                        borderBottomColor: themeColors.divider,
+                        borderBottomWidth:
+                          index === optionsWithAll.length - 1 ? 0 : StyleSheet.hairlineWidth,
+                      },
+                      selectedId === item.id && {
+                        backgroundColor: themeColors.primary + '14',
+                      },
+                    ]}
+                    onPress={() => {
+                      onSelect(item.id);
+                      setModalVisible(false);
+                    }}>
+                    <Text
+                      style={[
+                        styles.optionText,
+                        { color: selectorTextColor },
+                        selectedId === item.id && {
+                          color: themeColors.primary,
+                          fontWeight: '600',
+                        },
+                      ]}>
+                      {item.name}
+                    </Text>
+                    {selectedId === item.id && (
+                      <Icon name="check" size={20} color={themeColors.primary} />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -144,6 +165,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
+    overflow: 'hidden',
     borderWidth: 1,
     gap: 8,
     flex: 1,
@@ -160,15 +182,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContent: {
+  modalContentOuter: {
     borderRadius: 12,
+    padding: 16,
     width: '80%',
     maxWidth: 400,
     maxHeight: '70%',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    overflow: 'hidden',
+  },
+  modalContentInner: {
+    borderRadius: 8,
+    overflow: 'hidden',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -186,7 +210,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
   },
   optionText: {
     fontSize: 16,

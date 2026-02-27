@@ -121,4 +121,56 @@ export const colors = {
   },
 };
 
+/**
+ * Parse a color string to r,g,b (0-255). Handles #RRGGBB, #RGB, #RRGGBBAA, rgb(), rgba().
+ * Returns null if parsing fails.
+ */
+function parseColorToRgb(color: string): { r: number; g: number; b: number } | null {
+  const s = String(color).trim();
+
+  // #RRGGBB or #RRGGBBAA or #RGB
+  const hexMatch = s.match(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/);
+  if (hexMatch) {
+    let h = hexMatch[1];
+    if (h.length === 3) {
+      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    if (h.length >= 6) {
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return { r, g, b };
+    }
+  }
+
+  // rgb(r,g,b) or rgba(r,g,b,a)
+  const rgbMatch = s.match(/^rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgbMatch) {
+    return {
+      r: Math.min(255, parseInt(rgbMatch[1], 10)),
+      g: Math.min(255, parseInt(rgbMatch[2], 10)),
+      b: Math.min(255, parseInt(rgbMatch[3], 10)),
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Return a color with the given alpha for translucent container backgrounds.
+ * Accepts #RRGGBB, #RGB, #RRGGBBAA, rgb(), rgba(). Returns rgba(r,g,b,a)
+ * so the blurred screen background shows through; rgba has reliable alpha on Android.
+ */
+export function withAlpha(color: string, alpha: number): string {
+  const parsed = parseColorToRgb(color);
+  const a = Math.max(0, Math.min(1, alpha));
+  if (!parsed) {
+    return `rgba(255,255,255,${a})`;
+  }
+  return `rgba(${parsed.r},${parsed.g},${parsed.b},${a})`;
+}
+
+/** Alpha for container backgrounds: more transparent so blurred screen background shows through. */
+export const CONTAINER_ALPHA = 0.4;
+
 export default colors;

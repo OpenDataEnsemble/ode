@@ -51,7 +51,7 @@ function getOdeFallbackColors(mode: 'light' | 'dark'): ThemeColors {
     success: odeColors.semantic.success[500],
     info: odeColors.semantic.info[500],
 
-    divider: isDark ? odeColors.neutral[700] : odeColors.neutral[200],
+    divider: isDark ? odeColors.neutral[700] : odeColors.neutral[400],
   };
 }
 

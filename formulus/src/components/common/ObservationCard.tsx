@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../../database/models/Observation';
-import colors from '../../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
 import Button from './Button';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 
@@ -47,9 +47,22 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
     }
   };
 
+  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.content}>
+    <TouchableOpacity
+      style={[
+        styles.card,
+        {
+          borderWidth: 1,
+          borderColor: themeColors.divider as string,
+          backgroundColor: cardOuterBg,
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}>
+      <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+        <View style={styles.content}>
         <View style={styles.iconContainer}>
           <Icon
             name={isSynced ? 'check-circle' : 'clock-outline'}
@@ -119,6 +132,7 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
             />
           )}
         </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -126,16 +140,16 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.neutral.white,
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 6,
+    borderWidth: 1,
     padding: 16,
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  cardInner: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    padding: 12,
   },
   content: {
     flexDirection: 'row',

@@ -79,10 +79,10 @@ const BlurredScreenBackground: React.FC<BlurredScreenBackgroundProps> = ({
     : backgroundConfig.blurRadiusLight;
 
   return (
-    <View style={[styles.root, { backgroundColor: overlayColor }]}>
+    <View style={[styles.root, { backgroundColor: 'transparent' }]}>
       <ImageBackground
         source={backgroundImage}
-        style={StyleSheet.absoluteFill}
+        style={styles.background}
         resizeMode="cover"
         blurRadius={blurRadius}>
         <View
@@ -95,14 +95,20 @@ const BlurredScreenBackground: React.FC<BlurredScreenBackgroundProps> = ({
           ]}
         />
         {isDark && <EdgeDarkeningOverlay />}
+        <View style={styles.contentSlot}>{children}</View>
       </ImageBackground>
-      {children}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
+  },
+  background: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  contentSlot: {
     flex: 1,
   },
 });

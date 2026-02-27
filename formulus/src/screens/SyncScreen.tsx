@@ -19,7 +19,10 @@ import { useSyncContext } from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
 import { databaseService } from '../database/DatabaseService';
 import { getUserInfo } from '../api/synkronus/Auth';
-import colors from '../theme/colors';
+import colors, {
+  withAlpha,
+  CONTAINER_ALPHA,
+} from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
@@ -28,6 +31,8 @@ type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
 const SyncScreen = () => {
   const { themeColors } = useAppTheme();
+  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   const syncContextValue = useSyncContext();
   const {
     syncState,
@@ -352,12 +357,18 @@ const SyncScreen = () => {
 
   return (
     <BlurredScreenBackground>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View
           style={[
             styles.header,
             {
-              backgroundColor: themeColors.surface as string,
+              backgroundColor: withAlpha(
+                themeColors.surface as string,
+                CONTAINER_ALPHA,
+              ),
+              borderWidth: 1,
+              borderBottomWidth: 1,
+              borderColor: themeColors.divider as string,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
@@ -375,15 +386,18 @@ const SyncScreen = () => {
         </View>
 
         <ScrollView
+          style={styles.scrollTransparent}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
           <View style={styles.statusCardsContainer}>
             <TouchableOpacity
               style={[
+                styles.card,
                 styles.statusCard,
                 {
-                  backgroundColor: themeColors.surface as string,
-                  shadowColor: themeColors.surface as string,
+                  borderWidth: 1,
+                  borderColor: themeColors.divider as string,
+                  backgroundColor: cardOuterBg,
                 },
                 !syncState.isActive &&
                   (pendingObservations > 0 || pendingUploads.count > 0) && {
@@ -391,227 +405,257 @@ const SyncScreen = () => {
                     borderColor: themeColors.primaryLight,
                   },
               ]}
-            onPress={() => {
-              if (
-                !syncState.isActive &&
-                (pendingObservations > 0 || pendingUploads.count > 0)
-              ) {
-                handleSync();
-              }
-            }}
-            disabled={syncState.isActive}
-            activeOpacity={
-              syncState.isActive ||
-              (pendingObservations === 0 && pendingUploads.count === 0)
-                ? 1
-                : 0.7
-            }>
-            <View style={styles.statusCardHeader}>
-              <Icon
-                name={
-                  syncState.isActive
-                    ? 'sync'
-                    : syncState.error
-                      ? 'alert-circle'
-                      : pendingObservations > 0 || pendingUploads.count > 0
-                        ? 'clock-alert-outline'
-                        : 'check-circle'
+              onPress={() => {
+                if (
+                  !syncState.isActive &&
+                  (pendingObservations > 0 || pendingUploads.count > 0)
+                ) {
+                  handleSync();
                 }
-                size={20}
-                color={statusColor as string}
-              />
-              <Text
-                style={[styles.statusCardTitle, { color: themeColors.onSurface as string }]}>
-                Status
-              </Text>
-            </View>
-            <Text
-              style={[
-                styles.statusCardValue,
-                { color: statusColor as string },
-              ]}>
-              {status}
-            </Text>
-            {!syncState.isActive &&
-              !syncState.error &&
-              (pendingObservations > 0 || pendingUploads.count > 0) && (
-                <Text
-                  style={[
-                    styles.statusCardSubtext,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  Tap to sync now
-                </Text>
-              )}
-          </TouchableOpacity>
-
-          <View
-            style={[
-              styles.statusCard,
-              {
-                backgroundColor: themeColors.surface as string,
-                shadowColor: themeColors.surface as string,
-              },
-            ]}>
-            <View style={styles.statusCardHeader}>
-              <Icon
-                name="clock-outline"
-                size={20}
-                color={themeColors.onSurface as string}
-              />
-              <Text
-                style={[styles.statusCardTitle, { color: themeColors.onSurface as string }]}>
-                Last Sync
-              </Text>
-            </View>
-            <Text
-              style={[styles.statusCardValue, { color: themeColors.onSurface as string }]}>
-              {lastSync ? formatRelativeTime(lastSync) : 'Never'}
-            </Text>
-          </View>
-        </View>
-
-        {(pendingObservations > 0 || pendingUploads.count > 0) && (
-          <View
-            style={[
-              styles.pendingSection,
-              {
-                backgroundColor: themeColors.surface as string,
-                shadowColor: themeColors.surface as string,
-              },
-            ]}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: themeColors.onSurface as string },
-              ]}>
-              Pending Items
-            </Text>
-            {pendingObservations > 0 && (
-              <View style={styles.pendingItem}>
-                <Icon
-                  name="clipboard-text-outline"
-                  size={20}
-                  color={colors.semantic.warning[500] as unknown as string}
-                />
-                <View style={styles.pendingItemContent}>
-                  <Text
-                    style={[
-                      styles.pendingItemLabel,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    Observations
-                  </Text>
-                  <Text
-                    style={[
-                      styles.pendingItemValue,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    {pendingObservations} record
-                    {pendingObservations !== 1 ? 's' : ''}
-                  </Text>
-                </View>
-              </View>
-            )}
-            {pendingUploads.count > 0 && (
-              <View style={styles.pendingItem}>
-                <Icon
-                  name="file-upload-outline"
-                  size={20}
-                  color={colors.semantic.warning[500] as unknown as string}
-                />
-                <View style={styles.pendingItemContent}>
-                  <Text
-                    style={[
-                      styles.pendingItemLabel,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    Attachments
-                  </Text>
-                  <Text
-                    style={[
-                      styles.pendingItemValue,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    {pendingUploads.count} file
-                    {pendingUploads.count !== 1 ? 's' : ''} (
-                    {pendingUploads.sizeMB.toFixed(2)} MB)
-                  </Text>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        <View
-          style={[
-            styles.versionCard,
-            {
-              backgroundColor: themeColors.surface as string,
-              shadowColor: themeColors.surface as string,
-            },
-          ]}>
-          <View style={styles.versionRow}>
-            <Text
-              style={[styles.versionLabel, { color: themeColors.onSurface as string }]}>
-              App Bundle
-            </Text>
-            <View style={styles.versionValues}>
-              <View style={styles.versionItem}>
-                <Text
-                  style={[
-                    styles.versionItemLabel,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  Local
-                </Text>
-                <Text
-                  style={[
-                    styles.versionItemValue,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  {appBundleVersion}
-                </Text>
-              </View>
+              }}
+              disabled={syncState.isActive}
+              activeOpacity={
+                syncState.isActive ||
+                (pendingObservations === 0 && pendingUploads.count === 0)
+                  ? 1
+                  : 0.7
+              }>
               <View
-                style={[
-                  styles.versionDivider,
-                  { backgroundColor: themeColors.divider as string },
-                ]}
-              />
-              <View style={styles.versionItem}>
+                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+                <View style={styles.statusCardHeader}>
+                  <Icon
+                    name={
+                      syncState.isActive
+                        ? 'sync'
+                        : syncState.error
+                          ? 'alert-circle'
+                          : pendingObservations > 0 || pendingUploads.count > 0
+                            ? 'clock-alert-outline'
+                            : 'check-circle'
+                    }
+                    size={20}
+                    color={statusColor as string}
+                  />
+                  <Text
+                    style={[
+                      styles.statusCardTitle,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    Status
+                  </Text>
+                </View>
                 <Text
                   style={[
-                    styles.versionItemLabel,
-                    { color: themeColors.onSurface as string },
+                    styles.statusCardValue,
+                    { color: statusColor as string },
                   ]}>
-                  Server
+                  {status}
                 </Text>
-                <Text
-                  style={[
-                    styles.versionItemValue,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  {serverBundleVersion}
-                </Text>
+                {!syncState.isActive &&
+                  !syncState.error &&
+                  (pendingObservations > 0 || pendingUploads.count > 0) && (
+                    <Text
+                      style={[
+                        styles.statusCardSubtext,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      Tap to sync now
+                    </Text>
+                  )}
               </View>
-            </View>
-          </View>
-          {updateAvailable && (
+            </TouchableOpacity>
+
             <View
               style={[
-                styles.updateBadge,
-                { borderTopColor: themeColors.divider as string },
+                styles.card,
+                styles.statusCard,
+                {
+                  borderWidth: 1,
+                  borderColor: themeColors.divider as string,
+                  backgroundColor: cardOuterBg,
+                },
               ]}>
-              <Icon
-                name="arrow-down-circle"
-                size={16}
-                color={colors.semantic.success[500] as unknown as string}
-              />
-              <Text style={styles.updateBadgeText}>Update available</Text>
+              <View
+                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+                <View style={styles.statusCardHeader}>
+                  <Icon
+                    name="clock-outline"
+                    size={20}
+                    color={themeColors.onSurface as string}
+                  />
+                  <Text
+                    style={[
+                      styles.statusCardTitle,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    Last Sync
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.statusCardValue,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  {lastSync ? formatRelativeTime(lastSync) : 'Never'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {(pendingObservations > 0 || pendingUploads.count > 0) && (
+            <View
+              style={[
+                styles.card,
+                styles.pendingSection,
+                {
+                  borderWidth: 1,
+                  borderColor: themeColors.divider as string,
+                  backgroundColor: cardOuterBg,
+                },
+              ]}>
+              <View
+                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+                <Text
+                  style={[
+                    styles.sectionTitle,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  Pending Items
+                </Text>
+                {pendingObservations > 0 && (
+                  <View style={styles.pendingItem}>
+                    <Icon
+                      name="clipboard-text-outline"
+                      size={20}
+                      color={colors.semantic.warning[500] as unknown as string}
+                    />
+                    <View style={styles.pendingItemContent}>
+                      <Text
+                        style={[
+                          styles.pendingItemLabel,
+                          { color: themeColors.onSurface as string },
+                        ]}>
+                        Observations
+                      </Text>
+                      <Text
+                        style={[
+                          styles.pendingItemValue,
+                          { color: themeColors.onSurface as string },
+                        ]}>
+                        {pendingObservations} record
+                        {pendingObservations !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                {pendingUploads.count > 0 && (
+                  <View style={styles.pendingItem}>
+                    <Icon
+                      name="file-upload-outline"
+                      size={20}
+                      color={colors.semantic.warning[500] as unknown as string}
+                    />
+                    <View style={styles.pendingItemContent}>
+                      <Text
+                        style={[
+                          styles.pendingItemLabel,
+                          { color: themeColors.onSurface as string },
+                        ]}>
+                        Attachments
+                      </Text>
+                      <Text
+                        style={[
+                          styles.pendingItemValue,
+                          { color: themeColors.onSurface as string },
+                        ]}>
+                        {pendingUploads.count} file
+                        {pendingUploads.count !== 1 ? 's' : ''} (
+                        {pendingUploads.sizeMB.toFixed(2)} MB)
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </View>
             </View>
           )}
-        </View>
+
+          <View
+            style={[
+              styles.card,
+              styles.versionCard,
+              {
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
+                backgroundColor: cardOuterBg,
+              },
+            ]}>
+            <View
+              style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <View style={styles.versionRow}>
+                <Text
+                  style={[
+                    styles.versionLabel,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  App Bundle
+                </Text>
+                <View style={styles.versionValues}>
+                  <View style={styles.versionItem}>
+                    <Text
+                      style={[
+                        styles.versionItemLabel,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      Local
+                    </Text>
+                    <Text
+                      style={[
+                        styles.versionItemValue,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      {appBundleVersion}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.versionDivider,
+                      { backgroundColor: themeColors.divider as string },
+                    ]}
+                  />
+                  <View style={styles.versionItem}>
+                    <Text
+                      style={[
+                        styles.versionItemLabel,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      Server
+                    </Text>
+                    <Text
+                      style={[
+                        styles.versionItemValue,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      {serverBundleVersion}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+              {updateAvailable && (
+                <View
+                  style={[
+                    styles.updateBadge,
+                    { borderTopColor: themeColors.divider as string },
+                  ]}>
+                  <Icon
+                    name="arrow-down-circle"
+                    size={16}
+                    color={colors.semantic.success[500] as unknown as string}
+                  />
+                  <Text style={styles.updateBadgeText}>Update available</Text>
+                </View>
+              )}
+            </View>
+          </View>
 
         {syncState.isActive && syncState.progress && (
           <View
@@ -620,6 +664,8 @@ const SyncScreen = () => {
               {
                 backgroundColor: themeColors.primary + '14',
                 borderLeftColor: themeColors.primary,
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
               },
             ]}>
             <View style={styles.progressHeader}>
@@ -665,7 +711,14 @@ const SyncScreen = () => {
         )}
 
         {syncState.error && (
-          <View style={styles.errorCard}>
+          <View
+            style={[
+              styles.errorCard,
+              {
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
+              },
+            ]}>
             <View style={styles.errorHeader}>
               <Icon
                 name="alert-circle"
@@ -759,6 +812,9 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
     borderBottomWidth: 1,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 28,
@@ -768,9 +824,23 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
   },
+  scrollTransparent: {
+    backgroundColor: 'transparent',
+  },
   scrollContent: {
     padding: 16,
     paddingBottom: 32,
+  },
+  card: {
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  cardInner: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    padding: 12,
   },
   statusCardsContainer: {
     flexDirection: 'row',
@@ -779,12 +849,6 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     flex: 1,
-    borderRadius: 12,
-    padding: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   statusCardHeader: {
     flexDirection: 'row',
@@ -806,13 +870,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   pendingSection: {
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   sectionTitle: {
     fontSize: 16,
@@ -837,13 +895,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   versionCard: {
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 16,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   versionRow: {
     flexDirection: 'row',
@@ -891,6 +943,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    overflow: 'hidden',
     borderLeftWidth: 4,
   },
   progressHeader: {
@@ -923,6 +976,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
+    overflow: 'hidden',
     borderLeftWidth: 4,
     borderLeftColor: colors.semantic.error[500] as unknown as string,
   },

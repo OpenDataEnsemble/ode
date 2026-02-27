@@ -13,7 +13,10 @@ import { useForms } from '../hooks/useForms';
 import { FormCard, EmptyState } from '../components/common';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useFocusEffect } from '@react-navigation/native';
-import colors from '../theme/colors';
+import colors, {
+  withAlpha,
+  CONTAINER_ALPHA,
+} from '../theme/colors';
 import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
@@ -67,7 +70,7 @@ const FormsScreen: React.FC = () => {
   if (loading && forms.length === 0) {
     return (
       <BlurredScreenBackground>
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
             <Text
@@ -83,7 +86,7 @@ const FormsScreen: React.FC = () => {
   if (error && forms.length === 0) {
     return (
       <BlurredScreenBackground>
-        <SafeAreaView style={styles.container}>
+        <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
           <EmptyState
           icon="alert-circle-outline"
           title="Error Loading Forms"
@@ -98,13 +101,19 @@ const FormsScreen: React.FC = () => {
 
   return (
     <BlurredScreenBackground>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View
           style={[
             styles.header,
             {
-              backgroundColor: themeColors.surface,
-              borderBottomColor: themeColors.divider,
+              backgroundColor: withAlpha(
+                themeColors.surface as string,
+                CONTAINER_ALPHA,
+              ),
+              borderWidth: 1,
+              borderBottomWidth: 1,
+              borderColor: themeColors.divider as string,
+              borderBottomColor: themeColors.divider as string,
             },
           ]}>
           <Text style={[styles.title, { color: themeColors.onSurface }]}>
@@ -125,6 +134,7 @@ const FormsScreen: React.FC = () => {
         />
       ) : (
         <FlatList
+          style={styles.listTransparent}
           data={forms}
           renderItem={renderForm}
           keyExtractor={item => item.id}
@@ -143,9 +153,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  listTransparent: {
+    backgroundColor: 'transparent',
+  },
   header: {
     padding: 16,
     borderBottomWidth: 1,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 28,
