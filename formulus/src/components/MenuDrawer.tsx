@@ -1,17 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { getUserInfo, UserInfo, UserRole } from '../api/synkronus/Auth';
 import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
@@ -106,9 +96,9 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
     : withAlpha(colors.neutral[900] as string, 0.02);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [appSettingsOpen, setAppSettingsOpen] = useState<boolean>(true);
-  const insets = useSafeAreaInsets();
-  const TAB_BAR_HEIGHT = 60;
-  const bottomPadding = TAB_BAR_HEIGHT + insets.bottom;
+  // Backdrop covers the full height; bottom nav is rendered above this layer
+  // by the tab navigator, so its buttons remain clickable.
+  const bottomPadding = 0;
 
   useEffect(() => {
     if (visible) {
@@ -145,113 +135,120 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
     }
   };
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={allowClose ? onClose : undefined}>
-      <View style={styles.overlay}>
-        {allowClose && (
-          <TouchableOpacity
-            style={[
-              styles.backdrop,
-              {
-                backgroundColor: withAlpha(colors.neutral.black, 0.45),
-                marginBottom: bottomPadding,
-              },
-            ]}
-            activeOpacity={1}
-            onPress={onClose}
-          />
-        )}
-        <View
-          style={[
-            styles.drawer,
-            {
-              bottom: bottomPadding,
-              backgroundColor: isDark
-                ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
-                : (colors.neutral[50] as string),
-              shadowColor: themeColors.surface,
-              borderLeftWidth: odeBorderWidth.hairline,
-              borderLeftColor: isDark
-                ? withAlpha(colors.neutral.white as string, 0.4)
-                : withAlpha(colors.neutral.black as string, 0.18),
-              borderTopWidth: odeBorderWidth.hairline,
-              borderBottomWidth: odeBorderWidth.hairline,
-              borderTopColor: sectionDividerColor,
-              borderBottomColor: sectionDividerColor,
-            },
-          ]}>
-          <SafeAreaView
-            style={styles.safeArea}
-            edges={['top', 'left', 'right']}>
-            <View style={styles.header}>
-              <Text
-                style={[styles.headerTitle, { color: textColor }]}>
-                Menu
-              </Text>
-              {allowClose && (
-                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Icon
-                    name="close"
-                    size={24}
-                    color={themeColors.onSurface}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-            <FadingDivider color={sectionDividerColor} />
+  if (!visible) {
+    return null;
+  }
 
-            {/* User Info Section */}
-            {userInfo ? (
-              <>
+  return (
+    <View style={styles.overlay} pointerEvents="box-none">
+      {allowClose && (
+        <TouchableOpacity
+          style={[
+            styles.backdrop,
+            {
+              // Fully transparent backdrop: no visual dimming, but still closes on tap
+              backgroundColor: 'transparent',
+              marginBottom: bottomPadding,
+            },
+          ]}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+      )}
+      <View
+        style={[
+          styles.drawer,
+          {
+            // Let the drawer extend to the bottom of the screen area
+            // used by the tabs; the backdrop still stops above the nav
+            // via marginBottom so tab icons remain clickable.
+            bottom: 0,
+            backgroundColor: isDark
+              ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
+              : (colors.neutral[50] as string),
+            shadowColor: themeColors.surface,
+            borderLeftWidth: odeBorderWidth.hairline,
+            borderLeftColor: isDark
+              ? withAlpha(colors.neutral.white as string, 0.4)
+              : withAlpha(colors.neutral.black as string, 0.18),
+            borderTopWidth: odeBorderWidth.hairline,
+            borderBottomWidth: odeBorderWidth.hairline,
+            borderTopColor: sectionDividerColor,
+            borderBottomColor: sectionDividerColor,
+          },
+        ]}>
+        <SafeAreaView
+          style={styles.safeArea}
+          edges={['top', 'left', 'right']}>
+          <View style={styles.header}>
+            <Text
+              style={[styles.headerTitle, { color: textColor }]}>
+              Menu
+            </Text>
+            {allowClose && (
+              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                <Icon
+                  name="close"
+                  size={24}
+                  color={themeColors.onSurface}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          <FadingDivider color={sectionDividerColor} />
+
+          {/* User Info Section */}
+          {userInfo ? (
+            <>
+              <View
+                style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
                 <View
-                  style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
+                  style={[
+                    styles.userAvatar,
+                    { backgroundColor: themeColors.primary },
+                  ]}>
+                  <Icon
+                    name="account"
+                    size={32}
+                    color={themeColors.onPrimary}
+                  />
+                </View>
+                <View style={styles.userInfo}>
+                  <Text
+                    style={[styles.userName, { color: textColor }]}>
+                    {userInfo.username}
+                  </Text>
                   <View
                     style={[
-                      styles.userAvatar,
-                      { backgroundColor: themeColors.primary },
+                      styles.roleBadge,
+                      getRoleBadgeStyle(userInfo.role),
                     ]}>
-                    <Icon
-                      name="account"
-                      size={32}
-                      color={themeColors.onPrimary}
-                    />
-                  </View>
-                  <View style={styles.userInfo}>
-                    <Text
-                      style={[styles.userName, { color: textColor }]}>
-                      {userInfo.username}
-                    </Text>
-                    <View
-                      style={[
-                        styles.roleBadge,
-                        getRoleBadgeStyle(userInfo.role),
-                      ]}>
-                      <Text style={styles.roleBadgeText}>{userInfo.role}</Text>
-                    </View>
+                    <Text style={styles.roleBadgeText}>{userInfo.role}</Text>
                   </View>
                 </View>
-                <FadingDivider color={sectionDividerColor} />
-              </>
-            ) : (
-              <>
+              </View>
+              <FadingDivider color={sectionDividerColor} />
+            </>
+          ) : (
+            <>
+              <View
+                style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
                 <View
-                  style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
-                  <View
-                    style={[
-                      styles.userAvatar,
-                      styles.userAvatarInactive,
-                      isDark && styles.userAvatarInactiveDark,
-                    ]}>
-                    <Icon
-                      name="account-off"
-                      size={32}
-                      color={isDark ? (colors.neutral[400] as string) : themeColors.onSurface}
-                    />
-                  </View>
+                  style={[
+                    styles.userAvatar,
+                    styles.userAvatarInactive,
+                    isDark && styles.userAvatarInactiveDark,
+                  ]}>
+                  <Icon
+                    name="account-off"
+                    size={32}
+                    color={
+                      isDark
+                        ? (colors.neutral[400] as string)
+                        : themeColors.onSurface
+                    }
+                  />
+                </View>
                 <View style={styles.userInfo}>
                   <Text
                     style={[
@@ -268,107 +265,110 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                     Click the Login at the bottom
                   </Text>
                 </View>
-                </View>
-                <FadingDivider color={sectionDividerColor} />
-              </>
-            )}
+              </View>
+              <FadingDivider color={sectionDividerColor} />
+            </>
+          )}
 
-            <ScrollView style={styles.menuList}>
-              {/* App Settings dropdown with Themes section, divided by thin lines */}
-              <View style={styles.menuItem}>
-                <View style={styles.themeContent}>
-                  <TouchableOpacity
-                    style={styles.appSettingsHeader}
-                    activeOpacity={0.8}
-                    onPress={() => setAppSettingsOpen(open => !open)}>
-                    <View style={styles.appSettingsTitleRow}>
-                      <Icon
-                        name="cog"
-                        size={24}
-                        color={textColor}
-                      />
-                      <Text
-                        style={[styles.menuLabel, { color: textColor }]}>
-                        App Settings
-                      </Text>
-                    </View>
+          <ScrollView style={styles.menuList}>
+            {/* App Settings dropdown with Themes section, divided by thin lines */}
+            <View style={styles.menuItem}>
+              <View style={styles.themeContent}>
+                <TouchableOpacity
+                  style={styles.appSettingsHeader}
+                  activeOpacity={0.8}
+                  onPress={() => setAppSettingsOpen(open => !open)}>
+                  <View style={styles.appSettingsTitleRow}>
                     <Icon
-                      name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
-                      size={20}
+                      name="cog"
+                      size={24}
                       color={textColor}
-                      style={styles.appSettingsChevron}
                     />
-                  </TouchableOpacity>
-                  {appSettingsOpen && (
+                    <Text
+                      style={[styles.menuLabel, { color: textColor }]}>
+                      App Settings
+                    </Text>
+                  </View>
+                  <Icon
+                    name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
+                    size={20}
+                    color={textColor}
+                    style={styles.appSettingsChevron}
+                  />
+                </TouchableOpacity>
+                {appSettingsOpen && (
+                  <View
+                    style={[
+                      styles.themesCardOuter,
+                      {
+                        borderColor: sectionDividerColor,
+                        backgroundColor: cardOuterBg,
+                      },
+                    ]}>
                     <View
                       style={[
-                        styles.themesCardOuter,
-                        { borderColor: sectionDividerColor, backgroundColor: cardOuterBg },
+                        styles.themesCardInner,
+                        { backgroundColor: cardInnerBg },
                       ]}>
-                      <View
+                      <Text
                         style={[
-                          styles.themesCardInner,
-                          { backgroundColor: cardInnerBg },
+                          styles.themesTitle,
+                          { color: textColor },
                         ]}>
-                        <Text
-                          style={[
-                            styles.themesTitle,
-                            { color: textColor },
-                          ]}>
-                          Themes
-                        </Text>
-                        <View style={styles.themeOptionsColumn}>
-                          {(['system', 'dark', 'light'] as ThemeMode[]).map(
-                            mode => (
-                              <TouchableOpacity
-                                key={mode}
-                                style={[
-                                  styles.themeChip,
-                                  {
+                        Themes
+                      </Text>
+                      <View style={styles.themeOptionsColumn}>
+                        {(['system', 'dark', 'light'] as ThemeMode[]).map(
+                          mode => (
+                            <TouchableOpacity
+                              key={mode}
+                              style={[
+                                styles.themeChip,
+                                {
                                   borderColor:
                                     themeMode === mode
                                       ? (themeColors.primary as string)
                                       : isDark
                                         ? (colors.neutral[500] as string)
                                         : (colors.neutral[400] as string),
-                                  },
-                                ]}
-                                activeOpacity={0.8}
-                                onPress={() => setThemeMode(mode)}>
-                                <Text
-                                  style={[
-                                    styles.themeChipLabel,
-                                    {
+                                },
+                              ]}
+                              activeOpacity={0.8}
+                              onPress={() => setThemeMode(mode)}>
+                              <Text
+                                style={[
+                                  styles.themeChipLabel,
+                                  {
                                     color:
                                       themeMode === mode
                                         ? (themeColors.primary as string)
                                         : isDark
                                           ? (colors.neutral[200] as string)
                                           : (colors.neutral[700] as string),
-                                    },
-                                  ]}>
-                                  {mode === 'system'
-                                    ? 'System'
-                                    : mode === 'dark'
-                                      ? 'Dark'
-                                      : 'Light'}
-                                </Text>
-                              </TouchableOpacity>
-                            ),
-                          )}
-                        </View>
+                                  },
+                                ]}>
+                                {mode === 'system'
+                                  ? 'System'
+                                  : mode === 'dark'
+                                    ? 'Dark'
+                                    : 'Light'}
+                              </Text>
+                            </TouchableOpacity>
+                          ),
+                        )}
                       </View>
                     </View>
-                  )}
-                </View>
+                  </View>
+                )}
               </View>
-              <FadingDivider color={sectionDividerColor} />
+            </View>
+            <FadingDivider color={sectionDividerColor} />
 
-              {visibleItems.map((item, index) => (
-                <React.Fragment key={index}>
-                  <TouchableOpacity
-                    style={styles.menuItem}
-                    onPress={() => onNavigate(item.screen)}>
+            {visibleItems.map((item, index) => (
+              <React.Fragment key={index}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => onNavigate(item.screen)}>
                   <Icon
                     name={item.icon}
                     size={24}
@@ -381,42 +381,41 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 </TouchableOpacity>
                 <FadingDivider color={sectionDividerColor} />
               </React.Fragment>
-              ))}
-            </ScrollView>
+            ))}
+          </ScrollView>
 
-            <FadingDivider color={sectionDividerColor} />
-            <View style={[styles.footer, { backgroundColor: cardOuterBg }]}>
-              {userInfo ? (
-                <Button
-                  title="Logout"
-                  onPress={onLogout}
-                  variant="danger"
-                  size="medium"
-                  fullWidth
-                />
-              ) : (
-                <Button
-                  title="Login"
-                  onPress={() => {
-                    onClose();
-                    onNavigate('Settings');
-                  }}
-                  variant="primary"
-                  size="medium"
-                  fullWidth
-                />
-              )}
-            </View>
-          </SafeAreaView>
-        </View>
+          <FadingDivider color={sectionDividerColor} />
+          <View style={[styles.footer, { backgroundColor: cardOuterBg }]}>
+            {userInfo ? (
+              <Button
+                title="Logout"
+                onPress={onLogout}
+                variant="danger"
+                size="medium"
+                fullWidth
+              />
+            ) : (
+              <Button
+                title="Login"
+                onPress={() => {
+                  onClose();
+                  onNavigate('Settings');
+                }}
+                variant="primary"
+                size="medium"
+                fullWidth
+              />
+            )}
+          </View>
+        </SafeAreaView>
       </View>
-    </Modal>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   backdrop: {
     flex: 1,

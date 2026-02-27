@@ -389,12 +389,29 @@ const MainTabNavigator: React.FC = () => {
           listeners={
             tabName === 'More'
               ? ({ navigation }) => ({
-                  tabPress: () => {
+                  tabPress: e => {
+                    e.preventDefault();
                     const state = navigation.getState();
                     const currentRoute = state.routes[state.index];
-                    if (currentRoute?.name === 'More') {
+
+                    if (currentRoute?.name !== 'More') {
+                      // First time opening: remember where we came from.
                       (
-                        navigation as { setParams: (params: object) => void }
+                        navigation as unknown as {
+                          navigate: (
+                            name: string,
+                            params?: Record<string, unknown>,
+                          ) => void;
+                        }
+                      ).navigate('More', {
+                        originTab: currentRoute?.name,
+                      });
+                    } else {
+                      // Already on More: toggle the drawer.
+                      (
+                        navigation as unknown as {
+                          setParams: (params: Record<string, unknown>) => void;
+                        }
                       ).setParams({
                         toggleDrawer: Date.now(),
                       });
