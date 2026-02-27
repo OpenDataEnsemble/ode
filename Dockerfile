@@ -62,10 +62,13 @@ COPY synkronus/ ./
 # Embed the portal build into the binary (must exist at go build time)
 COPY --from=portal-builder /app/synkronus-portal/dist ./portal/dist
 
-# Build the application (version via build-arg; use ./scripts/build-synkronus.sh to build from git tag).
+# Build the application with version from build arg
+# Version is automatically derived from git tags in CI and passed as build arg
+# Defaults to "dev" for local builds without tags
 ARG SYNKRONUS_VERSION=dev
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -a -ldflags="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}" -o synkronus ./cmd/synkronus
+RUN echo "Building Synkronus with version: ${SYNKRONUS_VERSION}" && \
+    go build -a -ldflags="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}" -o synkronus ./cmd/synkronus
 
 # Stage 3: Minimal runtime image — single Go server (API + portal)
 FROM alpine:3.19
