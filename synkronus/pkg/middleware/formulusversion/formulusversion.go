@@ -25,13 +25,13 @@ type VersionMismatchResponse struct {
 func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			serverVer := version.BuildVersion()
 			clientVer := strings.TrimSpace(r.Header.Get(headerFormulusVersion))
 			if clientVer == "" {
 				log.Warn("Missing x-formulus-version header")
-				writeVersionError(w, "Missing x-formulus-version header. Client must send a valid semantic version.", "")
+				writeVersionError(w, "Missing x-formulus-version header. Client must send a valid semantic version.", serverVer)
 				return
 			}
-			serverVer := version.BuildVersion()
 			clientMajor, ok := parseMajor(clientVer)
 			if !ok {
 				log.Warn("Formulus version header unparseable", "x-formulus-version", clientVer)
