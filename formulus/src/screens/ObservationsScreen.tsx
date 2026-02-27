@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  useColorScheme,
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,12 +27,15 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { Observation } from '../database/models/Observation';
-import colors, {
-  withAlpha,
-  CONTAINER_ALPHA,
-} from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 
 type ObservationsScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -40,6 +44,11 @@ type ObservationsScreenNavigationProp = StackNavigationProp<
 
 const ObservationsScreen: React.FC = () => {
   const { themeColors } = useAppTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const titleColor = isDark
+    ? (themeColors.onSurface as string)
+    : (colors.neutral[900] as string);
   const navigation = useNavigation<ObservationsScreenNavigationProp>();
   const observationsHook = useObservations();
   const {
@@ -224,9 +233,7 @@ const ObservationsScreen: React.FC = () => {
             },
           ]}>
           <View style={styles.headerLeft}>
-            <Text style={[styles.title, { color: themeColors.onSurface }]}>
-              Observations
-            </Text>
+            <Text style={[styles.title, { color: titleColor }]}>Observations</Text>
             {finalFiltered.length > 0 && (
               <Text
                 style={[styles.subtitle, { color: themeColors.onSurface }]}>
@@ -286,6 +293,7 @@ const ObservationsScreen: React.FC = () => {
         <View
           style={[
             styles.filtersContainer,
+            { marginTop: showSearch ? 16 : 16 },
             {
               backgroundColor: withAlpha(
                 themeColors.surface as string,
@@ -355,49 +363,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
   },
   headerLeft: {
     flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: odeSpacing.xs,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
   },
   searchButton: {
-    padding: 4,
-    marginTop: 4,
+    padding: odeSpacing.xxs,
+    marginTop: odeSpacing.xxs,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+    marginHorizontal: odeSpacing.lg,
+    marginTop: odeSpacing.md,
+    marginBottom: odeSpacing.xs,
+    paddingHorizontal: odeSpacing.sm,
+    borderRadius: odeRadius.inner,
+    borderWidth: odeBorderWidth.hairline,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: odeSpacing.xs,
   },
   searchInput: {
     flex: 1,
     marginBottom: 0,
   },
   filtersContainer: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
     gap: 12,
   },
@@ -405,10 +413,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: odeSpacing.sm,
   },
   listContent: {
-    paddingVertical: 8,
+    paddingVertical: odeSpacing.sm,
   },
   loadingContainer: {
     flex: 1,
@@ -416,8 +424,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
+    marginTop: odeSpacing.sm,
+    fontSize: odeTypography.body,
   },
 });
 

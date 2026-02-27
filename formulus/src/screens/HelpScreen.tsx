@@ -1,12 +1,33 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Linking,
+  useColorScheme,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 
 const HelpScreen: React.FC = () => {
   const { themeColors } = useAppTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const titleColor = isDark
+    ? (colors.neutral[200] as string)
+    : (colors.neutral[900] as string);
+  const cardTitleColor = isDark
+    ? (colors.neutral[200] as string)
+    : (colors.neutral[900] as string);
   const cardOuterBg = withAlpha(
     themeColors.surface as string,
     CONTAINER_ALPHA,
@@ -34,11 +55,8 @@ const HelpScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: themeColors.onSurface }]}>
+          <Text style={[styles.title, { color: titleColor }]}>
             Help & Support
-          </Text>
-          <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
-            Get help and share feedback
           </Text>
         </View>
 
@@ -57,15 +75,21 @@ const HelpScreen: React.FC = () => {
             <View
               style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
               <Text
-                style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+                style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Community Forum
               </Text>
-              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.cardTextCentered,
+                  { color: themeColors.onSurface },
+                ]}>
                 We would love to hear your feedback and welcome contributions.
               </Text>
               <Text
                 style={[
                   styles.cardText,
+                  styles.cardTextCentered,
                   styles.link,
                   { color: themeColors.primary },
                 ]}
@@ -90,7 +114,7 @@ const HelpScreen: React.FC = () => {
             <View
               style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
               <Text
-                style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+                style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Troubleshooting
               </Text>
               <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
@@ -120,10 +144,15 @@ const HelpScreen: React.FC = () => {
             <View
               style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
               <Text
-                style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+                style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Administrator
               </Text>
-              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.cardTextCentered,
+                  { color: themeColors.onSurface },
+                ]}>
                 For account setup, server configuration, or access issues,
                 contact your system administrator.
               </Text>
@@ -143,46 +172,49 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
+    marginBottom: odeSpacing.xs,
+    textAlign: 'center',
   },
   content: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: odeSpacing.md,
+    paddingBottom: odeSpacing.xl,
   },
   card: {
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    padding: 16,
+    borderRadius: odeRadius.card,
+    marginBottom: odeSpacing.sm,
+    borderWidth: odeBorderWidth.hairline,
+    padding: odeSpacing.md,
   },
   cardInner: {
-    borderRadius: 8,
+    borderRadius: odeRadius.inner,
     overflow: 'hidden',
-    padding: 12,
+    padding: odeSpacing.sm,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: odeSpacing.xs,
+    textAlign: 'center',
   },
   cardText: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
     lineHeight: 20,
   },
+  cardTextCentered: {
+    textAlign: 'center',
+  },
   link: {
-    marginTop: 12,
+    marginTop: odeSpacing.sm,
     fontWeight: '600',
   },
 });

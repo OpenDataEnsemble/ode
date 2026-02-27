@@ -108,7 +108,13 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
       <View style={styles.overlay}>
         {allowClose && (
           <TouchableOpacity
-            style={[styles.backdrop, { backgroundColor: colors.ui.background }]}
+            style={[
+              styles.backdrop,
+              {
+                backgroundColor: withAlpha(colors.neutral.black, 0.65),
+                marginBottom: bottomPadding,
+              },
+            ]}
             activeOpacity={1}
             onPress={onClose}
           />

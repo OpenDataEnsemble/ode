@@ -33,7 +33,7 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
   const { themeColors } = useAppTheme();
   const [modalVisible, setModalVisible] = useState(false);
   const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
-  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = themeColors.surface as string;
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const selectorTextColor = isDark
@@ -80,7 +80,7 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
         <TouchableOpacity
           style={[
             styles.modalOverlay,
-            { backgroundColor: withAlpha(colors.neutral.black, 0.35) },
+            { backgroundColor: withAlpha(colors.neutral.black, 0.85) },
           ]}
           activeOpacity={1}
           onPress={() => setModalVisible(false)}>

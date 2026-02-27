@@ -7,22 +7,31 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useForms } from '../hooks/useForms';
 import { FormCard, EmptyState } from '../components/common';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useFocusEffect } from '@react-navigation/native';
-import colors, {
-  withAlpha,
-  CONTAINER_ALPHA,
-} from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 
 const FormsScreen: React.FC = () => {
   const { themeColors } = useAppTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const titleColor = isDark
+    ? (themeColors.onSurface as string)
+    : (colors.neutral[900] as string);
   const { forms, loading, error, refresh, getObservationCount } = useForms();
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
@@ -116,9 +125,7 @@ const FormsScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: themeColors.onSurface }]}>
-            Forms
-          </Text>
+          <Text style={[styles.title, { color: titleColor }]}>Forms</Text>
           {forms.length > 0 && (
             <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
               {forms.length} form{forms.length !== 1 ? 's' : ''} available
@@ -157,22 +164,25 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: odeSpacing.xs,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
+    textAlign: 'center',
   },
   listContent: {
-    paddingVertical: 8,
+    paddingVertical: odeSpacing.sm,
   },
   loadingContainer: {
     flex: 1,
@@ -180,8 +190,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
+    marginTop: odeSpacing.sm,
+    fontSize: odeTypography.body,
   },
 });
 

@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
+  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
@@ -19,18 +20,26 @@ import { useSyncContext } from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
 import { databaseService } from '../database/DatabaseService';
 import { getUserInfo } from '../api/synkronus/Auth';
-import colors, {
-  withAlpha,
-  CONTAINER_ALPHA,
-} from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
 const SyncScreen = () => {
   const { themeColors } = useAppTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const titleColor = isDark
+    ? (themeColors.onSurface as string)
+    : (colors.neutral[900] as string);
   const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   const syncContextValue = useSyncContext();
@@ -372,17 +381,7 @@ const SyncScreen = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text
-            style={[styles.title, { color: themeColors.onSurface as string }]}>
-            Sync
-          </Text>
-          <Text
-            style={[
-              styles.subtitle,
-              { color: themeColors.onSurface as string },
-            ]}>
-            Synchronize your data
-          </Text>
+          <Text style={[styles.title, { color: titleColor }]}>Sync</Text>
         </View>
 
         <ScrollView
@@ -810,42 +809,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    marginBottom: 4,
+    marginBottom: odeSpacing.xs,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
+    textAlign: 'center',
   },
   scrollTransparent: {
     backgroundColor: 'transparent',
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: odeSpacing.md,
+    paddingBottom: odeSpacing.xl,
   },
   card: {
-    borderRadius: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    padding: 16,
+    borderRadius: odeRadius.card,
+    marginBottom: odeSpacing.md,
+    borderWidth: odeBorderWidth.hairline,
+    padding: odeSpacing.md,
   },
   cardInner: {
-    borderRadius: 8,
+    borderRadius: odeRadius.inner,
     overflow: 'hidden',
-    padding: 12,
+    padding: odeSpacing.sm,
   },
   statusCardsContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: odeSpacing.sm,
+    marginBottom: odeSpacing.md,
   },
   statusCard: {
     flex: 1,
@@ -853,49 +855,49 @@ const styles = StyleSheet.create({
   statusCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: odeSpacing.xs,
+    marginBottom: odeSpacing.xs,
   },
   statusCardTitle: {
-    fontSize: 12,
+    fontSize: odeTypography.caption,
     fontWeight: '500',
     textTransform: 'uppercase',
   },
   statusCardValue: {
-    fontSize: 16,
+    fontSize: odeTypography.body,
     fontWeight: '600',
   },
   statusCardSubtext: {
-    fontSize: 12,
-    marginTop: 4,
+    fontSize: odeTypography.caption,
+    marginTop: odeSpacing.xxs,
   },
   pendingSection: {
-    marginBottom: 16,
+    marginBottom: odeSpacing.md,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: odeSpacing.sm,
   },
   pendingItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 8,
+    gap: odeSpacing.sm,
+    paddingVertical: odeSpacing.xs,
   },
   pendingItemContent: {
     flex: 1,
   },
   pendingItemLabel: {
-    fontSize: 14,
-    marginBottom: 2,
+    fontSize: odeTypography.bodySm,
+    marginBottom: odeSpacing.xxs,
   },
   pendingItemValue: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
     fontWeight: '600',
   },
   versionCard: {
-    marginBottom: 16,
+    marginBottom: odeSpacing.md,
   },
   versionRow: {
     flexDirection: 'row',
@@ -903,23 +905,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   versionLabel: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
     fontWeight: '500',
   },
   versionValues: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: odeSpacing.sm,
   },
   versionItem: {
     alignItems: 'flex-end',
   },
   versionItemLabel: {
-    fontSize: 11,
-    marginBottom: 2,
+    fontSize: odeTypography.caption,
+    marginBottom: odeSpacing.xxs,
   },
   versionItemValue: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
     fontWeight: '600',
   },
   versionDivider: {
@@ -940,20 +942,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   progressCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: odeRadius.card,
+    padding: odeSpacing.md,
+    marginBottom: odeSpacing.md,
     overflow: 'hidden',
     borderLeftWidth: 4,
   },
   progressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: odeSpacing.xs,
+    marginBottom: odeSpacing.sm,
   },
   progressTitle: {
-    fontSize: 16,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
   },
   progressBar: {
@@ -967,15 +969,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: odeTypography.caption,
     textAlign: 'center',
     marginBottom: 12,
   },
   errorCard: {
     backgroundColor: colors.semantic.error[50] as unknown as string,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: odeRadius.card,
+    padding: odeSpacing.md,
+    marginBottom: odeSpacing.md,
     overflow: 'hidden',
     borderLeftWidth: 4,
     borderLeftColor: colors.semantic.error[500] as unknown as string,
@@ -987,12 +989,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
     color: colors.semantic.error[500] as unknown as string,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
     color: colors.semantic.error[600] as unknown as string,
     marginBottom: 12,
   },
@@ -1000,7 +1002,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionButtonText: {
-    fontSize: 16,
+    fontSize: odeTypography.body,
     fontWeight: '600',
   },
   secondaryButtonText: {},

@@ -6,16 +6,31 @@ import {
   Image,
   ScrollView,
   Linking,
+  useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { appVersionService } from '../services/AppVersionService';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 import logo from '../../assets/images/logo.png';
 
 const AboutScreen: React.FC = () => {
   const { themeColors } = useAppTheme();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const titleColor = isDark
+    ? (colors.neutral[200] as string)
+    : (colors.neutral[900] as string);
+  const cardTitleColor = isDark
+    ? (colors.neutral[200] as string)
+    : (colors.neutral[900] as string);
   const [version, setVersion] = useState<string>('');
   const cardOuterBg = withAlpha(
     themeColors.surface as string,
@@ -58,12 +73,7 @@ const AboutScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: themeColors.onSurface }]}>
-            About
-          </Text>
-          <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
-            Information about this app
-          </Text>
+          <Text style={[styles.title, { color: titleColor }]}>About</Text>
         </View>
 
         <ScrollView
@@ -75,11 +85,6 @@ const AboutScreen: React.FC = () => {
               <Text style={[styles.appName, { color: themeColors.onSurface }]}>
                 ODE
               </Text>
-              {!!version && (
-                <Text style={[styles.version, { color: themeColors.onSurface }]}>
-                  v{version}
-                </Text>
-              )}
             </View>
           </View>
 
@@ -98,7 +103,7 @@ const AboutScreen: React.FC = () => {
                 { backgroundColor: cardInnerBg },
               ]}>
               <Text
-                style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+                style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Formulus
               </Text>
               <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
@@ -123,10 +128,14 @@ const AboutScreen: React.FC = () => {
                 { backgroundColor: cardInnerBg },
               ]}>
               <Text
-                style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+                style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Support
               </Text>
-              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              <Text
+                style={[
+                  styles.cardText,
+                  { color: themeColors.onSurface },
+                ]}>
                 If you need help, contact your system administrator.
               </Text>
             </View>
@@ -147,10 +156,14 @@ const AboutScreen: React.FC = () => {
                 { backgroundColor: cardInnerBg },
               ]}>
               <Text
-                style={[styles.cardTitle, { color: themeColors.onSurface }]}>
+                style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Free & Open Source
               </Text>
-              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              <Text
+                style={[
+                  styles.cardText,
+                  { color: themeColors.onSurface },
+                ]}>
                 This application is free and open source software. We would love
                 to hear your feedback and welcome contributions.
               </Text>
@@ -168,6 +181,12 @@ const AboutScreen: React.FC = () => {
               </Text>
             </View>
           </View>
+
+          {!!version && (
+            <Text style={[styles.version, { color: themeColors.onSurface }]}>
+              v{version}
+            </Text>
+          )}
       </ScrollView>
       </SafeAreaView>
     </BlurredScreenBackground>
@@ -182,67 +201,69 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
+    marginBottom: odeSpacing.xs,
+    textAlign: 'center',
   },
   content: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: odeSpacing.md,
+    paddingBottom: odeSpacing.xl,
   },
   brandRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    marginBottom: odeSpacing.md,
+    gap: odeSpacing.xs,
   },
   logo: {
     width: 56,
     height: 56,
   },
   brandText: {
-    flex: 1,
+    alignItems: 'center',
   },
   appName: {
-    fontSize: 20,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '700',
+    textAlign: 'center',
   },
   version: {
-    marginTop: 2,
-    fontSize: 12,
+    marginTop: odeSpacing.xxs,
+    fontSize: odeTypography.caption,
+    textAlign: 'center',
   },
   card: {
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    padding: 16,
+    borderRadius: odeRadius.card,
+    marginBottom: odeSpacing.sm,
+    borderWidth: odeBorderWidth.hairline,
+    padding: odeSpacing.md,
   },
   cardInner: {
-    borderRadius: 8,
+    borderRadius: odeRadius.inner,
     overflow: 'hidden',
-    padding: 12,
+    padding: odeSpacing.sm,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: odeSpacing.xs,
+    textAlign: 'center',
   },
   cardText: {
-    fontSize: 14,
+    fontSize: odeTypography.bodySm,
     lineHeight: 20,
+    textAlign: 'center',
   },
   link: {
-    marginTop: 12,
+    marginTop: odeSpacing.sm,
     fontWeight: '600',
   },
 });

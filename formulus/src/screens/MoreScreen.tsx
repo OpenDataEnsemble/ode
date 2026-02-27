@@ -29,10 +29,10 @@ const MoreScreen: React.FC = () => {
   );
 
   useEffect(() => {
-    const params = route.params as { openDrawer?: number } | undefined;
-    if (params?.openDrawer) {
+    const params = route.params as { toggleDrawer?: number } | undefined;
+    if (params?.toggleDrawer) {
       Promise.resolve().then(() => {
-        setDrawerVisible(true);
+        setDrawerVisible(prev => !prev);
       });
     }
   }, [route.params]);

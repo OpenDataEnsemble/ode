@@ -270,7 +270,7 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
               style={styles.customTabBarItem}
               onPress={() => {
                 if (route.name === 'More' && focused && navigation.setParams) {
-                  navigation.setParams({ openDrawer: Date.now() });
+                  navigation.setParams({ toggleDrawer: Date.now() });
                   return;
                 }
                 navigation.dispatch(
@@ -403,7 +403,7 @@ const MainTabNavigator: React.FC = () => {
                       (
                         navigation as { setParams: (params: object) => void }
                       ).setParams({
-                        openDrawer: Date.now(),
+                        toggleDrawer: Date.now(),
                       });
                     }
                   },
