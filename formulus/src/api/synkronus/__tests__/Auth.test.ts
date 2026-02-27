@@ -49,7 +49,13 @@ jest.mock('../index', () => ({
 import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { autoLogin, isUnauthorizedError } from '../Auth';
+import {
+  autoLogin,
+  isUnauthorizedError,
+  isVersionMismatchError,
+  getVersionMismatchInfo,
+  getVersionMismatchMessage,
+} from '../Auth';
 import { synkronusApi } from '../index';
 
 describe('Auth - Auto-Login', () => {
@@ -103,6 +109,44 @@ describe('Auth - Auto-Login', () => {
     test('should return false for null/undefined', () => {
       expect(isUnauthorizedError(null)).toBe(false);
       expect(isUnauthorizedError(undefined)).toBe(false);
+    });
+  });
+
+  describe('isVersionMismatchError / getVersionMismatchMessage', () => {
+    test('should detect 400 with VERSION_MISMATCH code (Axios)', () => {
+      const error = {
+        response: {
+          status: 400,
+          data: {
+            code: 'VERSION_MISMATCH',
+            synkronus_version: '1.0.24',
+            formulus_version: '0.0.1',
+          },
+        },
+      };
+      expect(isVersionMismatchError(error)).toBe(true);
+      expect(getVersionMismatchInfo(error)).toEqual({
+        synkronusVersion: '1.0.24',
+        formulusVersion: '0.0.1',
+      });
+      expect(getVersionMismatchMessage(error)).toContain('v1.0.24');
+      expect(getVersionMismatchMessage(error)).toContain('v0.0.1');
+    });
+
+    test('should return false for 400 without VERSION_MISMATCH', () => {
+      const error = { response: { status: 400, data: { code: 'OTHER' } } };
+      expect(isVersionMismatchError(error)).toBe(false);
+      expect(getVersionMismatchInfo(error)).toBeNull();
+    });
+
+    test('should return false for 401', () => {
+      const error = { response: { status: 401 } };
+      expect(isVersionMismatchError(error)).toBe(false);
+    });
+
+    test('getVersionMismatchMessage returns generic message when no info', () => {
+      const error = { response: { status: 400, data: { code: 'VERSION_MISMATCH' } } };
+      expect(getVersionMismatchMessage(error)).toContain('not supported');
     });
   });
 

@@ -7,6 +7,8 @@ import { FormService } from './FormService';
 import {
   autoLogin,
   isUnauthorizedError,
+  isVersionMismatchError,
+  getVersionMismatchMessage,
   HttpError,
 } from '../api/synkronus/Auth';
 type SyncStatusCallback = (status: string) => void;
@@ -86,6 +88,10 @@ export class SyncService {
       this.autoLoginRetryCount = 0;
       return await operation();
     } catch (error: unknown) {
+      // Version mismatch: do not retry, surface clear message
+      if (isVersionMismatchError(error)) {
+        throw new Error(getVersionMismatchMessage(error));
+      }
       // Check if this is a 401 Unauthorized error
       if (isUnauthorizedError(error)) {
         // Prevent infinite retry loops
@@ -276,7 +282,9 @@ export class SyncService {
       return finalVersion;
     } catch (error) {
       console.error('Sync failed', error);
-      const errorMessage = 'Unknown error occurred';
+      const errorMessage = isVersionMismatchError(error)
+        ? getVersionMismatchMessage(error)
+        : 'Unknown error occurred';
       this.updateStatus(`Sync failed: ${errorMessage}`);
 
       // Don't let notification service block error handling
@@ -370,7 +378,10 @@ export class SyncService {
       appEvents.emit('bundleUpdated');
     } catch (error) {
       console.error('App sync failed', error);
-      this.updateStatus('App sync failed');
+      const message = isVersionMismatchError(error)
+        ? getVersionMismatchMessage(error)
+        : 'App sync failed';
+      this.updateStatus(message);
       throw error;
     } finally {
       this.isSyncing = false;

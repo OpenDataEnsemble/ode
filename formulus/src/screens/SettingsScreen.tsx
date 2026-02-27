@@ -15,7 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
-import { login } from '../api/synkronus/Auth';
+import {
+  login,
+  isVersionMismatchError,
+  getVersionMismatchMessage,
+} from '../api/synkronus/Auth';
 import { serverConfigService } from '../services/ServerConfigService';
 import QRScannerModal, {
   ScannerModalResults,
@@ -233,9 +237,10 @@ const SettingsScreen = () => {
       navigation.navigate('Home');
     } catch (error) {
       console.error('Login failed:', error);
-      const errorMessage =
-        error && 'Failed to login. Please check your credentials.';
-      ToastService.showLong(`Login failed: ${errorMessage}`);
+      const message = isVersionMismatchError(error)
+        ? getVersionMismatchMessage(error)
+        : `Login failed: ${error && 'Please check your credentials.'}`;
+      ToastService.showLong(message);
     } finally {
       setIsLoggingIn(false);
     }

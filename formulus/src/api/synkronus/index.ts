@@ -15,6 +15,7 @@ import { databaseService } from '../../database/DatabaseService';
 import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { clientIdService } from '../../services/ClientIdService';
 import { unzip } from 'react-native-zip-archive';
+import { FORMULUS_VERSION } from '../../version';
 
 interface DownloadResult {
   success: boolean;
@@ -51,6 +52,11 @@ class SynkronusApi {
         accessToken: async () => {
           const token = await AsyncStorage.getItem('@token');
           return token || '';
+        },
+        baseOptions: {
+          headers: {
+            'x-formulus-version': FORMULUS_VERSION,
+          },
         },
       });
     }
@@ -180,7 +186,10 @@ class SynkronusApi {
     const downloadResult = await RNFS.downloadFile({
       fromUrl: zipUrl,
       toFile: tempZipPath,
-      headers: { Authorization: `Bearer ${authToken}` },
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'x-formulus-version': FORMULUS_VERSION,
+      },
       background: true,
       progressInterval: 500,
       progress: res => {
@@ -551,6 +560,7 @@ class SynkronusApi {
       this.fastGetToken_cachedToken ?? (await this.fastGetToken());
     const downloadHeaders: { [key: string]: string } = {};
     downloadHeaders.Authorization = `Bearer ${authToken}`;
+    downloadHeaders['x-formulus-version'] = FORMULUS_VERSION;
 
     console.debug(`Downloading from: ${url}`);
     const result = await RNFS.downloadFile({

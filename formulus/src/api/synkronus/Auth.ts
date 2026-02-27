@@ -15,14 +15,70 @@ export interface UserInfo {
 export interface HttpError extends Error {
   response?: {
     status?: number;
-    data?: { status?: number };
+    data?: {
+      status?: number;
+      code?: string;
+      synkronus_version?: string;
+      formulus_version?: string;
+    };
   };
   status?: number;
   statusCode?: number;
-  body?: { status?: number };
-  data?: { status?: number };
+  body?: { status?: number; code?: string; synkronus_version?: string; formulus_version?: string };
+  data?: { status?: number; code?: string; synkronus_version?: string; formulus_version?: string };
   code?: string | number;
 }
+
+/** Response body when Synkronus returns VERSION_MISMATCH (400). */
+export interface VersionMismatchInfo {
+  synkronusVersion: string;
+  formulusVersion: string;
+}
+
+const VERSION_ERROR_CODES = ['VERSION_MISMATCH', 'VERSION_HEADER_REQUIRED', 'VERSION_INVALID'] as const;
+
+/**
+ * Checks if an error is a Formulus-Synkronus version error (400 with code VERSION_MISMATCH, VERSION_HEADER_REQUIRED, or VERSION_INVALID).
+ */
+export const isVersionMismatchError = (error: unknown): boolean => {
+  if (!error) return false;
+  const e = error as HttpError;
+  const status = e.response?.status ?? e.status ?? e.statusCode ?? e.response?.data?.status;
+  if (status !== 400) return false;
+  const code = e.response?.data?.code ?? e.body?.code ?? e.data?.code;
+  return typeof code === 'string' && VERSION_ERROR_CODES.includes(code as (typeof VERSION_ERROR_CODES)[number]);
+};
+
+/**
+ * Returns version info from a version error for display, or null when not present.
+ */
+export const getVersionMismatchInfo = (error: unknown): VersionMismatchInfo | null => {
+  if (!isVersionMismatchError(error)) return null;
+  const e = error as HttpError;
+  const d = e.response?.data ?? e.body ?? e.data;
+  if (!d || typeof d !== 'object') return null;
+  const synkronusVersion = (d as { synkronus_version?: string }).synkronus_version ?? '';
+  const formulusVersion = (d as { formulus_version?: string }).formulus_version ?? '';
+  if (!synkronusVersion && !formulusVersion) return null;
+  return { synkronusVersion: synkronusVersion || '?', formulusVersion: formulusVersion || '?' };
+};
+
+/**
+ * Returns a user-facing message for a version error. Uses server message when present.
+ */
+export const getVersionMismatchMessage = (error: unknown): string => {
+  const e = error as HttpError;
+  const d = e?.response?.data ?? e?.body ?? e?.data;
+  const serverMessage = typeof d === 'object' && d !== null && typeof (d as { message?: string }).message === 'string'
+    ? (d as { message: string }).message
+    : null;
+  if (serverMessage) return serverMessage;
+  const info = getVersionMismatchInfo(error);
+  if (!info) {
+    return 'Version check failed. The Synkronus version of this endpoint may not be supported by this version of Formulus.';
+  }
+  return `The Synkronus version of this endpoint (v${info.synkronusVersion}) is not supported by this version of Formulus (v${info.formulusVersion}).`;
+};
 
 const decodeBase64 = (input: string): string => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
