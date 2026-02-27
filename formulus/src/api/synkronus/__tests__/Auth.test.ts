@@ -53,9 +53,8 @@ import {
   autoLogin,
   isUnauthorizedError,
   isVersionMismatchError,
-  getVersionMismatchInfo,
-  getVersionMismatchMessage,
 } from '../Auth';
+import { VersionMismatchError } from '../../../errors/VersionMismatchError';
 import { synkronusApi } from '../index';
 
 describe('Auth - Auto-Login', () => {
@@ -112,41 +111,36 @@ describe('Auth - Auto-Login', () => {
     });
   });
 
-  describe('isVersionMismatchError / getVersionMismatchMessage', () => {
-    test('should detect 400 with VERSION_MISMATCH code (Axios)', () => {
-      const error = {
-        response: {
-          status: 400,
-          data: {
-            code: 'VERSION_MISMATCH',
-            synkronus_version: '1.0.24',
-            formulus_version: '0.0.1',
-          },
-        },
-      };
+  describe('isVersionMismatchError', () => {
+    test('should detect VersionMismatchError instance', () => {
+      const error = new VersionMismatchError(
+        'Formulus v0.0.1 is not compatible with this server (v1.0.24). Please update the app.',
+        '1.0.24',
+      );
       expect(isVersionMismatchError(error)).toBe(true);
-      expect(getVersionMismatchInfo(error)).toEqual({
-        synkronusVersion: '1.0.24',
-        formulusVersion: '0.0.1',
-      });
-      expect(getVersionMismatchMessage(error)).toContain('v1.0.24');
-      expect(getVersionMismatchMessage(error)).toContain('v0.0.1');
+      expect(error.message).toContain('v1.0.24');
+      expect(error.synkronusVersion).toBe('1.0.24');
     });
 
-    test('should return false for 400 without VERSION_MISMATCH', () => {
-      const error = { response: { status: 400, data: { code: 'OTHER' } } };
+    test('should return false for regular Error', () => {
+      const error = new Error('Some other error');
       expect(isVersionMismatchError(error)).toBe(false);
-      expect(getVersionMismatchInfo(error)).toBeNull();
     });
 
-    test('should return false for 401', () => {
+    test('should return false for 401 error', () => {
       const error = { response: { status: 401 } };
       expect(isVersionMismatchError(error)).toBe(false);
     });
 
-    test('getVersionMismatchMessage returns generic message when no info', () => {
-      const error = { response: { status: 400, data: { code: 'VERSION_MISMATCH' } } };
-      expect(getVersionMismatchMessage(error)).toContain('not supported');
+    test('should return false for null/undefined', () => {
+      expect(isVersionMismatchError(null)).toBe(false);
+      expect(isVersionMismatchError(undefined)).toBe(false);
+    });
+
+    test('VersionMismatchError uses default message when none provided', () => {
+      const error = new VersionMismatchError();
+      expect(error.message).toContain('not supported');
+      expect(error.synkronusVersion).toBe('unknown');
     });
   });
 

@@ -18,7 +18,6 @@ import * as Keychain from 'react-native-keychain';
 import {
   login,
   isVersionMismatchError,
-  getVersionMismatchMessage,
 } from '../api/synkronus/Auth';
 import { serverConfigService } from '../services/ServerConfigService';
 import QRScannerModal, {
@@ -238,7 +237,7 @@ const SettingsScreen = () => {
     } catch (error) {
       console.error('Login failed:', error);
       const message = isVersionMismatchError(error)
-        ? getVersionMismatchMessage(error)
+        ? error.message
         : `Login failed: ${error && 'Please check your credentials.'}`;
       ToastService.showLong(message);
     } finally {

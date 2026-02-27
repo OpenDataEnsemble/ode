@@ -2,6 +2,7 @@ package formulusversion
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,35 +14,34 @@ import (
 const headerFormulusVersion = "X-Formulus-Version"
 
 // VersionMismatchResponse is the JSON body returned when version check fails (mismatch or invalid/missing version).
+// Uses HTTP 426 Upgrade Required status code - the standard HTTP status for version incompatibility.
 type VersionMismatchResponse struct {
-	Code             string `json:"code"`
 	Message          string `json:"message"`
-	SynkronusVersion string `json:"synkronus_version,omitempty"`
-	FormulusVersion  string `json:"formulus_version,omitempty"`
+	SynkronusVersion string `json:"synkronus_version"`
 }
 
 // Middleware returns a middleware that requires X-Formulus-Version and checks major version match.
-// No fallbacks: missing header, unparseable client version, or unparseable server version all result in 400.
+// No fallbacks: missing header, unparseable client version, or unparseable server version all result in 426.
 func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			clientVer := strings.TrimSpace(r.Header.Get(headerFormulusVersion))
 			if clientVer == "" {
 				log.Warn("Missing x-formulus-version header")
-				writeVersionError(w, "VERSION_HEADER_REQUIRED", "Missing x-formulus-version header. Client must send a valid semantic version.", "", "")
+				writeVersionError(w, "Missing x-formulus-version header. Client must send a valid semantic version.", "")
 				return
 			}
 			serverVer := version.BuildVersion()
 			clientMajor, ok := parseMajor(clientVer)
 			if !ok {
 				log.Warn("Formulus version header unparseable", "x-formulus-version", clientVer)
-				writeVersionError(w, "VERSION_INVALID", "x-formulus-version must be a valid semantic version (e.g. 1.0.0).", serverVer, clientVer)
+				writeVersionError(w, "x-formulus-version must be a valid semantic version (e.g. 1.0.0).", serverVer)
 				return
 			}
 			serverMajor, ok := parseMajor(serverVer)
 			if !ok {
 				log.Error("Server version is not set or unparseable; build must inject version via ldflags", "server_version", serverVer)
-				writeVersionError(w, "VERSION_INVALID", "Server version is not configured. Cannot validate client version.", serverVer, clientVer)
+				writeVersionError(w, "Server version is not configured. Cannot validate client version.", serverVer)
 				return
 			}
 			if clientMajor != serverMajor {
@@ -50,7 +50,7 @@ func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 					"synkronus_version", serverVer,
 					"client_major", clientMajor,
 					"server_major", serverMajor)
-				writeVersionError(w, "VERSION_MISMATCH", "The Synkronus version of this endpoint is not supported by this version of Formulus.", serverVer, clientVer)
+				writeVersionError(w, fmt.Sprintf("Formulus v%s is not compatible with this server (v%s). Please update the app.", clientVer, serverVer), serverVer)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -58,14 +58,13 @@ func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-func writeVersionError(w http.ResponseWriter, code, message, serverVer, clientVer string) {
+func writeVersionError(w http.ResponseWriter, message, serverVer string) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusBadRequest)
+	w.Header().Set("X-Synkronus-Version", serverVer) // Always advertise server version in header
+	w.WriteHeader(http.StatusUpgradeRequired)        // 426 - standard HTTP status for version incompatibility
 	_ = json.NewEncoder(w).Encode(VersionMismatchResponse{
-		Code:             code,
 		Message:          message,
 		SynkronusVersion: serverVer,
-		FormulusVersion:  clientVer,
 	})
 }
 

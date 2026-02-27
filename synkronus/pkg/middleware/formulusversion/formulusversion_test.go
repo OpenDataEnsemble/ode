@@ -44,42 +44,46 @@ func TestMiddleware(t *testing.T) {
 	})
 	handler := mw(next)
 
-	t.Run("no_header_returns_400", func(t *testing.T) {
+	t.Run("no_header_returns_426", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("expected 400 when no header, got %d", rec.Code)
+		if rec.Code != http.StatusUpgradeRequired {
+			t.Errorf("expected 426 when no header, got %d", rec.Code)
 		}
-		if body := rec.Body.String(); body != "" && !strings.Contains(body, "VERSION_HEADER_REQUIRED") {
-			t.Errorf("expected body with VERSION_HEADER_REQUIRED, got %q", body)
+		if body := rec.Body.String(); body != "" && !strings.Contains(body, "Missing x-formulus-version header") {
+			t.Errorf("expected body with version error message, got %q", body)
+		}
+		// Check that server version is advertised in header
+		if rec.Header().Get("X-Synkronus-Version") == "" {
+			t.Error("expected X-Synkronus-Version header to be set")
 		}
 	})
 
-	t.Run("unparseable_client_version_returns_400", func(t *testing.T) {
+	t.Run("unparseable_client_version_returns_426", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
 		req.Header.Set("X-Formulus-Version", "not-a-version")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("expected 400 for unparseable client version, got %d", rec.Code)
+		if rec.Code != http.StatusUpgradeRequired {
+			t.Errorf("expected 426 for unparseable client version, got %d", rec.Code)
 		}
-		if body := rec.Body.String(); !strings.Contains(body, "VERSION_INVALID") {
-			t.Errorf("expected body with VERSION_INVALID, got %q", body)
+		if body := rec.Body.String(); !strings.Contains(body, "valid semantic version") {
+			t.Errorf("expected body with version error message, got %q", body)
 		}
 	})
 
-	t.Run("unparseable_server_version_returns_400", func(t *testing.T) {
-		// Server BuildVersion() in test is "dev" (unparseable) → middleware returns 400
+	t.Run("unparseable_server_version_returns_426", func(t *testing.T) {
+		// Server BuildVersion() in test is "dev" (unparseable) → middleware returns 426
 		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
 		req.Header.Set("X-Formulus-Version", "1.0.0")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
-		if rec.Code != http.StatusBadRequest {
-			t.Errorf("expected 400 when server version unparseable (dev), got %d body %s", rec.Code, rec.Body.String())
+		if rec.Code != http.StatusUpgradeRequired {
+			t.Errorf("expected 426 when server version unparseable (dev), got %d body %s", rec.Code, rec.Body.String())
 		}
-		if body := rec.Body.String(); !strings.Contains(body, "VERSION_INVALID") {
-			t.Errorf("expected body with VERSION_INVALID (server not configured), got %q", body)
+		if body := rec.Body.String(); !strings.Contains(body, "Server version is not configured") {
+			t.Errorf("expected body with server version error message, got %q", body)
 		}
 	})
 }
