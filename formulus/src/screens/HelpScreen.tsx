@@ -44,7 +44,7 @@ const HelpScreen: React.FC = () => {
             styles.header,
             {
               backgroundColor: isDark
-                ? (themeColors.surface as string)
+                ? (colors.neutral[900] as string)
                 : (colors.neutral[50] as string),
               borderWidth: 1,
               borderBottomWidth: 1,
