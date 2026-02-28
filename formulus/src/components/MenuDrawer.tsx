@@ -285,7 +285,11 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                       color={textColor}
                     />
                     <Text
-                      style={[styles.menuLabel, { color: textColor }]}>
+                      style={[
+                        styles.menuLabel,
+                        styles.appSettingsLabel,
+                        { color: textColor },
+                      ]}>
                       App Settings
                     </Text>
                   </View>
@@ -535,7 +539,10 @@ const styles = StyleSheet.create({
   appSettingsTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: odeSpacing.xs,
+    gap: odeSpacing.sm,
+  },
+  appSettingsLabel: {
+    marginLeft: 0,
   },
   appSettingsChevron: {
     marginRight: odeSpacing.md,
