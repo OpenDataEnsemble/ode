@@ -195,6 +195,37 @@
       @media (prefers-color-scheme: dark) {
         .version { color: var(--color-neutral-400); }
       }
+
+      /* Explicit theme override from native app: html[data-theme="light"|"dark"] */
+      html[data-theme='light'] .bg-layer--dark,
+      html[data-theme='light'] .overlay--dark,
+      html[data-theme='light'] .edge-darken {
+        display: none !important;
+      }
+      html[data-theme='light'] .bg-layer--light,
+      html[data-theme='light'] .overlay--light {
+        display: block !important;
+      }
+      html[data-theme='light'] .subtitle,
+      html[data-theme='light'] .tagline,
+      html[data-theme='light'] .version {
+        color: var(--color-neutral-black);
+      }
+
+      html[data-theme='dark'] .bg-layer--light,
+      html[data-theme='dark'] .overlay--light {
+        display: none !important;
+      }
+      html[data-theme='dark'] .bg-layer--dark,
+      html[data-theme='dark'] .overlay--dark,
+      html[data-theme='dark'] .edge-darken {
+        display: block !important;
+      }
+      html[data-theme='dark'] .subtitle,
+      html[data-theme='dark'] .tagline,
+      html[data-theme='dark'] .version {
+        color: var(--color-neutral-white);
+      }
     </style>
   </head>
   <body>
@@ -216,6 +247,17 @@
 
     <script>
     (function() {
+      // Called from React Native to force light/dark theme.
+      window.__formulusSetTheme = function(mode) {
+        if (!mode || mode === 'system') {
+          document.documentElement.removeAttribute('data-theme');
+          return;
+        }
+        if (mode === 'light' || mode === 'dark') {
+          document.documentElement.setAttribute('data-theme', mode);
+        }
+      };
+
       var loginBtn = document.getElementById('loginBtn');
       if (loginBtn) {
         loginBtn.addEventListener('click', function() {
