@@ -4,6 +4,13 @@ type Tokens = {
   spacing: Record<string, string>;
   font: { size: Record<string, string>; weight: Record<string, string> };
   border: { width: { thin: string }; radius: Record<string, string> };
+  touchTarget?: Record<string, string>;
+  component?: {
+    button?: {
+      width?: { standalone?: string };
+      minHeight?: string;
+    };
+  };
 };
 
 const t = tokens as Tokens;
@@ -18,6 +25,12 @@ export const odeSpacing = {
   md: parsePx(t.spacing?.['4']) || 16,
   lg: parsePx(t.spacing?.['6']) || 24,
   xl: parsePx(t.spacing?.['8']) || 32,
+};
+
+/** Button tokens for standalone (e.g. permission/cancel) actions */
+export const odeButton = {
+  standaloneWidth: parsePx(t.component?.button?.width?.standalone) || 200,
+  standaloneMaxHeight: parsePx(t.touchTarget?.medium) || 52,
 };
 
 export const odeTypography = {

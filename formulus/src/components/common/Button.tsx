@@ -93,7 +93,7 @@ const Button: React.FC<ButtonProps> = ({
           border: themeColors.secondary,
           text: themeColors.secondary,
           textOnFill: themeColors.onSecondary,
-          activeBg: themeColors.secondary,
+          activeBg: themeColors.primary,
         };
       case 'danger':
         return {
@@ -108,8 +108,8 @@ const Button: React.FC<ButtonProps> = ({
         return {
           border: neutralGrey,
           text: neutralGrey,
-          textOnFill: '#FFFFFF',
-          activeBg: neutralGrey,
+          textOnFill: themeColors.onPrimary,
+          activeBg: themeColors.primary,
         };
     }
   }, [variant, themeColors]);
