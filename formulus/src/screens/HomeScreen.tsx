@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import CustomAppWebView, {
@@ -152,7 +153,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {isLoading ? (
         <ActivityIndicator
           size="large"
@@ -168,7 +169,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           onNavigateToSync={() => navigation.navigate('Sync')}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
