@@ -13,9 +13,7 @@ import {
   TouchableOpacity,
   Text,
   Platform,
-  Alert,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
@@ -32,11 +30,13 @@ import {
 } from '../webview/FormulusInterfaceDefinition';
 
 import { databaseService } from '../database';
-import { colors } from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
+import { geolocationService } from '../services/GeolocationService';
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -61,11 +61,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const colorScheme = useColorScheme();
+    const { showConfirm } = useConfirmModal();
 
-    // Theme colors from the AppThemeContext — updates automatically when
-    // the custom app config is loaded or the color scheme changes.
-    const { themeColors } = useAppTheme();
+    // Theme colors & resolved mode from AppThemeContext.
+    const { themeColors, resolvedMode } = useAppTheme();
 
     // Internal state to track current form and observation data
     const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -84,6 +83,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Track if form has been successfully submitted to avoid double resolution
     const [formSubmitted, setFormSubmitted] = useState(false);
+
+    // Author-configurable display name shown in the native header bar
+    const [currentFormDisplayName, setCurrentFormDisplayName] = useState<
+      string | null
+    >(null);
 
     // Add state to track closing process and prevent multiple close attempts
     const [isClosing, setIsClosing] = useState(false);
@@ -128,7 +132,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         resolveFormOperationByType(currentFormType, completionResult);
       }
 
-      // Call the parent's onClose immediately
+      geolocationService.clearCache();
       onClose();
 
       // Reset closing state after a short delay to prevent rapid re-opening issues
@@ -152,24 +156,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         return;
       }
 
-      Alert.alert(
-        'Close form?',
-        'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Close form',
-            style: 'destructive',
-            onPress: () => {
-              performClose();
-            },
-          },
+      showConfirm({
+        title: 'Close form?',
+        message:
+          'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
+        buttons: [
+          { text: 'Cancel', variant: 'tertiary', onPress: () => {} },
+          { text: 'Close form', variant: 'danger', onPress: performClose },
         ],
-      );
-    }, [isClosing, isSubmitting, performClose]);
+      });
+    }, [isClosing, isSubmitting, performClose, showConfirm]);
 
     // Removed closeFormplayer event listener - now using direct promise-based submission handling
 
@@ -182,9 +178,14 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       };
     }, []);
 
+    // Track WebView ready state
+    const [webViewReady, setWebViewReady] = useState(false);
+
     // Handle WebView load complete
     const handleWebViewLoad = () => {
-      // WebView ready - no action needed
+      console.log('[FormplayerModal] WebView finished loading');
+      setWebViewReady(true);
+      // WebView is now ready to receive form initialization
     };
 
     // Initialize a form with the given form type and optional existing data
@@ -195,9 +196,32 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
     ) => {
-      // Set internal state for the current form and observation
+      // Check if WebView is ready, if not log a warning (retry logic will handle it)
+      if (!webViewReady) {
+        console.warn(
+          '[FormplayerModal] WebView not ready yet, form init will be queued by message handler',
+        );
+      }
+
+      // Start GPS acquisition early so the fix is ready at save time
+      geolocationService.preCacheLocation();
+
       setCurrentFormType(formType.id);
       setCurrentObservationId(observationId);
+
+      // Resolve display name: ui schema headerTitle > schema title > form spec name
+      const uiSchemaObj = formType.uiSchema as
+        | Record<string, unknown>
+        | undefined;
+      const schemaObj = formType.schema as Record<string, unknown> | undefined;
+      const uiOptions = uiSchemaObj?.options as
+        | Record<string, unknown>
+        | undefined;
+      const displayName =
+        (uiOptions?.headerTitle as string) ||
+        (schemaObj?.title as string) ||
+        formType.name;
+      setCurrentFormDisplayName(displayName);
       setCurrentObservationData(existingObservationData);
       setCurrentParams(params);
       setCurrentOperationId(operationId);
@@ -205,8 +229,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
       // Forward the custom app's theme colors to the Formplayer WebView so
       // that form UI elements (buttons, inputs, headers) match the branding.
-      // `themeColors` comes from useAppTheme() and is always up-to-date.
-      const isDark = colorScheme === 'dark';
+      const isDark = resolvedMode === 'dark';
 
       const formParams = {
         locale: 'en',
@@ -217,9 +240,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       };
 
       // Load extensions for this form
+      const customAppPath = RNFS.DocumentDirectoryPath + '/app';
       let extensions = undefined;
       try {
-        const customAppPath = RNFS.DocumentDirectoryPath + '/app';
         const extensionService = ExtensionService.getInstance();
         const mergedExtensions = await extensionService.getCustomAppExtensions(
           customAppPath,
@@ -284,11 +307,83 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           'FormplayerModal: formType.schema is null/undefined for form:',
           formType.id,
         );
-        Alert.alert(
-          'Form Error',
-          `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
-        );
+        showConfirm({
+          title: 'Form Error',
+          message: `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
+          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+        });
         return;
+      }
+
+      // Scan custom question types and read their source code
+      // Check both root forms/ and app/forms/ paths (same dual-path as FormService)
+      let customQuestionTypes = undefined;
+      try {
+        const qtDirs = [
+          RNFS.DocumentDirectoryPath + '/forms/question_types',
+          `${customAppPath}/forms/question_types`,
+        ];
+        console.log(
+          `🔍🔍🔍 [FormplayerModal] Scanning custom question types in: ${qtDirs.join(', ')}`,
+        );
+
+        const custom_types: Record<string, { source: string }> = {};
+
+        for (const qtDir of qtDirs) {
+          const qtDirExists = await RNFS.exists(qtDir);
+          if (!qtDirExists) {
+            console.log(
+              `🔍 [FormplayerModal] Path not found, skipping: ${qtDir}`,
+            );
+            continue;
+          }
+
+          const folders = await RNFS.readDir(qtDir);
+          console.log(
+            `🔍 [FormplayerModal] Found ${folders.length} items in ${qtDir}: ${folders.map(f => f.name).join(', ')}`,
+          );
+
+          for (const folder of folders) {
+            if (folder.isDirectory() && !custom_types[folder.name]) {
+              // Try renderer.js first, then index.js as fallback
+              const rendererPath = `${folder.path}/renderer.js`;
+              const indexPath = `${folder.path}/index.js`;
+              const hasRenderer = await RNFS.exists(rendererPath);
+              const hasIndex = !hasRenderer && (await RNFS.exists(indexPath));
+              const jsPath = hasRenderer
+                ? rendererPath
+                : hasIndex
+                  ? indexPath
+                  : null;
+
+              if (jsPath) {
+                // Read the source code so the WebView can evaluate it directly
+                const source = await RNFS.readFile(jsPath, 'utf8');
+                custom_types[folder.name] = { source };
+                console.log(
+                  `[FormplayerModal] Custom question type: "${folder.name}" (${source.length} bytes from ${jsPath})`,
+                );
+              } else {
+                console.warn(
+                  `⚠️ [FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
+                );
+              }
+            }
+          }
+        }
+
+        if (Object.keys(custom_types).length > 0) {
+          customQuestionTypes = { custom_types };
+          console.log(
+            `📦📦📦 [FormplayerModal] Custom question types manifest: ${JSON.stringify(Object.keys(custom_types))}`,
+          );
+        } else {
+          console.warn(
+            '⚠️ [FormplayerModal] No custom question types found in any path',
+          );
+        }
+      } catch (error) {
+        console.warn('Failed to scan custom question types:', error);
       }
 
       const formInitData = {
@@ -299,6 +394,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         formSchema: formType.schema,
         uiSchema: formType.uiSchema ?? {},
         extensions,
+        customQuestionTypes,
       } as FormInitData;
 
       if (!webViewRef.current) {
@@ -312,10 +408,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         await webViewRef.current.sendFormInit(formInitData);
       } catch (error) {
         console.error('FormplayerModal: Error sending form init data:', error);
-        Alert.alert(
-          'Error',
-          'Failed to initialize the form UI. Please close and try again.',
-        );
+        showConfirm({
+          title: 'Error',
+          message:
+            'Failed to initialize the form UI. Please close and try again.',
+          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+        });
       }
     };
 
@@ -382,15 +480,20 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           const successMessage = currentObservationId
             ? 'Observation updated successfully!'
             : 'Form submitted successfully!';
-          Alert.alert('Success', successMessage, [
-            {
-              text: 'OK',
-              onPress: () => {
-                setIsSubmitting(false);
-                onClose();
+          showConfirm({
+            title: 'Success',
+            message: successMessage,
+            buttons: [
+              {
+                text: 'OK',
+                variant: 'primary',
+                onPress: () => {
+                  setIsSubmitting(false);
+                  onClose();
+                },
               },
-            },
-          ]);
+            ],
+          });
 
           return resultObservationId;
         } catch (error) {
@@ -411,11 +514,15 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             resolveFormOperationByType(formType, errorResult);
           }
 
-          Alert.alert('Error', 'Failed to save your form. Please try again.');
+          showConfirm({
+            title: 'Error',
+            message: 'Failed to save your form. Please try again.',
+            buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+          });
           throw error;
         }
       },
-      [currentObservationId, currentOperationId, onClose],
+      [currentObservationId, currentOperationId, onClose, showConfirm],
     );
 
     // Register/unregister modal with message handlers and reset form state
@@ -430,10 +537,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         // Reset form state when modal is closed
         setTimeout(() => {
           setCurrentFormType(null);
+          setCurrentFormDisplayName(null);
           setCurrentObservationId(null);
           setCurrentObservationData(null);
           setIsClosing(false); // Reset closing state when modal is fully closed
           setFormSubmitted(false); // Reset submission flag
+          setWebViewReady(false); // Reset WebView ready state
         }, 300); // Small delay to ensure modal is fully closed
       }
     }, [visible, handleSubmission]);
@@ -449,7 +558,17 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
         <View
-          style={[styles.container, { backgroundColor: themeColors.surface }]}>
+          style={[
+            styles.container,
+            {
+              backgroundColor: withAlpha(
+                themeColors.surface as string,
+                CONTAINER_ALPHA,
+              ),
+              borderWidth: 1,
+              borderColor: themeColors.divider as string,
+            },
+          ]}>
           <View
             style={[styles.header, { borderBottomColor: themeColors.divider }]}>
             <TouchableOpacity
@@ -470,8 +589,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               />
             </TouchableOpacity>
             <Text
-              style={[styles.headerTitle, { color: themeColors.onBackground }]}>
-              {currentObservationId ? 'Edit Observation' : 'New Observation'}
+              style={[styles.headerTitle, { color: themeColors.onBackground }]}
+              numberOfLines={1}>
+              {currentFormDisplayName ||
+                (currentObservationId ? 'Edit Observation' : 'New Observation')}
             </Text>
             <View style={styles.headerRightSpacer} />
           </View>

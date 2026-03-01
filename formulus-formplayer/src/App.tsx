@@ -28,6 +28,7 @@ import { tokens } from './theme/tokens-adapter';
 import Ajv from 'ajv';
 import addErrors from 'ajv-errors';
 import addFormats from 'ajv-formats';
+import * as MUI from '@mui/material';
 
 // Import the FormulusInterface client
 import FormulusClient from './services/FormulusInterface';
@@ -75,6 +76,7 @@ import DraftSelector from './components/DraftSelector';
 import { loadExtensions } from './services/ExtensionsLoader';
 import { getBuiltinExtensions } from './builtinExtensions';
 import { FormEvaluationProvider } from './FormEvaluationContext';
+import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
 
 // Import development dependencies (Vite will tree-shake these in production)
 import { webViewMock } from './mocks/webview-mock';
@@ -229,6 +231,16 @@ export const customRenderers = [
   numberStepperRenderer,
 ];
 
+// Expose React and MaterialUI to global scope for custom question type renderers
+// This must be done synchronously at module load time so renderers can access them
+if (typeof window !== 'undefined') {
+  (window as any).React = React;
+  (window as any).MaterialUI = MUI;
+  console.log(
+    '[App] Exposed React and MaterialUI to global scope for custom renderers',
+  );
+}
+
 function App() {
   // Initialize WebView mock ONLY in development mode and ONLY if ReactNativeWebView doesn't exist
   if (
@@ -281,6 +293,11 @@ function App() {
   const [extensionDefinitions, setExtensionDefinitions] = useState<
     Record<string, any>
   >({});
+  // Custom question type renderers (loaded from custom_app)
+  const [customTypeRenderers, setCustomTypeRenderers] = useState<
+    JsonFormsRendererRegistryEntry[]
+  >([]);
+  const [customTypeFormats, setCustomTypeFormats] = useState<string[]>([]);
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -379,6 +396,36 @@ function App() {
           setExtensionFunctions(allFunctions);
           setExtensionDefinitions({});
           console.log('[Formplayer] Using only built-in extensions');
+        }
+
+        // Load custom question types if provided
+        const customQTManifest = initData.customQuestionTypes;
+        if (customQTManifest) {
+          try {
+            const customQTResult =
+              await loadCustomQuestionTypes(customQTManifest);
+            setCustomTypeRenderers(customQTResult.renderers);
+            setCustomTypeFormats(customQTResult.formats);
+            console.log(
+              `[Formplayer] Loaded ${customQTResult.renderers.length} custom question type(s)`,
+            );
+            if (customQTResult.errors.length > 0) {
+              console.warn(
+                '[Formplayer] Custom question type loading errors:',
+                customQTResult.errors,
+              );
+            }
+          } catch (error) {
+            console.error(
+              '[Formplayer] Failed to load custom question types:',
+              error,
+            );
+            setCustomTypeRenderers([]);
+            setCustomTypeFormats([]);
+          }
+        } else {
+          setCustomTypeRenderers([]);
+          setCustomTypeFormats([]);
         }
 
         if (!formSchema) {
@@ -800,6 +847,16 @@ function App() {
       return typeof data === 'string' && dateRegex.test(data);
     });
 
+    // Register custom question type formats with AJV
+    if (customTypeFormats.length > 0) {
+      customTypeFormats.forEach(fmt => {
+        instance.addFormat(fmt, () => true);
+      });
+      console.log(
+        `[Formplayer] Registered ${customTypeFormats.length} custom format(s) with AJV`,
+      );
+    }
+
     // Add extension definitions to AJV for $ref support
     if (Object.keys(extensionDefinitions).length > 0) {
       // Add each definition individually so $ref can reference them
@@ -809,7 +866,7 @@ function App() {
     }
 
     return instance;
-  }, [extensionDefinitions]);
+  }, [extensionDefinitions, customTypeFormats]);
 
   // Create dynamic theme based on dark mode preference and custom app colors.
   // When a custom app provides themeColors, they override the default palette
@@ -820,24 +877,26 @@ function App() {
     );
   }, [darkMode, customThemeColors]);
 
-  // Set CSS custom properties from tokens for use in CSS files
-  // Must be called before any early returns to follow React Hooks rules
+  // Set CSS custom properties for use in CSS files and by ODE Button.
+  // When a custom app provides themeColors, use those so buttons and other
+  // token-based UI match the app branding; otherwise use default tokens.
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty(
-      '--ode-color-brand-primary-500',
-      tokens.color.brand.primary[500],
-    );
-    root.style.setProperty(
-      '--ode-color-neutral-white',
-      tokens.color.neutral.white,
-    );
+    const primary =
+      customThemeColors?.primary ?? tokens.color.brand.primary[500];
+    const onPrimary =
+      customThemeColors?.onPrimary ?? tokens.color.neutral.white;
+    root.style.setProperty('--ode-color-brand-primary-500', primary);
+    root.style.setProperty('--ode-color-neutral-white', onPrimary);
     root.style.setProperty(
       '--ode-color-neutral-200',
-      tokens.color.neutral[200],
+      customThemeColors?.onSurface ?? tokens.color.neutral[200],
     );
-    root.style.setProperty('--ode-color-neutral-50', tokens.color.neutral[50]);
-  }, []);
+    root.style.setProperty(
+      '--ode-color-neutral-50',
+      customThemeColors?.surface ?? tokens.color.neutral[50],
+    );
+  }, [customThemeColors]);
 
   // Show draft selector if we have pending form init and available drafts
   if (showDraftSelector && pendingFormInit) {
@@ -987,6 +1046,7 @@ function App() {
                         ...shellMaterialRenderers,
                         ...materialRenderers,
                         ...customRenderers,
+                        ...customTypeRenderers, // Custom question types from custom_app
                         ...extensionRenderers, // Extension renderers (highest priority)
                       ]}
                       cells={materialCells}

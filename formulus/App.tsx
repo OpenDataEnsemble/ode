@@ -4,12 +4,13 @@ import {
   DefaultTheme,
   DarkTheme,
 } from '@react-navigation/native';
-import { StatusBar, useColorScheme } from 'react-native';
+import { StatusBar, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { AppThemeProvider, useAppTheme } from './src/contexts/AppThemeContext';
+import { ConfirmModalProvider } from './src/contexts/ConfirmModalContext';
 import { appEvents, Listener } from './src/webview/FormulusMessageHandlers.ts';
 import FormplayerModal, {
   FormplayerModalHandle,
@@ -24,15 +25,15 @@ import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
  * React Navigation theme matching the custom app's branding.
  */
 function AppInner(): React.JSX.Element {
-  const colorScheme = useColorScheme();
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
 
   // Build the React Navigation theme dynamically from the custom app's colors.
   const navigationTheme = useMemo(() => {
-    const base = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+    const base = isDark ? DarkTheme : DefaultTheme;
     return {
       ...base,
-      dark: colorScheme === 'dark',
+      dark: isDark,
       colors: {
         ...base.colors,
         primary: themeColors.primary,
@@ -43,7 +44,7 @@ function AppInner(): React.JSX.Element {
         notification: themeColors.error,
       },
     };
-  }, [colorScheme, themeColors]);
+  }, [isDark, themeColors]);
 
   const [qrScannerVisible, setQrScannerVisible] = useState(false);
   const [qrScannerData, setQrScannerData] = useState<{
@@ -91,34 +92,68 @@ function AppInner(): React.JSX.Element {
     );
 
     const handleOpenFormplayer = async (config: FormInitData) => {
+      // If formplayer is already visible, close it first to allow opening a new form
       if (formplayerVisibleRef.current) {
-        return;
+        console.log(
+          '[App] Formplayer already visible, closing first before opening new form',
+        );
+        formplayerVisibleRef.current = false;
+        setFormplayerVisible(false);
+        // Wait for modal to close before proceeding
+        await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
       }
 
       const { formType, observationId, params, savedData, operationId } =
         config;
-      formplayerVisibleRef.current = true;
-      setFormplayerVisible(true);
 
-      const formService = await FormService.getInstance();
-      const forms = formService.getFormSpecs();
+      try {
+        const formService = await FormService.getInstance();
+        const forms = formService.getFormSpecs();
 
-      if (forms.length === 0) {
-        return;
+        if (forms.length === 0) {
+          Alert.alert(
+            'No Forms Available',
+            'No forms are available. Please sync forms first.',
+          );
+          return;
+        }
+
+        const formSpec = forms.find(form => form.id === formType);
+        if (!formSpec) {
+          Alert.alert(
+            'Form Not Found',
+            `Form "${formType}" not found. Please sync forms first.`,
+          );
+          return;
+        }
+
+        // Set visible state first to mount the modal
+        formplayerVisibleRef.current = true;
+        setFormplayerVisible(true);
+
+        // Wait for modal to mount and WebView to start loading before initializing form
+        // This ensures the WebView ref is available and the modal is visible
+        setTimeout(() => {
+          formplayerModalRef.current?.initializeForm(
+            formSpec,
+            params || null,
+            observationId || null,
+            savedData || null,
+            operationId || null,
+          );
+        }, 200);
+      } catch (error) {
+        console.error('[App] Error opening formplayer:', error);
+        Alert.alert(
+          'Error',
+          `Failed to open form: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`,
+        );
+        // Reset state on error
+        formplayerVisibleRef.current = false;
+        setFormplayerVisible(false);
       }
-
-      const formSpec = forms.find(form => form.id === formType);
-      if (!formSpec) {
-        return;
-      }
-
-      formplayerModalRef.current?.initializeForm(
-        formSpec,
-        params || null,
-        observationId || null,
-        savedData || null,
-        operationId || null,
-      );
     };
 
     const handleCloseFormplayer = () => {
@@ -152,7 +187,7 @@ function AppInner(): React.JSX.Element {
   return (
     <>
       <StatusBar
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}
+        barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={themeColors.surface}
       />
       <NavigationContainer theme={navigationTheme}>
@@ -201,7 +236,9 @@ function App(): React.JSX.Element {
     <SafeAreaProvider>
       <SyncProvider>
         <AppThemeProvider>
-          <AppInner />
+          <ConfirmModalProvider>
+            <AppInner />
+          </ConfirmModalProvider>
         </AppThemeProvider>
       </SyncProvider>
     </SafeAreaProvider>

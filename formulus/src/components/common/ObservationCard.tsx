@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../../database/models/Observation';
-import colors from '../../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
 import Button from './Button';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 
@@ -47,77 +47,91 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
     }
   };
 
+  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <Icon
-            name={isSynced ? 'check-circle' : 'clock-outline'}
-            size={24}
-            color={
-              isSynced
-                ? colors.semantic.success[500]
-                : colors.semantic.warning[500]
-            }
-          />
-        </View>
-        <View style={styles.textContainer}>
-          {formName && (
-            <Text style={[styles.formName, { color: themeColors.primary }]}>
-              {formName}
-            </Text>
-          )}
-          <Text style={styles.id} numberOfLines={1}>
-            ID: {observation.observationId.substring(0, 20)}...
-          </Text>
-          <Text style={styles.preview} numberOfLines={1}>
-            {getDataPreview()}
-          </Text>
-          <View style={styles.metaContainer}>
-            <Text style={styles.date}>
-              {dateStr} at {timeStr}
-            </Text>
-            <View
-              style={[
-                styles.statusBadge,
-                isSynced ? styles.syncedBadge : styles.pendingBadge,
-              ]}>
-              <Text style={styles.statusText}>
-                {isSynced ? 'Synced' : 'Pending'}
-              </Text>
-            </View>
+    <TouchableOpacity
+      style={[
+        styles.card,
+        {
+          borderWidth: 1,
+          borderColor: themeColors.divider as string,
+          backgroundColor: cardOuterBg,
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}>
+      <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+        <View style={styles.content}>
+          <View style={styles.iconContainer}>
+            <Icon
+              name={isSynced ? 'check-circle' : 'clock-outline'}
+              size={24}
+              color={
+                isSynced
+                  ? colors.semantic.success[500]
+                  : colors.semantic.warning[500]
+              }
+            />
           </View>
-          <Text style={styles.owner} numberOfLines={1}>
-            {`By ${
-              observation.author && observation.author.trim().length > 0
-                ? observation.author
-                : 'Unknown'
-            } • ${
-              observation.deviceId && observation.deviceId.trim().length > 0
-                ? observation.deviceId.slice(-8)
-                : 'no-device'
-            }`}
-          </Text>
-        </View>
-        <View style={styles.actions}>
-          {onEdit && (
-            <Button
-              title="Edit"
-              onPress={onEdit}
-              variant="primary"
-              size="small"
-              position="left"
-            />
-          )}
-          {onDelete && (
-            <Button
-              title="Delete"
-              onPress={onDelete}
-              variant="danger"
-              size="small"
-              position="right"
-            />
-          )}
+          <View style={styles.textContainer}>
+            {formName && (
+              <Text style={[styles.formName, { color: themeColors.primary }]}>
+                {formName}
+              </Text>
+            )}
+            <Text style={styles.id} numberOfLines={1}>
+              ID: {observation.observationId.substring(0, 20)}...
+            </Text>
+            <Text style={styles.preview} numberOfLines={1}>
+              {getDataPreview()}
+            </Text>
+            <View style={styles.metaContainer}>
+              <Text style={styles.date}>
+                {dateStr} at {timeStr}
+              </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  isSynced ? styles.syncedBadge : styles.pendingBadge,
+                ]}>
+                <Text style={styles.statusText}>
+                  {isSynced ? 'Synced' : 'Pending'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.owner} numberOfLines={1}>
+              {`By ${
+                observation.author && observation.author.trim().length > 0
+                  ? observation.author
+                  : 'Unknown'
+              } • ${
+                observation.deviceId && observation.deviceId.trim().length > 0
+                  ? observation.deviceId.slice(-8)
+                  : 'no-device'
+              }`}
+            </Text>
+          </View>
+          <View style={styles.actions}>
+            {onEdit && (
+              <Button
+                title="Edit"
+                onPress={onEdit}
+                variant="primary"
+                size="small"
+                position="left"
+              />
+            )}
+            {onDelete && (
+              <Button
+                title="Delete"
+                onPress={onDelete}
+                variant="danger"
+                size="small"
+                position="right"
+              />
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -126,16 +140,16 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.neutral.white,
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 6,
+    borderWidth: 1,
     padding: 16,
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  cardInner: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    padding: 12,
   },
   content: {
     flexDirection: 'row',

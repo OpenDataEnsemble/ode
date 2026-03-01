@@ -189,8 +189,7 @@ async function loadRenderer(
 async function loadFunction(
   metadata: ExtensionFunctionMetadata,
   basePath: string,
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-): Promise<Function | null> {
+): Promise<((...args: any[]) => any) | null> {
   try {
     // Construct module path
     const modulePath = basePath
