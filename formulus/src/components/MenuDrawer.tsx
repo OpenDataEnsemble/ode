@@ -299,13 +299,13 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                       ]}>
                       App Settings
                     </Text>
+                    <Icon
+                      name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={textColor}
+                      style={styles.appSettingsChevron}
+                    />
                   </View>
-                  <Icon
-                    name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={textColor}
-                    style={styles.appSettingsChevron}
-                  />
                 </TouchableOpacity>
                 {appSettingsOpen && (
                   <View
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   appSettingsChevron: {
-    marginRight: odeSpacing.xl,
+    marginLeft: odeSpacing.xs,
   },
   sectionLabel: {
     marginTop: odeSpacing.sm,
