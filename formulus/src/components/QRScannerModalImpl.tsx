@@ -15,6 +15,7 @@ import {
   CodeType,
 } from 'react-native-vision-camera';
 import { colors } from '../theme/colors';
+import { odeSpacing, odeButton } from '../theme/odeDesign';
 import Button from './common/Button';
 
 const { width } = Dimensions.get('window');
@@ -132,18 +133,20 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
             <Text style={styles.permissionText}>
               Camera permission is required to scan QR codes
             </Text>
-            <Button
-              title="Grant Permission"
-              onPress={requestPermission}
-              variant="primary"
-              style={styles.permissionButton}
-            />
-            <Button
-              title="Cancel"
-              onPress={handleCancel}
-              variant="tertiary"
-              style={styles.cancelButtonFormulus}
-            />
+            <View style={styles.permissionButtonRow}>
+              <Button
+                title="Grant Permission"
+                onPress={requestPermission}
+                variant="primary"
+                style={styles.permissionButton}
+              />
+              <Button
+                title="Cancel"
+                onPress={handleCancel}
+                variant="tertiary"
+                style={styles.cancelButtonFormulus}
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -156,12 +159,14 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
         <View style={styles.container}>
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>No camera device found</Text>
-            <Button
-              title="Close"
-              onPress={handleCancel}
-              variant="tertiary"
-              style={styles.cancelButtonFormulus}
-            />
+            <View style={styles.permissionButtonRow}>
+              <Button
+                title="Close"
+                onPress={handleCancel}
+                variant="tertiary"
+                style={styles.cancelButtonFormulus}
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -216,12 +221,14 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
                 </View>
               </View>
             ) : (
-              <Button
-                title="Cancel"
-                onPress={handleCancel}
-                variant="tertiary"
-                style={styles.cancelButtonFormulus}
-              />
+              <View style={styles.permissionButtonRow}>
+                <Button
+                  title="Cancel"
+                  onPress={handleCancel}
+                  variant="tertiary"
+                  style={styles.cancelButtonFormulus}
+                />
+              </View>
             )}
           </View>
         </View>
@@ -308,9 +315,26 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   buttonRow: { flexDirection: 'row', gap: 20 },
-  permissionButton: { marginVertical: 10 },
+  permissionButtonRow: {
+    alignItems: 'center',
+    marginTop: odeSpacing.xs,
+    gap: odeSpacing.sm,
+  },
+  permissionButton: {
+    marginVertical: 0,
+    flex: 0,
+    maxHeight: odeButton.standaloneMaxHeight,
+    width: odeButton.standaloneWidth,
+    alignSelf: 'center',
+  },
   optionButton: { flex: 1 },
-  cancelButtonFormulus: { marginTop: 10 },
+  cancelButtonFormulus: {
+    marginTop: 0,
+    flex: 0,
+    maxHeight: odeButton.standaloneMaxHeight,
+    width: odeButton.standaloneWidth,
+    alignSelf: 'center',
+  },
   permissionContainer: {
     flex: 1,
     justifyContent: 'center',

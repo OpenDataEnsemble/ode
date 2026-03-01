@@ -57,4 +57,12 @@ export default tseslint.config(
     },
   },
   prettierConfig,
+  {
+    files: ['scripts/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 );

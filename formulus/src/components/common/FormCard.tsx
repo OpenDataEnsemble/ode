@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { FormSpec } from '../../services/FormService';
-import colors from '../../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 
 interface FormCardProps {
@@ -16,47 +16,67 @@ const FormCard: React.FC<FormCardProps> = ({
   observationCount = 0,
   onPress,
 }) => {
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
+  const formTitleColor = isDark
+    ? (themeColors.onSurface as string)
+    : (colors.neutral[900] as string);
 
+  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.content}>
-        <View
-          style={[
-            styles.iconContainer,
-            { backgroundColor: themeColors.primary + '14' },
-          ]}>
-          <Icon
-            name="file-document-outline"
-            size={32}
-            color={themeColors.primary}
-          />
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={styles.name}>{form.name}</Text>
-          {form.description && (
-            <Text style={styles.description} numberOfLines={2}>
-              {form.description}
-            </Text>
-          )}
-          <View style={styles.metaContainer}>
-            <Text style={styles.version}>v{form.schemaVersion}</Text>
-            {observationCount > 0 && (
-              <View
-                style={[
-                  styles.countBadge,
-                  { backgroundColor: themeColors.primary + '14' },
-                ]}>
-                <Text
-                  style={[styles.countText, { color: themeColors.primary }]}>
-                  {observationCount}{' '}
-                  {observationCount === 1 ? 'entry' : 'entries'}
-                </Text>
-              </View>
-            )}
+    <TouchableOpacity
+      style={[
+        styles.card,
+        {
+          borderWidth: 1,
+          borderColor: themeColors.divider as string,
+          backgroundColor: cardOuterBg,
+        },
+      ]}
+      onPress={onPress}
+      activeOpacity={0.7}>
+      <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+        <View style={styles.content}>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: themeColors.primary + '14' },
+            ]}>
+            <Icon
+              name="file-document-outline"
+              size={32}
+              color={themeColors.primary}
+            />
           </View>
+          <View style={styles.textContainer}>
+            <Text style={[styles.name, { color: formTitleColor }]}>
+              {form.name}
+            </Text>
+            {form.description && (
+              <Text style={styles.description} numberOfLines={2}>
+                {form.description}
+              </Text>
+            )}
+            <View style={styles.metaContainer}>
+              <Text style={styles.version}>v{form.schemaVersion}</Text>
+              {observationCount > 0 && (
+                <View
+                  style={[
+                    styles.countBadge,
+                    { backgroundColor: themeColors.primary + '14' },
+                  ]}>
+                  <Text
+                    style={[styles.countText, { color: themeColors.primary }]}>
+                    {observationCount}{' '}
+                    {observationCount === 1 ? 'entry' : 'entries'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          <Icon name="chevron-right" size={24} color={colors.neutral[500]} />
         </View>
-        <Icon name="chevron-right" size={24} color={colors.neutral[500]} />
       </View>
     </TouchableOpacity>
   );
@@ -64,16 +84,16 @@ const FormCard: React.FC<FormCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.neutral.white,
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 6,
+    borderWidth: 1,
     padding: 16,
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  cardInner: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    padding: 12,
   },
   content: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,20 +7,41 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Icon from '@react-native-vector-icons/material-design-icons';
 import { useForms } from '../hooks/useForms';
-import { FormCard, EmptyState } from '../components/common';
+import { FormCard, EmptyState, Input as ODEInput } from '../components/common';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useFocusEffect } from '@react-navigation/native';
-import colors from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 
 const FormsScreen: React.FC = () => {
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
+  const titleColor = isDark
+    ? (themeColors.onSurface as string)
+    : (colors.neutral[900] as string);
   const { forms, loading, error, refresh, getObservationCount } = useForms();
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showSearch, setShowSearch] = useState<boolean>(false);
+
+  const filteredForms = useMemo(() => {
+    if (!searchQuery.trim()) return forms;
+    const q = searchQuery.trim().toLowerCase();
+    return forms.filter(form => form.name.toLowerCase().includes(q));
+  }, [forms, searchQuery]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -65,84 +86,200 @@ const FormsScreen: React.FC = () => {
 
   if (loading && forms.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={themeColors.primary} />
-          <Text style={styles.loadingText}>Loading forms...</Text>
-        </View>
-      </SafeAreaView>
+      <BlurredScreenBackground>
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: 'transparent' }]}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={themeColors.primary} />
+            <Text
+              style={[styles.loadingText, { color: themeColors.onBackground }]}>
+              Loading forms...
+            </Text>
+          </View>
+        </SafeAreaView>
+      </BlurredScreenBackground>
     );
   }
 
   if (error && forms.length === 0) {
     return (
-      <SafeAreaView style={styles.container}>
-        <EmptyState
-          icon="alert-circle-outline"
-          title="Error Loading Forms"
-          message={error}
-          actionLabel="Retry"
-          onAction={refresh}
-        />
-      </SafeAreaView>
+      <BlurredScreenBackground>
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: 'transparent' }]}>
+          <EmptyState
+            icon="alert-circle-outline"
+            title="Error Loading Forms"
+            message={error}
+            actionLabel="Retry"
+            onAction={refresh}
+          />
+        </SafeAreaView>
+      </BlurredScreenBackground>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Forms</Text>
-        {forms.length > 0 && (
-          <Text style={styles.subtitle}>
-            {forms.length} form{forms.length !== 1 ? 's' : ''} available
-          </Text>
-        )}
-      </View>
+    <BlurredScreenBackground>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: isDark
+                ? (colors.neutral[900] as string)
+                : (colors.neutral[50] as string),
+              borderWidth: 1,
+              borderBottomWidth: 1,
+              borderColor: themeColors.divider as string,
+              borderBottomColor: themeColors.divider as string,
+            },
+          ]}>
+          <View style={styles.headerLeft}>
+            <Text style={[styles.title, { color: titleColor }]}>Forms</Text>
+            {forms.length > 0 && (
+              <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
+                {filteredForms.length} form
+                {filteredForms.length !== 1 ? 's' : ''} available
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={() => setShowSearch(!showSearch)}>
+            <Icon
+              name={showSearch ? 'close' : 'magnify'}
+              size={24}
+              color={themeColors.primary}
+            />
+          </TouchableOpacity>
+        </View>
 
-      {forms.length === 0 ? (
-        <EmptyState
-          icon="file-document-outline"
-          title="No Forms Available"
-          message="No forms have been downloaded yet. Go to the Sync screen to download forms from the server."
-        />
-      ) : (
-        <FlatList
-          data={forms}
-          renderItem={renderForm}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        />
-      )}
-    </SafeAreaView>
+        {showSearch && (
+          <View
+            style={[
+              styles.searchContainer,
+              {
+                backgroundColor: withAlpha(
+                  themeColors.surface as string,
+                  CONTAINER_ALPHA,
+                ),
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
+              },
+            ]}>
+            <Icon
+              name="magnify"
+              size={20}
+              color={themeColors.onSurface}
+              style={styles.searchIcon}
+            />
+            <ODEInput
+              placeholder="Search forms..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchInput}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Icon
+                  name="close-circle"
+                  size={20}
+                  color={themeColors.onSurface}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {forms.length === 0 ? (
+          <EmptyState
+            icon="file-document-outline"
+            title="No Forms Available"
+            message="No forms have been downloaded yet. Go to the Sync screen to download forms from the server."
+          />
+        ) : filteredForms.length === 0 ? (
+          <EmptyState
+            icon="file-document-outline"
+            title={searchQuery ? 'No Forms Found' : 'No Forms Available'}
+            message={
+              searchQuery
+                ? 'Try adjusting your search.'
+                : 'No forms have been downloaded yet. Go to the Sync screen to download forms from the server.'
+            }
+          />
+        ) : (
+          <FlatList
+            style={styles.listTransparent}
+            data={filteredForms}
+            renderItem={renderForm}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+        )}
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+  },
+  listTransparent: {
+    backgroundColor: 'transparent',
   },
   header: {
-    padding: 16,
-    backgroundColor: colors.neutral.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginHorizontal: odeSpacing.sm,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
+    overflow: 'hidden',
+  },
+  headerLeft: {
+    flex: 1,
   },
   title: {
-    fontSize: 28,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    color: colors.neutral[900],
-    marginBottom: 4,
+    marginBottom: odeSpacing.xs,
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.neutral[600],
+    fontSize: odeTypography.bodySm,
+  },
+  searchButton: {
+    padding: odeSpacing.xxs,
+    marginTop: odeSpacing.xxs,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: odeSpacing.lg,
+    marginTop: odeSpacing.md,
+    marginBottom: odeSpacing.xs,
+    paddingHorizontal: odeSpacing.sm,
+    borderRadius: odeRadius.inner,
+    borderWidth: odeBorderWidth.hairline,
+  },
+  searchIcon: {
+    marginRight: odeSpacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    marginBottom: 0,
   },
   listContent: {
-    paddingVertical: 8,
+    paddingVertical: odeSpacing.sm,
   },
   loadingContainer: {
     flex: 1,
@@ -150,9 +287,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: colors.neutral[600],
+    marginTop: odeSpacing.sm,
+    fontSize: odeTypography.body,
   },
 });
 

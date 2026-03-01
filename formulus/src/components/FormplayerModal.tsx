@@ -13,9 +13,7 @@ import {
   TouchableOpacity,
   Text,
   Platform,
-  Alert,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
@@ -32,11 +30,12 @@ import {
 } from '../webview/FormulusInterfaceDefinition';
 
 import { databaseService } from '../database';
-import { colors } from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { geolocationService } from '../services/GeolocationService';
 
 interface FormplayerModalProps {
@@ -62,11 +61,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const colorScheme = useColorScheme();
+    const { showConfirm } = useConfirmModal();
 
-    // Theme colors from the AppThemeContext — updates automatically when
-    // the custom app config is loaded or the color scheme changes.
-    const { themeColors } = useAppTheme();
+    // Theme colors & resolved mode from AppThemeContext.
+    const { themeColors, resolvedMode } = useAppTheme();
 
     // Internal state to track current form and observation data
     const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -158,24 +156,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         return;
       }
 
-      Alert.alert(
-        'Close form?',
-        'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Close form',
-            style: 'destructive',
-            onPress: () => {
-              performClose();
-            },
-          },
+      showConfirm({
+        title: 'Close form?',
+        message:
+          'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
+        buttons: [
+          { text: 'Cancel', variant: 'tertiary', onPress: () => {} },
+          { text: 'Close form', variant: 'danger', onPress: performClose },
         ],
-      );
-    }, [isClosing, isSubmitting, performClose]);
+      });
+    }, [isClosing, isSubmitting, performClose, showConfirm]);
 
     // Removed closeFormplayer event listener - now using direct promise-based submission handling
 
@@ -188,9 +178,14 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       };
     }, []);
 
+    // Track WebView ready state
+    const [webViewReady, setWebViewReady] = useState(false);
+
     // Handle WebView load complete
     const handleWebViewLoad = () => {
-      // WebView ready - no action needed
+      console.log('[FormplayerModal] WebView finished loading');
+      setWebViewReady(true);
+      // WebView is now ready to receive form initialization
     };
 
     // Initialize a form with the given form type and optional existing data
@@ -201,6 +196,13 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
     ) => {
+      // Check if WebView is ready, if not log a warning (retry logic will handle it)
+      if (!webViewReady) {
+        console.warn(
+          '[FormplayerModal] WebView not ready yet, form init will be queued by message handler',
+        );
+      }
+
       // Start GPS acquisition early so the fix is ready at save time
       geolocationService.preCacheLocation();
 
@@ -227,8 +229,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
       // Forward the custom app's theme colors to the Formplayer WebView so
       // that form UI elements (buttons, inputs, headers) match the branding.
-      // `themeColors` comes from useAppTheme() and is always up-to-date.
-      const isDark = colorScheme === 'dark';
+      const isDark = resolvedMode === 'dark';
 
       const formParams = {
         locale: 'en',
@@ -306,10 +307,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           'FormplayerModal: formType.schema is null/undefined for form:',
           formType.id,
         );
-        Alert.alert(
-          'Form Error',
-          `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
-        );
+        showConfirm({
+          title: 'Form Error',
+          message: `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
+          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+        });
         return;
       }
 
@@ -406,10 +408,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         await webViewRef.current.sendFormInit(formInitData);
       } catch (error) {
         console.error('FormplayerModal: Error sending form init data:', error);
-        Alert.alert(
-          'Error',
-          'Failed to initialize the form UI. Please close and try again.',
-        );
+        showConfirm({
+          title: 'Error',
+          message:
+            'Failed to initialize the form UI. Please close and try again.',
+          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+        });
       }
     };
 
@@ -476,15 +480,20 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           const successMessage = currentObservationId
             ? 'Observation updated successfully!'
             : 'Form submitted successfully!';
-          Alert.alert('Success', successMessage, [
-            {
-              text: 'OK',
-              onPress: () => {
-                setIsSubmitting(false);
-                onClose();
+          showConfirm({
+            title: 'Success',
+            message: successMessage,
+            buttons: [
+              {
+                text: 'OK',
+                variant: 'primary',
+                onPress: () => {
+                  setIsSubmitting(false);
+                  onClose();
+                },
               },
-            },
-          ]);
+            ],
+          });
 
           return resultObservationId;
         } catch (error) {
@@ -505,11 +514,15 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             resolveFormOperationByType(formType, errorResult);
           }
 
-          Alert.alert('Error', 'Failed to save your form. Please try again.');
+          showConfirm({
+            title: 'Error',
+            message: 'Failed to save your form. Please try again.',
+            buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+          });
           throw error;
         }
       },
-      [currentObservationId, currentOperationId, onClose],
+      [currentObservationId, currentOperationId, onClose, showConfirm],
     );
 
     // Register/unregister modal with message handlers and reset form state
@@ -529,6 +542,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           setCurrentObservationData(null);
           setIsClosing(false); // Reset closing state when modal is fully closed
           setFormSubmitted(false); // Reset submission flag
+          setWebViewReady(false); // Reset WebView ready state
         }, 300); // Small delay to ensure modal is fully closed
       }
     }, [visible, handleSubmission]);
@@ -544,7 +558,17 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
         <View
-          style={[styles.container, { backgroundColor: themeColors.surface }]}>
+          style={[
+            styles.container,
+            {
+              backgroundColor: withAlpha(
+                themeColors.surface as string,
+                CONTAINER_ALPHA,
+              ),
+              borderWidth: 1,
+              borderColor: themeColors.divider as string,
+            },
+          ]}>
           <View
             style={[styles.header, { borderBottomColor: themeColors.divider }]}>
             <TouchableOpacity
