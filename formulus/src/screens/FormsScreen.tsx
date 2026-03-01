@@ -167,6 +167,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
+    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
     borderBottomLeftRadius: odeRadius.card,

@@ -812,6 +812,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
     borderBottomLeftRadius: odeRadius.card,
