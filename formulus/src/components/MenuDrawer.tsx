@@ -228,15 +228,21 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   />
                 </View>
                 <View style={styles.userInfo}>
-                  <Text style={[styles.userName, { color: textColor }]}>
-                    {userInfo.username}
-                  </Text>
                   <View
                     style={[
                       styles.roleBadge,
                       getRoleBadgeStyle(userInfo.role),
+                      userInfo.role === 'admin' && {
+                        backgroundColor: themeColors.primary as string,
+                      },
                     ]}>
-                    <Text style={styles.roleBadgeText}>{userInfo.role}</Text>
+                    <Text style={styles.roleBadgeText}>
+                      {userInfo.role === 'admin'
+                        ? 'Admin'
+                        : userInfo.role === 'read-write'
+                          ? 'Read-write'
+                          : 'Read-only'}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -475,6 +481,8 @@ const styles = StyleSheet.create({
   userInfo: {
     marginLeft: odeSpacing.sm,
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
   },
   userName: {
     fontSize: odeTypography.body,
@@ -490,7 +498,7 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.caption,
   },
   roleBadge: {
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-end',
     paddingHorizontal: odeSpacing.xs,
     paddingVertical: odeSpacing.xxs,
     borderRadius: odeRadius.inner,
@@ -540,7 +548,7 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   appSettingsChevron: {
-    marginRight: odeSpacing.md,
+    marginRight: odeSpacing.xl,
   },
   sectionLabel: {
     marginTop: odeSpacing.sm,
