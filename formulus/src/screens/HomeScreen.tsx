@@ -13,6 +13,7 @@ import RNFS from 'react-native-fs';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import { colors } from '../theme/colors';
 import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 import { useAppTheme } from '../contexts/AppThemeContext';
@@ -152,8 +153,8 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+  const content = (
+    <>
       {isLoading ? (
         <ActivityIndicator
           size="large"
@@ -167,7 +168,19 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           appUrl={localUri}
           appName="custom_app"
           onNavigateToSync={() => navigation.navigate('Sync')}
+          onNavigateToSettings={() => navigation.navigate('Settings')}
+          transparentBackground={isPlaceholder}
         />
+      )}
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {isPlaceholder ? (
+        <BlurredScreenBackground>{content}</BlurredScreenBackground>
+      ) : (
+        content
       )}
     </SafeAreaView>
   );
