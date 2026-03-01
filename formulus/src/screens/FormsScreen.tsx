@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,15 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Icon from '@react-native-vector-icons/material-design-icons';
 import { useForms } from '../hooks/useForms';
-import { FormCard, EmptyState } from '../components/common';
+import { FormCard, EmptyState, Input as ODEInput } from '../components/common';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useFocusEffect } from '@react-navigation/native';
-import colors from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
@@ -32,6 +34,14 @@ const FormsScreen: React.FC = () => {
     : (colors.neutral[900] as string);
   const { forms, loading, error, refresh, getObservationCount } = useForms();
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showSearch, setShowSearch] = useState<boolean>(false);
+
+  const filteredForms = useMemo(() => {
+    if (!searchQuery.trim()) return forms;
+    const q = searchQuery.trim().toLowerCase();
+    return forms.filter(form => form.name.toLowerCase().includes(q));
+  }, [forms, searchQuery]);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -125,13 +135,61 @@ const FormsScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: titleColor }]}>Forms</Text>
-          {forms.length > 0 && (
-            <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
-              {forms.length} form{forms.length !== 1 ? 's' : ''} available
-            </Text>
-          )}
+          <View style={styles.headerLeft}>
+            <Text style={[styles.title, { color: titleColor }]}>Forms</Text>
+            {forms.length > 0 && (
+              <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
+                {filteredForms.length} form{filteredForms.length !== 1 ? 's' : ''} available
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.searchButton}
+            onPress={() => setShowSearch(!showSearch)}>
+            <Icon
+              name={showSearch ? 'close' : 'magnify'}
+              size={24}
+              color={themeColors.primary}
+            />
+          </TouchableOpacity>
         </View>
+
+        {showSearch && (
+          <View
+            style={[
+              styles.searchContainer,
+              {
+                backgroundColor: withAlpha(
+                  themeColors.surface as string,
+                  CONTAINER_ALPHA,
+                ),
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
+              },
+            ]}>
+            <Icon
+              name="magnify"
+              size={20}
+              color={themeColors.onSurface}
+              style={styles.searchIcon}
+            />
+            <ODEInput
+              placeholder="Search forms..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={styles.searchInput}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Icon
+                  name="close-circle"
+                  size={20}
+                  color={themeColors.onSurface}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {forms.length === 0 ? (
           <EmptyState
@@ -139,10 +197,20 @@ const FormsScreen: React.FC = () => {
             title="No Forms Available"
             message="No forms have been downloaded yet. Go to the Sync screen to download forms from the server."
           />
+        ) : filteredForms.length === 0 ? (
+          <EmptyState
+            icon="file-document-outline"
+            title={searchQuery ? 'No Forms Found' : 'No Forms Available'}
+            message={
+              searchQuery
+                ? 'Try adjusting your search.'
+                : 'No forms have been downloaded yet. Go to the Sync screen to download forms from the server.'
+            }
+          />
         ) : (
           <FlatList
             style={styles.listTransparent}
-            data={forms}
+            data={filteredForms}
             renderItem={renderForm}
             keyExtractor={item => item.id}
             contentContainerStyle={styles.listContent}
@@ -167,23 +235,47 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
     borderBottomLeftRadius: odeRadius.card,
     borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
-    alignItems: 'center',
+  },
+  headerLeft: {
+    flex: 1,
   },
   title: {
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
     marginBottom: odeSpacing.xs,
-    textAlign: 'center',
   },
   subtitle: {
     fontSize: odeTypography.bodySm,
-    textAlign: 'center',
+  },
+  searchButton: {
+    padding: odeSpacing.xxs,
+    marginTop: odeSpacing.xxs,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: odeSpacing.lg,
+    marginTop: odeSpacing.md,
+    marginBottom: odeSpacing.xs,
+    paddingHorizontal: odeSpacing.sm,
+    borderRadius: odeRadius.inner,
+    borderWidth: odeBorderWidth.hairline,
+  },
+  searchIcon: {
+    marginRight: odeSpacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    marginBottom: 0,
   },
   listContent: {
     paddingVertical: odeSpacing.sm,
