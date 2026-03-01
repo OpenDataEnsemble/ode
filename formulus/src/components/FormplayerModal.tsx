@@ -188,9 +188,14 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       };
     }, []);
 
+    // Track WebView ready state
+    const [webViewReady, setWebViewReady] = useState(false);
+
     // Handle WebView load complete
     const handleWebViewLoad = () => {
-      // WebView ready - no action needed
+      console.log('[FormplayerModal] WebView finished loading');
+      setWebViewReady(true);
+      // WebView is now ready to receive form initialization
     };
 
     // Initialize a form with the given form type and optional existing data
@@ -201,6 +206,13 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
     ) => {
+      // Check if WebView is ready, if not log a warning (retry logic will handle it)
+      if (!webViewReady) {
+        console.warn(
+          '[FormplayerModal] WebView not ready yet, form init will be queued by message handler',
+        );
+      }
+
       // Start GPS acquisition early so the fix is ready at save time
       geolocationService.preCacheLocation();
 
@@ -529,6 +541,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           setCurrentObservationData(null);
           setIsClosing(false); // Reset closing state when modal is fully closed
           setFormSubmitted(false); // Reset submission flag
+          setWebViewReady(false); // Reset WebView ready state
         }, 300); // Small delay to ensure modal is fully closed
       }
     }, [visible, handleSubmission]);
