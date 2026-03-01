@@ -115,12 +115,14 @@ export class FormService {
         }
 
         const formSpecFolders = await RNFS.readDir(formSpecsDir);
-        // Skip non-form directories (e.g. extensions/, .hidden)
+        // Skip non-form directories (e.g. extensions/, question_types/, .hidden, temp_*)
         const formDirs = formSpecFolders.filter(
           f =>
             f.isDirectory() &&
             !f.name.startsWith('.') &&
-            f.name !== 'extensions',
+            !f.name.startsWith('temp_') &&
+            f.name !== 'extensions' &&
+            f.name !== 'question_types',
         );
 
         for (const formDir of formDirs) {
@@ -141,7 +143,10 @@ export class FormService {
       }
 
       console.log(
-        `FormService: Successfully loaded ${allFormSpecs.length} form specs`,
+        `🟢🟢🟢 [FormService] Successfully loaded ${allFormSpecs.length} form specs`,
+      );
+      console.log(
+        `🟢 [FormService] Form IDs: ${allFormSpecs.map(f => f.id).join(', ')}`,
       );
       return allFormSpecs;
     } catch (error) {
