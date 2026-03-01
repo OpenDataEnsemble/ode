@@ -16,7 +16,11 @@ const FormCard: React.FC<FormCardProps> = ({
   observationCount = 0,
   onPress,
 }) => {
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
+  const formTitleColor = isDark
+    ? (themeColors.onSurface as string)
+    : (colors.neutral[900] as string);
 
   const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
@@ -46,7 +50,7 @@ const FormCard: React.FC<FormCardProps> = ({
             />
           </View>
           <View style={styles.textContainer}>
-            <Text style={styles.name}>{form.name}</Text>
+            <Text style={[styles.name, { color: formTitleColor }]}>{form.name}</Text>
             {form.description && (
               <Text style={styles.description} numberOfLines={2}>
                 {form.description}
