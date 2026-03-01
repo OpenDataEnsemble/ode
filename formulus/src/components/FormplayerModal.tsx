@@ -13,7 +13,6 @@ import {
   TouchableOpacity,
   Text,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import CustomAppWebView, {
@@ -36,6 +35,7 @@ import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { geolocationService } from '../services/GeolocationService';
 
 interface FormplayerModalProps {
@@ -61,6 +61,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showConfirm } = useConfirmModal();
 
     // Theme colors & resolved mode from AppThemeContext.
     const { themeColors, resolvedMode } = useAppTheme();
@@ -155,24 +156,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         return;
       }
 
-      Alert.alert(
-        'Close form?',
-        'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Close form',
-            style: 'destructive',
-            onPress: () => {
-              performClose();
-            },
-          },
+      showConfirm({
+        title: 'Close form?',
+        message:
+          'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
+        buttons: [
+          { text: 'Cancel', variant: 'tertiary', onPress: () => {} },
+          { text: 'Close form', variant: 'danger', onPress: performClose },
         ],
-      );
-    }, [isClosing, isSubmitting, performClose]);
+      });
+    }, [isClosing, isSubmitting, performClose, showConfirm]);
 
     // Removed closeFormplayer event listener - now using direct promise-based submission handling
 
@@ -314,10 +307,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           'FormplayerModal: formType.schema is null/undefined for form:',
           formType.id,
         );
-        Alert.alert(
-          'Form Error',
-          `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
-        );
+        showConfirm({
+          title: 'Form Error',
+          message: `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
+          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+        });
         return;
       }
 
@@ -414,10 +408,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         await webViewRef.current.sendFormInit(formInitData);
       } catch (error) {
         console.error('FormplayerModal: Error sending form init data:', error);
-        Alert.alert(
-          'Error',
-          'Failed to initialize the form UI. Please close and try again.',
-        );
+        showConfirm({
+          title: 'Error',
+          message:
+            'Failed to initialize the form UI. Please close and try again.',
+          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+        });
       }
     };
 
@@ -484,15 +480,20 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           const successMessage = currentObservationId
             ? 'Observation updated successfully!'
             : 'Form submitted successfully!';
-          Alert.alert('Success', successMessage, [
-            {
-              text: 'OK',
-              onPress: () => {
-                setIsSubmitting(false);
-                onClose();
+          showConfirm({
+            title: 'Success',
+            message: successMessage,
+            buttons: [
+              {
+                text: 'OK',
+                variant: 'primary',
+                onPress: () => {
+                  setIsSubmitting(false);
+                  onClose();
+                },
               },
-            },
-          ]);
+            ],
+          });
 
           return resultObservationId;
         } catch (error) {
@@ -513,11 +514,15 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             resolveFormOperationByType(formType, errorResult);
           }
 
-          Alert.alert('Error', 'Failed to save your form. Please try again.');
+          showConfirm({
+            title: 'Error',
+            message: 'Failed to save your form. Please try again.',
+            buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+          });
           throw error;
         }
       },
-      [currentObservationId, currentOperationId, onClose],
+      [currentObservationId, currentOperationId, onClose, showConfirm],
     );
 
     // Register/unregister modal with message handlers and reset form state
