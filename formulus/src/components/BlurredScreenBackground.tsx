@@ -25,7 +25,7 @@ const parsePx = (value: string | undefined): number =>
 
 /** Same settings as Welcome/Placeholder: ODE blur and overlay. */
 const backgroundConfig = {
-  imageVisibility: Number(t.opacity?.['30']) ?? 0.3,
+  imageVisibility: Number(t.opacity?.['30']) || 0.3,
   blurRadiusLight: parsePx(t.filter?.blur?.['4']) || 4,
   blurRadiusDark: parsePx(t.filter?.blur?.['7']) || 7,
 };
@@ -49,7 +49,13 @@ const EdgeDarkeningOverlay = () => {
             <Stop offset="1" stopColor="#000" stopOpacity="0.22" />
           </RadialGradient>
         </Defs>
-        <Rect x={0} y={0} width={width} height={height} fill="url(#edgeDarken)" />
+        <Rect
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          fill="url(#edgeDarken)"
+        />
       </Svg>
     </View>
   );

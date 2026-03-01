@@ -78,10 +78,11 @@ const Button: React.FC<ButtonProps> = ({
     // Semantic colors stay fixed regardless of custom app theme
     const errorMain = colors.semantic?.error?.[500] ?? '#F44336';
     const errorDark = colors.semantic?.error?.[600] ?? '#D32F2F';
-    const errorLight = colors.semantic?.error?.[50] ?? '#FFEBEE';
     const neutralGrey = colors.neutral[600];
-    const error600 = (colors.semantic?.error?.[600] ?? '#D32F2F') as unknown as string;
-    const error50 = (colors.semantic?.error?.[50] ?? '#FFEBEE') as unknown as string;
+    const error600 = (colors.semantic?.error?.[600] ??
+      '#D32F2F') as unknown as string;
+    const error50 = (colors.semantic?.error?.[50] ??
+      '#FFEBEE') as unknown as string;
     const dangerDefaultBg: string = isDark
       ? withAlpha(error600, 0.28)
       : error50;

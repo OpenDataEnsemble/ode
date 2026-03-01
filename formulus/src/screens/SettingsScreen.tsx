@@ -22,7 +22,6 @@ import QRScannerModal, {
 } from '../components/QRScannerModal';
 import { QRSettingsService } from '../services/QRSettingsService';
 import { MainTabParamList } from '../types/NavigationTypes';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
 import { useAppTheme } from '../contexts/AppThemeContext';
@@ -39,8 +38,7 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
-  const { themeColors, resolvedMode } = useAppTheme();
-  const isDark = resolvedMode === 'dark';
+  const { themeColors } = useAppTheme();
   const [serverUrl, setServerUrl] = useState('');
   const [initialServerUrl, setInitialServerUrl] = useState('');
   const [username, setUsername] = useState('');
@@ -347,8 +345,7 @@ const SettingsScreen = () => {
               ]}>
               <Image source={Logo} style={styles.logo} resizeMode="contain" />
             </View>
-            <Text
-              style={[styles.brandName, { color: themeColors.onPrimary }]}>
+            <Text style={[styles.brandName, { color: themeColors.onPrimary }]}>
               ODE
             </Text>
           </View>
@@ -359,8 +356,7 @@ const SettingsScreen = () => {
           contentContainerStyle={styles.cardContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <Text
-            style={[styles.title, { color: themeColors.onSurface }]}>
+          <Text style={[styles.title, { color: themeColors.onSurface }]}>
             Please enter the server you want to connect to.
           </Text>
 
@@ -415,9 +411,9 @@ const SettingsScreen = () => {
         </View>
 
         <QRScannerModal
-        visible={showQRScanner}
-        onClose={() => setShowQRScanner(false)}
-        onResult={handleQRResult}
+          visible={showQRScanner}
+          onClose={() => setShowQRScanner(false)}
+          onResult={handleQRResult}
         />
       </SafeAreaView>
     </BlurredScreenBackground>

@@ -11,8 +11,21 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const formulusRoot = path.resolve(__dirname, '..');
 
-const TOKENS_PATH = path.join(formulusRoot, 'node_modules', '@ode', 'tokens', 'dist', 'json', 'tokens.json');
-const PLACEHOLDER_PATH = path.join(formulusRoot, 'assets', 'webview', 'placeholder_app.html');
+const TOKENS_PATH = path.join(
+  formulusRoot,
+  'node_modules',
+  '@ode',
+  'tokens',
+  'dist',
+  'json',
+  'tokens.json',
+);
+const PLACEHOLDER_PATH = path.join(
+  formulusRoot,
+  'assets',
+  'webview',
+  'placeholder_app.html',
+);
 
 const MARKER_START = '/* ODE_TOKENS_START */';
 const MARKER_END = '/* ODE_TOKENS_END */';
@@ -21,7 +34,7 @@ function loadTokens() {
   if (!fs.existsSync(TOKENS_PATH)) {
     console.error(
       `[generatePlaceholderTokens] Tokens not found at ${TOKENS_PATH}\n` +
-      'Run "npm run build" in packages/tokens (or from repo root) and ensure formulus has @ode/tokens linked.'
+        'Run "npm run build" in packages/tokens (or from repo root) and ensure formulus has @ode/tokens linked.',
     );
     process.exit(1);
   }
@@ -105,7 +118,7 @@ function main() {
 
   if (!html.includes(MARKER_START) || !html.includes(MARKER_END)) {
     console.error(
-      '[generatePlaceholderTokens] Placeholder HTML must contain /* ODE_TOKENS_START */ and /* ODE_TOKENS_END */.'
+      '[generatePlaceholderTokens] Placeholder HTML must contain /* ODE_TOKENS_START */ and /* ODE_TOKENS_END */.',
     );
     process.exit(1);
   }
@@ -114,10 +127,13 @@ function main() {
   const endIdx = html.indexOf(MARKER_END) + MARKER_END.length;
   const before = html.slice(0, startIdx);
   const after = html.slice(endIdx);
-  const newContent = before + MARKER_START + '\n' + rootBlock + '\n      ' + MARKER_END + after;
+  const newContent =
+    before + MARKER_START + '\n' + rootBlock + '\n      ' + MARKER_END + after;
 
   fs.writeFileSync(PLACEHOLDER_PATH, newContent, 'utf8');
-  console.log('[generatePlaceholderTokens] Updated assets/webview/placeholder_app.html from @ode/tokens.');
+  console.log(
+    '[generatePlaceholderTokens] Updated assets/webview/placeholder_app.html from @ode/tokens.',
+  );
 }
 
 main();

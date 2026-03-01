@@ -13,7 +13,7 @@ import { useForms } from '../hooks/useForms';
 import { FormCard, EmptyState } from '../components/common';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useFocusEffect } from '@react-navigation/native';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
 import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
@@ -77,7 +77,8 @@ const FormsScreen: React.FC = () => {
   if (loading && forms.length === 0) {
     return (
       <BlurredScreenBackground>
-        <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
             <Text
@@ -93,13 +94,14 @@ const FormsScreen: React.FC = () => {
   if (error && forms.length === 0) {
     return (
       <BlurredScreenBackground>
-        <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: 'transparent' }]}>
           <EmptyState
-          icon="alert-circle-outline"
-          title="Error Loading Forms"
-          message={error}
-          actionLabel="Retry"
-          onAction={refresh}
+            icon="alert-circle-outline"
+            title="Error Loading Forms"
+            message={error}
+            actionLabel="Retry"
+            onAction={refresh}
           />
         </SafeAreaView>
       </BlurredScreenBackground>
@@ -108,7 +110,8 @@ const FormsScreen: React.FC = () => {
 
   return (
     <BlurredScreenBackground>
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View
           style={[
             styles.header,
@@ -130,24 +133,27 @@ const FormsScreen: React.FC = () => {
           )}
         </View>
 
-      {forms.length === 0 ? (
-        <EmptyState
-          icon="file-document-outline"
-          title="No Forms Available"
-          message="No forms have been downloaded yet. Go to the Sync screen to download forms from the server."
-        />
-      ) : (
-        <FlatList
-          style={styles.listTransparent}
-          data={forms}
-          renderItem={renderForm}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        />
-      )}
+        {forms.length === 0 ? (
+          <EmptyState
+            icon="file-document-outline"
+            title="No Forms Available"
+            message="No forms have been downloaded yet. Go to the Sync screen to download forms from the server."
+          />
+        ) : (
+          <FlatList
+            style={styles.listTransparent}
+            data={forms}
+            renderItem={renderForm}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+        )}
       </SafeAreaView>
     </BlurredScreenBackground>
   );

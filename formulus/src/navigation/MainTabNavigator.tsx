@@ -43,7 +43,7 @@ const tabBarTokens = {
   paddingTop: parsePx(navT.spacing?.['2']) || 8,
   paddingHorizontal: parsePx(navT.spacing?.['6']) || 24,
   paddingBottomMin: parsePx(navT.spacing?.['1']) || 4,
-  inactiveIconOpacity: Number(navT.opacity?.['70']) ?? 0.7,
+  inactiveIconOpacity: Number(navT.opacity?.['70']) || 0.7,
   topLineHeight: parsePx(navT.border?.width?.thin) || 1,
 };
 
@@ -53,8 +53,7 @@ type TabBarIconProps = {
   focused: boolean;
 };
 
-const iconSize = (size: number) =>
-  Math.max(size, tabBarTokens.iconSize);
+const iconSize = (size: number) => Math.max(size, tabBarTokens.iconSize);
 
 const TabBarIconWrapper = ({
   focused,
@@ -176,7 +175,11 @@ const TabBarBackground = () => {
     : (colors.neutral[50] as string);
   const borderColor = isDark ? themeColors.divider : colors.neutral[300];
   return (
-    <View style={[styles.tabBarBackground, { backgroundColor: tabBarBackgroundColor }]}>
+    <View
+      style={[
+        styles.tabBarBackground,
+        { backgroundColor: tabBarBackgroundColor },
+      ]}>
       <FadingTopLine borderColor={borderColor} />
     </View>
   );
@@ -224,7 +227,8 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
   } = focusedOptions;
 
   const tabBarHeight =
-    tabBarTokens.height + Math.max(insets.bottom, tabBarTokens.paddingBottomMin);
+    tabBarTokens.height +
+    Math.max(insets.bottom, tabBarTokens.paddingBottomMin);
   const containerStyle = [
     styles.customTabBarContainer,
     {
@@ -247,7 +251,9 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
       <View style={styles.customTabBarRow}>
         {visibleRoutes.map(route => {
           const focused = state.routes[state.index]?.key === route.key;
-          const color = focused ? tabBarActiveTintColor : tabBarInactiveTintColor;
+          const color = focused
+            ? tabBarActiveTintColor
+            : tabBarInactiveTintColor;
           const iconRenderer = descriptors[route.key]?.options?.tabBarIcon;
           const icon = iconRenderer
             ? iconRenderer({
