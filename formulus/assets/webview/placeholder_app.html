@@ -1,304 +1,56 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
   <head>
     <title>Custom App Placeholder</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-      /* ODE_TOKENS_START */
-/*
-       * ODE design tokens — generated from packages/tokens. Do not edit; run npm run generate:placeholder-tokens to update.
-       */
-      :root {
-        /* color.brand.primary */
-        --color-brand-primary-500: #4f7f4e;
-        --color-brand-primary-400: #6fa46e;
-        /* color.neutral */
-        --color-neutral-black: #000000;
-        --color-neutral-white: #ffffff;
-        --color-neutral-400: #bdbdbd;
-        --color-neutral-600: #757575;
-        /* opacity.70 for overlay */
-        --opacity-70: 0.7;
-        --overlay-light: rgba(255, 255, 255, var(--opacity-70));
-        --overlay-dark: rgba(0, 0, 0, var(--opacity-70));
-        /* spacing */
-        --spacing-1: 4px;
-        --spacing-2: 8px;
-        --spacing-3: 12px;
-        --spacing-4: 16px;
-        --spacing-6: 24px;
-        --spacing-8: 32px;
-        --spacing-10: 40px;
-        /* font.size */
-        --font-size-xs: 12px;
-        --font-size-sm: 14px;
-        --font-size-base: 16px;
-        --font-size-xl: 20px;
-        --font-size-3xl: 32px;
-        /* font.weight */
-        --font-weight-regular: 400;
-        --font-weight-bold: 700;
-        /* font.family.sans */
-        --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-        /* font.lineHeight */
-        --line-height-tight: 1.25;
-        --line-height-normal: 1.5;
-        /* border.radius.md, border.width.thin */
-        --border-radius-md: 8px;
-        --border-width-thin: 1px;
-        /* filter.blur */
-        --blur-4: 4px;
-        --blur-7: 7px;
-        /* content max-width: no ODE token; layout constant */
-        --content-max-width: 320px;
-      }
-      /* ODE_TOKENS_END */
-
-      * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; height: 100%; }
-
-      body {
-        font-family: var(--font-family-sans);
-        position: relative;
-        min-height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-      }
-
-      /* Background layer: same images and blur as welcome screen (filter.blur) */
-      .bg-layer {
-        position: fixed;
-        inset: 0;
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-      }
-      .bg-layer--light {
-        background-image: url('../images/welcome-bg-light.png');
-        filter: blur(var(--blur-4));
-      }
-      .bg-layer--dark {
-        background-image: url('../images/welcome-bg-dark.png');
-        filter: blur(var(--blur-7));
-      }
-      @media (prefers-color-scheme: dark) {
-        .bg-layer--light { display: none; }
-      }
-      @media (prefers-color-scheme: light) {
-        .bg-layer--dark { display: none; }
-      }
-
-      /* Overlay: same visibility as welcome screen (imageVisibility ~0.3 → overlay ~0.7) */
-      .overlay {
-        position: fixed;
-        inset: 0;
-      }
-      .overlay--light {
-        background: var(--overlay-light);
-      }
-      .overlay--dark {
-        background: var(--overlay-dark);
-      }
-      @media (prefers-color-scheme: dark) {
-        .overlay--light { display: none; }
-      }
-      @media (prefers-color-scheme: light) {
-        .overlay--dark { display: none; }
-      }
-
-      /* Dark mode: edge-darkening to remove light vignette from welcome-bg-dark asset */
-      .edge-darken {
-        display: none;
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 1;
-        /* Left/right strips first so sides get strong darkening; then radial for corners */
-        background:
-          linear-gradient(to right, rgba(0, 0, 0, 0.5), transparent 20%),
-          linear-gradient(to left, rgba(0, 0, 0, 0.5), transparent 20%),
-          radial-gradient(
-            circle at 50% 50%,
-            transparent 35%,
-            rgba(0, 0, 0, 0.15) 60%,
-            rgba(0, 0, 0, 0.45) 100%
-          );
-      }
-      @media (prefers-color-scheme: dark) {
-        .edge-darken { display: block; }
-      }
-
-      .content {
-        position: relative;
-        z-index: 2;
-        padding: var(--spacing-10);
-        max-width: var(--content-max-width);
-      }
-
-      .title {
-        color: var(--color-brand-primary-500);
-        font-size: var(--font-size-3xl);
-        font-weight: var(--font-weight-bold);
-        margin: 0 0 var(--spacing-6);
-        line-height: var(--line-height-tight);
-      }
-
-      .subtitle {
-        color: var(--color-neutral-black);
-        font-size: var(--font-size-base);
-        font-weight: var(--font-weight-regular);
-        margin: 0 0 var(--spacing-8);
-        line-height: var(--line-height-normal);
-      }
-      @media (prefers-color-scheme: dark) {
-        .subtitle { color: var(--color-neutral-white); }
-      }
-
-      /* Button: component.button (border.radius.md, border.width.thin, padding large = spacing.4 spacing.8) */
-      .btn-login {
-        display: inline-block;
-        padding: var(--spacing-4) var(--spacing-8);
-        margin-bottom: var(--spacing-8);
-        font-size: var(--font-size-base);
-        font-weight: var(--font-weight-bold);
-        color: var(--color-brand-primary-500);
-        background: transparent;
-        border: var(--border-width-thin) solid var(--color-brand-primary-500);
-        border-radius: var(--border-radius-md);
-        cursor: pointer;
-        text-decoration: none;
-        -webkit-tap-highlight-color: transparent;
-      }
-      @media (prefers-color-scheme: dark) {
-        .btn-login {
-          color: var(--color-brand-primary-400);
-          border-color: var(--color-brand-primary-400);
-        }
-      }
-
-      .tagline {
-        font-size: var(--font-size-sm);
-        color: var(--color-neutral-600);
-        margin: 0 0 var(--spacing-3);
-      }
-      @media (prefers-color-scheme: dark) {
-        .tagline { color: var(--color-neutral-400); }
-      }
-
-      .version {
-        font-size: var(--font-size-xs);
-        color: var(--color-neutral-600);
-        margin: 0;
-      }
-      @media (prefers-color-scheme: dark) {
-        .version { color: var(--color-neutral-400); }
-      }
-
-      /* Explicit theme override from native app: html[data-theme="light"|"dark"] */
-      html[data-theme='light'] .bg-layer--dark,
-      html[data-theme='light'] .overlay--dark,
-      html[data-theme='light'] .edge-darken {
-        display: none !important;
-      }
-      html[data-theme='light'] .bg-layer--light,
-      html[data-theme='light'] .overlay--light {
-        display: block !important;
-      }
-      html[data-theme='light'] .subtitle,
-      html[data-theme='light'] .tagline,
-      html[data-theme='light'] .version {
-        color: var(--color-neutral-black);
-      }
-
-      html[data-theme='dark'] .bg-layer--light,
-      html[data-theme='dark'] .overlay--light {
-        display: none !important;
-      }
-      html[data-theme='dark'] .bg-layer--dark,
-      html[data-theme='dark'] .overlay--dark,
-      html[data-theme='dark'] .edge-darken {
-        display: block !important;
-      }
-      html[data-theme='dark'] .subtitle,
-      html[data-theme='dark'] .tagline,
-      html[data-theme='dark'] .version {
-        color: var(--color-neutral-white);
-      }
+      body { font-family: sans-serif; text-align: center; padding: 40px; }
+      h1 { color: #4A90E2; }
     </style>
   </head>
   <body>
-    <div class="bg-layer bg-layer--light" aria-hidden="true"></div>
-    <div class="bg-layer bg-layer--dark" aria-hidden="true"></div>
-    <div class="overlay overlay--light" aria-hidden="true"></div>
-    <div class="overlay overlay--dark" aria-hidden="true"></div>
-    <div class="edge-darken" aria-hidden="true"></div>
-
-    <main class="content">
-      <h1 class="title">Your Custom App</h1>
-      <p class="subtitle">
-        Login and Sync to load your forms!
-      </p>
-      <button type="button" class="btn-login" id="loginBtn">Login Now</button>
-      <p class="tagline">Secure • Fast • Offline</p>
-      <p class="version" id="version">v0.1.0-native</p>
-    </main>
-
+    <h1>Your Custom App</h1>
+    <p>This is a placeholder. Your app will appear here after sync.</p>
     <script>
     (function() {
-      // Called from React Native to force light/dark theme.
-      window.__formulusSetTheme = function(mode) {
-        if (!mode || mode === 'system') {
-          document.documentElement.removeAttribute('data-theme');
-          return;
-        }
-        if (mode === 'light' || mode === 'dark') {
-          document.documentElement.setAttribute('data-theme', mode);
-        }
-      };
-
-      var loginBtn = document.getElementById('loginBtn');
-      if (loginBtn) {
-        loginBtn.addEventListener('click', function() {
-          if (typeof window.ReactNativeWebView !== 'undefined' && typeof window.ReactNativeWebView.postMessage === 'function') {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formulusNavigateToSync' }));
-          }
-        });
-      }
-
-      function setVersion(v) {
-        var el = document.getElementById('version');
-        if (el) el.textContent = (v && v.indexOf('v') !== 0) ? 'v' + v : (v || 'v0.1.0-native');
-      }
-
-      function waitForFormulus(cb, tries) {
-        tries = tries || 50;
-        var api = window.formulus || globalThis.formulus;
+      function waitForFormulus(cb, tries = 50) {
+        const api = window.formulus || globalThis.formulus;
         if (api && typeof api.getVersion === 'function') {
           try {
-            var version = api.getVersion();
-            if (version && typeof version.then === 'function') {
-              version.then(function(v) { setVersion(v); cb(); }).catch(function() { cb(); });
+            const version = api.getVersion();
+            
+            // Check if it's a Promise
+            if (version instanceof Promise) {
+              version.then(function(v) {
+                console.log('Formulus version:', v);
+                document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: ' + v + '</p>');
+                cb();
+              }).catch(function(err) {
+                console.error('Error awaiting version:', err);
+                document.body.insertAdjacentHTML('beforeend', '<p style="color: #999;">Formulus API: Error</p>');
+              });
             } else {
-              setVersion(version);
+              console.log('Formulus version:', version);
+              document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: ' + version + '</p>');
               cb();
             }
-          } catch (e) {
-            cb();
+          } catch (err) {
+            console.error('Error getting Formulus version:', err);
+            document.body.insertAdjacentHTML('beforeend', '<p style="color: #999;">Formulus API: Error</p>');
           }
         } else if (tries > 0) {
-          setTimeout(function() { waitForFormulus(cb, tries - 1); }, 100);
+          setTimeout(() => waitForFormulus(cb, tries - 1), 100);
         } else {
-          cb();
+          console.warn('Formulus API not available after waiting');
+          document.body.insertAdjacentHTML('beforeend', '<p style="color: #999;">Formulus API: Not available</p>');
         }
       }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() { waitForFormulus(function() {}); });
-      } else {
-        waitForFormulus(function() {});
-      }
+      
+      document.addEventListener('DOMContentLoaded', function() {
+        waitForFormulus(function() {
+          // API loaded successfully
+        });
+      });
     })();
     </script>
   </body>
