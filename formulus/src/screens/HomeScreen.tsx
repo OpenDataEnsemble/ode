@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import RNFS from 'react-native-fs';
 import CustomAppWebView, {
@@ -21,8 +22,9 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [webViewKey, setWebViewKey] = useState(0);
+  const [isPlaceholder, setIsPlaceholder] = useState(false);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
-  const { reloadTheme } = useAppTheme();
+  const { reloadTheme, resolvedMode } = useAppTheme();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -73,6 +75,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         }
         console.log('[HomeScreen] Using placeholder URI:', placeholderUri);
         setLocalUri(placeholderUri);
+        setIsPlaceholder(true);
       } else {
         // (Re-)load the custom app's config so that all native UI elements
         // (tab bar, headers, modals) update to match the app's branding.
@@ -82,6 +85,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         const customAppUri = `file://${filePath}`;
         console.log('[HomeScreen] Using custom app URI:', customAppUri);
         setLocalUri(customAppUri);
+        setIsPlaceholder(false);
       }
     } catch (err) {
       console.warn('[HomeScreen] Failed to setup app URI:', err);
@@ -121,6 +125,25 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     }
   }, [localUri]);
 
+  // Keep placeholder screen theme in sync with in-app theme selection.
+  useEffect(() => {
+    if (!localUri || !isPlaceholder || !customAppRef.current) {
+      return;
+    }
+    const js = `
+      (function() {
+        try {
+          if (window.__formulusSetTheme) {
+            window.__formulusSetTheme('${resolvedMode}');
+          }
+        } catch (e) {
+          // no-op
+        }
+      })();
+    `;
+    customAppRef.current.injectJavaScript(js);
+  }, [resolvedMode, localUri, isPlaceholder]);
+
   if (!localUri) {
     return (
       <View style={styles.container}>
@@ -130,7 +153,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {isLoading ? (
         <ActivityIndicator
           size="large"
@@ -143,9 +166,10 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           ref={customAppRef}
           appUrl={localUri}
           appName="custom_app"
+          onNavigateToSync={() => navigation.navigate('Sync')}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 

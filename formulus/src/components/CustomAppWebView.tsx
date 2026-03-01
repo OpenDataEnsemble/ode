@@ -32,6 +32,8 @@ interface CustomAppWebViewProps {
   appName?: string; // To identify the source of logs
   onLoadEndProp?: () => void; // Propagate WebView's onLoadEnd event
   onCanGoBackChange?: (canGoBack: boolean) => void; // Notify parent when WebView back-navigability changes
+  /** Called when placeholder posts formulusNavigateToSync (e.g. "Login Now" button). */
+  onNavigateToSync?: () => void;
 }
 
 const INJECTION_SCRIPT_PATH =
@@ -156,86 +158,101 @@ const consoleLogScript = `
 const CustomAppWebView = forwardRef<
   CustomAppWebViewHandle,
   CustomAppWebViewProps
->(({ appUrl, appName, onLoadEndProp, onCanGoBackChange }, ref) => {
-  const webViewRef = useRef<WebView | null>(null);
-  const hasLoadedOnceRef = useRef(false);
+>(
+  (
+    { appUrl, appName, onLoadEndProp, onCanGoBackChange, onNavigateToSync },
+    ref,
+  ) => {
+    const webViewRef = useRef<WebView | null>(null);
+    const hasLoadedOnceRef = useRef(false);
 
-  const canGoBackRef = useRef(false);
+    const canGoBackRef = useRef(false);
 
-  const onCanGoBackChangeRef = useRef(onCanGoBackChange);
-  useEffect(() => {
-    onCanGoBackChangeRef.current = onCanGoBackChange;
-  }, [onCanGoBackChange]);
+    const onCanGoBackChangeRef = useRef(onCanGoBackChange);
+    useEffect(() => {
+      onCanGoBackChangeRef.current = onCanGoBackChange;
+    }, [onCanGoBackChange]);
 
-  const [injectionScript, setInjectionScript] =
-    useState<string>(consoleLogScript);
-  const injectionScriptRef = useRef<string>(consoleLogScript);
-  const [isScriptReady, setIsScriptReady] = useState(false);
+    const onNavigateToSyncRef = useRef(onNavigateToSync);
+    useEffect(() => {
+      onNavigateToSyncRef.current = onNavigateToSync;
+    }, [onNavigateToSync]);
 
-  useEffect(() => {
-    const loadScript = async () => {
-      try {
-        let script = '';
+    const [injectionScript, setInjectionScript] =
+      useState<string>(consoleLogScript);
+    const injectionScriptRef = useRef<string>(consoleLogScript);
+    const [isScriptReady, setIsScriptReady] = useState(false);
 
-        if (Platform.OS === 'android') {
-          // Path A: Use the Android-only asset reader
-          script = await readFileAssets(INJECTION_SCRIPT_PATH);
-        } else {
-          const iosPath = `${MainBundlePath}/${INJECTION_SCRIPT_PATH}`;
-          script = await readFile(iosPath, 'utf8');
-        }
+    useEffect(() => {
+      const loadScript = async () => {
+        try {
+          let script = '';
 
-        const fullScript =
-          consoleLogScript +
-          '\n' +
-          hashNavigationTrackingScript +
-          '\n' +
-          script;
-        setInjectionScript(fullScript);
-        setIsScriptReady(true);
-      } catch (err) {
-        // Logic for if the file is missing entirely
-        console.error('Failed to load injection script with error:', err);
-        // setIsScriptReady(true);
-      }
-    };
-    loadScript();
-  }, []);
-
-  const messageManager = useMemo(() => {
-    const manager = new FormulusWebViewMessageManager(webViewRef, appName);
-
-    // Extend the message manager to handle API recovery requests
-    const originalHandleMessage = manager.handleWebViewMessage;
-    manager.handleWebViewMessage = event => {
-      try {
-        const eventData = JSON.parse(event.nativeEvent.data);
-
-        if (eventData.type === 'hashNavigationStateChange') {
-          const newCanGoBack = !!eventData.canGoBack;
-          if (canGoBackRef.current !== newCanGoBack) {
-            canGoBackRef.current = newCanGoBack;
-            onCanGoBackChangeRef.current?.(newCanGoBack);
+          if (Platform.OS === 'android') {
+            // Path A: Use the Android-only asset reader
+            script = await readFileAssets(INJECTION_SCRIPT_PATH);
+          } else {
+            const iosPath = `${MainBundlePath}/${INJECTION_SCRIPT_PATH}`;
+            script = await readFile(iosPath, 'utf8');
           }
-          return;
+
+          const fullScript =
+            consoleLogScript +
+            '\n' +
+            hashNavigationTrackingScript +
+            '\n' +
+            script;
+          setInjectionScript(fullScript);
+          setIsScriptReady(true);
+        } catch (err) {
+          // Logic for if the file is missing entirely
+          console.error('Failed to load injection script with error:', err);
+          // setIsScriptReady(true);
         }
+      };
+      loadScript();
+    }, []);
 
-        // Handle API re-injection requests from WebView
-        if (eventData.type === 'requestApiReinjection') {
-          console.log(
-            `[CustomAppWebView - ${
-              appName || 'Default'
-            }] WebView requested API re-injection`,
-          );
+    const messageManager = useMemo(() => {
+      const manager = new FormulusWebViewMessageManager(webViewRef, appName);
 
-          // Perform immediate re-injection
-          const latestScript = injectionScriptRef.current;
-          if (
-            webViewRef.current &&
-            latestScript !== consoleLogScript &&
-            hasLoadedOnceRef.current
-          ) {
-            const reInjectionWrapper = `
+      // Extend the message manager to handle API recovery requests
+      const originalHandleMessage = manager.handleWebViewMessage;
+      manager.handleWebViewMessage = event => {
+        try {
+          const eventData = JSON.parse(event.nativeEvent.data);
+
+          if (eventData.type === 'hashNavigationStateChange') {
+            const newCanGoBack = !!eventData.canGoBack;
+            if (canGoBackRef.current !== newCanGoBack) {
+              canGoBackRef.current = newCanGoBack;
+              onCanGoBackChangeRef.current?.(newCanGoBack);
+            }
+            return;
+          }
+
+          // Handle placeholder "Login Now" → navigate to Sync tab
+          if (eventData.type === 'formulusNavigateToSync') {
+            onNavigateToSyncRef.current?.();
+            return;
+          }
+
+          // Handle API re-injection requests from WebView
+          if (eventData.type === 'requestApiReinjection') {
+            console.log(
+              `[CustomAppWebView - ${
+                appName || 'Default'
+              }] WebView requested API re-injection`,
+            );
+
+            // Perform immediate re-injection
+            const latestScript = injectionScriptRef.current;
+            if (
+              webViewRef.current &&
+              latestScript !== consoleLogScript &&
+              hasLoadedOnceRef.current
+            ) {
+              const reInjectionWrapper = `
               (function() {
                 console.debug('[CustomAppWebView/ApiRecovery] Processing re-injection request...');
                 
@@ -252,73 +269,73 @@ const CustomAppWebView = forwardRef<
                 return true;
               })();
             `;
-            webViewRef.current.injectJavaScript(reInjectionWrapper);
+              webViewRef.current.injectJavaScript(reInjectionWrapper);
+            }
+            return;
           }
-          return;
+        } catch (error: unknown) {
+          console.error('Error parsing event data:', error);
+          // If parsing fails, let the original handler deal with it
         }
-      } catch (error: unknown) {
-        console.error('Error parsing event data:', error);
-        // If parsing fails, let the original handler deal with it
-      }
 
-      // Call the original handler for all other messages
-      originalHandleMessage.call(manager, event);
+        // Call the original handler for all other messages
+        originalHandleMessage.call(manager, event);
+      };
+
+      return manager;
+    }, [appName]);
+
+    const handleNavigationStateChange = useCallback(
+      (navState: WebViewNavigation) => {
+        const newCanGoBack = navState.canGoBack;
+        if (canGoBackRef.current !== newCanGoBack) {
+          canGoBackRef.current = newCanGoBack;
+          onCanGoBackChange?.(newCanGoBack);
+        }
+      },
+      [onCanGoBackChange],
+    );
+
+    // Expose imperative handle
+    useImperativeHandle(
+      ref,
+      () => ({
+        reload: () => webViewRef.current?.reload?.(),
+        goBack: () => webViewRef.current?.goBack?.(),
+        goForward: () => webViewRef.current?.goForward?.(),
+        canGoBack: () => canGoBackRef.current,
+        injectJavaScript: (script: string) =>
+          webViewRef.current?.injectJavaScript(script),
+        sendFormInit: (formData: FormInitData) =>
+          messageManager.sendFormInit(formData),
+        sendAttachmentData: (attachmentData: File) =>
+          messageManager.sendAttachmentData(attachmentData),
+      }),
+      [messageManager],
+    );
+
+    const handleError = (syntheticEvent: SyntheticEvent) => {
+      const { nativeEvent } = syntheticEvent;
+      console.error(
+        '[CustomAppWebView] WebView error',
+        nativeEvent,
+        'appUrl:',
+        appUrl,
+      );
     };
 
-    return manager;
-  }, [appName]);
+    const isFocused = useIsFocused();
 
-  const handleNavigationStateChange = useCallback(
-    (navState: WebViewNavigation) => {
-      const newCanGoBack = navState.canGoBack;
-      if (canGoBackRef.current !== newCanGoBack) {
-        canGoBackRef.current = newCanGoBack;
-        onCanGoBackChange?.(newCanGoBack);
-      }
-    },
-    [onCanGoBackChange],
-  );
-
-  // Expose imperative handle
-  useImperativeHandle(
-    ref,
-    () => ({
-      reload: () => webViewRef.current?.reload?.(),
-      goBack: () => webViewRef.current?.goBack?.(),
-      goForward: () => webViewRef.current?.goForward?.(),
-      canGoBack: () => canGoBackRef.current,
-      injectJavaScript: (script: string) =>
-        webViewRef.current?.injectJavaScript(script),
-      sendFormInit: (formData: FormInitData) =>
-        messageManager.sendFormInit(formData),
-      sendAttachmentData: (attachmentData: File) =>
-        messageManager.sendAttachmentData(attachmentData),
-    }),
-    [messageManager],
-  );
-
-  const handleError = (syntheticEvent: SyntheticEvent) => {
-    const { nativeEvent } = syntheticEvent;
-    console.error(
-      '[CustomAppWebView] WebView error',
-      nativeEvent,
-      'appUrl:',
-      appUrl,
-    );
-  };
-
-  const isFocused = useIsFocused();
-
-  useEffect(() => {
-    // Ensure webViewRef.current and injectionScript (the fully prepared script) are available, and initial load has completed.
-    if (
-      isFocused &&
-      webViewRef.current &&
-      injectionScript !== consoleLogScript &&
-      hasLoadedOnceRef.current
-    ) {
-      // Check injectionScript is loaded and initial load done
-      const reInjectionWrapper = `
+    useEffect(() => {
+      // Ensure webViewRef.current and injectionScript (the fully prepared script) are available, and initial load has completed.
+      if (
+        isFocused &&
+        webViewRef.current &&
+        injectionScript !== consoleLogScript &&
+        hasLoadedOnceRef.current
+      ) {
+        // Check injectionScript is loaded and initial load done
+        const reInjectionWrapper = `
         (function() {
           if (typeof window.formulus === 'undefined' && typeof globalThis.formulus === 'undefined') {
             console.debug('[CustomAppWebView/FocusEffect] window.formulus is undefined AFTER LOAD. Re-injecting main script content.');
@@ -336,70 +353,70 @@ const CustomAppWebView = forwardRef<
           return true; // Return true to prevent potential errors in some WebView versions
         })();
       `;
-      webViewRef.current.injectJavaScript(reInjectionWrapper);
-    }
-  }, [isFocused, injectionScript]); // Depend on injectionScript to use the latest version
+        webViewRef.current.injectJavaScript(reInjectionWrapper);
+      }
+    }, [isFocused, injectionScript]); // Depend on injectionScript to use the latest version
 
-  // AppState listener to detect when app regains focus and trigger handleReceiveFocus
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: string) => {
-      if (nextAppState === 'active') {
-        console.log(
-          '[CustomAppWebView] App became active, triggering handleReceiveFocus',
-        );
-        // Call handleReceiveFocus on the messageManager when app becomes active
-        if (
-          messageManager &&
-          typeof messageManager.handleReceiveFocus === 'function'
-        ) {
-          messageManager.handleReceiveFocus();
+    // AppState listener to detect when app regains focus and trigger handleReceiveFocus
+    useEffect(() => {
+      const handleAppStateChange = (nextAppState: string) => {
+        if (nextAppState === 'active') {
+          console.log(
+            '[CustomAppWebView] App became active, triggering handleReceiveFocus',
+          );
+          // Call handleReceiveFocus on the messageManager when app becomes active
+          if (
+            messageManager &&
+            typeof messageManager.handleReceiveFocus === 'function'
+          ) {
+            messageManager.handleReceiveFocus();
+          }
         }
-      }
-    };
+      };
 
-    const subscription = AppState.addEventListener(
-      'change',
-      handleAppStateChange,
-    );
+      const subscription = AppState.addEventListener(
+        'change',
+        handleAppStateChange,
+      );
 
-    return () => {
-      subscription?.remove();
-    };
-  }, [messageManager]);
+      return () => {
+        subscription?.remove();
+      };
+    }, [messageManager]);
 
-  // const handleWebViewMessage = createFormulusMessageHandler(webViewRef, appName); // Replaced by messageManager
-  // If appName is undefined, createFormulusMessageHandler will use its default 'WebView'
+    // const handleWebViewMessage = createFormulusMessageHandler(webViewRef, appName); // Replaced by messageManager
+    // If appName is undefined, createFormulusMessageHandler will use its default 'WebView'
 
-  if (!isScriptReady) {
+    if (!isScriptReady) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.semantic.info.ios} />
+        </View>
+      );
+    }
+
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={colors.semantic.info.ios} />
-      </View>
-    );
-  }
-
-  return (
-    <WebView
-      ref={webViewRef}
-      source={{ uri: appUrl }}
-      onNavigationStateChange={handleNavigationStateChange}
-      onMessage={messageManager.handleWebViewMessage}
-      onError={handleError}
-      onLoadStart={() =>
-        console.debug(
-          `[CustomAppWebView - ${appName || 'Default'}] Starting to load URL:`,
-          appUrl,
-        )
-      }
-      onLoadEnd={() => {
-        console.debug(
-          `[CustomAppWebView - ${
-            appName || 'Default'
-          }] Finished loading URL: ${appUrl}`,
-        );
-        if (webViewRef.current) {
-          // Ensure API is available after load
-          const ensureApiScript = `
+      <WebView
+        ref={webViewRef}
+        source={{ uri: appUrl }}
+        onNavigationStateChange={handleNavigationStateChange}
+        onMessage={messageManager.handleWebViewMessage}
+        onError={handleError}
+        onLoadStart={() =>
+          console.debug(
+            `[CustomAppWebView - ${appName || 'Default'}] Starting to load URL:`,
+            appUrl,
+          )
+        }
+        onLoadEnd={() => {
+          console.debug(
+            `[CustomAppWebView - ${
+              appName || 'Default'
+            }] Finished loading URL: ${appUrl}`,
+          );
+          if (webViewRef.current) {
+            // Ensure API is available after load
+            const ensureApiScript = `
             (function() {
               if (typeof window.formulus === 'undefined' && typeof globalThis.formulus !== 'undefined') {
                 window.formulus = globalThis.formulus;
@@ -409,43 +426,44 @@ const CustomAppWebView = forwardRef<
               }
             })();
           `;
-          webViewRef.current.injectJavaScript(ensureApiScript);
+            webViewRef.current.injectJavaScript(ensureApiScript);
+          }
+          hasLoadedOnceRef.current = true;
+          if (onLoadEndProp) {
+            onLoadEndProp();
+          }
+        }}
+        onHttpError={syntheticEvent => {
+          const { nativeEvent } = syntheticEvent;
+          console.error('CustomWebView HTTP error:', nativeEvent);
+        }}
+        injectedJavaScriptBeforeContentLoaded={injectionScript}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        allowFileAccess={true}
+        allowUniversalAccessFromFileURLs={true}
+        allowFileAccessFromFileURLs={true}
+        // iOS requires read access to the directory containing the file, not just the file itself
+        // For custom apps from DocumentDirectoryPath, allow access to the app directory
+        // For bundled assets (MainBundlePath), allow access to the bundle root
+        allowingReadAccessToURL={
+          Platform.OS === 'ios'
+            ? appUrl.includes(MainBundlePath)
+              ? `file://${MainBundlePath}`
+              : appUrl.substring(0, appUrl.lastIndexOf('/'))
+            : undefined
         }
-        hasLoadedOnceRef.current = true;
-        if (onLoadEndProp) {
-          onLoadEndProp();
-        }
-      }}
-      onHttpError={syntheticEvent => {
-        const { nativeEvent } = syntheticEvent;
-        console.error('CustomWebView HTTP error:', nativeEvent);
-      }}
-      injectedJavaScriptBeforeContentLoaded={injectionScript}
-      javaScriptEnabled={true}
-      domStorageEnabled={true}
-      allowFileAccess={true}
-      allowUniversalAccessFromFileURLs={true}
-      allowFileAccessFromFileURLs={true}
-      // iOS requires read access to the directory containing the file, not just the file itself
-      // For custom apps from DocumentDirectoryPath, allow access to the app directory
-      // For bundled assets (MainBundlePath), allow access to the bundle root
-      allowingReadAccessToURL={
-        Platform.OS === 'ios'
-          ? appUrl.includes(MainBundlePath)
-            ? `file://${MainBundlePath}`
-            : appUrl.substring(0, appUrl.lastIndexOf('/'))
-          : undefined
-      }
-      startInLoadingState={true}
-      originWhitelist={['*']}
-      renderLoading={() => (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.semantic.info.ios} />
-        </View>
-      )}
-    />
-  );
-});
+        startInLoadingState={true}
+        originWhitelist={['*']}
+        renderLoading={() => (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.semantic.info.ios} />
+          </View>
+        )}
+      />
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   centered: {

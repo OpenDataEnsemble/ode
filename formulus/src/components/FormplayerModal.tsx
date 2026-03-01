@@ -15,7 +15,6 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
@@ -32,7 +31,7 @@ import {
 } from '../webview/FormulusInterfaceDefinition';
 
 import { databaseService } from '../database';
-import { colors } from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
@@ -62,11 +61,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const colorScheme = useColorScheme();
 
-    // Theme colors from the AppThemeContext — updates automatically when
-    // the custom app config is loaded or the color scheme changes.
-    const { themeColors } = useAppTheme();
+    // Theme colors & resolved mode from AppThemeContext.
+    const { themeColors, resolvedMode } = useAppTheme();
 
     // Internal state to track current form and observation data
     const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -239,8 +236,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
       // Forward the custom app's theme colors to the Formplayer WebView so
       // that form UI elements (buttons, inputs, headers) match the branding.
-      // `themeColors` comes from useAppTheme() and is always up-to-date.
-      const isDark = colorScheme === 'dark';
+      const isDark = resolvedMode === 'dark';
 
       const formParams = {
         locale: 'en',
@@ -557,7 +553,17 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
         <View
-          style={[styles.container, { backgroundColor: themeColors.surface }]}>
+          style={[
+            styles.container,
+            {
+              backgroundColor: withAlpha(
+                themeColors.surface as string,
+                CONTAINER_ALPHA,
+              ),
+              borderWidth: 1,
+              borderColor: themeColors.divider as string,
+            },
+          ]}>
           <View
             style={[styles.header, { borderBottomColor: themeColors.divider }]}>
             <TouchableOpacity
