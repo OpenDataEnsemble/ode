@@ -109,11 +109,14 @@ const Button: React.FC<WebButtonProps> = ({
     );
   };
 
-  const primaryGreen = getToken('color.brand.primary.500');
+  // Use CSS variables when set by host (e.g. Formplayer custom app theme); fallback to tokens
+  const primaryGreenFallback = getToken('color.brand.primary.500');
+  const textOnFillFallback = getToken('color.neutral.white');
+  const primaryGreen = `var(--ode-color-brand-primary-500, ${primaryGreenFallback})`;
+  const textOnFill = `var(--ode-color-neutral-white, ${textOnFillFallback})`;
   const errorRed = getToken('color.semantic.error.500');
   const errorRedDark = getToken('color.semantic.error.600');
   const errorRedLight = getToken('color.semantic.error.50');
-  const textOnFill = getToken('color.neutral.white');
 
   const neutralGrey = getToken('color.neutral.600');
   const borderColor = useMemo(() => {
