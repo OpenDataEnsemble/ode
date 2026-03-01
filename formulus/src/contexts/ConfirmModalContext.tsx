@@ -23,9 +23,9 @@ interface ConfirmModalContextValue {
   hideConfirm: () => void;
 }
 
-const ConfirmModalContext = createContext<
-  ConfirmModalContextValue | undefined
->(undefined);
+const ConfirmModalContext = createContext<ConfirmModalContextValue | undefined>(
+  undefined,
+);
 
 export function ConfirmModalProvider({
   children,
@@ -73,7 +73,9 @@ export function ConfirmModalProvider({
 export function useConfirmModal(): ConfirmModalContextValue {
   const ctx = useContext(ConfirmModalContext);
   if (ctx === undefined) {
-    throw new Error('useConfirmModal must be used within a ConfirmModalProvider');
+    throw new Error(
+      'useConfirmModal must be used within a ConfirmModalProvider',
+    );
   }
   return ctx;
 }

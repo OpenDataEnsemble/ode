@@ -139,7 +139,8 @@ const FormsScreen: React.FC = () => {
             <Text style={[styles.title, { color: titleColor }]}>Forms</Text>
             {forms.length > 0 && (
               <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
-                {filteredForms.length} form{filteredForms.length !== 1 ? 's' : ''} available
+                {filteredForms.length} form
+                {filteredForms.length !== 1 ? 's' : ''} available
               </Text>
             )}
           </View>

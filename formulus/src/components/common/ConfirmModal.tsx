@@ -3,13 +3,7 @@
  */
 
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Modal,
-  TouchableOpacity,
-} from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import Button from './Button';
@@ -48,6 +42,10 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     : (colors.neutral[900] as string);
   const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   const cardInnerBg = themeColors.surface as string;
+  const backdropBg = withAlpha(
+    colors.neutral.black as string,
+    isDark ? 0.8 : 0.65,
+  );
 
   const handlePress = (button: ConfirmButton) => {
     onRequestClose();
@@ -65,16 +63,12 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       statusBarTranslucent>
       <TouchableOpacity
         activeOpacity={1}
-        style={[
-          styles.backdrop,
-          { backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.65)' },
-        ]}
+        style={[styles.backdrop, { backgroundColor: backdropBg }]}
         onPress={onRequestClose}>
         <TouchableOpacity
           style={styles.centered}
           activeOpacity={1}
-          onPress={() => {}}
-        >
+          onPress={() => {}}>
           <View
             style={[
               styles.card,
@@ -84,13 +78,15 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
                 backgroundColor: cardOuterBg,
               },
             ]}>
-            <View
-              style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
               <Text style={[styles.title, { color: cardTitleColor }]}>
                 {title}
               </Text>
               <Text
-                style={[styles.message, { color: themeColors.onSurface as string }]}>
+                style={[
+                  styles.message,
+                  { color: themeColors.onSurface as string },
+                ]}>
                 {message}
               </Text>
               <View style={styles.buttonsRow}>

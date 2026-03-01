@@ -50,7 +50,9 @@ const FormCard: React.FC<FormCardProps> = ({
             />
           </View>
           <View style={styles.textContainer}>
-            <Text style={[styles.name, { color: formTitleColor }]}>{form.name}</Text>
+            <Text style={[styles.name, { color: formTitleColor }]}>
+              {form.name}
+            </Text>
             {form.description && (
               <Text style={styles.description} numberOfLines={2}>
                 {form.description}
