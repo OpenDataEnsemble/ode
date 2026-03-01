@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';

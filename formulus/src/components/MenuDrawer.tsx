@@ -101,8 +101,10 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
   const odeOpacity = (tokens as { opacity?: Record<string, string> }).opacity;
-  const dividerOpacityDark = odeOpacity?.['10'] != null ? Number(odeOpacity['10']) : 0.1;
-  const themeChipBorderOpacityDark = odeOpacity?.['50'] != null ? Number(odeOpacity['50']) : 0.5;
+  const dividerOpacityDark =
+    odeOpacity?.['10'] != null ? Number(odeOpacity['10']) : 0.1;
+  const themeChipBorderOpacityDark =
+    odeOpacity?.['50'] != null ? Number(odeOpacity['50']) : 0.5;
   const sectionDividerColor = isDark
     ? withAlpha(colors.neutral.white as string, dividerOpacityDark)
     : (themeColors.divider as string);
@@ -110,9 +112,6 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   const themeChipBorderColorDark = isDark
     ? withAlpha(colors.neutral.white as string, themeChipBorderOpacityDark)
     : undefined;
-  const drawerBg = isDark
-    ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
-    : (colors.neutral[50] as string);
   const cardOuterBg = isDark
     ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
     : withAlpha(colors.neutral[900] as string, 0.04);
