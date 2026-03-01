@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <title>Custom App Placeholder</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -53,53 +53,174 @@
         --content-max-width: 320px;
       }
       /* ODE_TOKENS_END */
-      body { font-family: sans-serif; text-align: center; padding: 40px; }
-      h1 { color: #4A90E2; }
+
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        height: 100%;
+        font-family: var(--font-family-sans);
+        -webkit-tap-highlight-color: transparent;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-8);
+        background: transparent;
+        transition: color 0.2s ease, background-color 0.2s ease;
+      }
+      [data-theme="light"] body {
+        color: var(--color-neutral-600);
+      }
+      [data-theme="dark"] body {
+        color: var(--color-neutral-white);
+      }
+      html:not([data-theme]) body {
+        color: var(--color-neutral-600);
+      }
+
+      .placeholder-card {
+        max-width: var(--content-max-width);
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .placeholder-title {
+        font-size: var(--font-size-3xl);
+        font-weight: var(--font-weight-bold);
+        line-height: var(--line-height-tight);
+        color: var(--color-brand-primary-500);
+        margin: 0 0 var(--spacing-4);
+        letter-spacing: -0.02em;
+      }
+      .placeholder-subtitle {
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-regular);
+        line-height: var(--line-height-normal);
+        margin: 0 0 var(--spacing-8);
+      }
+      [data-theme="dark"] .placeholder-subtitle {
+        color: var(--color-neutral-white);
+      }
+      [data-theme="light"] .placeholder-subtitle {
+        color: var(--color-neutral-600);
+      }
+
+      /* ODE button: transparent bg, green border and text; hover/active: green bg, white text */
+      .placeholder-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: var(--spacing-3) var(--spacing-6);
+        font-family: inherit;
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-bold);
+        color: var(--color-brand-primary-500);
+        background-color: transparent;
+        border: var(--border-width-thin) solid var(--color-brand-primary-500);
+        border-radius: var(--border-radius-md);
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+        margin-bottom: var(--spacing-8);
+      }
+      .placeholder-btn:hover,
+      .placeholder-btn:active {
+        background-color: var(--color-brand-primary-500);
+        color: var(--color-neutral-white);
+      }
+
+      .placeholder-tagline {
+        font-size: var(--font-size-sm);
+        margin: 0 0 var(--spacing-2);
+      }
+      [data-theme="dark"] .placeholder-tagline {
+        color: var(--color-neutral-white);
+      }
+      [data-theme="light"] .placeholder-tagline {
+        color: var(--color-neutral-600);
+      }
+      .placeholder-version {
+        font-size: var(--font-size-xs);
+        margin: 0;
+      }
+      [data-theme="dark"] .placeholder-version {
+        color: var(--color-neutral-400);
+      }
+      [data-theme="light"] .placeholder-version {
+        color: var(--color-neutral-600);
+      }
     </style>
   </head>
   <body>
-    <h1>Your Custom App</h1>
-    <p>This is a placeholder. Your app will appear here after sync.</p>
+    <div class="placeholder-card">
+      <h1 class="placeholder-title">Your Custom<br>App</h1>
+      <p class="placeholder-subtitle">Login and Sync to load your forms!</p>
+      <button type="button" class="placeholder-btn" id="login-btn" aria-label="Login to load forms">Login Now</button>
+      <p class="placeholder-tagline">Secure • Fast • Offline</p>
+      <p class="placeholder-version" id="version-el">v0.1.0-native</p>
+    </div>
     <script>
     (function() {
-      function waitForFormulus(cb, tries = 50) {
-        const api = window.formulus || globalThis.formulus;
-        if (api && typeof api.getVersion === 'function') {
-          try {
-            const version = api.getVersion();
-            
-            // Check if it's a Promise
-            if (version instanceof Promise) {
-              version.then(function(v) {
-                console.log('Formulus version:', v);
-                document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: ' + v + '</p>');
-                cb();
-              }).catch(function(err) {
-                console.error('Error awaiting version:', err);
-                document.body.insertAdjacentHTML('beforeend', '<p style="color: #999;">Formulus API: Error</p>');
-              });
-            } else {
-              console.log('Formulus version:', version);
-              document.body.insertAdjacentHTML('beforeend', '<p>Formulus version: ' + version + '</p>');
-              cb();
-            }
-          } catch (err) {
-            console.error('Error getting Formulus version:', err);
-            document.body.insertAdjacentHTML('beforeend', '<p style="color: #999;">Formulus API: Error</p>');
+      function setTheme(mode) {
+        document.documentElement.setAttribute('data-theme', mode === 'dark' ? 'dark' : 'light');
+      }
+      window.__formulusSetTheme = setTheme;
+
+      function navigateToLogin() {
+        try {
+          if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formulusNavigateToSettings' }));
           }
-        } else if (tries > 0) {
-          setTimeout(() => waitForFormulus(cb, tries - 1), 100);
-        } else {
-          console.warn('Formulus API not available after waiting');
-          document.body.insertAdjacentHTML('beforeend', '<p style="color: #999;">Formulus API: Not available</p>');
+        } catch (e) {
+          console.error('Placeholder: failed to post formulusNavigateToSettings', e);
         }
       }
-      
-      document.addEventListener('DOMContentLoaded', function() {
-        waitForFormulus(function() {
-          // API loaded successfully
+
+      document.getElementById('login-btn').addEventListener('click', navigateToLogin);
+
+      function waitForFormulus(cb, tries) {
+        tries = tries !== undefined ? tries : 50;
+        var api = window.formulus || globalThis.formulus;
+        if (api && typeof api.getVersion === 'function') {
+          try {
+            var versionPromise = api.getVersion();
+            if (versionPromise && typeof versionPromise.then === 'function') {
+              versionPromise.then(function(v) {
+                var el = document.getElementById('version-el');
+                if (el && typeof v === 'string') el.textContent = 'v' + v;
+                if (typeof cb === 'function') cb();
+              }).catch(function() {
+                if (typeof cb === 'function') cb();
+              });
+            } else {
+              var el = document.getElementById('version-el');
+              if (el && typeof versionPromise === 'string') el.textContent = 'v' + versionPromise;
+              if (typeof cb === 'function') cb();
+            }
+          } catch (err) {
+            if (typeof cb === 'function') cb();
+          }
+        } else if (tries > 0) {
+          setTimeout(function() { waitForFormulus(cb, tries - 1); }, 100);
+        } else {
+          if (typeof cb === 'function') cb();
+        }
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          waitForFormulus(function() {});
         });
-      });
+      } else {
+        waitForFormulus(function() {});
+      }
     })();
     </script>
   </body>

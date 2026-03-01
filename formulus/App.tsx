@@ -10,6 +10,7 @@ import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { AppThemeProvider, useAppTheme } from './src/contexts/AppThemeContext';
+import { ConfirmModalProvider } from './src/contexts/ConfirmModalContext';
 import { appEvents, Listener } from './src/webview/FormulusMessageHandlers.ts';
 import FormplayerModal, {
   FormplayerModalHandle,
@@ -235,7 +236,9 @@ function App(): React.JSX.Element {
     <SafeAreaProvider>
       <SyncProvider>
         <AppThemeProvider>
-          <AppInner />
+          <ConfirmModalProvider>
+            <AppInner />
+          </ConfirmModalProvider>
         </AppThemeProvider>
       </SyncProvider>
     </SafeAreaProvider>

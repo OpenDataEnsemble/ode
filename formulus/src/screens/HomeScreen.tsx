@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-  Alert,
   BackHandler,
   StyleSheet,
   View,
@@ -13,9 +12,11 @@ import RNFS from 'react-native-fs';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import { colors } from '../theme/colors';
 import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const HomeScreen = ({ navigation }: { navigation: any }) => {
@@ -25,6 +26,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [isPlaceholder, setIsPlaceholder] = useState(false);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
   const { reloadTheme, resolvedMode } = useAppTheme();
+  const { showConfirm } = useConfirmModal();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -38,14 +40,18 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           return true;
         }
 
-        Alert.alert('Exit app?', 'Are you sure you want to exit Formulus?', [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Exit',
-            style: 'destructive',
-            onPress: () => BackHandler.exitApp(),
-          },
-        ]);
+        showConfirm({
+          title: 'Exit app?',
+          message: 'Are you sure you want to exit Formulus?',
+          buttons: [
+            { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
+            {
+              text: 'Exit',
+              variant: 'danger',
+              onPress: () => BackHandler.exitApp(),
+            },
+          ],
+        });
         return true;
       };
 
@@ -55,7 +61,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
       );
 
       return () => subscription.remove();
-    }, []),
+    }, [showConfirm]),
   );
 
   const checkAndSetAppUri = async () => {
@@ -152,8 +158,8 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+  const content = (
+    <>
       {isLoading ? (
         <ActivityIndicator
           size="large"
@@ -167,7 +173,19 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
           appUrl={localUri}
           appName="custom_app"
           onNavigateToSync={() => navigation.navigate('Sync')}
+          onNavigateToSettings={() => navigation.navigate('Settings')}
+          transparentBackground={isPlaceholder}
         />
+      )}
+    </>
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {isPlaceholder ? (
+        <BlurredScreenBackground>{content}</BlurredScreenBackground>
+      ) : (
+        content
       )}
     </SafeAreaView>
   );

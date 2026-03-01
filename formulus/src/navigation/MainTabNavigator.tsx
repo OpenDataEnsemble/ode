@@ -359,10 +359,13 @@ const MainTabNavigator: React.FC = () => {
     tabBarTokens.height +
     Math.max(insets.bottom, tabBarTokens.paddingBottomMin);
 
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
   const { tabs: configuredTabs, tabConfigPresent } = getConfiguredTabs();
   const hideTabBar = tabConfigPresent && configuredTabs.length === 0;
   const tabsToRender = hideTabBar ? (['Home'] as const) : configuredTabs;
+
+  const tabBarBackgroundColor =
+    resolvedMode === 'dark' ? 'transparent' : (colors.neutral[50] as string);
 
   return (
     <Tab.Navigator
@@ -375,7 +378,7 @@ const MainTabNavigator: React.FC = () => {
         tabBarBackground: () => <TabBarBackground />,
         tabBarStyle: {
           display: hideTabBar ? 'none' : 'flex',
-          backgroundColor: 'transparent',
+          backgroundColor: tabBarBackgroundColor,
           borderTopWidth: 0,
           paddingBottom: Math.max(insets.bottom, tabBarTokens.paddingBottomMin),
           paddingTop: tabBarTokens.paddingTop,

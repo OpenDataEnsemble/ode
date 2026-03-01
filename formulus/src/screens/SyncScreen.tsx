@@ -279,7 +279,7 @@ const SyncScreen = () => {
       ? colors.semantic.error[500]
       : pendingObservations > 0 || pendingUploads.count > 0
         ? colors.semantic.warning[500]
-        : colors.semantic.success[500];
+        : (themeColors.primary as string);
 
   useEffect(() => {
     const unsubscribeStatus = syncService.subscribeToStatusUpdates(() => {});
@@ -656,83 +656,114 @@ const SyncScreen = () => {
           {syncState.isActive && syncState.progress && (
             <View
               style={[
+                styles.card,
                 styles.progressCard,
                 {
-                  backgroundColor: themeColors.primary + '14',
-                  borderLeftColor: themeColors.primary,
                   borderWidth: 1,
                   borderColor: themeColors.divider as string,
+                  backgroundColor: cardOuterBg,
                 },
               ]}>
-              <View style={styles.progressHeader}>
-                <Icon name="sync" size={20} color={themeColors.primary} />
+              <View
+                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+                <View style={styles.progressHeader}>
+                  <Icon
+                    name="sync"
+                    size={20}
+                    color={themeColors.primary as string}
+                  />
+                  <Text
+                    style={[
+                      styles.progressTitle,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    {getProgressTitle()}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.progressBar,
+                    {
+                      backgroundColor: isDark
+                        ? (colors.neutral[700] as string)
+                        : (colors.neutral[200] as string),
+                    },
+                  ]}>
+                  <Animated.View
+                    style={[
+                      styles.progressFill,
+                      {
+                        backgroundColor: themeColors.primary as string,
+                        width: animatedProgress.interpolate({
+                          inputRange: [0, 100],
+                          outputRange: ['0%', '100%'],
+                        }),
+                      },
+                    ]}
+                  />
+                </View>
                 <Text
                   style={[
-                    styles.progressTitle,
-                    { color: themeColors.primary },
-                  ]}>
-                  {getProgressTitle()}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.progressBar,
-                  { backgroundColor: themeColors.primary + '33' },
-                ]}>
-                <Animated.View
-                  style={[
-                    styles.progressFill,
+                    styles.progressText,
                     {
-                      backgroundColor: themeColors.primary,
-                      width: animatedProgress.interpolate({
-                        inputRange: [0, 100],
-                        outputRange: ['0%', '100%'],
-                      }),
+                      color: isDark
+                        ? (themeColors.onSurface as string)
+                        : (colors.neutral[700] as string),
                     },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressText}>
-                {Math.round(
-                  (syncState.progress.current / syncState.progress.total) * 100,
+                  ]}>
+                  {Math.round(
+                    (syncState.progress.current / syncState.progress.total) *
+                      100,
+                  )}
+                  %
+                </Text>
+                {syncState.canCancel && (
+                  <Button
+                    title="Cancel"
+                    onPress={cancelSync}
+                    variant="danger"
+                    size="medium"
+                  />
                 )}
-                %
-              </Text>
-              {syncState.canCancel && (
-                <Button
-                  title="Cancel"
-                  onPress={cancelSync}
-                  variant="danger"
-                  size="medium"
-                />
-              )}
+              </View>
             </View>
           )}
 
           {syncState.error && (
             <View
               style={[
+                styles.card,
                 styles.errorCard,
                 {
                   borderWidth: 1,
                   borderColor: themeColors.divider as string,
+                  backgroundColor: cardOuterBg,
                 },
               ]}>
-              <View style={styles.errorHeader}>
-                <Icon
-                  name="alert-circle"
-                  size={20}
-                  color={colors.semantic.error.ios}
+              <View
+                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+                <View style={styles.errorHeader}>
+                  <Icon
+                    name="alert-circle"
+                    size={20}
+                    color={colors.semantic.error.ios as string}
+                  />
+                  <Text style={styles.errorTitle}>Error</Text>
+                </View>
+                <Text
+                  style={[
+                    styles.errorText,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  {syncState.error}
+                </Text>
+                <Button
+                  title="Dismiss"
+                  onPress={clearError}
+                  variant="danger"
+                  size="medium"
                 />
-                <Text style={styles.errorTitle}>Error</Text>
               </View>
-              <Text style={styles.errorText}>{syncState.error}</Text>
-              <Button
-                title="Dismiss"
-                onPress={clearError}
-                variant="danger"
-                size="medium"
-              />
             </View>
           )}
 
@@ -812,6 +843,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
+    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
     borderBottomLeftRadius: odeRadius.card,
@@ -945,21 +977,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   progressCard: {
-    borderRadius: odeRadius.card,
-    padding: odeSpacing.md,
     marginBottom: odeSpacing.md,
-    overflow: 'hidden',
-    borderLeftWidth: 4,
   },
   progressHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: odeSpacing.xs,
     marginBottom: odeSpacing.sm,
   },
   progressTitle: {
     fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
+    textAlign: 'center',
   },
   progressBar: {
     height: 8,
@@ -977,29 +1007,25 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   errorCard: {
-    backgroundColor: colors.semantic.error[50] as unknown as string,
-    borderRadius: odeRadius.card,
-    padding: odeSpacing.md,
     marginBottom: odeSpacing.md,
-    overflow: 'hidden',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.semantic.error[500] as unknown as string,
   },
   errorHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: odeSpacing.xs,
+    marginBottom: odeSpacing.sm,
   },
   errorTitle: {
     fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
+    textAlign: 'center',
     color: colors.semantic.error[500] as unknown as string,
   },
   errorText: {
     fontSize: odeTypography.bodySm,
-    color: colors.semantic.error[600] as unknown as string,
-    marginBottom: 12,
+    textAlign: 'center',
+    marginBottom: odeSpacing.sm,
   },
   actionsSection: {
     gap: 12,

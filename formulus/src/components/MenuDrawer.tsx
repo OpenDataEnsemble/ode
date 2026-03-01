@@ -17,6 +17,7 @@ import {
   odeBorderWidth,
   odeRadius,
 } from '../theme/odeDesign';
+import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
 import { useAppTheme, ThemeMode } from '../contexts/AppThemeContext';
 import Button from './common/Button';
 
@@ -51,33 +52,41 @@ const hasMinRole = (
 
 const DIVIDER_HEIGHT = 1;
 
-const FadingDivider = ({ color }: { color: string }) => (
-  <View style={styles.fadingDividerWrap}>
-    <Svg height={DIVIDER_HEIGHT} width="100%" preserveAspectRatio="none">
-      <Defs>
-        <LinearGradient
-          id="menuDividerGradient"
-          x1="0%"
-          y1="0"
-          x2="100%"
-          y2="0"
-          gradientUnits="userSpaceOnUse">
-          <Stop offset="0" stopColor={color} stopOpacity="0" />
-          <Stop offset="0.15" stopColor={color} stopOpacity="1" />
-          <Stop offset="0.85" stopColor={color} stopOpacity="1" />
-          <Stop offset="1" stopColor={color} stopOpacity="0" />
-        </LinearGradient>
-      </Defs>
-      <Rect
-        x={0}
-        y={0}
-        width="100%"
+/** Same fade as the bottom nav top line: line color with opacity 0 at ends, 1 in the middle. */
+const MenuDivider = ({ color }: { color: string }) => {
+  const gradientId = React.useId().replace(/:/g, '');
+  return (
+    <View style={styles.menuDividerWrap}>
+      <Svg
         height={DIVIDER_HEIGHT}
-        fill="url(#menuDividerGradient)"
-      />
-    </Svg>
-  </View>
-);
+        width="100%"
+        style={styles.menuDividerSvg}
+        preserveAspectRatio="none">
+        <Defs>
+          <LinearGradient
+            id={gradientId}
+            x1="0%"
+            y1="0"
+            x2="100%"
+            y2="0"
+            gradientUnits="userSpaceOnUse">
+            <Stop offset="0" stopColor={color} stopOpacity="0" />
+            <Stop offset="0.15" stopColor={color} stopOpacity="1" />
+            <Stop offset="0.85" stopColor={color} stopOpacity="1" />
+            <Stop offset="1" stopColor={color} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        <Rect
+          x={0}
+          y={0}
+          width="100%"
+          height={DIVIDER_HEIGHT}
+          fill={`url(#${gradientId})`}
+        />
+      </Svg>
+    </View>
+  );
+};
 
 const MenuDrawer: React.FC<MenuDrawerProps> = ({
   visible,
@@ -91,9 +100,18 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   const textColor = isDark
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
+  const odeOpacity = (tokens as { opacity?: Record<string, string> }).opacity;
+  const dividerOpacityDark =
+    odeOpacity?.['10'] != null ? Number(odeOpacity['10']) : 0.1;
+  const themeChipBorderOpacityDark =
+    odeOpacity?.['50'] != null ? Number(odeOpacity['50']) : 0.5;
   const sectionDividerColor = isDark
-    ? withAlpha(colors.neutral.white as string, 0.16)
+    ? withAlpha(colors.neutral.white as string, dividerOpacityDark)
     : (themeColors.divider as string);
+  const menuModalBorderColor = sectionDividerColor;
+  const themeChipBorderColorDark = isDark
+    ? withAlpha(colors.neutral.white as string, themeChipBorderOpacityDark)
+    : undefined;
   const cardOuterBg = isDark
     ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
     : withAlpha(colors.neutral[900] as string, 0.04);
@@ -165,22 +183,20 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
         style={[
           styles.drawer,
           {
-            // Let the drawer extend to the bottom of the screen area
-            // used by the tabs; the backdrop still stops above the nav
-            // via marginBottom so tab icons remain clickable.
-            bottom: 0,
+            top: odeSpacing.sm,
+            bottom: odeSpacing.sm,
             backgroundColor: isDark
               ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
               : (colors.neutral[50] as string),
             shadowColor: themeColors.surface,
             borderLeftWidth: odeBorderWidth.hairline,
             borderLeftColor: isDark
-              ? withAlpha(colors.neutral.white as string, 0.4)
+              ? menuModalBorderColor
               : withAlpha(colors.neutral.black as string, 0.18),
             borderTopWidth: odeBorderWidth.hairline,
             borderBottomWidth: odeBorderWidth.hairline,
-            borderTopColor: sectionDividerColor,
-            borderBottomColor: sectionDividerColor,
+            borderTopColor: menuModalBorderColor,
+            borderBottomColor: menuModalBorderColor,
           },
         ]}>
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -192,7 +208,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
               </TouchableOpacity>
             )}
           </View>
-          <FadingDivider color={sectionDividerColor} />
+          <MenuDivider color={menuModalBorderColor} />
 
           {/* User Info Section */}
           {userInfo ? (
@@ -211,19 +227,25 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   />
                 </View>
                 <View style={styles.userInfo}>
-                  <Text style={[styles.userName, { color: textColor }]}>
-                    {userInfo.username}
-                  </Text>
                   <View
                     style={[
                       styles.roleBadge,
                       getRoleBadgeStyle(userInfo.role),
+                      userInfo.role === 'admin' && {
+                        backgroundColor: themeColors.primary as string,
+                      },
                     ]}>
-                    <Text style={styles.roleBadgeText}>{userInfo.role}</Text>
+                    <Text style={styles.roleBadgeText}>
+                      {userInfo.role === 'admin'
+                        ? 'Admin'
+                        : userInfo.role === 'read-write'
+                          ? 'Read-write'
+                          : 'Read-only'}
+                    </Text>
                   </View>
                 </View>
               </View>
-              <FadingDivider color={sectionDividerColor} />
+              <MenuDivider color={menuModalBorderColor} />
             </>
           ) : (
             <>
@@ -254,7 +276,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   </Text>
                 </View>
               </View>
-              <FadingDivider color={sectionDividerColor} />
+              <MenuDivider color={menuModalBorderColor} />
             </>
           )}
 
@@ -276,20 +298,20 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                       ]}>
                       App Settings
                     </Text>
+                    <Icon
+                      name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={textColor}
+                      style={styles.appSettingsChevron}
+                    />
                   </View>
-                  <Icon
-                    name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={textColor}
-                    style={styles.appSettingsChevron}
-                  />
                 </TouchableOpacity>
                 {appSettingsOpen && (
                   <View
                     style={[
                       styles.themesCardOuter,
                       {
-                        borderColor: sectionDividerColor,
+                        borderColor: menuModalBorderColor,
                         backgroundColor: cardOuterBg,
                       },
                     ]}>
@@ -313,7 +335,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                                     themeMode === mode
                                       ? (themeColors.primary as string)
                                       : isDark
-                                        ? (colors.neutral[500] as string)
+                                        ? (themeChipBorderColorDark as string)
                                         : (colors.neutral[400] as string),
                                 },
                               ]}
@@ -346,7 +368,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 )}
               </View>
             </View>
-            <FadingDivider color={sectionDividerColor} />
+            <MenuDivider color={menuModalBorderColor} />
 
             {visibleItems.map((item, index) => (
               <React.Fragment key={index}>
@@ -358,12 +380,12 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                     {item.label}
                   </Text>
                 </TouchableOpacity>
-                <FadingDivider color={sectionDividerColor} />
+                <MenuDivider color={menuModalBorderColor} />
               </React.Fragment>
             ))}
           </ScrollView>
 
-          <FadingDivider color={sectionDividerColor} />
+          <MenuDivider color={menuModalBorderColor} />
           <View style={[styles.footer, { backgroundColor: cardOuterBg }]}>
             {userInfo ? (
               <Button
@@ -422,10 +444,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: odeSpacing.md,
   },
-  fadingDividerWrap: {
+  menuDividerWrap: {
     alignSelf: 'stretch',
     height: DIVIDER_HEIGHT,
     overflow: 'hidden',
+  },
+  menuDividerSvg: {
+    height: DIVIDER_HEIGHT,
   },
   headerTitle: {
     fontSize: odeTypography.sectionTitle,
@@ -455,6 +480,8 @@ const styles = StyleSheet.create({
   userInfo: {
     marginLeft: odeSpacing.sm,
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
   },
   userName: {
     fontSize: odeTypography.body,
@@ -470,7 +497,7 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.caption,
   },
   roleBadge: {
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-end',
     paddingHorizontal: odeSpacing.xs,
     paddingVertical: odeSpacing.xxs,
     borderRadius: odeRadius.inner,
@@ -520,7 +547,7 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   appSettingsChevron: {
-    marginRight: odeSpacing.md,
+    marginLeft: odeSpacing.xs,
   },
   sectionLabel: {
     marginTop: odeSpacing.sm,

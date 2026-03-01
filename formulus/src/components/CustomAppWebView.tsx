@@ -34,6 +34,10 @@ interface CustomAppWebViewProps {
   onCanGoBackChange?: (canGoBack: boolean) => void; // Notify parent when WebView back-navigability changes
   /** Called when placeholder posts formulusNavigateToSync (e.g. "Login Now" button). */
   onNavigateToSync?: () => void;
+  /** Called when placeholder posts formulusNavigateToSettings (Login Now → login/settings screen). */
+  onNavigateToSettings?: () => void;
+  /** When true, WebView and container use transparent background (e.g. for placeholder over BlurredScreenBackground). */
+  transparentBackground?: boolean;
 }
 
 const INJECTION_SCRIPT_PATH =
@@ -160,7 +164,15 @@ const CustomAppWebView = forwardRef<
   CustomAppWebViewProps
 >(
   (
-    { appUrl, appName, onLoadEndProp, onCanGoBackChange, onNavigateToSync },
+    {
+      appUrl,
+      appName,
+      onLoadEndProp,
+      onCanGoBackChange,
+      onNavigateToSync,
+      onNavigateToSettings,
+      transparentBackground = false,
+    },
     ref,
   ) => {
     const webViewRef = useRef<WebView | null>(null);
@@ -177,6 +189,11 @@ const CustomAppWebView = forwardRef<
     useEffect(() => {
       onNavigateToSyncRef.current = onNavigateToSync;
     }, [onNavigateToSync]);
+
+    const onNavigateToSettingsRef = useRef(onNavigateToSettings);
+    useEffect(() => {
+      onNavigateToSettingsRef.current = onNavigateToSettings;
+    }, [onNavigateToSettings]);
 
     const [injectionScript, setInjectionScript] =
       useState<string>(consoleLogScript);
@@ -231,9 +248,13 @@ const CustomAppWebView = forwardRef<
             return;
           }
 
-          // Handle placeholder "Login Now" → navigate to Sync tab
           if (eventData.type === 'formulusNavigateToSync') {
             onNavigateToSyncRef.current?.();
+            return;
+          }
+          // Handle placeholder "Login Now" → navigate to Settings (login / server credentials / QR)
+          if (eventData.type === 'formulusNavigateToSettings') {
+            onNavigateToSettingsRef.current?.();
             return;
           }
 
@@ -399,6 +420,13 @@ const CustomAppWebView = forwardRef<
       <WebView
         ref={webViewRef}
         source={{ uri: appUrl }}
+        style={[
+          styles.webView,
+          transparentBackground && styles.webViewTransparent,
+        ]}
+        containerStyle={
+          transparentBackground ? styles.webViewContainerTransparent : undefined
+        }
         onNavigationStateChange={handleNavigationStateChange}
         onMessage={messageManager.handleWebViewMessage}
         onError={handleError}
@@ -470,6 +498,16 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  webView: {
+    flex: 1,
+  },
+  webViewTransparent: {
+    backgroundColor: 'transparent',
+  },
+  webViewContainerTransparent: {
+    backgroundColor: 'transparent',
+    flex: 1,
   },
 });
 
