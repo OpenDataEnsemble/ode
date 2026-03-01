@@ -47,7 +47,10 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
         style={[
           styles.selector,
           {
-            backgroundColor: withAlpha(themeColors.surface as string, CONTAINER_ALPHA),
+            backgroundColor: withAlpha(
+              themeColors.surface as string,
+              CONTAINER_ALPHA,
+            ),
             borderColor: themeColors.divider,
             borderWidth: 1,
           },
@@ -59,15 +62,10 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
           size={18}
           color={themeColors.onSurface}
         />
-        <Text
-          style={[styles.selectorText, { color: selectorTextColor }]}>
+        <Text style={[styles.selectorText, { color: selectorTextColor }]}>
           {selectedOption ? selectedOption.name : placeholder}
         </Text>
-        <Icon
-          name="chevron-down"
-          size={20}
-          color={themeColors.onSurface}
-        />
+        <Icon name="chevron-down" size={20} color={themeColors.onSurface} />
       </TouchableOpacity>
 
       <Modal
@@ -92,7 +90,10 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
               },
             ]}>
             <View
-              style={[styles.modalContentInner, { backgroundColor: cardInnerBg }]}>
+              style={[
+                styles.modalContentInner,
+                { backgroundColor: cardInnerBg },
+              ]}>
               <View
                 style={[
                   styles.modalHeader,
@@ -103,11 +104,7 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                   Select Form Type
                 </Text>
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Icon
-                    name="close"
-                    size={24}
-                    color={themeColors.onSurface}
-                  />
+                  <Icon name="close" size={24} color={themeColors.onSurface} />
                 </TouchableOpacity>
               </View>
 
@@ -121,7 +118,9 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                       {
                         borderBottomColor: themeColors.divider,
                         borderBottomWidth:
-                          index === optionsWithAll.length - 1 ? 0 : StyleSheet.hairlineWidth,
+                          index === optionsWithAll.length - 1
+                            ? 0
+                            : StyleSheet.hairlineWidth,
                       },
                       selectedId === item.id && {
                         backgroundColor: themeColors.primary + '14',
@@ -143,7 +142,11 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                       {item.name}
                     </Text>
                     {selectedId === item.id && (
-                      <Icon name="check" size={20} color={themeColors.primary} />
+                      <Icon
+                        name="check"
+                        size={20}
+                        color={themeColors.primary}
+                      />
                     )}
                   </TouchableOpacity>
                 )}

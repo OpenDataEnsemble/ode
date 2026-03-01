@@ -125,7 +125,9 @@ export const colors = {
  * Parse a color string to r,g,b (0-255). Handles #RRGGBB, #RGB, #RRGGBBAA, rgb(), rgba().
  * Returns null if parsing fails.
  */
-function parseColorToRgb(color: string): { r: number; g: number; b: number } | null {
+function parseColorToRgb(
+  color: string,
+): { r: number; g: number; b: number } | null {
   const s = String(color).trim();
 
   // #RRGGBB or #RRGGBBAA or #RGB

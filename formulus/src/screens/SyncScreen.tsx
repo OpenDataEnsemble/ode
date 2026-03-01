@@ -364,7 +364,8 @@ const SyncScreen = () => {
 
   return (
     <BlurredScreenBackground>
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View
           style={[
             styles.header,
@@ -585,8 +586,7 @@ const SyncScreen = () => {
                 backgroundColor: cardOuterBg,
               },
             ]}>
-            <View
-              style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
               <View style={styles.versionRow}>
                 <Text
                   style={[
@@ -653,149 +653,155 @@ const SyncScreen = () => {
             </View>
           </View>
 
-        {syncState.isActive && syncState.progress && (
-          <View
-            style={[
-              styles.progressCard,
-              {
-                backgroundColor: themeColors.primary + '14',
-                borderLeftColor: themeColors.primary,
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-              },
-            ]}>
-            <View style={styles.progressHeader}>
-              <Icon name="sync" size={20} color={themeColors.primary} />
-              <Text
-                style={[styles.progressTitle, { color: themeColors.primary }]}>
-                {getProgressTitle()}
-              </Text>
-            </View>
+          {syncState.isActive && syncState.progress && (
             <View
               style={[
-                styles.progressBar,
-                { backgroundColor: themeColors.primary + '33' },
+                styles.progressCard,
+                {
+                  backgroundColor: themeColors.primary + '14',
+                  borderLeftColor: themeColors.primary,
+                  borderWidth: 1,
+                  borderColor: themeColors.divider as string,
+                },
               ]}>
-              <Animated.View
+              <View style={styles.progressHeader}>
+                <Icon name="sync" size={20} color={themeColors.primary} />
+                <Text
+                  style={[
+                    styles.progressTitle,
+                    { color: themeColors.primary },
+                  ]}>
+                  {getProgressTitle()}
+                </Text>
+              </View>
+              <View
                 style={[
-                  styles.progressFill,
-                  {
-                    backgroundColor: themeColors.primary,
-                    width: animatedProgress.interpolate({
-                      inputRange: [0, 100],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  },
-                ]}
-              />
-            </View>
-            <Text style={styles.progressText}>
-              {Math.round(
-                (syncState.progress.current / syncState.progress.total) * 100,
+                  styles.progressBar,
+                  { backgroundColor: themeColors.primary + '33' },
+                ]}>
+                <Animated.View
+                  style={[
+                    styles.progressFill,
+                    {
+                      backgroundColor: themeColors.primary,
+                      width: animatedProgress.interpolate({
+                        inputRange: [0, 100],
+                        outputRange: ['0%', '100%'],
+                      }),
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.progressText}>
+                {Math.round(
+                  (syncState.progress.current / syncState.progress.total) * 100,
+                )}
+                %
+              </Text>
+              {syncState.canCancel && (
+                <Button
+                  title="Cancel"
+                  onPress={cancelSync}
+                  variant="danger"
+                  size="medium"
+                />
               )}
-              %
-            </Text>
-            {syncState.canCancel && (
+            </View>
+          )}
+
+          {syncState.error && (
+            <View
+              style={[
+                styles.errorCard,
+                {
+                  borderWidth: 1,
+                  borderColor: themeColors.divider as string,
+                },
+              ]}>
+              <View style={styles.errorHeader}>
+                <Icon
+                  name="alert-circle"
+                  size={20}
+                  color={colors.semantic.error.ios}
+                />
+                <Text style={styles.errorTitle}>Error</Text>
+              </View>
+              <Text style={styles.errorText}>{syncState.error}</Text>
               <Button
-                title="Cancel"
-                onPress={cancelSync}
+                title="Dismiss"
+                onPress={clearError}
                 variant="danger"
                 size="medium"
               />
-            )}
-          </View>
-        )}
-
-        {syncState.error && (
-          <View
-            style={[
-              styles.errorCard,
-              {
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-              },
-            ]}>
-            <View style={styles.errorHeader}>
-              <Icon
-                name="alert-circle"
-                size={20}
-                color={colors.semantic.error.ios}
-              />
-              <Text style={styles.errorTitle}>Error</Text>
             </View>
-            <Text style={styles.errorText}>{syncState.error}</Text>
+          )}
+
+          <View style={styles.actionsSection}>
             <Button
-              title="Dismiss"
-              onPress={clearError}
-              variant="danger"
-              size="medium"
-            />
+              title={syncState.isActive ? 'Syncing...' : 'Sync Data'}
+              onPress={handleSync}
+              disabled={syncState.isActive}>
+              {isSyncButtonActive ? (
+                <ActivityIndicator
+                  size="small"
+                  color={themeColors.onPrimary as string}
+                />
+              ) : (
+                <Icon
+                  name="sync"
+                  size={20}
+                  color={themeColors.onPrimary as string}
+                />
+              )}
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { color: themeColors.onPrimary as string },
+                ]}>
+                {isSyncButtonActive ? 'Syncing...' : 'Sync Data'}
+              </Text>
+            </Button>
+
+            <Button
+              title={syncState.isActive ? 'Updating...' : 'Update App Bundle'}
+              onPress={handleCustomAppUpdate}
+              disabled={syncState.isActive || (!updateAvailable && !isAdmin)}>
+              {isUpdateButtonActive ? (
+                <ActivityIndicator size="small" color={themeColors.primary} />
+              ) : (
+                <Icon name="download" size={20} color={themeColors.primary} />
+              )}
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  styles.secondaryButtonText,
+                  { color: themeColors.primary as string },
+                ]}>
+                {isUpdateButtonActive ? 'Updating...' : 'Update App Bundle'}
+              </Text>
+            </Button>
+
+            {!syncState.isActive && updateAvailable && (
+              <Text
+                style={[
+                  styles.updateNotification,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                Update available
+              </Text>
+            )}
+
+            {!syncState.isActive && !updateAvailable && !isAdmin && (
+              <Text
+                style={[
+                  styles.hintText,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                No updates available
+              </Text>
+            )}
           </View>
-        )}
-
-        <View style={styles.actionsSection}>
-          <Button
-            title={syncState.isActive ? 'Syncing...' : 'Sync Data'}
-            onPress={handleSync}
-            disabled={syncState.isActive}>
-            {isSyncButtonActive ? (
-              <ActivityIndicator
-                size="small"
-                color={themeColors.onPrimary as string}
-              />
-            ) : (
-              <Icon
-                name="sync"
-                size={20}
-                color={themeColors.onPrimary as string}
-              />
-            )}
-            <Text
-              style={[
-                styles.actionButtonText,
-                { color: themeColors.onPrimary as string },
-              ]}>
-              {isSyncButtonActive ? 'Syncing...' : 'Sync Data'}
-            </Text>
-          </Button>
-
-          <Button
-            title={syncState.isActive ? 'Updating...' : 'Update App Bundle'}
-            onPress={handleCustomAppUpdate}
-            disabled={syncState.isActive || (!updateAvailable && !isAdmin)}>
-            {isUpdateButtonActive ? (
-              <ActivityIndicator size="small" color={themeColors.primary} />
-            ) : (
-              <Icon name="download" size={20} color={themeColors.primary} />
-            )}
-            <Text
-              style={[
-                styles.actionButtonText,
-                styles.secondaryButtonText,
-                { color: themeColors.primary as string },
-              ]}>
-              {isUpdateButtonActive ? 'Updating...' : 'Update App Bundle'}
-            </Text>
-          </Button>
-
-          {!syncState.isActive && updateAvailable && (
-            <Text
-              style={[
-                styles.updateNotification,
-                { color: themeColors.onSurface as string },
-              ]}>
-              Update available
-            </Text>
-          )}
-
-          {!syncState.isActive && !updateAvailable && !isAdmin && (
-            <Text
-              style={[styles.hintText, { color: themeColors.onSurface as string }]}>
-              No updates available
-            </Text>
-          )}
-        </View>
-      </ScrollView>
+        </ScrollView>
       </SafeAreaView>
     </BlurredScreenBackground>
   );

@@ -30,14 +30,8 @@ const AboutScreen: React.FC = () => {
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
   const [version, setVersion] = useState<string>('');
-  const cardOuterBg = withAlpha(
-    themeColors.surface as string,
-    CONTAINER_ALPHA,
-  );
-  const cardInnerBg = withAlpha(
-    themeColors.surface as string,
-    CONTAINER_ALPHA,
-  );
+  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
 
   useEffect(() => {
     const loadVersion = async () => {
@@ -96,18 +90,13 @@ const AboutScreen: React.FC = () => {
                 backgroundColor: cardOuterBg,
               },
             ]}>
-            <View
-              style={[
-                styles.cardInner,
-                { backgroundColor: cardInnerBg },
-              ]}>
-              <Text
-                style={[styles.cardTitle, { color: cardTitleColor }]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Formulus
               </Text>
               <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-                Formulus is the mobile app for collecting and synchronizing forms
-                and observations.
+                Formulus is the mobile app for collecting and synchronizing
+                forms and observations.
               </Text>
             </View>
           </View>
@@ -121,20 +110,11 @@ const AboutScreen: React.FC = () => {
                 backgroundColor: cardOuterBg,
               },
             ]}>
-            <View
-              style={[
-                styles.cardInner,
-                { backgroundColor: cardInnerBg },
-              ]}>
-              <Text
-                style={[styles.cardTitle, { color: cardTitleColor }]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Support
               </Text>
-              <Text
-                style={[
-                  styles.cardText,
-                  { color: themeColors.onSurface },
-                ]}>
+              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
                 If you need help, contact your system administrator.
               </Text>
             </View>
@@ -149,20 +129,11 @@ const AboutScreen: React.FC = () => {
                 backgroundColor: cardOuterBg,
               },
             ]}>
-            <View
-              style={[
-                styles.cardInner,
-                { backgroundColor: cardInnerBg },
-              ]}>
-              <Text
-                style={[styles.cardTitle, { color: cardTitleColor }]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Free & Open Source
               </Text>
-              <Text
-                style={[
-                  styles.cardText,
-                  { color: themeColors.onSurface },
-                ]}>
+              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
                 This application is free and open source software. We would love
                 to hear your feedback and welcome contributions.
               </Text>
@@ -186,7 +157,7 @@ const AboutScreen: React.FC = () => {
               v{version}
             </Text>
           )}
-      </ScrollView>
+        </ScrollView>
       </SafeAreaView>
     </BlurredScreenBackground>
   );

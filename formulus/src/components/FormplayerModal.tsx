@@ -556,7 +556,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           style={[
             styles.container,
             {
-              backgroundColor: withAlpha(themeColors.surface as string, CONTAINER_ALPHA),
+              backgroundColor: withAlpha(
+                themeColors.surface as string,
+                CONTAINER_ALPHA,
+              ),
               borderWidth: 1,
               borderColor: themeColors.divider as string,
             },

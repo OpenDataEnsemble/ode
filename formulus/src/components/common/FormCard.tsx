@@ -34,42 +34,42 @@ const FormCard: React.FC<FormCardProps> = ({
       activeOpacity={0.7}>
       <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
         <View style={styles.content}>
-        <View
-          style={[
-            styles.iconContainer,
-            { backgroundColor: themeColors.primary + '14' },
-          ]}>
-          <Icon
-            name="file-document-outline"
-            size={32}
-            color={themeColors.primary}
-          />
-        </View>
-        <View style={styles.textContainer}>
-          <Text style={styles.name}>{form.name}</Text>
-          {form.description && (
-            <Text style={styles.description} numberOfLines={2}>
-              {form.description}
-            </Text>
-          )}
-          <View style={styles.metaContainer}>
-            <Text style={styles.version}>v{form.schemaVersion}</Text>
-            {observationCount > 0 && (
-              <View
-                style={[
-                  styles.countBadge,
-                  { backgroundColor: themeColors.primary + '14' },
-                ]}>
-                <Text
-                  style={[styles.countText, { color: themeColors.primary }]}>
-                  {observationCount}{' '}
-                  {observationCount === 1 ? 'entry' : 'entries'}
-                </Text>
-              </View>
-            )}
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: themeColors.primary + '14' },
+            ]}>
+            <Icon
+              name="file-document-outline"
+              size={32}
+              color={themeColors.primary}
+            />
           </View>
-        </View>
-        <Icon name="chevron-right" size={24} color={colors.neutral[500]} />
+          <View style={styles.textContainer}>
+            <Text style={styles.name}>{form.name}</Text>
+            {form.description && (
+              <Text style={styles.description} numberOfLines={2}>
+                {form.description}
+              </Text>
+            )}
+            <View style={styles.metaContainer}>
+              <Text style={styles.version}>v{form.schemaVersion}</Text>
+              {observationCount > 0 && (
+                <View
+                  style={[
+                    styles.countBadge,
+                    { backgroundColor: themeColors.primary + '14' },
+                  ]}>
+                  <Text
+                    style={[styles.countText, { color: themeColors.primary }]}>
+                    {observationCount}{' '}
+                    {observationCount === 1 ? 'entry' : 'entries'}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+          <Icon name="chevron-right" size={24} color={colors.neutral[500]} />
         </View>
       </View>
     </TouchableOpacity>

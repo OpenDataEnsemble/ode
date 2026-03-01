@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
@@ -48,20 +54,20 @@ const DIVIDER_HEIGHT = 1;
 const FadingDivider = ({ color }: { color: string }) => (
   <View style={styles.fadingDividerWrap}>
     <Svg height={DIVIDER_HEIGHT} width="100%" preserveAspectRatio="none">
-        <Defs>
-          <LinearGradient
-            id="menuDividerGradient"
-            x1="0%"
-            y1="0"
-            x2="100%"
-            y2="0"
-            gradientUnits="userSpaceOnUse">
-            <Stop offset="0" stopColor={color} stopOpacity="0" />
-            <Stop offset="0.15" stopColor={color} stopOpacity="1" />
-            <Stop offset="0.85" stopColor={color} stopOpacity="1" />
-            <Stop offset="1" stopColor={color} stopOpacity="0" />
-          </LinearGradient>
-        </Defs>
+      <Defs>
+        <LinearGradient
+          id="menuDividerGradient"
+          x1="0%"
+          y1="0"
+          x2="100%"
+          y2="0"
+          gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor={color} stopOpacity="0" />
+          <Stop offset="0.15" stopColor={color} stopOpacity="1" />
+          <Stop offset="0.85" stopColor={color} stopOpacity="1" />
+          <Stop offset="1" stopColor={color} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
       <Rect
         x={0}
         y={0}
@@ -177,21 +183,12 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
             borderBottomColor: sectionDividerColor,
           },
         ]}>
-        <SafeAreaView
-          style={styles.safeArea}
-          edges={['top', 'left', 'right']}>
+        <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
           <View style={styles.header}>
-            <Text
-              style={[styles.headerTitle, { color: textColor }]}>
-              Menu
-            </Text>
+            <Text style={[styles.headerTitle, { color: textColor }]}>Menu</Text>
             {allowClose && (
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Icon
-                  name="close"
-                  size={24}
-                  color={themeColors.onSurface}
-                />
+                <Icon name="close" size={24} color={themeColors.onSurface} />
               </TouchableOpacity>
             )}
           </View>
@@ -214,8 +211,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   />
                 </View>
                 <View style={styles.userInfo}>
-                  <Text
-                    style={[styles.userName, { color: textColor }]}>
+                  <Text style={[styles.userName, { color: textColor }]}>
                     {userInfo.username}
                   </Text>
                   <View
@@ -250,18 +246,10 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   />
                 </View>
                 <View style={styles.userInfo}>
-                  <Text
-                    style={[
-                      styles.userNameInactive,
-                      { color: textColor },
-                    ]}>
+                  <Text style={[styles.userNameInactive, { color: textColor }]}>
                     Not logged in
                   </Text>
-                  <Text
-                    style={[
-                      styles.loginHint,
-                      { color: textColor },
-                    ]}>
+                  <Text style={[styles.loginHint, { color: textColor }]}>
                     Click the Login at the bottom
                   </Text>
                 </View>
@@ -279,11 +267,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   activeOpacity={0.8}
                   onPress={() => setAppSettingsOpen(open => !open)}>
                   <View style={styles.appSettingsTitleRow}>
-                    <Icon
-                      name="cog"
-                      size={24}
-                      color={textColor}
-                    />
+                    <Icon name="cog" size={24} color={textColor} />
                     <Text
                       style={[
                         styles.menuLabel,
@@ -314,11 +298,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                         styles.themesCardInner,
                         { backgroundColor: cardInnerBg },
                       ]}>
-                      <Text
-                        style={[
-                          styles.themesTitle,
-                          { color: textColor },
-                        ]}>
+                      <Text style={[styles.themesTitle, { color: textColor }]}>
                         Themes
                       </Text>
                       <View style={styles.themeOptionsColumn}>
@@ -373,13 +353,8 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => onNavigate(item.screen)}>
-                  <Icon
-                    name={item.icon}
-                    size={24}
-                    color={textColor}
-                  />
-                  <Text
-                    style={[styles.menuLabel, { color: textColor }]}>
+                  <Icon name={item.icon} size={24} color={textColor} />
+                  <Text style={[styles.menuLabel, { color: textColor }]}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>

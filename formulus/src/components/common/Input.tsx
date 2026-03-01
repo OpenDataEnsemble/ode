@@ -69,7 +69,9 @@ const Input: React.FC<InputProps> = ({
           {
             borderColor,
             borderWidth,
-            backgroundColor: disabled ? colors.neutral[100] : inputBackgroundColor,
+            backgroundColor: disabled
+              ? colors.neutral[100]
+              : inputBackgroundColor,
           },
         ]}>
         <TextInput

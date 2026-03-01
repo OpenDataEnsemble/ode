@@ -82,7 +82,11 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({
         const storedMode = (await AsyncStorage.getItem(
           THEME_MODE_STORAGE_KEY,
         )) as ThemeMode | null;
-        if (storedMode === 'light' || storedMode === 'dark' || storedMode === 'system') {
+        if (
+          storedMode === 'light' ||
+          storedMode === 'dark' ||
+          storedMode === 'system'
+        ) {
           setThemeModeState(storedMode);
         }
       } catch (err) {
@@ -104,17 +108,14 @@ export const AppThemeProvider: React.FC<AppThemeProviderProps> = ({
     setConfigVersion(v => v + 1);
   }, []);
 
-  const setThemeMode = useCallback(
-    async (mode: ThemeMode) => {
-      try {
-        setThemeModeState(mode);
-        await AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, mode);
-      } catch (err) {
-        console.warn('[AppThemeProvider] Failed to persist theme mode:', err);
-      }
-    },
-    [],
-  );
+  const setThemeMode = useCallback(async (mode: ThemeMode) => {
+    try {
+      setThemeModeState(mode);
+      await AsyncStorage.setItem(THEME_MODE_STORAGE_KEY, mode);
+    } catch (err) {
+      console.warn('[AppThemeProvider] Failed to persist theme mode:', err);
+    }
+  }, []);
 
   const resolvedMode: 'light' | 'dark' =
     themeMode === 'system' ? systemMode : themeMode;

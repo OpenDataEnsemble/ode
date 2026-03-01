@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Linking,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
@@ -26,14 +20,8 @@ const HelpScreen: React.FC = () => {
   const cardTitleColor = isDark
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
-  const cardOuterBg = withAlpha(
-    themeColors.surface as string,
-    CONTAINER_ALPHA,
-  );
-  const cardInnerBg = withAlpha(
-    themeColors.surface as string,
-    CONTAINER_ALPHA,
-  );
+  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
   return (
     <BlurredScreenBackground>
       <SafeAreaView
@@ -69,10 +57,8 @@ const HelpScreen: React.FC = () => {
                 backgroundColor: cardOuterBg,
               },
             ]}>
-            <View
-              style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-              <Text
-                style={[styles.cardTitle, { color: cardTitleColor }]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Community Forum
               </Text>
               <Text
@@ -108,10 +94,8 @@ const HelpScreen: React.FC = () => {
                 backgroundColor: cardOuterBg,
               },
             ]}>
-            <View
-              style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-              <Text
-                style={[styles.cardTitle, { color: cardTitleColor }]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Troubleshooting
               </Text>
               <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
@@ -138,10 +122,8 @@ const HelpScreen: React.FC = () => {
                 backgroundColor: cardOuterBg,
               },
             ]}>
-            <View
-              style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-              <Text
-                style={[styles.cardTitle, { color: cardTitleColor }]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
                 Administrator
               </Text>
               <Text

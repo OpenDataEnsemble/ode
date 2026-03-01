@@ -63,75 +63,75 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
       activeOpacity={0.7}>
       <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
         <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <Icon
-            name={isSynced ? 'check-circle' : 'clock-outline'}
-            size={24}
-            color={
-              isSynced
-                ? colors.semantic.success[500]
-                : colors.semantic.warning[500]
-            }
-          />
-        </View>
-        <View style={styles.textContainer}>
-          {formName && (
-            <Text style={[styles.formName, { color: themeColors.primary }]}>
-              {formName}
-            </Text>
-          )}
-          <Text style={styles.id} numberOfLines={1}>
-            ID: {observation.observationId.substring(0, 20)}...
-          </Text>
-          <Text style={styles.preview} numberOfLines={1}>
-            {getDataPreview()}
-          </Text>
-          <View style={styles.metaContainer}>
-            <Text style={styles.date}>
-              {dateStr} at {timeStr}
-            </Text>
-            <View
-              style={[
-                styles.statusBadge,
-                isSynced ? styles.syncedBadge : styles.pendingBadge,
-              ]}>
-              <Text style={styles.statusText}>
-                {isSynced ? 'Synced' : 'Pending'}
-              </Text>
-            </View>
+          <View style={styles.iconContainer}>
+            <Icon
+              name={isSynced ? 'check-circle' : 'clock-outline'}
+              size={24}
+              color={
+                isSynced
+                  ? colors.semantic.success[500]
+                  : colors.semantic.warning[500]
+              }
+            />
           </View>
-          <Text style={styles.owner} numberOfLines={1}>
-            {`By ${
-              observation.author && observation.author.trim().length > 0
-                ? observation.author
-                : 'Unknown'
-            } • ${
-              observation.deviceId && observation.deviceId.trim().length > 0
-                ? observation.deviceId.slice(-8)
-                : 'no-device'
-            }`}
-          </Text>
-        </View>
-        <View style={styles.actions}>
-          {onEdit && (
-            <Button
-              title="Edit"
-              onPress={onEdit}
-              variant="primary"
-              size="small"
-              position="left"
-            />
-          )}
-          {onDelete && (
-            <Button
-              title="Delete"
-              onPress={onDelete}
-              variant="danger"
-              size="small"
-              position="right"
-            />
-          )}
-        </View>
+          <View style={styles.textContainer}>
+            {formName && (
+              <Text style={[styles.formName, { color: themeColors.primary }]}>
+                {formName}
+              </Text>
+            )}
+            <Text style={styles.id} numberOfLines={1}>
+              ID: {observation.observationId.substring(0, 20)}...
+            </Text>
+            <Text style={styles.preview} numberOfLines={1}>
+              {getDataPreview()}
+            </Text>
+            <View style={styles.metaContainer}>
+              <Text style={styles.date}>
+                {dateStr} at {timeStr}
+              </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  isSynced ? styles.syncedBadge : styles.pendingBadge,
+                ]}>
+                <Text style={styles.statusText}>
+                  {isSynced ? 'Synced' : 'Pending'}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.owner} numberOfLines={1}>
+              {`By ${
+                observation.author && observation.author.trim().length > 0
+                  ? observation.author
+                  : 'Unknown'
+              } • ${
+                observation.deviceId && observation.deviceId.trim().length > 0
+                  ? observation.deviceId.slice(-8)
+                  : 'no-device'
+              }`}
+            </Text>
+          </View>
+          <View style={styles.actions}>
+            {onEdit && (
+              <Button
+                title="Edit"
+                onPress={onEdit}
+                variant="primary"
+                size="small"
+                position="left"
+              />
+            )}
+            {onDelete && (
+              <Button
+                title="Delete"
+                onPress={onDelete}
+                variant="danger"
+                size="small"
+                position="right"
+              />
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>

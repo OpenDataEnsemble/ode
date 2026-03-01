@@ -16,7 +16,10 @@ type WelcomeScreenNavigationProp = StackNavigationProp<MainAppStackParamList>;
 type Tokens = {
   border: { width: { thin: string }; radius: { full: string } };
   spacing: Record<string, string>;
-  font: { size: Record<string, string>; weight: { regular: string; bold: string } };
+  font: {
+    size: Record<string, string>;
+    weight: { regular: string; bold: string };
+  };
   logo: { xl: string };
 };
 
@@ -77,11 +80,13 @@ const WelcomeScreen = () => {
                 borderRadius: ode.radiusFull,
                 marginBottom: ode.spacing._10,
               },
-            ]}
-          >
+            ]}>
             <Image
               source={logo}
-              style={[styles.logo, { width: ode.logoSize, height: ode.logoSize }]}
+              style={[
+                styles.logo,
+                { width: ode.logoSize, height: ode.logoSize },
+              ]}
               resizeMode="contain"
             />
           </View>
@@ -94,8 +99,7 @@ const WelcomeScreen = () => {
                 fontWeight: ode.font.weightRegular,
                 marginBottom: ode.spacing._1,
               },
-            ]}
-          >
+            ]}>
             Welcome to:
           </Text>
           <Text
@@ -107,8 +111,7 @@ const WelcomeScreen = () => {
                 fontWeight: ode.font.weightBold,
                 marginBottom: ode.spacing._3,
               },
-            ]}
-          >
+            ]}>
             FORMULUS
           </Text>
           <Text
@@ -119,8 +122,7 @@ const WelcomeScreen = () => {
                 fontSize: ode.font.sizeBase,
                 marginBottom: ode.spacing._8,
               },
-            ]}
-          >
+            ]}>
             Configure your server in under 2 minutes!
           </Text>
           <View style={[styles.buttonContainer, { marginTop: ode.spacing._2 }]}>

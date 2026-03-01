@@ -22,9 +22,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   const { themeColors, resolvedMode } = useAppTheme();
   const isDark = resolvedMode === 'dark';
   const titleColor = themeColors.onBackground;
-  const messageColor = isDark
-    ? colors.neutral[400]
-    : themeColors.onBackground;
+  const messageColor = isDark ? colors.neutral[400] : themeColors.onBackground;
   const iconColor = isDark ? colors.neutral[400] : themeColors.onSurface;
 
   return (

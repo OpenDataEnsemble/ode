@@ -184,7 +184,8 @@ const ObservationsScreen: React.FC = () => {
   if (loading && filteredAndSorted.length === 0) {
     return (
       <BlurredScreenBackground>
-        <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
             <Text
@@ -200,7 +201,8 @@ const ObservationsScreen: React.FC = () => {
   if (error && filteredAndSorted.length === 0) {
     return (
       <BlurredScreenBackground>
-        <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+        <SafeAreaView
+          style={[styles.container, { backgroundColor: 'transparent' }]}>
           <EmptyState
             icon="alert-circle-outline"
             title="Error Loading Observations"
@@ -215,7 +217,8 @@ const ObservationsScreen: React.FC = () => {
 
   return (
     <BlurredScreenBackground>
-      <SafeAreaView style={[styles.container, { backgroundColor: 'transparent' }]}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}>
         <View
           style={[
             styles.header,
@@ -230,10 +233,11 @@ const ObservationsScreen: React.FC = () => {
             },
           ]}>
           <View style={styles.headerLeft}>
-            <Text style={[styles.title, { color: titleColor }]}>Observations</Text>
+            <Text style={[styles.title, { color: titleColor }]}>
+              Observations
+            </Text>
             {finalFiltered.length > 0 && (
-              <Text
-                style={[styles.subtitle, { color: themeColors.onSurface }]}>
+              <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
                 {finalFiltered.length} observation
                 {finalFiltered.length !== 1 ? 's' : ''}
               </Text>
@@ -302,48 +306,51 @@ const ObservationsScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-        <View style={styles.filterRow}>
-          <FormTypeSelector
-            options={formTypes}
-            selectedId={selectedFormType}
-            onSelect={setSelectedFormType}
-            placeholder="All Forms"
-          />
+          <View style={styles.filterRow}>
+            <FormTypeSelector
+              options={formTypes}
+              selectedId={selectedFormType}
+              onSelect={setSelectedFormType}
+              placeholder="All Forms"
+            />
+          </View>
+          <View style={styles.filterRow}>
+            <SyncStatusButtons
+              selectedStatus={syncStatus}
+              onStatusChange={setSyncStatus}
+            />
+          </View>
         </View>
-        <View style={styles.filterRow}>
-          <SyncStatusButtons
-            selectedStatus={syncStatus}
-            onStatusChange={setSyncStatus}
-          />
-        </View>
-      </View>
 
-      {finalFiltered.length === 0 ? (
-        <EmptyState
-          icon="clipboard-text-outline"
-          title={
-            searchQuery || selectedFormType || syncStatus !== 'all'
-              ? 'No Observations Found'
-              : 'No Observations Yet'
-          }
-          message={
-            searchQuery || selectedFormType || syncStatus !== 'all'
-              ? 'Try adjusting your search or filter criteria.'
-              : 'Start filling out forms to create observations. Your data will appear here once saved.'
-          }
-        />
-      ) : (
-        <FlatList
-          style={styles.listTransparent}
-          data={finalFiltered}
-          renderItem={renderObservation}
-          keyExtractor={item => item.observationId}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-        />
-      )}
+        {finalFiltered.length === 0 ? (
+          <EmptyState
+            icon="clipboard-text-outline"
+            title={
+              searchQuery || selectedFormType || syncStatus !== 'all'
+                ? 'No Observations Found'
+                : 'No Observations Yet'
+            }
+            message={
+              searchQuery || selectedFormType || syncStatus !== 'all'
+                ? 'Try adjusting your search or filter criteria.'
+                : 'Start filling out forms to create observations. Your data will appear here once saved.'
+            }
+          />
+        ) : (
+          <FlatList
+            style={styles.listTransparent}
+            data={finalFiltered}
+            renderItem={renderObservation}
+            keyExtractor={item => item.observationId}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+              />
+            }
+          />
+        )}
       </SafeAreaView>
     </BlurredScreenBackground>
   );
