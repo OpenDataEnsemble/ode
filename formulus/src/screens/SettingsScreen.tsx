@@ -8,7 +8,6 @@ import {
   Image,
   ScrollView,
   Alert,
-  AlertButton,
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +24,7 @@ import { MainTabParamList } from '../types/NavigationTypes';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
 import { Button } from '../components/common';
@@ -39,6 +39,7 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const { themeColors } = useAppTheme();
+  const { showConfirm } = useConfirmModal();
   const [serverUrl, setServerUrl] = useState('');
   const [initialServerUrl, setInitialServerUrl] = useState('');
   const [username, setUsername] = useState('');
@@ -100,11 +101,11 @@ const SettingsScreen = () => {
             ? `Unsynced observations: ${pendingObservations}\nUnsynced attachments: ${pendingAttachments}\n\nSync is recommended before switching.`
             : 'Switching servers will wipe all local data for the previous server.';
 
-          const buttons: AlertButton[] = hasPending
+          const buttons = hasPending
             ? [
                 {
                   text: 'Cancel',
-                  style: 'cancel' as const,
+                  variant: 'tertiary' as const,
                   onPress: () => {
                     setServerUrl(initialServerUrl);
                     resolve(false);
@@ -112,7 +113,7 @@ const SettingsScreen = () => {
                 },
                 {
                   text: 'Proceed without syncing',
-                  style: 'destructive' as const,
+                  variant: 'danger' as const,
                   onPress: () => {
                     (async () => {
                       try {
@@ -130,6 +131,7 @@ const SettingsScreen = () => {
                 },
                 {
                   text: 'Sync then switch',
+                  variant: 'primary' as const,
                   onPress: () => {
                     (async () => {
                       if (syncService.getIsSyncing()) {
@@ -145,7 +147,7 @@ const SettingsScreen = () => {
             : [
                 {
                   text: 'Cancel',
-                  style: 'cancel' as const,
+                  variant: 'tertiary' as const,
                   onPress: () => {
                     setServerUrl(initialServerUrl);
                     resolve(false);
@@ -153,7 +155,7 @@ const SettingsScreen = () => {
                 },
                 {
                   text: 'Yes, wipe & switch',
-                  style: 'destructive' as const,
+                  variant: 'danger' as const,
                   onPress: () => {
                     (async () => {
                       try {
@@ -171,8 +173,10 @@ const SettingsScreen = () => {
                 },
               ];
 
-          Alert.alert('Switch server?', message, buttons, {
-            cancelable: false,
+          showConfirm({
+            title: 'Switch server?',
+            message,
+            buttons,
           });
         });
       } catch (error) {

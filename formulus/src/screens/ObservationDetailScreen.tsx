@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 
 interface ObservationDetailScreenProps {
   route: {
@@ -32,6 +33,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const { observationId } = route.params;
   const navigation = useNavigation();
   const { themeColors } = useAppTheme();
+  const { showConfirm } = useConfirmModal();
   const [observation, setObservation] = useState<Observation | null>(null);
   const [formName, setFormName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -106,14 +108,15 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const handleDelete = () => {
     if (!observation) return;
 
-    Alert.alert(
-      'Delete Observation',
-      'Are you sure you want to delete this observation? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
+    showConfirm({
+      title: 'Delete Observation',
+      message:
+        'Are you sure you want to delete this observation? This action cannot be undone.',
+      buttons: [
+        { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
         {
           text: 'Delete',
-          style: 'destructive',
+          variant: 'danger',
           onPress: async () => {
             try {
               const formService = await FormService.getInstance();
@@ -127,7 +130,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
           },
         },
       ],
-    );
+    });
   };
 
   const renderDataField = (key: string, value: unknown, level: number = 0) => {

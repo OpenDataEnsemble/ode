@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Alert } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useFocusEffect,
@@ -11,6 +11,7 @@ import { MainTabParamList, VisibleMainTab } from '../types/NavigationTypes';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import MenuDrawer from '../components/MenuDrawer';
 import { logout } from '../api/synkronus/Auth';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 
 type MoreScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -21,6 +22,7 @@ const MoreScreen: React.FC = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const route = useRoute();
   const navigation = useNavigation<MoreScreenNavigationProp>();
+  const { showConfirm } = useConfirmModal();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -64,18 +66,22 @@ const MoreScreen: React.FC = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          setDrawerVisible(false);
-          navigation.navigate('Home');
+    showConfirm({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      buttons: [
+        { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
+        {
+          text: 'Logout',
+          variant: 'danger',
+          onPress: async () => {
+            await logout();
+            setDrawerVisible(false);
+            navigation.navigate('Home');
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleClose = () => {
