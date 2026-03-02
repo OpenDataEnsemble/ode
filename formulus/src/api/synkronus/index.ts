@@ -15,6 +15,7 @@ import { databaseService } from '../../database/DatabaseService';
 import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { clientIdService } from '../../services/ClientIdService';
 import { unzip } from 'react-native-zip-archive';
+import { synkronusDownload } from './download';
 
 interface DownloadResult {
   success: boolean;
@@ -51,6 +52,11 @@ class SynkronusApi {
         accessToken: async () => {
           const token = await AsyncStorage.getItem('@token');
           return token || '';
+        },
+        baseOptions: {
+          headers: {
+            'x-formulus-version': FORMULUS_VERSION,
+          },
         },
       });
     }
@@ -177,10 +183,10 @@ class SynkronusApi {
     if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
 
     // Download the zip
-    const downloadResult = await RNFS.downloadFile({
+    const downloadResult = await synkronusDownload({
       fromUrl: zipUrl,
       toFile: tempZipPath,
-      headers: { Authorization: `Bearer ${authToken}` },
+      authToken,
       background: true,
       progressInterval: 500,
       progress: res => {
@@ -549,14 +555,12 @@ class SynkronusApi {
     }
     const authToken =
       this.fastGetToken_cachedToken ?? (await this.fastGetToken());
-    const downloadHeaders: { [key: string]: string } = {};
-    downloadHeaders.Authorization = `Bearer ${authToken}`;
 
     console.debug(`Downloading from: ${url}`);
-    const result = await RNFS.downloadFile({
+    const result = await synkronusDownload({
       fromUrl: url,
       toFile: localFilePath,
-      headers: downloadHeaders,
+      authToken,
       background: true,
       progressInterval: 500, // fire at most every 500ms if progressCallback is provided
       progressDivider: progressCallback ? 1 : 100, // fire at most on every percentage change if progressCallback is provided

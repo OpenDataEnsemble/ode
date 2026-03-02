@@ -18,10 +18,13 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Build the application
-# CGO is disabled so the binary is pure Go (better for multi-arch Docker builds)
+# Build the application with version from build arg
+# Version is automatically derived from git tags in CI and passed as build arg
+# Defaults to "dev" for local builds without tags
+ARG SYNKRONUS_VERSION=dev
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -a -ldflags='-w -s' -o synkronus ./cmd/synkronus
+RUN echo "Building Synkronus with version: ${SYNKRONUS_VERSION}" && \
+    go build -a -ldflags="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}" -o synkronus ./cmd/synkronus
 
 # Stage 2: Create minimal runtime image
 FROM alpine:latest
