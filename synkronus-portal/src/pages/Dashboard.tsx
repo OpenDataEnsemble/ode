@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
+import { PORTAL_VERSION } from '../version';
 import { Button, Input, Badge } from '@ode/components/react-web';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
@@ -544,6 +545,8 @@ export function Dashboard() {
         const apiBaseUrl = import.meta.env.VITE_API_URL || '/api';
         const uploadUrl = `${apiBaseUrl}/app-bundle/push`;
         xhr.open('POST', uploadUrl);
+        // Set required headers for version handshake
+        xhr.setRequestHeader('x-formulus-version', PORTAL_VERSION);
         if (token) {
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         }
