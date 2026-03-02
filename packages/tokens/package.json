@@ -4,6 +4,17 @@
   "description": "ODE Design System - Unified design tokens for React Native, React Web, and all ODE applications",
   "main": "dist/js/tokens.js",
   "types": "dist/js/tokens.d.ts",
+  "exports": {
+    ".": {
+      "react-native": "./dist/react-native/tokens-resolved.js",
+      "default": "./dist/js/tokens.js"
+    },
+    "./dist/react-native/tokens-resolved": "./dist/react-native/tokens-resolved.js",
+    "./dist/react-native/tokens-resolved.js": "./dist/react-native/tokens-resolved.js",
+    "./dist/js/tokens": "./dist/js/tokens.js",
+    "./dist/css/tokens.css": "./dist/css/tokens.css",
+    "./dist/json/tokens.json": "./dist/json/tokens.json"
+  },
   "files": [
     "dist",
     "README.md"

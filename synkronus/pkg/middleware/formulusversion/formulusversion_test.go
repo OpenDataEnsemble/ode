@@ -73,17 +73,31 @@ func TestMiddleware(t *testing.T) {
 		}
 	})
 
-	t.Run("unparseable_server_version_returns_426", func(t *testing.T) {
-		// Server BuildVersion() in test is "dev" (unparseable) → middleware returns 426
+	t.Run("matching_major_versions_pass", func(t *testing.T) {
+		// Server BuildVersion() default is "1.0.0" and client sends "1.0.0" → major versions match (1 == 1)
 		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
 		req.Header.Set("X-Formulus-Version", "1.0.0")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
-		if rec.Code != http.StatusUpgradeRequired {
-			t.Errorf("expected 426 when server version unparseable (dev), got %d body %s", rec.Code, rec.Body.String())
+		if rec.Code != http.StatusOK {
+			t.Errorf("expected 200 when versions match, got %d body %s", rec.Code, rec.Body.String())
 		}
-		if body := rec.Body.String(); !strings.Contains(body, "Server version is not configured") {
-			t.Errorf("expected body with server version error message, got %q", body)
+		if rec.Body.String() != "ok" {
+			t.Errorf("expected body 'ok', got %q", rec.Body.String())
+		}
+	})
+
+	t.Run("mismatched_major_versions_return_426", func(t *testing.T) {
+		// Client sends "2.0.0" but server is "1.0.0" → major versions mismatch (2 != 1)
+		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		req.Header.Set("X-Formulus-Version", "2.0.0")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusUpgradeRequired {
+			t.Errorf("expected 426 when major versions mismatch, got %d body %s", rec.Code, rec.Body.String())
+		}
+		if body := rec.Body.String(); !strings.Contains(body, "not compatible") {
+			t.Errorf("expected body with version mismatch message, got %q", body)
 		}
 	})
 }

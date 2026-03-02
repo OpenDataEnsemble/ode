@@ -317,32 +317,24 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       }
 
       // Scan custom question types and read their source code
-      // Check both root forms/ and app/forms/ paths (same dual-path as FormService)
+      // Check app/question_types (bundle root) and app/forms/question_types (legacy)
       let customQuestionTypes = undefined;
       try {
         const qtDirs = [
-          RNFS.DocumentDirectoryPath + '/forms/question_types',
+          `${customAppPath}/question_types`,
           `${customAppPath}/forms/question_types`,
+          RNFS.DocumentDirectoryPath + '/forms/question_types',
         ];
-        console.log(
-          `🔍🔍🔍 [FormplayerModal] Scanning custom question types in: ${qtDirs.join(', ')}`,
-        );
 
         const custom_types: Record<string, { source: string }> = {};
 
         for (const qtDir of qtDirs) {
           const qtDirExists = await RNFS.exists(qtDir);
           if (!qtDirExists) {
-            console.log(
-              `🔍 [FormplayerModal] Path not found, skipping: ${qtDir}`,
-            );
             continue;
           }
 
           const folders = await RNFS.readDir(qtDir);
-          console.log(
-            `🔍 [FormplayerModal] Found ${folders.length} items in ${qtDir}: ${folders.map(f => f.name).join(', ')}`,
-          );
 
           for (const folder of folders) {
             if (folder.isDirectory() && !custom_types[folder.name]) {
@@ -366,7 +358,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                 );
               } else {
                 console.warn(
-                  `⚠️ [FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
+                  `[FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
                 );
               }
             }
@@ -375,12 +367,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
         if (Object.keys(custom_types).length > 0) {
           customQuestionTypes = { custom_types };
-          console.log(
-            `📦📦📦 [FormplayerModal] Custom question types manifest: ${JSON.stringify(Object.keys(custom_types))}`,
-          );
         } else {
           console.warn(
-            '⚠️ [FormplayerModal] No custom question types found in any path',
+            '[FormplayerModal] No custom question types found in any path',
           );
         }
       } catch (error) {

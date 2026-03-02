@@ -16,6 +16,7 @@ import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { clientIdService } from '../../services/ClientIdService';
 import { unzip } from 'react-native-zip-archive';
 import { synkronusDownload } from './download';
+import { FORMULUS_VERSION } from '../../version';
 
 interface DownloadResult {
   success: boolean;
