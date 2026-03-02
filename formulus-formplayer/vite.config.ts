@@ -38,7 +38,8 @@ export default defineConfig({
       onwarn(warning, warn) {
         if (
           warning.code === 'EVAL' ||
-          (warning.message && warning.message.includes('ExtensionsLoader'))
+          (warning.message && warning.message.includes('ExtensionsLoader')) ||
+          (warning.code === 'UNUSED_EXTERNAL_IMPORT' && warning.source?.includes('formulus-load.js'))
         ) {
           return;
         }

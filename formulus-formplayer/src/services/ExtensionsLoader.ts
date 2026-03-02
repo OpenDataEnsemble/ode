@@ -44,6 +44,7 @@ export interface LoadedRenderer {
  */
 export interface ExtensionLoadResult {
   renderers: JsonFormsRendererRegistryEntry[];
+  // Functions with explicit signature for type safety
   functions: Map<string, (...args: any[]) => any>;
   definitions: Record<string, any>;
   errors: Array<{ type: string; message: string; details?: any }>;
