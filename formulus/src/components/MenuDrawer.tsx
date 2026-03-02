@@ -126,7 +126,6 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
 
   useEffect(() => {
     if (visible) {
-      setAppSettingsOpen(false);
       getUserInfo().then(setUserInfo);
     }
   }, [visible]);
