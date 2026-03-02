@@ -1,6 +1,6 @@
 {
   "name": "formulus-app",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "type": "module",
   "private": true,
   "scripts": {
@@ -15,8 +15,8 @@
     "generate": "ts-node --project scripts/tsconfig.json scripts/generateInjectionScript.ts",
     "generate:api": "openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated --additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original",
     "generate_qr": "ts-node --project scripts/tsconfig.json scripts/generateQR.ts",
-    "generate:placeholder-tokens": "node scripts/generatePlaceholderTokens.js",
-    "prebuild": "npm run generate && npm run generate:placeholder-tokens"
+    "sync:version": "node scripts/syncNativeVersion.js",
+    "prebuild": "npm run sync:version && npm run generate"
   },
   "dependencies": {
     "@notifee/react-native": "^9.1.8",

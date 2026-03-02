@@ -49,15 +49,50 @@ class CustomQuestionErrorBoundary extends Component<
       return (
         <div
           style={{
-            padding: '12px',
+            padding: '16px',
             border: '1px solid #f44336',
             borderRadius: '4px',
-            backgroundColor: '#fce4ec',
+            backgroundColor: '#ffebee',
             color: '#c62828',
+            margin: '8px 0',
           }}>
-          <strong>Custom question type "{this.props.formatName}" failed</strong>
-          <br />
-          <small>{this.state.error?.message}</small>
+          <strong style={{ display: 'block', marginBottom: '8px' }}>
+            ⚠️ Custom Question Type Error
+          </strong>
+          <div style={{ fontSize: '0.9em', marginBottom: '8px' }}>
+            The custom question type <code>"{this.props.formatName}"</code>{' '}
+            encountered an error and could not be rendered.
+          </div>
+          <details style={{ fontSize: '0.85em', marginTop: '8px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
+              Error Details (click to expand)
+            </summary>
+            <pre
+              style={{
+                marginTop: '8px',
+                padding: '8px',
+                backgroundColor: '#fff',
+                borderRadius: '4px',
+                overflow: 'auto',
+                fontSize: '0.8em',
+              }}>
+              {this.state.error?.message || 'Unknown error'}
+              {this.state.error?.stack && (
+                <>
+                  {'\n\n'}
+                  {this.state.error.stack}
+                </>
+              )}
+            </pre>
+          </details>
+          <div
+            style={{
+              fontSize: '0.85em',
+              marginTop: '8px',
+              fontStyle: 'italic',
+            }}>
+            The form will continue to function, but this field cannot be edited.
+          </div>
         </div>
       );
     }
@@ -102,6 +137,7 @@ export function createCustomQuestionTypeRenderer(
     // Extract all schema properties (except reserved ones) as config
     // This allows parameters alongside "format" to be passed to the renderer
     const schemaObj = schema as Record<string, unknown>;
+
     const RESERVED_PROPERTIES = new Set([
       'type',
       'title',
@@ -137,6 +173,34 @@ export function createCustomQuestionTypeRenderer(
     }
 
     const jsonFormsContext = useJsonForms();
+
+    // For ranking format: if people not in field schema, try to get from root schema
+    if (
+      schemaObj.format === 'ranking' &&
+      !config.people &&
+      jsonFormsContext?.core?.schema
+    ) {
+      const rootSchema = jsonFormsContext.core.schema as Record<
+        string,
+        unknown
+      >;
+      const rootProperties = rootSchema.properties as
+        | Record<string, unknown>
+        | undefined;
+      if (rootProperties && path) {
+        // Extract field name from path (e.g., "#/properties/ranking_field" -> "ranking_field")
+        const fieldName = path.split('/').pop();
+        if (fieldName && rootProperties[fieldName]) {
+          const fieldSchema = rootProperties[fieldName] as Record<
+            string,
+            unknown
+          >;
+          if (fieldSchema.people) {
+            config.people = fieldSchema.people;
+          }
+        }
+      }
+    }
 
     const customProps: CustomQuestionTypeProps = {
       value: data,

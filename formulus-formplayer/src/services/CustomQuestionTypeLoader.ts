@@ -12,6 +12,8 @@
  *  3. Validates the default export is a function (React component)
  *  4. Passes all loaded components to the registry
  *  5. Returns renderer entries + format strings for AJV registration
+ *
+ * Custom question types use "format": "formatName" in schemas (not "type").
  */
 
 import type { JsonFormsRendererRegistryEntry } from '@jsonforms/core';
@@ -32,9 +34,9 @@ export interface CustomQuestionTypeLoadResult {
 }
 
 /**
- * Load custom question types from a manifest.
+ * Load custom question types from a manifest containing source strings.
  *
- * @param manifest - The manifest describing available custom question types
+ * @param manifest - The manifest describing available custom question types (with source code)
  * @returns Loaded renderers, format strings, and any errors
  */
 export async function loadCustomQuestionTypes(
@@ -109,12 +111,12 @@ export async function loadCustomQuestionTypes(
       result.formats.push(formatName);
 
       console.log(
-        `[CustomQuestionTypeLoader] ✅ Successfully loaded "${formatName}"`,
+        `[CustomQuestionTypeLoader] Successfully loaded "${formatName}"`,
       );
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       console.error(
-        `[CustomQuestionTypeLoader] ❌ Failed to load "${formatName}":`,
+        `[CustomQuestionTypeLoader] Failed to load "${formatName}":`,
         errorMessage,
       );
       result.errors.push({ format: formatName, error: errorMessage });
@@ -125,13 +127,13 @@ export async function loadCustomQuestionTypes(
   if (loadedComponents.size > 0) {
     result.renderers = registerCustomQuestionTypes(loadedComponents);
     console.log(
-      `[CustomQuestionTypeLoader] 📦 Registered ${loadedComponents.size} custom question type(s)`,
+      `[CustomQuestionTypeLoader] Registered ${loadedComponents.size} custom question type(s)`,
     );
   }
 
   if (result.errors.length > 0) {
     console.warn(
-      `[CustomQuestionTypeLoader] ${result.errors.length} type(s) failed to load:`,
+      `[CustomQuestionTypeLoader] ${result.errors.length} format(s) failed to load:`,
       result.errors.map(e => e.format).join(', '),
     );
   }

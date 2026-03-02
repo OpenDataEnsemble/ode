@@ -18,6 +18,7 @@ import {
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
+import BlurredScreenBackground from './BlurredScreenBackground';
 import Icon from '@react-native-vector-icons/material-icons';
 import {
   resolveFormOperation,
@@ -30,7 +31,7 @@ import {
 } from '../webview/FormulusInterfaceDefinition';
 
 import { databaseService } from '../database';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
@@ -316,32 +317,24 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       }
 
       // Scan custom question types and read their source code
-      // Check both root forms/ and app/forms/ paths (same dual-path as FormService)
+      // Check app/question_types (bundle root) and app/forms/question_types (legacy)
       let customQuestionTypes = undefined;
       try {
         const qtDirs = [
-          RNFS.DocumentDirectoryPath + '/forms/question_types',
+          `${customAppPath}/question_types`,
           `${customAppPath}/forms/question_types`,
+          RNFS.DocumentDirectoryPath + '/forms/question_types',
         ];
-        console.log(
-          `🔍🔍🔍 [FormplayerModal] Scanning custom question types in: ${qtDirs.join(', ')}`,
-        );
 
         const custom_types: Record<string, { source: string }> = {};
 
         for (const qtDir of qtDirs) {
           const qtDirExists = await RNFS.exists(qtDir);
           if (!qtDirExists) {
-            console.log(
-              `🔍 [FormplayerModal] Path not found, skipping: ${qtDir}`,
-            );
             continue;
           }
 
           const folders = await RNFS.readDir(qtDir);
-          console.log(
-            `🔍 [FormplayerModal] Found ${folders.length} items in ${qtDir}: ${folders.map(f => f.name).join(', ')}`,
-          );
 
           for (const folder of folders) {
             if (folder.isDirectory() && !custom_types[folder.name]) {
@@ -365,7 +358,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                 );
               } else {
                 console.warn(
-                  `⚠️ [FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
+                  `[FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
                 );
               }
             }
@@ -374,12 +367,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
         if (Object.keys(custom_types).length > 0) {
           customQuestionTypes = { custom_types };
-          console.log(
-            `📦📦📦 [FormplayerModal] Custom question types manifest: ${JSON.stringify(Object.keys(custom_types))}`,
-          );
         } else {
           console.warn(
-            '⚠️ [FormplayerModal] No custom question types found in any path',
+            '[FormplayerModal] No custom question types found in any path',
           );
         }
       } catch (error) {
@@ -557,66 +547,65 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <View
-          style={[
-            styles.container,
-            {
-              backgroundColor: withAlpha(
-                themeColors.surface as string,
-                CONTAINER_ALPHA,
-              ),
-              borderWidth: 1,
-              borderColor: themeColors.divider as string,
-            },
-          ]}>
-          <View
-            style={[styles.header, { borderBottomColor: themeColors.divider }]}>
-            <TouchableOpacity
-              onPress={handleClose}
+        <BlurredScreenBackground>
+          <View style={styles.container}>
+            <View
               style={[
-                styles.closeButton,
-                (isSubmitting || isClosing) && styles.disabledButton,
-              ]}
-              disabled={isSubmitting || isClosing}>
-              <Icon
-                name="close"
-                size={24}
-                color={
-                  isSubmitting || isClosing
-                    ? colors.neutral[400]
-                    : themeColors.onBackground
-                }
-              />
-            </TouchableOpacity>
-            <Text
-              style={[styles.headerTitle, { color: themeColors.onBackground }]}
-              numberOfLines={1}>
-              {currentFormDisplayName ||
-                (currentObservationId ? 'Edit Observation' : 'New Observation')}
-            </Text>
-            <View style={styles.headerRightSpacer} />
-          </View>
-
-          <CustomAppWebView
-            ref={webViewRef}
-            appUrl={formplayerUri}
-            appName="Formplayer"
-            onLoadEndProp={handleWebViewLoad}
-          />
-
-          {/* Loading overlay */}
-          {isSubmitting && (
-            <View style={styles.loadingOverlay}>
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator
-                  size="large"
-                  color={colors.semantic.info.ios}
+                styles.header,
+                { borderBottomColor: themeColors.divider },
+              ]}>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={[
+                  styles.closeButton,
+                  (isSubmitting || isClosing) && styles.disabledButton,
+                ]}
+                disabled={isSubmitting || isClosing}>
+                <Icon
+                  name="close"
+                  size={24}
+                  color={
+                    isSubmitting || isClosing
+                      ? colors.neutral[400]
+                      : themeColors.onBackground
+                  }
                 />
-                <Text style={styles.loadingText}>Saving form data...</Text>
-              </View>
+              </TouchableOpacity>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  { color: themeColors.onBackground },
+                ]}
+                numberOfLines={1}>
+                {currentFormDisplayName ||
+                  (currentObservationId
+                    ? 'Edit Observation'
+                    : 'New Observation')}
+              </Text>
+              <View style={styles.headerRightSpacer} />
             </View>
-          )}
-        </View>
+
+            <CustomAppWebView
+              ref={webViewRef}
+              appUrl={formplayerUri}
+              appName="Formplayer"
+              onLoadEndProp={handleWebViewLoad}
+            />
+
+            {/* Loading overlay */}
+            {isSubmitting && (
+              <View style={styles.loadingOverlay}>
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator
+                    size="large"
+                    color={colors.semantic.info.ios}
+                  />
+                  <Text style={styles.loadingText}>Saving form data...</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </BlurredScreenBackground>
       </Modal>
     );
   },
@@ -624,7 +613,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: colors.neutral.transparent,
   },
   header: {
     flexDirection: 'row',

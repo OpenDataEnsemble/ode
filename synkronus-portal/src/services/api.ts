@@ -3,6 +3,7 @@ import type {
   LoginResponse,
   RefreshRequest,
 } from '../types/auth';
+import { PORTAL_VERSION } from '../version';
 
 // Get API base URL from environment or use default
 const getApiBaseUrl = () => {
@@ -31,6 +32,7 @@ async function request<T>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'x-formulus-version': PORTAL_VERSION,
     ...((options.headers as Record<string, string>) || {}),
   };
 
@@ -216,7 +218,9 @@ export const api = {
     const query = params.toString();
     const url = `${API_BASE_URL}/app-bundle/download/${encodeURIComponent(filePath)}${query ? `?${query}` : ''}`;
 
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      'x-formulus-version': PORTAL_VERSION,
+    };
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
