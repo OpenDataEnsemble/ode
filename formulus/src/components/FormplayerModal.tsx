@@ -18,6 +18,7 @@ import {
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
+import BlurredScreenBackground from './BlurredScreenBackground';
 import Icon from '@react-native-vector-icons/material-icons';
 import {
   resolveFormOperation,
@@ -30,7 +31,7 @@ import {
 } from '../webview/FormulusInterfaceDefinition';
 
 import { databaseService } from '../database';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
@@ -557,20 +558,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <View
-          style={[
-            styles.container,
-            {
-              backgroundColor: withAlpha(
-                themeColors.surface as string,
-                CONTAINER_ALPHA,
-              ),
-              borderWidth: 1,
-              borderColor: themeColors.divider as string,
-            },
-          ]}>
-          <View
-            style={[styles.header, { borderBottomColor: themeColors.divider }]}>
+        <BlurredScreenBackground>
+          <View style={styles.container}>
+            <View
+              style={[styles.header, { borderBottomColor: themeColors.divider }]}>
             <TouchableOpacity
               onPress={handleClose}
               style={[
@@ -616,7 +607,8 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               </View>
             </View>
           )}
-        </View>
+          </View>
+        </BlurredScreenBackground>
       </Modal>
     );
   },
@@ -624,7 +616,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
