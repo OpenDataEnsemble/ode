@@ -8,10 +8,7 @@
 
 import type { ErrorObject } from 'ajv';
 import type { JsonSchema7, UISchemaElement } from '@jsonforms/core';
-import type {
-  CustomValidatorFunction,
-  ValidationError as CustomValidationError,
-} from '../types/CustomValidatorContract';
+import type { ValidationError as CustomValidationError } from '../types/CustomValidatorContract';
 import { customValidatorRegistry } from './CustomValidatorRegistry';
 import type Ajv from 'ajv';
 

@@ -80,11 +80,7 @@ import { FormEvaluationProvider } from './FormEvaluationContext';
 import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
 import { loadCustomValidators } from './services/CustomValidatorLoader';
 import { customValidatorRegistry } from './services/CustomValidatorRegistry';
-import {
-  executeAllCustomValidators,
-  extractCustomValidators,
-  executeCustomValidators,
-} from './services/CustomValidatorExecutor';
+import { executeAllCustomValidators } from './services/CustomValidatorExecutor';
 
 // Import development dependencies (Vite will tree-shake these in production)
 import { webViewMock } from './mocks/webview-mock';
