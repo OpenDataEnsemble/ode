@@ -26,6 +26,9 @@ func TestParseMajor(t *testing.T) {
 		{"", 0, false},
 		{"abc", 0, false},
 		{"1.2.3-beta", 1, true},
+		{"dev", 1, true},      // Special case: "dev" is treated as version 1.0.0
+		{"DEV", 1, true},       // Case insensitive
+		{"Dev", 1, true},       // Case insensitive
 	}
 	for _, tt := range tests {
 		got, ok := parseMajor(tt.input)
@@ -98,6 +101,20 @@ func TestMiddleware(t *testing.T) {
 		}
 		if body := rec.Body.String(); !strings.Contains(body, "not compatible") {
 			t.Errorf("expected body with version mismatch message, got %q", body)
+		}
+	})
+
+	t.Run("dev_version_treated_as_1.0.0", func(t *testing.T) {
+		// Server with "dev" version should accept clients with "1.0.0"
+		// This test requires mocking the version.BuildVersion() to return "dev"
+		// For now, we test that parseMajor("dev") returns (1, true)
+		major, ok := parseMajor("dev")
+		if !ok || major != 1 {
+			t.Errorf("parseMajor(\"dev\") = (%d, %v), want (1, true)", major, ok)
+		}
+		major, ok = parseMajor("DEV")
+		if !ok || major != 1 {
+			t.Errorf("parseMajor(\"DEV\") = (%d, %v), want (1, true)", major, ok)
 		}
 	})
 }
