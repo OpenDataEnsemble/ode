@@ -6,7 +6,7 @@ import (
 )
 
 func TestBuildVersion_NonEmpty(t *testing.T) {
-	// By default, version is "dev" and overridden via -ldflags in real builds.
+	// By default, version is "1.0.0" and overridden via -ldflags in production builds.
 	if got := BuildVersion(); got == "" {
 		t.Fatalf("BuildVersion() = %q, want non-empty", got)
 	}

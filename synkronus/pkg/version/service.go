@@ -53,7 +53,7 @@ type BuildInfo struct {
 
 // These will be set during build using -ldflags
 var (
-	version   = "dev"
+	version   = "1.0.0" // Default version for dev mode; overridden via ldflags in production builds
 	commit    = ""
 	buildTime = ""
 )
