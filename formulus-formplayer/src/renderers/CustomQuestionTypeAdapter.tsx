@@ -175,14 +175,26 @@ export function createCustomQuestionTypeRenderer(
     const jsonFormsContext = useJsonForms();
 
     // For ranking format: if people not in field schema, try to get from root schema
-    if (schemaObj.format === 'ranking' && !config.people && jsonFormsContext?.core?.schema) {
-      const rootSchema = jsonFormsContext.core.schema as Record<string, unknown>;
-      const rootProperties = rootSchema.properties as Record<string, unknown> | undefined;
+    if (
+      schemaObj.format === 'ranking' &&
+      !config.people &&
+      jsonFormsContext?.core?.schema
+    ) {
+      const rootSchema = jsonFormsContext.core.schema as Record<
+        string,
+        unknown
+      >;
+      const rootProperties = rootSchema.properties as
+        | Record<string, unknown>
+        | undefined;
       if (rootProperties && path) {
         // Extract field name from path (e.g., "#/properties/ranking_field" -> "ranking_field")
         const fieldName = path.split('/').pop();
         if (fieldName && rootProperties[fieldName]) {
-          const fieldSchema = rootProperties[fieldName] as Record<string, unknown>;
+          const fieldSchema = rootProperties[fieldName] as Record<
+            string,
+            unknown
+          >;
           if (fieldSchema.people) {
             config.people = fieldSchema.people;
           }
