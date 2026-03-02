@@ -63,6 +63,17 @@ const config = {
           filePath: path.join(forcedModules[moduleName], 'index.js'),
         };
       }
+      // Handle react-native-svg - resolve to its actual entry point
+      if (moduleName === 'react-native-svg') {
+        const svgPath = path.resolve(
+          projectRoot,
+          'node_modules/react-native-svg/lib/commonjs/index.js',
+        );
+        return {
+          type: 'sourceFile',
+          filePath: svgPath,
+        };
+      }
       // Handle @ode/components subpath exports
       if (extraModules[moduleName]) {
         return {
