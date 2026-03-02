@@ -8,14 +8,30 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import colors from '../theme/colors';
+import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { appVersionService } from '../services/AppVersionService';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 import logo from '../../assets/images/logo.png';
 
 const AboutScreen: React.FC = () => {
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
+  const titleColor = isDark
+    ? (colors.neutral[200] as string)
+    : (colors.neutral[900] as string);
+  const cardTitleColor = isDark
+    ? (colors.neutral[200] as string)
+    : (colors.neutral[900] as string);
   const [version, setVersion] = useState<string>('');
+  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
 
   useEffect(() => {
     const loadVersion = async () => {
@@ -31,133 +47,206 @@ const AboutScreen: React.FC = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>About</Text>
-        <Text style={styles.subtitle}>Information about this app</Text>
-      </View>
+    <BlurredScreenBackground>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top']}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: isDark
+                ? (colors.neutral[900] as string)
+                : (colors.neutral[50] as string),
+              borderWidth: 1,
+              borderBottomWidth: 1,
+              borderColor: themeColors.divider as string,
+              borderBottomColor: themeColors.divider as string,
+            },
+          ]}>
+          <Text style={[styles.title, { color: titleColor }]}>About</Text>
+        </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.brandRow}>
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
-          <View style={styles.brandText}>
-            <Text style={styles.appName}>ODE</Text>
-            {!!version && <Text style={styles.version}>v{version}</Text>}
+        <ScrollView
+          style={styles.scrollTransparent}
+          contentContainerStyle={styles.content}>
+          <View style={styles.brandRow}>
+            <View style={styles.logoWrapper}>
+              <Image source={logo} style={styles.logo} resizeMode="contain" />
+            </View>
+            <View style={styles.brandText}>
+              <Text style={[styles.appName, { color: themeColors.onSurface }]}>
+                ODE
+              </Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Formulus</Text>
-          <Text style={styles.cardText}>
-            Formulus is the mobile app for collecting and synchronizing forms
-            and observations.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Support</Text>
-          <Text style={styles.cardText}>
-            If you need help, contact your system administrator.
-          </Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Free & Open Source</Text>
-          <Text style={styles.cardText}>
-            This application is free and open source software. We would love to
-            hear your feedback and welcome contributions.
-          </Text>
-          <Text
+          <View
             style={[
-              styles.cardText,
-              styles.link,
-              { color: themeColors.primary },
-            ]}
-            onPress={() =>
-              Linking.openURL('https://forum.opendataensemble.org')
-            }
-            suppressHighlighting={true}>
-            https://forum.opendataensemble.org
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+              styles.card,
+              {
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
+                backgroundColor: cardOuterBg,
+              },
+            ]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
+                Formulus
+              </Text>
+              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+                Formulus is the mobile app for collecting and synchronizing
+                forms and observations.
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.card,
+              {
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
+                backgroundColor: cardOuterBg,
+              },
+            ]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
+                Support
+              </Text>
+              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+                If you need help, contact your system administrator.
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.card,
+              {
+                borderWidth: 1,
+                borderColor: themeColors.divider as string,
+                backgroundColor: cardOuterBg,
+              },
+            ]}>
+            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
+              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
+                Free & Open Source
+              </Text>
+              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+                This application is free and open source software. We would love
+                to hear your feedback and welcome contributions.
+              </Text>
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}
+                onPress={() =>
+                  Linking.openURL('https://forum.opendataensemble.org')
+                }
+                suppressHighlighting={true}>
+                https://forum.opendataensemble.org
+              </Text>
+            </View>
+          </View>
+
+          {!!version && (
+            <Text style={[styles.version, { color: themeColors.onSurface }]}>
+              v{version}
+            </Text>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral[50],
+  },
+  scrollTransparent: {
+    backgroundColor: 'transparent',
   },
   header: {
-    padding: 16,
-    backgroundColor: colors.neutral.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    marginHorizontal: odeSpacing.sm,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
+    overflow: 'hidden',
+    alignItems: 'center',
   },
   title: {
-    fontSize: 28,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    color: colors.neutral[900],
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.neutral[600],
+    marginBottom: odeSpacing.xs,
+    textAlign: 'center',
   },
   content: {
-    padding: 16,
-    paddingBottom: 32,
+    padding: odeSpacing.md,
+    paddingBottom: odeSpacing.xl,
   },
   brandRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
+    marginBottom: odeSpacing.md,
+    gap: odeSpacing.xs,
+  },
+  logoWrapper: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: colors.brand.primary[500] as string,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
   },
   logo: {
     width: 56,
     height: 56,
+    backgroundColor: 'transparent',
   },
   brandText: {
-    flex: 1,
+    alignItems: 'center',
   },
   appName: {
-    fontSize: 20,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '700',
-    color: colors.neutral[900],
+    textAlign: 'center',
   },
   version: {
-    marginTop: 2,
-    fontSize: 12,
-    color: colors.neutral[600],
+    marginTop: odeSpacing.xxs,
+    fontSize: odeTypography.caption,
+    textAlign: 'center',
   },
   card: {
-    backgroundColor: colors.neutral.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: colors.neutral.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: odeRadius.card,
+    marginBottom: odeSpacing.sm,
+    borderWidth: odeBorderWidth.hairline,
+    padding: odeSpacing.md,
+  },
+  cardInner: {
+    borderRadius: odeRadius.inner,
+    overflow: 'hidden',
+    padding: odeSpacing.sm,
   },
   cardTitle: {
-    fontSize: 16,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
-    color: colors.neutral[900],
-    marginBottom: 8,
+    marginBottom: odeSpacing.xs,
+    textAlign: 'center',
   },
   cardText: {
-    fontSize: 14,
-    color: colors.neutral[600],
+    fontSize: odeTypography.bodySm,
     lineHeight: 20,
+    textAlign: 'center',
   },
   link: {
-    // color is applied inline via themeColors.primary
-    marginTop: 12,
+    marginTop: odeSpacing.sm,
     fontWeight: '600',
   },
 });

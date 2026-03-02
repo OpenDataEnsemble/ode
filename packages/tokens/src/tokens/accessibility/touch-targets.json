@@ -1,6 +1,7 @@
 {
   "touchTarget": {
     "min": { "value": "44px" },
+    "medium": { "value": "52px" },
     "comfortable": { "value": "48px" },
     "large": { "value": "56px" }
   }

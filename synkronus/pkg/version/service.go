@@ -58,6 +58,11 @@ var (
 	buildTime = ""
 )
 
+// BuildVersion returns the Synkronus server version (set at build via ldflags).
+func BuildVersion() string {
+	return version
+}
+
 // GetVersion returns version and system information
 func (s *service) GetVersion(ctx context.Context) (*SystemVersionInfo, error) {
 	// Get database info
@@ -67,10 +72,10 @@ func (s *service) GetVersion(ctx context.Context) (*SystemVersionInfo, error) {
 
 	// Try to get PostgreSQL version
 	if s.db != nil {
-		var version string
-		err := s.db.QueryRowContext(ctx, "SELECT version();").Scan(&version)
+		var dbVersion string
+		err := s.db.QueryRowContext(ctx, "SELECT version();").Scan(&dbVersion)
 		if err == nil {
-			dbInfo.Version = version
+			dbInfo.Version = dbVersion
 		}
 
 		// Get database name if available

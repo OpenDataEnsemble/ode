@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { colors } from '../theme/colors';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 
 type FormManagementScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -30,6 +31,7 @@ type FormManagementScreenNavigationProp = StackNavigationProp<
  */
 const FormManagementScreen = () => {
   const navigation = useNavigation<FormManagementScreenNavigationProp>();
+  const { showConfirm } = useConfirmModal();
   const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
   const [observations, setObservations] = useState<
     Record<string, Observation[]>
@@ -165,14 +167,14 @@ const FormManagementScreen = () => {
       return;
     }
     try {
-      Alert.alert(
-        'Confirm Delete',
-        'Are you sure you want to delete this observation?',
-        [
-          { text: 'Cancel', style: 'cancel' },
+      showConfirm({
+        title: 'Confirm Delete',
+        message: 'Are you sure you want to delete this observation?',
+        buttons: [
+          { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
           {
             text: 'Delete',
-            style: 'destructive',
+            variant: 'danger',
             onPress: async () => {
               setLoading(true);
               await formService.deleteObservation(observation.observationId);
@@ -180,7 +182,7 @@ const FormManagementScreen = () => {
             },
           },
         ],
-      );
+      });
     } catch (error) {
       console.error('Error deleting observation:', error);
       Alert.alert('Error', 'Failed to delete observation');
@@ -195,14 +197,15 @@ const FormManagementScreen = () => {
       return;
     }
     try {
-      Alert.alert(
-        'Reset Database',
-        'Are you sure you want to delete ALL observations? This action cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
+      showConfirm({
+        title: 'Reset Database',
+        message:
+          'Are you sure you want to delete ALL observations? This action cannot be undone.',
+        buttons: [
+          { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
           {
             text: 'Reset Database',
-            style: 'destructive',
+            variant: 'danger',
             onPress: async () => {
               setLoading(true);
               await formService.resetDatabase();
@@ -211,7 +214,7 @@ const FormManagementScreen = () => {
             },
           },
         ],
-      );
+      });
     } catch (error) {
       console.error('Error resetting database:', error);
       Alert.alert('Error', 'Failed to reset database');

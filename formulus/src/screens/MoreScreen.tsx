@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Alert } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useFocusEffect,
@@ -7,10 +7,11 @@ import {
   useNavigation,
 } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { MainTabParamList } from '../types/NavigationTypes';
+import { MainTabParamList, VisibleMainTab } from '../types/NavigationTypes';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import MenuDrawer from '../components/MenuDrawer';
 import { logout } from '../api/synkronus/Auth';
-import { colors } from '../theme/colors';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 
 type MoreScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -21,6 +22,7 @@ const MoreScreen: React.FC = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const route = useRoute();
   const navigation = useNavigation<MoreScreenNavigationProp>();
+  const { showConfirm } = useConfirmModal();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -29,13 +31,26 @@ const MoreScreen: React.FC = () => {
   );
 
   useEffect(() => {
-    const params = route.params as { openDrawer?: number } | undefined;
-    if (params?.openDrawer) {
+    const params = route.params as
+      | { toggleDrawer?: number; originTab?: VisibleMainTab }
+      | undefined;
+    if (params?.toggleDrawer) {
       Promise.resolve().then(() => {
-        setDrawerVisible(true);
+        setDrawerVisible(prev => {
+          if (prev) {
+            // Closing via 3 dots: go back to where we came from (or Home).
+            const target =
+              params.originTab && params.originTab !== 'More'
+                ? params.originTab
+                : 'Home';
+            navigation.navigate(target as keyof MainTabParamList);
+            return false;
+          }
+          return true;
+        });
       });
     }
-  }, [route.params]);
+  }, [route.params, navigation]);
 
   const handleNavigate = (screen: string) => {
     setDrawerVisible(false);
@@ -51,18 +66,22 @@ const MoreScreen: React.FC = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          setDrawerVisible(false);
-          navigation.navigate('Home');
+    showConfirm({
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      buttons: [
+        { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
+        {
+          text: 'Logout',
+          variant: 'danger',
+          onPress: async () => {
+            await logout();
+            setDrawerVisible(false);
+            navigation.navigate('Home');
+          },
         },
-      },
-    ]);
+      ],
+    });
   };
 
   const handleClose = () => {
@@ -71,22 +90,24 @@ const MoreScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <MenuDrawer
-        visible={drawerVisible}
-        onClose={handleClose}
-        onNavigate={handleNavigate}
-        onLogout={handleLogout}
-        allowClose={true}
-      />
-    </SafeAreaView>
+    <BlurredScreenBackground>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <MenuDrawer
+          visible={drawerVisible}
+          onClose={handleClose}
+          onNavigate={handleNavigate}
+          onLogout={handleLogout}
+          allowClose={true}
+        />
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: 'transparent',
   },
 });
 

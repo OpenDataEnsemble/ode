@@ -49,7 +49,12 @@ jest.mock('../index', () => ({
 import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { autoLogin, isUnauthorizedError } from '../Auth';
+import {
+  autoLogin,
+  isUnauthorizedError,
+  isVersionMismatchError,
+} from '../Auth';
+import { VersionMismatchError } from '../../../errors/VersionMismatchError';
 import { synkronusApi } from '../index';
 
 describe('Auth - Auto-Login', () => {
@@ -103,6 +108,39 @@ describe('Auth - Auto-Login', () => {
     test('should return false for null/undefined', () => {
       expect(isUnauthorizedError(null)).toBe(false);
       expect(isUnauthorizedError(undefined)).toBe(false);
+    });
+  });
+
+  describe('isVersionMismatchError', () => {
+    test('should detect VersionMismatchError instance', () => {
+      const error = new VersionMismatchError(
+        'Formulus v0.0.1 is not compatible with this server (v1.0.24). Please update the app.',
+        '1.0.24',
+      );
+      expect(isVersionMismatchError(error)).toBe(true);
+      expect(error.message).toContain('v1.0.24');
+      expect(error.synkronusVersion).toBe('1.0.24');
+    });
+
+    test('should return false for regular Error', () => {
+      const error = new Error('Some other error');
+      expect(isVersionMismatchError(error)).toBe(false);
+    });
+
+    test('should return false for 401 error', () => {
+      const error = { response: { status: 401 } };
+      expect(isVersionMismatchError(error)).toBe(false);
+    });
+
+    test('should return false for null/undefined', () => {
+      expect(isVersionMismatchError(null)).toBe(false);
+      expect(isVersionMismatchError(undefined)).toBe(false);
+    });
+
+    test('VersionMismatchError uses default message when none provided', () => {
+      const error = new VersionMismatchError();
+      expect(error.message).toContain('not supported');
+      expect(error.synkronusVersion).toBe('unknown');
     });
   });
 

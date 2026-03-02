@@ -93,7 +93,7 @@ android {
         minSdk = rootProject.ext.minSdkVersion
         targetSdk = rootProject.ext.targetSdkVersion
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
         
         // Enable VisionCamera code scanner
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", (findProperty("newArchEnabled") ?: "false").toString()
@@ -182,6 +182,11 @@ dependencies {
 }
 
 
+// Generate placeholder :root from @ode/tokens so token changes propagate
+task generatePlaceholderTokens(type: Exec) {
+    workingDir "${rootDir}/.."
+    commandLine 'node', 'scripts/generatePlaceholderTokens.js'
+}
 task copyWebviewAssets(type: Copy) {
     from "${rootDir}/../assets/webview"
     into "${projectDir}/src/main/assets/webview"
@@ -189,4 +194,12 @@ task copyWebviewAssets(type: Copy) {
     include '**/*.jsx'
     include '**/*.html'
 }
+task copyPlaceholderImages(type: Copy) {
+    from "${rootDir}/../assets/images"
+    into "${projectDir}/src/main/assets/images"
+    include 'welcome-bg-light.png'
+    include 'welcome-bg-dark.png'
+}
+copyWebviewAssets.dependsOn(generatePlaceholderTokens)
 preBuild.dependsOn(copyWebviewAssets)
+preBuild.dependsOn(copyPlaceholderImages)

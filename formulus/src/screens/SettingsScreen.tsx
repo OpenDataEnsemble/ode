@@ -7,28 +7,27 @@ import {
   ActivityIndicator,
   Image,
   ScrollView,
-  Alert,
-  AlertButton,
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
-import { login } from '../api/synkronus/Auth';
+import { login, isVersionMismatchError } from '../api/synkronus/Auth';
 import { serverConfigService } from '../services/ServerConfigService';
 import QRScannerModal, {
   ScannerModalResults,
 } from '../components/QRScannerModal';
 import { QRSettingsService } from '../services/QRSettingsService';
 import { MainTabParamList } from '../types/NavigationTypes';
-import { colors } from '../theme/colors';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
 import { Button } from '../components/common';
+import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import Logo from '../../assets/images/logo.png';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
@@ -39,6 +38,7 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const { themeColors } = useAppTheme();
+  const { showConfirm } = useConfirmModal();
   const [serverUrl, setServerUrl] = useState('');
   const [initialServerUrl, setInitialServerUrl] = useState('');
   const [username, setUsername] = useState('');
@@ -100,11 +100,11 @@ const SettingsScreen = () => {
             ? `Unsynced observations: ${pendingObservations}\nUnsynced attachments: ${pendingAttachments}\n\nSync is recommended before switching.`
             : 'Switching servers will wipe all local data for the previous server.';
 
-          const buttons: AlertButton[] = hasPending
+          const buttons = hasPending
             ? [
                 {
                   text: 'Cancel',
-                  style: 'cancel' as const,
+                  variant: 'tertiary' as const,
                   onPress: () => {
                     setServerUrl(initialServerUrl);
                     resolve(false);
@@ -112,7 +112,7 @@ const SettingsScreen = () => {
                 },
                 {
                   text: 'Proceed without syncing',
-                  style: 'destructive' as const,
+                  variant: 'danger' as const,
                   onPress: () => {
                     (async () => {
                       try {
@@ -130,6 +130,7 @@ const SettingsScreen = () => {
                 },
                 {
                   text: 'Sync then switch',
+                  variant: 'primary' as const,
                   onPress: () => {
                     (async () => {
                       if (syncService.getIsSyncing()) {
@@ -145,7 +146,7 @@ const SettingsScreen = () => {
             : [
                 {
                   text: 'Cancel',
-                  style: 'cancel' as const,
+                  variant: 'tertiary' as const,
                   onPress: () => {
                     setServerUrl(initialServerUrl);
                     resolve(false);
@@ -153,7 +154,7 @@ const SettingsScreen = () => {
                 },
                 {
                   text: 'Yes, wipe & switch',
-                  style: 'destructive' as const,
+                  variant: 'danger' as const,
                   onPress: () => {
                     (async () => {
                       try {
@@ -171,8 +172,10 @@ const SettingsScreen = () => {
                 },
               ];
 
-          Alert.alert('Switch server?', message, buttons, {
-            cancelable: false,
+          showConfirm({
+            title: 'Switch server?',
+            message,
+            buttons,
           });
         });
       } catch (error) {
@@ -233,9 +236,10 @@ const SettingsScreen = () => {
       navigation.navigate('Home');
     } catch (error) {
       console.error('Login failed:', error);
-      const errorMessage =
-        error && 'Failed to login. Please check your credentials.';
-      ToastService.showLong(`Login failed: ${errorMessage}`);
+      const message = isVersionMismatchError(error)
+        ? error.message
+        : `Login failed: ${error && 'Please check your credentials.'}`;
+      ToastService.showLong(message);
     } finally {
       setIsLoggingIn(false);
     }
@@ -312,92 +316,117 @@ const SettingsScreen = () => {
 
   if (isLoading) {
     return (
-      <View
-        style={[
-          styles.container,
-          { backgroundColor: themeColors.primary },
-          styles.centered,
-        ]}>
-        <ActivityIndicator size="large" color={themeColors.onPrimary} />
-      </View>
+      <BlurredScreenBackground>
+        <View
+          style={[
+            styles.container,
+            styles.centered,
+            { backgroundColor: 'transparent' },
+          ]}>
+          <ActivityIndicator size="large" color={themeColors.primary} />
+        </View>
+      </BlurredScreenBackground>
     );
   }
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.primary }]}
-      edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.logoContainer}>
-          <Image source={Logo} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.brandName}>ODE</Text>
+    <BlurredScreenBackground>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top']}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: themeColors.primary as string,
+            },
+          ]}>
+          <View style={styles.logoContainer}>
+            <View
+              style={[
+                styles.logoWrapper,
+                { borderColor: themeColors.onPrimary as string },
+              ]}>
+              <Image source={Logo} style={styles.logo} resizeMode="contain" />
+            </View>
+            <Text style={[styles.brandName, { color: themeColors.onPrimary }]}>
+              ODE
+            </Text>
+          </View>
         </View>
-        <Text style={styles.version}>v1.0.0</Text>
-      </View>
 
-      <ScrollView
-        style={styles.card}
-        contentContainerStyle={styles.cardContent}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag">
-        <Text style={styles.title}>
-          Please enter the server you want to connect to.
-        </Text>
+        <ScrollView
+          style={[styles.card, { backgroundColor: 'transparent' }]}
+          contentContainerStyle={styles.cardContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
+          <Text style={[styles.title, { color: themeColors.onSurface }]}>
+            Please enter the server you want to connect to.
+          </Text>
 
-        <View style={styles.inputContainer}>
-          <View style={styles.inputWithIcon}>
+          <View style={styles.inputContainer}>
             <ODEInput
               placeholder="Server URL"
               value={serverUrl}
               onChangeText={setServerUrl}
-              style={styles.odeInputFlex}
+              rightAccessory={
+                <TouchableOpacity
+                  style={styles.qrButton}
+                  onPress={() => setShowQRScanner(true)}
+                  accessibilityLabel="Scan QR code">
+                  <Icon
+                    name="qrcode-scan"
+                    size={24}
+                    color={themeColors.primary}
+                  />
+                </TouchableOpacity>
+              }
             />
-            <TouchableOpacity
-              style={styles.qrButton}
-              onPress={() => setShowQRScanner(true)}
-              accessibilityLabel="Scan QR code">
-              <Icon name="qrcode-scan" size={24} color={themeColors.primary} />
-            </TouchableOpacity>
           </View>
+
+          <ODEInput
+            placeholder="Username"
+            value={username}
+            onChangeText={setUsername}
+          />
+
+          <ODEInput
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
+
+          <Button
+            title={isLoggingIn ? 'Logging in...' : 'Login'}
+            onPress={handleLogin}
+            variant="primary"
+            size="large"
+            loading={isLoggingIn}
+            disabled={isButtonDisabled}
+            fullWidth
+          />
+        </ScrollView>
+
+        <View style={styles.versionContainer}>
+          <Text style={[styles.version, { color: themeColors.onSurface }]}>
+            v1.0.0
+          </Text>
         </View>
 
-        <ODEInput
-          placeholder="Username"
-          value={username}
-          onChangeText={setUsername}
+        <QRScannerModal
+          visible={showQRScanner}
+          onClose={() => setShowQRScanner(false)}
+          onResult={handleQRResult}
         />
-
-        <ODEInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
-
-        <Button
-          title={isLoggingIn ? 'Logging in...' : 'Login'}
-          onPress={handleLogin}
-          variant="primary"
-          size="large"
-          loading={isLoggingIn}
-          disabled={isButtonDisabled}
-          fullWidth
-        />
-      </ScrollView>
-
-      <QRScannerModal
-        visible={showQRScanner}
-        onClose={() => setShowQRScanner(false)}
-        onResult={handleQRResult}
-      />
-    </SafeAreaView>
+      </SafeAreaView>
+    </BlurredScreenBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // backgroundColor is applied inline via themeColors.primary
   },
   centered: {
     justifyContent: 'center',
@@ -407,31 +436,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    overflow: 'hidden',
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  logoWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
   logo: {
     width: 40,
     height: 40,
-    marginRight: 12,
+    backgroundColor: 'transparent',
   },
   brandName: {
     fontSize: 32,
     fontWeight: '700',
-    color: colors.neutral.white,
     letterSpacing: 1,
   },
   version: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 4,
   },
   card: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
   },
@@ -443,25 +483,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: colors.neutral[900],
-    marginBottom: 24,
+    marginBottom: 20,
+    textAlign: 'center',
   },
   inputContainer: {
-    marginBottom: 0,
-  },
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  odeInputFlex: {
-    flex: 1,
-    marginBottom: 0,
+    marginBottom: 1,
   },
   qrButton: {
-    width: 56,
-    height: 56,
-    justifyContent: 'center',
+    paddingRight: 16,
+  },
+  versionContainer: {
     alignItems: 'center',
+    paddingBottom: 8,
   },
 });
 

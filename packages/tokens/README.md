@@ -64,6 +64,18 @@ const styles = StyleSheet.create({
 });
 ```
 
+### Static HTML / WebView (e.g. placeholder pages)
+
+Static HTML files (such as a WebView placeholder) cannot import JavaScript modules at runtime. To keep them in sync with tokens:
+
+1. **Build-time generation:** A script reads `@ode/tokens` (e.g. `dist/json/tokens.json`) and injects token values into the HTML (e.g. a `:root` CSS block). When tokens change, re-run the script so the HTML is updated.
+2. **Reference implementation:** In this repo, the Formulus app’s placeholder page uses this approach:
+   - **Placeholder file:** `formulus/assets/webview/placeholder_app.html` (contains a generated `:root` block between `/* ODE_TOKENS_START */` and `/* ODE_TOKENS_END */`).
+   - **Generator script:** `formulus/scripts/generatePlaceholderTokens.js` (reads tokens and rewrites that block).
+   - **Commands:** From the Formulus app directory, run `npm run generate:placeholder-tokens` to regenerate; the Android build also runs this before copying webview assets.
+
+See the script and placeholder file for the exact token paths and CSS variable names used.
+
 ## Package Structure
 
 ```

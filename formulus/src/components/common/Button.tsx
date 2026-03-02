@@ -21,7 +21,7 @@ import {
   TextStyle,
 } from 'react-native';
 import { useAppTheme } from '../../contexts/AppThemeContext';
-import { colors } from '../../theme/colors';
+import colors, { withAlpha } from '../../theme/colors';
 
 export interface ButtonProps {
   title: string;
@@ -69,7 +69,8 @@ const Button: React.FC<ButtonProps> = ({
   children: _children,
 }) => {
   const [isPressed, setIsPressed] = useState(false);
-  const { themeColors } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const isDark = resolvedMode === 'dark';
   const isActiveOrPressed = active || isPressed;
 
   // ── Resolve variant colors ──────────────────────────────────────────
@@ -77,8 +78,14 @@ const Button: React.FC<ButtonProps> = ({
     // Semantic colors stay fixed regardless of custom app theme
     const errorMain = colors.semantic?.error?.[500] ?? '#F44336';
     const errorDark = colors.semantic?.error?.[600] ?? '#D32F2F';
-    const errorLight = colors.semantic?.error?.[50] ?? '#FFEBEE';
     const neutralGrey = colors.neutral[600];
+    const error600 = (colors.semantic?.error?.[600] ??
+      '#D32F2F') as unknown as string;
+    const error50 = (colors.semantic?.error?.[50] ??
+      '#FFEBEE') as unknown as string;
+    const dangerDefaultBg: string = isDark
+      ? withAlpha(error600, 0.28)
+      : error50;
 
     switch (variant) {
       case 'primary':
@@ -93,7 +100,7 @@ const Button: React.FC<ButtonProps> = ({
           border: themeColors.secondary,
           text: themeColors.secondary,
           textOnFill: themeColors.onSecondary,
-          activeBg: themeColors.secondary,
+          activeBg: themeColors.primary,
         };
       case 'danger':
         return {
@@ -101,18 +108,18 @@ const Button: React.FC<ButtonProps> = ({
           text: errorDark,
           textOnFill: '#FFFFFF',
           activeBg: 'transparent',
-          defaultBg: errorLight,
+          defaultBg: dangerDefaultBg,
         };
       case 'tertiary':
       default:
         return {
           border: neutralGrey,
           text: neutralGrey,
-          textOnFill: '#FFFFFF',
-          activeBg: neutralGrey,
+          textOnFill: themeColors.onPrimary,
+          activeBg: themeColors.primary,
         };
     }
-  }, [variant, themeColors]);
+  }, [variant, themeColors, isDark]);
 
   // ── Computed styles ─────────────────────────────────────────────────
   const isDanger = variant === 'danger';

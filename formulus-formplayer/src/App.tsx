@@ -900,24 +900,26 @@ function App() {
     );
   }, [darkMode, customThemeColors]);
 
-  // Set CSS custom properties from tokens for use in CSS files
-  // Must be called before any early returns to follow React Hooks rules
+  // Set CSS custom properties for use in CSS files and by ODE Button.
+  // When a custom app provides themeColors, use those so buttons and other
+  // token-based UI match the app branding; otherwise use default tokens.
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty(
-      '--ode-color-brand-primary-500',
-      tokens.color.brand.primary[500],
-    );
-    root.style.setProperty(
-      '--ode-color-neutral-white',
-      tokens.color.neutral.white,
-    );
+    const primary =
+      customThemeColors?.primary ?? tokens.color.brand.primary[500];
+    const onPrimary =
+      customThemeColors?.onPrimary ?? tokens.color.neutral.white;
+    root.style.setProperty('--ode-color-brand-primary-500', primary);
+    root.style.setProperty('--ode-color-neutral-white', onPrimary);
     root.style.setProperty(
       '--ode-color-neutral-200',
-      tokens.color.neutral[200],
+      customThemeColors?.onSurface ?? tokens.color.neutral[200],
     );
-    root.style.setProperty('--ode-color-neutral-50', tokens.color.neutral[50]);
-  }, []);
+    root.style.setProperty(
+      '--ode-color-neutral-50',
+      customThemeColors?.surface ?? tokens.color.neutral[50],
+    );
+  }, [customThemeColors]);
 
   // Show draft selector if we have pending form init and available drafts
   if (showDraftSelector && pendingFormInit) {
