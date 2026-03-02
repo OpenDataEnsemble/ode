@@ -561,52 +561,60 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         <BlurredScreenBackground>
           <View style={styles.container}>
             <View
-              style={[styles.header, { borderBottomColor: themeColors.divider }]}>
-            <TouchableOpacity
-              onPress={handleClose}
               style={[
-                styles.closeButton,
-                (isSubmitting || isClosing) && styles.disabledButton,
-              ]}
-              disabled={isSubmitting || isClosing}>
-              <Icon
-                name="close"
-                size={24}
-                color={
-                  isSubmitting || isClosing
-                    ? colors.neutral[400]
-                    : themeColors.onBackground
-                }
-              />
-            </TouchableOpacity>
-            <Text
-              style={[styles.headerTitle, { color: themeColors.onBackground }]}
-              numberOfLines={1}>
-              {currentFormDisplayName ||
-                (currentObservationId ? 'Edit Observation' : 'New Observation')}
-            </Text>
-            <View style={styles.headerRightSpacer} />
-          </View>
-
-          <CustomAppWebView
-            ref={webViewRef}
-            appUrl={formplayerUri}
-            appName="Formplayer"
-            onLoadEndProp={handleWebViewLoad}
-          />
-
-          {/* Loading overlay */}
-          {isSubmitting && (
-            <View style={styles.loadingOverlay}>
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator
-                  size="large"
-                  color={colors.semantic.info.ios}
+                styles.header,
+                { borderBottomColor: themeColors.divider },
+              ]}>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={[
+                  styles.closeButton,
+                  (isSubmitting || isClosing) && styles.disabledButton,
+                ]}
+                disabled={isSubmitting || isClosing}>
+                <Icon
+                  name="close"
+                  size={24}
+                  color={
+                    isSubmitting || isClosing
+                      ? colors.neutral[400]
+                      : themeColors.onBackground
+                  }
                 />
-                <Text style={styles.loadingText}>Saving form data...</Text>
-              </View>
+              </TouchableOpacity>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  { color: themeColors.onBackground },
+                ]}
+                numberOfLines={1}>
+                {currentFormDisplayName ||
+                  (currentObservationId
+                    ? 'Edit Observation'
+                    : 'New Observation')}
+              </Text>
+              <View style={styles.headerRightSpacer} />
             </View>
-          )}
+
+            <CustomAppWebView
+              ref={webViewRef}
+              appUrl={formplayerUri}
+              appName="Formplayer"
+              onLoadEndProp={handleWebViewLoad}
+            />
+
+            {/* Loading overlay */}
+            {isSubmitting && (
+              <View style={styles.loadingOverlay}>
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator
+                    size="large"
+                    color={colors.semantic.info.ios}
+                  />
+                  <Text style={styles.loadingText}>Saving form data...</Text>
+                </View>
+              </View>
+            )}
           </View>
         </BlurredScreenBackground>
       </Modal>
@@ -616,7 +624,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   header: {
     flexDirection: 'row',
