@@ -69,10 +69,15 @@ func writeVersionError(w http.ResponseWriter, message, serverVer string) {
 }
 
 // parseMajor returns the major version number and true if the version string looks like [v]MAJOR.MINOR.PATCH or [v]MAJOR (e.g. v1.0.0-alpha.20, 1.7.2).
+// Special case: "dev" is treated as version 1.0.0 for development builds.
 func parseMajor(v string) (int, bool) {
 	v = strings.TrimSpace(v)
 	if v == "" {
 		return 0, false
+	}
+	// Special case: "dev" is treated as version 1.0.0 for development builds
+	if strings.ToLower(v) == "dev" {
+		return 1, true
 	}
 	// Strip leading "v" or "V" so git-style tags (v1.0.0-alpha.20-23-g8b4fcad-dirty) parse.
 	if len(v) > 1 && (v[0] == 'v' || v[0] == 'V') {
