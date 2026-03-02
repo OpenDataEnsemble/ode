@@ -316,8 +316,8 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         return;
       }
 
-      // Scan custom question types and read their source code
-      // Check app/question_types (bundle root) and app/forms/question_types (legacy)
+      // Scan custom question types and validators, read their source code
+      // Check app/question_types and app/validators (bundle root) and app/forms/question_types, app/forms/validators (legacy)
       let customQuestionTypes = undefined;
       try {
         const qtDirs = [
@@ -326,8 +326,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           RNFS.DocumentDirectoryPath + '/forms/question_types',
         ];
 
-        const custom_types: Record<string, { source: string }> = {};
+        const validatorDirs = [
+          `${customAppPath}/validators`,
+          `${customAppPath}/forms/validators`,
+          RNFS.DocumentDirectoryPath + '/forms/validators',
+        ];
 
+        const custom_types: Record<string, { source: string }> = {};
+        const validators: Record<string, { source: string }> = {};
+
+        // Scan custom question types
         for (const qtDir of qtDirs) {
           const qtDirExists = await RNFS.exists(qtDir);
           if (!qtDirExists) {
@@ -365,15 +373,58 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           }
         }
 
-        if (Object.keys(custom_types).length > 0) {
-          customQuestionTypes = { custom_types };
+        // Scan custom validators
+        for (const validatorDir of validatorDirs) {
+          const validatorDirExists = await RNFS.exists(validatorDir);
+          if (!validatorDirExists) {
+            continue;
+          }
+
+          const folders = await RNFS.readDir(validatorDir);
+
+          for (const folder of folders) {
+            if (folder.isDirectory() && !validators[folder.name]) {
+              // Validators use index.js (standard convention)
+              const indexPath = `${folder.path}/index.js`;
+              const hasIndex = await RNFS.exists(indexPath);
+
+              if (hasIndex) {
+                // Read the source code so the WebView can evaluate it directly
+                const source = await RNFS.readFile(indexPath, 'utf8');
+                validators[folder.name] = { source };
+                console.log(
+                  `[FormplayerModal] Custom validator: "${folder.name}" (${source.length} bytes from ${indexPath})`,
+                );
+              } else {
+                console.warn(
+                  `[FormplayerModal] Skipping validator "${folder.name}": no index.js found`,
+                );
+              }
+            }
+          }
+        }
+
+        // Build manifest with both question types and validators
+        if (
+          Object.keys(custom_types).length > 0 ||
+          Object.keys(validators).length > 0
+        ) {
+          customQuestionTypes = {
+            custom_types:
+              Object.keys(custom_types).length > 0 ? custom_types : undefined,
+            validators:
+              Object.keys(validators).length > 0 ? validators : undefined,
+          };
         } else {
           console.warn(
-            '[FormplayerModal] No custom question types found in any path',
+            '[FormplayerModal] No custom question types or validators found in any path',
           );
         }
       } catch (error) {
-        console.warn('Failed to scan custom question types:', error);
+        console.warn(
+          'Failed to scan custom question types and validators:',
+          error,
+        );
       }
 
       const formInitData = {
