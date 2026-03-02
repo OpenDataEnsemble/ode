@@ -35,7 +35,6 @@ import { databaseService } from '../database';
 import { colors } from '../theme/colors';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
-import { scanCustomQuestionTypes } from '../services/CustomQuestionTypeScanner';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { geolocationService } from '../services/GeolocationService';
@@ -314,19 +313,60 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         return;
       }
 
-      // Scan custom question types (reads JS files, screens against blocklist)
+      // Scan custom question types and read their source code
+      // Check app/question_types (bundle root) and app/forms/question_types (legacy)
       let customQuestionTypes = undefined;
       try {
-        const scanResult = await scanCustomQuestionTypes(customAppPath);
-        if (Object.keys(scanResult.custom_types).length > 0) {
-          customQuestionTypes = {
-            custom_types: scanResult.custom_types,
-          };
+        const qtDirs = [
+          `${customAppPath}/question_types`,
+          `${customAppPath}/forms/question_types`,
+          RNFS.DocumentDirectoryPath + '/forms/question_types',
+        ];
+
+        const custom_types: Record<string, { source: string }> = {};
+
+        for (const qtDir of qtDirs) {
+          const qtDirExists = await RNFS.exists(qtDir);
+          if (!qtDirExists) {
+            continue;
+          }
+
+          const folders = await RNFS.readDir(qtDir);
+
+          for (const folder of folders) {
+            if (folder.isDirectory() && !custom_types[folder.name]) {
+              // Try renderer.js first, then index.js as fallback
+              const rendererPath = `${folder.path}/renderer.js`;
+              const indexPath = `${folder.path}/index.js`;
+              const hasRenderer = await RNFS.exists(rendererPath);
+              const hasIndex = !hasRenderer && (await RNFS.exists(indexPath));
+              const jsPath = hasRenderer
+                ? rendererPath
+                : hasIndex
+                  ? indexPath
+                  : null;
+
+              if (jsPath) {
+                // Read the source code so the WebView can evaluate it directly
+                const source = await RNFS.readFile(jsPath, 'utf8');
+                custom_types[folder.name] = { source };
+                console.log(
+                  `[FormplayerModal] Custom question type: "${folder.name}" (${source.length} bytes from ${jsPath})`,
+                );
+              } else {
+                console.warn(
+                  `[FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
+                );
+              }
+            }
+          }
         }
-        if (scanResult.errors.length > 0) {
+
+        if (Object.keys(custom_types).length > 0) {
+          customQuestionTypes = { custom_types };
+        } else {
           console.warn(
-            'Some custom question types failed screening:',
-            scanResult.errors,
+            '[FormplayerModal] No custom question types found in any path',
           );
         }
       } catch (error) {

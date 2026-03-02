@@ -7,7 +7,7 @@
  */
 
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
-import { withJsonFormsControlProps } from '@jsonforms/react';
+import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import type { ControlProps } from '@jsonforms/core';
 import QuestionShell from '../components/QuestionShell';
 import type { CustomQuestionTypeProps } from '../types/CustomQuestionTypeContract';
@@ -137,6 +137,7 @@ export function createCustomQuestionTypeRenderer(
     // Extract all schema properties (except reserved ones) as config
     // This allows parameters alongside "format" to be passed to the renderer
     const schemaObj = schema as Record<string, unknown>;
+
     const RESERVED_PROPERTIES = new Set([
       'type',
       'title',
@@ -171,12 +172,22 @@ export function createCustomQuestionTypeRenderer(
       }
     }
 
-    // Merge with x-config (x-config takes precedence for explicit configuration)
-    const xConfig = schemaObj['x-config'] as
-      | Record<string, unknown>
-      | undefined;
-    if (xConfig) {
-      Object.assign(config, xConfig);
+    const jsonFormsContext = useJsonForms();
+
+    // For ranking format: if people not in field schema, try to get from root schema
+    if (schemaObj.format === 'ranking' && !config.people && jsonFormsContext?.core?.schema) {
+      const rootSchema = jsonFormsContext.core.schema as Record<string, unknown>;
+      const rootProperties = rootSchema.properties as Record<string, unknown> | undefined;
+      if (rootProperties && path) {
+        // Extract field name from path (e.g., "#/properties/ranking_field" -> "ranking_field")
+        const fieldName = path.split('/').pop();
+        if (fieldName && rootProperties[fieldName]) {
+          const fieldSchema = rootProperties[fieldName] as Record<string, unknown>;
+          if (fieldSchema.people) {
+            config.people = fieldSchema.people;
+          }
+        }
+      }
     }
 
     const customProps: CustomQuestionTypeProps = {
@@ -191,6 +202,7 @@ export function createCustomQuestionTypeRenderer(
       fieldPath: path,
       label: label ?? '',
       description: description,
+      jsonFormsContext,
     };
 
     return (

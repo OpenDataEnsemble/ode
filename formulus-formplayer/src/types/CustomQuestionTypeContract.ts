@@ -5,7 +5,7 @@
  * Form authors create components that accept these props — no JSON Forms knowledge needed.
  *
  * Usage in JSON Schema:
- *   { "type": "string", "format": "rating-stars", "x-config": { "maxStars": 5 } }
+ *   { "type": "string", "format": "rating-stars", "maxStars": 5 }
  *
  * Usage in custom_app:
  *   custom_app/question_types/rating-stars/renderer.js
@@ -21,8 +21,7 @@ export interface CustomQuestionTypeProps {
 
   /**
    * Configuration extracted from schema properties.
-   * Includes all properties alongside "format" (except reserved ones like type, title, etc.)
-   * and properties from "x-config" (x-config takes precedence).
+   * Includes all properties alongside "format" (except reserved ones like type, title, etc.).
    * For example, if schema has `"format": "rating", "maxStars": 5`, then `config.maxStars === 5`.
    */
   config: Record<string, unknown>;
@@ -59,14 +58,15 @@ export interface CustomQuestionTypeProps {
 
 /**
  * Manifest passed from the native side describing available custom question types.
- * Each entry maps a format string to the path of the module that renders it.
+ * Each entry maps a format string to the source code of the module that renders it.
+ * The RN side reads the JS file and passes the source string here for sandboxed evaluation.
  */
 export interface CustomQuestionTypeManifest {
   custom_types: Record<
     string,
     {
-      /** Path to the JS module (e.g., "file:///path/to/question_types/rating-stars/index.js") */
-      modulePath: string;
+      /** The JS source code of the module (read by RN via RNFS.readFile) */
+      source: string;
     }
   >;
 }
