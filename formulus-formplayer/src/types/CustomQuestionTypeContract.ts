@@ -5,15 +5,11 @@
  * Form authors create components that accept these props — no JSON Forms knowledge needed.
  *
  * Usage in JSON Schema:
- *   { "type": "string", "format": "select-person", "showSearch": true, "people": [...] }
+ *   { "type": "string", "format": "rating-stars", "maxStars": 5 }
  *
  * Usage in custom_app:
- *   custom_app/question_types/select-person/index.js
- *   export default function SelectPerson({ value, config, onChange, validation }) {
- *     const people = config.people;       // custom property
- *     const showSearch = config.showSearch; // custom property
- *     ...
- *   }
+ *   custom_app/question_types/rating-stars/renderer.js
+ *   export default function RatingStars({ value, config, onChange, validation }) { ... }
  */
 
 /**
@@ -24,10 +20,9 @@ export interface CustomQuestionTypeProps {
   value: unknown;
 
   /**
-   * The full JSON Schema object for this field, exposed as `config`.
-   * Custom properties live directly on the schema — access them like
-   * `config.people`, `config.showSearch`, `config.query`, etc.
-   * Standard keys like `type`, `format`, `title` are also available.
+   * Configuration extracted from schema properties.
+   * Includes all properties alongside "format" (except reserved ones like type, title, etc.).
+   * For example, if schema has `"format": "rating", "maxStars": 5`, then `config.maxStars === 5`.
    */
   config: Record<string, unknown>;
 
@@ -45,7 +40,7 @@ export interface CustomQuestionTypeProps {
   /** Whether the field is currently enabled/editable */
   enabled: boolean;
 
-  /** The field's unique path in the form data (e.g., "ranking_field") */
+  /** The field's unique path in the form data (e.g., "satisfaction") */
   fieldPath: string;
 
   /** Display label from the schema's `title` property */
@@ -63,13 +58,14 @@ export interface CustomQuestionTypeProps {
 
 /**
  * Manifest passed from the native side describing available custom question types.
- * Each entry maps a format string to the path of the module that renders it.
+ * Each entry maps a format string to the source code of the module that renders it.
+ * The RN side reads the JS file and passes the source string here for sandboxed evaluation.
  */
 export interface CustomQuestionTypeManifest {
   custom_types: Record<
     string,
     {
-      /** The JavaScript source code of the renderer module */
+      /** The JS source code of the module (read by RN via RNFS.readFile) */
       source: string;
     }
   >;
