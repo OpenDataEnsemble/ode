@@ -410,8 +410,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           Object.keys(validators).length > 0
         ) {
           customQuestionTypes = {
-            custom_types: Object.keys(custom_types).length > 0 ? custom_types : undefined,
-            validators: Object.keys(validators).length > 0 ? validators : undefined,
+            custom_types:
+              Object.keys(custom_types).length > 0 ? custom_types : undefined,
+            validators:
+              Object.keys(validators).length > 0 ? validators : undefined,
           };
         } else {
           console.warn(
@@ -419,7 +421,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           );
         }
       } catch (error) {
-        console.warn('Failed to scan custom question types and validators:', error);
+        console.warn(
+          'Failed to scan custom question types and validators:',
+          error,
+        );
       }
 
       const formInitData = {
