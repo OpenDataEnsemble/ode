@@ -202,18 +202,6 @@
       }
 
       var loginBtn = document.getElementById('login-btn');
-      var subtitleEl = document.getElementById('subtitle-text');
-
-      function setSubtitleForMode(mode) {
-        if (!subtitleEl) return;
-        if (mode === 'sync') {
-          subtitleEl.textContent = 'Sync to load your forms';
-        } else if (mode === 'update') {
-          subtitleEl.textContent = 'Update App Bundle to load your forms';
-        } else {
-          subtitleEl.textContent = 'Login and Sync to load your forms';
-        }
-      }
 
       function setButtonMode(mode) {
         if (!loginBtn) return;
@@ -221,20 +209,11 @@
           loginBtn.textContent = 'Sync Now';
           loginBtn.setAttribute('aria-label', 'Sync to load forms');
           loginBtn.onclick = navigateToSync;
-        } else if (mode === 'update') {
-          loginBtn.textContent = 'Update App Bundle';
-          loginBtn.setAttribute(
-            'aria-label',
-            'Update app bundle to load your forms',
-          );
-          // Updating the app bundle also happens on the Sync screen.
-          loginBtn.onclick = navigateToSync;
         } else {
           loginBtn.textContent = 'Login Now';
           loginBtn.setAttribute('aria-label', 'Login to load forms');
           loginBtn.onclick = navigateToLogin;
         }
-        setSubtitleForMode(mode);
       }
 
       function refreshLoginState() {
@@ -262,9 +241,8 @@
         }
       }
 
-      // Expose hooks so the native app can control the placeholder state
+      // Expose a hook so the native app can force-refresh the button state
       window.__formulusPlaceholderRefreshLoginState = refreshLoginState;
-      window.__formulusPlaceholderSetMode = setButtonMode;
 
       // Default state before we know anything about login
       setButtonMode('login');
@@ -300,10 +278,14 @@
 
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
-          waitForFormulus(function() {});
+          waitForFormulus(function() {
+            refreshLoginState();
+          });
         });
       } else {
-        waitForFormulus(function() {});
+        waitForFormulus(function() {
+          refreshLoginState();
+        });
       }
     })();
     </script>
