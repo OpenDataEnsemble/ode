@@ -545,6 +545,13 @@ function App() {
             console.log(
               `Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`,
             );
+            // Apply theme from params so draft selector respects light/dark mode
+            const params = initData.params;
+            const isDarkMode = params?.darkMode === true;
+            setDarkMode(isDarkMode);
+            if (params?.themeColors && typeof params.themeColors === 'object') {
+              setCustomThemeColors(params.themeColors as CustomThemeColors);
+            }
             setPendingFormInit(initData);
             setShowDraftSelector(true);
             setIsLoading(false);
@@ -921,16 +928,19 @@ function App() {
     );
   }, [customThemeColors]);
 
-  // Show draft selector if we have pending form init and available drafts
+  // Show draft selector if we have pending form init and available drafts.
+  // Wrap in ThemeProvider so DraftSelector gets the same theme (dark mode + custom colors).
   if (showDraftSelector && pendingFormInit) {
     return (
-      <DraftSelector
-        formType={pendingFormInit.formType}
-        formVersion={(pendingFormInit.formSchema as any)?.version}
-        onResumeDraft={handleResumeDraft}
-        onStartNew={handleStartNewForm}
-        fullScreen={true}
-      />
+      <ThemeProvider theme={currentTheme}>
+        <DraftSelector
+          formType={pendingFormInit.formType}
+          formVersion={(pendingFormInit.formSchema as any)?.version}
+          onResumeDraft={handleResumeDraft}
+          onStartNew={handleStartNewForm}
+          fullScreen={true}
+        />
+      </ThemeProvider>
     );
   }
 

@@ -1,4 +1,5 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   JsonFormsDispatch,
   withJsonFormsControlProps,
@@ -11,7 +12,8 @@ import {
   RankedTester,
 } from '@jsonforms/core';
 import { useSwipeable } from 'react-swipeable';
-import { Snackbar, Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { Button } from '@ode/components/react-web';
 import { tokens } from '../theme/tokens-adapter';
 import { useFormContext } from '../App';
@@ -118,6 +120,13 @@ export const groupAsSwipeLayoutTester: RankedTester = rankWith(
 // SwipeLayoutRenderer
 // ---------------------------------------------------------------------------
 
+// Match ConfirmModal
+const CONFIRM_CARD_RADIUS = 0.7;
+const CONFIRM_INNER_RADIUS = 0.7;
+const CONFIRM_BORDER_WIDTH = 1;
+const CONFIRM_CARD_PADDING = 16;
+const CONTAINER_ALPHA = 0.4;
+
 const SwipeLayoutRenderer = ({
   schema,
   uischema,
@@ -130,6 +139,7 @@ const SwipeLayoutRenderer = ({
   currentPage,
   onPageChange,
 }: SwipeLayoutProps) => {
+  const theme = useTheme();
   const [isNavigating, setIsNavigating] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<number | null>(
@@ -512,25 +522,86 @@ const SwipeLayoutRenderer = ({
         )}
       </div>
 
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        message={snackbarMessage || 'Some required fields are missing'}
-        action={
-          <Button variant="secondary" size="small" onPress={handleGoBack}>
-            Go Back
-          </Button>
-        }
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        sx={{
-          '& .MuiSnackbarContent-root': {
-            backgroundColor: `rgba(0, 0, 0, ${(tokens as any).opacity?.['90'] ?? 0.9})`,
-            color: tokens.color.neutral.white,
-            boxShadow: (tokens as any).shadow?.portal?.md ?? tokens.shadow?.md,
-          },
-        }}
-      />
+      {snackbarOpen &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <Box
+            sx={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              minHeight: '100dvh',
+              height: '100%',
+              zIndex: 99,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 4,
+              backgroundColor: `rgba(0,0,0,${
+                (tokens as any).opacity?.['80'] ?? 0.8
+              })`,
+            }}>
+            <Box
+              sx={{
+                width: '100%',
+                maxWidth: 340,
+                borderRadius: CONFIRM_CARD_RADIUS,
+                border: `${CONFIRM_BORDER_WIDTH}px solid`,
+                borderColor: 'divider',
+                padding: `${CONFIRM_CARD_PADDING}px`,
+                backgroundColor: alpha(
+                  theme.palette.background.paper,
+                  CONTAINER_ALPHA,
+                ),
+                overflow: 'hidden',
+              }}>
+              <Box
+                sx={{
+                  borderRadius: CONFIRM_INNER_RADIUS,
+                  padding: `${CONFIRM_CARD_PADDING}px`,
+                  backgroundColor: theme.palette.background.paper,
+                  overflow: 'hidden',
+                }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
+                  Missing required fields
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ textAlign: 'center', mb: 3 }}>
+                  {snackbarMessage ||
+                    'Some required fields are missing. Any unsaved changes will be available as a draft when you return.'}
+                </Typography>
+                <Box
+                  sx={{
+                    flexDirection: 'row',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: 2,
+                    flexWrap: 'wrap',
+                  }}>
+                  <Button
+                    variant="neutral"
+                    size="medium"
+                    onPress={handleSnackbarClose}>
+                    Stay here
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="medium"
+                    onPress={handleGoBack}>
+                    Go back
+                  </Button>
+                </Box>
+              </Box>
+            </Box>
+          </Box>,
+          document.body,
+        )}
     </FormLayout>
   );
 };

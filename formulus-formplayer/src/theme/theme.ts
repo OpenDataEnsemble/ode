@@ -88,11 +88,15 @@ export const getThemeOptions = (
   const c = (custom: string | undefined, fallback: string): string =>
     custom ?? fallback;
 
+  // Effective primary for component overrides so custom app colors apply everywhere (radios, inputs, chips, etc.)
+  const primaryMain = c(customColors?.primary, tokens.color.brand.primary[500]);
+  const errorMain = c(customColors?.error, tokens.color.semantic.error[500]);
+
   return {
     palette: {
       mode: mode,
       primary: {
-        main: c(customColors?.primary, tokens.color.brand.primary[500]),
+        main: c(customColors?.primary, primaryMain),
         light: c(customColors?.primaryLight, tokens.color.brand.primary[400]),
         dark: c(customColors?.primaryDark, tokens.color.brand.primary[600]),
         contrastText: c(customColors?.onPrimary, tokens.color.neutral.white),
@@ -281,8 +285,8 @@ export const getThemeOptions = (
           text: {
             '&:hover': {
               backgroundColor: isDark
-                ? `${tokens.color.brand.primary[500]}20` // 12% opacity for dark mode
-                : `${tokens.color.brand.primary[500]}14`, // 8% opacity for light mode
+                ? `${primaryMain}20`
+                : `${primaryMain}14`,
             },
           },
           sizeSmall: {
@@ -319,7 +323,7 @@ export const getThemeOptions = (
                   : tokens.color.neutral[900], // Dark: #757575, Light: #212121
               },
               '&.Mui-focused fieldset': {
-                borderColor: tokens.color.brand.primary[500],
+                borderColor: primaryMain,
                 borderWidth: parsePx(tokens.border.width.medium), // 2px on focus
               },
               '&.Mui-error fieldset': {
@@ -344,7 +348,7 @@ export const getThemeOptions = (
                 ? tokens.color.neutral[400]
                 : tokens.color.neutral[600], // Dark: #BDBDBD, Light: #757575
               '&.Mui-focused': {
-                color: tokens.color.brand.primary[500],
+                color: primaryMain,
               },
               '&.Mui-error': {
                 color: tokens.color.semantic.error[500],
@@ -387,7 +391,7 @@ export const getThemeOptions = (
                 : tokens.color.neutral[900],
             },
             '&.Mui-focused fieldset': {
-              borderColor: tokens.color.brand.primary[500],
+              borderColor: primaryMain,
               borderWidth: parsePx(tokens.border.width.medium),
             },
             '&.Mui-error fieldset': {
@@ -415,7 +419,7 @@ export const getThemeOptions = (
             fontSize: parsePx(tokens.typography.fontSize.base),
             '&.Mui-focused': {
               '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: tokens.color.brand.primary[500],
+                borderColor: primaryMain,
                 borderWidth: parsePx(tokens.border.width.medium),
               },
             },
@@ -456,7 +460,7 @@ export const getThemeOptions = (
               ? tokens.color.neutral[500]
               : tokens.color.neutral[400],
             '&.Mui-checked': {
-              color: tokens.color.brand.primary[500],
+              color: primaryMain,
             },
             '&.Mui-disabled': {
               color: isDark
@@ -475,7 +479,7 @@ export const getThemeOptions = (
               ? tokens.color.neutral[500]
               : tokens.color.neutral[400],
             '&.Mui-checked': {
-              color: tokens.color.brand.primary[500],
+              color: primaryMain,
             },
             '&.Mui-disabled': {
               color: isDark
@@ -514,7 +518,7 @@ export const getThemeOptions = (
                 transform: `translateX(${tokens.spacing?.[5] ?? '20px'})`,
                 color: tokens.color.neutral.white,
                 '& + .MuiSwitch-track': {
-                  backgroundColor: tokens.color.brand.primary[500],
+                  backgroundColor: primaryMain,
                   opacity: 1,
                   border: 0,
                 },
@@ -551,7 +555,7 @@ export const getThemeOptions = (
             minHeight: `${tokens.touchTarget.large}px`,
             '&.Mui-focused': {
               '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: tokens.color.brand.primary[500],
+                borderColor: primaryMain,
                 borderWidth: parsePx(tokens.border.width.medium),
               },
             },
@@ -609,8 +613,8 @@ export const getThemeOptions = (
             minHeight: `${tokens.touchTarget.comfortable}px`,
             '&:hover': {
               backgroundColor: isDark
-                ? `${tokens.color.brand.primary[500]}20` // 12% opacity for dark mode
-                : `${tokens.color.brand.primary[500]}14`, // 8% opacity for light mode
+                ? `${primaryMain}20` 
+                : `${primaryMain}14`,
             },
           },
           sizeSmall: {
@@ -635,7 +639,21 @@ export const getThemeOptions = (
         styleOverrides: {
           root: {
             borderRadius: parsePx(tokens.border.radius.sm),
-            backgroundColor: isDark ? tokens.color.neutral[800] : undefined, // Dark: #424242 for alerts (matches paper)
+          },
+          standardError: {
+            backgroundColor: 'transparent',
+            color: errorMain,
+            '& .MuiAlert-icon': { color: errorMain },
+          },
+        },
+      },
+      MuiFormHelperText: {
+        styleOverrides: {
+          root: {
+            '&.Mui-error': {
+              backgroundColor: 'transparent',
+              color: errorMain,
+            },
           },
         },
       },
