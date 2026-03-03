@@ -508,6 +508,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: odeSpacing.xs,
+    marginTop: odeSpacing.md,
     marginBottom: odeSpacing.md,
   },
   content: {
