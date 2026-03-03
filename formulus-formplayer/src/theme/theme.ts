@@ -284,9 +284,7 @@ export const getThemeOptions = (
           },
           text: {
             '&:hover': {
-              backgroundColor: isDark
-                ? `${primaryMain}20`
-                : `${primaryMain}14`,
+              backgroundColor: isDark ? `${primaryMain}20` : `${primaryMain}14`,
             },
           },
           sizeSmall: {
@@ -612,9 +610,7 @@ export const getThemeOptions = (
             minWidth: `${tokens.touchTarget.comfortable}px`,
             minHeight: `${tokens.touchTarget.comfortable}px`,
             '&:hover': {
-              backgroundColor: isDark
-                ? `${primaryMain}20` 
-                : `${primaryMain}14`,
+              backgroundColor: isDark ? `${primaryMain}20` : `${primaryMain}14`,
             },
           },
           sizeSmall: {

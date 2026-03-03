@@ -590,10 +590,7 @@ const SwipeLayoutRenderer = ({
                     onPress={handleSnackbarClose}>
                     Stay here
                   </Button>
-                  <Button
-                    variant="danger"
-                    size="medium"
-                    onPress={handleGoBack}>
+                  <Button variant="danger" size="medium" onPress={handleGoBack}>
                     Go back
                   </Button>
                 </Box>

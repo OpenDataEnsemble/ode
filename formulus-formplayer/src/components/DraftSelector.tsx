@@ -179,115 +179,109 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
                 width: '100%',
                 maxWidth: 340,
                 borderRadius: CONFIRM_CARD_RADIUS,
-              border: `${CONFIRM_BORDER_WIDTH}px solid`,
-              borderColor: 'divider',
-              padding: `${CONFIRM_CARD_PADDING}px`,
-              backgroundColor: alpha(
-                theme.palette.background.paper,
-                CONTAINER_ALPHA,
-              ),
-              overflow: 'hidden',
-            }}>
-            <Box
-              sx={{
-                borderRadius: CONFIRM_INNER_RADIUS,
+                border: `${CONFIRM_BORDER_WIDTH}px solid`,
+                borderColor: 'divider',
                 padding: `${CONFIRM_CARD_PADDING}px`,
-                backgroundColor: theme.palette.background.paper,
+                backgroundColor: alpha(
+                  theme.palette.background.paper,
+                  CONTAINER_ALPHA,
+                ),
                 overflow: 'hidden',
               }}>
-              <Typography
-                variant="h6"
-                sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
-                Available Drafts ({drafts.length})
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {drafts.map((draft, index) => {
-                  const age = getDraftAge(draft.updatedAt);
-                  const chipColor =
-                    age === 'recent'
-                      ? 'primary'
-                      : age === 'old'
-                        ? 'warning'
-                        : 'error';
+              <Box
+                sx={{
+                  borderRadius: CONFIRM_INNER_RADIUS,
+                  padding: `${CONFIRM_CARD_PADDING}px`,
+                  backgroundColor: theme.palette.background.paper,
+                  overflow: 'hidden',
+                }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
+                  Available Drafts ({drafts.length})
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {drafts.map((draft, index) => {
+                    const age = getDraftAge(draft.updatedAt);
+                    const chipColor =
+                      age === 'recent'
+                        ? 'primary'
+                        : age === 'old'
+                          ? 'warning'
+                          : 'error';
 
-                  return (
-                    <Box key={draft.id}>
-                      {index > 0 && (
-                        <Divider
-                          sx={{ my: 1.5, borderColor: 'divider' }}
-                        />
-                      )}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          textAlign: 'center',
-                          gap: 1,
-                        }}>
-                        <Typography
-                          variant="subtitle1"
-                          color="text.primary">
-                          Draft from {formatDate(draft.updatedAt)}
-                        </Typography>
-                        <Chip
-                          icon={<ClockIcon />}
-                          label={age}
-                          size="small"
-                          color={chipColor}
-                          sx={
-                            age === 'recent'
-                              ? {
-                                  mt: 0.5,
-                                  bgcolor: theme.palette.primary.main,
-                                  color: theme.palette.primary.contrastText,
-                                }
-                              : { mt: 0.5 }
-                          }
-                        />
+                    return (
+                      <Box key={draft.id}>
+                        {index > 0 && (
+                          <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
+                        )}
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            textAlign: 'center',
+                            gap: 1,
+                          }}>
+                          <Typography variant="subtitle1" color="text.primary">
+                            Draft from {formatDate(draft.updatedAt)}
+                          </Typography>
+                          <Chip
+                            icon={<ClockIcon />}
+                            label={age}
+                            size="small"
+                            color={chipColor}
+                            sx={
+                              age === 'recent'
+                                ? {
+                                    mt: 0.5,
+                                    bgcolor: theme.palette.primary.main,
+                                    color: theme.palette.primary.contrastText,
+                                  }
+                                : { mt: 0.5 }
+                            }
+                          />
 
-                        <IconButton
-                          onClick={() => handleDeleteDraft(draft.id)}
-                          size="small"
-                          color="error"
-                          sx={{ mt: 0.25 }}>
-                          <DeleteIcon />
-                        </IconButton>
+                          <IconButton
+                            onClick={() => handleDeleteDraft(draft.id)}
+                            size="small"
+                            color="error"
+                            sx={{ mt: 0.25 }}>
+                            <DeleteIcon />
+                          </IconButton>
 
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ mt: 1 }}>
-                          {draft.dataPreview}
-                        </Typography>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mt: 1 }}>
+                            {draft.dataPreview}
+                          </Typography>
 
-                        <Typography variant="caption" color="text.secondary">
-                          Created: {draft.createdAt.toLocaleDateString()}{' '}
-                          {draft.createdAt.toLocaleTimeString()}
-                          {draft.observationId && (
-                            <> • Editing observation: {draft.observationId}</>
-                          )}
-                        </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Created: {draft.createdAt.toLocaleDateString()}{' '}
+                            {draft.createdAt.toLocaleTimeString()}
+                            {draft.observationId && (
+                              <> • Editing observation: {draft.observationId}</>
+                            )}
+                          </Typography>
 
-                        <Button
-                          variant="neutral"
-                          size="medium"
-                          onPress={() => onResumeDraft(draft.id)}>
-                          Resume Draft
-                        </Button>
+                          <Button
+                            variant="neutral"
+                            size="medium"
+                            onPress={() => onResumeDraft(draft.id)}>
+                            Resume Draft
+                          </Button>
+                        </Box>
                       </Box>
-                    </Box>
-                  );
-                })}
+                    );
+                  })}
+                </Box>
               </Box>
             </Box>
           </Box>
-          </Box>
         ) : (
           <Box sx={{ textAlign: 'center', py: 4, mb: 3 }}>
-            <Typography
-              variant="body1"
-              color="text.secondary">
+            <Typography variant="body1" color="text.secondary">
               No recent drafts found for this form.
             </Typography>
           </Box>
@@ -297,10 +291,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
 
         {/* Start new form section – theme-aware */}
         <Box sx={{ textAlign: 'center' }}>
-          <Typography
-            variant="h6"
-            gutterBottom
-            color="text.primary">
+          <Typography variant="h6" gutterBottom color="text.primary">
             Start Fresh
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
