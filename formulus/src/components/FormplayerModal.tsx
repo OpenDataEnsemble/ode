@@ -32,6 +32,12 @@ import {
 
 import { databaseService } from '../database';
 import colors from '../theme/colors';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
@@ -599,11 +605,24 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
         <BlurredScreenBackground>
-          <View style={styles.container}>
+          <View
+            style={[
+              styles.container,
+              { backgroundColor: themeColors.background as string },
+            ]}>
             <View
               style={[
                 styles.header,
-                { borderBottomColor: themeColors.divider },
+                {
+                  backgroundColor:
+                    resolvedMode === 'dark'
+                      ? (colors.neutral[900] as string)
+                      : (colors.neutral[50] as string),
+                  borderWidth: odeBorderWidth.hairline,
+                  borderBottomWidth: odeBorderWidth.hairline,
+                  borderColor: themeColors.divider as string,
+                  borderBottomColor: themeColors.divider as string,
+                },
               ]}>
               <TouchableOpacity
                 onPress={handleClose}
@@ -633,7 +652,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                     ? 'Edit Observation'
                     : 'New Observation')}
               </Text>
-              <View style={styles.headerRightSpacer} />
             </View>
 
             <CustomAppWebView
@@ -668,24 +686,23 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    marginHorizontal: odeSpacing.sm,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
+    overflow: 'hidden',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
-    marginRight: 40, // To balance the close button width
-  },
-  headerRightSpacer: {
-    width: 40,
+    marginLeft: odeSpacing.sm,
+    flexShrink: 1,
   },
   closeButton: {
-    padding: 4,
+    padding: odeSpacing.xs,
   },
   disabledButton: {
     opacity: 0.5,

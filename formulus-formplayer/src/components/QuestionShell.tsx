@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import { Box, Typography, Alert, Stack, Divider } from '@mui/material';
+import ErrorOutline from '@mui/icons-material/ErrorOutline';
 
 /**
  * Simple HTML sanitizer that removes dangerous tags and attributes.
@@ -115,7 +116,16 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
       )}
 
       {normalizedError && (
-        <Alert severity="error" sx={{ width: '100%', mb: -1 }}>
+        <Alert
+          severity="error"
+          icon={<ErrorOutline />}
+          sx={{
+            width: '100%',
+            mb: -1,
+            backgroundColor: 'transparent',
+            color: 'error.main',
+            '& .MuiAlert-icon': { color: 'error.main' },
+          }}>
           {normalizedError}
         </Alert>
       )}

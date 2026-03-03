@@ -163,7 +163,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
         (previousButton || nextButton) &&
         !isKeyboardVisible && (
           <Paper
-            elevation={4}
+            elevation={0}
             sx={theme => ({
               position: 'fixed',
               bottom: 0,
@@ -181,10 +181,10 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 sm: `calc(${theme.spacing(1.5)} + env(safe-area-inset-bottom, 0px))`,
                 md: `calc(${theme.spacing(1.5)} + env(safe-area-inset-bottom, 0px))`,
               },
-              backgroundColor: 'background.paper',
+              backgroundColor: 'background.default',
               borderTop: 'none',
-              borderColor: 'divider',
-              boxShadow: `0 -4px 12px rgba(0,0,0,${(tokens as any).opacity?.['15'] ?? 0.15})`,
+              borderColor: 'transparent',
+              boxShadow: 'none',
               transition:
                 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out',
               boxSizing: 'border-box',

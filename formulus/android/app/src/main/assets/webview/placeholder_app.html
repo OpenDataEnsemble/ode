@@ -106,7 +106,7 @@
         margin: 0 0 var(--spacing-8);
       }
       [data-theme="dark"] .placeholder-subtitle {
-        color: var(--color-neutral-white);
+        color: var(--color-neutral-400);
       }
       [data-theme="light"] .placeholder-subtitle {
         color: var(--color-neutral-600);
@@ -161,8 +161,16 @@
   <body>
     <div class="placeholder-card">
       <h1 class="placeholder-title">Your Custom<br>App</h1>
-      <p class="placeholder-subtitle">Login and Sync to load your forms!</p>
-      <button type="button" class="placeholder-btn" id="login-btn" aria-label="Login to load forms">Login Now</button>
+      <p class="placeholder-subtitle" id="subtitle-text">
+        Login and Sync to load your forms
+      </p>
+      <button
+        type="button"
+        class="placeholder-btn"
+        id="login-btn"
+        aria-label="Login to load forms">
+        Login Now
+      </button>
       <p class="placeholder-tagline">Secure • Fast • Offline</p>
       <p class="placeholder-version" id="version-el">v0.1.0-native</p>
     </div>
