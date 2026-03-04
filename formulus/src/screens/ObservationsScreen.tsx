@@ -28,6 +28,7 @@ import { MainAppStackParamList } from '../types/NavigationTypes';
 import { Observation } from '../database/models/Observation';
 import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import {
   odeSpacing,
@@ -47,6 +48,9 @@ const ObservationsScreen: React.FC = () => {
   const titleColor = isDark
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
+  const clearIconColor = isDark
+    ? (colors.neutral[300] as string)
+    : (colors.neutral[600] as string);
   const navigation = useNavigation<ObservationsScreenNavigationProp>();
   const observationsHook = useObservations();
   const {
@@ -65,6 +69,7 @@ const ObservationsScreen: React.FC = () => {
   const [selectedFormType, setSelectedFormType] = useState<string | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('all');
   const [showSearch, setShowSearch] = useState<boolean>(false);
+  const { showConfirm } = useConfirmModal();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -146,14 +151,15 @@ const ObservationsScreen: React.FC = () => {
   };
 
   const handleDeleteObservation = async (observation: Observation) => {
-    Alert.alert(
-      'Delete Observation',
-      'Are you sure you want to delete this observation? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
+    showConfirm({
+      title: 'Delete Observation',
+      message:
+        'Are you sure you want to delete this observation? This action cannot be undone.',
+      buttons: [
+        { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
         {
           text: 'Delete',
-          style: 'destructive',
+          variant: 'danger',
           onPress: async () => {
             try {
               const formService = await FormService.getInstance();
@@ -166,7 +172,7 @@ const ObservationsScreen: React.FC = () => {
           },
         },
       ],
-    );
+    });
   };
 
   const renderObservation = ({ item }: { item: Observation }) => {
@@ -280,11 +286,15 @@ const ObservationsScreen: React.FC = () => {
               style={styles.searchInput}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                style={styles.clearIconButton}
+                hitSlop={8}>
                 <Icon
-                  name="close-circle"
+                  name="close"
                   size={20}
-                  color={themeColors.onSurface}
+                  color={clearIconColor}
+                  style={styles.clearIcon}
                 />
               </TouchableOpacity>
             )}
@@ -367,6 +377,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
     borderBottomLeftRadius: odeRadius.card,
@@ -404,6 +415,9 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     marginBottom: 0,
+  },
+  clearIconButton: {
+    marginLeft: odeSpacing.xs,
   },
   filtersContainer: {
     padding: odeSpacing.md,

@@ -26,6 +26,7 @@ import {
 import { createTheme, getThemeOptions, CustomThemeColors } from './theme/theme';
 import { tokens } from './theme/tokens-adapter';
 import Ajv from 'ajv';
+import type { ErrorObject } from 'ajv';
 import addErrors from 'ajv-errors';
 import addFormats from 'ajv-formats';
 import * as MUI from '@mui/material';
@@ -77,6 +78,9 @@ import { loadExtensions } from './services/ExtensionsLoader';
 import { getBuiltinExtensions } from './builtinExtensions';
 import { FormEvaluationProvider } from './FormEvaluationContext';
 import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
+import { loadCustomValidators } from './services/CustomValidatorLoader';
+import { customValidatorRegistry } from './services/CustomValidatorRegistry';
+import { executeAllCustomValidators } from './services/CustomValidatorExecutor';
 
 // Import development dependencies (Vite will tree-shake these in production)
 import { webViewMock } from './mocks/webview-mock';
@@ -298,6 +302,10 @@ function App() {
     JsonFormsRendererRegistryEntry[]
   >([]);
   const [customTypeFormats, setCustomTypeFormats] = useState<string[]>([]);
+  // Custom validator errors (merged with AJV errors)
+  const [customValidatorErrors, setCustomValidatorErrors] = useState<
+    ErrorObject[]
+  >([]);
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -358,7 +366,10 @@ function App() {
         }
 
         // Start with built-in extensions (always available)
-        const allFunctions = getBuiltinExtensions();
+        const allFunctions = getBuiltinExtensions() as Map<
+          string,
+          (...args: any[]) => any
+        >;
 
         // Load extensions if provided
         if (extensions) {
@@ -407,13 +418,36 @@ function App() {
             setCustomTypeRenderers(customQTResult.renderers);
             setCustomTypeFormats(customQTResult.formats);
             console.log(
-              `[Formplayer] Loaded ${customQTResult.renderers.length} custom question type(s)`,
+              `[Formplayer] Loaded ${customQTResult.renderers.length} custom question type(s): ${customQTResult.formats.join(', ')}`,
             );
             if (customQTResult.errors.length > 0) {
               console.warn(
                 '[Formplayer] Custom question type loading errors:',
                 customQTResult.errors,
               );
+            }
+
+            // Load custom validators if provided
+            if (customQTManifest.validators) {
+              try {
+                const validatorResult =
+                  await loadCustomValidators(customQTManifest);
+                customValidatorRegistry.registerAll(validatorResult.validators);
+                console.log(
+                  `[Formplayer] Loaded ${validatorResult.validators.size} custom validator(s): ${Array.from(validatorResult.validators.keys()).join(', ')}`,
+                );
+                if (validatorResult.errors.length > 0) {
+                  console.warn(
+                    '[Formplayer] Custom validator loading errors:',
+                    validatorResult.errors,
+                  );
+                }
+              } catch (error) {
+                console.error(
+                  '[Formplayer] Failed to load custom validators:',
+                  error,
+                );
+              }
             }
           } catch (error) {
             console.error(
@@ -542,6 +576,13 @@ function App() {
             console.log(
               `Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`,
             );
+            // Apply theme from params so draft selector respects light/dark mode
+            const params = initData.params;
+            const isDarkMode = params?.darkMode === true;
+            setDarkMode(isDarkMode);
+            if (params?.themeColors && typeof params.themeColors === 'object') {
+              setCustomThemeColors(params.themeColors as CustomThemeColors);
+            }
             setPendingFormInit(initData);
             setShowDraftSelector(true);
             setIsLoading(false);
@@ -648,29 +689,46 @@ function App() {
     }
 
     // Timeout logic: if onFormInit is not called by native side
+    // Note: This timeout often fires as a false positive when the form is actually loading successfully.
+    // We use a longer timeout (20s) and only show error after additional delay to reduce false positives.
     const initTimeout = setTimeout(() => {
       if (isLoadingRef.current) {
-        // Check ref to see if still loading
-        console.warn('onFormInit was not called within timeout period (10s).');
-        setLoadError(
-          'Failed to initialize form: No data received from native host. Please try again.',
-        );
-        setIsLoading(false);
-        isLoadingRef.current = false;
-        if (
-          window.ReactNativeWebView &&
-          window.ReactNativeWebView.postMessage
-        ) {
-          window.ReactNativeWebView.postMessage(
-            JSON.stringify({
-              type: 'error',
-              message:
-                'Initialization timeout in WebView: onFormInit not called.',
-            }),
+        // Only log a debug message - don't show warning to user yet
+        // The form may still be loading successfully
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(
+            '[Formplayer] onFormInit not yet received (timeout: 20s). Still waiting...',
           );
         }
+        // Only show error if we're still loading after an additional delay
+        // This prevents false positives when form loads successfully but slightly delayed
+        setTimeout(() => {
+          if (isLoadingRef.current) {
+            // Only now show error - form truly failed to load
+            console.warn(
+              '[Formplayer] onFormInit timeout: Form failed to initialize after extended wait.',
+            );
+            setLoadError(
+              'Failed to initialize form: No data received from native host. Please try again.',
+            );
+            setIsLoading(false);
+            isLoadingRef.current = false;
+            if (
+              window.ReactNativeWebView &&
+              window.ReactNativeWebView.postMessage
+            ) {
+              window.ReactNativeWebView.postMessage(
+                JSON.stringify({
+                  type: 'error',
+                  message:
+                    'Initialization timeout in WebView: onFormInit not called.',
+                }),
+              );
+            }
+          }
+        }, 5000); // Additional 5 seconds before showing actual error
       }
-    }, 10000); // 10 second timeout
+    }, 20000); // Increased to 20 seconds to reduce false positives
 
     // Cleanup function when component unmounts
     return () => {
@@ -807,18 +865,6 @@ function App() {
     }
   }, [pendingFormInit, initializeForm]);
 
-  const handleDataChange = useCallback(
-    ({ data }: { data: FormData }) => {
-      setData(data);
-
-      // Save draft data whenever form data changes
-      if (formInitData) {
-        draftService.saveDraft(formInitData.formType, data, formInitData);
-      }
-    },
-    [formInitData],
-  );
-
   // Create AJV instance with extension definitions support
   const ajv = useMemo(() => {
     const instance = new Ajv({
@@ -848,12 +894,15 @@ function App() {
     });
 
     // Register custom question type formats with AJV
+    // Custom question types use "format": "formatName" in schemas (not "type")
+    // This is required because JSON Schema only allows standard types in the "type" field
     if (customTypeFormats.length > 0) {
-      customTypeFormats.forEach(fmt => {
-        instance.addFormat(fmt, () => true);
+      customTypeFormats.forEach(formatName => {
+        // Register as format so AJV accepts "format": "formatName" in schemas
+        instance.addFormat(formatName, () => true);
       });
       console.log(
-        `[Formplayer] Registered ${customTypeFormats.length} custom format(s) with AJV`,
+        `[Formplayer] Registered ${customTypeFormats.length} custom question type format(s) with AJV`,
       );
     }
 
@@ -868,6 +917,45 @@ function App() {
     return instance;
   }, [extensionDefinitions, customTypeFormats]);
 
+  const handleDataChange = useCallback(
+    ({ data: newData }: { data: FormData }) => {
+      setData(newData);
+
+      // Save draft data whenever form data changes
+      if (formInitData) {
+        draftService.saveDraft(formInitData.formType, newData, formInitData);
+      }
+
+      // Execute custom validators when data changes
+      if (uischema && schema) {
+        try {
+          const customErrors = executeAllCustomValidators(
+            uischema,
+            schema,
+            newData,
+            ajv,
+          );
+
+          // Flatten errors map to array
+          const allCustomErrors: ErrorObject[] = [];
+          for (const fieldErrors of customErrors.values()) {
+            allCustomErrors.push(...fieldErrors);
+          }
+
+          setCustomValidatorErrors(allCustomErrors);
+        } catch (error) {
+          console.error(
+            '[Formplayer] Error executing custom validators:',
+            error,
+          );
+          // Graceful failure: clear errors on execution failure
+          setCustomValidatorErrors([]);
+        }
+      }
+    },
+    [formInitData, uischema, schema, ajv],
+  );
+
   // Create dynamic theme based on dark mode preference and custom app colors.
   // When a custom app provides themeColors, they override the default palette
   // so that form controls (buttons, inputs, etc.) match the app's branding.
@@ -877,35 +965,40 @@ function App() {
     );
   }, [darkMode, customThemeColors]);
 
-  // Set CSS custom properties from tokens for use in CSS files
-  // Must be called before any early returns to follow React Hooks rules
+  // Set CSS custom properties for use in CSS files and by ODE Button.
+  // When a custom app provides themeColors, use those so buttons and other
+  // token-based UI match the app branding; otherwise use default tokens.
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty(
-      '--ode-color-brand-primary-500',
-      tokens.color.brand.primary[500],
-    );
-    root.style.setProperty(
-      '--ode-color-neutral-white',
-      tokens.color.neutral.white,
-    );
+    const primary =
+      customThemeColors?.primary ?? tokens.color.brand.primary[500];
+    const onPrimary =
+      customThemeColors?.onPrimary ?? tokens.color.neutral.white;
+    root.style.setProperty('--ode-color-brand-primary-500', primary);
+    root.style.setProperty('--ode-color-neutral-white', onPrimary);
     root.style.setProperty(
       '--ode-color-neutral-200',
-      tokens.color.neutral[200],
+      customThemeColors?.onSurface ?? tokens.color.neutral[200],
     );
-    root.style.setProperty('--ode-color-neutral-50', tokens.color.neutral[50]);
-  }, []);
+    root.style.setProperty(
+      '--ode-color-neutral-50',
+      customThemeColors?.surface ?? tokens.color.neutral[50],
+    );
+  }, [customThemeColors]);
 
-  // Show draft selector if we have pending form init and available drafts
+  // Show draft selector if we have pending form init and available drafts.
+  // Wrap in ThemeProvider so DraftSelector gets the same theme (dark mode + custom colors).
   if (showDraftSelector && pendingFormInit) {
     return (
-      <DraftSelector
-        formType={pendingFormInit.formType}
-        formVersion={(pendingFormInit.formSchema as any)?.version}
-        onResumeDraft={handleResumeDraft}
-        onStartNew={handleStartNewForm}
-        fullScreen={true}
-      />
+      <ThemeProvider theme={currentTheme}>
+        <DraftSelector
+          formType={pendingFormInit.formType}
+          formVersion={(pendingFormInit.formSchema as any)?.version}
+          onResumeDraft={handleResumeDraft}
+          onStartNew={handleStartNewForm}
+          fullScreen={true}
+        />
+      </ThemeProvider>
     );
   }
 
@@ -1051,6 +1144,7 @@ function App() {
                       onChange={handleDataChange}
                       validationMode="ValidateAndShow"
                       ajv={ajv}
+                      additionalErrors={customValidatorErrors}
                     />
                   </FormEvaluationProvider>
                   {/* Success Snackbar */}

@@ -69,7 +69,7 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
               size={24}
               color={
                 isSynced
-                  ? colors.semantic.success[500]
+                  ? (themeColors.primary as string)
                   : colors.semantic.warning[500]
               }
             />
@@ -90,15 +90,6 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
               <Text style={styles.date}>
                 {dateStr} at {timeStr}
               </Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  isSynced ? styles.syncedBadge : styles.pendingBadge,
-                ]}>
-                <Text style={styles.statusText}>
-                  {isSynced ? 'Synced' : 'Pending'}
-                </Text>
-              </View>
             </View>
             <Text style={styles.owner} numberOfLines={1}>
               {`By ${
@@ -191,22 +182,6 @@ const styles = StyleSheet.create({
   date: {
     fontSize: 12,
     color: colors.neutral[500],
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  syncedBadge: {
-    backgroundColor: colors.semantic.success[50],
-  },
-  pendingBadge: {
-    backgroundColor: colors.semantic.warning[50],
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.neutral[900],
   },
   actions: {
     flexDirection: 'row',

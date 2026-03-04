@@ -15,14 +15,32 @@ export interface UserInfo {
 export interface HttpError extends Error {
   response?: {
     status?: number;
-    data?: { status?: number };
+    data?: {
+      status?: number;
+      code?: string;
+      synkronus_version?: string;
+    };
   };
   status?: number;
   statusCode?: number;
-  body?: { status?: number };
-  data?: { status?: number };
+  body?: {
+    status?: number;
+    code?: string;
+    synkronus_version?: string;
+  };
+  data?: {
+    status?: number;
+    code?: string;
+    synkronus_version?: string;
+  };
   code?: string | number;
 }
+
+// Re-export VersionMismatchError for convenience
+export {
+  VersionMismatchError,
+  isVersionMismatchError,
+} from '../../errors/VersionMismatchError';
 
 const decodeBase64 = (input: string): string => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

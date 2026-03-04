@@ -13,12 +13,12 @@ import {
   TouchableOpacity,
   Text,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
+import BlurredScreenBackground from './BlurredScreenBackground';
 import Icon from '@react-native-vector-icons/material-icons';
 import {
   resolveFormOperation,
@@ -31,11 +31,18 @@ import {
 } from '../webview/FormulusInterfaceDefinition';
 
 import { databaseService } from '../database';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { geolocationService } from '../services/GeolocationService';
 
 interface FormplayerModalProps {
@@ -61,6 +68,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
   ({ visible, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { showConfirm } = useConfirmModal();
 
     // Theme colors & resolved mode from AppThemeContext.
     const { themeColors, resolvedMode } = useAppTheme();
@@ -155,24 +163,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         return;
       }
 
-      Alert.alert(
-        'Close form?',
-        'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
-        [
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-          {
-            text: 'Close form',
-            style: 'destructive',
-            onPress: () => {
-              performClose();
-            },
-          },
+      showConfirm({
+        title: 'Close form?',
+        message:
+          'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
+        buttons: [
+          { text: 'Cancel', variant: 'tertiary', onPress: () => {} },
+          { text: 'Close form', variant: 'danger', onPress: performClose },
         ],
-      );
-    }, [isClosing, isSubmitting, performClose]);
+      });
+    }, [isClosing, isSubmitting, performClose, showConfirm]);
 
     // Removed closeFormplayer event listener - now using direct promise-based submission handling
 
@@ -314,40 +314,41 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           'FormplayerModal: formType.schema is null/undefined for form:',
           formType.id,
         );
-        Alert.alert(
-          'Form Error',
-          `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
-        );
+        showConfirm({
+          title: 'Form Error',
+          message: `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
+          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+        });
         return;
       }
 
-      // Scan custom question types and read their source code
-      // Check both root forms/ and app/forms/ paths (same dual-path as FormService)
+      // Scan custom question types and validators, read their source code
+      // Check app/question_types and app/validators (bundle root) and app/forms/question_types, app/forms/validators (legacy)
       let customQuestionTypes = undefined;
       try {
         const qtDirs = [
-          RNFS.DocumentDirectoryPath + '/forms/question_types',
+          `${customAppPath}/question_types`,
           `${customAppPath}/forms/question_types`,
+          RNFS.DocumentDirectoryPath + '/forms/question_types',
         ];
-        console.log(
-          `🔍🔍🔍 [FormplayerModal] Scanning custom question types in: ${qtDirs.join(', ')}`,
-        );
+
+        const validatorDirs = [
+          `${customAppPath}/validators`,
+          `${customAppPath}/forms/validators`,
+          RNFS.DocumentDirectoryPath + '/forms/validators',
+        ];
 
         const custom_types: Record<string, { source: string }> = {};
+        const validators: Record<string, { source: string }> = {};
 
+        // Scan custom question types
         for (const qtDir of qtDirs) {
           const qtDirExists = await RNFS.exists(qtDir);
           if (!qtDirExists) {
-            console.log(
-              `🔍 [FormplayerModal] Path not found, skipping: ${qtDir}`,
-            );
             continue;
           }
 
           const folders = await RNFS.readDir(qtDir);
-          console.log(
-            `🔍 [FormplayerModal] Found ${folders.length} items in ${qtDir}: ${folders.map(f => f.name).join(', ')}`,
-          );
 
           for (const folder of folders) {
             if (folder.isDirectory() && !custom_types[folder.name]) {
@@ -371,25 +372,65 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                 );
               } else {
                 console.warn(
-                  `⚠️ [FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
+                  `[FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
                 );
               }
             }
           }
         }
 
-        if (Object.keys(custom_types).length > 0) {
-          customQuestionTypes = { custom_types };
-          console.log(
-            `📦📦📦 [FormplayerModal] Custom question types manifest: ${JSON.stringify(Object.keys(custom_types))}`,
-          );
+        // Scan custom validators
+        for (const validatorDir of validatorDirs) {
+          const validatorDirExists = await RNFS.exists(validatorDir);
+          if (!validatorDirExists) {
+            continue;
+          }
+
+          const folders = await RNFS.readDir(validatorDir);
+
+          for (const folder of folders) {
+            if (folder.isDirectory() && !validators[folder.name]) {
+              // Validators use index.js (standard convention)
+              const indexPath = `${folder.path}/index.js`;
+              const hasIndex = await RNFS.exists(indexPath);
+
+              if (hasIndex) {
+                // Read the source code so the WebView can evaluate it directly
+                const source = await RNFS.readFile(indexPath, 'utf8');
+                validators[folder.name] = { source };
+                console.log(
+                  `[FormplayerModal] Custom validator: "${folder.name}" (${source.length} bytes from ${indexPath})`,
+                );
+              } else {
+                console.warn(
+                  `[FormplayerModal] Skipping validator "${folder.name}": no index.js found`,
+                );
+              }
+            }
+          }
+        }
+
+        // Build manifest with both question types and validators
+        if (
+          Object.keys(custom_types).length > 0 ||
+          Object.keys(validators).length > 0
+        ) {
+          customQuestionTypes = {
+            custom_types:
+              Object.keys(custom_types).length > 0 ? custom_types : undefined,
+            validators:
+              Object.keys(validators).length > 0 ? validators : undefined,
+          };
         } else {
           console.warn(
-            '⚠️ [FormplayerModal] No custom question types found in any path',
+            '[FormplayerModal] No custom question types or validators found in any path',
           );
         }
       } catch (error) {
-        console.warn('Failed to scan custom question types:', error);
+        console.warn(
+          'Failed to scan custom question types and validators:',
+          error,
+        );
       }
 
       const formInitData = {
@@ -414,10 +455,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         await webViewRef.current.sendFormInit(formInitData);
       } catch (error) {
         console.error('FormplayerModal: Error sending form init data:', error);
-        Alert.alert(
-          'Error',
-          'Failed to initialize the form UI. Please close and try again.',
-        );
+        showConfirm({
+          title: 'Error',
+          message:
+            'Failed to initialize the form UI. Please close and try again.',
+          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+        });
       }
     };
 
@@ -484,15 +527,20 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           const successMessage = currentObservationId
             ? 'Observation updated successfully!'
             : 'Form submitted successfully!';
-          Alert.alert('Success', successMessage, [
-            {
-              text: 'OK',
-              onPress: () => {
-                setIsSubmitting(false);
-                onClose();
+          showConfirm({
+            title: 'Success',
+            message: successMessage,
+            buttons: [
+              {
+                text: 'OK',
+                variant: 'primary',
+                onPress: () => {
+                  setIsSubmitting(false);
+                  onClose();
+                },
               },
-            },
-          ]);
+            ],
+          });
 
           return resultObservationId;
         } catch (error) {
@@ -513,11 +561,15 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             resolveFormOperationByType(formType, errorResult);
           }
 
-          Alert.alert('Error', 'Failed to save your form. Please try again.');
+          showConfirm({
+            title: 'Error',
+            message: 'Failed to save your form. Please try again.',
+            buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+          });
           throw error;
         }
       },
-      [currentObservationId, currentOperationId, onClose],
+      [currentObservationId, currentOperationId, onClose, showConfirm],
     );
 
     // Register/unregister modal with message handlers and reset form state
@@ -552,66 +604,77 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <View
-          style={[
-            styles.container,
-            {
-              backgroundColor: withAlpha(
-                themeColors.surface as string,
-                CONTAINER_ALPHA,
-              ),
-              borderWidth: 1,
-              borderColor: themeColors.divider as string,
-            },
-          ]}>
+        <BlurredScreenBackground>
           <View
-            style={[styles.header, { borderBottomColor: themeColors.divider }]}>
-            <TouchableOpacity
-              onPress={handleClose}
+            style={[
+              styles.container,
+              { backgroundColor: themeColors.background as string },
+            ]}>
+            <View
               style={[
-                styles.closeButton,
-                (isSubmitting || isClosing) && styles.disabledButton,
-              ]}
-              disabled={isSubmitting || isClosing}>
-              <Icon
-                name="close"
-                size={24}
-                color={
-                  isSubmitting || isClosing
-                    ? colors.neutral[400]
-                    : themeColors.onBackground
-                }
-              />
-            </TouchableOpacity>
-            <Text
-              style={[styles.headerTitle, { color: themeColors.onBackground }]}
-              numberOfLines={1}>
-              {currentFormDisplayName ||
-                (currentObservationId ? 'Edit Observation' : 'New Observation')}
-            </Text>
-            <View style={styles.headerRightSpacer} />
-          </View>
-
-          <CustomAppWebView
-            ref={webViewRef}
-            appUrl={formplayerUri}
-            appName="Formplayer"
-            onLoadEndProp={handleWebViewLoad}
-          />
-
-          {/* Loading overlay */}
-          {isSubmitting && (
-            <View style={styles.loadingOverlay}>
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator
-                  size="large"
-                  color={colors.semantic.info.ios}
+                styles.header,
+                {
+                  backgroundColor:
+                    resolvedMode === 'dark'
+                      ? (colors.neutral[900] as string)
+                      : (colors.neutral[50] as string),
+                  borderWidth: odeBorderWidth.hairline,
+                  borderBottomWidth: odeBorderWidth.hairline,
+                  borderColor: themeColors.divider as string,
+                  borderBottomColor: themeColors.divider as string,
+                },
+              ]}>
+              <TouchableOpacity
+                onPress={handleClose}
+                style={[
+                  styles.closeButton,
+                  (isSubmitting || isClosing) && styles.disabledButton,
+                ]}
+                disabled={isSubmitting || isClosing}>
+                <Icon
+                  name="close"
+                  size={24}
+                  color={
+                    isSubmitting || isClosing
+                      ? colors.neutral[400]
+                      : themeColors.onBackground
+                  }
                 />
-                <Text style={styles.loadingText}>Saving form data...</Text>
-              </View>
+              </TouchableOpacity>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  { color: themeColors.onBackground },
+                ]}
+                numberOfLines={1}>
+                {currentFormDisplayName ||
+                  (currentObservationId
+                    ? 'Edit Observation'
+                    : 'New Observation')}
+              </Text>
             </View>
-          )}
-        </View>
+
+            <CustomAppWebView
+              ref={webViewRef}
+              appUrl={formplayerUri}
+              appName="Formplayer"
+              onLoadEndProp={handleWebViewLoad}
+            />
+
+            {/* Loading overlay */}
+            {isSubmitting && (
+              <View style={styles.loadingOverlay}>
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator
+                    size="large"
+                    color={colors.semantic.info.ios}
+                  />
+                  <Text style={styles.loadingText}>Saving form data...</Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </BlurredScreenBackground>
       </Modal>
     );
   },
@@ -619,28 +682,27 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.neutral.white,
+    backgroundColor: colors.neutral.transparent,
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[200],
+    marginHorizontal: odeSpacing.sm,
+    padding: odeSpacing.md,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomLeftRadius: odeRadius.card,
+    borderBottomRightRadius: odeRadius.card,
+    overflow: 'hidden',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
-    marginRight: 40, // To balance the close button width
-  },
-  headerRightSpacer: {
-    width: 40,
+    marginLeft: odeSpacing.sm,
+    flexShrink: 1,
   },
   closeButton: {
-    padding: 4,
+    padding: odeSpacing.xs,
   },
   disabledButton: {
     opacity: 0.5,

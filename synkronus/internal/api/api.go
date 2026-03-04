@@ -14,6 +14,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/pkg/middleware/formulusversion"
 	"github.com/opendataensemble/synkronus/portal"
 )
 
@@ -45,7 +46,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"accept", "authorization", "content-type", "x-csrf-token", "if-none-match"},
+		AllowedHeaders:   []string{"accept", "authorization", "content-type", "x-csrf-token", "x-formulus-version", "if-none-match"},
 		ExposedHeaders:   []string{"link", "etag"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -91,6 +92,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 
 	// Authentication routes
 	authRoutes := func(r chi.Router) {
+		r.Use(formulusversion.Middleware(log))
 		r.Post("/login", h.Login)
 		r.Post("/refresh", h.RefreshToken)
 	}
@@ -109,6 +111,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 
 	// Protected routes - require authentication
 	r.Group(func(r chi.Router) {
+		r.Use(formulusversion.Middleware(log))
 		// Add authentication middleware
 		r.Use(auth.AuthMiddleware(h.GetAuthService(), log))
 

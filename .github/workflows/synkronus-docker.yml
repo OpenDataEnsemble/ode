@@ -19,11 +19,6 @@ on:
       - 'Dockerfile'
       - '.github/workflows/synkronus-docker.yml'
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g., v1.0.0). If empty, tags will be derived from the current ref.'
-        required: false
-        type: string
   release:
     types: [published]
 
@@ -43,6 +38,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0    # Full history so git describe can reach the last tag
       
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -59,6 +56,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Determine Synkronus version from git
+        id: version
+        run: |
+          # fetch-depth: 0 on checkout guarantees all tags are available.
+          # --abbrev=0: output only the nearest tag name (e.g. v1.0.0), never
+          # the commit-distance suffix (v1.0.0-3-gabcdef1). This keeps the
+          # baked-in version stable across every push until a new tag is created.
+          # Fallback "1.0.0" is parseable by parseMajor in case the repo has no tags yet.
+          if [ "${{ github.event_name }}" == "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+          else
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Building Synkronus with version: ${VERSION}"
+      
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
@@ -70,9 +83,6 @@ jobs:
             # For dev branch: tag as both dev and latest (for demo server auto-updates)
             type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/dev' }}
-            # When triggered via manual dispatch with a version input
-            type=semver,pattern=v{{version}},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version != '' }},value=${{ github.event.inputs.version }}
-            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version != '' }},value=${{ github.event.inputs.version }}
             # When triggered from a GitHub Release event, use the release tag name as the semver source
             type=semver,pattern=v{{version}},enable=${{ github.event_name == 'release' }},value=${{ github.event.release.tag_name }}
             type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event_name == 'release' }},value=${{ github.event.release.tag_name }}
@@ -97,6 +107,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            SYNKRONUS_VERSION=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
       

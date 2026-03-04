@@ -55,6 +55,15 @@ const Input: React.FC<InputProps> = ({
       ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
       : colors.neutral.white;
 
+  const inputTextColor =
+    resolvedMode === 'dark'
+      ? (themeColors.onSurface as string)
+      : (colors.neutral[900] as string);
+  const placeholderColor =
+    resolvedMode === 'dark'
+      ? (colors.neutral[400] as string)
+      : (colors.neutral[400] as string);
+
   return (
     <View style={[styles.container, style]} testID={testID}>
       {label && (
@@ -80,10 +89,10 @@ const Input: React.FC<InputProps> = ({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           placeholder={placeholder}
-          placeholderTextColor={colors.neutral[400]}
+          placeholderTextColor={placeholderColor}
           editable={!disabled}
           secureTextEntry={secureTextEntry}
-          style={styles.input}
+          style={[styles.input, { color: inputTextColor }]}
           testID={testID ? `${testID}-input` : undefined}
           accessibilityLabel={label || placeholder}
           accessibilityState={{ disabled }}
