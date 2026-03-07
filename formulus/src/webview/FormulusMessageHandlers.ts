@@ -1005,6 +1005,27 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         throw new Error('Unable to retrieve user information');
       }
     },
+    onGetThemeMode: async (): Promise<'light' | 'dark' | 'system'> => {
+      try {
+        const stored = (await AsyncStorage.getItem(
+          'formulus-theme-mode',
+        )) as 'light' | 'dark' | 'system' | null;
+        if (
+          stored === 'light' ||
+          stored === 'dark' ||
+          stored === 'system'
+        ) {
+          return stored;
+        }
+        return 'system';
+      } catch (error) {
+        console.warn(
+          'FormulusMessageHandlers: Failed to get theme mode:',
+          error,
+        );
+        return 'system';
+      }
+    },
     onGetObservations: async (
       formType: string | { formType: string },
       isDraft?: boolean,
