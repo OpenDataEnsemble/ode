@@ -1007,14 +1007,12 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onGetThemeMode: async (): Promise<'light' | 'dark' | 'system'> => {
       try {
-        const stored = (await AsyncStorage.getItem(
-          'formulus-theme-mode',
-        )) as 'light' | 'dark' | 'system' | null;
-        if (
-          stored === 'light' ||
-          stored === 'dark' ||
-          stored === 'system'
-        ) {
+        const stored = (await AsyncStorage.getItem('formulus-theme-mode')) as
+          | 'light'
+          | 'dark'
+          | 'system'
+          | null;
+        if (stored === 'light' || stored === 'dark' || stored === 'system') {
           return stored;
         }
         return 'system';
