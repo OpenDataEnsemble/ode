@@ -46,7 +46,7 @@ WORKDIR /app/synkronus-portal
 RUN npm run build
 
 # Stage 2: Build the Go application (Synkronus) with embedded portal
-FROM golang:1.24.2-alpine AS synkronus-builder
+FROM golang:1.26.0-alpine AS synkronus-builder
 
 RUN apk add --no-cache git
 
@@ -71,7 +71,7 @@ RUN echo "Building Synkronus with version: ${SYNKRONUS_VERSION}" && \
     go build -a -ldflags="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}" -o synkronus ./cmd/synkronus
 
 # Stage 3: Minimal runtime image — single Go server (API + portal)
-FROM alpine:3.19
+FROM alpine:3.23
 
 RUN apk --no-cache add ca-certificates tzdata wget
 

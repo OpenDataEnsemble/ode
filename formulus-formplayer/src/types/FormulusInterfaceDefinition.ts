@@ -59,6 +59,7 @@ export interface FormInitData {
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
     custom_types: Record<string, { source: string }>;
+    validators?: Record<string, { source: string }>;
   };
 }
 

@@ -106,7 +106,7 @@
         margin: 0 0 var(--spacing-8);
       }
       [data-theme="dark"] .placeholder-subtitle {
-        color: var(--color-neutral-white);
+        color: var(--color-neutral-400);
       }
       [data-theme="light"] .placeholder-subtitle {
         color: var(--color-neutral-600);
@@ -161,8 +161,16 @@
   <body>
     <div class="placeholder-card">
       <h1 class="placeholder-title">Your Custom<br>App</h1>
-      <p class="placeholder-subtitle">Login and Sync to load your forms!</p>
-      <button type="button" class="placeholder-btn" id="login-btn" aria-label="Login to load forms">Login Now</button>
+      <p class="placeholder-subtitle" id="subtitle-text">
+        Login and Sync to load your forms
+      </p>
+      <button
+        type="button"
+        class="placeholder-btn"
+        id="login-btn"
+        aria-label="Login to load forms">
+        Login Now
+      </button>
       <p class="placeholder-tagline">Secure • Fast • Offline</p>
       <p class="placeholder-version" id="version-el">v0.1.0-native</p>
     </div>
@@ -183,7 +191,61 @@
         }
       }
 
-      document.getElementById('login-btn').addEventListener('click', navigateToLogin);
+      function navigateToSync() {
+        try {
+          if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formulusNavigateToSync' }));
+          }
+        } catch (e) {
+          console.error('Placeholder: failed to post formulusNavigateToSync', e);
+        }
+      }
+
+      var loginBtn = document.getElementById('login-btn');
+
+      function setButtonMode(mode) {
+        if (!loginBtn) return;
+        if (mode === 'sync') {
+          loginBtn.textContent = 'Sync Now';
+          loginBtn.setAttribute('aria-label', 'Sync to load forms');
+          loginBtn.onclick = navigateToSync;
+        } else {
+          loginBtn.textContent = 'Login Now';
+          loginBtn.setAttribute('aria-label', 'Login to load forms');
+          loginBtn.onclick = navigateToLogin;
+        }
+      }
+
+      function refreshLoginState() {
+        try {
+          var api = window.formulus || globalThis.formulus;
+          if (!api || typeof api.getCurrentUser !== 'function') {
+            setButtonMode('login');
+            return;
+          }
+          api
+            .getCurrentUser()
+            .then(function(user) {
+              if (user && user.username) {
+                setButtonMode('sync');
+              } else {
+                setButtonMode('login');
+              }
+            })
+            .catch(function() {
+              setButtonMode('login');
+            });
+        } catch (e) {
+          console.error('Placeholder: failed to refresh login state', e);
+          setButtonMode('login');
+        }
+      }
+
+      // Expose a hook so the native app can force-refresh the button state
+      window.__formulusPlaceholderRefreshLoginState = refreshLoginState;
+
+      // Default state before we know anything about login
+      setButtonMode('login');
 
       function waitForFormulus(cb, tries) {
         tries = tries !== undefined ? tries : 50;
@@ -216,10 +278,14 @@
 
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function() {
-          waitForFormulus(function() {});
+          waitForFormulus(function() {
+            refreshLoginState();
+          });
         });
       } else {
-        waitForFormulus(function() {});
+        waitForFormulus(function() {
+          refreshLoginState();
+        });
       }
     })();
     </script>

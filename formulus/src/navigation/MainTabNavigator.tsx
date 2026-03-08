@@ -1,5 +1,11 @@
 import React from 'react';
-import { View, StyleSheet, Platform, Pressable } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Platform,
+  Pressable,
+  useWindowDimensions,
+} from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -137,35 +143,39 @@ const TAB_ICONS: Record<
 const isVisibleMainTab = (value: string): value is VisibleMainTab =>
   (VISIBLE_MAIN_TABS as readonly string[]).includes(value);
 
-const FadingTopLine = ({ borderColor }: { borderColor: string }) => (
-  <Svg
-    height={tabBarTokens.topLineHeight}
-    width="100%"
-    style={[styles.fadingLineSvg, { height: tabBarTokens.topLineHeight }]}
-    preserveAspectRatio="none">
-    <Defs>
-      <LinearGradient
-        id="tabBarTopLineGradient"
-        x1="0%"
-        y1="0"
-        x2="100%"
-        y2="0"
-        gradientUnits="userSpaceOnUse">
-        <Stop offset="0" stopColor={borderColor} stopOpacity="0" />
-        <Stop offset="0.15" stopColor={borderColor} stopOpacity="1" />
-        <Stop offset="0.85" stopColor={borderColor} stopOpacity="1" />
-        <Stop offset="1" stopColor={borderColor} stopOpacity="0" />
-      </LinearGradient>
-    </Defs>
-    <Rect
-      x={0}
-      y={0}
-      width="100%"
+const FadingTopLine = ({ borderColor }: { borderColor: string }) => {
+  const { width } = useWindowDimensions();
+
+  return (
+    <Svg
       height={tabBarTokens.topLineHeight}
-      fill="url(#tabBarTopLineGradient)"
-    />
-  </Svg>
-);
+      width={width}
+      style={[styles.fadingLineSvg, { height: tabBarTokens.topLineHeight }]}
+      preserveAspectRatio="none">
+      <Defs>
+        <LinearGradient
+          id="tabBarTopLineGradient"
+          x1="0%"
+          y1="0"
+          x2="100%"
+          y2="0"
+          gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor={borderColor} stopOpacity="0" />
+          <Stop offset="0.15" stopColor={borderColor} stopOpacity="1" />
+          <Stop offset="0.85" stopColor={borderColor} stopOpacity="1" />
+          <Stop offset="1" stopColor={borderColor} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Rect
+        x={0}
+        y={0}
+        width="100%"
+        height={tabBarTokens.topLineHeight}
+        fill="url(#tabBarTopLineGradient)"
+      />
+    </Svg>
+  );
+};
 
 const TabBarBackground = () => {
   const { themeColors, resolvedMode } = useAppTheme();

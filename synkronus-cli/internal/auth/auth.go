@@ -41,8 +41,21 @@ func Login(username, password string) (*TokenResponse, error) {
 		return nil, fmt.Errorf("error marshaling login data: %w", err)
 	}
 
+	// Create request with headers
+	req, err := http.NewRequest("POST", loginURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("error creating login request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	// Add x-formulus-version header (required by some servers)
+	apiVersion := viper.GetString("api.version")
+	if apiVersion != "" {
+		req.Header.Set("x-formulus-version", apiVersion)
+	}
+
 	// Send login request
-	resp, err := http.Post(loginURL, "application/json", bytes.NewBuffer(jsonData))
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("login request failed for endpoint %s: %w", loginURL, err)
 	}
@@ -59,9 +72,6 @@ func Login(username, password string) (*TokenResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading response body: %w", err)
 	}
-
-	// Print the raw response for debugging
-	fmt.Printf("DEBUG - Raw API response: %s\n", string(body))
 
 	// Parse response
 	var tokenResp TokenResponse
@@ -93,8 +103,21 @@ func RefreshToken() (*TokenResponse, error) {
 		return nil, fmt.Errorf("error marshaling refresh data: %w", err)
 	}
 
+	// Create request with headers
+	req, err := http.NewRequest("POST", refreshURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("error creating refresh request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	// Add x-formulus-version header (required by some servers)
+	apiVersion := viper.GetString("api.version")
+	if apiVersion != "" {
+		req.Header.Set("x-formulus-version", apiVersion)
+	}
+
 	// Send refresh request
-	resp, err := http.Post(refreshURL, "application/json", bytes.NewBuffer(jsonData))
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("refresh request failed: %w", err)
 	}

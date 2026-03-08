@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   buttonContainer: {
-    alignSelf: 'stretch',
+    alignSelf: 'center',
     maxWidth: 320,
   },
 });

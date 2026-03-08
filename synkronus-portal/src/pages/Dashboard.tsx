@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
+import { PORTAL_VERSION } from '../version';
 import { Button, Input, Badge } from '@ode/components/react-web';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
@@ -547,6 +548,7 @@ export function Dashboard() {
         if (token) {
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         }
+        xhr.setRequestHeader('x-formulus-version', PORTAL_VERSION);
         // Don't set Content-Type - browser sets it automatically with boundary for FormData
         xhr.send(formData);
       });

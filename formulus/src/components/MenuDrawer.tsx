@@ -119,7 +119,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
     ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
     : withAlpha(colors.neutral[900] as string, 0.02);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [appSettingsOpen, setAppSettingsOpen] = useState<boolean>(true);
+  const [appSettingsOpen, setAppSettingsOpen] = useState<boolean>(false);
   // Backdrop covers the full height; bottom nav is rendered above this layer
   // by the tab navigator, so its buttons remain clickable.
   const bottomPadding = 0;

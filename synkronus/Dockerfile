@@ -1,7 +1,7 @@
 # Multi-stage build for Synkronus
 # Stage 1: Build the Go application
 # Pure Go build (PostgreSQL only, SQLite/CGO disabled by default)
-FROM golang:1.25.6-alpine AS builder
+FROM golang:1.26.0-alpine AS builder
 
 # Install build dependencies (no C toolchain needed for pure Go build)
 RUN apk add --no-cache git
@@ -20,8 +20,8 @@ COPY . .
 
 # Build the application with version from build arg
 # Version is automatically derived from git tags in CI and passed as build arg
-# Defaults to "dev" for local builds without tags
-ARG SYNKRONUS_VERSION=dev
+# Defaults to a semantic version for local builds without tags (middleware requires semver)
+ARG SYNKRONUS_VERSION=1.0.0
 ENV CGO_ENABLED=0 GOOS=linux
 RUN echo "Building Synkronus with version: ${SYNKRONUS_VERSION}" && \
     go build -a -ldflags="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}" -o synkronus ./cmd/synkronus

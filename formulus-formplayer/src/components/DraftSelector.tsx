@@ -9,9 +9,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
-  CardActions,
   IconButton,
   Dialog,
   DialogTitle,
@@ -19,14 +16,14 @@ import {
   DialogActions,
   Alert,
   Chip,
-  Grid,
   Divider,
+  useTheme,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { Button } from '@ode/components/react-web';
 import {
   Delete as DeleteIcon,
   Schedule as ClockIcon,
-  Description as FormIcon,
 } from '@mui/icons-material';
 import { draftService, DraftSummary } from '../services/DraftService';
 
@@ -45,6 +42,13 @@ interface DraftSelectorProps {
   fullScreen?: boolean;
 }
 
+// Container style required
+const CONFIRM_CARD_RADIUS = 0.7;
+const CONFIRM_INNER_RADIUS = 0.7;
+const CONFIRM_BORDER_WIDTH = 1;
+const CONFIRM_CARD_PADDING = 16;
+const CONTAINER_ALPHA = 0.4;
+
 export const DraftSelector: React.FC<DraftSelectorProps> = ({
   formType,
   formVersion,
@@ -53,6 +57,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   onClose,
   fullScreen = false,
 }) => {
+  const theme = useTheme();
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
@@ -123,160 +128,207 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   };
 
   const content = (
-    <Box sx={{ p: fullScreen ? 3 : 0 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h5" gutterBottom>
-          Resume Draft or Start New
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Form: {formType}
-          {formVersion && (
-            <Chip label={`v${formVersion}`} size="small" sx={{ ml: 1 }} />
-          )}
-        </Typography>
-      </Box>
-
-      {/* Cleanup message */}
-      {cleanupMessage && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          {cleanupMessage}
-        </Alert>
-      )}
-
-      {/* Drafts list */}
-      {drafts.length > 0 ? (
+    <Box
+      sx={{
+        minHeight: fullScreen ? '100dvh' : 'auto',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        px: fullScreen ? 3 : 0,
+        py: fullScreen ? 4 : 0,
+        bgcolor: 'background.default',
+        color: 'text.primary',
+      }}>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: 420,
+          textAlign: 'center',
+        }}>
+        {/* Header – theme-aware */}
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Available Drafts ({drafts.length})
+          <Typography variant="h5" gutterBottom color="text.primary">
+            Resume Draft or Start New
           </Typography>
-          <Grid container spacing={2}>
-            {drafts.map(draft => (
-              <Grid size={{ xs: 12 }} key={draft.id}>
-                <Card
-                  variant="outlined"
-                  sx={{
-                    position: 'relative',
-                    '&:hover': {
-                      boxShadow: 2,
-                      borderColor: 'primary.main',
-                    },
-                  }}>
-                  <CardContent sx={{ pb: 1 }}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                      }}>
-                      <Box sx={{ flex: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Form: {formType}
+            {formVersion && (
+              <Chip label={`v${formVersion}`} size="small" sx={{ ml: 1 }} />
+            )}
+          </Typography>
+        </Box>
+
+        {/* Cleanup message */}
+        {cleanupMessage && (
+          <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
+            {cleanupMessage}
+          </Alert>
+        )}
+
+        {/* Available drafts – same outer + inner container style as Missing required fields dialog */}
+        {drafts.length > 0 ? (
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              width: '100%',
+              mb: 3,
+            }}>
+            <Box
+              sx={{
+                width: '100%',
+                maxWidth: 340,
+                borderRadius: CONFIRM_CARD_RADIUS,
+                border: `${CONFIRM_BORDER_WIDTH}px solid`,
+                borderColor: 'divider',
+                padding: `${CONFIRM_CARD_PADDING}px`,
+                backgroundColor: alpha(
+                  theme.palette.background.paper,
+                  CONTAINER_ALPHA,
+                ),
+                overflow: 'hidden',
+              }}>
+              <Box
+                sx={{
+                  borderRadius: CONFIRM_INNER_RADIUS,
+                  padding: `${CONFIRM_CARD_PADDING}px`,
+                  backgroundColor: theme.palette.background.paper,
+                  overflow: 'hidden',
+                }}>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
+                  Available Drafts ({drafts.length})
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {drafts.map((draft, index) => {
+                    const age = getDraftAge(draft.updatedAt);
+                    const chipColor =
+                      age === 'recent'
+                        ? 'primary'
+                        : age === 'old'
+                          ? 'warning'
+                          : 'error';
+
+                    return (
+                      <Box key={draft.id}>
+                        {index > 0 && (
+                          <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
+                        )}
                         <Box
-                          sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                          <FormIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                          <Typography variant="subtitle1">
+                          sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            textAlign: 'center',
+                            gap: 1,
+                          }}>
+                          <Typography variant="subtitle1" color="text.primary">
                             Draft from {formatDate(draft.updatedAt)}
                           </Typography>
                           <Chip
                             icon={<ClockIcon />}
-                            label={getDraftAge(draft.updatedAt)}
+                            label={age}
                             size="small"
-                            color={
-                              getDraftAge(draft.updatedAt) === 'recent'
-                                ? 'success'
-                                : getDraftAge(draft.updatedAt) === 'old'
-                                  ? 'warning'
-                                  : 'error'
+                            color={chipColor}
+                            sx={
+                              age === 'recent'
+                                ? {
+                                    mt: 0.5,
+                                    bgcolor: theme.palette.primary.main,
+                                    color: theme.palette.primary.contrastText,
+                                  }
+                                : { mt: 0.5 }
                             }
-                            sx={{ ml: 1 }}
                           />
+
+                          <IconButton
+                            onClick={() => handleDeleteDraft(draft.id)}
+                            size="small"
+                            color="error"
+                            sx={{ mt: 0.25 }}>
+                            <DeleteIcon />
+                          </IconButton>
+
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mt: 1 }}>
+                            {draft.dataPreview}
+                          </Typography>
+
+                          <Typography variant="caption" color="text.secondary">
+                            Created: {draft.createdAt.toLocaleDateString()}{' '}
+                            {draft.createdAt.toLocaleTimeString()}
+                            {draft.observationId && (
+                              <> • Editing observation: {draft.observationId}</>
+                            )}
+                          </Typography>
+
+                          <Button
+                            variant="neutral"
+                            size="medium"
+                            onPress={() => onResumeDraft(draft.id)}>
+                            Resume Draft
+                          </Button>
                         </Box>
-
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ mb: 1 }}>
-                          {draft.dataPreview}
-                        </Typography>
-
-                        <Typography variant="caption" color="text.secondary">
-                          Created: {draft.createdAt.toLocaleDateString()}{' '}
-                          {draft.createdAt.toLocaleTimeString()}
-                          {draft.observationId && (
-                            <> • Editing observation: {draft.observationId}</>
-                          )}
-                        </Typography>
                       </Box>
+                    );
+                  })}
+                </Box>
+              </Box>
+            </Box>
+          </Box>
+        ) : (
+          <Box sx={{ textAlign: 'center', py: 4, mb: 3 }}>
+            <Typography variant="body1" color="text.secondary">
+              No recent drafts found for this form.
+            </Typography>
+          </Box>
+        )}
 
-                      <IconButton
-                        onClick={() => handleDeleteDraft(draft.id)}
-                        size="small"
-                        color="error"
-                        sx={{ ml: 1 }}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Box>
-                  </CardContent>
+        <Divider sx={{ my: 3 }} />
 
-                  <CardActions sx={{ pt: 0 }}>
-                    <Button
-                      variant="primary"
-                      size="medium"
-                      onPress={() => onResumeDraft(draft.id)}>
-                      Resume Draft
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </Box>
-      ) : (
-        <Box sx={{ textAlign: 'center', py: 4, mb: 3 }}>
-          <Typography variant="body1" color="text.secondary">
-            No recent drafts found for this form.
+        {/* Start new form section – theme-aware */}
+        <Box sx={{ textAlign: 'center' }}>
+          <Typography variant="h6" gutterBottom color="text.primary">
+            Start Fresh
           </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Begin a new form without any saved data.
+          </Typography>
+          <Button
+            variant="primary"
+            size="large"
+            onPress={onStartNew}
+            style={{ minWidth: 200 }}>
+            Start New Form
+          </Button>
         </Box>
-      )}
 
-      <Divider sx={{ my: 3 }} />
-
-      {/* Start new form section */}
-      <Box sx={{ textAlign: 'center' }}>
-        <Typography variant="h6" gutterBottom>
-          Start Fresh
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Begin a new form without any saved data.
-        </Typography>
-        <Button
-          variant="secondary"
-          size="large"
-          onPress={onStartNew}
-          style={{ minWidth: 200 }}>
-          Start New Form
-        </Button>
+        {/* Delete confirmation dialog */}
+        <Dialog
+          open={deleteConfirmOpen}
+          onClose={() => setDeleteConfirmOpen(false)}>
+          <DialogTitle>Delete Draft</DialogTitle>
+          <DialogContent>
+            <Typography>
+              Are you sure you want to delete this draft? This action cannot be
+              undone.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              variant="neutral"
+              onPress={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onPress={confirmDeleteDraft}>
+              Delete
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
-
-      {/* Delete confirmation dialog */}
-      <Dialog
-        open={deleteConfirmOpen}
-        onClose={() => setDeleteConfirmOpen(false)}>
-        <DialogTitle>Delete Draft</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Are you sure you want to delete this draft? This action cannot be
-            undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="neutral" onPress={() => setDeleteConfirmOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onPress={confirmDeleteDraft}>
-            Delete
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 
@@ -290,24 +342,17 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
           sx: {
             bgcolor: 'background.default',
             backgroundImage: 'none',
+            color: 'text.primary',
           },
         }}>
-        <DialogTitle>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}>
-            <Typography variant="h6">Select Draft</Typography>
-            {onClose && (
-              <Button variant="secondary" onPress={onClose}>
-                Close
-              </Button>
-            )}
-          </Box>
+        <DialogTitle sx={{ textAlign: 'center' }}>
+          <Typography variant="h6" color="text.primary">
+            Select Draft
+          </Typography>
         </DialogTitle>
-        <DialogContent>{content}</DialogContent>
+        <DialogContent sx={{ bgcolor: 'background.default' }}>
+          {content}
+        </DialogContent>
       </Dialog>
     );
   }
