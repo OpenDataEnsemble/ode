@@ -64,8 +64,8 @@ COPY --from=portal-builder /app/synkronus-portal/dist ./portal/dist
 
 # Build the application with version from build arg
 # Version is automatically derived from git tags in CI and passed as build arg
-# Defaults to "dev" for local builds without tags
-ARG SYNKRONUS_VERSION=dev
+# Defaults to "1.0.0" so server version validation works (must be valid semantic version)
+ARG SYNKRONUS_VERSION=1.0.0
 ENV CGO_ENABLED=0 GOOS=linux
 RUN echo "Building Synkronus with version: ${SYNKRONUS_VERSION}" && \
     go build -a -ldflags="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}" -o synkronus ./cmd/synkronus
