@@ -3,9 +3,11 @@ package client
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -120,7 +122,48 @@ func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 
 	// Perform request
-	return c.HTTPClient.Do(req)
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		if isNetworkConnectivityError(err) {
+			return nil, fmt.Errorf(
+				"unable to reach API server (%s): check your network connection and --api-url",
+				c.BaseURL,
+			)
+		}
+		return nil, err
+	}
+	return resp, nil
+}
+
+func isNetworkConnectivityError(err error) bool {
+	// Unwrap common net/http errors
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		err = urlErr.Err
+	}
+
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		// timeouts, temporary errors, etc.
+		return true
+	}
+
+	// Fallback string checks for common offline cases
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "network is unreachable") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "tls handshake timeout") {
+		return true
+	}
+
+	return false
 }
 
 // GetAppBundleManifest retrieves the app bundle manifest

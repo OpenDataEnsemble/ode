@@ -3,9 +3,13 @@ package auth
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -24,6 +28,77 @@ type Claims struct {
 	Username string `json:"username"`
 	Role     string `json:"role"`
 	jwt.RegisteredClaims
+}
+
+// getFormulusVersion returns the version to send in X-Formulus-Version header (required by Synkronus).
+// Falls back to a valid semver when config isn't loaded yet.
+func getFormulusVersion() string {
+	if v := strings.TrimSpace(viper.GetString("api.version")); v != "" {
+		return v
+	}
+	return "1.0.0"
+}
+
+type apiErrorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
+func parseAPIErrorMessage(body []byte) string {
+	var apiErr apiErrorResponse
+	if err := json.Unmarshal(body, &apiErr); err != nil {
+		return ""
+	}
+	if msg := strings.TrimSpace(apiErr.Message); msg != "" {
+		return msg
+	}
+	return strings.TrimSpace(apiErr.Error)
+}
+
+func formatLoginFailure(loginURL string, status int, body []byte) error {
+	// Friendly, actionable auth failure message
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return fmt.Errorf("authentication failed: invalid username or password")
+	}
+
+	// Use JSON {message,error} if present (e.g. version mismatch middleware)
+	if msg := parseAPIErrorMessage(body); msg != "" {
+		return fmt.Errorf("login failed: %s", msg)
+	}
+
+	trimmed := strings.TrimSpace(string(body))
+	if trimmed != "" {
+		return fmt.Errorf("login failed (status %d): %s", status, trimmed)
+	}
+	return fmt.Errorf("login failed for endpoint %s with status %d", loginURL, status)
+}
+
+func isNetworkConnectivityError(err error) bool {
+	// Unwrap common net/http errors
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		err = urlErr.Err
+	}
+
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "network is unreachable") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "tls handshake timeout") {
+		return true
+	}
+	return false
 }
 
 // Login authenticates with the Synkronus API and returns a token
@@ -47,16 +122,17 @@ func Login(username, password string) (*TokenResponse, error) {
 		return nil, fmt.Errorf("error creating login request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	// Add x-formulus-version header (required by some servers)
-	apiVersion := viper.GetString("api.version")
-	if apiVersion != "" {
-		req.Header.Set("x-formulus-version", apiVersion)
-	}
+	req.Header.Set("X-Formulus-Version", getFormulusVersion())
 
 	// Send login request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		if isNetworkConnectivityError(err) {
+			return nil, fmt.Errorf(
+				"unable to reach API server: check your network connection and --api-url",
+			)
+		}
 		return nil, fmt.Errorf("login request failed for endpoint %s: %w", loginURL, err)
 	}
 	defer resp.Body.Close()
@@ -64,7 +140,9 @@ func Login(username, password string) (*TokenResponse, error) {
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("login failed for endpoint %s with status %d: %s", loginURL, resp.StatusCode, string(body))
+		// Ensure failed logins do not leave an existing session behind
+		_ = Logout()
+		return nil, formatLoginFailure(loginURL, resp.StatusCode, body)
 	}
 
 	// Read the response body
@@ -83,7 +161,7 @@ func Login(username, password string) (*TokenResponse, error) {
 	viper.Set("auth.token", tokenResp.Token)
 	viper.Set("auth.refresh_token", tokenResp.RefreshToken)
 	viper.Set("auth.expires_at", tokenResp.ExpiresAt)
-	viper.WriteConfig()
+	_ = viper.WriteConfig()
 
 	return &tokenResp, nil
 }
@@ -109,16 +187,17 @@ func RefreshToken() (*TokenResponse, error) {
 		return nil, fmt.Errorf("error creating refresh request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	// Add x-formulus-version header (required by some servers)
-	apiVersion := viper.GetString("api.version")
-	if apiVersion != "" {
-		req.Header.Set("x-formulus-version", apiVersion)
-	}
+	req.Header.Set("X-Formulus-Version", getFormulusVersion())
 
 	// Send refresh request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		if isNetworkConnectivityError(err) {
+			return nil, fmt.Errorf(
+				"unable to reach API server: check your network connection and --api-url",
+			)
+		}
 		return nil, fmt.Errorf("refresh request failed: %w", err)
 	}
 	defer resp.Body.Close()
@@ -126,7 +205,19 @@ func RefreshToken() (*TokenResponse, error) {
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("token refresh failed with status %d: %s", resp.StatusCode, string(body))
+		_ = Logout()
+		// Refresh failures should prompt re-login rather than surfacing raw API responses.
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("authentication failed: please run synk login")
+		}
+		if msg := parseAPIErrorMessage(body); msg != "" {
+			return nil, fmt.Errorf("authentication failed: %s", msg)
+		}
+		trimmed := strings.TrimSpace(string(body))
+		if trimmed != "" {
+			return nil, fmt.Errorf("authentication failed (status %d): %s", resp.StatusCode, trimmed)
+		}
+		return nil, fmt.Errorf("authentication failed (status %d): please run synk login", resp.StatusCode)
 	}
 
 	// Read the response body for debugging
@@ -145,7 +236,7 @@ func RefreshToken() (*TokenResponse, error) {
 	viper.Set("auth.token", tokenResp.Token)
 	viper.Set("auth.refresh_token", tokenResp.RefreshToken)
 	viper.Set("auth.expires_at", tokenResp.ExpiresAt)
-	viper.WriteConfig()
+	_ = viper.WriteConfig()
 
 	return &tokenResp, nil
 }
