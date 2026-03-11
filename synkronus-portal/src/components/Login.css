@@ -249,3 +249,23 @@
   width: 100%;
   margin-top: var(--spacing-3);
 }
+
+.server-version {
+  text-align: center;
+  margin-top: var(--spacing-4);
+  padding-top: var(--spacing-3);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.version-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-regular);
+  opacity: var(--opacity-7);
+  letter-spacing: var(--letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+[data-theme="light"] .version-text {
+  color: var(--color-text-tertiary-light);
+}

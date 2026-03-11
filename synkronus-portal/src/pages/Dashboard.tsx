@@ -7,37 +7,23 @@ import { Button, Input, Badge } from '@ode/components/react-web';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
 import {
-  HiOutlineChartBar,
-  HiChartBar,
   HiOutlineCube,
   HiCube,
   HiOutlineUsers,
   HiUsers,
-  HiOutlineCog6Tooth,
-  HiCog6Tooth,
   HiCheckCircle,
-  HiUser,
-  HiLockClosed,
-  HiRocketLaunch,
   HiExclamationTriangle,
   HiArrowUpTray,
+  HiArrowDownTray,
   HiArrowPath,
   HiMagnifyingGlass,
   HiKey,
   HiTrash,
-  HiServer,
-  HiGlobeAlt,
-  HiClock,
-  HiHashtag,
-  HiComputerDesktop,
-  HiCalendar,
-  HiLink,
-  HiPlus,
-  HiXMark,
-  HiHeart,
   HiDocumentText,
   HiChevronDown,
-  HiCircleStack,
+  HiPlus,
+  HiXMark,
+  HiChartBar,
 } from 'react-icons/hi2';
 import { ColorBrandPrimary500 } from '@ode/tokens';
 import odeLogo from '../assets/ode-logo-round.png';
@@ -48,10 +34,9 @@ import './Dashboard.css';
 const BRAND_PRIMARY = ColorBrandPrimary500;
 
 type TabType =
-  | 'overview'
-  | 'app-bundles'
   | 'users'
-  | 'system';
+  | 'app-bundles'
+  | 'data-export';
 
 interface AppBundleVersion {
   version: string;
@@ -89,49 +74,12 @@ interface User {
   createdAt?: string;
 }
 
-interface SystemInfo {
-  server?: {
-    version: string;
-  };
-  build?: {
-    commit?: string;
-    build_time?: string;
-    go_version?: string;
-  };
-  version?: string;
-  database?: {
-    type?: string;
-    version?: string;
-    database_name?: string;
-  };
-  system?: {
-    os?: string;
-    architecture?: string;
-    cpus?: number;
-  };
-}
-
-interface HealthStatus {
-  status: string;
-  timestamp?: string;
-  database?: {
-    status: string;
-    response_time?: number;
-  };
-  api?: {
-    status: string;
-    uptime?: number;
-  };
-}
-
 export function Dashboard() {
   const { user, logout } = useAuth();
   const { resolvedTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>('users');
   const [appBundles, setAppBundles] = useState<AppBundleVersion[]>([]);
   const [users, setUsers] = useState<User[]>([]);
-  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
-  const [healthStatus, setHealthStatus] = useState<HealthStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -370,35 +318,7 @@ export function Dashboard() {
     }
   };
 
-  const loadSystemInfo = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [info, healthResponse] = await Promise.all([
-        api.get<SystemInfo>('/version').catch(() => null),
-        fetch(`${import.meta.env.VITE_API_URL || '/api'}/health`).catch(
-          () => null,
-        ),
-      ]);
-      if (info) setSystemInfo(info);
-
-      // Health endpoint returns plain text "OK", so we create a health status object
-      if (healthResponse && healthResponse.ok) {
-        const healthText = await healthResponse.text();
-        setHealthStatus({
-          status: healthText || 'OK',
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Failed to load system info',
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     setError(null);
@@ -409,8 +329,6 @@ export function Dashboard() {
       loadAppBundles();
     } else if (tab === 'users' && users.length === 0) {
       loadUsers();
-    } else if (tab === 'system' && !systemInfo) {
-      loadSystemInfo();
     }
   };
 
@@ -774,8 +692,8 @@ export function Dashboard() {
       <main className="dashboard-content">
         <nav className="dashboard-tabs">
           <button
-            className={`tab-button ${activeTab === 'overview' ? 'active' : ''} fade-left`}
-            onClick={() => handleTabChange('overview')}>
+            className={`tab-button ${activeTab === 'users' ? 'active' : ''} fade-left`}
+            onClick={() => handleTabChange('users')}>
             <svg className="border-fade" preserveAspectRatio="none">
               <defs>
                 <linearGradient
@@ -807,13 +725,9 @@ export function Dashboard() {
               />
             </svg>
             <span className="tab-icon">
-              {activeTab === 'overview' ? (
-                <HiChartBar />
-              ) : (
-                <HiOutlineChartBar />
-              )}
+              {activeTab === 'users' ? <HiUsers /> : <HiOutlineUsers />}
             </span>
-            <span>Overview</span>
+            <span>Users</span>
           </button>
           <button
             className={`tab-button ${activeTab === 'app-bundles' ? 'active' : ''} fade-right`}
@@ -855,30 +769,26 @@ export function Dashboard() {
           </button>
           {user?.role === 'admin' && (
             <button
-              className={`tab-button ${activeTab === 'users' ? 'active' : ''} fade-left`}
-              onClick={() => handleTabChange('users')}>
+              className={`tab-button ${activeTab === 'data-export' ? 'active' : ''} fade-right`}
+              onClick={() => handleTabChange('data-export')}>
               <svg className="border-fade" preserveAspectRatio="none">
                 <defs>
                   <linearGradient
-                    id="border-fade-left-1"
+                    id="border-fade-data-export"
                     x1="0%"
                     y1="0%"
                     x2="100%"
                     y2="0%">
+                    <stop offset="0%" stopColor={BRAND_PRIMARY} stopOpacity="1" />
                     <stop
-                      offset="0%"
-                      stopColor={BRAND_PRIMARY}
-                      stopOpacity="0"
-                    />
-                    <stop
-                      offset="15%"
+                      offset="85%"
                       stopColor={BRAND_PRIMARY}
                       stopOpacity="1"
                     />
                     <stop
                       offset="100%"
                       stopColor={BRAND_PRIMARY}
-                      stopOpacity="1"
+                      stopOpacity="0"
                     />
                   </linearGradient>
                 </defs>
@@ -888,83 +798,15 @@ export function Dashboard() {
                   width="100%"
                   height="100%"
                   rx="8"
-                  stroke="url(#border-fade-left-1)"
+                  stroke="url(#border-fade-data-export)"
                 />
               </svg>
               <span className="tab-icon">
-                {activeTab === 'users' ? <HiUsers /> : <HiOutlineUsers />}
+                {activeTab === 'data-export' ? <HiArrowDownTray /> : <HiArrowDownTray />}
               </span>
-              <span>Users</span>
+              <span>Data Export</span>
             </button>
           )}
-          <button
-            className={`tab-button ${activeTab === 'system' ? 'active' : ''} ${user?.role === 'admin' ? 'fade-right' : 'fade-left'}`}
-            onClick={() => handleTabChange('system')}>
-            <svg className="border-fade" preserveAspectRatio="none">
-              <defs>
-                <linearGradient
-                  id={`border-fade-system-${user?.role === 'admin' ? 'right' : 'left'}`}
-                  x1="0%"
-                  y1="0%"
-                  x2="100%"
-                  y2="0%">
-                  {user?.role === 'admin' ? (
-                    <>
-                      <stop
-                        offset="0%"
-                        stopColor={BRAND_PRIMARY}
-                        stopOpacity="1"
-                      />
-                      <stop
-                        offset="85%"
-                        stopColor={BRAND_PRIMARY}
-                        stopOpacity="1"
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor={BRAND_PRIMARY}
-                        stopOpacity="0"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <stop
-                        offset="0%"
-                        stopColor={BRAND_PRIMARY}
-                        stopOpacity="0"
-                      />
-                      <stop
-                        offset="15%"
-                        stopColor={BRAND_PRIMARY}
-                        stopOpacity="1"
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor={BRAND_PRIMARY}
-                        stopOpacity="1"
-                      />
-                    </>
-                  )}
-                </linearGradient>
-              </defs>
-              <rect
-                x="0"
-                y="0"
-                width="100%"
-                height="100%"
-                rx="8"
-                stroke={`url(#border-fade-system-${user?.role === 'admin' ? 'right' : 'left'})`}
-              />
-            </svg>
-            <span className="tab-icon">
-              {activeTab === 'system' ? (
-                <HiCog6Tooth />
-              ) : (
-                <HiOutlineCog6Tooth />
-              )}
-            </span>
-            <span>System</span>
-          </button>
         </nav>
 
         {error && (
@@ -992,58 +834,7 @@ export function Dashboard() {
         )}
 
         <div className="tab-content">
-          {activeTab === 'overview' && (
-            <div className="overview-section">
-              <div className="section-title">
-                <h2>Dashboard Overview</h2>
-                <p className="section-subtitle">
-                  Welcome to your Synkronus control center
-                </p>
-              </div>
-              <div className="stats-grid">
-                <div className="stat-card primary">
-                  <div className="stat-icon">
-                    <HiCheckCircle />
-                  </div>
-                  <div className="stat-content">
-                    <h3>System Status</h3>
-                    <p className="stat-value">Operational</p>
-                  </div>
-                </div>
-                <div className="stat-card info">
-                  <div className="stat-icon">
-                    <HiUser />
-                  </div>
-                  <div className="stat-content">
-                    <h3>User Role</h3>
-                    <p className="stat-value">{user?.role || 'N/A'}</p>
-                  </div>
-                </div>
-                <div className="stat-card success">
-                  <div className="stat-icon">
-                    <HiLockClosed />
-                  </div>
-                  <div className="stat-content">
-                    <h3>Username</h3>
-                    <p className="stat-value">{user?.username || 'N/A'}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="welcome-card">
-                <div className="welcome-icon">
-                  <HiRocketLaunch />
-                </div>
-                <div>
-                  <h3>Get Started</h3>
-                  <p>
-                    Use the navigation tabs above to manage app bundles, users,
-                    export data, and view system information.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
+          
           {activeTab === 'app-bundles' && (
             <div className="app-bundles-section">
               <div className="section-header">
@@ -1438,250 +1229,60 @@ export function Dashboard() {
             </div>
           )}
 
-          {activeTab === 'system' && (
-            <div className="system-section">
+          {activeTab === 'data-export' && (
+            <div className="data-export-section">
               <div className="section-header">
                 <div className="section-title">
-                  <h2>System Information</h2>
+                  <h2>Data Export</h2>
                   <p className="section-subtitle">
-                    Server version and build details
+                    Export observation data as Parquet files
                   </p>
                 </div>
-                <Button
-                  variant="neutral"
-                  onPress={loadSystemInfo}
-                  disabled={loading}
-                  position="standalone"
-                  className="refresh-button">
-                  <HiArrowPath /> Refresh
-                </Button>
               </div>
-              {loading && !systemInfo ? (
-                <div className="loading-state">
-                  <div className="spinner"></div>
-                  <p>Loading system information...</p>
-                </div>
-              ) : systemInfo || healthStatus ? (
-                <div>
-                  {healthStatus && (
-                    <div className="health-status-section">
-                      <h3 className="health-status-title">Health Status</h3>
-                      <div className="info-cards">
-                        <div className="info-card">
-                          <div className="info-icon">
-                            <HiHeart />
-                          </div>
-                          <div className="info-content">
-                            <h3>Overall Status</h3>
-                            <p
-                              className={
-                                healthStatus.status === 'OK' ||
-                                healthStatus.status === 'ok'
-                                  ? 'health-status-text'
-                                  : 'health-status-text error'
-                              }>
-                              {healthStatus.status || 'Unknown'}
-                            </p>
-                          </div>
-                        </div>
-                        {healthStatus.database && (
-                          <div className="info-card">
-                            <div className="info-icon">
-                              <HiServer />
-                            </div>
-                            <div className="info-content">
-                              <h3>Database</h3>
-                              <p
-                                className={
-                                  healthStatus.database.status === 'OK' ||
-                                  healthStatus.database.status === 'ok'
-                                    ? 'health-status-text'
-                                    : 'health-status-text error'
-                                }>
-                                {healthStatus.database.status || 'Unknown'}
-                                {healthStatus.database.response_time &&
-                                  ` (${healthStatus.database.response_time}ms)`}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        {healthStatus.api && (
-                          <div className="info-card">
-                            <div className="info-icon">
-                              <HiGlobeAlt />
-                            </div>
-                            <div className="info-content">
-                              <h3>API</h3>
-                              <p
-                                className={
-                                  healthStatus.api.status === 'OK' ||
-                                  healthStatus.api.status === 'ok'
-                                    ? 'health-status-text'
-                                    : 'health-status-text error'
-                                }>
-                                {healthStatus.api.status || 'Unknown'}
-                                {healthStatus.api.uptime &&
-                                  ` (${Math.floor(healthStatus.api.uptime / 3600)}h)`}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        {healthStatus.timestamp && (
-                          <div className="info-card">
-                            <div className="info-icon">
-                              <HiClock />
-                            </div>
-                            <div className="info-content">
-                              <h3>Last Check</h3>
-                              <p>
-                                {new Date(
-                                  healthStatus.timestamp,
-                                ).toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="system-info-title">System Information</h3>
-                    <div className="info-cards">
-                      <div className="info-card">
-                        <div className="info-icon">
-                          <HiHashtag />
-                        </div>
-                        <div className="info-content">
-                          <h3>Server Version</h3>
-                          <p>
-                            {systemInfo?.server?.version ||
-                              systemInfo?.version ||
-                              'N/A'}
-                          </p>
-                        </div>
-                      </div>
-                      {systemInfo?.build?.go_version && (
-                        <div className="info-card">
-                          <div className="info-icon">
-                            <HiCog6Tooth />
-                          </div>
-                          <div className="info-content">
-                            <h3>Go Runtime</h3>
-                            <p>{systemInfo.build.go_version}</p>
-                          </div>
-                        </div>
-                      )}
-                      {systemInfo?.system && (
-                        <div className="info-card">
-                          <div className="info-icon">
-                            <HiComputerDesktop />
-                          </div>
-                          <div className="info-content">
-                            <h3>System</h3>
-                            <p className="system-info-text">
-                              {systemInfo.system.os || 'N/A'}{' '}
-                              {systemInfo.system.architecture || ''}
-                              {systemInfo.system.cpus &&
-                                ` • ${systemInfo.system.cpus} CPUs`}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {systemInfo?.database?.database_name && (
-                        <div className="info-card">
-                          <div className="info-icon">
-                            <HiChartBar />
-                          </div>
-                          <div className="info-content">
-                            <h3>Database Name</h3>
-                            <p>{systemInfo.database.database_name}</p>
-                          </div>
-                        </div>
-                      )}
-                      {systemInfo?.database?.type && (
-                        <div className="info-card">
-                          <div className="info-icon">
-                            <HiServer />
-                          </div>
-                          <div className="info-content">
-                            <h3>Database Type</h3>
-                            <p>{systemInfo.database.type}</p>
-                          </div>
-                        </div>
-                      )}
-                      {systemInfo?.database?.version && (
-                        <div className="info-card">
-                          <div className="info-icon">
-                            <HiCircleStack />
-                          </div>
-                          <div className="info-content">
-                            <h3>Database Version</h3>
-                            <p className="system-info-text">
-                              {systemInfo.database.version}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {systemInfo?.build?.build_time && (
-                        <div className="info-card">
-                          <div className="info-icon">
-                            <HiClock />
-                          </div>
-                          <div className="info-content">
-                            <h3>Build Time</h3>
-                            <p>
-                              {new Date(
-                                systemInfo.build.build_time,
-                              ).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      {systemInfo?.build?.commit && (
-                        <div className="info-card">
-                          <div className="info-icon">
-                            <HiLink />
-                          </div>
-                          <div className="info-content">
-                            <h3>Git Commit</h3>
-                            <p className="commit-hash">
-                              {systemInfo.build.commit}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      <div className="info-card">
-                        <div className="info-icon">
-                          <HiGlobeAlt />
-                        </div>
-                        <div className="info-content">
-                          <h3>API Endpoint</h3>
-                          <p className="api-endpoint-text">
-                            {import.meta.env.VITE_API_URL || '/api'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="info-card">
-                        <div className="info-icon">
-                          <HiCalendar />
-                        </div>
-                        <div className="info-content">
-                          <h3>Current Time</h3>
-                          <p>{new Date().toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
+              <div className="export-options">
+                <div className="export-card">
+                  <div className="export-icon">
+                    <HiArrowDownTray />
+                  </div>
+                  <div className="export-content">
+                    <h3>Export All Data</h3>
+                    <p>Download all observation data as ZIP containing multiple Parquet files (one per form type)</p>
+                    <Button
+                      variant="primary"
+                      onPress={async () => {
+                        try {
+                          const apiUrl = import.meta.env.VITE_API_URL || '/api';
+                          const token = localStorage.getItem('token');
+                          const response = await fetch(`${apiUrl}/dataexport/parquet`, {
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              'x-formulus-version': '1.0.0'
+                            }
+                          });
+                          if (!response.ok) {
+                            throw new Error(`Export failed: ${response.statusText}`);
+                          }
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `parquet-export-${new Date().toISOString().split('T')[0]}.zip`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                          setSuccess('Parquet files downloaded successfully!');
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : 'Export failed');
+                        }
+                      }}
+                      disabled={loading}
+                      className="export-button">
+                      <HiArrowDownTray /> Export Parquet
+                    </Button>
                   </div>
                 </div>
-              ) : (
-                <div className="empty-state">
-                  <div className="empty-icon">
-                    <HiCog6Tooth />
-                  </div>
-                  <h3>No System Info</h3>
-                  <p>Click refresh to load system information</p>
-                </div>
-              )}
+              </div>
             </div>
           )}
         </div>
