@@ -124,12 +124,16 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   /** Nested App Settings (themes only). */
   const [appSettingsOpen, setAppSettingsOpen] = useState<boolean>(false);
 
-  // Collapse nested App Settings when main Settings closes
-  useEffect(() => {
-    if (!settingsOpen) {
+  /** Toggle Settings; when closing, collapse nested App Settings (no setState in useEffect — CI react-hooks/set-state-in-effect). */
+  const toggleSettingsOpen = () => {
+    if (settingsOpen) {
       setAppSettingsOpen(false);
+      setSettingsOpen(false);
+    } else {
+      setSettingsOpen(true);
     }
-  }, [settingsOpen]);
+  };
+
   // Backdrop covers the full height; bottom nav is rendered above this layer
   // by the tab navigator, so its buttons remain clickable.
   const bottomPadding = 0;
@@ -297,7 +301,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 <TouchableOpacity
                   style={styles.appSettingsHeader}
                   activeOpacity={0.8}
-                  onPress={() => setSettingsOpen(open => !open)}>
+                  onPress={toggleSettingsOpen}>
                   <View style={styles.appSettingsTitleRow}>
                     <Icon name="cog" size={24} color={textColor} />
                     <Text
