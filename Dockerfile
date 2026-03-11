@@ -46,7 +46,7 @@ WORKDIR /app/synkronus-portal
 RUN npm run build
 
 # Stage 2: Build the Go application (Synkronus) with embedded portal
-FROM golang:1.24.2-alpine AS synkronus-builder
+FROM golang:1.26.0-alpine AS synkronus-builder
 
 RUN apk add --no-cache git
 
@@ -64,14 +64,14 @@ COPY --from=portal-builder /app/synkronus-portal/dist ./portal/dist
 
 # Build the application with version from build arg
 # Version is automatically derived from git tags in CI and passed as build arg
-# Defaults to "dev" for local builds without tags
-ARG SYNKRONUS_VERSION=dev
+# Defaults to "1.0.0" so server version validation works (must be valid semantic version)
+ARG SYNKRONUS_VERSION=1.0.0
 ENV CGO_ENABLED=0 GOOS=linux
 RUN echo "Building Synkronus with version: ${SYNKRONUS_VERSION}" && \
     go build -a -ldflags="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}" -o synkronus ./cmd/synkronus
 
 # Stage 3: Minimal runtime image — single Go server (API + portal)
-FROM alpine:3.19
+FROM alpine:3.23
 
 RUN apk --no-cache add ca-certificates tzdata wget
 
