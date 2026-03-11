@@ -40,7 +40,7 @@ import {
   HiCircleStack,
 } from 'react-icons/hi2';
 import { ColorBrandPrimary500 } from '@ode/tokens';
-import odeLogo from '../assets/ode_logo.png';
+import odeLogo from '../assets/ode-logo-round.png';
 import dashboardBackgroundDark from '../assets/dashboard-background.png';
 import dashboardBackgroundLight from '../assets/dashboard-background-light.png';
 import './Dashboard.css';

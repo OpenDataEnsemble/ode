@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button, Input } from '@ode/components/react-web';
 
-import odeLogo from '../assets/ode_logo.png';
+import odeLogo from '../assets/ode-logo-round.png';
 import dashboardBackgroundDark from '../assets/dashboard-background.png';
 import dashboardBackgroundLight from '../assets/dashboard-background-light.png';
 import './Login.css';
