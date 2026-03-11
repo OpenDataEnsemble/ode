@@ -69,7 +69,7 @@ export default defineConfig({
           process.env.DOCKER_ENV === 'true' ||
           process.env.VITE_API_URL?.includes('synkronus:')
             ? 'http://synkronus:8080'
-            : process.env.API_URL || 'http://localhost:8080',
+            : process.env.API_URL || process.env.VITE_API_URL || 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
         rewrite: path => {
@@ -86,7 +86,7 @@ export default defineConfig({
               process.env.DOCKER_ENV === 'true' ||
                 process.env.VITE_API_URL?.includes('synkronus:')
                 ? 'http://synkronus:8080'
-                : process.env.API_URL || 'http://localhost:8080',
+                : process.env.API_URL || process.env.VITE_API_URL || 'http://localhost:8080',
             );
           });
           proxy.on('proxyReq', (proxyReq, req, _res) => {
