@@ -233,7 +233,7 @@ const SettingsScreen = () => {
       await Keychain.setGenericPassword(trimmedUsername, trimmedPassword);
       await login(trimmedUsername, trimmedPassword);
       ToastService.showShort('Successfully logged in!');
-      navigation.navigate('Home');
+      navigation.navigate('Sync');
     } catch (error) {
       console.error('Login failed:', error);
       const message = isVersionMismatchError(error)
@@ -287,7 +287,7 @@ const SettingsScreen = () => {
           try {
             await login(settings.username, settings.password);
             ToastService.showShort('Successfully logged in!');
-            navigation.navigate('Home');
+            navigation.navigate('Sync');
           } catch (error) {
             console.error('Auto-login failed:', error);
             const errorMessage =

@@ -162,7 +162,7 @@
     <div class="placeholder-card">
       <h1 class="placeholder-title">Your Custom<br>App</h1>
       <p class="placeholder-subtitle" id="subtitle-text">
-        Login and Sync to load your forms
+        <strong>Login</strong> and <strong>Update App Bundle</strong> to load your forms
       </p>
       <button
         type="button"
@@ -202,17 +202,27 @@
       }
 
       var loginBtn = document.getElementById('login-btn');
+      var subtitleEl = document.getElementById('subtitle-text');
+
+      /** Logged-out copy: bold Login + Update App Bundle. Logged-in copy: bold Update App Bundle only. */
+      var SUBTITLE_LOGIN =
+        '<strong>Login</strong> and <strong>Update App Bundle</strong> to load your forms';
+      var SUBTITLE_UPDATE =
+        '<strong>Update App Bundle</strong> to load your forms';
 
       function setButtonMode(mode) {
         if (!loginBtn) return;
         if (mode === 'sync') {
-          loginBtn.textContent = 'Sync Now';
-          loginBtn.setAttribute('aria-label', 'Sync to load forms');
+          // Logged in: button goes to Sync screen to update app bundle
+          loginBtn.textContent = 'Update Now';
+          loginBtn.setAttribute('aria-label', 'Update App Bundle to load forms');
           loginBtn.onclick = navigateToSync;
+          if (subtitleEl) subtitleEl.innerHTML = SUBTITLE_UPDATE;
         } else {
           loginBtn.textContent = 'Login Now';
           loginBtn.setAttribute('aria-label', 'Login to load forms');
           loginBtn.onclick = navigateToLogin;
+          if (subtitleEl) subtitleEl.innerHTML = SUBTITLE_LOGIN;
         }
       }
 
