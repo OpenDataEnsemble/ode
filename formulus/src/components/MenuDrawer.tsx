@@ -119,7 +119,21 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
     ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
     : withAlpha(colors.neutral[900] as string, 0.02);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  /** Top-level Settings (Server Settings + App Settings). */
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+  /** Nested App Settings (themes only). */
   const [appSettingsOpen, setAppSettingsOpen] = useState<boolean>(false);
+
+  /** Toggle Settings; when closing, collapse nested App Settings (no setState in useEffect — CI react-hooks/set-state-in-effect). */
+  const toggleSettingsOpen = () => {
+    if (settingsOpen) {
+      setAppSettingsOpen(false);
+      setSettingsOpen(false);
+    } else {
+      setSettingsOpen(true);
+    }
+  };
+
   // Backdrop covers the full height; bottom nav is rendered above this layer
   // by the tab navigator, so its buttons remain clickable.
   const bottomPadding = 0;
@@ -281,13 +295,13 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           )}
 
           <ScrollView style={styles.menuList}>
-            {/* App Settings dropdown with Themes section, divided by thin lines */}
+            {/* Settings: Server Settings (login/server URL) + App Settings (themes) */}
             <View style={styles.menuItem}>
               <View style={styles.themeContent}>
                 <TouchableOpacity
                   style={styles.appSettingsHeader}
                   activeOpacity={0.8}
-                  onPress={() => setAppSettingsOpen(open => !open)}>
+                  onPress={toggleSettingsOpen}>
                   <View style={styles.appSettingsTitleRow}>
                     <Icon name="cog" size={24} color={textColor} />
                     <Text
@@ -296,74 +310,127 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                         styles.appSettingsLabel,
                         { color: textColor },
                       ]}>
-                      App Settings
+                      Settings
                     </Text>
                     <Icon
-                      name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
+                      name={settingsOpen ? 'chevron-up' : 'chevron-down'}
                       size={20}
                       color={textColor}
                       style={styles.appSettingsChevron}
                     />
                   </View>
                 </TouchableOpacity>
-                {appSettingsOpen && (
-                  <View
-                    style={[
-                      styles.themesCardOuter,
-                      {
-                        borderColor: menuModalBorderColor,
-                        backgroundColor: cardOuterBg,
-                      },
-                    ]}>
-                    <View
-                      style={[
-                        styles.themesCardInner,
-                        { backgroundColor: cardInnerBg },
-                      ]}>
-                      <Text style={[styles.themesTitle, { color: textColor }]}>
-                        Themes
+                {settingsOpen && (
+                  <View style={styles.settingsNestedBlock}>
+                    {/* Server Settings: same destination as bottom Login */}
+                    <TouchableOpacity
+                      style={styles.serverSettingsRow}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        onClose();
+                        onNavigate('Settings');
+                      }}>
+                      <Icon name="server-network" size={22} color={textColor} />
+                      <Text
+                        style={[
+                          styles.menuLabel,
+                          styles.nestedSettingsLabel,
+                          { color: textColor },
+                        ]}>
+                        Server Settings
                       </Text>
-                      <View style={styles.themeOptionsColumn}>
-                        {(['system', 'dark', 'light'] as ThemeMode[]).map(
-                          mode => (
-                            <TouchableOpacity
-                              key={mode}
-                              style={[
-                                styles.themeChip,
-                                {
-                                  borderColor:
-                                    themeMode === mode
-                                      ? (themeColors.primary as string)
-                                      : isDark
-                                        ? (themeChipBorderColorDark as string)
-                                        : (colors.neutral[400] as string),
-                                },
-                              ]}
-                              activeOpacity={0.8}
-                              onPress={() => setThemeMode(mode)}>
-                              <Text
-                                style={[
-                                  styles.themeChipLabel,
-                                  {
-                                    color:
-                                      themeMode === mode
-                                        ? (themeColors.primary as string)
-                                        : isDark
-                                          ? (colors.neutral[200] as string)
-                                          : (colors.neutral[700] as string),
-                                  },
-                                ]}>
-                                {mode === 'system'
-                                  ? 'System'
-                                  : mode === 'dark'
-                                    ? 'Dark'
-                                    : 'Light'}
-                              </Text>
-                            </TouchableOpacity>
-                          ),
-                        )}
+                      <Icon
+                        name="chevron-right"
+                        size={20}
+                        color={textColor}
+                        style={styles.nestedChevronRight}
+                      />
+                    </TouchableOpacity>
+                    <MenuDivider color={menuModalBorderColor} />
+                    {/* App Settings: nested dropdown for themes only */}
+                    <TouchableOpacity
+                      style={styles.appSettingsSubHeader}
+                      activeOpacity={0.8}
+                      onPress={() => setAppSettingsOpen(open => !open)}>
+                      <View style={styles.appSettingsTitleRow}>
+                        <Icon name="palette" size={22} color={textColor} />
+                        <Text
+                          style={[
+                            styles.menuLabel,
+                            styles.nestedSettingsLabel,
+                            { color: textColor },
+                          ]}>
+                          App Settings
+                        </Text>
+                        <Icon
+                          name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
+                          size={20}
+                          color={textColor}
+                          style={styles.appSettingsChevron}
+                        />
                       </View>
-                    </View>
+                    </TouchableOpacity>
+                    {appSettingsOpen && (
+                      <View
+                        style={[
+                          styles.themesCardOuter,
+                          {
+                            borderColor: menuModalBorderColor,
+                            backgroundColor: cardOuterBg,
+                          },
+                        ]}>
+                        <View
+                          style={[
+                            styles.themesCardInner,
+                            { backgroundColor: cardInnerBg },
+                          ]}>
+                          <Text
+                            style={[styles.themesTitle, { color: textColor }]}>
+                            Themes
+                          </Text>
+                          <View style={styles.themeOptionsColumn}>
+                            {(['system', 'dark', 'light'] as ThemeMode[]).map(
+                              mode => (
+                                <TouchableOpacity
+                                  key={mode}
+                                  style={[
+                                    styles.themeChip,
+                                    {
+                                      borderColor:
+                                        themeMode === mode
+                                          ? (themeColors.primary as string)
+                                          : isDark
+                                            ? (themeChipBorderColorDark as string)
+                                            : (colors.neutral[400] as string),
+                                    },
+                                  ]}
+                                  activeOpacity={0.8}
+                                  onPress={() => setThemeMode(mode)}>
+                                  <Text
+                                    style={[
+                                      styles.themeChipLabel,
+                                      {
+                                        color:
+                                          themeMode === mode
+                                            ? (themeColors.primary as string)
+                                            : isDark
+                                              ? (colors.neutral[200] as string)
+                                              : (colors.neutral[700] as string),
+                                      },
+                                    ]}>
+                                    {mode === 'system'
+                                      ? 'System'
+                                      : mode === 'dark'
+                                        ? 'Dark'
+                                        : 'Light'}
+                                  </Text>
+                                </TouchableOpacity>
+                              ),
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>
@@ -548,6 +615,32 @@ const styles = StyleSheet.create({
   },
   appSettingsChevron: {
     marginLeft: odeSpacing.xs,
+  },
+  settingsNestedBlock: {
+    marginTop: odeSpacing.sm,
+    borderRadius: odeRadius.inner,
+    overflow: 'hidden',
+  },
+  serverSettingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.sm,
+    paddingVertical: odeSpacing.sm,
+    paddingHorizontal: odeSpacing.xs,
+  },
+  appSettingsSubHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: odeSpacing.sm,
+    paddingHorizontal: odeSpacing.xs,
+    marginTop: odeSpacing.xs,
+  },
+  nestedSettingsLabel: {
+    flex: 1,
+    marginLeft: 0,
+  },
+  nestedChevronRight: {
+    marginLeft: 'auto',
   },
   sectionLabel: {
     marginTop: odeSpacing.sm,
