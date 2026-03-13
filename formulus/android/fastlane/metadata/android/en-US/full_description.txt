@@ -1,0 +1,7 @@
+ODE Formulus is the data collection instrument that hosts your own custom application and your form specifications (in jsonforms format). 
+It provides bi-directional synchronization with an ODE Synkronus server. 
+
+Notice that you need your own instance of the ODE Synkronus server for this application to be useful. 
+
+If you want to try the application but still don't have your own Synkronus server, feel free to try out our demo app [link and instructions to be added later].
+
