@@ -1,2 +1,1 @@
-Bespoke data collection instruments Formulus and Synkronus from Open Data Ensemble
-
+Offline-first bespoke data collection apps from Open Data Ensemble
