@@ -1,7 +1,22 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { withJsonFormsControlProps } from '@jsonforms/react';
-import { ControlProps, rankWith, schemaTypeIs, and, schemaMatches } from '@jsonforms/core';
-import { Select, MenuItem, Box, Typography, Alert, Button, FormControl, InputLabel } from '@mui/material';
+import {
+  ControlProps,
+  rankWith,
+  schemaTypeIs,
+  and,
+  schemaMatches,
+} from '@jsonforms/core';
+import {
+  Select,
+  MenuItem,
+  Box,
+  Typography,
+  Alert,
+  Button,
+  FormControl,
+  InputLabel,
+} from '@mui/material';
 import { CalendarToday } from '@mui/icons-material';
 import QuestionShell from '../components/QuestionShell';
 import {
@@ -17,7 +32,7 @@ export const adateQuestionTester = rankWith(
   5, // Priority (higher = more specific)
   and(
     schemaTypeIs('string'), // Expects string data type
-    schemaMatches((schema) => schema.format === 'adate'), // Matches format
+    schemaMatches(schema => schema.format === 'adate'), // Matches format
   ),
 );
 
@@ -87,45 +102,52 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
     }
 
     // Nothing entered yet — don't store
-    if (!day && !month && !year && !dayUnknown && !monthUnknown && !yearUnknown) {
+    if (
+      !day &&
+      !month &&
+      !year &&
+      !dayUnknown &&
+      !monthUnknown &&
+      !yearUnknown
+    ) {
       lastWrittenData.current = '';
       handleChange(path, '');
       return;
     }
 
-    const dayValue = dayUnknown ? 'NS' : (day || 'NS');
-    const monthValue = monthUnknown ? 'NS' : (month || 'NS');
-    const yearValue = yearUnknown ? 'NS' : (year || 'NS');
+    const dayValue = dayUnknown ? 'NS' : day || 'NS';
+    const monthValue = monthUnknown ? 'NS' : month || 'NS';
+    const yearValue = yearUnknown ? 'NS' : year || 'NS';
 
     const adateString = `D:${dayValue},M:${monthValue},Y:${yearValue}`;
     const storageFormat = adateToStorageFormat(adateString);
     lastWrittenData.current = storageFormat || '';
     handleChange(path, storageFormat || '');
-  }, [day, month, year, dayUnknown, monthUnknown, yearUnknown, handleChange, path]);
+  }, [
+    day,
+    month,
+    year,
+    dayUnknown,
+    monthUnknown,
+    yearUnknown,
+    handleChange,
+    path,
+  ]);
 
   // Handle day change
-  const handleDayChange = useCallback(
-    (event: any) => {
-      setDay(event.target.value as string);
-    },
-    [],
-  );
+  const handleDayChange = useCallback((event: any) => {
+    setDay(event.target.value as string);
+  }, []);
 
   // Handle month change
-  const handleMonthChange = useCallback(
-    (event: any) => {
-      setMonth(event.target.value as string);
-    },
-    [],
-  );
+  const handleMonthChange = useCallback((event: any) => {
+    setMonth(event.target.value as string);
+  }, []);
 
   // Handle year change
-  const handleYearChange = useCallback(
-    (event: any) => {
-      setYear(event.target.value as string);
-    },
-    [],
-  );
+  const handleYearChange = useCallback((event: any) => {
+    setYear(event.target.value as string);
+  }, []);
 
   // Handle quick date buttons
   const handleToday = useCallback(() => {
@@ -163,7 +185,8 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
     return null;
   }
 
-  const hasError = errors && (Array.isArray(errors) ? errors.length > 0 : errors.length > 0);
+  const hasError =
+    errors && (Array.isArray(errors) ? errors.length > 0 : errors.length > 0);
   const displayValue = data ? displayAdate(data) : '';
   const errorMessage = hasError
     ? Array.isArray(errors)
@@ -176,8 +199,7 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
       title={schema.title || 'Approximate Date'}
       description={schema.description}
       required={schema.required?.includes(path.split('.').pop() || '')}
-      error={errorMessage}
-    >
+      error={errorMessage}>
       <Box sx={{ mb: 2 }}>
         {/* Quick date buttons */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
@@ -186,29 +208,47 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
             size="small"
             startIcon={<CalendarToday />}
             onClick={handleToday}
-            disabled={!enabled}
-          >
+            disabled={!enabled}>
             Today
           </Button>
-          <Button variant="outlined" size="small" onClick={handleYesterday} disabled={!enabled}>
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={handleYesterday}
+            disabled={!enabled}>
             Yesterday
           </Button>
         </Box>
 
         {/* Date input fields */}
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 2,
+            alignItems: 'flex-start',
+            flexWrap: 'wrap',
+          }}>
           {/* Day */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 120 }}>
-            <FormControl size="small" fullWidth disabled={!enabled || dayUnknown}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              minWidth: 120,
+            }}>
+            <FormControl
+              size="small"
+              fullWidth
+              disabled={!enabled || dayUnknown}>
               <InputLabel>Day</InputLabel>
-              <Select
-                label="Day"
-                value={day}
-                onChange={handleDayChange}
-              >
-                <MenuItem value=""><em>--</em></MenuItem>
-                {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                  <MenuItem key={d} value={String(d)}>{d}</MenuItem>
+              <Select label="Day" value={day} onChange={handleDayChange}>
+                <MenuItem value="">
+                  <em>--</em>
+                </MenuItem>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
+                  <MenuItem key={d} value={String(d)}>
+                    {d}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -216,7 +256,7 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
               <input
                 type="checkbox"
                 checked={dayUnknown}
-                onChange={(e) => {
+                onChange={e => {
                   setDayUnknown(e.target.checked);
                   if (e.target.checked) setDay('');
                 }}
@@ -228,17 +268,26 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
           </Box>
 
           {/* Month */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 120 }}>
-            <FormControl size="small" fullWidth disabled={!enabled || monthUnknown}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              minWidth: 120,
+            }}>
+            <FormControl
+              size="small"
+              fullWidth
+              disabled={!enabled || monthUnknown}>
               <InputLabel>Month</InputLabel>
-              <Select
-                label="Month"
-                value={month}
-                onChange={handleMonthChange}
-              >
-                <MenuItem value=""><em>--</em></MenuItem>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <MenuItem key={m} value={String(m)}>{m}</MenuItem>
+              <Select label="Month" value={month} onChange={handleMonthChange}>
+                <MenuItem value="">
+                  <em>--</em>
+                </MenuItem>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                  <MenuItem key={m} value={String(m)}>
+                    {m}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -246,7 +295,7 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
               <input
                 type="checkbox"
                 checked={monthUnknown}
-                onChange={(e) => {
+                onChange={e => {
                   setMonthUnknown(e.target.checked);
                   if (e.target.checked) setMonth('');
                 }}
@@ -258,17 +307,29 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
           </Box>
 
           {/* Year */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 120 }}>
-            <FormControl size="small" fullWidth disabled={!enabled || yearUnknown}>
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              minWidth: 120,
+            }}>
+            <FormControl
+              size="small"
+              fullWidth
+              disabled={!enabled || yearUnknown}>
               <InputLabel>Year</InputLabel>
-              <Select
-                label="Year"
-                value={year}
-                onChange={handleYearChange}
-              >
-                <MenuItem value=""><em>--</em></MenuItem>
-                {Array.from({ length: new Date().getFullYear() - 1899 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                  <MenuItem key={y} value={String(y)}>{y}</MenuItem>
+              <Select label="Year" value={year} onChange={handleYearChange}>
+                <MenuItem value="">
+                  <em>--</em>
+                </MenuItem>
+                {Array.from(
+                  { length: new Date().getFullYear() - 1899 },
+                  (_, i) => new Date().getFullYear() - i,
+                ).map(y => (
+                  <MenuItem key={y} value={String(y)}>
+                    {y}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -276,7 +337,7 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
               <input
                 type="checkbox"
                 checked={yearUnknown}
-                onChange={(e) => {
+                onChange={e => {
                   setYearUnknown(e.target.checked);
                   if (e.target.checked) setYear('');
                 }}
