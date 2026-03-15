@@ -140,8 +140,11 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
     return (schema as any)?.['x-dynamicEnum'] as DynamicEnumConfig | undefined;
   }, [schema]);
 
-  // Get current form data for template parameter resolution
-  const currentFormData = ctx?.core?.data || {};
+  // Get current form data for template parameter resolution (memoized so useCallback/useEffect deps are stable)
+  const currentFormData = useMemo(
+    () => ctx?.core?.data || {},
+    [ctx?.core?.data],
+  );
 
   // Handle value change - must be defined before any early returns
   const handleValueChange = useCallback(
@@ -247,17 +250,27 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
   // Load choices on mount, when config changes, and when form data changes (for cascading filters)
   // currentFormData must be in deps so fields that use {{data.field}} templates reload
   // when the user selects a value in a dependent field (e.g. sex -> filter person list)
+  const dynamicQuery = dynamicConfig?.query;
+  const dynamicParamsStr = useMemo(
+    () => JSON.stringify(dynamicConfig?.params),
+    [dynamicConfig?.params],
+  );
+  const currentFormDataStr = useMemo(
+    () => JSON.stringify(currentFormData),
+    [currentFormData],
+  );
   useEffect(() => {
     if (dynamicConfig && visible && enabled) {
       loadChoices();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    dynamicConfig?.query,
-    JSON.stringify(dynamicConfig?.params),
+    dynamicQuery,
+    dynamicParamsStr,
     visible,
     enabled,
-    JSON.stringify(currentFormData),
+    currentFormDataStr,
+    dynamicConfig,
+    loadChoices,
   ]);
 
   // Early returns after all hooks

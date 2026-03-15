@@ -212,6 +212,8 @@ class WebViewMock {
     if (!mockGlobal.formulus) {
       // Create a partial mock that captures the methods we care about.
       // getVersion is required by formulus-load.js so it accepts this as a valid API.
+      // Create a partial mock that captures the methods we care about.
+      // getVersion is required by formulus-load.js so it accepts this as a valid API.
       mockGlobal.formulus = {
         getVersion: (): Promise<string> => Promise.resolve('mock-dev'),
         submitObservation: (
@@ -359,6 +361,7 @@ class WebViewMock {
     }
 
     this.isActive = true;
+    (globalThis as any).__FORMULUS_MOCK_ACTIVE__ = true;
   }
 
   // Add a listener for messages from the app
@@ -1659,6 +1662,7 @@ class WebViewMock {
       this.pendingQrcodePromises.clear();
 
       this.isActive = false;
+      (globalThis as any).__FORMULUS_MOCK_ACTIVE__ = false;
       console.log('[WebView Mock] Destroyed mock ReactNativeWebView interface');
     }
   }
