@@ -581,17 +581,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
     overflow: 'hidden',
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   logoWrapper: {
     width: 40,

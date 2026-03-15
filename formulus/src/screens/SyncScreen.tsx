@@ -843,23 +843,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
     marginBottom: odeSpacing.xs,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   subtitle: {
     fontSize: odeTypography.bodySm,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   scrollTransparent: {
     backgroundColor: 'transparent',

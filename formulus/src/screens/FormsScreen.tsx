@@ -246,11 +246,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
   },
   headerLeft: {
@@ -260,9 +257,11 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
     marginBottom: odeSpacing.xs,
+    textAlign: 'left',
   },
   subtitle: {
     fontSize: odeTypography.bodySm,
+    textAlign: 'left',
   },
   searchButton: {
     padding: odeSpacing.xxs,

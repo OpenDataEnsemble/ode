@@ -171,19 +171,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
     marginBottom: odeSpacing.xs,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   content: {
     padding: odeSpacing.md,

@@ -388,16 +388,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.ui.gray.light,
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: colors.neutral[800],
     marginBottom: 4,
+    textAlign: 'left',
   },
   subtitle: {
     fontSize: 14,
     color: colors.neutral[600],
+    textAlign: 'left',
   },
   formTypesList: {
     flex: 1,
