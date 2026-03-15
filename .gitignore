@@ -20,3 +20,4 @@ local.properties
 
 # Formplayer built assets
 formulus/android/app/src/main/assets/formplayer_dist/
+formulus-formplayer/debug-storybook.log

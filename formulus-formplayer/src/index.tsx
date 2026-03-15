@@ -20,4 +20,13 @@ if (typeof window !== 'undefined') {
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement,
 );
-root.render(<App />);
+
+// In development, load and init the WebView mock before rendering (keeps mock out of production bundle)
+if (import.meta.env.DEV) {
+  import('./mocks/webview-mock').then(({ webViewMock }) => {
+    webViewMock.init();
+    root.render(<App />);
+  });
+} else {
+  root.render(<App />);
+}
