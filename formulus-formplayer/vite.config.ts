@@ -28,6 +28,9 @@ export default defineConfig({
     outDir: 'build',
     assetsDir: 'public',
     sourcemap: true,
+    // Increase default chunk size warning limit (in kB) since we intentionally
+    // ship a single large bundle for WebView compatibility.
+    chunkSizeWarningLimit: 2500,
     rollupOptions: {
       output: {
         // Single bundle for WebView compatibility: multi-chunk ES modules often fail
