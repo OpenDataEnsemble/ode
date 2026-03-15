@@ -48,6 +48,9 @@ const ObservationsScreen: React.FC = () => {
   const titleColor = isDark
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
+  const clearIconColor = isDark
+    ? (colors.neutral[300] as string)
+    : (colors.neutral[600] as string);
   const navigation = useNavigation<ObservationsScreenNavigationProp>();
   const observationsHook = useObservations();
   const {
@@ -283,11 +286,15 @@ const ObservationsScreen: React.FC = () => {
               style={styles.searchInput}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                style={styles.clearIconButton}
+                hitSlop={8}>
                 <Icon
-                  name="close-circle"
+                  name="close"
                   size={20}
-                  color={themeColors.onSurface}
+                  color={clearIconColor}
+                  style={styles.clearIcon}
                 />
               </TouchableOpacity>
             )}
@@ -408,6 +415,9 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     marginBottom: 0,
+  },
+  clearIconButton: {
+    marginLeft: odeSpacing.xs,
   },
   filtersContainer: {
     padding: odeSpacing.md,

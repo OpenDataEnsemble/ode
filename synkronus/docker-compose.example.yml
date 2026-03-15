@@ -35,7 +35,10 @@ services:
     # Use pre-built image from GitHub Container Registry
     image: ghcr.io/opendataensemble/synkronus:latest
     # Or build locally for development:
-    # build: .
+    # build:
+    #   context: .
+    #   args:
+    #     SYNKRONUS_VERSION: ${SYNKRONUS_VERSION:-1.0.0}
     expose:
       - "8080"
     # Only expose port directly if not using nginx:

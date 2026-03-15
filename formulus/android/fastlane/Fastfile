@@ -1,0 +1,47 @@
+default_platform(:android)
+
+platform :android do
+  # Build a release APK suitable for F-Droid style distribution
+  desc "Assemble a release APK (fdroid flavor)"
+  lane :fdroid_build do
+    gradle(
+      task: "assemble",
+      build_type: "Release",
+      project_dir: ".",
+      print_command: true
+    )
+  end
+
+  # Full pipeline: clean, build, and export APK + metadata to a folder
+  desc "Clean, assemble, and export a release APK and metadata for F-Droid"
+  lane :fdroid_release do
+    gradle(
+      task: "clean",
+      project_dir: ".",
+      print_command: true
+    )
+
+    gradle(
+      task: "assemble",
+      build_type: "Release",
+      project_dir: ".",
+      print_command: true
+    )
+
+    # Export artifacts to a predictable directory for CI / manual upload
+    apk_path = Actions.lane_context[SharedValues::GRADLE_ALL_APK_OUTPUT_PATHS]&.first
+
+    if apk_path.nil?
+      UI.important("Fastlane could not auto-detect the APK path, falling back to Gradle default.")
+      apk_path = "app/build/outputs/apk/release"
+    end
+
+    output_dir = "fastlane/fdroid_artifacts"
+    sh("mkdir -p #{output_dir}") unless File.directory?(output_dir)
+
+    sh("cp #{apk_path} #{output_dir}/") if File.file?(apk_path)
+
+    UI.message("F-Droid artifacts exported to #{output_dir}")
+  end
+end
+

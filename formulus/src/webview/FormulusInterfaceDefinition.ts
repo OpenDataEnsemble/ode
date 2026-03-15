@@ -59,6 +59,7 @@ export interface FormInitData {
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
     custom_types: Record<string, { source: string }>;
+    validators?: Record<string, { source: string }>;
   };
 }
 
@@ -469,6 +470,12 @@ export interface FormulusInterface {
     displayName?: string;
     role?: 'read-only' | 'read-write' | 'admin';
   }>;
+
+  /**
+   * Get the current theme mode (System / Light / Dark) so custom apps can match the host app.
+   * @returns {Promise<'light' | 'dark' | 'system'>} Current theme mode; 'system' means follow device preference.
+   */
+  getThemeMode(): Promise<'light' | 'dark' | 'system'>;
 }
 
 /**

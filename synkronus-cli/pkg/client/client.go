@@ -107,8 +107,8 @@ func (c *Client) GetVersion() (*SystemVersionInfo, error) {
 }
 
 func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
-	// Add API version header
-	req.Header.Set("x-api-version", c.APIVersion)
+	// Add API version header (x-formulus-version is required by some servers)
+	req.Header.Set("x-formulus-version", c.APIVersion)
 
 	// Get authentication token
 	token, err := auth.GetToken()
@@ -447,9 +447,9 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 
 	req.Header.Set("Content-Type", "application/json")
 
-	// Add API version header
+	// Add API version header (x-formulus-version is required by some servers)
 	if c.APIVersion != "" {
-		req.Header.Set("x-api-version", c.APIVersion)
+		req.Header.Set("x-formulus-version", c.APIVersion)
 	}
 
 	// Send request

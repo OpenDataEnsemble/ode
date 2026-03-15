@@ -358,9 +358,17 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
           </Box>
         )}
 
-        {/* Validation errors */}
+        {/* Validation errors – same as QuestionShell: icon, no background, text color matches icon */}
         {hasError && (
-          <Alert severity="error" sx={{ mt: 2 }}>
+          <Alert
+            severity="error"
+            icon={<ErrorOutline />}
+            sx={{
+              mt: 2,
+              backgroundColor: 'transparent',
+              color: 'error.main',
+              '& .MuiAlert-icon': { color: 'error.main' },
+            }}>
             {Array.isArray(errors) ? errors.join(', ') : String(errors)}
           </Alert>
         )}

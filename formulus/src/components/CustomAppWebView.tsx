@@ -32,7 +32,7 @@ interface CustomAppWebViewProps {
   appName?: string; // To identify the source of logs
   onLoadEndProp?: () => void; // Propagate WebView's onLoadEnd event
   onCanGoBackChange?: (canGoBack: boolean) => void; // Notify parent when WebView back-navigability changes
-  /** Called when placeholder posts formulusNavigateToSync (e.g. "Login Now" button). */
+  /** Called when placeholder posts formulusNavigateToSync (e.g. "Update Now" → Sync screen). */
   onNavigateToSync?: () => void;
   /** Called when placeholder posts formulusNavigateToSettings (Login Now → login/settings screen). */
   onNavigateToSettings?: () => void;

@@ -150,6 +150,27 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     customAppRef.current.injectJavaScript(js);
   }, [resolvedMode, localUri, isPlaceholder]);
 
+  // The placeholder button switches between "Login Now" and "Update Now" (both flows; Update goes to Sync).
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isPlaceholder || !customAppRef.current) {
+        return;
+      }
+      const js = `
+        (function() {
+          try {
+            if (window.__formulusPlaceholderRefreshLoginState) {
+              window.__formulusPlaceholderRefreshLoginState();
+            }
+          } catch (e) {
+            // no-op
+          }
+        })();
+      `;
+      customAppRef.current.injectJavaScript(js);
+    }, [isPlaceholder]),
+  );
+
   if (!localUri) {
     return (
       <View style={styles.container}>
