@@ -176,11 +176,6 @@ class WebViewMock {
       (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true) ||
       process.env.NODE_ENV === 'development';
     if (!isDev) {
-    // NEVER initialize in production - use both Vite (import.meta.env.DEV) and Node-style env
-    const isDev =
-      (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true) ||
-      process.env.NODE_ENV === 'development';
-    if (!isDev) {
       console.log(
         '[WebView Mock] Production environment detected, refusing to initialize mock',
       );

@@ -12,7 +12,8 @@ const adateSchema = {
       type: 'string',
       format: 'adate',
       title: 'Approximate date',
-      description: 'Enter the date when possible. Use "Not specified" for unknown day, month or year.',
+      description:
+        'Enter the date when possible. Use "Not specified" for unknown day, month or year.',
     },
   },
 };
@@ -36,7 +37,8 @@ const meta: Meta<typeof JsonFormsControlWrapper> = {
   tags: ['autodocs'],
   argTypes: {
     initialData: {
-      description: 'Initial form data (storage format: YYYY-MM-DD, use ?? for unknown parts)',
+      description:
+        'Initial form data (storage format: YYYY-MM-DD, use ?? for unknown parts)',
     },
   },
 };
