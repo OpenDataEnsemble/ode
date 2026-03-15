@@ -1,6 +1,5 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { JsonForms } from '@jsonforms/react';
-import { materialRenderers } from '@jsonforms/material-renderers';
 import type { JsonSchema7, UISchemaElement } from '@jsonforms/core';
 import type { JsonFormsRendererRegistryEntry } from '@jsonforms/core';
 
@@ -22,14 +21,6 @@ export function JsonFormsControlWrapper({
   renderers,
 }: JsonFormsControlWrapperProps) {
   const [data, setData] = useState<Record<string, unknown>>(initialData);
-
-  const handleChange = useCallback(
-    (_path: string, value: unknown) => {
-      const key = Object.keys(schema.properties || {})[0];
-      if (key) setData(prev => ({ ...prev, [key]: value }));
-    },
-    [schema.properties],
-  );
 
   return (
     <JsonForms
