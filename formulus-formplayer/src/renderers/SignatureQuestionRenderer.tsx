@@ -1,12 +1,5 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import {
-  Button,
-  Typography,
-  Box,
-  CircularProgress,
-  Paper,
-  IconButton,
-} from '@mui/material';
+import React, { useCallback, useRef, useEffect } from 'react';
+import { Button, Typography, Box, Paper, IconButton } from '@mui/material';
 import {
   Draw as SignatureIcon,
   Delete as DeleteIcon,
@@ -14,8 +7,6 @@ import {
 } from '@mui/icons-material';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import { ControlProps, rankWith, formatIs } from '@jsonforms/core';
-import FormulusClient from '../services/FormulusInterface';
-import { SignatureResult } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
 
@@ -26,10 +17,16 @@ const parsePx = (value: string): number => {
 
 // Tester function - determines when this renderer should be used
 export const signatureQuestionTester = rankWith(
-  10, // Priority - higher than default string renderer
+  12, // Priority - above default string and object renderers so we always get the scope
   formatIs('signature'),
 );
 
+/**
+ * Signature control: inline canvas for drawing, no Formulus API required.
+ * Uses standard JSON Forms ControlProps: `data` is the current value (loaded when editing
+ * a saved form), `handleChange(path, value)` persists changes. Signature data shape:
+ * { type: 'signature', filename, uri, timestamp?, metadata? }.
+ */
 const SignatureQuestionRenderer: React.FC<ControlProps> = ({
   data,
   handleChange,
@@ -40,47 +37,13 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
   enabled = true,
   visible = true,
 }) => {
-  // State management
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [showCanvas, setShowCanvas] = useState(false);
-
   // Refs
-  const formulusClient = useRef(FormulusClient.getInstance());
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
   // Extract field ID from path
   const fieldId = path.split('.').pop() || path;
-
-  // Handle signature capture via React Native
-  const handleNativeSignature = useCallback(async () => {
-    setIsCapturing(true);
-    setError(null);
-
-    try {
-      const result: SignatureResult =
-        await formulusClient.current.requestSignature(fieldId);
-
-      if (result.status === 'success' && result.data) {
-        // Update form data with the signature result
-        handleChange(path, result.data);
-        setShowCanvas(false);
-      }
-    } catch (err: any) {
-      if (err.status === 'cancelled') {
-        // User cancelled - don't show error
-        console.log('Signature capture cancelled by user');
-      } else if (err.status === 'error') {
-        setError(err.message || 'Signature capture failed');
-      } else {
-        setError('An unexpected error occurred');
-      }
-    } finally {
-      setIsCapturing(false);
-    }
-  }, [fieldId, handleChange, path]);
 
   // Canvas drawing functions
   const getCanvasPoint = useCallback(
@@ -214,31 +177,30 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
       },
     };
 
-    // Update form data
+    // Update form data (UI switches to "signature captured" view)
     handleChange(path, signatureData);
-    setShowCanvas(false);
   }, [handleChange, path]);
 
-  // Handle delete/clear
-  const handleDelete = useCallback(() => {
+  // Clear signature and return to canvas
+  const handleClearSignature = useCallback(() => {
     handleChange(path, null);
-    setError(null);
   }, [handleChange, path]);
 
-  // Initialize canvas
+  // Signature present when data has the expected shape
+  const hasData =
+    data &&
+    typeof data === 'object' &&
+    (data as { type?: string }).type === 'signature';
+
+  // Initialize canvas when showing the pad (no signature yet)
   useEffect(() => {
-    if (showCanvas && canvasRef.current) {
+    if (!hasData && canvasRef.current) {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        // Set canvas size
-        canvas.width = 400;
+        canvas.width = 560;
         canvas.height = 200;
-
-        // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Set background color based on theme - use dark gray for dark mode, white for light mode
         const isDark =
           window.matchMedia &&
           window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -248,14 +210,13 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
     }
-  }, [showCanvas]);
+  }, [hasData]);
 
   // Don't render if not visible
   if (!visible) {
     return null;
   }
 
-  const hasData = data && typeof data === 'object' && data.type === 'signature';
   const validationError =
     errors && (Array.isArray(errors) ? errors.join(', ') : errors);
 
@@ -267,8 +228,8 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
         (uischema as any)?.options?.required ??
         (schema as any)?.options?.required,
       )}
-      error={error || validationError}
-      helperText="Capture a clear signature. You can use native capture or draw on canvas."
+      error={validationError}
+      helperText="Draw your signature in the box below, then save."
       metadata={
         process.env.NODE_ENV === 'development' ? (
           <Box
@@ -288,8 +249,8 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
           </Box>
         ) : undefined
       }>
-      {/* Canvas Signature Pad */}
-      {showCanvas && (
+      {/* Inline signature pad – shown when no signature has been captured yet */}
+      {!hasData && (
         <Paper sx={{ p: 2 }}>
           <Typography variant="subtitle2" sx={{ mb: 2 }}>
             Draw your signature below:
@@ -298,7 +259,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
             sx={{
               border: `${tokens.border.width.medium} dashed`,
               borderColor: 'divider',
-              borderRadius: parsePx(tokens.border.radius.md), // Match button border radius
+              borderRadius: parsePx(tokens.border.radius.md),
               p: 1,
               mb: 2,
               display: 'flex',
@@ -308,9 +269,12 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
             <canvas
               ref={canvasRef}
               style={{
+                width: '100%',
+                maxWidth: 560,
+                aspectRatio: '560 / 200',
                 border: `${tokens.border.width.thin} solid`,
                 borderColor: 'divider',
-                borderRadius: tokens.border.radius.md, // Match button border radius
+                borderRadius: tokens.border.radius.md,
                 cursor: 'crosshair',
                 backgroundColor: 'background.paper',
                 touchAction: 'none',
@@ -340,133 +304,88 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
               size="small">
               Save Signature
             </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setShowCanvas(false)}
-              disabled={!enabled}
-              size="small">
-              Cancel
-            </Button>
           </Box>
         </Paper>
       )}
 
-      {/* Action Buttons */}
-      {!showCanvas && !hasData && (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            py: { xs: 4, sm: 5 },
-            px: 2,
-          }}>
-          <IconButton
-            onClick={handleNativeSignature}
-            disabled={!enabled || isCapturing}
-            color="primary"
-            size="large"
-            sx={{
-              width: { xs: 56, sm: 64 },
-              height: { xs: 56, sm: 64 },
-              backgroundColor: 'primary.main',
-              color: 'white',
-              '&:hover': {
-                backgroundColor: 'primary.dark',
-              },
-              '&:disabled': {
-                backgroundColor: 'action.disabledBackground',
-                color: 'action.disabled',
-              },
-            }}
-            aria-label="Capture signature">
-            {isCapturing ? (
-              <CircularProgress size={24} sx={{ color: 'white' }} />
-            ) : (
-              <SignatureIcon sx={{ fontSize: { xs: 28, sm: 32 } }} />
-            )}
-          </IconButton>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ mt: 2, textAlign: 'center' }}>
-            {isCapturing
-              ? 'Capturing signature...'
-              : 'Tap to capture signature'}
-          </Typography>
-        </Box>
-      )}
-
-      {/* Signature Display */}
-      {hasData && (
-        <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start',
-            }}>
-            <Box sx={{ flex: 1 }}>
-              <Typography
-                variant="subtitle2"
-                color="text.secondary"
-                sx={{ mb: 1 }}>
-                Signature Captured:
-              </Typography>
+      {/* Signature captured – show image and options to replace or remove */}
+      {hasData &&
+        (() => {
+          const sig = data as {
+            uri: string;
+            filename: string;
+            metadata?: { size?: number };
+          };
+          return (
+            <Paper sx={{ p: 2, bgcolor: 'background.paper' }}>
               <Box
                 sx={{
-                  border: `${tokens.border.width.thin} solid`,
-                  borderColor: 'divider',
-                  borderRadius: `${parsePx(tokens.border.radius.md)}px`,
-                  p: 1,
-                  mb: 2,
-                  backgroundColor: 'background.paper',
                   display: 'flex',
-                  justifyContent: 'center',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
                 }}>
-                <img
-                  src={data.uri}
-                  alt="Signature"
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '150px',
-                    border: 'none',
-                  }}
-                />
+                <Box sx={{ flex: 1 }}>
+                  <Typography
+                    variant="subtitle2"
+                    color="text.secondary"
+                    sx={{ mb: 1 }}>
+                    Signature captured
+                  </Typography>
+                  <Box
+                    sx={{
+                      border: `${tokens.border.width.thin} solid`,
+                      borderColor: 'divider',
+                      borderRadius: `${parsePx(tokens.border.radius.md)}px`,
+                      p: 1,
+                      mb: 2,
+                      backgroundColor: 'background.paper',
+                      display: 'flex',
+                      justifyContent: 'center',
+                    }}>
+                    <img
+                      src={sig.uri}
+                      alt="Signature"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '150px',
+                        border: 'none',
+                      }}
+                    />
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">
+                    {sig.filename}
+                    {sig.metadata?.size != null &&
+                      ` · ${Math.round(sig.metadata.size / 1024)} KB`}
+                  </Typography>
+                </Box>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 0.5,
+                    justifyContent: 'flex-end',
+                    mt: 2,
+                  }}>
+                  <IconButton
+                    onClick={handleClearSignature}
+                    disabled={!enabled}
+                    color="primary"
+                    size="small"
+                    aria-label="Replace signature">
+                    <SignatureIcon />
+                  </IconButton>
+                  <IconButton
+                    onClick={handleClearSignature}
+                    disabled={!enabled}
+                    color="error"
+                    size="small"
+                    aria-label="Remove signature">
+                    <DeleteIcon />
+                  </IconButton>
+                </Box>
               </Box>
-              <Typography variant="caption" color="text.secondary">
-                File: {data.filename} | Size:{' '}
-                {Math.round(data.metadata.size / 1024)}KB
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                gap: 0.5,
-                justifyContent: 'flex-end',
-                mt: 2,
-              }}>
-              <IconButton
-                onClick={handleNativeSignature}
-                disabled={!enabled || isCapturing}
-                color="primary"
-                size="small"
-                aria-label="Re-capture signature">
-                <SignatureIcon />
-              </IconButton>
-              <IconButton
-                onClick={handleDelete}
-                disabled={!enabled}
-                color="error"
-                size="small"
-                aria-label="Delete signature">
-                <DeleteIcon />
-              </IconButton>
-            </Box>
-          </Box>
-        </Paper>
-      )}
+            </Paper>
+          );
+        })()}
     </QuestionShell>
   );
 };
