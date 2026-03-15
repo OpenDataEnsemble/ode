@@ -361,6 +361,7 @@ class WebViewMock {
     }
 
     this.isActive = true;
+    (globalThis as any).__FORMULUS_MOCK_ACTIVE__ = true;
   }
 
   // Add a listener for messages from the app
@@ -1661,6 +1662,7 @@ class WebViewMock {
       this.pendingQrcodePromises.clear();
 
       this.isActive = false;
+      (globalThis as any).__FORMULUS_MOCK_ACTIVE__ = false;
       console.log('[WebView Mock] Destroyed mock ReactNativeWebView interface');
     }
   }

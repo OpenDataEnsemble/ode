@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react';
+import type { Meta, StoryObj } from '@storybook/react-vite';
 import { JsonFormsControlWrapper } from './JsonFormsControlWrapper';
 import { numberStepperRenderer } from '../renderers/NumberStepperRenderer';
 import { materialRenderers } from '@jsonforms/material-renderers';

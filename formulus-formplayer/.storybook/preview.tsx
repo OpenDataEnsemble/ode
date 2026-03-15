@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Preview } from '@storybook/react';
+import type { Preview } from '@storybook/react-vite';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from '../src/theme/theme';
 

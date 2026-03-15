@@ -82,15 +82,18 @@ import { loadCustomValidators } from './services/CustomValidatorLoader';
 import { customValidatorRegistry } from './services/CustomValidatorRegistry';
 import { executeAllCustomValidators } from './services/CustomValidatorExecutor';
 
-// Import development dependencies (Vite will tree-shake these in production)
-import { webViewMock } from './mocks/webview-mock';
-import DevTestbed from './mocks/DevTestbed';
-
-// Initialize the mock in development mode (synchronously)
-if (import.meta.env.DEV) {
-  console.log('[App] Initializing WebView mock for development');
-  webViewMock.init();
+// Mock and DevTestbed are loaded only in development via dynamic import (see index.tsx).
+// This keeps ~2000+ lines of mock code out of production bundles.
+function isMockActive(): boolean {
+  return !!(
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    (window as any).__FORMULUS_MOCK_ACTIVE__
+  );
 }
+const DevTestbedLazy = import.meta.env.DEV
+  ? React.lazy(() => import('./mocks/DevTestbed'))
+  : null;
 
 // Define interfaces for our form data structure
 interface FormData {
@@ -246,27 +249,7 @@ if (typeof window !== 'undefined') {
 }
 
 function App() {
-  // Initialize WebView mock ONLY in development mode and ONLY if ReactNativeWebView doesn't exist
-  if (
-    process.env.NODE_ENV === 'development' &&
-    webViewMock &&
-    !window.ReactNativeWebView
-  ) {
-    console.log(
-      'Development mode detected and no ReactNativeWebView found, initializing WebView mock...',
-    );
-    webViewMock.init();
-    console.log(
-      'WebView mock initialized, isActive:',
-      webViewMock.isActiveMock(),
-    );
-  } /* else if (process.env.NODE_ENV !== 'development') {
-    console.log('Production mode detected, NOT initializing WebView mock');
-  } else if (window.ReactNativeWebView) {
-    console.log('ReactNativeWebView already exists, NOT initializing mock');
-  } else if (!webViewMock) {
-    console.log('WebView mock not available (production build)');
-  }*/
+  // WebView mock is initialized in index.tsx (dev only, via dynamic import)
 
   // State for form data, schema, and UI schema
   const [data, setData] = useState<FormData>({});
@@ -657,20 +640,14 @@ function App() {
         'ReactNativeWebView.postMessage not available. Cannot signal readiness.',
       );
       console.log('Debug - NODE_ENV:', process.env.NODE_ENV);
-      console.log(
-        'Debug - webViewMock.isActiveMock():',
-        webViewMock.isActiveMock(),
-      );
+      console.log('Debug - isMockActive():', isMockActive());
       console.log('Debug - isLoadingRef.current:', isLoadingRef.current);
 
       // Potentially set an error or handle standalone mode if WebView context isn't available
       // For example, if running in a standard browser for development
       if (isLoadingRef.current) {
         // Avoid setting error if already handled by timeout or success
-        if (
-          process.env.NODE_ENV === 'development' &&
-          webViewMock.isActiveMock()
-        ) {
+        if (isMockActive()) {
           console.log(
             'Development mode: WebView mock is active, continuing without error',
           );
@@ -1174,8 +1151,8 @@ function App() {
             </ErrorBoundary>
           </div>
 
-          {/* Development testbed - 40% width in development mode */}
-          {process.env.NODE_ENV === 'development' && DevTestbed && (
+          {/* Development testbed - 40% width in development mode (lazy-loaded, not in production bundle) */}
+          {DevTestbedLazy && (
             <div
               style={{
                 width: '40%',
@@ -1183,7 +1160,9 @@ function App() {
                 backgroundColor: tokens.color.neutral[50],
               }}>
               <ErrorBoundary>
-                <DevTestbed isVisible={true} />
+                <React.Suspense fallback={null}>
+                  <DevTestbedLazy isVisible={true} />
+                </React.Suspense>
               </ErrorBoundary>
             </div>
           )}
