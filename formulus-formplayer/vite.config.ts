@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { visualizer } from 'rollup-plugin-visualizer';
 import path from 'path';
 
 /**
@@ -18,7 +19,16 @@ function removeCrossOriginForWebView() {
 }
 
 export default defineConfig({
-  plugins: [react(), removeCrossOriginForWebView()],
+  plugins: [
+    react(),
+    removeCrossOriginForWebView(),
+    visualizer({
+      open: true,
+      gzipSize: true,
+      brotliSize: true,
+      filename: 'build/stats.html',
+    }),
+  ],
 
   // Use relative base path so formplayer works when loaded from file:// in WebView
   base: './',
