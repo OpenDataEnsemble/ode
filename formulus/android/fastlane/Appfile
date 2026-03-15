@@ -1,0 +1,3 @@
+app_identifier "org.opendataensemble.formulus"
+json_key_file "" # Not used for F-Droid, kept for compatibility
+
