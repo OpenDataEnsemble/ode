@@ -11,7 +11,6 @@ import {
   FormulusInterface,
   CameraResult,
   QrcodeResult,
-  SignatureResult,
   FileResult,
   AudioResult,
 } from '../types/FormulusInterfaceDefinition';
@@ -206,23 +205,6 @@ class FormulusClient {
     return Promise.reject(
       new Error('Formulus interface not available for callSubform'),
     );
-  }
-
-  /**
-   * Request signature capture from the Formulus RN app
-   */
-  public async requestSignature(fieldId: string): Promise<SignatureResult> {
-    console.log('Requesting signature for field', fieldId);
-    await this.tryEnsureFormulus();
-    if (this.formulus) {
-      return this.formulus.requestSignature(fieldId);
-    }
-    console.warn('Formulus interface not available for requestSignature');
-    return Promise.reject({
-      fieldId,
-      status: 'error',
-      message: 'Formulus interface not available',
-    } as SignatureResult);
   }
 
   /**
