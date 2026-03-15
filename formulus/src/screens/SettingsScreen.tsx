@@ -10,7 +10,10 @@ import {
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import {
+  useNavigation,
+  useFocusEffect,
+} from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
 import { login, isVersionMismatchError } from '../api/synkronus/Auth';
@@ -57,6 +60,13 @@ const SettingsScreen = () => {
   const { showConfirm } = useConfirmModal();
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const isDark = resolvedMode === 'dark';
+
+  // Always show Themes collapsed when the Settings screen is opened
+  useFocusEffect(
+    useCallback(() => {
+      setAppSettingsOpen(false);
+    }, []),
+  );
   const odeOpacity = (tokens as { opacity?: Record<string, string> }).opacity;
   const themeChipBorderOpacityDark =
     odeOpacity?.['50'] != null ? Number(odeOpacity['50']) : 0.5;
