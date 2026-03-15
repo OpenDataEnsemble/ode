@@ -45,10 +45,17 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
-    "format:check": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --check"
+    "format:check": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@storybook/addon-essentials": "^8.6.14",
+    "@storybook/addon-interactions": "^8.6.14",
+    "@storybook/blocks": "^8.6.14",
+    "@storybook/react": "^8.6.14",
+    "@storybook/react-vite": "^8.6.14",
     "@types/node": "^24.10.9",
     "@vitejs/plugin-react": "^4.7.0",
     "eslint": "^9.39.2",
@@ -59,6 +66,7 @@
     "globals": "^17.1.0",
     "prettier": "3.8.1",
     "react-refresh": "^0.18.0",
+    "storybook": "^8.6.14",
     "typescript-eslint": "^8.54.0",
     "vite": "^6.4.1"
   },
