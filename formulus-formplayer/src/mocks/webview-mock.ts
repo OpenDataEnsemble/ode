@@ -176,6 +176,11 @@ class WebViewMock {
       (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true) ||
       process.env.NODE_ENV === 'development';
     if (!isDev) {
+    // NEVER initialize in production - use both Vite (import.meta.env.DEV) and Node-style env
+    const isDev =
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true) ||
+      process.env.NODE_ENV === 'development';
+    if (!isDev) {
       console.log(
         '[WebView Mock] Production environment detected, refusing to initialize mock',
       );
@@ -212,8 +217,11 @@ class WebViewMock {
     if (!mockGlobal.formulus) {
       // Create a partial mock that captures the methods we care about.
       // getVersion is required by formulus-load.js so it accepts this as a valid API.
+      // Create a partial mock that captures the methods we care about.
+      // getVersion is required by formulus-load.js so it accepts this as a valid API.
       mockGlobal.formulus = {
-        getVersion: (): Promise<string> => Promise.resolve('mock-dev'),
+        getVersion: (): Promise<string> =>
+          Promise.resolve('mock-dev'),
         submitObservation: (
           formType: string,
           data: Record<string, any>,
@@ -1739,7 +1747,10 @@ export const webViewMock = new WebViewMock();
 
 // Auto-initialize in development when module is first loaded so window.getFormulus
 // exists before FormulusClient is used (avoids "Formulus interface not available")
-if (typeof import.meta !== 'undefined' && import.meta.env?.DEV === true) {
+if (
+  typeof import.meta !== 'undefined' &&
+  import.meta.env?.DEV === true
+) {
   webViewMock.init();
 }
 

@@ -73,6 +73,7 @@ class FormulusClient {
    * @returns Promise that resolves with the observationId (or void for legacy implementations)
    */
   public async submitObservationWithContext(
+  public async submitObservationWithContext(
     formInitData: FormInitData,
     finalData: Record<string, any>,
   ): Promise<string | void> {
@@ -210,6 +211,7 @@ class FormulusClient {
   /**
    * Request QR code scanning from the Formulus RN app
    */
+  public async requestQrcode(fieldId: string): Promise<QrcodeResult> {
   public async requestQrcode(fieldId: string): Promise<QrcodeResult> {
     console.log('Requesting QR code scanner for field', fieldId);
     await this.tryEnsureFormulus();
