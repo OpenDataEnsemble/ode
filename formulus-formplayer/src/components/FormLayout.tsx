@@ -71,6 +71,13 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   showNavigation = true,
 }) => {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [initialViewportHeight] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
+    if (window.visualViewport) {
+      return window.visualViewport.height;
+    }
+    return window.innerHeight;
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.visualViewport) {
@@ -79,8 +86,8 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       const handleViewportChange = () => {
         if (!viewport) return;
 
-        const heightDifference = window.innerHeight - viewport.height;
-        const keyboardThreshold = 150;
+        const heightDifference = initialViewportHeight - viewport.height;
+        const keyboardThreshold = initialViewportHeight * 0.15; // 15% of screen
         setIsKeyboardVisible(heightDifference > keyboardThreshold);
       };
 
@@ -94,10 +101,10 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       };
     } else {
       // Fallback for browsers without Visual Viewport API
+      const initialHeight = window.innerHeight;
       const handleResize = () => {
         const currentHeight = window.innerHeight;
-        const initialHeight = window.screen.height;
-        setIsKeyboardVisible(currentHeight < initialHeight * 0.75);
+        setIsKeyboardVisible(currentHeight < initialHeight * 0.85);
       };
 
       window.addEventListener('resize', handleResize);
@@ -152,7 +159,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                   sm: `calc(${theme.spacing(12)} + env(safe-area-inset-bottom, 0px))`,
                   md: `calc(${theme.spacing(13)} + env(safe-area-inset-bottom, 0px))`,
                 }
-              : theme.spacing(15),
+              : theme.spacing(4),
           overscrollBehavior: 'contain',
           position: 'relative',
         })}>
