@@ -221,6 +221,10 @@ const SettingsScreen = () => {
       processedUrl = `https://${processedUrl}`;
     }
 
+    if (processedUrl.endsWith('/')) {
+      processedUrl = processedUrl.slice(0, -1);
+    }
+
     if (isLoggingIn) {
       return;
     }
