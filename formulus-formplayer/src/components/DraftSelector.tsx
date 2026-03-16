@@ -194,9 +194,8 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
         sx={{
           width: '100%',
           maxWidth: 420,
-          textAlign: 'center',
         }}>
-        {/* Header – centered text with tighter spacing */}
+        {/* Header – left-aligned text with tighter spacing */}
         <Box
           sx={{
             mt: 2,
@@ -206,13 +205,13 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
             variant="h6"
             gutterBottom
             color="text.primary"
-            sx={{ fontWeight: 600, textAlign: 'center', mb: 0.5 }}>
+            sx={{ fontWeight: 600, textAlign: 'left', mb: 0.5 }}>
             Resume Draft or Start New
           </Typography>
           <Typography
             variant="body2"
             color="text.secondary"
-            sx={{ textAlign: 'center' }}>
+            sx={{ textAlign: 'left' }}>
             Form: {formType}
             {formVersion && (
               <Chip label={`v${formVersion}`} size="small" sx={{ ml: 1 }} />
@@ -220,21 +219,24 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
           </Typography>
         </Box>
 
-        {/* Start new form section – emphasized and above drafts */}
-        <Box sx={{ textAlign: 'center', mb: 2 }}>
-          <Typography variant="subtitle1" gutterBottom color="text.primary">
-            Start Fresh
+        {/* Start new form section – concise, left-aligned label with centered CTA */}
+        <Box sx={{ mb: 2 }}>
+          <Typography
+            variant="subtitle2"
+            gutterBottom
+            color="text.primary"
+            sx={{ fontWeight: 600, textAlign: 'left' }}>
+            New Form
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}>
-            Begin a new form without any saved data.
-          </Typography>
-          <Button
-            variant="primary"
-            size="medium"
-            onPress={onStartNew}
-            style={{ minWidth: 180 }}>
-            Start New Form
-          </Button>
+          <Box sx={{ textAlign: 'center', mt: 0.5 }}>
+            <Button
+              variant="primary"
+              size="medium"
+              onPress={onStartNew}
+              style={{ minWidth: 180 }}>
+              Start New Form
+            </Button>
+          </Box>
         </Box>
 
         <Divider sx={{ my: 1.5 }} />
