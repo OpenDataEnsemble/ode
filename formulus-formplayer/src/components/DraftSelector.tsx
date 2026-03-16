@@ -188,10 +188,10 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
       sx={{
         minHeight: fullScreen ? '100dvh' : 'auto',
         display: 'flex',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         justifyContent: 'center',
         px: fullScreen ? 2 : 0,
-        py: fullScreen ? 3 : 2,
+        py: fullScreen ? 2.5 : 2,
         bgcolor: 'background.default',
         color: 'text.primary',
       }}>
@@ -201,17 +201,17 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
           maxWidth: 420,
           textAlign: 'center',
         }}>
-        {/* Header – left-aligned text, with space below native header */}
+        {/* Header – centered text with tighter spacing */}
         <Box
           sx={{
-            mt: 2.5,
-            mb: 2.5,
+            mt: 2,
+            mb: 1.5,
           }}>
           <Typography
             variant="h6"
             gutterBottom
             color="text.primary"
-            sx={{ fontWeight: 600, textAlign: 'center' }}>
+            sx={{ fontWeight: 600, textAlign: 'center', mb: 0.5 }}>
             Resume Draft or Start New
           </Typography>
           <Typography
@@ -228,14 +228,14 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
         {/* Available drafts – solid card, no semi-transparent outer container, centered */}
         {draftsSection}
 
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 1.5 }} />
 
         {/* Start new form section – centered */}
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="subtitle1" gutterBottom color="text.primary">
             Start Fresh
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.25 }}>
             Begin a new form without any saved data.
           </Typography>
           <Button
