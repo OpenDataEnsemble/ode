@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   infoRow: {
     flexDirection: 'row',

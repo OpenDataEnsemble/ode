@@ -145,13 +145,13 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
     marginBottom: odeSpacing.xs,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   cardText: {
     fontSize: odeTypography.bodySm,
     lineHeight: 20,
   },
-  cardTextCentered: { textAlign: 'center' },
+  cardTextCentered: { textAlign: 'left' },
   link: { marginTop: odeSpacing.sm, fontWeight: '600' },
 });
 

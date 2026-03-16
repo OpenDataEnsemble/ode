@@ -103,22 +103,28 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
           </View>
           <View style={styles.actions}>
             {onEdit && (
-              <Button
-                title="Edit"
+              <TouchableOpacity
                 onPress={onEdit}
-                variant="primary"
-                size="small"
-                position="left"
-              />
+                accessibilityLabel="Edit observation"
+                style={styles.iconButton}>
+                <Icon
+                  name="pencil"
+                  size={20}
+                  color={themeColors.primary as string}
+                />
+              </TouchableOpacity>
             )}
             {onDelete && (
-              <Button
-                title="Delete"
+              <TouchableOpacity
                 onPress={onDelete}
-                variant="danger"
-                size="small"
-                position="right"
-              />
+                accessibilityLabel="Delete observation"
+                style={styles.iconButton}>
+                <Icon
+                  name="trash-can"
+                  size={20}
+                  color={colors.semantic.error[500] as string}
+                />
+              </TouchableOpacity>
             )}
           </View>
         </View>
@@ -178,7 +184,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+    alignItems: 'center',
+  },
+  iconButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
   },
 });
 

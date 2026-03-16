@@ -200,12 +200,12 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
     marginBottom: odeSpacing.xs,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   cardText: {
     fontSize: odeTypography.bodySm,
     lineHeight: 20,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   link: {
     marginTop: odeSpacing.sm,

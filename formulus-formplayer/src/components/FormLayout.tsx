@@ -122,17 +122,17 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       }}>
       {header && (
         <Box
-          sx={{
+          sx={theme => ({
             flexShrink: 0,
             position: 'sticky',
             top: 0,
             zIndex: 100,
             backgroundColor: 'background.default',
             paddingTop: 'env(safe-area-inset-top, 0px)',
-            boxShadow: tokens.shadow?.xs ?? '0 1px 2px 0 rgba(0,0,0,0.05)',
             width: '100%',
             overflow: 'hidden',
-          }}>
+            borderBottom: `1px solid ${theme.palette.divider}`,
+          })}>
           {header}
         </Box>
       )}

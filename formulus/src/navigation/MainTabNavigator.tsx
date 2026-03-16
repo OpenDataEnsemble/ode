@@ -11,6 +11,7 @@ import { CommonActions } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import Icon from '@react-native-vector-icons/material-design-icons';
+import { HomeOutlineIcon, HomeSolidIcon } from '../icons/HomeIcons';
 import HomeScreen from '../screens/HomeScreen';
 import FormsScreen from '../screens/FormsScreen';
 import ObservationsScreen from '../screens/ObservationsScreen';
@@ -76,11 +77,19 @@ const TabBarIconWrapper = ({
 
 const renderHomeIcon = ({ color, size, focused }: TabBarIconProps) => (
   <TabBarIconWrapper focused={focused}>
-    <Icon
-      name={focused ? 'home' : 'home-outline'}
-      size={iconSize(size)}
-      color={color}
-    />
+    {focused ? (
+      <HomeSolidIcon
+        width={iconSize(size)}
+        height={iconSize(size)}
+        color={color}
+      />
+    ) : (
+      <HomeOutlineIcon
+        width={iconSize(size)}
+        height={iconSize(size)}
+        color={color}
+      />
+    )}
   </TabBarIconWrapper>
 );
 
@@ -106,13 +115,21 @@ const renderObservationsIcon = ({ color, size, focused }: TabBarIconProps) => (
 
 const renderSyncIcon = ({ color, size, focused }: TabBarIconProps) => (
   <TabBarIconWrapper focused={focused}>
-    <Icon name="sync" size={iconSize(size)} color={color} />
+    <Icon
+      name="sync"
+      size={iconSize(size)}
+      color={color}
+    />
   </TabBarIconWrapper>
 );
 
 const renderMoreIcon = ({ color, size, focused }: TabBarIconProps) => (
   <TabBarIconWrapper focused={focused}>
-    <Icon name="dots-vertical" size={iconSize(size)} color={color} />
+    <Icon
+      name="dots-vertical"
+      size={iconSize(size)}
+      color={color}
+    />
   </TabBarIconWrapper>
 );
 

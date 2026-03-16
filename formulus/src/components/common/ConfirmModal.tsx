@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
-import colors, { withAlpha } from '../../theme/colors';
+import colors from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import Button from './Button';
 import {
@@ -41,10 +41,6 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
   const cardBg = themeColors.surface as string;
-  const backdropBg = withAlpha(
-    colors.neutral.black as string,
-    isDark ? 0.8 : 0.65,
-  );
 
   const handlePress = (button: ConfirmButton) => {
     onRequestClose();
@@ -62,7 +58,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       statusBarTranslucent>
       <TouchableOpacity
         activeOpacity={1}
-        style={[styles.backdrop, { backgroundColor: backdropBg }]}
+        style={styles.backdrop}
         onPress={onRequestClose}>
         <TouchableOpacity
           style={styles.centered}
