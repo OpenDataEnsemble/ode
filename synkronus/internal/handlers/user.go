@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opendataensemble/synkronus/internal/models"
+	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 	"github.com/opendataensemble/synkronus/pkg/user"
 )
 
@@ -130,13 +131,13 @@ func (h *Handler) ChangePasswordHandler(w http.ResponseWriter, r *http.Request) 
 		SendErrorResponse(w, http.StatusBadRequest, nil, "Missing required fields")
 		return
 	}
-	// Get username from context (set by auth middleware)
-	username, ok := r.Context().Value("username").(string)
-	if !ok || username == "" {
+	// Get user from context (set by auth middleware)
+	u := auth.GetUserFromContext(r.Context())
+	if u == nil || u.Username == "" {
 		SendErrorResponse(w, http.StatusUnauthorized, nil, "Unauthorized")
 		return
 	}
-	err := h.userService.ChangePassword(r.Context(), username, req.CurrentPassword, req.NewPassword)
+	err := h.userService.ChangePassword(r.Context(), u.Username, req.CurrentPassword, req.NewPassword)
 	if err != nil {
 		SendErrorResponse(w, http.StatusUnauthorized, err, err.Error())
 		return

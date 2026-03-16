@@ -14,6 +14,7 @@ import (
 	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
 	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -198,10 +199,7 @@ func TestChangePasswordHandler(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, "/users/change-password", bytes.NewReader(body))
 			ctx := r.Context()
 			if tc.username != "" {
-				// Using string as context key is required for test compatibility with the handler
-				//revive:disable-next-line:context-keys-type
-				//nolint:gocritic,golint,staticcheck,revive
-				ctx = context.WithValue(ctx, "username", tc.username) //nolint:staticcheck
+				ctx = context.WithValue(ctx, auth.UserKey, &models.User{Username: tc.username, Role: models.RoleReadOnly})
 			}
 			r = r.WithContext(ctx)
 			w := httptest.NewRecorder()
