@@ -114,8 +114,8 @@ const FormLayout: React.FC<FormLayoutProps> = ({
         window.removeEventListener('resize', handleResize);
       };
     }
-  // initialViewportHeight is intentionally read only on mount
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // initialViewportHeight is intentionally read only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
