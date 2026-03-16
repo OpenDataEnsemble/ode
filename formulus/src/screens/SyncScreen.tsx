@@ -19,7 +19,7 @@ import { useSyncContext } from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
 import { databaseService } from '../database/DatabaseService';
 import { getUserInfo } from '../api/synkronus/Auth';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
@@ -38,8 +38,10 @@ const SyncScreen = () => {
   const titleColor = isDark
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
-  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
-  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardBg = themeColors.surface as string;
+  const headerBg = isDark
+    ? (colors.neutral[900] as string)
+    : (colors.neutral[50] as string);
   const syncContextValue = useSyncContext();
   const {
     syncState,
@@ -392,9 +394,8 @@ const SyncScreen = () => {
                 styles.card,
                 styles.statusCard,
                 {
-                  borderWidth: 1,
                   borderColor: themeColors.divider as string,
-                  backgroundColor: cardOuterBg,
+                  backgroundColor: cardBg,
                 },
                 !syncState.isActive &&
                   (pendingObservations > 0 || pendingUploads.count > 0) && {
@@ -417,31 +418,29 @@ const SyncScreen = () => {
                   ? 1
                   : 0.7
               }>
-              <View
-                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-                <View style={styles.statusCardHeader}>
-                  <Icon
-                    name={
-                      syncState.isActive
-                        ? 'sync'
-                        : syncState.error
-                          ? 'alert-circle'
-                          : pendingObservations > 0 || pendingUploads.count > 0
-                            ? 'clock-alert-outline'
-                            : 'check-circle'
-                    }
-                    size={20}
-                    color={statusColor as string}
-                  />
-                  <Text
-                    style={[
-                      styles.statusCardTitle,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    Status
-                  </Text>
-                </View>
+              <View style={styles.statusCardHeader}>
+                <Icon
+                  name={
+                    syncState.isActive
+                      ? 'sync'
+                      : syncState.error
+                        ? 'alert-circle'
+                        : pendingObservations > 0 || pendingUploads.count > 0
+                          ? 'clock-alert-outline'
+                          : 'check-circle'
+                  }
+                  size={20}
+                  color={statusColor as string}
+                />
                 <Text
+                  style={[
+                    styles.statusCardTitle,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  Status
+                </Text>
+              </View>
+              <Text
                   style={[
                     styles.statusCardValue,
                     { color: statusColor as string },
@@ -459,7 +458,6 @@ const SyncScreen = () => {
                       Tap to sync now
                     </Text>
                   )}
-              </View>
             </TouchableOpacity>
 
             <View
@@ -467,14 +465,11 @@ const SyncScreen = () => {
                 styles.card,
                 styles.statusCard,
                 {
-                  borderWidth: 1,
                   borderColor: themeColors.divider as string,
-                  backgroundColor: cardOuterBg,
+                  backgroundColor: cardBg,
                 },
               ]}>
-              <View
-                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-                <View style={styles.statusCardHeader}>
+              <View style={styles.statusCardHeader}>
                   <Icon
                     name="clock-outline"
                     size={20}
@@ -495,8 +490,7 @@ const SyncScreen = () => {
                   ]}>
                   {lastSync ? formatRelativeTime(lastSync) : 'Never'}
                 </Text>
-              </View>
-            </View>
+          </View>
           </View>
 
           {(pendingObservations > 0 || pendingUploads.count > 0) && (
@@ -505,14 +499,11 @@ const SyncScreen = () => {
                 styles.card,
                 styles.pendingSection,
                 {
-                  borderWidth: 1,
                   borderColor: themeColors.divider as string,
-                  backgroundColor: cardOuterBg,
+                  backgroundColor: cardBg,
                 },
               ]}>
-              <View
-                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-                <Text
+              <Text
                   style={[
                     styles.sectionTitle,
                     { color: themeColors.onSurface as string },
@@ -572,7 +563,6 @@ const SyncScreen = () => {
                     </View>
                   </View>
                 )}
-              </View>
             </View>
           )}
 
@@ -583,11 +573,10 @@ const SyncScreen = () => {
               {
                 borderWidth: 1,
                 borderColor: themeColors.divider as string,
-                backgroundColor: cardOuterBg,
+                backgroundColor: cardBg,
               },
             ]}>
-            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-              <View style={styles.versionRow}>
+            <View style={styles.versionRow}>
                 <Text
                   style={[
                     styles.versionLabel,
@@ -650,7 +639,6 @@ const SyncScreen = () => {
                   <Text style={styles.updateBadgeText}>Update available</Text>
                 </View>
               )}
-            </View>
           </View>
 
           {syncState.isActive && syncState.progress && (
@@ -659,14 +647,11 @@ const SyncScreen = () => {
                 styles.card,
                 styles.progressCard,
                 {
-                  borderWidth: 1,
                   borderColor: themeColors.divider as string,
-                  backgroundColor: cardOuterBg,
+                  backgroundColor: cardBg,
                 },
               ]}>
-              <View
-                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-                <View style={styles.progressHeader}>
+              <View style={styles.progressHeader}>
                   <Icon
                     name="sync"
                     size={20}
@@ -725,7 +710,6 @@ const SyncScreen = () => {
                     size="medium"
                   />
                 )}
-              </View>
             </View>
           )}
 
@@ -735,14 +719,11 @@ const SyncScreen = () => {
                 styles.card,
                 styles.errorCard,
                 {
-                  borderWidth: 1,
                   borderColor: themeColors.divider as string,
-                  backgroundColor: cardOuterBg,
+                  backgroundColor: cardBg,
                 },
               ]}>
-              <View
-                style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-                <View style={styles.errorHeader}>
+              <View style={styles.errorHeader}>
                   <Icon
                     name="alert-circle"
                     size={20}
@@ -763,7 +744,6 @@ const SyncScreen = () => {
                   variant="danger"
                   size="medium"
                 />
-              </View>
             </View>
           )}
 
@@ -870,11 +850,6 @@ const styles = StyleSheet.create({
     marginBottom: odeSpacing.md,
     borderWidth: odeBorderWidth.hairline,
     padding: odeSpacing.md,
-  },
-  cardInner: {
-    borderRadius: odeRadius.inner,
-    overflow: 'hidden',
-    padding: odeSpacing.sm,
   },
   statusCardsContainer: {
     flexDirection: 'row',

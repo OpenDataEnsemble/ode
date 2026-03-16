@@ -10,7 +10,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { getUserInfo, UserInfo, UserRole } from '../api/synkronus/Auth';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors, { withAlpha } from '../theme/colors';
 import {
   odeSpacing,
   odeTypography,
@@ -107,12 +107,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
     ? withAlpha(colors.neutral.white as string, dividerOpacityDark)
     : (themeColors.divider as string);
   const menuModalBorderColor = sectionDividerColor;
-  const cardOuterBg = isDark
-    ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
-    : withAlpha(colors.neutral[900] as string, 0.04);
-  const cardInnerBg = isDark
-    ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
-    : withAlpha(colors.neutral[900] as string, 0.02);
+  const sectionBg = themeColors.surface as string;
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   // Backdrop covers the full height; bottom nav is rendered above this layer
   // by the tab navigator, so its buttons remain clickable.
@@ -179,9 +174,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           {
             top: odeSpacing.sm,
             bottom: odeSpacing.sm,
-            backgroundColor: isDark
-              ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
-              : (colors.neutral[50] as string),
+            backgroundColor: themeColors.surface as string,
             shadowColor: themeColors.surface,
             borderLeftWidth: odeBorderWidth.hairline,
             borderLeftColor: isDark
@@ -208,7 +201,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           {userInfo ? (
             <>
               <View
-                style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
+                style={[styles.userSection, { backgroundColor: sectionBg }]}>
                 <View
                   style={[
                     styles.userAvatar,
@@ -244,7 +237,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           ) : (
             <>
               <View
-                style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
+                style={[styles.userSection, { backgroundColor: sectionBg }]}>
                 <View
                   style={[
                     styles.userAvatar,
@@ -306,7 +299,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           </ScrollView>
 
           <MenuDivider color={menuModalBorderColor} />
-          <View style={[styles.footer, { backgroundColor: cardOuterBg }]}>
+          <View style={[styles.footer, { backgroundColor: sectionBg }]}>
             {userInfo ? (
               <Button
                 title="Logout"

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../../database/models/Observation';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
+import colors from '../../theme/colors';
 import Button from './Button';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 
@@ -47,8 +47,7 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
     }
   };
 
-  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
-  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardBg = themeColors.surface as string;
   return (
     <TouchableOpacity
       style={[
@@ -56,13 +55,12 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
         {
           borderWidth: 1,
           borderColor: themeColors.divider as string,
-          backgroundColor: cardOuterBg,
+          backgroundColor: cardBg,
         },
       ]}
       onPress={onPress}
       activeOpacity={0.7}>
-      <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-        <View style={styles.content}>
+      <View style={styles.content}>
           <View style={styles.iconContainer}>
             <Icon
               name={isSynced ? 'check-circle' : 'clock-outline'}
@@ -124,7 +122,6 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
             )}
           </View>
         </View>
-      </View>
     </TouchableOpacity>
   );
 };
@@ -136,11 +133,7 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     borderWidth: 1,
     padding: 16,
-  },
-  cardInner: {
-    borderRadius: 8,
     overflow: 'hidden',
-    padding: 12,
   },
   content: {
     flexDirection: 'row',

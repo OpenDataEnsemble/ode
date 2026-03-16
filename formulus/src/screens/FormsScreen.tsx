@@ -15,7 +15,7 @@ import { useForms } from '../hooks/useForms';
 import { FormCard, EmptyState, Input as ODEInput } from '../components/common';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useFocusEffect } from '@react-navigation/native';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
 import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
@@ -35,6 +35,16 @@ const FormsScreen: React.FC = () => {
   const clearIconColor = isDark
     ? (colors.neutral[300] as string)
     : (colors.neutral[600] as string);
+  const headerBg = isDark
+    ? (colors.neutral[900] as string)
+    : (colors.neutral[50] as string);
+  const searchContainerStyle = [
+    styles.searchContainer,
+    {
+      backgroundColor: themeColors.surface as string,
+      borderColor: themeColors.divider as string,
+    },
+  ];
   const { forms, loading, error, refresh, getObservationCount } = useForms();
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -129,12 +139,7 @@ const FormsScreen: React.FC = () => {
           style={[
             styles.header,
             {
-              backgroundColor: isDark
-                ? (colors.neutral[900] as string)
-                : (colors.neutral[50] as string),
-              borderWidth: 1,
-              borderBottomWidth: 1,
-              borderColor: themeColors.divider as string,
+              backgroundColor: headerBg,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
@@ -159,18 +164,7 @@ const FormsScreen: React.FC = () => {
         </View>
 
         {showSearch && (
-          <View
-            style={[
-              styles.searchContainer,
-              {
-                backgroundColor: withAlpha(
-                  themeColors.surface as string,
-                  CONTAINER_ALPHA,
-                ),
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-              },
-            ]}>
+          <View style={searchContainerStyle}>
             <Icon
               name="magnify"
               size={20}
@@ -287,6 +281,7 @@ const styles = StyleSheet.create({
   clearIconButton: {
     marginLeft: odeSpacing.xs,
   },
+  clearIcon: {},
   listContent: {
     paddingVertical: odeSpacing.sm,
   },

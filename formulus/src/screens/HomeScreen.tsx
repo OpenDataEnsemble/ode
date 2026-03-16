@@ -67,30 +67,18 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   const checkAndSetAppUri = async () => {
     try {
       const filePath = `${RNFS.DocumentDirectoryPath}/app/index.html`;
-      console.log('[HomeScreen] Checking for custom app at:', filePath);
       const fileExists = await RNFS.exists(filePath);
-      console.log('[HomeScreen] Custom app exists:', fileExists);
 
       if (!fileExists) {
-        let placeholderUri: string;
-        if (Platform.OS === 'android') {
-          placeholderUri = 'file:///android_asset/webview/placeholder_app.html';
-        } else {
-          // On iOS, assets linked via react-native.config.js are placed in the main bundle
-          placeholderUri = `file://${RNFS.MainBundlePath}/placeholder_app.html`;
-        }
-        console.log('[HomeScreen] Using placeholder URI:', placeholderUri);
+        const placeholderUri =
+          Platform.OS === 'android'
+            ? 'file:///android_asset/webview/placeholder_app.html'
+            : `file://${RNFS.MainBundlePath}/placeholder_app.html`;
         setLocalUri(placeholderUri);
         setIsPlaceholder(true);
       } else {
-        // (Re-)load the custom app's config so that all native UI elements
-        // (tab bar, headers, modals) update to match the app's branding.
-        // This triggers a context update → re-render across all consumers.
         await reloadTheme();
-
-        const customAppUri = `file://${filePath}`;
-        console.log('[HomeScreen] Using custom app URI:', customAppUri);
-        setLocalUri(customAppUri);
+        setLocalUri(`file://${filePath}`);
         setIsPlaceholder(false);
       }
     } catch (err) {

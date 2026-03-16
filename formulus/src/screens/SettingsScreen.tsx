@@ -30,7 +30,7 @@ import {
   ThemeMode,
 } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors, { withAlpha } from '../theme/colors';
 import {
   odeSpacing,
   odeTypography,
@@ -61,7 +61,6 @@ const SettingsScreen = () => {
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const isDark = resolvedMode === 'dark';
 
-  // Always show Themes collapsed when the Settings screen is opened
   useFocusEffect(
     useCallback(() => {
       setAppSettingsOpen(false);
@@ -73,7 +72,6 @@ const SettingsScreen = () => {
   const themeChipBorderColorDark = isDark
     ? withAlpha(colors.neutral.white as string, themeChipBorderOpacityDark)
     : undefined;
-  // Section titles: darker in light mode, lighter in dark mode
   const sectionHeaderColor = isDark
     ? (colors.neutral[200] as string)
     : (colors.neutral[800] as string);
@@ -490,30 +488,17 @@ const SettingsScreen = () => {
                 styles.themesCardOuter,
                 {
                   borderColor: themeColors.divider,
-                  backgroundColor: withAlpha(
-                    themeColors.surface as string,
-                    CONTAINER_ALPHA,
-                  ),
+                  backgroundColor: themeColors.surface as string,
                 },
               ]}>
-              <View
+              <Text
                 style={[
-                  styles.themesCardInner,
-                  {
-                    backgroundColor: withAlpha(
-                      themeColors.surface as string,
-                      CONTAINER_ALPHA,
-                    ),
-                  },
+                  styles.themesTitle,
+                  { color: themeColors.onSurface },
                 ]}>
-                <Text
-                  style={[
-                    styles.themesTitle,
-                    { color: themeColors.onSurface },
-                  ]}>
-                  Theme
-                </Text>
-                <View style={styles.themeOptionsColumn}>
+                Theme
+              </Text>
+              <View style={styles.themeOptionsColumn}>
                   {(['system', 'dark', 'light'] as ThemeMode[]).map(mode => (
                     <TouchableOpacity
                       key={mode}
@@ -550,7 +535,6 @@ const SettingsScreen = () => {
                       </Text>
                     </TouchableOpacity>
                   ))}
-                </View>
               </View>
             </View>
           )}
@@ -670,9 +654,6 @@ const styles = StyleSheet.create({
     borderRadius: odeRadius.card,
     borderWidth: odeBorderWidth.hairline,
     overflow: 'hidden',
-  },
-  themesCardInner: {
-    borderRadius: odeRadius.inner,
     padding: odeSpacing.md,
   },
   themesTitle: {

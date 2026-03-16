@@ -41,7 +41,6 @@ const FormManagementScreen = () => {
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
   const [formService, setFormService] = useState<FormService | null>(null);
 
-  // Load form types and observations
   useEffect(() => {
     const initFormService = async () => {
       try {
@@ -102,7 +101,6 @@ const FormManagementScreen = () => {
     await loadData();
   };
 
-  // Handle adding a new observation using the promise-based Formplayer API
   const handleAddObservation = async (formType: FormSpec) => {
     try {
       const result = await openFormplayerFromNative(formType.id, {}, {});
@@ -121,7 +119,6 @@ const FormManagementScreen = () => {
     }
   };
 
-  // Handle editing an observation using the promise-based Formplayer API
   const handleEditObservation = async (
     formType: FormSpec,
     observation: Observation,
@@ -150,14 +147,12 @@ const FormManagementScreen = () => {
     }
   };
 
-  // Handle viewing an observation
   const handleViewObservation = (observation: Observation) => {
     navigation.navigate('ObservationDetail', {
       observationId: observation.observationId,
     });
   };
 
-  // Handle deleting an observation
   const handleDeleteObservation = async (
     formTypeId: string,
     observation: Observation,
@@ -190,7 +185,6 @@ const FormManagementScreen = () => {
     }
   };
 
-  // Handle database reset
   const handleResetDatabase = async () => {
     if (!formService) {
       Alert.alert('Error', 'FormService is not initialized');
@@ -248,7 +242,6 @@ const FormManagementScreen = () => {
     );
   };
 
-  // Render a form spec item
   const renderFormSpecItem = ({ item }: { item: FormSpec }) => {
     const formObservations = observations[item.id] || [];
     const isExpanded = expandedFormId === item.id;

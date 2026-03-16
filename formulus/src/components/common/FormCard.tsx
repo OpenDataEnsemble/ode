@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { FormSpec } from '../../services/FormService';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
+import colors from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 
 interface FormCardProps {
@@ -22,8 +22,7 @@ const FormCard: React.FC<FormCardProps> = ({
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
 
-  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
-  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardBg = themeColors.surface as string;
   return (
     <TouchableOpacity
       style={[
@@ -31,13 +30,12 @@ const FormCard: React.FC<FormCardProps> = ({
         {
           borderWidth: 1,
           borderColor: themeColors.divider as string,
-          backgroundColor: cardOuterBg,
+          backgroundColor: cardBg,
         },
       ]}
       onPress={onPress}
       activeOpacity={0.7}>
-      <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-        <View style={styles.content}>
+      <View style={styles.content}>
           <View
             style={[
               styles.iconContainer,
@@ -77,7 +75,6 @@ const FormCard: React.FC<FormCardProps> = ({
           </View>
           <Icon name="chevron-right" size={24} color={colors.neutral[500]} />
         </View>
-      </View>
     </TouchableOpacity>
   );
 };
@@ -89,11 +86,7 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     borderWidth: 1,
     padding: 16,
-  },
-  cardInner: {
-    borderRadius: 8,
     overflow: 'hidden',
-    padding: 12,
   },
   content: {
     flexDirection: 'row',

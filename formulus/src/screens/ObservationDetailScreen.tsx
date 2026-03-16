@@ -13,7 +13,7 @@ import { Observation } from '../database/models/Observation';
 import { FormService } from '../services/FormService';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useNavigation } from '@react-navigation/native';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
@@ -232,8 +232,15 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       ? JSON.parse(observation.data)
       : observation.data;
 
-  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
-  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const sectionBg = themeColors.surface as string;
+  const sectionStyle = [
+    styles.section,
+    {
+      borderColor: themeColors.divider as string,
+      backgroundColor: sectionBg,
+    },
+  ];
+  const onSurface = { color: themeColors.onSurface as string };
 
   return (
     <BlurredScreenBackground>
@@ -261,70 +268,39 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
               position="right"
             />
           </View>
-          <View
-            style={[
-              styles.section,
-              {
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-                backgroundColor: cardOuterBg,
-              },
-            ]}>
-            <View
-              style={[styles.sectionInner, { backgroundColor: cardInnerBg }]}>
-              <Text
-                style={[styles.sectionTitle, { color: themeColors.onSurface }]}>
-                Basic Information
-              </Text>
+          <View style={sectionStyle}>
+            <Text style={[styles.sectionTitle, onSurface]}>
+              Basic Information
+            </Text>
               <View style={styles.infoRow}>
-                <Text
-                  style={[styles.infoLabel, { color: themeColors.onSurface }]}>
-                  Form Type:
-                </Text>
-                <Text
-                  style={[styles.infoValue, { color: themeColors.onSurface }]}>
+                <Text style={[styles.infoLabel, onSurface]}>Form Type:</Text>
+                <Text style={[styles.infoValue, onSurface]}>
                   {formName || observation.formType}
                 </Text>
               </View>
               <View style={styles.infoRow}>
-                <Text
-                  style={[styles.infoLabel, { color: themeColors.onSurface }]}>
+                <Text style={[styles.infoLabel, onSurface]}>
                   Observation ID:
                 </Text>
                 <Text
-                  style={[
-                    styles.infoValue,
-                    styles.monoText,
-                    { color: themeColors.onSurface },
-                  ]}>
+                  style={[styles.infoValue, styles.monoText, onSurface]}>
                   {observation.observationId}
                 </Text>
               </View>
               <View style={styles.infoRow}>
-                <Text
-                  style={[styles.infoLabel, { color: themeColors.onSurface }]}>
-                  Created:
-                </Text>
-                <Text
-                  style={[styles.infoValue, { color: themeColors.onSurface }]}>
+                <Text style={[styles.infoLabel, onSurface]}>Created:</Text>
+                <Text style={[styles.infoValue, onSurface]}>
                   {observation.createdAt.toLocaleString()}
                 </Text>
               </View>
               <View style={styles.infoRow}>
-                <Text
-                  style={[styles.infoLabel, { color: themeColors.onSurface }]}>
-                  Updated:
-                </Text>
-                <Text
-                  style={[styles.infoValue, { color: themeColors.onSurface }]}>
+                <Text style={[styles.infoLabel, onSurface]}>Updated:</Text>
+                <Text style={[styles.infoValue, onSurface]}>
                   {observation.updatedAt.toLocaleString()}
                 </Text>
               </View>
               <View style={styles.infoRow}>
-                <Text
-                  style={[styles.infoLabel, { color: themeColors.onSurface }]}>
-                  Status:
-                </Text>
+                <Text style={[styles.infoLabel, onSurface]}>Status:</Text>
                 <View
                   style={[
                     styles.statusBadge,
@@ -346,151 +322,64 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
               </View>
               {isSynced && observation.syncedAt && (
                 <View style={styles.infoRow}>
-                  <Text
-                    style={[
-                      styles.infoLabel,
-                      { color: themeColors.onSurface },
-                    ]}>
-                    Synced At:
-                  </Text>
-                  <Text
-                    style={[
-                      styles.infoValue,
-                      { color: themeColors.onSurface },
-                    ]}>
+                  <Text style={[styles.infoLabel, onSurface]}>Synced At:</Text>
+                  <Text style={[styles.infoValue, onSurface]}>
                     {observation.syncedAt.toLocaleString()}
                   </Text>
                 </View>
               )}
-            </View>
           </View>
 
           {observation.geolocation && (
-            <View
-              style={[
-                styles.section,
-                {
-                  borderWidth: 1,
-                  borderColor: themeColors.divider as string,
-                  backgroundColor: cardOuterBg,
-                },
-              ]}>
-              <View
-                style={[styles.sectionInner, { backgroundColor: cardInnerBg }]}>
-                <Text
-                  style={[
-                    styles.sectionTitle,
-                    { color: themeColors.onSurface },
-                  ]}>
-                  Location
-                </Text>
+            <View style={sectionStyle}>
+              <Text style={[styles.sectionTitle, onSurface]}>Location</Text>
                 <View style={styles.infoRow}>
-                  <Text
-                    style={[
-                      styles.infoLabel,
-                      { color: themeColors.onSurface },
-                    ]}>
-                    Latitude:
-                  </Text>
-                  <Text
-                    style={[
-                      styles.infoValue,
-                      { color: themeColors.onSurface },
-                    ]}>
+                  <Text style={[styles.infoLabel, onSurface]}>Latitude:</Text>
+                  <Text style={[styles.infoValue, onSurface]}>
                     {typeof observation.geolocation === 'string'
                       ? JSON.parse(observation.geolocation).latitude
                       : observation.geolocation.latitude}
                   </Text>
                 </View>
                 <View style={styles.infoRow}>
-                  <Text
-                    style={[
-                      styles.infoLabel,
-                      { color: themeColors.onSurface },
-                    ]}>
-                    Longitude:
-                  </Text>
-                  <Text
-                    style={[
-                      styles.infoValue,
-                      { color: themeColors.onSurface },
-                    ]}>
+                  <Text style={[styles.infoLabel, onSurface]}>Longitude:</Text>
+                  <Text style={[styles.infoValue, onSurface]}>
                     {typeof observation.geolocation === 'string'
                       ? JSON.parse(observation.geolocation).longitude
                       : observation.geolocation.longitude}
                   </Text>
                 </View>
-              </View>
             </View>
           )}
 
-          <View
-            style={[
-              styles.section,
-              {
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-                backgroundColor: cardOuterBg,
-              },
-            ]}>
-            <View
-              style={[styles.sectionInner, { backgroundColor: cardInnerBg }]}>
-              <Text
-                style={[styles.sectionTitle, { color: themeColors.onSurface }]}>
-                Ownership
-              </Text>
+          <View style={sectionStyle}>
+            <Text style={[styles.sectionTitle, onSurface]}>Ownership</Text>
               <View style={styles.infoRow}>
-                <Text
-                  style={[styles.infoLabel, { color: themeColors.onSurface }]}>
-                  Author:
-                </Text>
-                <Text
-                  style={[styles.infoValue, { color: themeColors.onSurface }]}>
+                <Text style={[styles.infoLabel, onSurface]}>Author:</Text>
+                <Text style={[styles.infoValue, onSurface]}>
                   {observation.author && observation.author.trim().length > 0
                     ? observation.author
                     : 'Unknown'}
                 </Text>
               </View>
               <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, onSurface]}>Device ID:</Text>
                 <Text
-                  style={[styles.infoLabel, { color: themeColors.onSurface }]}>
-                  Device ID:
-                </Text>
-                <Text
-                  style={[
-                    styles.infoValue,
-                    styles.monoText,
-                    { color: themeColors.onSurface },
-                  ]}>
+                  style={[styles.infoValue, styles.monoText, onSurface]}>
                   {observation.deviceId &&
                   observation.deviceId.trim().length > 0
                     ? observation.deviceId
                     : 'Unknown'}
                 </Text>
               </View>
-            </View>
           </View>
 
-          <View
-            style={[
-              styles.section,
-              {
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-                backgroundColor: cardOuterBg,
-              },
-            ]}>
-            <View
-              style={[styles.sectionInner, { backgroundColor: cardInnerBg }]}>
-              <Text
-                style={[styles.sectionTitle, { color: themeColors.onSurface }]}>
-                Form Data
-              </Text>
-              <View style={styles.dataContainer}>
-                {Object.entries(data).map(([key, value]) =>
-                  renderDataField(key, value),
-                )}
-              </View>
+          <View style={sectionStyle}>
+            <Text style={[styles.sectionTitle, onSurface]}>Form Data</Text>
+            <View style={styles.dataContainer}>
+              {Object.entries(data).map(([key, value]) =>
+                renderDataField(key, value),
+              )}
             </View>
           </View>
         </ScrollView>
@@ -522,11 +411,7 @@ const styles = StyleSheet.create({
     padding: odeSpacing.md,
     marginHorizontal: odeSpacing.md,
     marginBottom: odeSpacing.md,
-  },
-  sectionInner: {
-    borderRadius: odeRadius.inner,
     overflow: 'hidden',
-    padding: odeSpacing.sm,
   },
   sectionTitle: {
     fontSize: 18,
