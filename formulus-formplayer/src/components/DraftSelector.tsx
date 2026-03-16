@@ -177,89 +177,105 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
       sx={{
         minHeight: fullScreen ? '100dvh' : 'auto',
         display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        px: fullScreen ? 2 : 0,
-        py: fullScreen ? 2.5 : 2,
+        flexDirection: 'column',
         bgcolor: 'background.default',
         color: 'text.primary',
       }}>
+      {/* Header bar – match Formulus native / FormLayout (full-width, no radius, divider border) */}
+      <Box
+        sx={theme => ({
+          flexShrink: 0,
+          width: '100%',
+          boxSizing: 'border-box',
+          backgroundColor: 'background.default',
+          padding: theme.spacing(2),
+          paddingTop: `max(${theme.spacing(2)}, env(safe-area-inset-top, 0px))`,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          borderRadius: 0,
+          boxShadow: 'none',
+        })}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 700,
+            fontSize: '1.125rem',
+            lineHeight: 1.3,
+            color: 'text.primary',
+            mb: 0.5,
+            textAlign: 'left',
+          }}>
+          Resume Draft or Start New
+        </Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ textAlign: 'left' }}>
+          Form: {formType}
+          {formVersion && (
+            <Chip label={`v${formVersion}`} size="small" sx={{ ml: 1 }} />
+          )}
+        </Typography>
+      </Box>
+
+      {/* Body – scrollable content below header */}
       <Box
         sx={{
-          width: '100%',
-          maxWidth: 420,
+          flex: 1,
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'center',
+          px: fullScreen ? 2 : 0,
+          py: fullScreen ? 2.5 : 2,
         }}>
-        {/* Header – left-aligned text with tighter spacing */}
-        <Box
-          sx={{
-            mt: 2,
-            mb: 1.5,
-          }}>
-          <Typography
-            variant="h6"
-            gutterBottom
-            color="text.primary"
-            sx={{ fontWeight: 600, textAlign: 'left', mb: 0.5 }}>
-            Resume Draft or Start New
-          </Typography>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ textAlign: 'left' }}>
-            Form: {formType}
-            {formVersion && (
-              <Chip label={`v${formVersion}`} size="small" sx={{ ml: 1 }} />
-            )}
-          </Typography>
-        </Box>
-
-        {/* Start new form section – concise, left-aligned label with centered CTA */}
-        <Box sx={{ mb: 2 }}>
-          <Typography
-            variant="subtitle2"
-            gutterBottom
-            color="text.primary"
-            sx={{ fontWeight: 600, textAlign: 'left' }}>
-            New Form
-          </Typography>
-          <Box sx={{ textAlign: 'center', mt: 0.5 }}>
-            <Button
-              variant="primary"
-              size="medium"
-              onPress={onStartNew}
-              style={{ minWidth: 180 }}>
-              Start New Form
-            </Button>
-          </Box>
-        </Box>
-
-        <Divider sx={{ my: 1.5 }} />
-
-        {/* Available drafts – compact list below primary action */}
-        {draftsSection}
-
-        {/* Delete confirmation dialog */}
-        <Dialog
-          open={deleteConfirmOpen}
-          onClose={() => setDeleteConfirmOpen(false)}>
-          <DialogTitle>Delete Draft</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete this draft? This action cannot be
-              undone.
+        <Box sx={{ width: '100%', maxWidth: 420 }}>
+          {/* Start new form section – concise, left-aligned label with centered CTA */}
+          <Box sx={{ mb: 2 }}>
+            <Typography
+              variant="subtitle2"
+              gutterBottom
+              color="text.primary"
+              sx={{ fontWeight: 600, textAlign: 'left' }}>
+              New Form
             </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              variant="neutral"
-              onPress={() => setDeleteConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onPress={confirmDeleteDraft}>
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
+            <Box sx={{ textAlign: 'center', mt: 0.5 }}>
+              <Button
+                variant="primary"
+                size="medium"
+                onPress={onStartNew}
+                style={{ minWidth: 180 }}>
+                Start New Form
+              </Button>
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 1.5 }} />
+
+          {/* Available drafts – compact list below primary action */}
+          {draftsSection}
+
+          {/* Delete confirmation dialog */}
+          <Dialog
+            open={deleteConfirmOpen}
+            onClose={() => setDeleteConfirmOpen(false)}>
+            <DialogTitle>Delete Draft</DialogTitle>
+            <DialogContent>
+              <Typography>
+                Are you sure you want to delete this draft? This action cannot
+                be undone.
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                variant="neutral"
+                onPress={() => setDeleteConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="danger" onPress={confirmDeleteDraft}>
+                Delete
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </Box>
       </Box>
     </Box>
   );

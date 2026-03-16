@@ -423,16 +423,17 @@ const SwipeLayoutRenderer = ({
         <>
           {/* Author-configured form title and sticky fields */}
           {(headerTitle || headerFields.length > 0) && (
-            <Box sx={{ px: 2, pt: 1, pb: headerFields.length > 0 ? 0 : 0.5 }}>
+            <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
               {headerTitle && (
                 <Typography
                   variant="subtitle2"
                   sx={{
                     fontWeight: 700,
-                    fontSize: '0.9rem',
+                    fontSize: '1.125rem',
                     lineHeight: 1.3,
                     color: 'text.primary',
                     mb: headerFields.length > 0 ? 0.5 : 0,
+                    textAlign: 'left',
                   }}>
                   {headerTitle}
                 </Typography>
@@ -466,6 +467,7 @@ const SwipeLayoutRenderer = ({
                               ? 'text.disabled'
                               : 'text.primary',
                           fontWeight: displayValue === '—' ? 400 : 600,
+                          textAlign: 'left',
                         }}>
                         {label}: {displayValue}
                       </Typography>
