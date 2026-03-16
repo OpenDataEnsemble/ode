@@ -87,8 +87,8 @@ const AboutScreen: React.FC = () => {
               Formulus
             </Text>
             <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-              Formulus is the mobile app for collecting and synchronizing
-              forms and observations.
+              Formulus is the mobile app for collecting and synchronizing forms
+              and observations.
             </Text>
           </View>
 

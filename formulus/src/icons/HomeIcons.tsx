@@ -24,12 +24,7 @@ export const HomeOutlineIcon: React.FC<TabIconProps> = ({
   color = 'currentColor',
   ...rest
 }) => (
-  <Svg
-    viewBox="0 0 24 24"
-    width={width}
-    height={height}
-    fill="none"
-    {...rest}>
+  <Svg viewBox="0 0 24 24" width={width} height={height} fill="none" {...rest}>
     <Path
       d={HOME_PATH}
       stroke={color}
@@ -46,12 +41,7 @@ export const FormOutlineIcon: React.FC<TabIconProps> = ({
   color = 'currentColor',
   ...rest
 }) => (
-  <Svg
-    viewBox="0 0 24 24"
-    width={width}
-    height={height}
-    fill="none"
-    {...rest}>
+  <Svg viewBox="0 0 24 24" width={width} height={height} fill="none" {...rest}>
     <Path
       d={FORM_PATH}
       stroke={color}
@@ -68,12 +58,7 @@ export const FormSolidIcon: React.FC<TabIconProps> = ({
   color = 'currentColor',
   ...rest
 }) => (
-  <Svg
-    viewBox="0 0 24 24"
-    width={width}
-    height={height}
-    fill="none"
-    {...rest}>
+  <Svg viewBox="0 0 24 24" width={width} height={height} fill="none" {...rest}>
     <Path
       d={FORM_PATH}
       fill={color}
@@ -91,12 +76,7 @@ export const HomeSolidIcon: React.FC<TabIconProps> = ({
   color = 'currentColor',
   ...rest
 }) => (
-  <Svg
-    viewBox="0 0 24 24"
-    width={width}
-    height={height}
-    fill="none"
-    {...rest}>
+  <Svg viewBox="0 0 24 24" width={width} height={height} fill="none" {...rest}>
     <Path
       fillRule="evenodd"
       d={HOME_PATH}

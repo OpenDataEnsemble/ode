@@ -9,12 +9,7 @@ import ObservationDetailScreen from '../screens/ObservationDetailScreen';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { serverConfigService } from '../services/ServerConfigService';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import {
-  odeSpacing,
-  odeRadius,
-  odeBorderWidth,
-  odeTypography,
-} from '../theme/odeDesign';
+import { odeSpacing, odeBorderWidth, odeTypography } from '../theme/odeDesign';
 
 const Stack = createStackNavigator<MainAppStackParamList>();
 

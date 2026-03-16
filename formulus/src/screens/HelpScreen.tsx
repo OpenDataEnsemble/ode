@@ -103,10 +103,9 @@ const HelpScreen: React.FC = () => {
             <Text style={[styles.cardTitle, { color: sectionColor }]}>
               Administrator
             </Text>
-            <Text
-              style={[styles.cardText, styles.cardTextCentered, onSurface]}>
-              For account setup, server configuration, or access issues,
-              contact your system administrator.
+            <Text style={[styles.cardText, styles.cardTextCentered, onSurface]}>
+              For account setup, server configuration, or access issues, contact
+              your system administrator.
             </Text>
           </View>
         </ScrollView>

@@ -14,7 +14,6 @@ import {
 import { useSwipeable } from 'react-swipeable';
 import { Box, Typography, useTheme } from '@mui/material';
 import { Button } from '@ode/components/react-web';
-import { tokens } from '../theme/tokens-adapter';
 import { useFormContext } from '../App';
 import { draftService } from '../services/DraftService';
 import FormProgressBar from '../components/FormProgressBar';

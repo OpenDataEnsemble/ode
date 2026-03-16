@@ -51,7 +51,7 @@ const ObservationsScreen: React.FC = () => {
   const clearIconColor = isDark
     ? (colors.neutral[300] as string)
     : (colors.neutral[600] as string);
-  const headerBg = isDark
+  const _headerBg = isDark
     ? (colors.neutral[900] as string)
     : (colors.neutral[50] as string);
   const filtersContainerStyle = [

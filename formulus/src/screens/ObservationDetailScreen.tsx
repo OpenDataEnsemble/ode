@@ -272,106 +272,101 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
             <Text style={[styles.sectionTitle, onSurface]}>
               Basic Information
             </Text>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, onSurface]}>Form Type:</Text>
+              <Text style={[styles.infoValue, onSurface]}>
+                {formName || observation.formType}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, onSurface]}>Observation ID:</Text>
+              <Text style={[styles.infoValue, styles.monoText, onSurface]}>
+                {observation.observationId}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, onSurface]}>Created:</Text>
+              <Text style={[styles.infoValue, onSurface]}>
+                {observation.createdAt.toLocaleString()}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, onSurface]}>Updated:</Text>
+              <Text style={[styles.infoValue, onSurface]}>
+                {observation.updatedAt.toLocaleString()}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, onSurface]}>Status:</Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  isSynced ? styles.syncedBadge : styles.pendingBadge,
+                ]}>
+                <Icon
+                  name={isSynced ? 'check-circle' : 'clock-outline'}
+                  size={16}
+                  color={
+                    isSynced
+                      ? (themeColors.primary as string)
+                      : colors.semantic.warning[500]
+                  }
+                />
+                <Text style={styles.statusText}>
+                  {isSynced ? 'Synced' : 'Pending'}
+                </Text>
+              </View>
+            </View>
+            {isSynced && observation.syncedAt && (
               <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Form Type:</Text>
+                <Text style={[styles.infoLabel, onSurface]}>Synced At:</Text>
                 <Text style={[styles.infoValue, onSurface]}>
-                  {formName || observation.formType}
+                  {observation.syncedAt.toLocaleString()}
                 </Text>
               </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>
-                  Observation ID:
-                </Text>
-                <Text
-                  style={[styles.infoValue, styles.monoText, onSurface]}>
-                  {observation.observationId}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Created:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {observation.createdAt.toLocaleString()}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Updated:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {observation.updatedAt.toLocaleString()}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Status:</Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isSynced ? styles.syncedBadge : styles.pendingBadge,
-                  ]}>
-                  <Icon
-                    name={isSynced ? 'check-circle' : 'clock-outline'}
-                    size={16}
-                    color={
-                      isSynced
-                        ? (themeColors.primary as string)
-                        : colors.semantic.warning[500]
-                    }
-                  />
-                  <Text style={styles.statusText}>
-                    {isSynced ? 'Synced' : 'Pending'}
-                  </Text>
-                </View>
-              </View>
-              {isSynced && observation.syncedAt && (
-                <View style={styles.infoRow}>
-                  <Text style={[styles.infoLabel, onSurface]}>Synced At:</Text>
-                  <Text style={[styles.infoValue, onSurface]}>
-                    {observation.syncedAt.toLocaleString()}
-                  </Text>
-                </View>
-              )}
+            )}
           </View>
 
           {observation.geolocation && (
             <View style={sectionStyle}>
               <Text style={[styles.sectionTitle, onSurface]}>Location</Text>
-                <View style={styles.infoRow}>
-                  <Text style={[styles.infoLabel, onSurface]}>Latitude:</Text>
-                  <Text style={[styles.infoValue, onSurface]}>
-                    {typeof observation.geolocation === 'string'
-                      ? JSON.parse(observation.geolocation).latitude
-                      : observation.geolocation.latitude}
-                  </Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={[styles.infoLabel, onSurface]}>Longitude:</Text>
-                  <Text style={[styles.infoValue, onSurface]}>
-                    {typeof observation.geolocation === 'string'
-                      ? JSON.parse(observation.geolocation).longitude
-                      : observation.geolocation.longitude}
-                  </Text>
-                </View>
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, onSurface]}>Latitude:</Text>
+                <Text style={[styles.infoValue, onSurface]}>
+                  {typeof observation.geolocation === 'string'
+                    ? JSON.parse(observation.geolocation).latitude
+                    : observation.geolocation.latitude}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={[styles.infoLabel, onSurface]}>Longitude:</Text>
+                <Text style={[styles.infoValue, onSurface]}>
+                  {typeof observation.geolocation === 'string'
+                    ? JSON.parse(observation.geolocation).longitude
+                    : observation.geolocation.longitude}
+                </Text>
+              </View>
             </View>
           )}
 
           <View style={sectionStyle}>
             <Text style={[styles.sectionTitle, onSurface]}>Ownership</Text>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Author:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {observation.author && observation.author.trim().length > 0
-                    ? observation.author
-                    : 'Unknown'}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Device ID:</Text>
-                <Text
-                  style={[styles.infoValue, styles.monoText, onSurface]}>
-                  {observation.deviceId &&
-                  observation.deviceId.trim().length > 0
-                    ? observation.deviceId
-                    : 'Unknown'}
-                </Text>
-              </View>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, onSurface]}>Author:</Text>
+              <Text style={[styles.infoValue, onSurface]}>
+                {observation.author && observation.author.trim().length > 0
+                  ? observation.author
+                  : 'Unknown'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, onSurface]}>Device ID:</Text>
+              <Text style={[styles.infoValue, styles.monoText, onSurface]}>
+                {observation.deviceId && observation.deviceId.trim().length > 0
+                  ? observation.deviceId
+                  : 'Unknown'}
+              </Text>
+            </View>
           </View>
 
           <View style={sectionStyle}>

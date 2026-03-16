@@ -39,7 +39,7 @@ const SyncScreen = () => {
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
   const cardBg = themeColors.surface as string;
-  const headerBg = isDark
+  const _headerBg = isDark
     ? (colors.neutral[900] as string)
     : (colors.neutral[50] as string);
   const syncContextValue = useSyncContext();
@@ -441,23 +441,23 @@ const SyncScreen = () => {
                 </Text>
               </View>
               <Text
-                  style={[
-                    styles.statusCardValue,
-                    { color: statusColor as string },
-                  ]}>
-                  {status}
-                </Text>
-                {!syncState.isActive &&
-                  !syncState.error &&
-                  (pendingObservations > 0 || pendingUploads.count > 0) && (
-                    <Text
-                      style={[
-                        styles.statusCardSubtext,
-                        { color: themeColors.onSurface as string },
-                      ]}>
-                      Tap to sync now
-                    </Text>
-                  )}
+                style={[
+                  styles.statusCardValue,
+                  { color: statusColor as string },
+                ]}>
+                {status}
+              </Text>
+              {!syncState.isActive &&
+                !syncState.error &&
+                (pendingObservations > 0 || pendingUploads.count > 0) && (
+                  <Text
+                    style={[
+                      styles.statusCardSubtext,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    Tap to sync now
+                  </Text>
+                )}
             </TouchableOpacity>
 
             <View
@@ -470,27 +470,27 @@ const SyncScreen = () => {
                 },
               ]}>
               <View style={styles.statusCardHeader}>
-                  <Icon
-                    name="clock-outline"
-                    size={20}
-                    color={themeColors.onSurface as string}
-                  />
-                  <Text
-                    style={[
-                      styles.statusCardTitle,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    Last Sync
-                  </Text>
-                </View>
+                <Icon
+                  name="clock-outline"
+                  size={20}
+                  color={themeColors.onSurface as string}
+                />
                 <Text
                   style={[
-                    styles.statusCardValue,
+                    styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  {lastSync ? formatRelativeTime(lastSync) : 'Never'}
+                  Last Sync
                 </Text>
-          </View>
+              </View>
+              <Text
+                style={[
+                  styles.statusCardValue,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                {lastSync ? formatRelativeTime(lastSync) : 'Never'}
+              </Text>
+            </View>
           </View>
 
           {(pendingObservations > 0 || pendingUploads.count > 0) && (
@@ -504,65 +504,65 @@ const SyncScreen = () => {
                 },
               ]}>
               <Text
-                  style={[
-                    styles.sectionTitle,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  Pending Items
-                </Text>
-                {pendingObservations > 0 && (
-                  <View style={styles.pendingItem}>
-                    <Icon
-                      name="clipboard-text-outline"
-                      size={20}
-                      color={colors.semantic.warning[500] as unknown as string}
-                    />
-                    <View style={styles.pendingItemContent}>
-                      <Text
-                        style={[
-                          styles.pendingItemLabel,
-                          { color: themeColors.onSurface as string },
-                        ]}>
-                        Observations
-                      </Text>
-                      <Text
-                        style={[
-                          styles.pendingItemValue,
-                          { color: themeColors.onSurface as string },
-                        ]}>
-                        {pendingObservations} record
-                        {pendingObservations !== 1 ? 's' : ''}
-                      </Text>
-                    </View>
+                style={[
+                  styles.sectionTitle,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                Pending Items
+              </Text>
+              {pendingObservations > 0 && (
+                <View style={styles.pendingItem}>
+                  <Icon
+                    name="clipboard-text-outline"
+                    size={20}
+                    color={colors.semantic.warning[500] as unknown as string}
+                  />
+                  <View style={styles.pendingItemContent}>
+                    <Text
+                      style={[
+                        styles.pendingItemLabel,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      Observations
+                    </Text>
+                    <Text
+                      style={[
+                        styles.pendingItemValue,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      {pendingObservations} record
+                      {pendingObservations !== 1 ? 's' : ''}
+                    </Text>
                   </View>
-                )}
-                {pendingUploads.count > 0 && (
-                  <View style={styles.pendingItem}>
-                    <Icon
-                      name="file-upload-outline"
-                      size={20}
-                      color={colors.semantic.warning[500] as unknown as string}
-                    />
-                    <View style={styles.pendingItemContent}>
-                      <Text
-                        style={[
-                          styles.pendingItemLabel,
-                          { color: themeColors.onSurface as string },
-                        ]}>
-                        Attachments
-                      </Text>
-                      <Text
-                        style={[
-                          styles.pendingItemValue,
-                          { color: themeColors.onSurface as string },
-                        ]}>
-                        {pendingUploads.count} file
-                        {pendingUploads.count !== 1 ? 's' : ''} (
-                        {pendingUploads.sizeMB.toFixed(2)} MB)
-                      </Text>
-                    </View>
+                </View>
+              )}
+              {pendingUploads.count > 0 && (
+                <View style={styles.pendingItem}>
+                  <Icon
+                    name="file-upload-outline"
+                    size={20}
+                    color={colors.semantic.warning[500] as unknown as string}
+                  />
+                  <View style={styles.pendingItemContent}>
+                    <Text
+                      style={[
+                        styles.pendingItemLabel,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      Attachments
+                    </Text>
+                    <Text
+                      style={[
+                        styles.pendingItemValue,
+                        { color: themeColors.onSurface as string },
+                      ]}>
+                      {pendingUploads.count} file
+                      {pendingUploads.count !== 1 ? 's' : ''} (
+                      {pendingUploads.sizeMB.toFixed(2)} MB)
+                    </Text>
                   </View>
-                )}
+                </View>
+              )}
             </View>
           )}
 
@@ -577,68 +577,68 @@ const SyncScreen = () => {
               },
             ]}>
             <View style={styles.versionRow}>
-                <Text
-                  style={[
-                    styles.versionLabel,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  App Bundle
-                </Text>
-                <View style={styles.versionValues}>
-                  <View style={styles.versionItem}>
-                    <Text
-                      style={[
-                        styles.versionItemLabel,
-                        { color: themeColors.onSurface as string },
-                      ]}>
-                      Local
-                    </Text>
-                    <Text
-                      style={[
-                        styles.versionItemValue,
-                        { color: themeColors.onSurface as string },
-                      ]}>
-                      {appBundleVersion}
-                    </Text>
-                  </View>
-                  <View
+              <Text
+                style={[
+                  styles.versionLabel,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                App Bundle
+              </Text>
+              <View style={styles.versionValues}>
+                <View style={styles.versionItem}>
+                  <Text
                     style={[
-                      styles.versionDivider,
-                      { backgroundColor: themeColors.divider as string },
-                    ]}
-                  />
-                  <View style={styles.versionItem}>
-                    <Text
-                      style={[
-                        styles.versionItemLabel,
-                        { color: themeColors.onSurface as string },
-                      ]}>
-                      Server
-                    </Text>
-                    <Text
-                      style={[
-                        styles.versionItemValue,
-                        { color: themeColors.onSurface as string },
-                      ]}>
-                      {serverBundleVersion}
-                    </Text>
-                  </View>
+                      styles.versionItemLabel,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    Local
+                  </Text>
+                  <Text
+                    style={[
+                      styles.versionItemValue,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    {appBundleVersion}
+                  </Text>
                 </View>
-              </View>
-              {updateAvailable && (
                 <View
                   style={[
-                    styles.updateBadge,
-                    { borderTopColor: themeColors.divider as string },
-                  ]}>
-                  <Icon
-                    name="arrow-down-circle"
-                    size={16}
-                    color={colors.semantic.success[500] as unknown as string}
-                  />
-                  <Text style={styles.updateBadgeText}>Update available</Text>
+                    styles.versionDivider,
+                    { backgroundColor: themeColors.divider as string },
+                  ]}
+                />
+                <View style={styles.versionItem}>
+                  <Text
+                    style={[
+                      styles.versionItemLabel,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    Server
+                  </Text>
+                  <Text
+                    style={[
+                      styles.versionItemValue,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    {serverBundleVersion}
+                  </Text>
                 </View>
-              )}
+              </View>
+            </View>
+            {updateAvailable && (
+              <View
+                style={[
+                  styles.updateBadge,
+                  { borderTopColor: themeColors.divider as string },
+                ]}>
+                <Icon
+                  name="arrow-down-circle"
+                  size={16}
+                  color={colors.semantic.success[500] as unknown as string}
+                />
+                <Text style={styles.updateBadgeText}>Update available</Text>
+              </View>
+            )}
           </View>
 
           {syncState.isActive && syncState.progress && (
@@ -652,64 +652,63 @@ const SyncScreen = () => {
                 },
               ]}>
               <View style={styles.progressHeader}>
-                  <Icon
-                    name="sync"
-                    size={20}
-                    color={themeColors.primary as string}
-                  />
-                  <Text
-                    style={[
-                      styles.progressTitle,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    {getProgressTitle()}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      backgroundColor: isDark
-                        ? (colors.neutral[700] as string)
-                        : (colors.neutral[200] as string),
-                    },
-                  ]}>
-                  <Animated.View
-                    style={[
-                      styles.progressFill,
-                      {
-                        backgroundColor: themeColors.primary as string,
-                        width: animatedProgress.interpolate({
-                          inputRange: [0, 100],
-                          outputRange: ['0%', '100%'],
-                        }),
-                      },
-                    ]}
-                  />
-                </View>
+                <Icon
+                  name="sync"
+                  size={20}
+                  color={themeColors.primary as string}
+                />
                 <Text
                   style={[
-                    styles.progressText,
-                    {
-                      color: isDark
-                        ? (themeColors.onSurface as string)
-                        : (colors.neutral[700] as string),
-                    },
+                    styles.progressTitle,
+                    { color: themeColors.onSurface as string },
                   ]}>
-                  {Math.round(
-                    (syncState.progress.current / syncState.progress.total) *
-                      100,
-                  )}
-                  %
+                  {getProgressTitle()}
                 </Text>
-                {syncState.canCancel && (
-                  <Button
-                    title="Cancel"
-                    onPress={cancelSync}
-                    variant="danger"
-                    size="medium"
-                  />
+              </View>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    backgroundColor: isDark
+                      ? (colors.neutral[700] as string)
+                      : (colors.neutral[200] as string),
+                  },
+                ]}>
+                <Animated.View
+                  style={[
+                    styles.progressFill,
+                    {
+                      backgroundColor: themeColors.primary as string,
+                      width: animatedProgress.interpolate({
+                        inputRange: [0, 100],
+                        outputRange: ['0%', '100%'],
+                      }),
+                    },
+                  ]}
+                />
+              </View>
+              <Text
+                style={[
+                  styles.progressText,
+                  {
+                    color: isDark
+                      ? (themeColors.onSurface as string)
+                      : (colors.neutral[700] as string),
+                  },
+                ]}>
+                {Math.round(
+                  (syncState.progress.current / syncState.progress.total) * 100,
                 )}
+                %
+              </Text>
+              {syncState.canCancel && (
+                <Button
+                  title="Cancel"
+                  onPress={cancelSync}
+                  variant="danger"
+                  size="medium"
+                />
+              )}
             </View>
           )}
 
@@ -724,26 +723,26 @@ const SyncScreen = () => {
                 },
               ]}>
               <View style={styles.errorHeader}>
-                  <Icon
-                    name="alert-circle"
-                    size={20}
-                    color={colors.semantic.error.ios as string}
-                  />
-                  <Text style={styles.errorTitle}>Error</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.errorText,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  {syncState.error}
-                </Text>
-                <Button
-                  title="Dismiss"
-                  onPress={clearError}
-                  variant="danger"
-                  size="medium"
+                <Icon
+                  name="alert-circle"
+                  size={20}
+                  color={colors.semantic.error.ios as string}
                 />
+                <Text style={styles.errorTitle}>Error</Text>
+              </View>
+              <Text
+                style={[
+                  styles.errorText,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                {syncState.error}
+              </Text>
+              <Button
+                title="Dismiss"
+                onPress={clearError}
+                variant="danger"
+                size="medium"
+              />
             </View>
           )}
 

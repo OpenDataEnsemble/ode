@@ -14,16 +14,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert,
   Chip,
   Divider,
   useTheme,
 } from '@mui/material';
 import { Button } from '@ode/components/react-web';
-import {
-  Delete as DeleteIcon,
-  Schedule as ClockIcon,
-} from '@mui/icons-material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
 import { draftService, DraftSummary } from '../services/DraftService';
 
 interface DraftSelectorProps {
@@ -44,7 +40,6 @@ interface DraftSelectorProps {
 // Container style – matched with other confirm UIs (no semi-transparent overlay)
 const CONFIRM_CARD_RADIUS = 0.7;
 const CONFIRM_BORDER_WIDTH = 1;
-const CONFIRM_CARD_PADDING = 16;
 
 export const DraftSelector: React.FC<DraftSelectorProps> = ({
   formType,
@@ -58,8 +53,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
-  // We keep this for internal logic if needed later, but we no longer show a verbose message.
-  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+  const [_cleanupMessage, setCleanupMessage] = useState<string | null>(null);
 
   // Load drafts on component mount and when formType changes
   const loadDrafts = useCallback(() => {

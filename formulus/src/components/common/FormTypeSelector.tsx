@@ -94,58 +94,54 @@ const FormTypeSelector: React.FC<FormTypeSelectorProps> = ({
                 styles.modalHeader,
                 { borderBottomColor: themeColors.divider as string },
               ]}>
-                <Text
-                  style={[styles.modalTitle, { color: themeColors.onSurface }]}>
-                  Select Form Type
-                </Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                  <Icon name="close" size={24} color={themeColors.onSurface} />
-                </TouchableOpacity>
-              </View>
+              <Text
+                style={[styles.modalTitle, { color: themeColors.onSurface }]}>
+                Select Form Type
+              </Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Icon name="close" size={24} color={themeColors.onSurface} />
+              </TouchableOpacity>
+            </View>
 
-              <FlatList
-                data={optionsWithAll}
-                keyExtractor={item => item.id || 'all'}
-                renderItem={({ item, index }) => (
-                  <TouchableOpacity
+            <FlatList
+              data={optionsWithAll}
+              keyExtractor={item => item.id || 'all'}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.optionItem,
+                    {
+                      borderBottomColor: themeColors.divider,
+                      borderBottomWidth:
+                        index === optionsWithAll.length - 1
+                          ? 0
+                          : StyleSheet.hairlineWidth,
+                    },
+                    selectedId === item.id && {
+                      backgroundColor: themeColors.primary + '14',
+                    },
+                  ]}
+                  onPress={() => {
+                    onSelect(item.id);
+                    setModalVisible(false);
+                  }}>
+                  <Text
                     style={[
-                      styles.optionItem,
-                      {
-                        borderBottomColor: themeColors.divider,
-                        borderBottomWidth:
-                          index === optionsWithAll.length - 1
-                            ? 0
-                            : StyleSheet.hairlineWidth,
-                      },
+                      styles.optionText,
+                      { color: selectorTextColor },
                       selectedId === item.id && {
-                        backgroundColor: themeColors.primary + '14',
+                        color: themeColors.primary,
+                        fontWeight: '600',
                       },
-                    ]}
-                    onPress={() => {
-                      onSelect(item.id);
-                      setModalVisible(false);
-                    }}>
-                    <Text
-                      style={[
-                        styles.optionText,
-                        { color: selectorTextColor },
-                        selectedId === item.id && {
-                          color: themeColors.primary,
-                          fontWeight: '600',
-                        },
-                      ]}>
-                      {item.name}
-                    </Text>
-                    {selectedId === item.id && (
-                      <Icon
-                        name="check"
-                        size={20}
-                        color={themeColors.primary}
-                      />
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
+                    ]}>
+                    {item.name}
+                  </Text>
+                  {selectedId === item.id && (
+                    <Icon name="check" size={20} color={themeColors.primary} />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
           </View>
         </TouchableOpacity>
       </Modal>

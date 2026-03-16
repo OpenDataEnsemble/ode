@@ -10,10 +10,7 @@ import {
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  useNavigation,
-  useFocusEffect,
-} from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
 import { login, isVersionMismatchError } from '../api/synkronus/Auth';
@@ -25,10 +22,7 @@ import { QRSettingsService } from '../services/QRSettingsService';
 import { MainTabParamList } from '../types/NavigationTypes';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
-import {
-  useAppTheme,
-  ThemeMode,
-} from '../contexts/AppThemeContext';
+import { useAppTheme, ThemeMode } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import colors, { withAlpha } from '../theme/colors';
 import {
@@ -51,12 +45,7 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
-  const {
-    themeColors,
-    themeMode,
-    setThemeMode,
-    resolvedMode,
-  } = useAppTheme();
+  const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
   const { showConfirm } = useConfirmModal();
   const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const isDark = resolvedMode === 'dark';
@@ -492,49 +481,46 @@ const SettingsScreen = () => {
                 },
               ]}>
               <Text
-                style={[
-                  styles.themesTitle,
-                  { color: themeColors.onSurface },
-                ]}>
+                style={[styles.themesTitle, { color: themeColors.onSurface }]}>
                 Theme
               </Text>
               <View style={styles.themeOptionsColumn}>
-                  {(['system', 'dark', 'light'] as ThemeMode[]).map(mode => (
-                    <TouchableOpacity
-                      key={mode}
+                {(['system', 'dark', 'light'] as ThemeMode[]).map(mode => (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[
+                      styles.themeChip,
+                      {
+                        borderColor:
+                          themeMode === mode
+                            ? (themeColors.primary as string)
+                            : isDark
+                              ? (themeChipBorderColorDark as string)
+                              : (colors.neutral[400] as string),
+                      },
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => setThemeMode(mode)}>
+                    <Text
                       style={[
-                        styles.themeChip,
+                        styles.themeChipLabel,
                         {
-                          borderColor:
+                          color:
                             themeMode === mode
                               ? (themeColors.primary as string)
                               : isDark
-                                ? (themeChipBorderColorDark as string)
-                                : (colors.neutral[400] as string),
+                                ? (colors.neutral[200] as string)
+                                : (colors.neutral[700] as string),
                         },
-                      ]}
-                      activeOpacity={0.8}
-                      onPress={() => setThemeMode(mode)}>
-                      <Text
-                        style={[
-                          styles.themeChipLabel,
-                          {
-                            color:
-                              themeMode === mode
-                                ? (themeColors.primary as string)
-                                : isDark
-                                  ? (colors.neutral[200] as string)
-                                  : (colors.neutral[700] as string),
-                          },
-                        ]}>
-                        {mode === 'system'
-                          ? 'System'
-                          : mode === 'dark'
-                            ? 'Dark'
-                            : 'Light'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                      ]}>
+                      {mode === 'system'
+                        ? 'System'
+                        : mode === 'dark'
+                          ? 'Dark'
+                          : 'Light'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           )}

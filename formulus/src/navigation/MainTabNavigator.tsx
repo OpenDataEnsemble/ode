@@ -115,21 +115,13 @@ const renderObservationsIcon = ({ color, size, focused }: TabBarIconProps) => (
 
 const renderSyncIcon = ({ color, size, focused }: TabBarIconProps) => (
   <TabBarIconWrapper focused={focused}>
-    <Icon
-      name="sync"
-      size={iconSize(size)}
-      color={color}
-    />
+    <Icon name="sync" size={iconSize(size)} color={color} />
   </TabBarIconWrapper>
 );
 
 const renderMoreIcon = ({ color, size, focused }: TabBarIconProps) => (
   <TabBarIconWrapper focused={focused}>
-    <Icon
-      name="dots-vertical"
-      size={iconSize(size)}
-      color={color}
-    />
+    <Icon name="dots-vertical" size={iconSize(size)} color={color} />
   </TabBarIconWrapper>
 );
 
