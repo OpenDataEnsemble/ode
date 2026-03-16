@@ -109,75 +109,70 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
     drafts.length > 0 ? (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
           width: '100%',
-          mb: 2.5,
+          mt: 1,
         }}>
+        <Typography
+          variant="subtitle2"
+          sx={{ fontWeight: 600, mb: 0.75, textAlign: 'left' }}>
+          Recent drafts ({drafts.length})
+        </Typography>
         <Box
           sx={{
-            width: '100%',
-            maxWidth: 360,
             borderRadius: CONFIRM_CARD_RADIUS,
             border: `${CONFIRM_BORDER_WIDTH}px solid`,
             borderColor: 'divider',
-            padding: `${CONFIRM_CARD_PADDING}px`,
             backgroundColor: theme.palette.background.paper,
             overflow: 'hidden',
           }}>
-          <Typography
-            variant="subtitle1"
-            sx={{ fontWeight: 600, textAlign: 'center', mb: 1.25 }}>
-            Available Drafts ({drafts.length})
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {drafts.map((draft, index) => (
-              <Box key={draft.id}>
-                {index > 0 && (
-                  <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
-                )}
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    gap: 1,
-                  }}>
-                  <Typography variant="subtitle1" color="text.primary">
-                    Draft saved {formatDate(draft.updatedAt)}
-                  </Typography>
-                  <Chip
-                    icon={<ClockIcon />}
-                    label="Draft"
-                    size="small"
-                    color="default"
-                    sx={{ mt: 0.5 }}
-                  />
-
-                  <IconButton
-                    onClick={() => handleDeleteDraft(draft.id)}
-                    size="small"
-                    color="error"
-                    sx={{ mt: 0.25 }}>
-                    <DeleteIcon />
-                  </IconButton>
-
-                  <Button
-                    variant="neutral"
-                    size="medium"
-                    onPress={() => onResumeDraft(draft.id)}>
-                    Resume Draft
-                  </Button>
-                </Box>
+          {drafts.map((draft, index) => (
+            <Box
+              key={draft.id}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 1.5,
+                py: 1,
+                borderTop:
+                  index === 0 ? 'none' : `1px solid ${theme.palette.divider}`,
+              }}>
+              <Box sx={{ flex: 1, minWidth: 0, pr: 1 }}>
+                <Typography
+                  variant="body2"
+                  color="text.primary"
+                  noWrap
+                  sx={{ textAlign: 'left' }}>
+                  Draft saved {formatDate(draft.updatedAt)}
+                </Typography>
               </Box>
-            ))}
-          </Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  flexShrink: 0,
+                }}>
+                <Button
+                  variant="neutral"
+                  size="small"
+                  onPress={() => onResumeDraft(draft.id)}>
+                  Resume
+                </Button>
+                <IconButton
+                  onClick={() => handleDeleteDraft(draft.id)}
+                  size="small"
+                  color="error">
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+          ))}
         </Box>
       </Box>
     ) : (
-      <Box sx={{ textAlign: 'center', py: 4, mb: 3 }}>
-        <Typography variant="body1" color="text.secondary">
+      <Box sx={{ textAlign: 'left', py: 2, mt: 1 }}>
+        <Typography variant="body2" color="text.secondary">
           No recent drafts found for this form.
         </Typography>
       </Box>
@@ -225,13 +220,8 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
           </Typography>
         </Box>
 
-        {/* Available drafts – solid card, no semi-transparent outer container, centered */}
-        {draftsSection}
-
-        <Divider sx={{ my: 1.5 }} />
-
-        {/* Start new form section – centered */}
-        <Box sx={{ textAlign: 'center' }}>
+        {/* Start new form section – emphasized and above drafts */}
+        <Box sx={{ textAlign: 'center', mb: 2 }}>
           <Typography variant="subtitle1" gutterBottom color="text.primary">
             Start Fresh
           </Typography>
@@ -246,6 +236,11 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
             Start New Form
           </Button>
         </Box>
+
+        <Divider sx={{ my: 1.5 }} />
+
+        {/* Available drafts – compact list below primary action */}
+        {draftsSection}
 
         {/* Delete confirmation dialog */}
         <Dialog
