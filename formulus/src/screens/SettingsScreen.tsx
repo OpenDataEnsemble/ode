@@ -208,19 +208,28 @@ const SettingsScreen = () => {
   };
 
   const handleLogin = useCallback(async () => {
-    const trimmedUrl = serverUrl.trim();
+    let processedUrl = serverUrl.trim();
+
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
 
-    if (!trimmedUrl || !trimmedUsername || !trimmedPassword) {
+    if (!processedUrl || !trimmedUsername || !trimmedPassword) {
       return;
+    }
+
+    if (!processedUrl.startsWith('https://')) {
+      processedUrl = `https://${processedUrl}`;
+    }
+
+    if (processedUrl.endsWith('/')) {
+      processedUrl = processedUrl.slice(0, -1);
     }
 
     if (isLoggingIn) {
       return;
     }
 
-    const serverReady = await handleServerSwitchIfNeeded(trimmedUrl);
+    const serverReady = await handleServerSwitchIfNeeded(processedUrl);
     if (!serverReady) {
       return;
     }
@@ -228,7 +237,7 @@ const SettingsScreen = () => {
     setIsLoggingIn(true);
     try {
       // Ensure server URL is saved before login (required by getApi())
-      await serverConfigService.saveServerUrl(trimmedUrl);
+      await serverConfigService.saveServerUrl(processedUrl);
 
       await Keychain.setGenericPassword(trimmedUsername, trimmedPassword);
       await login(trimmedUsername, trimmedPassword);
