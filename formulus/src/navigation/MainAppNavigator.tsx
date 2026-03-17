@@ -9,12 +9,7 @@ import ObservationDetailScreen from '../screens/ObservationDetailScreen';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { serverConfigService } from '../services/ServerConfigService';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import {
-  odeSpacing,
-  odeRadius,
-  odeBorderWidth,
-  odeTypography,
-} from '../theme/odeDesign';
+import { odeSpacing, odeBorderWidth, odeTypography } from '../theme/odeDesign';
 
 const Stack = createStackNavigator<MainAppStackParamList>();
 
@@ -56,12 +51,9 @@ const observationDetailHeaderStyles = StyleSheet.create({
   wrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderWidth: odeBorderWidth.hairline,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
   },
   backBtn: {
@@ -72,7 +64,7 @@ const observationDetailHeaderStyles = StyleSheet.create({
     flex: 1,
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   placeholder: {
     width: 24 + odeSpacing.xxs * 2 + odeSpacing.xs,

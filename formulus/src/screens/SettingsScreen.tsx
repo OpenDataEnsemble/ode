@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
 import { login, isVersionMismatchError } from '../api/synkronus/Auth';
@@ -22,13 +22,21 @@ import { QRSettingsService } from '../services/QRSettingsService';
 import { MainTabParamList } from '../types/NavigationTypes';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
-import { useAppTheme } from '../contexts/AppThemeContext';
+import { useAppTheme, ThemeMode } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
+import colors, { withAlpha } from '../theme/colors';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+} from '../theme/odeDesign';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
 import { Button } from '../components/common';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import Logo from '../../assets/images/logo.png';
+import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -37,8 +45,25 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
-  const { themeColors } = useAppTheme();
+  const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
   const { showConfirm } = useConfirmModal();
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
+  const isDark = resolvedMode === 'dark';
+
+  useFocusEffect(
+    useCallback(() => {
+      setAppSettingsOpen(false);
+    }, []),
+  );
+  const odeOpacity = (tokens as { opacity?: Record<string, string> }).opacity;
+  const themeChipBorderOpacityDark =
+    odeOpacity?.['50'] != null ? Number(odeOpacity['50']) : 0.5;
+  const themeChipBorderColorDark = isDark
+    ? withAlpha(colors.neutral.white as string, themeChipBorderOpacityDark)
+    : undefined;
+  const sectionHeaderColor = isDark
+    ? (colors.neutral[200] as string)
+    : (colors.neutral[800] as string);
   const [serverUrl, setServerUrl] = useState('');
   const [initialServerUrl, setInitialServerUrl] = useState('');
   const [username, setUsername] = useState('');
@@ -369,7 +394,16 @@ const SettingsScreen = () => {
           contentContainerStyle={styles.cardContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <Text style={[styles.title, { color: themeColors.onSurface }]}>
+          {/* Server Settings section */}
+          <Text
+            style={[
+              styles.sectionHeader,
+              styles.sectionHeaderFirst,
+              { color: sectionHeaderColor },
+            ]}>
+            Server Settings
+          </Text>
+          <Text style={[styles.titleSmall, { color: themeColors.onSurface }]}>
             Please enter the server you want to connect to.
           </Text>
 
@@ -415,13 +449,97 @@ const SettingsScreen = () => {
             disabled={isButtonDisabled}
             fullWidth
           />
-        </ScrollView>
 
-        <View style={styles.versionContainer}>
-          <Text style={[styles.version, { color: themeColors.onSurface }]}>
-            v1.0.0
+          {/* App Settings section (expandable, themes) */}
+          <Text
+            style={[
+              styles.sectionHeader,
+              styles.appSettingsSectionHeader,
+              { color: sectionHeaderColor },
+            ]}>
+            App Settings
           </Text>
-        </View>
+          <TouchableOpacity
+            style={styles.appSettingsHeader}
+            activeOpacity={0.8}
+            onPress={() => setAppSettingsOpen(open => !open)}>
+            <View style={styles.appSettingsTitleRow}>
+              <Icon name="palette" size={22} color={themeColors.onSurface} />
+              <Text
+                style={[
+                  styles.appSettingsLabel,
+                  { color: themeColors.onSurface },
+                ]}>
+                Themes
+              </Text>
+              <Icon
+                name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
+                size={20}
+                color={themeColors.onSurface}
+                style={styles.appSettingsChevron}
+              />
+            </View>
+          </TouchableOpacity>
+          {appSettingsOpen && (
+            <View
+              style={[
+                styles.themesCardOuter,
+                {
+                  borderColor: themeColors.divider,
+                  backgroundColor: themeColors.surface as string,
+                },
+              ]}>
+              <Text
+                style={[styles.themesTitle, { color: themeColors.onSurface }]}>
+                Theme
+              </Text>
+              <View style={styles.themeOptionsColumn}>
+                {(['system', 'dark', 'light'] as ThemeMode[]).map(mode => (
+                  <TouchableOpacity
+                    key={mode}
+                    style={[
+                      styles.themeChip,
+                      {
+                        borderColor:
+                          themeMode === mode
+                            ? (themeColors.primary as string)
+                            : isDark
+                              ? (themeChipBorderColorDark as string)
+                              : (colors.neutral[400] as string),
+                      },
+                    ]}
+                    activeOpacity={0.8}
+                    onPress={() => setThemeMode(mode)}>
+                    <Text
+                      style={[
+                        styles.themeChipLabel,
+                        {
+                          color:
+                            themeMode === mode
+                              ? (themeColors.primary as string)
+                              : isDark
+                                ? (colors.neutral[200] as string)
+                                : (colors.neutral[700] as string),
+                        },
+                      ]}>
+                      {mode === 'system'
+                        ? 'System'
+                        : mode === 'dark'
+                          ? 'Dark'
+                          : 'Light'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.versionContainer}>
+            <Text style={[styles.version, { color: themeColors.onSurface }]}>
+              v1.0.0
+            </Text>
+          </View>
+        </ScrollView>
 
         <QRScannerModal
           visible={showQRScanner}
@@ -442,17 +560,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
     overflow: 'hidden',
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   logoWrapper: {
     width: 40,
@@ -490,10 +606,75 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    fontSize: 20,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  titleSmall: {
+    fontSize: odeTypography.bodySm,
+    fontWeight: '600',
+    marginBottom: 20,
+    textAlign: 'left',
+  },
+  sectionHeader: {
+    fontSize: odeTypography.body,
+    fontWeight: '600',
+    marginBottom: odeSpacing.sm,
+  },
+  sectionHeaderFirst: {
+    marginTop: odeSpacing.xl,
+  },
+  appSettingsSectionHeader: {
+    marginTop: odeSpacing.xl,
+  },
+  appSettingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: odeSpacing.sm,
+  },
+  appSettingsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.sm,
+  },
+  appSettingsLabel: {
+    fontSize: odeTypography.body,
+  },
+  appSettingsChevron: {
+    marginLeft: odeSpacing.xxs,
+  },
+  themesCardOuter: {
+    marginTop: odeSpacing.sm,
+    borderRadius: odeRadius.card,
+    borderWidth: odeBorderWidth.hairline,
+    overflow: 'hidden',
+    padding: odeSpacing.md,
+  },
+  themesTitle: {
+    fontSize: odeTypography.sectionTitle,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: odeSpacing.sm,
+  },
+  themeOptionsColumn: {
+    flexDirection: 'column',
+    gap: odeSpacing.sm,
+    alignItems: 'center',
+  },
+  themeChip: {
+    paddingHorizontal: odeSpacing.lg,
+    paddingVertical: odeSpacing.sm,
+    borderRadius: odeRadius.inner,
+    borderWidth: odeBorderWidth.hairline,
+    backgroundColor: 'transparent',
+    minWidth: '70%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeChipLabel: {
+    fontSize: odeTypography.caption,
+    fontWeight: '600',
   },
   inputContainer: {
     marginBottom: 1,
@@ -503,7 +684,8 @@ const styles = StyleSheet.create({
   },
   versionContainer: {
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingTop: odeSpacing.xl,
+    paddingBottom: odeSpacing.lg,
   },
 });
 

@@ -4,7 +4,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
+import colors from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import Button from './Button';
 import {
@@ -40,12 +40,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   const cardTitleColor = isDark
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
-  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
-  const cardInnerBg = themeColors.surface as string;
-  const backdropBg = withAlpha(
-    colors.neutral.black as string,
-    isDark ? 0.8 : 0.65,
-  );
+  const cardBg = themeColors.surface as string;
 
   const handlePress = (button: ConfirmButton) => {
     onRequestClose();
@@ -63,7 +58,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       statusBarTranslucent>
       <TouchableOpacity
         activeOpacity={1}
-        style={[styles.backdrop, { backgroundColor: backdropBg }]}
+        style={styles.backdrop}
         onPress={onRequestClose}>
         <TouchableOpacity
           style={styles.centered}
@@ -75,32 +70,30 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
               {
                 borderWidth: odeBorderWidth.hairline,
                 borderColor: themeColors.divider as string,
-                backgroundColor: cardOuterBg,
+                backgroundColor: cardBg,
               },
             ]}>
-            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-              <Text style={[styles.title, { color: cardTitleColor }]}>
-                {title}
-              </Text>
-              <Text
-                style={[
-                  styles.message,
-                  { color: themeColors.onSurface as string },
-                ]}>
-                {message}
-              </Text>
-              <View style={styles.buttonsRow}>
-                {buttons.map((btn, index) => (
-                  <Button
-                    key={index}
-                    title={btn.text}
-                    onPress={() => handlePress(btn)}
-                    variant={btn.variant ?? 'tertiary'}
-                    size="medium"
-                    style={styles.button}
-                  />
-                ))}
-              </View>
+            <Text style={[styles.title, { color: cardTitleColor }]}>
+              {title}
+            </Text>
+            <Text
+              style={[
+                styles.message,
+                { color: themeColors.onSurface as string },
+              ]}>
+              {message}
+            </Text>
+            <View style={styles.buttonsRow}>
+              {buttons.map((btn, index) => (
+                <Button
+                  key={index}
+                  title={btn.text}
+                  onPress={() => handlePress(btn)}
+                  variant={btn.variant ?? 'tertiary'}
+                  size="medium"
+                  style={styles.button}
+                />
+              ))}
             </View>
           </View>
         </TouchableOpacity>
@@ -122,11 +115,6 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: odeRadius.card,
-    overflow: 'hidden',
-    padding: odeSpacing.md,
-  },
-  cardInner: {
-    borderRadius: odeRadius.inner,
     overflow: 'hidden',
     padding: odeSpacing.md,
   },
