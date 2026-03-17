@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/auth"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
 	"github.com/spf13/viper"
 )
 
@@ -65,8 +66,9 @@ type Client struct {
 
 // NewClient creates a new Synkronus API client
 func NewClient() *Client {
+	baseURL := strings.TrimRight(utils.EnsureScheme(viper.GetString("api.url")), "/")
 	return &Client{
-		BaseURL:    viper.GetString("api.url"),
+		BaseURL:    baseURL,
 		APIVersion: viper.GetString("api.version"),
 		HTTPClient: &http.Client{
 			Timeout: time.Second * 30,

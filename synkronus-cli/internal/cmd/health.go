@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
@@ -16,7 +17,7 @@ func init() {
 		Short: "Check the health of the Synkronus API",
 		Long:  `Verify connectivity to the Synkronus API server.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			apiURL := viper.GetString("api.url")
+			apiURL := strings.TrimRight(utils.EnsureScheme(viper.GetString("api.url")), "/")
 
 			utils.PrintInfo("Checking API health at %s...", apiURL)
 
