@@ -477,14 +477,16 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   }
 
   /**
-   * Get pending changes from the local database
-   * @returns Promise resolving to an array of pending changes
+   * Get pending changes from the local database (unsynced or updated after last sync).
+   * Includes new, updated, and soft-deleted records so sync can push them to the server.
+   * synced_at can be null or 0 when never synced depending on storage.
    */
   getPendingChanges(): Promise<Observation[]> {
     return this.observationsCollection
       .query(
         Q.or(
           Q.where('synced_at', Q.eq(null)),
+          Q.where('synced_at', 0),
           Q.where('updated_at', Q.gt(Q.column('synced_at'))),
         ),
       )
