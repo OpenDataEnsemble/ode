@@ -59,8 +59,21 @@ async function request<T>(
         errorMessage = response.statusText || errorMessage;
       }
 
+      // Session expiration handling for any non-login 401
+      if (response.status === 401 && endpoint !== '/auth/login') {
+        // Clear stored auth and force a reload so ProtectedRoute shows Login
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('expiresAt');
+        // Best-effort redirect to root; ProtectedRoute will render Login
+        window.location.href = '/';
+        throw new Error('Your session has expired. Please log in again.');
+      }
+
       // Provide more specific error messages
       if (response.status === 401) {
+        // For login or explicit auth failures, keep a clear auth error
         errorMessage = errorMessage || 'Invalid username or password';
       } else if (response.status === 0 || response.status >= 500) {
         errorMessage = 'Server error: Please check if the API is running';
@@ -238,6 +251,17 @@ export const api = {
       } catch {
         errorMessage = response.statusText || errorMessage;
       }
+
+      // Handle expired/invalid session here as well
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('expiresAt');
+        window.location.href = '/';
+        throw new Error('Your session has expired. Please log in again.');
+      }
+
       throw new Error(errorMessage);
     }
 
