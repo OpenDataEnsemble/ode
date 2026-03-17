@@ -1,3 +1,6 @@
+// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
+import storybook from "eslint-plugin-storybook";
+
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import reactPlugin from 'eslint-plugin-react';
@@ -6,46 +9,40 @@ import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
-export default defineConfig([
-  globalIgnores([
-    '**/node_modules/**',
-    '**/build/**',
-    '**/coverage/**',
-    '**/__tests__/**',
-    '**/scripts/**',
-  ]),
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  {
-    files: ['**/*.{js,jsx,ts,tsx}'],
-    plugins: {
-      react: reactPlugin,
-      'react-hooks': hooksPlugin,
+export default defineConfig([globalIgnores([
+  '**/node_modules/**',
+  '**/build/**',
+  '**/coverage/**',
+  '**/__tests__/**',
+  '**/scripts/**',
+]), js.configs.recommended, ...tseslint.configs.recommended, {
+  files: ['**/*.{js,jsx,ts,tsx}'],
+  plugins: {
+    react: reactPlugin,
+    'react-hooks': hooksPlugin,
+  },
+  languageOptions: {
+    globals: {
+      ...globals.browser,
+      ...globals.es2021,
     },
-    languageOptions: {
-      globals: {
-        ...globals.browser,
-        ...globals.es2021,
+    parserOptions: {
+      ecmaFeatures: {
+        jsx: true,
       },
-      parserOptions: {
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-    },
-    rules: {
-      ...hooksPlugin.configs.recommended.rules,
-      'react/react-in-jsx-scope': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        {
-          varsIgnorePattern: '^_',
-          argsIgnorePattern: '^_',
-          caughtErrorsIgnorePattern: '^_',
-        },
-      ],
     },
   },
-  prettierConfig,
-]);
+  rules: {
+    ...hooksPlugin.configs.recommended.rules,
+    'react/react-in-jsx-scope': 'off',
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      {
+        varsIgnorePattern: '^_',
+        argsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      },
+    ],
+  },
+}, prettierConfig, ...storybook.configs["flat/recommended"]]);

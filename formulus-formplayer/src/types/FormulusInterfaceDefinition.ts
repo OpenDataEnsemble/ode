@@ -64,7 +64,7 @@ export interface FormInitData {
 }
 
 /**
- * Generic result type for media/action requests (camera, audio, signature, etc.)
+ * Generic result type for media/action requests (camera, audio, etc.)
  * @property {string} fieldId - The ID of the field that triggered the action
  * @property {'success' | 'cancelled' | 'error'} status - The outcome status
  * @property {string} [message] - Optional message (mainly for errors)
@@ -129,27 +129,6 @@ export interface AudioResultData {
 }
 
 /**
- * Signature-specific result data
- * @property {'signature'} type - Always 'signature' for signature results
- * @property {string} filename - Generated filename for the signature
- * @property {string} uri - File URI for the signature image
- * @property {string} timestamp - ISO timestamp when signature was captured
- * @property {object} metadata - Signature metadata (dimensions, etc.)
- */
-export interface SignatureResultData {
-  type: 'signature';
-  filename: string;
-  uri: string;
-  timestamp: string;
-  metadata: {
-    width: number;
-    height: number;
-    size: number;
-    strokeCount: number;
-  };
-}
-
-/**
  * QR code-specific result data
  * @property {'qrcode'} type - Always 'qrcode' for QR code results
  * @property {string} value - The decoded QR code string value
@@ -189,7 +168,6 @@ export interface FileResultData {
  */
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
-export type SignatureResult = ActionResult<SignatureResultData>;
 export type QrcodeResult = ActionResult<QrcodeResultData>;
 export type FileResult = ActionResult<FileResultData>;
 
@@ -416,13 +394,6 @@ export interface FormulusInterface {
   requestAudio(fieldId: string): Promise<AudioResult>;
 
   /**
-   * Request signature for a field
-   * @param {string} fieldId - The ID of the field
-   * @returns {Promise<SignatureResult>} Promise that resolves with signature result or rejects on error/cancellation
-   */
-  requestSignature(fieldId: string): Promise<SignatureResult>;
-
-  /**
    * Request QR code scanning for a field
    * @param {string} fieldId - The ID of the field
    * @returns {Promise<QrcodeResult>} Promise that resolves with QR code result or rejects on error/cancellation
@@ -470,6 +441,12 @@ export interface FormulusInterface {
     displayName?: string;
     role?: 'read-only' | 'read-write' | 'admin';
   }>;
+
+  /**
+   * Get the current theme mode (System / Light / Dark) so custom apps can match the host app.
+   * @returns {Promise<'light' | 'dark' | 'system'>} Current theme mode; 'system' means follow device preference.
+   */
+  getThemeMode(): Promise<'light' | 'dark' | 'system'>;
 }
 
 /**

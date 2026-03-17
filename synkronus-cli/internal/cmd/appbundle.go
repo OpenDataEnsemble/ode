@@ -221,8 +221,6 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 		Long: `Upload a new app bundle ZIP file to the Synkronus API (admin only).
 
 The bundle will be validated before upload to ensure it has the correct structure.
-Use --skip-validation to bypass validation (not recommended).
-
 After upload, use --activate to automatically activate the new version.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -235,21 +233,16 @@ After upload, use --activate to automatically activate the new version.`,
 			}
 
 			// Get flags
-			skipValidation, _ := cmd.Flags().GetBool("skip-validation")
 			activate, _ := cmd.Flags().GetBool("activate")
 			verbose, _ := cmd.Flags().GetBool("verbose")
 
-			// Validate bundle structure (unless skipped)
-			if !skipValidation {
-				color.Cyan("Validating bundle structure...")
-				if err := validation.ValidateBundle(bundlePath); err != nil {
-					cmd.SilenceUsage = true
-					return fmt.Errorf("bundle validation failed: %w", err)
-				}
-				color.Green("✓ Bundle structure is valid")
-			} else {
-				color.Yellow("⚠ Skipping validation (not recommended)")
+			// Validate bundle structure
+			color.Cyan("Validating bundle structure...")
+			if err := validation.ValidateBundle(bundlePath); err != nil {
+				cmd.SilenceUsage = true
+				return fmt.Errorf("bundle validation failed: %w", err)
 			}
+			color.Green("✓ Bundle structure is valid")
 
 			// Show bundle info
 			if verbose {
@@ -342,7 +335,6 @@ After upload, use --activate to automatically activate the new version.`,
 			return nil
 		},
 	}
-	uploadCmd.Flags().Bool("skip-validation", false, "Skip bundle validation before upload (not recommended)")
 	uploadCmd.Flags().BoolP("activate", "a", false, "Automatically activate the uploaded version")
 	uploadCmd.Flags().BoolP("verbose", "v", false, "Show detailed information about the bundle and manifest")
 	appBundleCmd.AddCommand(uploadCmd)
