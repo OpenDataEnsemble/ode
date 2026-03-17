@@ -10,7 +10,7 @@ import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { getUserInfo, UserInfo, UserRole } from '../api/synkronus/Auth';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors, { withAlpha } from '../theme/colors';
 import {
   odeSpacing,
   odeTypography,
@@ -18,7 +18,7 @@ import {
   odeRadius,
 } from '../theme/odeDesign';
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
-import { useAppTheme, ThemeMode } from '../contexts/AppThemeContext';
+import { useAppTheme } from '../contexts/AppThemeContext';
 import Button from './common/Button';
 
 interface MenuItem {
@@ -95,7 +95,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onLogout,
   allowClose = true,
 }) => {
-  const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
+  const { themeColors, resolvedMode } = useAppTheme();
   const isDark = resolvedMode === 'dark';
   const textColor = isDark
     ? (themeColors.onSurface as string)
@@ -103,37 +103,12 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   const odeOpacity = (tokens as { opacity?: Record<string, string> }).opacity;
   const dividerOpacityDark =
     odeOpacity?.['10'] != null ? Number(odeOpacity['10']) : 0.1;
-  const themeChipBorderOpacityDark =
-    odeOpacity?.['50'] != null ? Number(odeOpacity['50']) : 0.5;
   const sectionDividerColor = isDark
     ? withAlpha(colors.neutral.white as string, dividerOpacityDark)
     : (themeColors.divider as string);
   const menuModalBorderColor = sectionDividerColor;
-  const themeChipBorderColorDark = isDark
-    ? withAlpha(colors.neutral.white as string, themeChipBorderOpacityDark)
-    : undefined;
-  const cardOuterBg = isDark
-    ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
-    : withAlpha(colors.neutral[900] as string, 0.04);
-  const cardInnerBg = isDark
-    ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
-    : withAlpha(colors.neutral[900] as string, 0.02);
+  const sectionBg = themeColors.surface as string;
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  /** Top-level Settings (Server Settings + App Settings). */
-  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
-  /** Nested App Settings (themes only). */
-  const [appSettingsOpen, setAppSettingsOpen] = useState<boolean>(false);
-
-  /** Toggle Settings; when closing, collapse nested App Settings (no setState in useEffect — CI react-hooks/set-state-in-effect). */
-  const toggleSettingsOpen = () => {
-    if (settingsOpen) {
-      setAppSettingsOpen(false);
-      setSettingsOpen(false);
-    } else {
-      setSettingsOpen(true);
-    }
-  };
-
   // Backdrop covers the full height; bottom nav is rendered above this layer
   // by the tab navigator, so its buttons remain clickable.
   const bottomPadding = 0;
@@ -199,9 +174,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           {
             top: odeSpacing.sm,
             bottom: odeSpacing.sm,
-            backgroundColor: isDark
-              ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
-              : (colors.neutral[50] as string),
+            backgroundColor: themeColors.surface as string,
             shadowColor: themeColors.surface,
             borderLeftWidth: odeBorderWidth.hairline,
             borderLeftColor: isDark
@@ -228,7 +201,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           {userInfo ? (
             <>
               <View
-                style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
+                style={[styles.userSection, { backgroundColor: sectionBg }]}>
                 <View
                   style={[
                     styles.userAvatar,
@@ -264,7 +237,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           ) : (
             <>
               <View
-                style={[styles.userSection, { backgroundColor: cardOuterBg }]}>
+                style={[styles.userSection, { backgroundColor: sectionBg }]}>
                 <View
                   style={[
                     styles.userAvatar,
@@ -295,146 +268,19 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           )}
 
           <ScrollView style={styles.menuList}>
-            {/* Settings: Server Settings (login/server URL) + App Settings (themes) */}
-            <View style={styles.menuItem}>
-              <View style={styles.themeContent}>
-                <TouchableOpacity
-                  style={styles.appSettingsHeader}
-                  activeOpacity={0.8}
-                  onPress={toggleSettingsOpen}>
-                  <View style={styles.appSettingsTitleRow}>
-                    <Icon name="cog" size={24} color={textColor} />
-                    <Text
-                      style={[
-                        styles.menuLabel,
-                        styles.appSettingsLabel,
-                        { color: textColor },
-                      ]}>
-                      Settings
-                    </Text>
-                    <Icon
-                      name={settingsOpen ? 'chevron-up' : 'chevron-down'}
-                      size={20}
-                      color={textColor}
-                      style={styles.appSettingsChevron}
-                    />
-                  </View>
-                </TouchableOpacity>
-                {settingsOpen && (
-                  <View style={styles.settingsNestedBlock}>
-                    {/* Server Settings: same destination as bottom Login */}
-                    <TouchableOpacity
-                      style={styles.serverSettingsRow}
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        onClose();
-                        onNavigate('Settings');
-                      }}>
-                      <Icon name="server-network" size={22} color={textColor} />
-                      <Text
-                        style={[
-                          styles.menuLabel,
-                          styles.nestedSettingsLabel,
-                          { color: textColor },
-                        ]}>
-                        Server Settings
-                      </Text>
-                      <Icon
-                        name="chevron-right"
-                        size={20}
-                        color={textColor}
-                        style={styles.nestedChevronRight}
-                      />
-                    </TouchableOpacity>
-                    <MenuDivider color={menuModalBorderColor} />
-                    {/* App Settings: nested dropdown for themes only */}
-                    <TouchableOpacity
-                      style={styles.appSettingsSubHeader}
-                      activeOpacity={0.8}
-                      onPress={() => setAppSettingsOpen(open => !open)}>
-                      <View style={styles.appSettingsTitleRow}>
-                        <Icon name="palette" size={22} color={textColor} />
-                        <Text
-                          style={[
-                            styles.menuLabel,
-                            styles.nestedSettingsLabel,
-                            { color: textColor },
-                          ]}>
-                          App Settings
-                        </Text>
-                        <Icon
-                          name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
-                          size={20}
-                          color={textColor}
-                          style={styles.appSettingsChevron}
-                        />
-                      </View>
-                    </TouchableOpacity>
-                    {appSettingsOpen && (
-                      <View
-                        style={[
-                          styles.themesCardOuter,
-                          {
-                            borderColor: menuModalBorderColor,
-                            backgroundColor: cardOuterBg,
-                          },
-                        ]}>
-                        <View
-                          style={[
-                            styles.themesCardInner,
-                            { backgroundColor: cardInnerBg },
-                          ]}>
-                          <Text
-                            style={[styles.themesTitle, { color: textColor }]}>
-                            Themes
-                          </Text>
-                          <View style={styles.themeOptionsColumn}>
-                            {(['system', 'dark', 'light'] as ThemeMode[]).map(
-                              mode => (
-                                <TouchableOpacity
-                                  key={mode}
-                                  style={[
-                                    styles.themeChip,
-                                    {
-                                      borderColor:
-                                        themeMode === mode
-                                          ? (themeColors.primary as string)
-                                          : isDark
-                                            ? (themeChipBorderColorDark as string)
-                                            : (colors.neutral[400] as string),
-                                    },
-                                  ]}
-                                  activeOpacity={0.8}
-                                  onPress={() => setThemeMode(mode)}>
-                                  <Text
-                                    style={[
-                                      styles.themeChipLabel,
-                                      {
-                                        color:
-                                          themeMode === mode
-                                            ? (themeColors.primary as string)
-                                            : isDark
-                                              ? (colors.neutral[200] as string)
-                                              : (colors.neutral[700] as string),
-                                      },
-                                    ]}>
-                                    {mode === 'system'
-                                      ? 'System'
-                                      : mode === 'dark'
-                                        ? 'Dark'
-                                        : 'Light'}
-                                  </Text>
-                                </TouchableOpacity>
-                              ),
-                            )}
-                          </View>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                )}
-              </View>
-            </View>
+            {/* Settings: single tap goes straight to Login/Settings screen */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              activeOpacity={0.8}
+              onPress={() => {
+                onClose();
+                onNavigate('Settings');
+              }}>
+              <Icon name="cog" size={24} color={textColor} />
+              <Text style={[styles.menuLabel, { color: textColor }]}>
+                Settings
+              </Text>
+            </TouchableOpacity>
             <MenuDivider color={menuModalBorderColor} />
 
             {visibleItems.map((item, index) => (
@@ -453,7 +299,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           </ScrollView>
 
           <MenuDivider color={menuModalBorderColor} />
-          <View style={[styles.footer, { backgroundColor: cardOuterBg }]}>
+          <View style={[styles.footer, { backgroundColor: sectionBg }]}>
             {userInfo ? (
               <Button
                 title="Logout"
@@ -596,97 +442,9 @@ const styles = StyleSheet.create({
     marginLeft: odeSpacing.sm,
     fontSize: odeTypography.body,
   },
-  themeContent: {
-    flex: 1,
-    marginLeft: 0,
-  },
-  appSettingsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  appSettingsTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: odeSpacing.sm,
-  },
-  appSettingsLabel: {
-    marginLeft: 0,
-  },
-  appSettingsChevron: {
-    marginLeft: odeSpacing.xs,
-  },
-  settingsNestedBlock: {
-    marginTop: odeSpacing.sm,
-    borderRadius: odeRadius.inner,
-    overflow: 'hidden',
-  },
-  serverSettingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: odeSpacing.sm,
-    paddingVertical: odeSpacing.sm,
-    paddingHorizontal: odeSpacing.xs,
-  },
-  appSettingsSubHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: odeSpacing.sm,
-    paddingHorizontal: odeSpacing.xs,
-    marginTop: odeSpacing.xs,
-  },
-  nestedSettingsLabel: {
-    flex: 1,
-    marginLeft: 0,
-  },
-  nestedChevronRight: {
-    marginLeft: 'auto',
-  },
-  sectionLabel: {
-    marginTop: odeSpacing.sm,
-    fontSize: odeTypography.caption,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  themeOptionsColumn: {
-    flexDirection: 'column',
-    marginTop: odeSpacing.xs,
-    gap: odeSpacing.sm,
-    alignItems: 'center',
-  },
-  themeChip: {
-    paddingHorizontal: odeSpacing.lg,
-    paddingVertical: odeSpacing.sm,
-    borderRadius: odeRadius.inner,
-    borderWidth: odeBorderWidth.hairline,
-    backgroundColor: 'transparent',
-    minWidth: '70%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  themeChipLabel: {
-    fontSize: odeTypography.caption,
-    fontWeight: '600',
-  },
   footer: {
     padding: odeSpacing.md,
     borderBottomLeftRadius: odeRadius.card,
-  },
-  themesCardOuter: {
-    borderRadius: odeRadius.card,
-    marginTop: odeSpacing.sm,
-    borderWidth: odeBorderWidth.hairline,
-  },
-  themesCardInner: {
-    borderRadius: odeRadius.inner,
-    overflow: 'hidden',
-    padding: odeSpacing.md,
-  },
-  themesTitle: {
-    fontSize: odeTypography.sectionTitle,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: odeSpacing.sm,
   },
 });
 

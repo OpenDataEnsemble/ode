@@ -6,9 +6,10 @@ import {
   Image,
   ScrollView,
   Linking,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
 import { appVersionService } from '../services/AppVersionService';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
@@ -20,30 +21,37 @@ import {
 } from '../theme/odeDesign';
 import logo from '../../assets/images/logo.png';
 
+const FORUM_URL = 'https://forum.opendataensemble.org';
+
 const AboutScreen: React.FC = () => {
   const { themeColors, resolvedMode } = useAppTheme();
   const isDark = resolvedMode === 'dark';
-  const titleColor = isDark
-    ? (colors.neutral[200] as string)
-    : (colors.neutral[900] as string);
-  const cardTitleColor = isDark
+  const sectionColor = isDark
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
   const [version, setVersion] = useState<string>('');
-  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
-  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardBg = themeColors.surface as string;
+  const headerBg = isDark
+    ? (colors.neutral[900] as string)
+    : (colors.neutral[50] as string);
+
+  const cardStyle = [
+    styles.card,
+    {
+      borderColor: themeColors.divider as string,
+      backgroundColor: cardBg,
+    },
+  ];
 
   useEffect(() => {
-    const loadVersion = async () => {
+    const load = async () => {
       try {
-        const v = await appVersionService.getFullVersion();
-        setVersion(v);
+        setVersion(await appVersionService.getFullVersion());
       } catch {
         setVersion('');
       }
     };
-
-    loadVersion();
+    load();
   }, []);
 
   return (
@@ -55,16 +63,11 @@ const AboutScreen: React.FC = () => {
           style={[
             styles.header,
             {
-              backgroundColor: isDark
-                ? (colors.neutral[900] as string)
-                : (colors.neutral[50] as string),
-              borderWidth: 1,
-              borderBottomWidth: 1,
-              borderColor: themeColors.divider as string,
+              backgroundColor: headerBg,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: titleColor }]}>About</Text>
+          <Text style={[styles.title, { color: sectionColor }]}>About</Text>
         </View>
 
         <ScrollView
@@ -74,82 +77,51 @@ const AboutScreen: React.FC = () => {
             <View style={styles.logoWrapper}>
               <Image source={logo} style={styles.logo} resizeMode="contain" />
             </View>
-            <View style={styles.brandText}>
-              <Text style={[styles.appName, { color: themeColors.onSurface }]}>
-                ODE
-              </Text>
-            </View>
+            <Text style={[styles.appName, { color: themeColors.onSurface }]}>
+              ODE
+            </Text>
           </View>
 
-          <View
-            style={[
-              styles.card,
-              {
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-                backgroundColor: cardOuterBg,
-              },
-            ]}>
-            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
-                Formulus
-              </Text>
-              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-                Formulus is the mobile app for collecting and synchronizing
-                forms and observations.
-              </Text>
-            </View>
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Formulus
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              Formulus is the mobile app for collecting and synchronizing forms
+              and observations.
+            </Text>
           </View>
 
-          <View
-            style={[
-              styles.card,
-              {
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-                backgroundColor: cardOuterBg,
-              },
-            ]}>
-            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
-                Support
-              </Text>
-              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-                If you need help, contact your system administrator.
-              </Text>
-            </View>
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Support
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              If you need help, contact your system administrator.
+            </Text>
           </View>
 
-          <View
-            style={[
-              styles.card,
-              {
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-                backgroundColor: cardOuterBg,
-              },
-            ]}>
-            <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-              <Text style={[styles.cardTitle, { color: cardTitleColor }]}>
-                Free & Open Source
-              </Text>
-              <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-                This application is free and open source software. We would love
-                to hear your feedback and welcome contributions.
-              </Text>
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Free & Open Source
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              This application is free and open source software. We would love
+              to hear your feedback and welcome contributions.
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(FORUM_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open forum opendataensemble.org">
               <Text
                 style={[
                   styles.cardText,
                   styles.link,
                   { color: themeColors.primary },
-                ]}
-                onPress={() =>
-                  Linking.openURL('https://forum.opendataensemble.org')
-                }
-                suppressHighlighting={true}>
-                https://forum.opendataensemble.org
+                ]}>
+                {FORUM_URL}
               </Text>
-            </View>
+            </Pressable>
           </View>
 
           {!!version && (
@@ -171,19 +143,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   header: {
-    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   title: {
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
     marginBottom: odeSpacing.xs,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   content: {
     padding: odeSpacing.md,
@@ -210,9 +179,6 @@ const styles = StyleSheet.create({
     height: 56,
     backgroundColor: 'transparent',
   },
-  brandText: {
-    alignItems: 'center',
-  },
   appName: {
     fontSize: odeTypography.sectionTitle,
     fontWeight: '700',
@@ -228,22 +194,18 @@ const styles = StyleSheet.create({
     marginBottom: odeSpacing.sm,
     borderWidth: odeBorderWidth.hairline,
     padding: odeSpacing.md,
-  },
-  cardInner: {
-    borderRadius: odeRadius.inner,
     overflow: 'hidden',
-    padding: odeSpacing.sm,
   },
   cardTitle: {
     fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
     marginBottom: odeSpacing.xs,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   cardText: {
     fontSize: odeTypography.bodySm,
     lineHeight: 20,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   link: {
     marginTop: odeSpacing.sm,

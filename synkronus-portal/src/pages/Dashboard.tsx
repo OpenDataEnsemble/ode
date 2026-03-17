@@ -1000,6 +1000,13 @@ export function Dashboard() {
                     <HiPlus /> Create User
                   </Button>
                   <Button
+                    variant="secondary"
+                    onPress={handleOpenChangePasswordModal}
+                    disabled={loading}
+                    className="change-password-button">
+                    <HiKey /> Change my password
+                  </Button>
+                  <Button
                     variant="neutral"
                     onPress={loadUsers}
                     disabled={loading}
