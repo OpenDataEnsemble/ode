@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatRelativeTime } from '../utils/dateUtils';
@@ -313,6 +314,14 @@ const SyncScreen = () => {
     updatePendingObservations,
     updateProgress,
   ]);
+
+  // Refresh pending count whenever the Sync screen gains focus so it stays in sync after creating observations
+  useFocusEffect(
+    useCallback(() => {
+      updatePendingUploads();
+      updatePendingObservations();
+    }, [updatePendingUploads, updatePendingObservations]),
+  );
 
   useEffect(() => {
     if (!syncState.progress || !syncState.isActive) {
