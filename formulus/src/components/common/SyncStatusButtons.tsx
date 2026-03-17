@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ViewStyle } from 'react-native';
 import Button from './Button';
 
 export type SyncStatus = 'all' | 'synced' | 'pending';
@@ -7,11 +7,13 @@ export type SyncStatus = 'all' | 'synced' | 'pending';
 interface SyncStatusButtonsProps {
   selectedStatus: SyncStatus;
   onStatusChange: (status: SyncStatus) => void;
+  containerStyle?: ViewStyle;
 }
 
 const SyncStatusButtons: React.FC<SyncStatusButtonsProps> = ({
   selectedStatus,
   onStatusChange,
+  containerStyle,
 }) => {
   const buttons: { id: SyncStatus; label: string }[] = [
     { id: 'all', label: 'All' },
@@ -20,7 +22,7 @@ const SyncStatusButtons: React.FC<SyncStatusButtonsProps> = ({
   ];
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       {buttons.map((button, index) => {
         const isActive = selectedStatus === button.id;
         const position =

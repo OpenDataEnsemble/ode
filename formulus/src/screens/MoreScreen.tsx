@@ -54,15 +54,11 @@ const MoreScreen: React.FC = () => {
 
   const handleNavigate = (screen: string) => {
     setDrawerVisible(false);
-    if (screen === 'Settings') {
-      navigation.navigate('Settings');
-    } else if (screen === 'About') {
-      navigation.navigate('About');
-    } else if (screen === 'Help') {
-      navigation.navigate('Help');
-    } else {
-      navigation.navigate('Home');
-    }
+    const target =
+      screen === 'Settings' || screen === 'About' || screen === 'Help'
+        ? screen
+        : 'Home';
+    navigation.navigate(target as keyof MainTabParamList);
   };
 
   const handleLogout = () => {

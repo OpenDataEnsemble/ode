@@ -14,17 +14,12 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Alert,
   Chip,
   Divider,
   useTheme,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import { Button } from '@ode/components/react-web';
-import {
-  Delete as DeleteIcon,
-  Schedule as ClockIcon,
-} from '@mui/icons-material';
+import { Delete as DeleteIcon } from '@mui/icons-material';
 import { draftService, DraftSummary } from '../services/DraftService';
 
 interface DraftSelectorProps {
@@ -42,12 +37,9 @@ interface DraftSelectorProps {
   fullScreen?: boolean;
 }
 
-// Container style required
+// Container style – matched with other confirm UIs (no semi-transparent overlay)
 const CONFIRM_CARD_RADIUS = 0.7;
-const CONFIRM_INNER_RADIUS = 0.7;
 const CONFIRM_BORDER_WIDTH = 1;
-const CONFIRM_CARD_PADDING = 16;
-const CONTAINER_ALPHA = 0.4;
 
 export const DraftSelector: React.FC<DraftSelectorProps> = ({
   formType,
@@ -61,7 +53,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
-  const [cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+  const [_cleanupMessage, setCleanupMessage] = useState<string | null>(null);
 
   // Load drafts on component mount and when formType changes
   const loadDrafts = useCallback(() => {
@@ -100,234 +92,190 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
     setDraftToDelete(null);
   };
 
-  const formatDate = (date: Date): string => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+  const formatDate = (date: Date): string =>
+    date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
 
-    if (diffDays > 0) {
-      return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
-    } else if (diffHours > 0) {
-      return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
-    } else if (diffMinutes > 0) {
-      return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
-    } else {
-      return 'Just now';
-    }
-  };
-
-  const getDraftAge = (date: Date): 'recent' | 'old' | 'very-old' => {
-    const diffDays = Math.floor(
-      (new Date().getTime() - date.getTime()) / (1000 * 60 * 60 * 24),
+  const draftsSection =
+    drafts.length > 0 ? (
+      <Box
+        sx={{
+          width: '100%',
+          mt: 1,
+        }}>
+        <Typography
+          variant="subtitle2"
+          sx={{ fontWeight: 600, mb: 0.75, textAlign: 'left' }}>
+          Recent drafts ({drafts.length})
+        </Typography>
+        <Box
+          sx={{
+            borderRadius: CONFIRM_CARD_RADIUS,
+            border: `${CONFIRM_BORDER_WIDTH}px solid`,
+            borderColor: 'divider',
+            backgroundColor: theme.palette.background.paper,
+            overflow: 'hidden',
+          }}>
+          {drafts.map((draft, index) => (
+            <Box
+              key={draft.id}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                px: 1.5,
+                py: 1,
+                borderTop:
+                  index === 0 ? 'none' : `1px solid ${theme.palette.divider}`,
+              }}>
+              <Box sx={{ flex: 1, minWidth: 0, pr: 1 }}>
+                <Typography
+                  variant="body2"
+                  color="text.primary"
+                  noWrap
+                  sx={{ textAlign: 'left' }}>
+                  Draft saved {formatDate(draft.updatedAt)}
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  flexShrink: 0,
+                }}>
+                <Button
+                  variant="neutral"
+                  size="small"
+                  onPress={() => onResumeDraft(draft.id)}>
+                  Resume
+                </Button>
+                <IconButton
+                  onClick={() => handleDeleteDraft(draft.id)}
+                  size="small"
+                  color="error">
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    ) : (
+      <Box sx={{ textAlign: 'left', py: 2, mt: 1 }}>
+        <Typography variant="body2" color="text.secondary">
+          No recent drafts found for this form.
+        </Typography>
+      </Box>
     );
-    if (diffDays < 1) return 'recent';
-    if (diffDays < 3) return 'old';
-    return 'very-old';
-  };
 
   const content = (
     <Box
       sx={{
         minHeight: fullScreen ? '100dvh' : 'auto',
         display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        px: fullScreen ? 3 : 0,
-        py: fullScreen ? 4 : 0,
+        flexDirection: 'column',
         bgcolor: 'background.default',
         color: 'text.primary',
       }}>
+      {/* Header bar – match Formulus native / FormLayout (full-width, no radius, divider border) */}
+      <Box
+        sx={theme => ({
+          flexShrink: 0,
+          width: '100%',
+          boxSizing: 'border-box',
+          backgroundColor: 'background.default',
+          padding: theme.spacing(2),
+          paddingTop: `max(${theme.spacing(2)}, env(safe-area-inset-top, 0px))`,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          borderRadius: 0,
+          boxShadow: 'none',
+        })}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            fontWeight: 700,
+            fontSize: '1.125rem',
+            lineHeight: 1.3,
+            color: 'text.primary',
+            mb: 0.5,
+            textAlign: 'left',
+          }}>
+          Resume Draft or Start New
+        </Typography>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ textAlign: 'left' }}>
+          Form: {formType}
+          {formVersion && (
+            <Chip label={`v${formVersion}`} size="small" sx={{ ml: 1 }} />
+          )}
+        </Typography>
+      </Box>
+
+      {/* Body – scrollable content below header */}
       <Box
         sx={{
-          width: '100%',
-          maxWidth: 420,
-          textAlign: 'center',
+          flex: 1,
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'center',
+          px: fullScreen ? 2 : 0,
+          py: fullScreen ? 2.5 : 2,
         }}>
-        {/* Header – theme-aware */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h5" gutterBottom color="text.primary">
-            Resume Draft or Start New
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Form: {formType}
-            {formVersion && (
-              <Chip label={`v${formVersion}`} size="small" sx={{ ml: 1 }} />
-            )}
-          </Typography>
-        </Box>
-
-        {/* Cleanup message */}
-        {cleanupMessage && (
-          <Alert severity="info" sx={{ mb: 3, textAlign: 'left' }}>
-            {cleanupMessage}
-          </Alert>
-        )}
-
-        {/* Available drafts – same outer + inner container style as Missing required fields dialog */}
-        {drafts.length > 0 ? (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              width: '100%',
-              mb: 3,
-            }}>
-            <Box
-              sx={{
-                width: '100%',
-                maxWidth: 340,
-                borderRadius: CONFIRM_CARD_RADIUS,
-                border: `${CONFIRM_BORDER_WIDTH}px solid`,
-                borderColor: 'divider',
-                padding: `${CONFIRM_CARD_PADDING}px`,
-                backgroundColor: alpha(
-                  theme.palette.background.paper,
-                  CONTAINER_ALPHA,
-                ),
-                overflow: 'hidden',
-              }}>
-              <Box
-                sx={{
-                  borderRadius: CONFIRM_INNER_RADIUS,
-                  padding: `${CONFIRM_CARD_PADDING}px`,
-                  backgroundColor: theme.palette.background.paper,
-                  overflow: 'hidden',
-                }}>
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
-                  Available Drafts ({drafts.length})
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {drafts.map((draft, index) => {
-                    const age = getDraftAge(draft.updatedAt);
-                    const chipColor =
-                      age === 'recent'
-                        ? 'primary'
-                        : age === 'old'
-                          ? 'warning'
-                          : 'error';
-
-                    return (
-                      <Box key={draft.id}>
-                        {index > 0 && (
-                          <Divider sx={{ my: 1.5, borderColor: 'divider' }} />
-                        )}
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            textAlign: 'center',
-                            gap: 1,
-                          }}>
-                          <Typography variant="subtitle1" color="text.primary">
-                            Draft from {formatDate(draft.updatedAt)}
-                          </Typography>
-                          <Chip
-                            icon={<ClockIcon />}
-                            label={age}
-                            size="small"
-                            color={chipColor}
-                            sx={
-                              age === 'recent'
-                                ? {
-                                    mt: 0.5,
-                                    bgcolor: theme.palette.primary.main,
-                                    color: theme.palette.primary.contrastText,
-                                  }
-                                : { mt: 0.5 }
-                            }
-                          />
-
-                          <IconButton
-                            onClick={() => handleDeleteDraft(draft.id)}
-                            size="small"
-                            color="error"
-                            sx={{ mt: 0.25 }}>
-                            <DeleteIcon />
-                          </IconButton>
-
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mt: 1 }}>
-                            {draft.dataPreview}
-                          </Typography>
-
-                          <Typography variant="caption" color="text.secondary">
-                            Created: {draft.createdAt.toLocaleDateString()}{' '}
-                            {draft.createdAt.toLocaleTimeString()}
-                            {draft.observationId && (
-                              <> • Editing observation: {draft.observationId}</>
-                            )}
-                          </Typography>
-
-                          <Button
-                            variant="neutral"
-                            size="medium"
-                            onPress={() => onResumeDraft(draft.id)}>
-                            Resume Draft
-                          </Button>
-                        </Box>
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </Box>
+        <Box sx={{ width: '100%', maxWidth: 420 }}>
+          {/* Start new form section – concise, left-aligned label with centered CTA */}
+          <Box sx={{ mb: 2 }}>
+            <Typography
+              variant="subtitle2"
+              gutterBottom
+              color="text.primary"
+              sx={{ fontWeight: 600, textAlign: 'left' }}>
+              New Form
+            </Typography>
+            <Box sx={{ textAlign: 'center', mt: 0.5 }}>
+              <Button
+                variant="primary"
+                size="medium"
+                onPress={onStartNew}
+                style={{ minWidth: 180 }}>
+                Start New Form
+              </Button>
             </Box>
           </Box>
-        ) : (
-          <Box sx={{ textAlign: 'center', py: 4, mb: 3 }}>
-            <Typography variant="body1" color="text.secondary">
-              No recent drafts found for this form.
-            </Typography>
-          </Box>
-        )}
 
-        <Divider sx={{ my: 3 }} />
+          <Divider sx={{ my: 1.5 }} />
 
-        {/* Start new form section – theme-aware */}
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="h6" gutterBottom color="text.primary">
-            Start Fresh
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Begin a new form without any saved data.
-          </Typography>
-          <Button
-            variant="primary"
-            size="large"
-            onPress={onStartNew}
-            style={{ minWidth: 200 }}>
-            Start New Form
-          </Button>
+          {/* Available drafts – compact list below primary action */}
+          {draftsSection}
+
+          {/* Delete confirmation dialog */}
+          <Dialog
+            open={deleteConfirmOpen}
+            onClose={() => setDeleteConfirmOpen(false)}>
+            <DialogTitle>Delete Draft</DialogTitle>
+            <DialogContent>
+              <Typography>
+                Are you sure you want to delete this draft? This action cannot
+                be undone.
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button
+                variant="neutral"
+                onPress={() => setDeleteConfirmOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="danger" onPress={confirmDeleteDraft}>
+                Delete
+              </Button>
+            </DialogActions>
+          </Dialog>
         </Box>
-
-        {/* Delete confirmation dialog */}
-        <Dialog
-          open={deleteConfirmOpen}
-          onClose={() => setDeleteConfirmOpen(false)}>
-          <DialogTitle>Delete Draft</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Are you sure you want to delete this draft? This action cannot be
-              undone.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              variant="neutral"
-              onPress={() => setDeleteConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="danger" onPress={confirmDeleteDraft}>
-              Delete
-            </Button>
-          </DialogActions>
-        </Dialog>
       </Box>
     </Box>
   );
@@ -343,14 +291,16 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
             bgcolor: 'background.default',
             backgroundImage: 'none',
             color: 'text.primary',
+            borderRadius: 0,
+            margin: 0,
           },
         }}>
-        <DialogTitle sx={{ textAlign: 'center' }}>
-          <Typography variant="h6" color="text.primary">
-            Select Draft
-          </Typography>
-        </DialogTitle>
-        <DialogContent sx={{ bgcolor: 'background.default' }}>
+        <DialogContent
+          sx={{
+            bgcolor: 'background.default',
+            p: 0,
+            m: 0,
+          }}>
           {content}
         </DialogContent>
       </Dialog>
