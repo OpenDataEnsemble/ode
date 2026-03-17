@@ -208,10 +208,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
 
       // Query for observations with form_type matching and exclude soft-deleted
       const observations = await this.observationsCollection
-        .query(
-          Q.where('form_type', formId),
-          Q.where('deleted', false),
-        )
+        .query(Q.where('form_type', formId), Q.where('deleted', false))
         .fetch();
 
       return observations.map(observation =>
