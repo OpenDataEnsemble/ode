@@ -93,13 +93,13 @@ function syncNativeVersions() {
     console.log('✓ Native version sync complete');
   } catch (error) {
     console.error('✗ Failed to sync native versions:', error);
-    // eslint-disable-next-line no-undef
+
     process.exit(1);
   }
 }
 
 // Run if executed directly
-// eslint-disable-next-line no-undef
+
 if (import.meta.url === `file://${process.argv[1]}`) {
   syncNativeVersions();
 }

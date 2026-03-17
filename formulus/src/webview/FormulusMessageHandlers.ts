@@ -1056,8 +1056,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       }
 
       const service = await FormService.getInstance();
-      //TODO: Handle deleted etc.
-      return await service.getObservationsByFormType(formTypeString);
+      // Use getObservationsByQuery so includeDeleted is respected (default false = exclude deleted)
+      return await service.getObservationsByQuery({
+        formType: formTypeString,
+        includeDeleted: includeDeleted ?? false,
+      });
     },
     onGetObservationsByQuery: async (payload: {
       options?: {

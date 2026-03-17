@@ -289,8 +289,8 @@ export interface FormulusInterface {
   /**
    * Get observations for a specific form
    * @param {string} formType - The identifier of the formtype
-   * @param {boolean} [isDraft=false] - Whether to include draft observations
-   * @param {boolean} [includeDeleted=false] - Whether to include deleted observations
+   * @param {boolean} [isDraft=false] - Deprecated: drafts are handled only in formplayer; ignored in Formulus
+   * @param {boolean} [includeDeleted=false] - Whether to include deleted observations (default false = exclude)
    * @returns {Promise<FormObservation[]>} Array of form observations
    */
   getObservations(
@@ -305,7 +305,7 @@ export interface FormulusInterface {
    * Age filtering via age_from_dob(data.dob) is handled client-side in formplayer.
    * @param options - Query options
    * @param options.formType - Form type to query
-   * @param options.isDraft - Include drafts (default false)
+   * @param options.isDraft - Deprecated: drafts handled in formplayer; ignored
    * @param options.includeDeleted - Include deleted (default false)
    * @param options.whereClause - SQL-like WHERE clause for filtering (e.g. "data.sex = 'male'")
    * @returns {Promise<FormObservation[]>} Array of filtered observations
