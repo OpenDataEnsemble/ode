@@ -280,6 +280,10 @@ export class FormService {
       options.formType,
     );
 
+    if (!options.includeDeleted) {
+      observations = observations.filter(o => !o.deleted);
+    }
+
     if (options.whereClause && options.whereClause.trim()) {
       observations = this.filterObservationsByWhereClause(
         observations,

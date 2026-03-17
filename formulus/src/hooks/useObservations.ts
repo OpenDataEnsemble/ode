@@ -62,7 +62,7 @@ export const useObservations = (): UseObservationsResult => {
   }, [loadObservations]);
 
   const filteredAndSorted = useMemo(() => {
-    let filtered = [...observations];
+    let filtered = observations.filter(obs => !obs.deleted);
 
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();

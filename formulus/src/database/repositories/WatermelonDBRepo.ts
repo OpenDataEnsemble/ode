@@ -206,13 +206,12 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         return [];
       }
 
-      // First, let's check all observations in the database for debugging
-      const allObservations = await this.observationsCollection.query().fetch();
-      console.log(`Total observations in database: ${allObservations.length}`);
-
-      // Query for observations with form_type matching the requested form type
+      // Query for observations with form_type matching and exclude soft-deleted
       const observations = await this.observationsCollection
-        .query(Q.where('form_type', formId))
+        .query(
+          Q.where('form_type', formId),
+          Q.where('deleted', false),
+        )
         .fetch();
 
       return observations.map(observation =>
