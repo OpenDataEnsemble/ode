@@ -143,10 +143,11 @@ const FormLayout: React.FC<FormLayoutProps> = ({
             paddingRight: theme.spacing(2),
             paddingBottom: theme.spacing(2),
             paddingLeft: theme.spacing(2),
-            overflow: 'hidden',
+            overflow: 'visible',
             borderBottom: `1px solid ${theme.palette.divider}`,
             borderRadius: 0,
             boxShadow: 'none',
+            minHeight: 82,
           })}>
           {header}
         </Box>

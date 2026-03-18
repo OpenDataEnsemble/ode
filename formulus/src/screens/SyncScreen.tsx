@@ -29,6 +29,7 @@ import {
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
@@ -376,7 +377,8 @@ const SyncScreen = () => {
   return (
     <BlurredScreenBackground>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}>
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top']}>
         <View
           style={[
             styles.header,
@@ -384,9 +386,6 @@ const SyncScreen = () => {
               backgroundColor: isDark
                 ? (colors.neutral[900] as string)
                 : (colors.neutral[50] as string),
-              borderWidth: 1,
-              borderBottomWidth: 1,
-              borderColor: themeColors.divider as string,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
@@ -833,7 +832,13 @@ const styles = StyleSheet.create({
   header: {
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    overflow: 'hidden',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    overflow: 'visible',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
     alignItems: 'flex-start',
   },
   title: {

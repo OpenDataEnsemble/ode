@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { colors } from '../theme/colors';
+import { odeScreenHeaderHeight } from '../theme/odeDesign';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 
 type FormManagementScreenNavigationProp = StackNavigationProp<
@@ -326,7 +327,7 @@ const FormManagementScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Form Management</Text>
         <Text style={styles.subtitle}>
@@ -382,6 +383,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.ui.gray.light,
     alignItems: 'flex-start',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    overflow: 'visible',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
   },
   title: {
     fontSize: 28,

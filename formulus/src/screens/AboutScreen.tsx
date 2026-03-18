@@ -18,6 +18,7 @@ import {
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import logo from '../../assets/images/logo.png';
 
@@ -145,8 +146,14 @@ const styles = StyleSheet.create({
   header: {
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    overflow: 'hidden',
+    overflow: 'visible',
     alignItems: 'flex-start',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
   },
   title: {
     fontSize: odeTypography.screenTitle,

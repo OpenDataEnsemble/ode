@@ -24,6 +24,7 @@ import {
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 
 const FormsScreen: React.FC = () => {
@@ -55,6 +56,8 @@ const FormsScreen: React.FC = () => {
     const q = searchQuery.trim().toLowerCase();
     return forms.filter(form => form.name.toLowerCase().includes(q));
   }, [forms, searchQuery]);
+
+  const showSubtitle = forms.length > 0;
 
   useFocusEffect(
     React.useCallback(() => {
@@ -134,7 +137,8 @@ const FormsScreen: React.FC = () => {
   return (
     <BlurredScreenBackground>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}>
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top']}>
         <View
           style={[
             styles.header,
@@ -144,8 +148,17 @@ const FormsScreen: React.FC = () => {
             },
           ]}>
           <View style={styles.headerLeft}>
-            <Text style={[styles.title, { color: titleColor }]}>Forms</Text>
-            {forms.length > 0 && (
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: titleColor,
+                  marginBottom: showSubtitle ? 0 : odeSpacing.xs,
+                },
+              ]}>
+              Forms
+            </Text>
+            {showSubtitle && (
               <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
                 {filteredForms.length} form
                 {filteredForms.length !== 1 ? 's' : ''} available
@@ -242,7 +255,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    overflow: 'hidden',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
   },
   headerLeft: {
     flex: 1,

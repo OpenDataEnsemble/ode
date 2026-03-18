@@ -30,6 +30,7 @@ import {
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
@@ -373,6 +374,7 @@ const SettingsScreen = () => {
             styles.header,
             {
               backgroundColor: themeColors.primary as string,
+              borderBottomColor: themeColors.divider as string,
             },
           ]}>
           <View style={styles.logoContainer}>
@@ -561,8 +563,11 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    width: '100%',
+    padding: odeSpacing.md,
+    minHeight: odeScreenHeaderHeight,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderRadius: 0,
     overflow: 'hidden',
   },
   logoContainer: {
