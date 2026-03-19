@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
@@ -85,6 +85,8 @@ export function Dashboard() {
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Prevents overlapping listUsers calls without putting `loading` in loadUsers deps (which would retrigger the initial-load effect). */
+  const usersFetchInFlightRef = useRef(false);
 
   // User management modals
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -301,11 +303,15 @@ export function Dashboard() {
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     if (user?.role !== 'admin') {
       setError('Admin access required');
       return;
     }
+
+    if (usersFetchInFlightRef.current) return;
+    usersFetchInFlightRef.current = true;
+
     setLoading(true);
     setError(null);
     try {
@@ -315,8 +321,9 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : 'Failed to load users');
     } finally {
       setLoading(false);
+      usersFetchInFlightRef.current = false;
     }
-  };
+  }, [user?.role]);
 
   
   const handleTabChange = (tab: TabType) => {
@@ -331,6 +338,16 @@ export function Dashboard() {
       loadUsers();
     }
   };
+
+  // Initial load: after login, the "users" tab is already active, but
+  // handleTabChange() won't run again. So explicitly fetch users when the
+  // logged-in user becomes an admin and the Users tab is active.
+  useEffect(() => {
+    if (activeTab !== 'users') return;
+    if (user?.role !== 'admin') return;
+    if (users.length !== 0) return;
+    loadUsers();
+  }, [activeTab, user?.role, users.length, loadUsers]);
 
   const handleUploadClick = () => {
     if (loading) return;
