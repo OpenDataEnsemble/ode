@@ -85,6 +85,8 @@ export function Dashboard() {
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Prevents overlapping listUsers calls without putting `loading` in loadUsers deps (which would retrigger the initial-load effect). */
+  const usersFetchInFlightRef = useRef(false);
 
   // User management modals
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -307,8 +309,8 @@ export function Dashboard() {
       return;
     }
 
-    // Avoid duplicate fetches
-    if (loading) return;
+    if (usersFetchInFlightRef.current) return;
+    usersFetchInFlightRef.current = true;
 
     setLoading(true);
     setError(null);
@@ -319,8 +321,9 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : 'Failed to load users');
     } finally {
       setLoading(false);
+      usersFetchInFlightRef.current = false;
     }
-  }, [user?.role, loading]);
+  }, [user?.role]);
 
   
   const handleTabChange = (tab: TabType) => {
