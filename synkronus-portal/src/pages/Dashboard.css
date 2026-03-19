@@ -2249,17 +2249,20 @@ html::-webkit-scrollbar-thumb:hover {
 
 .users-table th {
   padding: 16px 24px;
-  text-align: center;
+  text-align: left;
   font-weight: 700;
-  font-size: 11px;
-  color: var(--color-neutral-white-alpha-60);
-  font-size: 11px;
+  color: var(--color-text-primary);
+  font-size: 14px;
   text-transform: uppercase;
-  letter-spacing: 1.2px;
+  letter-spacing: 0.5px;
   
 }
 
 .users-table th.actions-column {
+  text-align: center;
+}
+
+.users-table td.actions-column {
   text-align: center;
 }
 
@@ -2279,17 +2282,16 @@ html::-webkit-scrollbar-thumb:hover {
 
 .users-table td {
   padding: 16px 24px;
-  color: var(--color-neutral-white-alpha-90);
+  color: var(--color-text-primary);
   font-size: 14px;
-  
-  letter-spacing: -0.2px;
-  text-align: center;
+  text-align: left;
+  border-bottom: 1px solid var(--color-neutral-white-alpha-5);
 }
 
 .user-cell {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: var(--spacing-3);
 }
 
@@ -2311,13 +2313,20 @@ html::-webkit-scrollbar-thumb:hover {
 .user-name {
   font-weight: var(--font-weight-semibold);
   color: var(--color-neutral-white);
-  
+  font-size: 14px;
+}
+
+[data-theme="light"] .user-name {
+  color: var(--color-neutral-900) !important;
 }
 
 .created-date {
   color: var(--color-neutral-white-alpha-60);
   font-size: var(--font-size-xs);
-  
+}
+
+[data-theme="light"] .created-date {
+  color: var(--color-neutral-600) !important;
 }
 
 .table-actions {
@@ -3867,11 +3876,12 @@ html::-webkit-scrollbar-thumb:hover {
 [data-theme="light"] .users-table th {
   background: var(--color-background-overlay);
   border-bottom-color: var(--color-border-default);
+  color: var(--color-neutral-900) !important;
 }
 
 [data-theme="light"] .users-table td {
   border-bottom-color: var(--color-border-default);
-  color: var(--color-text-primary);
+  color: var(--color-neutral-800) !important;
 }
 
 [data-theme="light"] .users-table tr:hover {
