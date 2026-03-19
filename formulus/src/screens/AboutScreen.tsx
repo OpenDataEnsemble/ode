@@ -32,9 +32,6 @@ const AboutScreen: React.FC = () => {
     : (colors.neutral[900] as string);
   const [version, setVersion] = useState<string>('');
   const cardBg = themeColors.surface as string;
-  const headerBg = isDark
-    ? (colors.neutral[900] as string)
-    : (colors.neutral[50] as string);
 
   const cardStyle = [
     styles.card,
@@ -64,11 +61,14 @@ const AboutScreen: React.FC = () => {
           style={[
             styles.header,
             {
-              backgroundColor: headerBg,
+              backgroundColor: themeColors.primary as string,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: sectionColor }]}>About</Text>
+          <Text
+            style={[styles.title, { color: themeColors.onPrimary as string }]}>
+            About
+          </Text>
         </View>
 
         <ScrollView
@@ -128,6 +128,15 @@ const AboutScreen: React.FC = () => {
           {!!version && (
             <Text style={[styles.version, { color: themeColors.onSurface }]}>
               v{version}
+            </Text>
+          )}
+          {!!version && (
+            <Text
+              style={[
+                styles.versionCodename,
+                { color: themeColors.onSurface },
+              ]}>
+              Young Ossicone
             </Text>
           )}
         </ScrollView>
@@ -195,6 +204,12 @@ const styles = StyleSheet.create({
     marginTop: odeSpacing.xxs,
     fontSize: odeTypography.caption,
     textAlign: 'center',
+  },
+  versionCodename: {
+    marginTop: odeSpacing.xxs,
+    fontSize: odeTypography.caption,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   card: {
     borderRadius: odeRadius.card,

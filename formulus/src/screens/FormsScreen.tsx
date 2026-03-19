@@ -65,6 +65,15 @@ const FormsScreen: React.FC = () => {
     }, [refresh]),
   );
 
+  const shouldShowSearch = forms.length > 4;
+
+  React.useEffect(() => {
+    if (!shouldShowSearch) {
+      setShowSearch(false);
+      setSearchQuery('');
+    }
+  }, [shouldShowSearch]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -165,18 +174,22 @@ const FormsScreen: React.FC = () => {
               </Text>
             )}
           </View>
-          <TouchableOpacity
-            style={styles.searchButton}
-            onPress={() => setShowSearch(!showSearch)}>
-            <Icon
-              name={showSearch ? 'close' : 'magnify'}
-              size={24}
-              color={themeColors.primary}
-            />
-          </TouchableOpacity>
+          {shouldShowSearch ? (
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={() => setShowSearch(!showSearch)}>
+              <Icon
+                name={showSearch ? 'close' : 'magnify'}
+                size={24}
+                color={themeColors.primary}
+              />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.searchButtonPlaceholder} />
+          )}
         </View>
 
-        {showSearch && (
+        {shouldShowSearch && showSearch && (
           <View style={searchContainerStyle}>
             <Icon
               name="magnify"
@@ -278,6 +291,12 @@ const styles = StyleSheet.create({
   searchButton: {
     padding: odeSpacing.xxs,
     marginTop: odeSpacing.xxs,
+  },
+  searchButtonPlaceholder: {
+    // Keep header spacing stable even when search is hidden.
+    padding: odeSpacing.xxs,
+    marginTop: odeSpacing.xxs,
+    width: 24 + odeSpacing.xxs * 2,
   },
   searchContainer: {
     flexDirection: 'row',

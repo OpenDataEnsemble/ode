@@ -28,9 +28,6 @@ const HelpScreen: React.FC = () => {
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
   const cardBg = themeColors.surface as string;
-  const headerBg = isDark
-    ? (colors.neutral[900] as string)
-    : (colors.neutral[50] as string);
 
   const cardStyle = [
     styles.card,
@@ -47,11 +44,12 @@ const HelpScreen: React.FC = () => {
           style={[
             styles.header,
             {
-              backgroundColor: headerBg,
+              backgroundColor: themeColors.primary as string,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: sectionColor }]}>
+          <Text
+            style={[styles.title, { color: themeColors.onPrimary as string }]}>
             Help & Support
           </Text>
         </View>
