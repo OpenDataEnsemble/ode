@@ -186,6 +186,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
         sx={theme => ({
           flexShrink: 0,
           width: '100%',
+          minHeight: 82,
           boxSizing: 'border-box',
           backgroundColor: 'background.default',
           padding: theme.spacing(2),

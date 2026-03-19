@@ -36,7 +36,7 @@ import {
   odeSpacing,
   odeTypography,
   odeBorderWidth,
-  odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
@@ -618,9 +618,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                     resolvedMode === 'dark'
                       ? (colors.neutral[900] as string)
                       : (colors.neutral[50] as string),
-                  borderWidth: odeBorderWidth.hairline,
-                  borderBottomWidth: odeBorderWidth.hairline,
-                  borderColor: themeColors.divider as string,
                   borderBottomColor: themeColors.divider as string,
                 },
               ]}>
@@ -687,18 +684,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: odeSpacing.sm,
+    alignItems: 'flex-start',
+    width: '100%',
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
-    overflow: 'hidden',
+    minHeight: odeScreenHeaderHeight,
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
+    overflow: 'visible',
   },
   headerTitle: {
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    marginLeft: odeSpacing.sm,
+    marginLeft: 0,
     flexShrink: 1,
   },
   closeButton: {

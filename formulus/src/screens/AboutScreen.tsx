@@ -18,6 +18,7 @@ import {
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import logo from '../../assets/images/logo.png';
 
@@ -31,9 +32,6 @@ const AboutScreen: React.FC = () => {
     : (colors.neutral[900] as string);
   const [version, setVersion] = useState<string>('');
   const cardBg = themeColors.surface as string;
-  const headerBg = isDark
-    ? (colors.neutral[900] as string)
-    : (colors.neutral[50] as string);
 
   const cardStyle = [
     styles.card,
@@ -63,20 +61,14 @@ const AboutScreen: React.FC = () => {
           style={[
             styles.header,
             {
-              backgroundColor: headerBg,
+              backgroundColor: themeColors.primary as string,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <View style={styles.logoContainer}>
-            <View
-              style={[
-                styles.logoWrapper,
-                { borderColor: themeColors.onPrimary as string },
-              ]}>
-              <Image source={logo} style={styles.logo} resizeMode="contain" />
-            </View>
-            <Text style={[styles.title, { color: sectionColor }]}>About</Text>
-          </View>
+          <Text
+            style={[styles.title, { color: themeColors.onPrimary as string }]}>
+            About
+          </Text>
         </View>
 
         <ScrollView
@@ -129,6 +121,15 @@ const AboutScreen: React.FC = () => {
               v{version}
             </Text>
           )}
+          {!!version && (
+            <Text
+              style={[
+                styles.versionCodename,
+                { color: themeColors.onSurface },
+              ]}>
+              Young Ossicone
+            </Text>
+          )}
         </ScrollView>
       </SafeAreaView>
     </BlurredScreenBackground>
@@ -145,8 +146,14 @@ const styles = StyleSheet.create({
   header: {
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    overflow: 'hidden',
+    overflow: 'visible',
     alignItems: 'flex-start',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
   },
   logoContainer: {
     flexDirection: 'row',
@@ -183,9 +190,15 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.caption,
     textAlign: 'center',
   },
+  versionCodename: {
+    marginTop: odeSpacing.xxs,
+    fontSize: odeTypography.caption,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
   card: {
     borderRadius: odeRadius.card,
-    marginBottom: odeSpacing.sm,
+    marginBottom: odeSpacing.md,
     borderWidth: odeBorderWidth.hairline,
     padding: odeSpacing.md,
     overflow: 'hidden',

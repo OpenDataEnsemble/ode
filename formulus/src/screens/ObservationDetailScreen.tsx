@@ -18,7 +18,11 @@ import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
-import { odeSpacing, odeRadius } from '../theme/odeDesign';
+import {
+  odeSpacing,
+  odeRadius,
+  odeScreenHeaderHeight,
+} from '../theme/odeDesign';
 
 interface ObservationDetailScreenProps {
   route: {
@@ -250,7 +254,9 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
           style={styles.content}
           contentContainerStyle={[
             styles.contentContainer,
-            { paddingTop: 56 + odeSpacing.md },
+            {
+              paddingTop: odeScreenHeaderHeight + odeSpacing.md,
+            },
           ]}>
           <View style={styles.actionBar}>
             <Button
@@ -309,7 +315,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
                   color={
                     isSynced
                       ? (themeColors.primary as string)
-                      : colors.semantic.warning[500]
+                      : (colors.semantic.warning[500] as unknown as string)
                   }
                 />
                 <Text style={styles.statusText}>
@@ -392,7 +398,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: odeSpacing.xs,
-    marginTop: odeSpacing.md,
+    // No extra top margin: gap below header comes from contentContainer paddingTop.
+    marginTop: 0,
     marginBottom: odeSpacing.md,
   },
   content: {
@@ -404,21 +411,21 @@ const styles = StyleSheet.create({
   section: {
     borderRadius: odeRadius.card,
     padding: odeSpacing.md,
-    marginHorizontal: odeSpacing.md,
+    marginHorizontal: 0,
     marginBottom: odeSpacing.md,
     overflow: 'hidden',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: odeSpacing.sm,
     textAlign: 'left',
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: odeSpacing.sm,
   },
   infoLabel: {
     fontSize: 14,
@@ -439,15 +446,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: odeSpacing.xxs,
     borderRadius: 12,
-    gap: 4,
+    gap: odeSpacing.xxs,
   },
   syncedBadge: {
-    backgroundColor: colors.semantic.success[50],
+    backgroundColor: colors.semantic.success[50] as unknown as string,
   },
   pendingBadge: {
-    backgroundColor: colors.semantic.warning[50],
+    backgroundColor: colors.semantic.warning[50] as unknown as string,
   },
   statusText: {
     fontSize: 12,
@@ -455,11 +462,11 @@ const styles = StyleSheet.create({
     color: colors.neutral[900],
   },
   dataContainer: {
-    marginTop: 8,
+    marginTop: odeSpacing.xs,
   },
   fieldContainer: {
-    marginBottom: 8,
-    paddingBottom: 8,
+    marginBottom: odeSpacing.xs,
+    paddingBottom: odeSpacing.xs,
     borderBottomWidth: 1,
     borderBottomColor: colors.neutral[100],
     alignSelf: 'stretch',
@@ -467,7 +474,7 @@ const styles = StyleSheet.create({
   fieldKey: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: odeSpacing.xxs,
     textAlign: 'left',
   },
   fieldValue: {
@@ -477,8 +484,8 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   arrayItem: {
-    marginLeft: 16,
-    marginTop: 4,
+    marginLeft: odeSpacing.md,
+    marginTop: odeSpacing.xxs,
   },
   loadingContainer: {
     flex: 1,
@@ -497,7 +504,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: colors.semantic.error[500],
+    color: colors.semantic.error[500] as unknown as string,
   },
 });
 
