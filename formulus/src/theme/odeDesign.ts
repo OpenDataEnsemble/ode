@@ -54,3 +54,26 @@ export const odeRadius = {
 export const odeBorderWidth = {
   hairline: parsePx(t.border?.width?.thin) || 1,
 };
+
+/**
+ * Native screen header height tuned to match the Observations header
+ * container (title + subtitle/number) with current spacing/typography tokens.
+ *
+ * Observations header formula:
+ * - paddingTop + paddingBottom = odeSpacing.md * 2
+ * - title line = odeTypography.screenTitle
+ * - gap between title + subtitle = odeSpacing.xs (title marginBottom)
+ * - subtitle line = odeTypography.bodySm
+ */
+export const odeScreenHeaderHeight = (() => {
+  // React Native `Text` uses a default lineHeight that is usually > fontSize.
+  // Observations/Forms include a second line (subtitle/count) only when there
+  // is content; we account for that so other headers get the same minHeight.
+  const lineHeightFactor = 1.25;
+  const titleLineHeight = odeTypography.screenTitle * lineHeightFactor;
+  const subtitleLineHeight = odeTypography.bodySm * lineHeightFactor;
+
+  return (
+    odeSpacing.md * 2 + titleLineHeight + odeSpacing.xs + subtitleLineHeight
+  );
+})();

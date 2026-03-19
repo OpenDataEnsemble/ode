@@ -16,6 +16,7 @@ import {
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
@@ -27,9 +28,6 @@ const HelpScreen: React.FC = () => {
     ? (colors.neutral[200] as string)
     : (colors.neutral[900] as string);
   const cardBg = themeColors.surface as string;
-  const headerBg = isDark
-    ? (colors.neutral[900] as string)
-    : (colors.neutral[50] as string);
 
   const cardStyle = [
     styles.card,
@@ -46,11 +44,12 @@ const HelpScreen: React.FC = () => {
           style={[
             styles.header,
             {
-              backgroundColor: headerBg,
+              backgroundColor: themeColors.primary as string,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: sectionColor }]}>
+          <Text
+            style={[styles.title, { color: themeColors.onPrimary as string }]}>
             Help & Support
           </Text>
         </View>
@@ -120,8 +119,14 @@ const styles = StyleSheet.create({
   header: {
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    overflow: 'hidden',
+    overflow: 'visible',
     alignItems: 'flex-start',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
   },
   title: {
     fontSize: odeTypography.screenTitle,
@@ -135,7 +140,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: odeRadius.card,
-    marginBottom: odeSpacing.sm,
+    marginBottom: odeSpacing.md,
     borderWidth: odeBorderWidth.hairline,
     padding: odeSpacing.md,
     overflow: 'hidden',

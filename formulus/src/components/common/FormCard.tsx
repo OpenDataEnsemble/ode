@@ -4,6 +4,7 @@ import Icon from '@react-native-vector-icons/material-design-icons';
 import { FormSpec } from '../../services/FormService';
 import colors from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
+import { odeSpacing } from '../../theme/odeDesign';
 
 interface FormCardProps {
   form: FormSpec;
@@ -83,7 +84,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     marginHorizontal: 16,
-    marginVertical: 6,
+    // Each card contributes top+bottom margin; keep combined gap consistent.
+    marginVertical: odeSpacing.xs, // 8 + 8 = 16 gap between cards
     borderWidth: 1,
     padding: 16,
     overflow: 'hidden',
