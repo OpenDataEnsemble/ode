@@ -67,21 +67,21 @@ const AboutScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: sectionColor }]}>About</Text>
+          <View style={styles.logoContainer}>
+            <View
+              style={[
+                styles.logoWrapper,
+                { borderColor: themeColors.onPrimary as string },
+              ]}>
+              <Image source={logo} style={styles.logo} resizeMode="contain" />
+            </View>
+            <Text style={[styles.title, { color: sectionColor }]}>About</Text>
+          </View>
         </View>
 
         <ScrollView
           style={styles.scrollTransparent}
           contentContainerStyle={styles.content}>
-          <View style={styles.brandRow}>
-            <View style={styles.logoWrapper}>
-              <Image source={logo} style={styles.logo} resizeMode="contain" />
-            </View>
-            <Text style={[styles.appName, { color: themeColors.onSurface }]}>
-              ODE
-            </Text>
-          </View>
-
           <View style={cardStyle}>
             <Text style={[styles.cardTitle, { color: sectionColor }]}>
               Formulus
@@ -148,41 +148,35 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'flex-start',
   },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  logoWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'transparent',
+  },
   title: {
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    marginBottom: odeSpacing.xs,
     textAlign: 'left',
   },
   content: {
     padding: odeSpacing.md,
     paddingBottom: odeSpacing.xl,
-  },
-  brandRow: {
-    alignItems: 'center',
-    marginBottom: odeSpacing.md,
-    gap: odeSpacing.xs,
-  },
-  logoWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: colors.brand.primary[500] as string,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    backgroundColor: 'transparent',
-  },
-  logo: {
-    width: 56,
-    height: 56,
-    backgroundColor: 'transparent',
-  },
-  appName: {
-    fontSize: odeTypography.sectionTitle,
-    fontWeight: '700',
-    textAlign: 'center',
   },
   version: {
     marginTop: odeSpacing.xxs,
