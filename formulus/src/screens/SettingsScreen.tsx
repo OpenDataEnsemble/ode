@@ -24,11 +24,20 @@ import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
+import colors from '../theme/colors';
+import {
+  odeSpacing,
+  odeTypography,
+  odeBorderWidth,
+  odeRadius,
+  odeScreenHeaderHeight,
+} from '../theme/odeDesign';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
 import { Button } from '../components/common';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import Logo from '../../assets/images/logo.png';
+import { Moon, Monitor, Sun } from 'lucide-react-native';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -37,8 +46,12 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
-  const { themeColors } = useAppTheme();
+  const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
   const { showConfirm } = useConfirmModal();
+  const isDark = resolvedMode === 'dark';
+  const sectionHeaderColor = isDark
+    ? (colors.neutral[200] as string)
+    : (colors.neutral[800] as string);
   const [serverUrl, setServerUrl] = useState('');
   const [initialServerUrl, setInitialServerUrl] = useState('');
   const [username, setUsername] = useState('');
@@ -189,13 +202,14 @@ const SettingsScreen = () => {
 
   const loadSettings = async () => {
     try {
-      const savedUrl = await serverConfigService.getServerUrl();
+      const [savedUrl, credentials] = await Promise.all([
+        serverConfigService.getServerUrl(),
+        Keychain.getGenericPassword(),
+      ]);
       if (savedUrl) {
         setServerUrl(savedUrl);
         setInitialServerUrl(savedUrl);
       }
-
-      const credentials = await Keychain.getGenericPassword();
       if (credentials) {
         setUsername(credentials.username);
         setPassword(credentials.password);
@@ -208,19 +222,28 @@ const SettingsScreen = () => {
   };
 
   const handleLogin = useCallback(async () => {
-    const trimmedUrl = serverUrl.trim();
+    let processedUrl = serverUrl.trim();
+
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
 
-    if (!trimmedUrl || !trimmedUsername || !trimmedPassword) {
+    if (!processedUrl || !trimmedUsername || !trimmedPassword) {
       return;
+    }
+
+    if (!processedUrl.startsWith('https://')) {
+      processedUrl = `https://${processedUrl}`;
+    }
+
+    if (processedUrl.endsWith('/')) {
+      processedUrl = processedUrl.slice(0, -1);
     }
 
     if (isLoggingIn) {
       return;
     }
 
-    const serverReady = await handleServerSwitchIfNeeded(trimmedUrl);
+    const serverReady = await handleServerSwitchIfNeeded(processedUrl);
     if (!serverReady) {
       return;
     }
@@ -228,7 +251,7 @@ const SettingsScreen = () => {
     setIsLoggingIn(true);
     try {
       // Ensure server URL is saved before login (required by getApi())
-      await serverConfigService.saveServerUrl(trimmedUrl);
+      await serverConfigService.saveServerUrl(processedUrl);
 
       await Keychain.setGenericPassword(trimmedUsername, trimmedPassword);
       await login(trimmedUsername, trimmedPassword);
@@ -316,7 +339,7 @@ const SettingsScreen = () => {
 
   if (isLoading) {
     return (
-      <BlurredScreenBackground>
+      <BlurredScreenBackground disableBlur>
         <View
           style={[
             styles.container,
@@ -339,6 +362,7 @@ const SettingsScreen = () => {
             styles.header,
             {
               backgroundColor: themeColors.primary as string,
+              borderBottomColor: themeColors.divider as string,
             },
           ]}>
           <View style={styles.logoContainer}>
@@ -360,7 +384,16 @@ const SettingsScreen = () => {
           contentContainerStyle={styles.cardContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <Text style={[styles.title, { color: themeColors.onSurface }]}>
+          {/* Server Settings section */}
+          <Text
+            style={[
+              styles.sectionHeader,
+              styles.sectionHeaderFirst,
+              { color: sectionHeaderColor },
+            ]}>
+            Server Settings
+          </Text>
+          <Text style={[styles.titleSmall, { color: themeColors.onSurface }]}>
             Please enter the server you want to connect to.
           </Text>
 
@@ -406,13 +439,89 @@ const SettingsScreen = () => {
             disabled={isButtonDisabled}
             fullWidth
           />
-        </ScrollView>
 
-        <View style={styles.versionContainer}>
-          <Text style={[styles.version, { color: themeColors.onSurface }]}>
-            v1.0.0
+          {/* App Settings section (themes) */}
+          <Text
+            style={[
+              styles.sectionHeader,
+              styles.appSettingsSectionHeader,
+              { color: sectionHeaderColor },
+            ]}>
+            App Settings
           </Text>
-        </View>
+          <View style={styles.themesInlineRow}>
+            <View style={styles.themesInlineLeft}>
+              <Icon name="palette" size={22} color={themeColors.onSurface} />
+              <Text
+                style={[
+                  styles.appSettingsLabel,
+                  { color: themeColors.onSurface },
+                ]}>
+                Themes:
+              </Text>
+            </View>
+
+            <View style={styles.themesInlineIcons}>
+              <TouchableOpacity
+                style={styles.themeIconButton}
+                onPress={() => setThemeMode('system')}
+                accessibilityRole="button"
+                accessibilityLabel="Theme: System">
+                <Monitor
+                  size={22}
+                  color={
+                    themeMode === 'system'
+                      ? (themeColors.primary as string)
+                      : (themeColors.onSurface as string)
+                  }
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.themeIconButton}
+                onPress={() => setThemeMode('light')}
+                accessibilityRole="button"
+                accessibilityLabel="Theme: Light">
+                <Sun
+                  size={22}
+                  color={
+                    themeMode === 'light'
+                      ? (themeColors.primary as string)
+                      : (themeColors.onSurface as string)
+                  }
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.themeIconButton}
+                onPress={() => setThemeMode('dark')}
+                accessibilityRole="button"
+                accessibilityLabel="Theme: Dark">
+                <Moon
+                  size={22}
+                  color={
+                    themeMode === 'dark'
+                      ? (themeColors.primary as string)
+                      : (themeColors.onSurface as string)
+                  }
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.versionContainer}>
+            <Text style={[styles.version, { color: themeColors.onSurface }]}>
+              v1.0.0
+            </Text>
+            <Text
+              style={[
+                styles.versionCodename,
+                { color: themeColors.onSurface },
+              ]}>
+              Young Ossicone
+            </Text>
+          </View>
+        </ScrollView>
 
         <QRScannerModal
           visible={showQRScanner}
@@ -433,17 +542,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    alignItems: 'flex-start',
+    width: '100%',
+    padding: odeSpacing.md,
+    minHeight: odeScreenHeaderHeight,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderRadius: 0,
     overflow: 'hidden',
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   logoWrapper: {
     width: 40,
@@ -476,15 +586,101 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
   },
   cardContent: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingHorizontal: odeSpacing.md,
+    paddingTop: odeSpacing.md,
     paddingBottom: 40,
   },
   title: {
-    fontSize: 20,
+    fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  titleSmall: {
+    fontSize: odeTypography.bodySm,
+    fontWeight: '600',
+    marginBottom: 20,
+    textAlign: 'left',
+  },
+  sectionHeader: {
+    fontSize: odeTypography.body,
+    fontWeight: '600',
+    marginBottom: odeSpacing.sm,
+  },
+  sectionHeaderFirst: {
+    // cardContent.paddingTop already gives header-to-content gap; keep section gap consistent.
+    marginTop: 0,
+  },
+  appSettingsSectionHeader: {
+    marginTop: odeSpacing.md,
+  },
+  appSettingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: odeSpacing.sm,
+  },
+  appSettingsTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.sm,
+  },
+  appSettingsLabel: {
+    fontSize: odeTypography.body,
+  },
+  appSettingsChevron: {
+    marginLeft: odeSpacing.xxs,
+  },
+  themesInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: odeSpacing.sm,
+    paddingVertical: odeSpacing.sm,
+  },
+  themesInlineLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.xs,
+  },
+  themesInlineIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.sm,
+  },
+  themeIconButton: {
+    padding: odeSpacing.xs,
+  },
+  themesCardOuter: {
+    marginTop: odeSpacing.md,
+    borderRadius: odeRadius.card,
+    borderWidth: odeBorderWidth.hairline,
+    overflow: 'hidden',
+    padding: odeSpacing.md,
+  },
+  themesTitle: {
+    fontSize: odeTypography.sectionTitle,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: odeSpacing.sm,
+  },
+  themeOptionsColumn: {
+    flexDirection: 'column',
+    gap: odeSpacing.sm,
+    alignItems: 'center',
+  },
+  themeChip: {
+    paddingHorizontal: odeSpacing.lg,
+    paddingVertical: odeSpacing.sm,
+    borderRadius: odeRadius.inner,
+    borderWidth: odeBorderWidth.hairline,
+    backgroundColor: 'transparent',
+    minWidth: '70%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  themeChipLabel: {
+    fontSize: odeTypography.caption,
+    fontWeight: '600',
   },
   inputContainer: {
     marginBottom: 1,
@@ -494,7 +690,14 @@ const styles = StyleSheet.create({
   },
   versionContainer: {
     alignItems: 'center',
-    paddingBottom: 8,
+    paddingTop: odeSpacing.md,
+    paddingBottom: odeSpacing.lg,
+  },
+  versionCodename: {
+    fontSize: 12,
+    marginTop: odeSpacing.xxs,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
 

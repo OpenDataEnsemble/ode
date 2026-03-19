@@ -26,7 +26,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { Observation } from '../database/models/Observation';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../theme/colors';
+import colors from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
@@ -35,6 +35,7 @@ import {
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 
 type ObservationsScreenNavigationProp = StackNavigationProp<
@@ -51,6 +52,24 @@ const ObservationsScreen: React.FC = () => {
   const clearIconColor = isDark
     ? (colors.neutral[300] as string)
     : (colors.neutral[600] as string);
+  const _headerBg = isDark
+    ? (colors.neutral[900] as string)
+    : (colors.neutral[50] as string);
+  const filtersContainerStyle = [
+    styles.filtersContainer,
+    {
+      backgroundColor: themeColors.surface as string,
+      borderColor: themeColors.divider as string,
+      borderBottomColor: themeColors.divider as string,
+    },
+  ];
+  const searchContainerStyle = [
+    styles.searchContainer,
+    {
+      backgroundColor: themeColors.surface as string,
+      borderColor: themeColors.divider as string,
+    },
+  ];
   const navigation = useNavigation<ObservationsScreenNavigationProp>();
   const observationsHook = useObservations();
   const {
@@ -112,6 +131,8 @@ const ObservationsScreen: React.FC = () => {
 
     return filtered;
   }, [filteredAndSorted, selectedFormType, syncStatus]);
+
+  const showSubtitle = finalFiltered.length > 0;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -224,7 +245,8 @@ const ObservationsScreen: React.FC = () => {
   return (
     <BlurredScreenBackground>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}>
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top']}>
         <View
           style={[
             styles.header,
@@ -232,17 +254,21 @@ const ObservationsScreen: React.FC = () => {
               backgroundColor: isDark
                 ? (colors.neutral[900] as string)
                 : (colors.neutral[50] as string),
-              borderWidth: 1,
-              borderBottomWidth: 1,
-              borderColor: themeColors.divider as string,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
           <View style={styles.headerLeft}>
-            <Text style={[styles.title, { color: titleColor }]}>
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: titleColor,
+                  marginBottom: showSubtitle ? 0 : odeSpacing.xs,
+                },
+              ]}>
               Observations
             </Text>
-            {finalFiltered.length > 0 && (
+            {showSubtitle && (
               <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
                 {finalFiltered.length} observation
                 {finalFiltered.length !== 1 ? 's' : ''}
@@ -261,18 +287,7 @@ const ObservationsScreen: React.FC = () => {
         </View>
 
         {showSearch && (
-          <View
-            style={[
-              styles.searchContainer,
-              {
-                backgroundColor: withAlpha(
-                  themeColors.surface as string,
-                  CONTAINER_ALPHA,
-                ),
-                borderWidth: 1,
-                borderColor: themeColors.divider as string,
-              },
-            ]}>
+          <View style={searchContainerStyle}>
             <Icon
               name="magnify"
               size={20}
@@ -301,33 +316,23 @@ const ObservationsScreen: React.FC = () => {
           </View>
         )}
 
-        <View
-          style={[
-            styles.filtersContainer,
-            { marginTop: showSearch ? 16 : 16 },
-            {
-              backgroundColor: withAlpha(
-                themeColors.surface as string,
-                CONTAINER_ALPHA,
-              ),
-              borderWidth: 1,
-              borderBottomWidth: 1,
-              borderColor: themeColors.divider as string,
-              borderBottomColor: themeColors.divider as string,
-            },
-          ]}>
+        <View style={filtersContainerStyle}>
           <View style={styles.filterRow}>
-            <FormTypeSelector
-              options={formTypes}
-              selectedId={selectedFormType}
-              onSelect={setSelectedFormType}
-              placeholder="All Forms"
-            />
+            <View style={styles.formSelectorStretch}>
+              <FormTypeSelector
+                options={formTypes}
+                selectedId={selectedFormType}
+                onSelect={setSelectedFormType}
+                placeholder="All Forms"
+                style={{ alignSelf: 'stretch', maxWidth: undefined }}
+              />
+            </View>
           </View>
           <View style={styles.filterRow}>
             <SyncStatusButtons
               selectedStatus={syncStatus}
               onStatusChange={setSyncStatus}
+              containerStyle={{ alignSelf: 'stretch', maxWidth: undefined }}
             />
           </View>
         </View>
@@ -377,12 +382,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginHorizontal: odeSpacing.sm,
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
-    overflow: 'hidden',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
   },
   headerLeft: {
     flex: 1,
@@ -391,9 +398,11 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
     marginBottom: odeSpacing.xs,
+    textAlign: 'left',
   },
   subtitle: {
     fontSize: odeTypography.bodySm,
+    textAlign: 'left',
   },
   searchButton: {
     padding: odeSpacing.xxs,
@@ -419,22 +428,27 @@ const styles = StyleSheet.create({
   clearIconButton: {
     marginLeft: odeSpacing.xs,
   },
+  clearIcon: {},
   filtersContainer: {
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
     overflow: 'hidden',
     gap: 12,
   },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: odeSpacing.sm,
   },
+  formSelectorStretch: {
+    flex: 1,
+    alignSelf: 'stretch',
+    minHeight: 44,
+  },
   listContent: {
-    paddingVertical: odeSpacing.sm,
+    // Same gap as between cards: paddingTop + first card marginTop = 16.
+    paddingVertical: odeSpacing.xs,
   },
   loadingContainer: {
     flex: 1,

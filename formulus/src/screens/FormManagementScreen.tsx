@@ -19,6 +19,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { colors } from '../theme/colors';
+import { odeScreenHeaderHeight } from '../theme/odeDesign';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 
 type FormManagementScreenNavigationProp = StackNavigationProp<
@@ -41,7 +42,6 @@ const FormManagementScreen = () => {
   const [expandedFormId, setExpandedFormId] = useState<string | null>(null);
   const [formService, setFormService] = useState<FormService | null>(null);
 
-  // Load form types and observations
   useEffect(() => {
     const initFormService = async () => {
       try {
@@ -102,7 +102,6 @@ const FormManagementScreen = () => {
     await loadData();
   };
 
-  // Handle adding a new observation using the promise-based Formplayer API
   const handleAddObservation = async (formType: FormSpec) => {
     try {
       const result = await openFormplayerFromNative(formType.id, {}, {});
@@ -121,7 +120,6 @@ const FormManagementScreen = () => {
     }
   };
 
-  // Handle editing an observation using the promise-based Formplayer API
   const handleEditObservation = async (
     formType: FormSpec,
     observation: Observation,
@@ -150,14 +148,12 @@ const FormManagementScreen = () => {
     }
   };
 
-  // Handle viewing an observation
   const handleViewObservation = (observation: Observation) => {
     navigation.navigate('ObservationDetail', {
       observationId: observation.observationId,
     });
   };
 
-  // Handle deleting an observation
   const handleDeleteObservation = async (
     formTypeId: string,
     observation: Observation,
@@ -190,7 +186,6 @@ const FormManagementScreen = () => {
     }
   };
 
-  // Handle database reset
   const handleResetDatabase = async () => {
     if (!formService) {
       Alert.alert('Error', 'FormService is not initialized');
@@ -248,7 +243,6 @@ const FormManagementScreen = () => {
     );
   };
 
-  // Render a form spec item
   const renderFormSpecItem = ({ item }: { item: FormSpec }) => {
     const formObservations = observations[item.id] || [];
     const isExpanded = expandedFormId === item.id;
@@ -333,7 +327,7 @@ const FormManagementScreen = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.title}>Form Management</Text>
         <Text style={styles.subtitle}>
@@ -388,25 +382,35 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral.white,
     borderBottomWidth: 1,
     borderBottomColor: colors.ui.gray.light,
+    alignItems: 'flex-start',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    overflow: 'visible',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     color: colors.neutral[800],
     marginBottom: 4,
+    textAlign: 'left',
   },
   subtitle: {
     fontSize: 14,
     color: colors.neutral[600],
+    textAlign: 'left',
   },
   formTypesList: {
     flex: 1,
   },
   listContent: {
-    paddingVertical: 8,
+    paddingVertical: odeSpacing.md,
   },
   formTypeContainer: {
-    marginBottom: 12,
+    marginBottom: odeSpacing.md,
     backgroundColor: colors.neutral.white,
     borderRadius: 12,
     marginHorizontal: 16,

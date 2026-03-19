@@ -13,9 +13,7 @@ import {
 } from '@jsonforms/core';
 import { useSwipeable } from 'react-swipeable';
 import { Box, Typography, useTheme } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import { Button } from '@ode/components/react-web';
-import { tokens } from '../theme/tokens-adapter';
 import { useFormContext } from '../App';
 import { draftService } from '../services/DraftService';
 import FormProgressBar from '../components/FormProgressBar';
@@ -120,12 +118,10 @@ export const groupAsSwipeLayoutTester: RankedTester = rankWith(
 // SwipeLayoutRenderer
 // ---------------------------------------------------------------------------
 
-// Match ConfirmModal
+// Match ConfirmModal – solid card, no semi-transparent overlay
 const CONFIRM_CARD_RADIUS = 0.7;
-const CONFIRM_INNER_RADIUS = 0.7;
 const CONFIRM_BORDER_WIDTH = 1;
 const CONFIRM_CARD_PADDING = 16;
-const CONTAINER_ALPHA = 0.4;
 
 const SwipeLayoutRenderer = ({
   schema,
@@ -427,16 +423,17 @@ const SwipeLayoutRenderer = ({
         <>
           {/* Author-configured form title and sticky fields */}
           {(headerTitle || headerFields.length > 0) && (
-            <Box sx={{ px: 2, pt: 1, pb: headerFields.length > 0 ? 0 : 0.5 }}>
+            <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
               {headerTitle && (
                 <Typography
                   variant="subtitle2"
                   sx={{
                     fontWeight: 700,
-                    fontSize: '0.9rem',
+                    fontSize: '1.125rem',
                     lineHeight: 1.3,
                     color: 'text.primary',
                     mb: headerFields.length > 0 ? 0.5 : 0,
+                    textAlign: 'left',
                   }}>
                   {headerTitle}
                 </Typography>
@@ -470,6 +467,7 @@ const SwipeLayoutRenderer = ({
                               ? 'text.disabled'
                               : 'text.primary',
                           fontWeight: displayValue === '—' ? 400 : 600,
+                          textAlign: 'left',
                         }}>
                         {label}: {displayValue}
                       </Typography>
@@ -539,9 +537,7 @@ const SwipeLayoutRenderer = ({
               alignItems: 'center',
               justifyContent: 'center',
               padding: 4,
-              backgroundColor: `rgba(0,0,0,${
-                (tokens as any).opacity?.['80'] ?? 0.8
-              })`,
+              backgroundColor: 'transparent',
             }}>
             <Box
               sx={{
@@ -551,49 +547,38 @@ const SwipeLayoutRenderer = ({
                 border: `${CONFIRM_BORDER_WIDTH}px solid`,
                 borderColor: 'divider',
                 padding: `${CONFIRM_CARD_PADDING}px`,
-                backgroundColor: alpha(
-                  theme.palette.background.paper,
-                  CONTAINER_ALPHA,
-                ),
+                backgroundColor: theme.palette.background.paper,
                 overflow: 'hidden',
               }}>
+              <Typography
+                variant="h6"
+                sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
+                Missing required fields
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ textAlign: 'center', mb: 3 }}>
+                {snackbarMessage ||
+                  'Some required fields are missing. Any unsaved changes will be available as a draft when you return.'}
+              </Typography>
               <Box
                 sx={{
-                  borderRadius: CONFIRM_INNER_RADIUS,
-                  padding: `${CONFIRM_CARD_PADDING}px`,
-                  backgroundColor: theme.palette.background.paper,
-                  overflow: 'hidden',
+                  flexDirection: 'row',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: 2,
+                  flexWrap: 'wrap',
                 }}>
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
-                  Missing required fields
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ textAlign: 'center', mb: 3 }}>
-                  {snackbarMessage ||
-                    'Some required fields are missing. Any unsaved changes will be available as a draft when you return.'}
-                </Typography>
-                <Box
-                  sx={{
-                    flexDirection: 'row',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: 2,
-                    flexWrap: 'wrap',
-                  }}>
-                  <Button
-                    variant="neutral"
-                    size="medium"
-                    onPress={handleSnackbarClose}>
-                    Stay here
-                  </Button>
-                  <Button variant="danger" size="medium" onPress={handleGoBack}>
-                    Go back
-                  </Button>
-                </Box>
+                <Button
+                  variant="neutral"
+                  size="medium"
+                  onPress={handleSnackbarClose}>
+                  Stay here
+                </Button>
+                <Button variant="danger" size="medium" onPress={handleGoBack}>
+                  Go back
+                </Button>
               </Box>
             </Box>
           </Box>,

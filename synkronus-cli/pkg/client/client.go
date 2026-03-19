@@ -16,17 +16,9 @@ import (
 	"time"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/auth"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
 	"github.com/spf13/viper"
 )
-
-// AppBundleChanges represents the changes between two app bundle versions
-type AppBundleChanges struct {
-	CurrentVersion string           `json:"current_version"`
-	TargetVersion  string           `json:"target_version"`
-	Added          []map[string]any `json:"added"`
-	Modified       []map[string]any `json:"modified"`
-	Removed        []map[string]any `json:"removed"`
-}
 
 // SystemVersionInfo represents the version information of the Synkronus server
 type SystemVersionInfo struct {
@@ -67,8 +59,9 @@ type Client struct {
 
 // NewClient creates a new Synkronus API client
 func NewClient() *Client {
+	baseURL := strings.TrimRight(utils.EnsureScheme(viper.GetString("api.url")), "/")
 	return &Client{
-		BaseURL:    viper.GetString("api.url"),
+		BaseURL:    baseURL,
 		APIVersion: viper.GetString("api.version"),
 		HTTPClient: &http.Client{
 			Timeout: time.Second * 30,
@@ -218,44 +211,6 @@ func (c *Client) GetAppBundleVersions() (map[string]interface{}, error) {
 	}
 
 	return result, nil
-}
-
-// GetAppBundleChanges gets the changes between two app bundle versions
-func (c *Client) GetAppBundleChanges(currentVersion, targetVersion string) (*AppBundleChanges, error) {
-	url := fmt.Sprintf("%s/app-bundle/changes", c.BaseURL)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
-	}
-
-	// Add query parameters if provided
-	q := req.URL.Query()
-	if currentVersion != "" {
-		q.Add("current", currentVersion)
-	}
-	if targetVersion != "" {
-		q.Add("target", targetVersion)
-	}
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return nil, fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	var changes AppBundleChanges
-	if err := json.NewDecoder(resp.Body).Decode(&changes); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
-	}
-
-	return &changes, nil
 }
 
 // DownloadAppBundleFile downloads a specific file from the app bundle

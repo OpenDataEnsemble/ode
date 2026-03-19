@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../../database/models/Observation';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
-import Button from './Button';
+import colors from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
+import { odeSpacing } from '../../theme/odeDesign';
 
 interface ObservationCardProps {
   observation: Observation;
@@ -47,8 +47,7 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
     }
   };
 
-  const cardOuterBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
-  const cardInnerBg = withAlpha(themeColors.surface as string, CONTAINER_ALPHA);
+  const cardBg = themeColors.surface as string;
   return (
     <TouchableOpacity
       style={[
@@ -56,73 +55,77 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
         {
           borderWidth: 1,
           borderColor: themeColors.divider as string,
-          backgroundColor: cardOuterBg,
+          backgroundColor: cardBg,
         },
       ]}
       onPress={onPress}
       activeOpacity={0.7}>
-      <View style={[styles.cardInner, { backgroundColor: cardInnerBg }]}>
-        <View style={styles.content}>
-          <View style={styles.iconContainer}>
-            <Icon
-              name={isSynced ? 'check-circle' : 'clock-outline'}
-              size={24}
-              color={
-                isSynced
-                  ? (themeColors.primary as string)
-                  : colors.semantic.warning[500]
-              }
-            />
-          </View>
-          <View style={styles.textContainer}>
-            {formName && (
-              <Text style={[styles.formName, { color: themeColors.primary }]}>
-                {formName}
-              </Text>
-            )}
-            <Text style={styles.id} numberOfLines={1}>
-              ID: {observation.observationId.substring(0, 20)}...
+      <View style={styles.content}>
+        <View style={styles.iconContainer}>
+          <Icon
+            name={isSynced ? 'check-circle' : 'clock-outline'}
+            size={24}
+            color={
+              isSynced
+                ? (themeColors.primary as string)
+                : colors.semantic.warning[500]
+            }
+          />
+        </View>
+        <View style={styles.textContainer}>
+          {formName && (
+            <Text style={[styles.formName, { color: themeColors.primary }]}>
+              {formName}
             </Text>
-            <Text style={styles.preview} numberOfLines={1}>
-              {getDataPreview()}
-            </Text>
-            <View style={styles.metaContainer}>
-              <Text style={styles.date}>
-                {dateStr} at {timeStr}
-              </Text>
-            </View>
-            <Text style={styles.owner} numberOfLines={1}>
-              {`By ${
-                observation.author && observation.author.trim().length > 0
-                  ? observation.author
-                  : 'Unknown'
-              } • ${
-                observation.deviceId && observation.deviceId.trim().length > 0
-                  ? observation.deviceId.slice(-8)
-                  : 'no-device'
-              }`}
+          )}
+          <Text style={styles.id} numberOfLines={1}>
+            ID: {observation.observationId.substring(0, 20)}...
+          </Text>
+          <Text style={styles.preview} numberOfLines={1}>
+            {getDataPreview()}
+          </Text>
+          <View style={styles.metaContainer}>
+            <Text style={styles.date}>
+              {dateStr} at {timeStr}
             </Text>
           </View>
-          <View style={styles.actions}>
-            {onEdit && (
-              <Button
-                title="Edit"
-                onPress={onEdit}
-                variant="primary"
-                size="small"
-                position="left"
+          <Text style={styles.owner} numberOfLines={1}>
+            {`By ${
+              observation.author && observation.author.trim().length > 0
+                ? observation.author
+                : 'Unknown'
+            } • ${
+              observation.deviceId && observation.deviceId.trim().length > 0
+                ? observation.deviceId.slice(-8)
+                : 'no-device'
+            }`}
+          </Text>
+        </View>
+        <View style={styles.actions}>
+          {onEdit && (
+            <TouchableOpacity
+              onPress={onEdit}
+              accessibilityLabel="Edit observation"
+              style={styles.iconButton}>
+              <Icon
+                name="pencil"
+                size={20}
+                color={themeColors.primary as string}
               />
-            )}
-            {onDelete && (
-              <Button
-                title="Delete"
-                onPress={onDelete}
-                variant="danger"
-                size="small"
-                position="right"
+            </TouchableOpacity>
+          )}
+          {onDelete && (
+            <TouchableOpacity
+              onPress={onDelete}
+              accessibilityLabel="Delete observation"
+              style={styles.iconButton}>
+              <Icon
+                name="trash-can"
+                size={20}
+                color={colors.semantic.error[500] as string}
               />
-            )}
-          </View>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -133,14 +136,11 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     marginHorizontal: 16,
-    marginVertical: 6,
+    // Each card contributes top+bottom margin; keep combined gap consistent.
+    marginVertical: odeSpacing.xs, // 8 + 8 = 16 gap between cards
     borderWidth: 1,
     padding: 16,
-  },
-  cardInner: {
-    borderRadius: 8,
     overflow: 'hidden',
-    padding: 12,
   },
   content: {
     flexDirection: 'row',
@@ -185,7 +185,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 12,
+    alignItems: 'center',
+  },
+  iconButton: {
+    paddingHorizontal: 6,
+    paddingVertical: 6,
   },
 });
 

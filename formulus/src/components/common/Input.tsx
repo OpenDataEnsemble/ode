@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, ViewStyle } from 'react-native';
 import { useAppTheme } from '../../contexts/AppThemeContext';
-import colors, { withAlpha, CONTAINER_ALPHA } from '../../theme/colors';
+import colors from '../../theme/colors';
 
 export interface InputProps {
   label?: string;
@@ -52,7 +52,7 @@ const Input: React.FC<InputProps> = ({
 
   const inputBackgroundColor =
     resolvedMode === 'dark'
-      ? withAlpha(themeColors.surface as string, CONTAINER_ALPHA)
+      ? (themeColors.surface as string)
       : colors.neutral.white;
 
   const inputTextColor =

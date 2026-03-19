@@ -12,9 +12,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/viper"
 )
+
+// normalizeBaseURL trims trailing slashes to avoid double slashes when joining paths.
+func normalizeBaseURL(base string) string {
+	return strings.TrimRight(base, "/")
+}
 
 // TokenResponse represents the response from the authentication endpoint
 type TokenResponse struct {
@@ -103,7 +109,7 @@ func isNetworkConnectivityError(err error) bool {
 
 // Login authenticates with the Synkronus API and returns a token
 func Login(username, password string) (*TokenResponse, error) {
-	apiURL := viper.GetString("api.url")
+	apiURL := normalizeBaseURL(utils.EnsureScheme(viper.GetString("api.url")))
 	loginURL := fmt.Sprintf("%s/auth/login", apiURL)
 
 	// Prepare login request
@@ -168,7 +174,7 @@ func Login(username, password string) (*TokenResponse, error) {
 
 // RefreshToken refreshes the JWT token
 func RefreshToken() (*TokenResponse, error) {
-	apiURL := viper.GetString("api.url")
+	apiURL := normalizeBaseURL(utils.EnsureScheme(viper.GetString("api.url")))
 	refreshURL := fmt.Sprintf("%s/auth/refresh", apiURL)
 	refreshToken := viper.GetString("auth.refresh_token")
 

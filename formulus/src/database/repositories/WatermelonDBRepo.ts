@@ -206,13 +206,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         return [];
       }
 
-      // First, let's check all observations in the database for debugging
-      const allObservations = await this.observationsCollection.query().fetch();
-      console.log(`Total observations in database: ${allObservations.length}`);
-
-      // Query for observations with form_type matching the requested form type
+      // Query for observations with form_type matching and exclude soft-deleted
       const observations = await this.observationsCollection
-        .query(Q.where('form_type', formId))
+        .query(Q.where('form_type', formId), Q.where('deleted', false))
         .fetch();
 
       return observations.map(observation =>
@@ -481,14 +477,16 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   }
 
   /**
-   * Get pending changes from the local database
-   * @returns Promise resolving to an array of pending changes
+   * Get pending changes from the local database (unsynced or updated after last sync).
+   * Includes new, updated, and soft-deleted records so sync can push them to the server.
+   * synced_at can be null or 0 when never synced depending on storage.
    */
   getPendingChanges(): Promise<Observation[]> {
     return this.observationsCollection
       .query(
         Q.or(
           Q.where('synced_at', Q.eq(null)),
+          Q.where('synced_at', 0),
           Q.where('updated_at', Q.gt(Q.column('synced_at'))),
         ),
       )

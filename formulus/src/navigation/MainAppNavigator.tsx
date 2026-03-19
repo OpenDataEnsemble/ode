@@ -9,11 +9,12 @@ import ObservationDetailScreen from '../screens/ObservationDetailScreen';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { serverConfigService } from '../services/ServerConfigService';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { ThemeColors } from '../types/AppConfig';
 import {
   odeSpacing,
-  odeRadius,
   odeBorderWidth,
   odeTypography,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 
 const Stack = createStackNavigator<MainAppStackParamList>();
@@ -23,7 +24,7 @@ function ObservationDetailHeader({
   themeColors,
 }: {
   navigation: { goBack: () => void };
-  themeColors: Record<string, string>;
+  themeColors: ThemeColors;
 }) {
   return (
     <View
@@ -31,7 +32,7 @@ function ObservationDetailHeader({
         observationDetailHeaderStyles.wrapper,
         {
           backgroundColor: themeColors.surface,
-          borderColor: themeColors.divider as string,
+          borderBottomColor: themeColors.divider as string,
         },
       ]}>
       <TouchableOpacity
@@ -55,14 +56,16 @@ function ObservationDetailHeader({
 const observationDetailHeaderStyles = StyleSheet.create({
   wrapper: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: odeSpacing.sm,
+    alignItems: 'flex-start',
     padding: odeSpacing.md,
-    borderWidth: odeBorderWidth.hairline,
     borderBottomWidth: odeBorderWidth.hairline,
-    borderBottomLeftRadius: odeRadius.card,
-    borderBottomRightRadius: odeRadius.card,
-    overflow: 'hidden',
+    overflow: 'visible',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
   },
   backBtn: {
     padding: odeSpacing.xxs,
@@ -72,7 +75,7 @@ const observationDetailHeaderStyles = StyleSheet.create({
     flex: 1,
     fontSize: odeTypography.screenTitle,
     fontWeight: 'bold',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   placeholder: {
     width: 24 + odeSpacing.xxs * 2 + odeSpacing.xs,

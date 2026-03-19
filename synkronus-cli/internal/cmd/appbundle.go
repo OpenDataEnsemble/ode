@@ -221,8 +221,6 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 		Long: `Upload a new app bundle ZIP file to the Synkronus API (admin only).
 
 The bundle will be validated before upload to ensure it has the correct structure.
-Use --skip-validation to bypass validation (not recommended).
-
 After upload, use --activate to automatically activate the new version.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -235,21 +233,16 @@ After upload, use --activate to automatically activate the new version.`,
 			}
 
 			// Get flags
-			skipValidation, _ := cmd.Flags().GetBool("skip-validation")
 			activate, _ := cmd.Flags().GetBool("activate")
 			verbose, _ := cmd.Flags().GetBool("verbose")
 
-			// Validate bundle structure (unless skipped)
-			if !skipValidation {
-				color.Cyan("Validating bundle structure...")
-				if err := validation.ValidateBundle(bundlePath); err != nil {
-					cmd.SilenceUsage = true
-					return fmt.Errorf("bundle validation failed: %w", err)
-				}
-				color.Green("✓ Bundle structure is valid")
-			} else {
-				color.Yellow("⚠ Skipping validation (not recommended)")
+			// Validate bundle structure
+			color.Cyan("Validating bundle structure...")
+			if err := validation.ValidateBundle(bundlePath); err != nil {
+				cmd.SilenceUsage = true
+				return fmt.Errorf("bundle validation failed: %w", err)
 			}
+			color.Green("✓ Bundle structure is valid")
 
 			// Show bundle info
 			if verbose {
@@ -342,95 +335,9 @@ After upload, use --activate to automatically activate the new version.`,
 			return nil
 		},
 	}
-	uploadCmd.Flags().Bool("skip-validation", false, "Skip bundle validation before upload (not recommended)")
 	uploadCmd.Flags().BoolP("activate", "a", false, "Automatically activate the uploaded version")
 	uploadCmd.Flags().BoolP("verbose", "v", false, "Show detailed information about the bundle and manifest")
 	appBundleCmd.AddCommand(uploadCmd)
-
-	// Changes command
-	changesCmd := &cobra.Command{
-		Use:   "changes",
-		Short: "Show changes between app bundle versions",
-		Long: `Compare two versions of the app bundle and display the changes.
-
-If no versions are specified, shows changes between the current version and the previous one.
-If only one version is specified, compares it with the current version.`,
-		Args: cobra.MaximumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := client.NewClient()
-
-			// Parse version arguments
-			var currentVersion, targetVersion string
-			switch len(args) {
-			case 0:
-				// No arguments - compare current with previous
-			case 1:
-				// One argument - compare specified version with current
-				targetVersion = args[0]
-			case 2:
-				// Two arguments - compare first with second
-				currentVersion = args[0]
-				targetVersion = args[1]
-			}
-
-			// Get changes from API
-			changes, err := c.GetAppBundleChanges(currentVersion, targetVersion)
-			if err != nil {
-				cmd.SilenceUsage = true
-				return fmt.Errorf("failed to get app bundle changes: %w", err)
-			}
-
-			// Format output as JSON if requested
-			jsonOutput, _ := cmd.Flags().GetBool("json")
-			if jsonOutput {
-				jsonData, err := json.MarshalIndent(changes, "", "  ")
-				if err != nil {
-					cmd.SilenceUsage = true
-					return fmt.Errorf("error formatting JSON: %w", err)
-				}
-				fmt.Println(string(jsonData))
-				return nil
-			}
-
-			// Display formatted output
-			fmt.Printf("Changes from version %s to %s\n\n", changes.CurrentVersion, changes.TargetVersion)
-
-			// Added files
-			if len(changes.Added) > 0 {
-				fmt.Println("Added files:")
-				for _, file := range changes.Added {
-					fmt.Printf("  - %s\n", file["path"])
-				}
-				fmt.Println()
-			}
-
-			// Modified files
-			if len(changes.Modified) > 0 {
-				fmt.Println("Modified files:")
-				for _, file := range changes.Modified {
-					fmt.Printf("  - %s\n", file["path"])
-				}
-				fmt.Println()
-			}
-
-			// Removed files
-			if len(changes.Removed) > 0 {
-				fmt.Println("Removed files:")
-				for _, file := range changes.Removed {
-					fmt.Printf("  - %s\n", file["path"])
-				}
-				fmt.Println()
-			}
-
-			if len(changes.Added) == 0 && len(changes.Modified) == 0 && len(changes.Removed) == 0 {
-				fmt.Println("No changes found between the specified versions.")
-			}
-
-			return nil
-		},
-	}
-	changesCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
-	appBundleCmd.AddCommand(changesCmd)
 
 	// Switch version command
 	switchCmd := &cobra.Command{
