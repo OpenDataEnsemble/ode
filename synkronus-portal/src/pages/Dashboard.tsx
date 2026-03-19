@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
@@ -301,11 +301,15 @@ export function Dashboard() {
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     if (user?.role !== 'admin') {
       setError('Admin access required');
       return;
     }
+
+    // Avoid duplicate fetches
+    if (loading) return;
+
     setLoading(true);
     setError(null);
     try {
@@ -316,7 +320,7 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.role, loading]);
 
   
   const handleTabChange = (tab: TabType) => {
@@ -331,6 +335,16 @@ export function Dashboard() {
       loadUsers();
     }
   };
+
+  // Initial load: after login, the "users" tab is already active, but
+  // handleTabChange() won't run again. So explicitly fetch users when the
+  // logged-in user becomes an admin and the Users tab is active.
+  useEffect(() => {
+    if (activeTab !== 'users') return;
+    if (user?.role !== 'admin') return;
+    if (users.length !== 0) return;
+    loadUsers();
+  }, [activeTab, user?.role, users.length, loadUsers]);
 
   const handleUploadClick = () => {
     if (loading) return;
