@@ -606,8 +606,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
   },
   cardContent: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingHorizontal: odeSpacing.md,
+    paddingTop: odeSpacing.md,
     paddingBottom: 40,
   },
   title: {
@@ -628,10 +628,11 @@ const styles = StyleSheet.create({
     marginBottom: odeSpacing.sm,
   },
   sectionHeaderFirst: {
-    marginTop: odeSpacing.xl,
+    // cardContent.paddingTop already gives header-to-content gap; keep section gap consistent.
+    marginTop: 0,
   },
   appSettingsSectionHeader: {
-    marginTop: odeSpacing.xl,
+    marginTop: odeSpacing.md,
   },
   appSettingsHeader: {
     flexDirection: 'row',
@@ -650,7 +651,7 @@ const styles = StyleSheet.create({
     marginLeft: odeSpacing.xxs,
   },
   themesCardOuter: {
-    marginTop: odeSpacing.sm,
+    marginTop: odeSpacing.md,
     borderRadius: odeRadius.card,
     borderWidth: odeBorderWidth.hairline,
     overflow: 'hidden',
@@ -689,7 +690,7 @@ const styles = StyleSheet.create({
   },
   versionContainer: {
     alignItems: 'center',
-    paddingTop: odeSpacing.xl,
+    paddingTop: odeSpacing.md,
     paddingBottom: odeSpacing.lg,
   },
 });

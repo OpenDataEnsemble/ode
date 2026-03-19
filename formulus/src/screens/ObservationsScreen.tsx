@@ -447,7 +447,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   listContent: {
-    paddingVertical: odeSpacing.sm,
+    // Same gap as between cards: paddingTop + first card marginTop = 16.
+    paddingVertical: odeSpacing.xs,
   },
   loadingContainer: {
     flex: 1,

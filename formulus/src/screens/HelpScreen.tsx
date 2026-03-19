@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: odeRadius.card,
-    marginBottom: odeSpacing.sm,
+    marginBottom: odeSpacing.md,
     borderWidth: odeBorderWidth.hairline,
     padding: odeSpacing.md,
     overflow: 'hidden',

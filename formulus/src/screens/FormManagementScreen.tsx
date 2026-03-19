@@ -407,10 +407,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingVertical: 8,
+    paddingVertical: odeSpacing.md,
   },
   formTypeContainer: {
-    marginBottom: 12,
+    marginBottom: odeSpacing.md,
     backgroundColor: colors.neutral.white,
     borderRadius: 12,
     marginHorizontal: 16,

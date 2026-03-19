@@ -860,7 +860,9 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: odeRadius.card,
-    marginBottom: odeSpacing.md,
+    // Avoid double vertical gaps when parent containers also define margins.
+    // Instead, each section/card controls its own spacing.
+    marginBottom: 0,
     borderWidth: odeBorderWidth.hairline,
     padding: odeSpacing.md,
   },
@@ -1013,7 +1015,8 @@ const styles = StyleSheet.create({
     marginBottom: odeSpacing.sm,
   },
   actionsSection: {
-    gap: 12,
+    // Match the primary vertical gap used between the stacked cards/sections.
+    gap: odeSpacing.md,
   },
   actionButtonText: {
     fontSize: odeTypography.body,

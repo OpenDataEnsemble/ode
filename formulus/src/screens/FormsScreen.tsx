@@ -301,7 +301,8 @@ const styles = StyleSheet.create({
   },
   clearIcon: {},
   listContent: {
-    paddingVertical: odeSpacing.sm,
+    // Same gap as between cards: paddingTop + first card marginTop = 16.
+    paddingVertical: odeSpacing.xs,
   },
   loadingContainer: {
     flex: 1,
