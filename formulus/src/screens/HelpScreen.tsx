@@ -6,6 +6,7 @@ import {
   ScrollView,
   Linking,
   Pressable,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
@@ -18,6 +19,7 @@ import {
   odeRadius,
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
+import logo from '../../assets/images/logo.png';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
 
@@ -48,10 +50,22 @@ const HelpScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text
-            style={[styles.title, { color: themeColors.onPrimary as string }]}>
-            Help & Support
-          </Text>
+          <View style={styles.logoContainer}>
+            <View
+              style={[
+                styles.logoWrapper,
+                { borderColor: themeColors.onPrimary as string },
+              ]}>
+              <Image source={logo} style={styles.logo} resizeMode="contain" />
+            </View>
+            <Text
+              style={[
+                styles.title,
+                { color: themeColors.onPrimary as string },
+              ]}>
+              Help & Support
+            </Text>
+          </View>
         </View>
 
         <ScrollView
@@ -133,6 +147,27 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: odeSpacing.xs,
     textAlign: 'left',
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  logoWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'transparent',
   },
   content: {
     padding: odeSpacing.md,
