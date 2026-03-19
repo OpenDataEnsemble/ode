@@ -1436,6 +1436,17 @@ html::-webkit-scrollbar-thumb:hover {
   accent-color: var(--color-brand-primary-500);
 }
 
+.auto-activate-hint {
+  font-size: 11px;
+  color: var(--color-neutral-white-alpha-60);
+  margin-top: 2px;
+  line-height: 1.2;
+}
+
+[data-theme="light"] .auto-activate-hint {
+  color: var(--color-text-tertiary) !important;
+}
+
 /* Upload Progress */
 .upload-progress {
   margin-bottom: var(--spacing-6);
