@@ -374,7 +374,7 @@ const SettingsScreen = () => {
               <Image source={Logo} style={styles.logo} resizeMode="contain" />
             </View>
             <Text style={[styles.brandName, { color: themeColors.onPrimary }]}>
-              ODE
+              Settings
             </Text>
           </View>
         </View>
