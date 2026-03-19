@@ -63,6 +63,12 @@ const EdgeDarkeningOverlay = () => {
 
 interface BlurredScreenBackgroundProps {
   children: React.ReactNode;
+  /**
+   * Speeds up initial loading screens by skipping expensive blur/SVG work.
+   * Useful when we're showing an ActivityIndicator and haven't rendered
+   * the final content yet.
+   */
+  disableBlur?: boolean;
 }
 
 /**
@@ -73,6 +79,7 @@ interface BlurredScreenBackgroundProps {
  */
 const BlurredScreenBackground: React.FC<BlurredScreenBackgroundProps> = ({
   children,
+  disableBlur = false,
 }) => {
   const { resolvedMode } = useAppTheme();
   const isDark = resolvedMode === 'dark';
@@ -80,9 +87,11 @@ const BlurredScreenBackground: React.FC<BlurredScreenBackgroundProps> = ({
     ? welcomeBgDark
     : welcomeBgLight;
   const overlayColor = isDark ? colors.neutral.black : colors.neutral.white;
-  const blurRadius = isDark
-    ? backgroundConfig.blurRadiusDark
-    : backgroundConfig.blurRadiusLight;
+  const blurRadius = disableBlur
+    ? 0
+    : isDark
+      ? backgroundConfig.blurRadiusDark
+      : backgroundConfig.blurRadiusLight;
 
   return (
     <View style={[styles.root, { backgroundColor: 'transparent' }]}>
@@ -100,7 +109,7 @@ const BlurredScreenBackground: React.FC<BlurredScreenBackgroundProps> = ({
             },
           ]}
         />
-        {isDark && <EdgeDarkeningOverlay />}
+        {!disableBlur && isDark && <EdgeDarkeningOverlay />}
         <View style={styles.contentSlot}>{children}</View>
       </ImageBackground>
     </View>

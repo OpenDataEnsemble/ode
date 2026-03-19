@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
 import { login, isVersionMismatchError } from '../api/synkronus/Auth';
@@ -22,21 +22,22 @@ import { QRSettingsService } from '../services/QRSettingsService';
 import { MainTabParamList } from '../types/NavigationTypes';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { ToastService } from '../services/ToastService';
-import { useAppTheme, ThemeMode } from '../contexts/AppThemeContext';
+import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
-import colors, { withAlpha } from '../theme/colors';
+import colors from '../theme/colors';
 import {
   odeSpacing,
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
 import { Button } from '../components/common';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import Logo from '../../assets/images/logo.png';
-import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
+import { Moon, Monitor, Sun } from 'lucide-react-native';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -47,20 +48,7 @@ const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
   const { showConfirm } = useConfirmModal();
-  const [appSettingsOpen, setAppSettingsOpen] = useState(false);
   const isDark = resolvedMode === 'dark';
-
-  useFocusEffect(
-    useCallback(() => {
-      setAppSettingsOpen(false);
-    }, []),
-  );
-  const odeOpacity = (tokens as { opacity?: Record<string, string> }).opacity;
-  const themeChipBorderOpacityDark =
-    odeOpacity?.['50'] != null ? Number(odeOpacity['50']) : 0.5;
-  const themeChipBorderColorDark = isDark
-    ? withAlpha(colors.neutral.white as string, themeChipBorderOpacityDark)
-    : undefined;
   const sectionHeaderColor = isDark
     ? (colors.neutral[200] as string)
     : (colors.neutral[800] as string);
@@ -214,13 +202,14 @@ const SettingsScreen = () => {
 
   const loadSettings = async () => {
     try {
-      const savedUrl = await serverConfigService.getServerUrl();
+      const [savedUrl, credentials] = await Promise.all([
+        serverConfigService.getServerUrl(),
+        Keychain.getGenericPassword(),
+      ]);
       if (savedUrl) {
         setServerUrl(savedUrl);
         setInitialServerUrl(savedUrl);
       }
-
-      const credentials = await Keychain.getGenericPassword();
       if (credentials) {
         setUsername(credentials.username);
         setPassword(credentials.password);
@@ -350,7 +339,7 @@ const SettingsScreen = () => {
 
   if (isLoading) {
     return (
-      <BlurredScreenBackground>
+      <BlurredScreenBackground disableBlur>
         <View
           style={[
             styles.container,
@@ -373,6 +362,7 @@ const SettingsScreen = () => {
             styles.header,
             {
               backgroundColor: themeColors.primary as string,
+              borderBottomColor: themeColors.divider as string,
             },
           ]}>
           <View style={styles.logoContainer}>
@@ -384,7 +374,7 @@ const SettingsScreen = () => {
               <Image source={Logo} style={styles.logo} resizeMode="contain" />
             </View>
             <Text style={[styles.brandName, { color: themeColors.onPrimary }]}>
-              ODE
+              Settings
             </Text>
           </View>
         </View>
@@ -450,7 +440,7 @@ const SettingsScreen = () => {
             fullWidth
           />
 
-          {/* App Settings section (expandable, themes) */}
+          {/* App Settings section (themes) */}
           <Text
             style={[
               styles.sectionHeader,
@@ -459,84 +449,76 @@ const SettingsScreen = () => {
             ]}>
             App Settings
           </Text>
-          <TouchableOpacity
-            style={styles.appSettingsHeader}
-            activeOpacity={0.8}
-            onPress={() => setAppSettingsOpen(open => !open)}>
-            <View style={styles.appSettingsTitleRow}>
+          <View style={styles.themesInlineRow}>
+            <View style={styles.themesInlineLeft}>
               <Icon name="palette" size={22} color={themeColors.onSurface} />
               <Text
                 style={[
                   styles.appSettingsLabel,
                   { color: themeColors.onSurface },
                 ]}>
-                Themes
+                Themes:
               </Text>
-              <Icon
-                name={appSettingsOpen ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={themeColors.onSurface}
-                style={styles.appSettingsChevron}
-              />
             </View>
-          </TouchableOpacity>
-          {appSettingsOpen && (
-            <View
-              style={[
-                styles.themesCardOuter,
-                {
-                  borderColor: themeColors.divider,
-                  backgroundColor: themeColors.surface as string,
-                },
-              ]}>
-              <Text
-                style={[styles.themesTitle, { color: themeColors.onSurface }]}>
-                Theme
-              </Text>
-              <View style={styles.themeOptionsColumn}>
-                {(['system', 'dark', 'light'] as ThemeMode[]).map(mode => (
-                  <TouchableOpacity
-                    key={mode}
-                    style={[
-                      styles.themeChip,
-                      {
-                        borderColor:
-                          themeMode === mode
-                            ? (themeColors.primary as string)
-                            : isDark
-                              ? (themeChipBorderColorDark as string)
-                              : (colors.neutral[400] as string),
-                      },
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => setThemeMode(mode)}>
-                    <Text
-                      style={[
-                        styles.themeChipLabel,
-                        {
-                          color:
-                            themeMode === mode
-                              ? (themeColors.primary as string)
-                              : isDark
-                                ? (colors.neutral[200] as string)
-                                : (colors.neutral[700] as string),
-                        },
-                      ]}>
-                      {mode === 'system'
-                        ? 'System'
-                        : mode === 'dark'
-                          ? 'Dark'
-                          : 'Light'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+
+            <View style={styles.themesInlineIcons}>
+              <TouchableOpacity
+                style={styles.themeIconButton}
+                onPress={() => setThemeMode('system')}
+                accessibilityRole="button"
+                accessibilityLabel="Theme: System">
+                <Monitor
+                  size={22}
+                  color={
+                    themeMode === 'system'
+                      ? (themeColors.primary as string)
+                      : (themeColors.onSurface as string)
+                  }
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.themeIconButton}
+                onPress={() => setThemeMode('light')}
+                accessibilityRole="button"
+                accessibilityLabel="Theme: Light">
+                <Sun
+                  size={22}
+                  color={
+                    themeMode === 'light'
+                      ? (themeColors.primary as string)
+                      : (themeColors.onSurface as string)
+                  }
+                />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.themeIconButton}
+                onPress={() => setThemeMode('dark')}
+                accessibilityRole="button"
+                accessibilityLabel="Theme: Dark">
+                <Moon
+                  size={22}
+                  color={
+                    themeMode === 'dark'
+                      ? (themeColors.primary as string)
+                      : (themeColors.onSurface as string)
+                  }
+                />
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
 
           <View style={styles.versionContainer}>
             <Text style={[styles.version, { color: themeColors.onSurface }]}>
               v1.0.0
+            </Text>
+            <Text
+              style={[
+                styles.versionCodename,
+                { color: themeColors.onSurface },
+              ]}>
+              Young Ossicone
             </Text>
           </View>
         </ScrollView>
@@ -561,8 +543,11 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    width: '100%',
+    padding: odeSpacing.md,
+    minHeight: odeScreenHeaderHeight,
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderRadius: 0,
     overflow: 'hidden',
   },
   logoContainer: {
@@ -601,8 +586,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 8,
   },
   cardContent: {
-    paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingHorizontal: odeSpacing.md,
+    paddingTop: odeSpacing.md,
     paddingBottom: 40,
   },
   title: {
@@ -623,10 +608,11 @@ const styles = StyleSheet.create({
     marginBottom: odeSpacing.sm,
   },
   sectionHeaderFirst: {
-    marginTop: odeSpacing.xl,
+    // cardContent.paddingTop already gives header-to-content gap; keep section gap consistent.
+    marginTop: 0,
   },
   appSettingsSectionHeader: {
-    marginTop: odeSpacing.xl,
+    marginTop: odeSpacing.md,
   },
   appSettingsHeader: {
     flexDirection: 'row',
@@ -644,8 +630,28 @@ const styles = StyleSheet.create({
   appSettingsChevron: {
     marginLeft: odeSpacing.xxs,
   },
+  themesInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: odeSpacing.sm,
+    paddingVertical: odeSpacing.sm,
+  },
+  themesInlineLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.xs,
+  },
+  themesInlineIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.sm,
+  },
+  themeIconButton: {
+    padding: odeSpacing.xs,
+  },
   themesCardOuter: {
-    marginTop: odeSpacing.sm,
+    marginTop: odeSpacing.md,
     borderRadius: odeRadius.card,
     borderWidth: odeBorderWidth.hairline,
     overflow: 'hidden',
@@ -684,8 +690,14 @@ const styles = StyleSheet.create({
   },
   versionContainer: {
     alignItems: 'center',
-    paddingTop: odeSpacing.xl,
+    paddingTop: odeSpacing.md,
     paddingBottom: odeSpacing.lg,
+  },
+  versionCodename: {
+    fontSize: 12,
+    marginTop: odeSpacing.xxs,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
 

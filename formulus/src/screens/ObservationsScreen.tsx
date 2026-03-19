@@ -35,6 +35,7 @@ import {
   odeTypography,
   odeBorderWidth,
   odeRadius,
+  odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 
 type ObservationsScreenNavigationProp = StackNavigationProp<
@@ -130,6 +131,8 @@ const ObservationsScreen: React.FC = () => {
 
     return filtered;
   }, [filteredAndSorted, selectedFormType, syncStatus]);
+
+  const showSubtitle = finalFiltered.length > 0;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -242,7 +245,8 @@ const ObservationsScreen: React.FC = () => {
   return (
     <BlurredScreenBackground>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}>
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        edges={['top']}>
         <View
           style={[
             styles.header,
@@ -250,17 +254,21 @@ const ObservationsScreen: React.FC = () => {
               backgroundColor: isDark
                 ? (colors.neutral[900] as string)
                 : (colors.neutral[50] as string),
-              borderWidth: 1,
-              borderBottomWidth: 1,
-              borderColor: themeColors.divider as string,
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
           <View style={styles.headerLeft}>
-            <Text style={[styles.title, { color: titleColor }]}>
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: titleColor,
+                  marginBottom: showSubtitle ? 0 : odeSpacing.xs,
+                },
+              ]}>
               Observations
             </Text>
-            {finalFiltered.length > 0 && (
+            {showSubtitle && (
               <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
                 {finalFiltered.length} observation
                 {finalFiltered.length !== 1 ? 's' : ''}
@@ -376,7 +384,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    overflow: 'hidden',
+    minHeight: odeScreenHeaderHeight,
+    width: '100%',
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
+    borderRadius: 0,
   },
   headerLeft: {
     flex: 1,
@@ -434,7 +447,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   listContent: {
-    paddingVertical: odeSpacing.sm,
+    // Same gap as between cards: paddingTop + first card marginTop = 16.
+    paddingVertical: odeSpacing.xs,
   },
   loadingContainer: {
     flex: 1,
