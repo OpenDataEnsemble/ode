@@ -202,13 +202,14 @@ const SettingsScreen = () => {
 
   const loadSettings = async () => {
     try {
-      const savedUrl = await serverConfigService.getServerUrl();
+      const [savedUrl, credentials] = await Promise.all([
+        serverConfigService.getServerUrl(),
+        Keychain.getGenericPassword(),
+      ]);
       if (savedUrl) {
         setServerUrl(savedUrl);
         setInitialServerUrl(savedUrl);
       }
-
-      const credentials = await Keychain.getGenericPassword();
       if (credentials) {
         setUsername(credentials.username);
         setPassword(credentials.password);
@@ -338,7 +339,7 @@ const SettingsScreen = () => {
 
   if (isLoading) {
     return (
-      <BlurredScreenBackground>
+      <BlurredScreenBackground disableBlur>
         <View
           style={[
             styles.container,
