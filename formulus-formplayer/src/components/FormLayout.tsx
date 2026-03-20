@@ -160,9 +160,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
         overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
         paddingBottom:
-          showNavigation &&
-          (previousButton || nextButton) &&
-          !isKeyboardVisible
+          showNavigation && (previousButton || nextButton) && !isKeyboardVisible
             ? {
                 xs: `calc(${theme.spacing(11)} + env(safe-area-inset-bottom, 0px))`,
                 sm: `calc(${theme.spacing(12)} + env(safe-area-inset-bottom, 0px))`,
@@ -177,9 +175,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   );
 
   const navigationBar =
-    showNavigation &&
-    (previousButton || nextButton) &&
-    !isKeyboardVisible ? (
+    showNavigation && (previousButton || nextButton) && !isKeyboardVisible ? (
       <Paper
         elevation={0}
         sx={theme => ({
