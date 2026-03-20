@@ -93,11 +93,9 @@ jobs:
       
       - name: Run linter
         run: npm run lint
-      
-        ## Ignoring formulus testing for Q2
-      # - name: Run tests
-      #   run: npm test -- --coverage --watchAll=false
-      #   continue-on-error: true # We want to continue even if tests fail since tests are not set yet
+
+      - name: Run tests
+        run: npm test -- --ci --coverage --watchAll=false
 
   # Lint and test for formulus-formplayer (React Web)
   formulus-formplayer:
