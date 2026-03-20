@@ -29,6 +29,7 @@ import { syncService } from '../services/SyncService';
 import { Button } from '../components/common';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import Logo from '../../assets/images/logo.png';
+import { odeTypography } from '../theme/odeDesign';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -462,8 +463,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   brandName: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: odeTypography.screenTitle,
+    fontWeight: 'bold',
     letterSpacing: 1,
   },
   version: {
