@@ -61,6 +61,7 @@ export interface FormplayerModalHandle {
   handleSubmission: (data: {
     formType: string;
     finalData: Record<string, unknown>;
+    observationId?: string | null;
   }) => Promise<string>;
 }
 
@@ -469,8 +470,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       async (data: {
         formType: string;
         finalData: Record<string, unknown>;
+        observationId?: string | null;
       }): Promise<string> => {
-        const { formType, finalData } = data;
+        const { formType, finalData, observationId: observationIdFromBridge } =
+          data;
+        const effectiveObservationId =
+          observationIdFromBridge ?? currentObservationId;
 
         // Set submitting state
         setIsSubmitting(true);
@@ -484,15 +489,15 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
           // Save the observation
           let resultObservationId: string;
-          if (currentObservationId) {
+          if (effectiveObservationId) {
             const updateSuccess = await localRepo.updateObservation({
-              observationId: currentObservationId,
+              observationId: effectiveObservationId,
               data: finalData,
             });
             if (!updateSuccess) {
               throw new Error('Failed to update observation');
             }
-            resultObservationId = currentObservationId;
+            resultObservationId = effectiveObservationId;
           } else {
             const newId = await localRepo.saveObservation({
               formType,
@@ -509,7 +514,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
           // Resolve the form operation with success result
           const completionResult: FormCompletionResult = {
-            status: currentObservationId ? 'form_updated' : 'form_submitted',
+            status: effectiveObservationId ? 'form_updated' : 'form_submitted',
             observationId: resultObservationId,
             formData: finalData,
             formType: formType,
@@ -524,7 +529,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           }
 
           // Show success message and close modal
-          const successMessage = currentObservationId
+          const successMessage = effectiveObservationId
             ? 'Observation updated successfully!'
             : 'Form submitted successfully!';
           showConfirm({
