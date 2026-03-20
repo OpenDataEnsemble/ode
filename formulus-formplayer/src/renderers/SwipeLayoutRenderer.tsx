@@ -564,6 +564,17 @@ const SwipeLayoutRenderer = ({
               uischema={uischema}
               mode="screens"
               isOnFinalizePage={isOnFinalizePage}
+              onNavigatePrevious={
+                prevVisiblePage !== null
+                  ? () => navigateToPage(prevVisiblePage)
+                  : undefined
+              }
+              onNavigateNext={
+                nextVisiblePage !== null
+                  ? () => navigateToPage(nextVisiblePage)
+                  : undefined
+              }
+              navigationDisabled={isNavigating}
             />
           </>
         }
