@@ -20,6 +20,47 @@ jest.mock('react-native-fs', () => ({
   readFile: jest.fn(),
   writeFile: jest.fn(),
 }));
+jest.mock('react-native-geolocation-service', () => ({
+  __esModule: true,
+  default: {
+    requestAuthorization: jest.fn(),
+    getCurrentPosition: jest.fn(),
+    watchPosition: jest.fn(),
+    clearWatch: jest.fn(),
+    stopObserving: jest.fn(),
+  },
+}));
+jest.mock('react-native-permissions', () => ({
+  check: jest.fn().mockResolvedValue('granted'),
+  request: jest.fn().mockResolvedValue('granted'),
+  PERMISSIONS: {
+    IOS: {
+      LOCATION_WHEN_IN_USE: 'ios.LOCATION_WHEN_IN_USE',
+      LOCATION_ALWAYS: 'ios.LOCATION_ALWAYS',
+    },
+    ANDROID: {
+      ACCESS_FINE_LOCATION: 'android.permission.ACCESS_FINE_LOCATION',
+      ACCESS_BACKGROUND_LOCATION:
+        'android.permission.ACCESS_BACKGROUND_LOCATION',
+    },
+  },
+  RESULTS: {
+    UNAVAILABLE: 'unavailable',
+    DENIED: 'denied',
+    LIMITED: 'limited',
+    GRANTED: 'granted',
+    BLOCKED: 'blocked',
+  },
+}));
+jest.mock('../../webview/FormulusMessageHandlers', () => ({
+  appEvents: {
+    emit: jest.fn(),
+    on: jest.fn(),
+    off: jest.fn(),
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+  },
+}));
 jest.mock(
   '../../database/DatabaseService',
   () => ({
@@ -38,22 +79,31 @@ jest.mock('../../api/synkronus', () => ({
   synkronusApi: {
     syncObservations: jest.fn(),
     getManifest: jest.fn(),
+    downloadAndInstallBundleZip: jest.fn(),
     downloadFormSpecs: jest.fn(),
     downloadAppFiles: jest.fn(),
     removeAppBundleFiles: jest.fn(),
     clearTokenCache: jest.fn(),
   },
 }));
-jest.mock('../../api/synkronus/Auth', () => ({
-  autoLogin: jest.fn(),
-  isUnauthorizedError: jest.fn(),
-}));
+jest.mock('../../api/synkronus/Auth', () => {
+  const actual = jest.requireActual(
+    '../../api/synkronus/Auth',
+  ) as typeof import('../../api/synkronus/Auth');
+  return {
+    ...actual,
+    autoLogin: jest.fn(),
+    isUnauthorizedError: jest.fn(),
+  };
+});
 jest.mock('../NotificationService', () => ({
   notificationService: {
     showSyncProgress: jest.fn().mockResolvedValue(undefined),
     showSyncComplete: jest.fn().mockResolvedValue(undefined),
     clearAllSyncNotifications: jest.fn().mockResolvedValue(undefined),
     showSyncCanceled: jest.fn().mockResolvedValue(undefined),
+    startForegroundService: jest.fn().mockResolvedValue(undefined),
+    stopForegroundService: jest.fn().mockResolvedValue(undefined),
   },
 }));
 jest.mock('../FormService', () => ({
@@ -186,19 +236,16 @@ describe('SyncService - Auto-Login Integration', () => {
       };
       const mockManifest = { version: '1.0.0', files: [] };
 
-      // First getManifest fails with 401, retry succeeds, then downloadAppBundle calls it again
       (synkronusApi.getManifest as jest.Mock)
         .mockRejectedValueOnce({
           response: { status: 401 },
           message: 'Unauthorized',
         })
-        .mockResolvedValue(mockManifest); // All subsequent calls succeed
+        .mockResolvedValue(mockManifest);
 
-      (synkronusApi.removeAppBundleFiles as jest.Mock).mockResolvedValue(
+      (synkronusApi.downloadAndInstallBundleZip as jest.Mock).mockResolvedValue(
         undefined,
       );
-      (synkronusApi.downloadFormSpecs as jest.Mock).mockResolvedValue([]);
-      (synkronusApi.downloadAppFiles as jest.Mock).mockResolvedValue([]);
 
       (isUnauthorizedError as jest.Mock).mockReturnValue(true);
       (autoLogin as jest.Mock).mockResolvedValue(mockUserInfo);
@@ -207,12 +254,11 @@ describe('SyncService - Auto-Login Integration', () => {
       await syncService.updateAppBundle();
 
       expect(autoLogin).toHaveBeenCalledTimes(1);
-      // updateAppBundle calls getManifest twice: once at start, once in downloadAppBundle
-      // First call fails (401), retry succeeds (call 2), downloadAppBundle calls it (call 3)
-      expect(synkronusApi.getManifest).toHaveBeenCalledTimes(3);
+      expect(synkronusApi.getManifest).toHaveBeenCalledTimes(2);
+      expect(synkronusApi.downloadAndInstallBundleZip).toHaveBeenCalledTimes(1);
     });
 
-    test('should retry downloadFormSpecs after auto-login on 401 error', async () => {
+    test('should retry downloadAndInstallBundleZip after auto-login on 401 error', async () => {
       const mockUserInfo = {
         username: 'testuser',
         role: 'read-write' as const,
@@ -220,19 +266,12 @@ describe('SyncService - Auto-Login Integration', () => {
       const mockManifest = { version: '1.0.0', files: [] };
 
       (synkronusApi.getManifest as jest.Mock).mockResolvedValue(mockManifest);
-      (synkronusApi.removeAppBundleFiles as jest.Mock).mockResolvedValue(
-        undefined,
-      );
-
-      // downloadFormSpecs fails with 401, then succeeds
-      (synkronusApi.downloadFormSpecs as jest.Mock)
+      (synkronusApi.downloadAndInstallBundleZip as jest.Mock)
         .mockRejectedValueOnce({
           response: { status: 401 },
           message: 'Unauthorized',
         })
-        .mockResolvedValueOnce([]);
-
-      (synkronusApi.downloadAppFiles as jest.Mock).mockResolvedValue([]);
+        .mockResolvedValueOnce(undefined);
 
       (isUnauthorizedError as jest.Mock).mockReturnValue(true);
       (autoLogin as jest.Mock).mockResolvedValue(mockUserInfo);
@@ -241,7 +280,7 @@ describe('SyncService - Auto-Login Integration', () => {
       await syncService.updateAppBundle();
 
       expect(autoLogin).toHaveBeenCalledTimes(1);
-      expect(synkronusApi.downloadFormSpecs).toHaveBeenCalledTimes(2);
+      expect(synkronusApi.downloadAndInstallBundleZip).toHaveBeenCalledTimes(2);
     });
   });
 
