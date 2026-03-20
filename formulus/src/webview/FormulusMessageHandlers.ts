@@ -485,7 +485,10 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                     });
                     return;
                   }
-                  ImagePicker.launchCamera(options, handleImagePickerResponse);
+                  ImagePicker.launchCamera(
+                    options,
+                    handleImagePickerResponse,
+                  );
                 })();
               },
             },
