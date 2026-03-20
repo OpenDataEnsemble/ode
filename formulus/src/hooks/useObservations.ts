@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { FormService } from '../services/FormService';
 import { Observation } from '../database/models/Observation';
+import { isObservationFullySynced } from '../utils/observationSyncStatus';
 import { SortOption, FilterOption } from '../components/common/FilterBar';
 
 interface UseObservationsResult {
@@ -87,10 +88,8 @@ export const useObservations = (): UseObservationsResult => {
 
     if (filterOption !== 'all') {
       filtered = filtered.filter(obs => {
-        const isSynced =
-          obs.syncedAt &&
-          obs.syncedAt.getTime() > new Date('1980-01-01').getTime();
-        return filterOption === 'synced' ? isSynced : !isSynced;
+        const synced = isObservationFullySynced(obs);
+        return filterOption === 'synced' ? synced : !synced;
       });
     }
 
@@ -103,12 +102,8 @@ export const useObservations = (): UseObservationsResult => {
         case 'form-type':
           return a.formType.localeCompare(b.formType);
         case 'sync-status': {
-          const aSynced =
-            a.syncedAt &&
-            a.syncedAt.getTime() > new Date('1980-01-01').getTime();
-          const bSynced =
-            b.syncedAt &&
-            b.syncedAt.getTime() > new Date('1980-01-01').getTime();
+          const aSynced = isObservationFullySynced(a);
+          const bSynced = isObservationFullySynced(b);
           if (aSynced === bSynced) return 0;
           return aSynced ? 1 : -1;
         }
