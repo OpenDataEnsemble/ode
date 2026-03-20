@@ -3,6 +3,7 @@
   "version": "0.0.3",
   "type": "module",
   "private": true,
+  "license": "MIT",
   "homepage": ".",
   "dependencies": {
     "@emotion/react": "^11.14.0",

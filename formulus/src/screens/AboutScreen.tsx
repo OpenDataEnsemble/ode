@@ -23,6 +23,9 @@ import {
 import logo from '../../assets/images/logo.png';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
+/** Repository notice; keep in sync with docs and release SBOMs. */
+const THIRD_PARTY_NOTICES_URL =
+  'https://github.com/OpenDataEnsemble/ode/blob/main/THIRD_PARTY_NOTICES.md';
 
 const AboutScreen: React.FC = () => {
   const { themeColors, resolvedMode } = useAppTheme();
@@ -124,6 +127,30 @@ const AboutScreen: React.FC = () => {
                   { color: themeColors.primary },
                 ]}>
                 {FORUM_URL}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Credits &amp; licenses
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              This app includes open-source components. Third-party notices and
+              directions to the software bill of materials (SBOM) for releases
+              are in the project repository.
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(THIRD_PARTY_NOTICES_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open third-party notices in repository">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                View third-party notices
               </Text>
             </Pressable>
           </View>

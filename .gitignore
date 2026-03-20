@@ -21,3 +21,6 @@ local.properties
 # Formplayer built assets
 formulus/android/app/src/main/assets/formplayer_dist/
 formulus-formplayer/debug-storybook.log
+
+# Local SBOM output (CI uploads release artifacts instead)
+sbom-dist/
