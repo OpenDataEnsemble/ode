@@ -19,7 +19,7 @@ import { syncService } from '../services/SyncService';
 import { useSyncContext } from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
 import { databaseService } from '../database/DatabaseService';
-import { getUserInfo } from '../api/synkronus/Auth';
+import { getUserInfo, getUserFacingSyncErrorMessage } from '../api/synkronus/Auth';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
@@ -139,7 +139,7 @@ const SyncScreen = () => {
       await Promise.race([syncPromise, timeoutPromise]);
       await refreshAfterOperation();
     } catch (error) {
-      syncError = (error as Error).message || 'Unknown error occurred';
+      syncError = getUserFacingSyncErrorMessage(error);
       Alert.alert('Sync Failed', syncError);
     } finally {
       finishSync(syncError);
@@ -191,7 +191,7 @@ const SyncScreen = () => {
       const fs = await formService.FormService.getInstance();
       await fs.invalidateCache();
     } catch (error) {
-      const errorMessage = (error as Error).message;
+      const errorMessage = getUserFacingSyncErrorMessage(error);
       finishSync(errorMessage);
       Alert.alert('Operation Failed', errorMessage);
     } finally {

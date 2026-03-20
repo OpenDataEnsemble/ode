@@ -18,7 +18,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
-import { login, isVersionMismatchError } from '../api/synkronus/Auth';
+import {
+  login,
+  isVersionMismatchError,
+  getUserFacingSyncErrorMessage,
+} from '../api/synkronus/Auth';
 import {
   normalizeServerUrl,
   serverConfigService,
@@ -170,7 +174,7 @@ const SettingsScreen = () => {
           } catch (error) {
             console.error('Sync before server switch failed:', error);
             ToastService.showLong(
-              'Sync failed. Please retry or proceed without syncing.',
+              `${getUserFacingSyncErrorMessage(error)}\n\nPlease retry or proceed without syncing.`,
             );
             return false;
           }
