@@ -92,6 +92,7 @@ The workflow intelligently handles formplayer assets using two jobs:
 
 2. **`build-android` job** (depends on assets job):
    - Downloads the Formplayer assets artifact into `formulus/android/app/src/main/assets/formplayer_dist/`
+   - Runs `npm run vendor:notifee` in `formulus/` to clone the pinned [invertase/notifee](https://github.com/invertase/notifee) commit into `third_party/notifee` (gitignored; required for Gradle `:notifee_core`)
    - Builds the Android APK (debug for PRs, release for main/dev/release events)
 
 Formplayer assets are **not committed to git** and are ignored via `.gitignore`. CI builds always use the assets artifact produced in the same workflow run, ensuring a single, consistent source of truth for each build.
