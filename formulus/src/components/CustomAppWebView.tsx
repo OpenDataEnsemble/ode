@@ -16,6 +16,7 @@ import { readFileAssets, MainBundlePath, readFile } from 'react-native-fs';
 import { FormulusWebViewMessageManager } from '../webview/FormulusWebViewHandler';
 import { FormInitData } from '../webview/FormulusInterfaceDefinition';
 import { colors } from '../theme/colors';
+import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
 
 export interface CustomAppWebViewHandle {
   reload: () => void;
@@ -252,9 +253,17 @@ const CustomAppWebView = forwardRef<
             onNavigateToSyncRef.current?.();
             return;
           }
-          // Handle placeholder "Login Now" → navigate to Settings (login / server credentials / QR)
+          // Handle placeholder "Login Now" → hydrate settings cache before navigating so
+          // SettingsScreen gets a warm snapshot (same single-flight load as on-screen prefetch).
           if (eventData.type === 'formulusNavigateToSettings') {
-            onNavigateToSettingsRef.current?.();
+            void (async () => {
+              try {
+                await loadSettingsHydrationFromStorage();
+              } catch {
+                // SettingsScreen will load on mount if this fails
+              }
+              onNavigateToSettingsRef.current?.();
+            })();
             return;
           }
 
