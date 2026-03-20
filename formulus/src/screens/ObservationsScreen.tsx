@@ -20,6 +20,7 @@ import {
   SyncStatusButtons,
   SyncStatus,
 } from '../components/common';
+import { isObservationFullySynced } from '../utils/observationSyncStatus';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { FormService } from '../services/FormService';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -122,10 +123,8 @@ const ObservationsScreen: React.FC = () => {
 
     if (syncStatus !== 'all') {
       filtered = filtered.filter(obs => {
-        const isSynced =
-          obs.syncedAt &&
-          obs.syncedAt.getTime() > new Date('1980-01-01').getTime();
-        return syncStatus === 'synced' ? isSynced : !isSynced;
+        const synced = isObservationFullySynced(obs);
+        return syncStatus === 'synced' ? synced : !synced;
       });
     }
 

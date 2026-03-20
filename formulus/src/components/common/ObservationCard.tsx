@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../../database/models/Observation';
+import { isObservationFullySynced } from '../../utils/observationSyncStatus';
 import colors from '../../theme/colors';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import { odeSpacing } from '../../theme/odeDesign';
@@ -22,9 +23,7 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
   onDelete,
 }) => {
   const { themeColors } = useAppTheme();
-  const isSynced =
-    observation.syncedAt &&
-    observation.syncedAt.getTime() > new Date('1980-01-01').getTime();
+  const isSynced = isObservationFullySynced(observation);
   const dateStr = observation.createdAt.toLocaleDateString();
   const timeStr = observation.createdAt.toLocaleTimeString([], {
     hour: '2-digit',

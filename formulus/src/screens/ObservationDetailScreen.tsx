@@ -11,6 +11,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../database/models/Observation';
 import { FormService } from '../services/FormService';
+import {
+  hasMeaningfulSyncedAt,
+  isObservationFullySynced,
+} from '../utils/observationSyncStatus';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useNavigation } from '@react-navigation/native';
 import colors from '../theme/colors';
@@ -228,9 +232,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     );
   }
 
-  const isSynced =
-    observation.syncedAt &&
-    observation.syncedAt.getTime() > new Date('1980-01-01').getTime();
+  const isSynced = isObservationFullySynced(observation);
   const data =
     typeof observation.data === 'string'
       ? JSON.parse(observation.data)
@@ -323,14 +325,17 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
                 </Text>
               </View>
             </View>
-            {isSynced && observation.syncedAt && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Synced At:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {observation.syncedAt.toLocaleString()}
-                </Text>
-              </View>
-            )}
+            {hasMeaningfulSyncedAt(observation.syncedAt) &&
+              observation.syncedAt && (
+                <View style={styles.infoRow}>
+                  <Text style={[styles.infoLabel, onSurface]}>
+                    {isSynced ? 'Synced at:' : 'Last synced:'}
+                  </Text>
+                  <Text style={[styles.infoValue, onSurface]}>
+                    {observation.syncedAt.toLocaleString()}
+                  </Text>
+                </View>
+              )}
           </View>
 
           {observation.geolocation && (
