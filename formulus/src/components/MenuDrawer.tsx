@@ -20,6 +20,7 @@ import {
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import Button from './common/Button';
+import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
 
 interface MenuItem {
   icon: React.ComponentProps<typeof Icon>['name'];
@@ -116,6 +117,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   useEffect(() => {
     if (visible) {
       getUserInfo().then(setUserInfo);
+      void loadSettingsHydrationFromStorage();
     }
   }, [visible]);
 

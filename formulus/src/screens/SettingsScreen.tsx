@@ -32,6 +32,11 @@ import {
 } from '../theme/odeDesign';
 import { serverSwitchService } from '../services/ServerSwitchService';
 import { syncService } from '../services/SyncService';
+import {
+  getSettingsHydrationCredentialPair,
+  getSettingsHydrationSnapshot,
+  loadSettingsHydrationFromStorage,
+} from '../services/SettingsHydrationCache';
 import { Button } from '../components/common';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import Logo from '../../assets/images/logo.png';
@@ -50,11 +55,17 @@ const SettingsScreen = () => {
   const sectionHeaderColor = isDark
     ? (colors.neutral[200] as string)
     : (colors.neutral[800] as string);
-  const [serverUrl, setServerUrl] = useState('');
-  const [initialServerUrl, setInitialServerUrl] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isHydrating, setIsHydrating] = useState(true);
+  const initialSnap = getSettingsHydrationSnapshot();
+  const initialCreds = getSettingsHydrationCredentialPair(initialSnap);
+  const [serverUrl, setServerUrl] = useState(() =>
+    initialSnap.ready ? (initialSnap.serverUrl ?? '') : '',
+  );
+  const [initialServerUrl, setInitialServerUrl] = useState(() =>
+    initialSnap.ready ? (initialSnap.serverUrl ?? '') : '',
+  );
+  const [username, setUsername] = useState(() => initialCreds?.username ?? '');
+  const [password, setPassword] = useState(() => initialCreds?.password ?? '');
+  const [isHydrating, setIsHydrating] = useState(() => !initialSnap.ready);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const mountedRef = useRef(true);
@@ -67,35 +78,38 @@ const SettingsScreen = () => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const hydrate = async () => {
       try {
-        const [savedUrl, credentials] = await Promise.all([
-          serverConfigService.getServerUrl(),
-          Keychain.getGenericPassword(),
-        ]);
-        if (!mountedRef.current) {
+        const snap = await loadSettingsHydrationFromStorage();
+        if (cancelled || !mountedRef.current) {
           return;
         }
 
-        if (savedUrl) {
-          setInitialServerUrl(savedUrl);
-          setServerUrl(prev => (prev.trim() === '' ? savedUrl : prev));
+        if (snap.ready && snap.serverUrl) {
+          setInitialServerUrl(snap.serverUrl);
+          setServerUrl(prev => (prev.trim() === '' ? snap.serverUrl! : prev));
         }
 
-        if (credentials) {
-          setUsername(prev => (prev.trim() === '' ? credentials.username : prev));
-          setPassword(prev => (prev.trim() === '' ? credentials.password : prev));
+        const creds = getSettingsHydrationCredentialPair(snap);
+        if (creds) {
+          setUsername(prev => (prev.trim() === '' ? creds.username : prev));
+          setPassword(prev => (prev.trim() === '' ? creds.password : prev));
         }
       } catch (error) {
         console.error('Failed to load settings:', error);
       } finally {
-        if (mountedRef.current) {
+        if (!cancelled && mountedRef.current) {
           setIsHydrating(false);
         }
       }
     };
 
     hydrate();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleServerSwitchIfNeeded = useCallback(
@@ -267,6 +281,7 @@ const SettingsScreen = () => {
 
       await Keychain.setGenericPassword(trimmedUsername, trimmedPassword);
       await login(trimmedUsername, trimmedPassword);
+      void loadSettingsHydrationFromStorage();
       ToastService.showShort('Successfully logged in!');
       navigation.navigate('Sync');
     } catch (error) {
@@ -321,6 +336,7 @@ const SettingsScreen = () => {
           );
           try {
             await login(settings.username, settings.password);
+            void loadSettingsHydrationFromStorage();
             ToastService.showShort('Successfully logged in!');
             navigation.navigate('Sync');
           } catch (error) {
@@ -330,6 +346,7 @@ const SettingsScreen = () => {
             ToastService.showLong(`Login failed: ${errorMessage}`);
           }
         } else {
+          void loadSettingsHydrationFromStorage();
           ToastService.showShort('Settings updated successfully');
         }
       } catch (error) {
