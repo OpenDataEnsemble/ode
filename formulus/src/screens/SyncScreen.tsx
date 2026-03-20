@@ -19,7 +19,10 @@ import { syncService } from '../services/SyncService';
 import { useSyncContext } from '../contexts/SyncContext';
 import RNFS from 'react-native-fs';
 import { databaseService } from '../database/DatabaseService';
-import { getUserInfo, getUserFacingSyncErrorMessage } from '../api/synkronus/Auth';
+import {
+  getUserInfo,
+  getUserFacingSyncErrorMessage,
+} from '../api/synkronus/Auth';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
