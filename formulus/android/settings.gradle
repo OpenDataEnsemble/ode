@@ -6,5 +6,8 @@ include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')
 include ':watermelondb-jsi'
 project(':watermelondb-jsi').projectDir = new File(rootProject.projectDir, '../node_modules/@nozbe/watermelondb/native/android-jsi')
+// Build app.notifee core from source (see npm run vendor:notifee). Must be before :notifee_react-native.
+include ':notifee_core'
+project(':notifee_core').projectDir = new File(rootProject.projectDir, '../third_party/notifee/android')
 include ':notifee_react-native'
 project(':notifee_react-native').projectDir = new File(rootProject.projectDir, '../node_modules/@notifee/react-native/android')
