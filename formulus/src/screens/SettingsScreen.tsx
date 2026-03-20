@@ -572,8 +572,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   brandName: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: odeTypography.screenTitle,
+    fontWeight: 'bold',
     letterSpacing: 1,
   },
   version: {
