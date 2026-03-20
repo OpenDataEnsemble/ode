@@ -10,7 +10,11 @@ import { Observation } from '../../database/models/Observation';
 import { ObservationMapper } from '../../mappers/ObservationMapper';
 import RNFS from 'react-native-fs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getApiAuthToken } from './Auth';
+import {
+  getApiAuthToken,
+  isForbiddenError,
+  SYNC_WRITE_FORBIDDEN_MESSAGE,
+} from './Auth';
 import { databaseService } from '../../database/DatabaseService';
 import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { clientIdService } from '../../services/ClientIdService';
@@ -961,6 +965,9 @@ class SynkronusApi {
       return res.data.current_version;
     } catch (error: unknown) {
       console.error('Failed to push observations:', error);
+      if (isForbiddenError(error)) {
+        throw new Error(SYNC_WRITE_FORBIDDEN_MESSAGE);
+      }
       throw new Error(`Push failed: ${error}`);
     }
   }
