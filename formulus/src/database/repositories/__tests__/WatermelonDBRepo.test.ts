@@ -564,8 +564,7 @@ describe('WatermelonDBRepo', () => {
     expect(record).toBeDefined();
     const model = record as ObservationModel;
     expect(model.observationId).toBe(serverObservationId);
-    // Watermelon may assign its own primary key when _raw.id is not set on create.
-    expect(model.id).not.toBe(serverObservationId);
+    expect(model.id).toBe(serverObservationId);
 
     const domain = ObservationMapper.fromDBModel(model);
     expect(domain.observationId).toBe(serverObservationId);
