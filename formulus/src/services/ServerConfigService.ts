@@ -151,6 +151,37 @@ export class ServerConfigService {
     }
   }
 
+  /**
+   * GET {serverUrl}/health with timeout. Returns true if the server responds with a
+   * success status (2xx), e.g. 200 OK when the service is healthy.
+   */
+  async isHealthEndpointOk(serverUrl: string): Promise<boolean> {
+    const normalized = normalizeServerUrl(serverUrl);
+    if (!normalized.ok) {
+      return false;
+    }
+
+    const base = normalized.href;
+    try {
+      const healthUrl = `${base}/health`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const response = await fetch(healthUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+        },
+      });
+
+      clearTimeout(timeoutId);
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async testConnection(
     serverUrl: string,
   ): Promise<{ success: boolean; message: string }> {
