@@ -19,7 +19,10 @@ import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import * as Keychain from 'react-native-keychain';
 import { login, isVersionMismatchError } from '../api/synkronus/Auth';
-import { serverConfigService } from '../services/ServerConfigService';
+import {
+  normalizeServerUrl,
+  serverConfigService,
+} from '../services/ServerConfigService';
 import QRScannerModal, {
   ScannerModalResults,
 } from '../components/QRScannerModal';
@@ -47,6 +50,9 @@ import { Button } from '../components/common';
 import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import Logo from '../../assets/images/logo.png';
 import { Moon, Monitor, Sun } from 'lucide-react-native';
+
+const HTTP_TRANSPORT_TOAST =
+  'HTTP is allowed, but we recommend HTTPS so traffic is encrypted (https://).';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -120,15 +126,26 @@ const SettingsScreen = () => {
 
   const handleServerSwitchIfNeeded = useCallback(
     async (url: string): Promise<boolean> => {
-      const trimmedUrl = url.trim();
-      if (!trimmedUrl) {
-        ToastService.showLong('Please enter a server URL');
+      const norm = normalizeServerUrl(url);
+      if (!norm.ok) {
+        ToastService.showLong(norm.message);
         return false;
       }
+      const normalizedUrl = norm.href;
 
-      // If unchanged, just ensure it's saved
-      if (trimmedUrl === initialServerUrl) {
-        await serverConfigService.saveServerUrl(trimmedUrl);
+      const trimmedInitial = initialServerUrl.trim();
+      let initialComparable: string;
+      if (!trimmedInitial) {
+        initialComparable = '';
+      } else {
+        const initialNorm = normalizeServerUrl(trimmedInitial);
+        initialComparable = initialNorm.ok
+          ? initialNorm.href
+          : trimmedInitial.toLowerCase();
+      }
+
+      if (normalizedUrl === initialComparable) {
+        await serverConfigService.saveServerUrl(normalizedUrl);
         return true;
       }
 
@@ -139,9 +156,9 @@ const SettingsScreen = () => {
         ]);
 
         const performReset = async () => {
-          await serverSwitchService.resetForServerChange(trimmedUrl);
-          setInitialServerUrl(trimmedUrl);
-          setServerUrl(trimmedUrl);
+          await serverSwitchService.resetForServerChange(normalizedUrl);
+          setInitialServerUrl(normalizedUrl);
+          setServerUrl(normalizedUrl);
           ToastService.showShort('Switched server and cleared local data.');
         };
 
@@ -254,36 +271,37 @@ const SettingsScreen = () => {
   );
 
   const handleLogin = useCallback(async () => {
-    let processedUrl = serverUrl.trim();
-
     const trimmedUsername = username.trim();
     const trimmedPassword = password.trim();
 
-    if (!processedUrl || !trimmedUsername || !trimmedPassword) {
+    if (!serverUrl.trim() || !trimmedUsername || !trimmedPassword) {
       return;
-    }
-
-    if (!processedUrl.startsWith('https://')) {
-      processedUrl = `https://${processedUrl}`;
-    }
-
-    if (processedUrl.endsWith('/')) {
-      processedUrl = processedUrl.slice(0, -1);
     }
 
     if (isLoggingIn) {
       return;
     }
 
-    const serverReady = await handleServerSwitchIfNeeded(processedUrl);
+    const norm = normalizeServerUrl(serverUrl);
+    if (!norm.ok) {
+      ToastService.showLong(norm.message);
+      return;
+    }
+
+    if (norm.isHttp) {
+      ToastService.showLong(HTTP_TRANSPORT_TOAST);
+    }
+
+    setServerUrl(norm.href);
+
+    const serverReady = await handleServerSwitchIfNeeded(norm.href);
     if (!serverReady) {
       return;
     }
 
     setIsLoggingIn(true);
     try {
-      // Ensure server URL is saved before login (required by getApi())
-      await serverConfigService.saveServerUrl(processedUrl);
+      await serverConfigService.saveServerUrl(norm.href);
 
       await Keychain.setGenericPassword(trimmedUsername, trimmedPassword);
       await login(trimmedUsername, trimmedPassword);
@@ -328,12 +346,15 @@ const SettingsScreen = () => {
           return;
         }
 
+        if (settings.serverUrl.toLowerCase().startsWith('http://')) {
+          ToastService.showLong(HTTP_TRANSPORT_TOAST);
+        }
+
         setServerUrl(settings.serverUrl);
         setUsername(settings.username);
         setPassword(settings.password);
 
         if (settings.username && settings.password) {
-          // Ensure server URL is saved before login (required by getApi())
           await serverConfigService.saveServerUrl(settings.serverUrl);
 
           await Keychain.setGenericPassword(
@@ -422,6 +443,9 @@ const SettingsScreen = () => {
               placeholder="Server URL"
               value={serverUrl}
               onChangeText={setServerUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
               rightAccessory={
                 <TouchableOpacity
                   style={styles.qrButton}
@@ -441,6 +465,8 @@ const SettingsScreen = () => {
             placeholder="Username"
             value={username}
             onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
 
           <ODEInput
@@ -448,6 +474,8 @@ const SettingsScreen = () => {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
           />
 
           <Button
