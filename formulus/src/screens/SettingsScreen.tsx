@@ -134,15 +134,18 @@ const SettingsScreen = () => {
       const normalizedUrl = norm.href;
 
       const trimmedInitial = initialServerUrl.trim();
-      let initialComparable: string;
       if (!trimmedInitial) {
-        initialComparable = '';
-      } else {
-        const initialNorm = normalizeServerUrl(trimmedInitial);
-        initialComparable = initialNorm.ok
-          ? initialNorm.href
-          : trimmedInitial.toLowerCase();
+        // First server URL — nothing to "wipe"; avoid the switch-server dialog.
+        await serverConfigService.saveServerUrl(normalizedUrl);
+        setInitialServerUrl(normalizedUrl);
+        setServerUrl(normalizedUrl);
+        return true;
       }
+
+      const initialNorm = normalizeServerUrl(trimmedInitial);
+      const initialComparable = initialNorm.ok
+        ? initialNorm.href
+        : trimmedInitial.toLowerCase();
 
       if (normalizedUrl === initialComparable) {
         await serverConfigService.saveServerUrl(normalizedUrl);

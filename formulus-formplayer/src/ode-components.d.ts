@@ -24,6 +24,8 @@ declare module '@ode/components/react-web' {
   export interface WebButtonProps extends ButtonProps {
     isPaired?: boolean;
     pairedVariant?: ButtonVariant;
+    /** Native `<button type>` for form / mobile IME (Go, Send). @default 'button' */
+    nativeType?: 'button' | 'submit' | 'reset';
   }
 
   // ButtonGroup props

@@ -1004,7 +1004,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       try {
         const credentials = await Keychain.getGenericPassword();
         if (!credentials) {
-          throw new Error('No user credentials found');
+          // Logged out — same shape as authenticated user; empty username is
+          // the contract for callers (e.g. placeholder) and must not throw.
+          return { username: '' };
         }
 
         // Retrieve role from stored user info (set during login)
