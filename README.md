@@ -22,6 +22,8 @@ The server component written in Go. This handles data synchronization, storage, 
 ### **synkronus-cli**
 A command-line utility to interact with the Synkronus server. Use it to manage custom app data, handle user administration, export data to Parquet format, and perform various administrative tasks.
 
+**License note:** this component is currently **GPL-2.0-or-later** (see `synkronus-cli/LICENSE`) while the QR PNG stack depends on GPL-classified libraries; we plan to swap in a stdlib-only renderer and return the CLI to **MIT**. See `synkronus-cli/FOLLOWUP-custom-qrcode-writer.md` and `THIRD_PARTY_NOTICES.md`.
+
 ### **synkronus-portal**
 A web-based version of the the **synkronus-cli**
 
@@ -87,6 +89,10 @@ CI will **fail** if:
 
 - ESLint finds errors, or
 - Prettier formatting checks fail (unformatted files).
+
+## License
+
+The repository root is [MIT](./LICENSE). **synkronus-cli** is **GPL-2.0-or-later** until the QR dependency cleanup above is done. Third-party and mixed-component details: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).
 
 ## Get Involved 📬 
 
