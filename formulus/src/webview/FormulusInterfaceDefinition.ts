@@ -433,7 +433,8 @@ export interface FormulusInterface {
   ): Promise<void>;
 
   /**
-   * Get information about the currently authenticated user
+   * Get information about the currently authenticated user.
+   * When no one is logged in, resolves with `{ username: '' }` (does not reject).
    * @returns {Promise<{username: string, displayName?: string, role?: 'read-only' | 'read-write' | 'admin'}>} User information including role
    */
   getCurrentUser(): Promise<{
