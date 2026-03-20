@@ -13,10 +13,7 @@ function initialObservationDataForNewForm(
   params: unknown,
   formSchema: unknown,
 ) {
-  return dataMatchingSchemaRoot(
-    initialFormDataFromParams(params),
-    formSchema,
-  );
+  return dataMatchingSchemaRoot(initialFormDataFromParams(params), formSchema);
 }
 
 describe('initialFormDataFromParams', () => {
