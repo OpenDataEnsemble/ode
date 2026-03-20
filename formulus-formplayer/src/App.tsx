@@ -34,6 +34,10 @@ import * as MUI from '@mui/material';
 // Import the FormulusInterface client
 import FormulusClient from './services/FormulusInterface';
 import { FormInitData } from './types/FormulusInterfaceDefinition';
+import {
+  initialFormDataFromParams,
+  dataMatchingSchemaRoot,
+} from './utils/formObservationData';
 
 import SwipeLayoutRenderer, {
   swipeLayoutTester,
@@ -469,16 +473,16 @@ function App() {
           setUISchema(processedUISchema);
         }
 
+        const formSchemaTyped = formSchema as FormSchema | null;
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
-          setData(savedData as FormData);
+          setData(
+            dataMatchingSchemaRoot(savedData as FormData, formSchemaTyped),
+          );
         } else {
-          const defaultData =
-            params && typeof params === 'object'
-              ? (params.defaultData ?? params)
-              : {};
+          const defaultData = initialFormDataFromParams(params);
           console.log('Preloading initialization form values:', defaultData);
-          setData(defaultData as FormData);
+          setData(dataMatchingSchemaRoot(defaultData, formSchemaTyped));
         }
 
         console.log('Form params (if any, beyond schemas/data):', params);
@@ -757,7 +761,8 @@ function App() {
         data?: FormData;
       }>;
       const payloadFormInit = customEvent.detail?.formInitData || formInitData;
-      const payloadData = customEvent.detail?.data || data;
+      const rawPayload = customEvent.detail?.data || data;
+      const payloadData = dataMatchingSchemaRoot(rawPayload, schema);
 
       if (!payloadFormInit) {
         console.error(
@@ -806,7 +811,7 @@ function App() {
         handleFinalizeForm as EventListener,
       );
     };
-  }, [data, formInitData, uischema]); // Include all dependencies
+  }, [data, formInitData, uischema, schema]); // Include all dependencies
 
   // Handler for resuming a draft
   const handleResumeDraft = useCallback(

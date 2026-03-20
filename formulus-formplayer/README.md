@@ -65,6 +65,15 @@ window.formulus.deleteObservation(formType, observationId)
 formType: The type of the form to be rendered
 observationId: The id of the observation to be deleted
 
+## Form init `params` vs observation data
+
+The React Native host passes `FormInitData` into the WebView (including `params` and optional `savedData`). Observation JSON must not pick up bridge/UI-only fields.
+
+- **Prefills**: Use `params.defaultData` as a plain object whose keys match the form’s JSON Schema root `properties`.
+- **Reserved top-level `params` keys** (not treated as observation fields): `defaultData`, `theme`, `darkMode`, `themeColors`. If the host adds more non-data parameters later, the formplayer’s `FORMPARAMS_NON_DATA_KEYS` in `src/utils/formObservationData.ts` should be extended in lockstep.
+- **Legacy prefills**: If `defaultData` is missing, the formplayer copies other top-level `params` keys except the reserved keys above.
+- **Sanitization**: When the schema defines non-empty root `properties`, loaded and submitted data are filtered to those keys plus `locale` (so older polluted rows are cleaned on edit/save). Schemas with missing or empty root `properties` pass data through unchanged.
+
 ## Initialization
 The formulus formplayer object will be initialized by the formulus app. The formulus app will inject the initialized formulus object into the custom app, hence **the custom app does not need to do anything to initialize the formulus object**.
 
