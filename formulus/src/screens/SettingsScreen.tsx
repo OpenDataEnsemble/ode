@@ -28,7 +28,6 @@ import {
   odeSpacing,
   odeTypography,
   odeBorderWidth,
-  odeRadius,
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import { serverSwitchService } from '../services/ServerSwitchService';
@@ -181,6 +180,7 @@ const SettingsScreen = () => {
                     (async () => {
                       if (syncService.getIsSyncing()) {
                         ToastService.showShort('Sync already in progress...');
+                        resolve(false);
                         return;
                       }
                       const ok = await syncThenReset();
@@ -583,12 +583,6 @@ const styles = StyleSheet.create({
     paddingTop: odeSpacing.md,
     paddingBottom: 40,
   },
-  title: {
-    fontSize: odeTypography.sectionTitle,
-    fontWeight: '600',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
   titleSmall: {
     fontSize: odeTypography.bodySm,
     fontWeight: '600',
@@ -607,21 +601,8 @@ const styles = StyleSheet.create({
   appSettingsSectionHeader: {
     marginTop: odeSpacing.md,
   },
-  appSettingsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: odeSpacing.sm,
-  },
-  appSettingsTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: odeSpacing.sm,
-  },
   appSettingsLabel: {
     fontSize: odeTypography.body,
-  },
-  appSettingsChevron: {
-    marginLeft: odeSpacing.xxs,
   },
   themesInlineRow: {
     flexDirection: 'row',
@@ -642,38 +623,6 @@ const styles = StyleSheet.create({
   },
   themeIconButton: {
     padding: odeSpacing.xs,
-  },
-  themesCardOuter: {
-    marginTop: odeSpacing.md,
-    borderRadius: odeRadius.card,
-    borderWidth: odeBorderWidth.hairline,
-    overflow: 'hidden',
-    padding: odeSpacing.md,
-  },
-  themesTitle: {
-    fontSize: odeTypography.sectionTitle,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: odeSpacing.sm,
-  },
-  themeOptionsColumn: {
-    flexDirection: 'column',
-    gap: odeSpacing.sm,
-    alignItems: 'center',
-  },
-  themeChip: {
-    paddingHorizontal: odeSpacing.lg,
-    paddingVertical: odeSpacing.sm,
-    borderRadius: odeRadius.inner,
-    borderWidth: odeBorderWidth.hairline,
-    backgroundColor: 'transparent',
-    minWidth: '70%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  themeChipLabel: {
-    fontSize: odeTypography.caption,
-    fontWeight: '600',
   },
   inputContainer: {
     marginBottom: 1,
