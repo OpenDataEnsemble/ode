@@ -1,0 +1,56 @@
+name: SBOM (CycloneDX)
+
+# Attach SBOMs to GitHub Releases, or smoke-test generation via workflow_dispatch.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  GO_VERSION: '1.24.x'
+
+jobs:
+  sbom:
+    name: Generate CycloneDX SBOMs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Generate SBOMs
+        run: node scripts/sbom/generate-sboms.mjs --out sbom-dist
+
+      - name: Upload SBOM artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v6
+        with:
+          name: cyclonedx-sbom
+          path: sbom-dist/*.cdx.json
+          retention-days: 30
+
+      - name: Upload SBOMs to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: sbom-dist/*.cdx.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
