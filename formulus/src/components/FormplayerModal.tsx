@@ -472,8 +472,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         finalData: Record<string, unknown>;
         observationId?: string | null;
       }): Promise<string> => {
-        const { formType, finalData, observationId: observationIdFromBridge } =
-          data;
+        const {
+          formType,
+          finalData,
+          observationId: observationIdFromBridge,
+        } = data;
         const effectiveObservationId =
           observationIdFromBridge ?? currentObservationId;
 
