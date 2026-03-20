@@ -7,8 +7,15 @@ import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as ImagePicker from 'react-native-image-picker';
+import {
+  check,
+  request,
+  PERMISSIONS,
+  RESULTS,
+  Permission,
+} from 'react-native-permissions';
 import {
   pick,
   types,
@@ -72,6 +79,21 @@ class SimpleEventEmitter {
 }
 
 export const appEvents = new SimpleEventEmitter();
+
+async function ensureCameraPermission(): Promise<string> {
+  const wanted: Permission | undefined = Platform.select({
+    ios: PERMISSIONS.IOS.CAMERA,
+    android: PERMISSIONS.ANDROID.CAMERA,
+  });
+  if (!wanted) {
+    return RESULTS.GRANTED;
+  }
+  let status = await check(wanted);
+  if (status === RESULTS.DENIED) {
+    status = await request(wanted);
+  }
+  return status;
+}
 
 const pendingFormOperations = new Map<
   string,
@@ -450,7 +472,24 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             {
               text: 'Camera',
               onPress: () => {
-                ImagePicker.launchCamera(options, handleImagePickerResponse);
+                void (async () => {
+                  const perm = await ensureCameraPermission();
+                  if (perm !== RESULTS.GRANTED) {
+                    resolve({
+                      fieldId,
+                      status: 'error',
+                      message:
+                        perm === RESULTS.BLOCKED
+                          ? 'Camera access is blocked. Enable camera permission in system settings.'
+                          : 'Camera permission is required to take a photo.',
+                    });
+                    return;
+                  }
+                  ImagePicker.launchCamera(
+                    options,
+                    handleImagePickerResponse,
+                  );
+                })();
               },
             },
             {
