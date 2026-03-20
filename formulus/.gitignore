@@ -42,6 +42,9 @@ android/app/src/main/assets/webview/
 assets/webview/formplayer_dist/
 ios/formplayer_dist/
 
+# Vendored notifee monorepo (npm run vendor:notifee); pin commit in scripts/vendor-notifee-core.mjs
+third_party/notifee/
+
 # node.js
 #
 node_modules/

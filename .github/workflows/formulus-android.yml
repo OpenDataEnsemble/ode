@@ -115,6 +115,10 @@ jobs:
         working-directory: formulus
         run: npm ci
 
+      - name: Vendor Notifee Android core (source build; dir is gitignored)
+        working-directory: formulus
+        run: npm run vendor:notifee
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:

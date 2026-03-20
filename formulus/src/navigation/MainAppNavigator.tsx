@@ -8,6 +8,7 @@ import WelcomeScreen from '../screens/WelcomeScreen';
 import ObservationDetailScreen from '../screens/ObservationDetailScreen';
 import { MainAppStackParamList } from '../types/NavigationTypes';
 import { serverConfigService } from '../services/ServerConfigService';
+import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { ThemeColors } from '../types/AppConfig';
 import {
@@ -106,6 +107,12 @@ const MainAppNavigator: React.FC = () => {
       checkConfig();
     }, []),
   );
+
+  useEffect(() => {
+    if (isConfigured === true) {
+      void loadSettingsHydrationFromStorage();
+    }
+  }, [isConfigured]);
 
   if (isConfigured === null) {
     return null;

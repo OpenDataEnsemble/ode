@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
 import { decodeFRMLS } from '../utils/FRMLSHelpers';
+import { normalizeServerUrl } from './ServerConfigService';
 
 export interface SettingsUpdate {
   serverUrl: string;
@@ -58,7 +59,12 @@ export class QRSettingsService {
    */
   static async processQRCode(qrString: string): Promise<SettingsUpdate> {
     const settings = this.parseQRCode(qrString);
-    await this.updateSettings(settings);
-    return settings;
+    const normalized = normalizeServerUrl(settings.serverUrl);
+    if (!normalized.ok) {
+      throw new Error(normalized.message);
+    }
+    const next = { ...settings, serverUrl: normalized.href };
+    await this.updateSettings(next);
+    return next;
   }
 }

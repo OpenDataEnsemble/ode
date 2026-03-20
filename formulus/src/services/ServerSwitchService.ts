@@ -5,6 +5,7 @@ import { databaseService } from '../database/DatabaseService';
 import { synkronusApi } from '../api/synkronus';
 import { logout } from '../api/synkronus/Auth';
 import { serverConfigService } from './ServerConfigService';
+import { invalidateSettingsHydrationCache } from './SettingsHydrationCache';
 
 /**
  * Handles cleanup when switching Synkronus servers to avoid cross-server data.
@@ -72,6 +73,7 @@ class ServerSwitchService {
 
     // 6) Save the new server URL (recreates @settings/@server_url)
     await serverConfigService.saveServerUrl(serverUrl);
+    invalidateSettingsHydrationCache();
   }
 }
 
