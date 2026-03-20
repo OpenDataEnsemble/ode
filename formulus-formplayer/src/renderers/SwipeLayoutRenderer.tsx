@@ -143,6 +143,7 @@ const SwipeLayoutRenderer = ({
   );
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const { core } = useJsonForms();
+  const { formInitData } = useFormContext();
 
   const uiType = (uischema as any).type;
   const isExplicitSwipeLayout = uiType === 'SwipeLayout';
@@ -388,6 +389,38 @@ const SwipeLayoutRenderer = ({
     return layouts[currentPage]?.type === 'Finalize';
   }, [layouts, currentPage]);
 
+  const keyboardSubmitAction = useMemo(() => {
+    const errorCount = core?.errors?.length ?? 0;
+    if (isOnFinalizePage) {
+      return {
+        onTrigger: () => {
+          if (errorCount > 0 || !formInitData) return;
+          window.dispatchEvent(
+            new CustomEvent('finalizeForm', {
+              detail: { formInitData, data },
+            }),
+          );
+        },
+        disabled: errorCount > 0 || !formInitData,
+      };
+    }
+    if (nextVisiblePage !== null) {
+      return {
+        onTrigger: () => navigateToPage(nextVisiblePage),
+        disabled: isNavigating,
+      };
+    }
+    return undefined;
+  }, [
+    isOnFinalizePage,
+    nextVisiblePage,
+    navigateToPage,
+    isNavigating,
+    core?.errors,
+    formInitData,
+    data,
+  ]);
+
   const handleSnackbarClose = useCallback(
     (event?: React.SyntheticEvent | Event, reason?: string) => {
       if (reason === 'clickaway') {
@@ -419,6 +452,7 @@ const SwipeLayoutRenderer = ({
 
   return (
     <FormLayout
+      keyboardSubmitAction={keyboardSubmitAction}
       header={
         <>
           {/* Author-configured form title and sticky fields */}
