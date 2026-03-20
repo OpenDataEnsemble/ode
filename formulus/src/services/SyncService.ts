@@ -3,9 +3,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appEvents } from '../webview/FormulusMessageHandlers';
 import { SyncProgress } from '../contexts/SyncContext';
 import { notificationService } from './NotificationService';
+import { getUserFacingAppBundleUpdateErrorMessage } from './appBundleUpdateErrors';
 import { FormService } from './FormService';
 import {
   autoLogin,
+  getUserFacingSyncErrorMessage,
   isUnauthorizedError,
   isVersionMismatchError,
   HttpError,
@@ -282,9 +284,7 @@ export class SyncService {
       return finalVersion;
     } catch (error) {
       console.error('Sync failed', error);
-      const errorMessage = isVersionMismatchError(error)
-        ? error.message
-        : 'Unknown error occurred';
+      const errorMessage = getUserFacingSyncErrorMessage(error);
       this.updateStatus(`Sync failed: ${errorMessage}`);
 
       // Don't let notification service block error handling
@@ -378,11 +378,12 @@ export class SyncService {
       appEvents.emit('bundleUpdated');
     } catch (error) {
       console.error('App sync failed', error);
-      const message = isVersionMismatchError(error)
-        ? error.message
-        : 'App sync failed';
+      const message = await getUserFacingAppBundleUpdateErrorMessage(error);
       this.updateStatus(message);
-      throw error;
+      if (error instanceof Error && message === error.message) {
+        throw error;
+      }
+      throw new Error(message);
     } finally {
       this.isSyncing = false;
       this.canCancel = false;

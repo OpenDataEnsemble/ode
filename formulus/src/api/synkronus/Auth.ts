@@ -36,11 +36,12 @@ export interface HttpError extends Error {
   code?: string | number;
 }
 
-// Re-export VersionMismatchError for convenience
-export {
+import {
   VersionMismatchError,
   isVersionMismatchError,
 } from '../../errors/VersionMismatchError';
+
+export { VersionMismatchError, isVersionMismatchError };
 
 const decodeBase64 = (input: string): string => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -240,4 +241,81 @@ export const isUnauthorizedError = (error: unknown): boolean => {
   if (httpError.code === 'UNAUTHORIZED' || httpError.code === 401) return true;
 
   return false;
+};
+
+/** User-visible explanation when the server rejects observation upload (e.g. read-only role). */
+export const SYNC_WRITE_FORBIDDEN_MESSAGE =
+  'You do not have permission to upload observations. Confirm with your administrator that your account has write access, or sign in with an account that can submit data.';
+
+/**
+ * Checks if an error is a 403 Forbidden error (e.g. read-only user attempting sync push).
+ */
+export const isForbiddenError = (error: unknown): boolean => {
+  if (!error) return false;
+
+  const httpError = error as HttpError;
+
+  if (httpError.response?.status === 403) return true;
+
+  if (httpError.status === 403 || httpError.statusCode === 403) return true;
+
+  if (httpError.body?.status === 403 || httpError.data?.status === 403)
+    return true;
+
+  if (typeof httpError.message === 'string') {
+    const msg = httpError.message.toLowerCase();
+    if (msg.includes('403') || msg.includes('forbidden')) {
+      return true;
+    }
+  }
+
+  if (httpError.code === 'FORBIDDEN' || httpError.code === 403) return true;
+
+  return false;
+};
+
+/**
+ * Checks if an error is a 404 Not Found (e.g. missing app bundle on server).
+ */
+export const isNotFoundError = (error: unknown): boolean => {
+  if (!error) return false;
+
+  const httpError = error as HttpError;
+
+  if (httpError.response?.status === 404) return true;
+
+  if (httpError.status === 404 || httpError.statusCode === 404) return true;
+
+  if (httpError.body?.status === 404 || httpError.data?.status === 404)
+    return true;
+
+  if (typeof httpError.message === 'string') {
+    const msg = httpError.message.toLowerCase();
+    if (
+      msg.includes('status code 404') ||
+      (msg.includes('404') && msg.includes('not found'))
+    ) {
+      return true;
+    }
+  }
+
+  if (httpError.code === 'NOT_FOUND' || httpError.code === 404) return true;
+
+  return false;
+};
+
+/**
+ * Maps sync failures to short text suitable for notifications, status line, and alerts.
+ */
+export const getUserFacingSyncErrorMessage = (error: unknown): string => {
+  if (isVersionMismatchError(error)) {
+    return (error as Error).message;
+  }
+  if (isForbiddenError(error)) {
+    return SYNC_WRITE_FORBIDDEN_MESSAGE;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'Unknown error occurred';
 };
