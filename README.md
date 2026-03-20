@@ -22,6 +22,9 @@ The server component written in Go. This handles data synchronization, storage, 
 ### **synkronus-cli**
 A command-line utility to interact with the Synkronus server. Use it to manage custom app data, handle user administration, export data to Parquet format, and perform various administrative tasks.
 
+### **synkronus-portal**
+A web-based version of the the **synkronus-cli**
+
 ## We're Young & Fresh! 🌱🌱🌱
 
 ODE is a **young and vibrant open-source project**, and we're incredibly welcoming to contributors of all experience levels and interests! Whether you're passionate about:
@@ -47,43 +50,11 @@ We believe that diverse perspectives and varied skill sets make our project stro
 - Share how you're using ODE in your work
 
 ## CI/CD Pipeline 
+This monorepo uses GitHub Actions for CI/CD. For details (trigger conditions, tags, and workflows), see `.github/CICD.md`.
 
-This monorepo uses GitHub Actions for continuous integration and deployment:
-
-### Current Pipelines
-
-#### Synkronus Docker Build & Publish
-- **Trigger**: Push to `main` branch or pull requests affecting `synkronus/` directory
-- **Registry**: GitHub Container Registry (ghcr.io)
-- **Image**: `ghcr.io/opendataensemble/synkronus`
-- **Tagging Strategy**:
-  - `main` branch → `latest` + `v{version}` (release versions)
-  - Other branches → `{branch-name}` (pre-release versions)
-- **Workflow**: `.github/workflows/synkronus-docker.yml`
-
-### Image Versioning
-
-Images follow semantic versioning:
-- **Release**: `ghcr.io/opendataensemble/synkronus:latest` or `ghcr.io/opendataensemble/synkronus:v1.0.0`
-- **Pre-release**: `ghcr.io/opendataensemble/synkronus:develop` or `ghcr.io/opendataensemble/synkronus:feature-xyz`
-
-### Using Published Images
-
-Pull and run the latest Synkronus image:
-
-```bash
-docker pull ghcr.io/opendataensemble/synkronus:latest
-docker run -d -p 8080:8080 \
-  -e DB_CONNECTION="postgres://user:pass@host:5432/synkronus" \
-  -e JWT_SECRET="your-secret-key" \
-  -v synkronus-bundles:/app/data/app-bundles \
-  ghcr.io/opendataensemble/synkronus:latest
-```
-
-**Documentation:**
-- [CI/CD Pipeline Details](.github/CICD.md) - Comprehensive CI/CD documentation
-- [Synkronus Docker Guide](synkronus/DOCKER.md) - Quick start guide
-- [Synkronus Deployment Guide](synkronus/DEPLOYMENT.md) - Production deployment
+- Synkronus Docker build & publish: `.github/workflows/synkronus-docker.yml`
+- Formulus Android build (includes Formplayer asset build): `.github/workflows/formulus-android.yml`
+- Synkronus deployment docs: `synkronus/DOCKER.md`, `synkronus/DEPLOYMENT.md`
 
 ## Code Quality: Linting & Formatting 
 

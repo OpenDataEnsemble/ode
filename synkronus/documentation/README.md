@@ -25,7 +25,7 @@
 - Optional API versioning via `x-api-version` header
 - Optional ETag support for caching and efficiency
 
-Full OpenAPI spec lives in [`Synkronus Openapi`](Synkronus/Openapi.yaml)
+Full OpenAPI spec lives in [`synkronus/openapi/synkronus.yaml`](../openapi/synkronus.yaml)
 
 ---
 
