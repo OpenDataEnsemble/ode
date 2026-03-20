@@ -17,7 +17,6 @@ import {
   odeBorderWidth,
   odeRadius,
 } from '../theme/odeDesign';
-import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import Button from './common/Button';
 import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
@@ -101,12 +100,8 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   const textColor = isDark
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
-  const odeOpacity = (tokens as { opacity?: Record<string, string> }).opacity;
-  const dividerOpacityDark =
-    odeOpacity?.['10'] != null ? Number(odeOpacity['10']) : 0.1;
-  const sectionDividerColor = isDark
-    ? withAlpha(colors.neutral.white as string, dividerOpacityDark)
-    : (themeColors.divider as string);
+  /** darker than faint white in dark mode. */
+  const sectionDividerColor = themeColors.divider as string;
   const menuModalBorderColor = sectionDividerColor;
   const sectionBg = themeColors.surface as string;
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
