@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -75,8 +76,21 @@ func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 			mockSvc := &mockAttachmentService{}
 			tc.setupMocks(mockSvc)
 
+			var manifestRecords int
+			mockManifest := &mocks.MockAttachmentManifestService{
+				RecordOperationFunc: func(ctx context.Context, attachmentID, operation, clientID string, size *int, contentType *string) error {
+					manifestRecords++
+					if tc.expectedStatus == http.StatusOK {
+						assert.Equal(t, tc.attachmentID, attachmentID)
+						assert.Equal(t, "create", operation)
+						assert.Equal(t, "", clientID)
+					}
+					return nil
+				},
+			}
+
 			// Create handler with mock service
-			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc)
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
 
 			// Create a test file
 			var b bytes.Buffer
@@ -101,6 +115,11 @@ func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 			assert.Equal(t, tc.expectedStatus, rr.Code)
 			if tc.expectedBody != "" {
 				assert.JSONEq(t, tc.expectedBody, rr.Body.String())
+			}
+			if tc.expectedStatus == http.StatusOK {
+				assert.Equal(t, 1, manifestRecords, "manifest RecordOperation should run after successful save")
+			} else {
+				assert.Equal(t, 0, manifestRecords, "manifest should not be updated when upload fails")
 			}
 		})
 	}
@@ -143,8 +162,10 @@ func TestAttachmentHandler_DownloadAttachment(t *testing.T) {
 			mockSvc := &mockAttachmentService{}
 			tc.setupMocks(mockSvc)
 
+			mockManifest := &mocks.MockAttachmentManifestService{}
+
 			// Create handler with mock service
-			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc)
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
 
 			// Create request
 			req := httptest.NewRequest("GET", "/attachments/"+tc.attachmentID, nil)
@@ -199,8 +220,10 @@ func TestAttachmentHandler_CheckAttachment(t *testing.T) {
 			mockSvc := &mockAttachmentService{}
 			tc.setupMocks(mockSvc)
 
+			mockManifest := &mocks.MockAttachmentManifestService{}
+
 			// Create handler with mock service
-			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc)
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
 
 			// Create request
 			req := httptest.NewRequest("HEAD", "/attachments/"+tc.attachmentID, nil)
@@ -232,7 +255,9 @@ func TestDownloadAttachment_StreamingErrorLogged(t *testing.T) {
 	mockSvc.On("Exists", mock.Anything, "badfile").Return(true, nil)
 	mockSvc.On("Get", mock.Anything, "badfile").Return(io.NopCloser(errReader{}), nil)
 
-	handler := NewAttachmentHandler(log, mockSvc)
+	mockManifest := &mocks.MockAttachmentManifestService{}
+
+	handler := NewAttachmentHandler(log, mockSvc, mockManifest)
 
 	req := httptest.NewRequest("GET", "/attachments/badfile", nil)
 	rr := httptest.NewRecorder()

@@ -362,8 +362,12 @@ class SynkronusApi {
     const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
     await RNFS.mkdir(attachmentsDirectory);
 
-    const urls = downloadOps.map(op =>
-      op.download_url ? op.download_url : '',
+    // Build URLs from the app's configured server base path. The manifest's download_url is
+    // generated server-side and may point at localhost, which fails on real devices.
+    const config = await this.getConfig();
+    const base = config.basePath.replace(/\/$/, '');
+    const urls = downloadOps.map(
+      op => `${base}/attachments/${encodeURIComponent(op.attachment_id)}`,
     );
     const localPaths = downloadOps.map(
       op => `${attachmentsDirectory}/${op.attachment_id}`,
