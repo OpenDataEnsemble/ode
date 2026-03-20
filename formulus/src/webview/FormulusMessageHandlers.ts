@@ -156,6 +156,7 @@ let activeFormplayerModalRef: {
   handleSubmission: (data: {
     formType: string;
     finalData: Record<string, unknown>;
+    observationId?: string | null;
   }) => Promise<string>;
 } | null = null;
 
@@ -164,6 +165,7 @@ export const setActiveFormplayerModal = (
     handleSubmission: (data: {
       formType: string;
       finalData: Record<string, unknown>;
+      observationId?: string | null;
     }) => Promise<string>;
   } | null,
 ) => {
@@ -292,6 +294,18 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       formType: string;
       finalData: Record<string, unknown>;
     }) => {
+      // Formplayer uses updateObservation for existing rows; submitObservation for new.
+      // Route updates through the modal too so the operation promise resolves and the UI closes.
+      if (activeFormplayerModalRef) {
+        console.log(
+          'FormulusMessageHandlers: Delegating to FormplayerModal.handleSubmission (update)',
+        );
+        return await activeFormplayerModalRef.handleSubmission({
+          formType: data.formType,
+          finalData: data.finalData,
+          observationId: data.observationId,
+        });
+      }
       return await saveFormData(
         data.formType,
         data.finalData,
