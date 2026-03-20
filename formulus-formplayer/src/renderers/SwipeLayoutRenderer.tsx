@@ -14,7 +14,8 @@ import {
 import { useSwipeable } from 'react-swipeable';
 import { Box, Typography, useTheme } from '@mui/material';
 import { Button } from '@ode/components/react-web';
-import { useFormContext } from '../App';
+import { FormContext, useFormContext } from '../App';
+import { primaryKeyboardEnterKeyHint } from '../utils/keyboardEnterKeyHint';
 import { draftService } from '../services/DraftService';
 import FormProgressBar from '../components/FormProgressBar';
 import FormLayout from '../components/FormLayout';
@@ -143,6 +144,8 @@ const SwipeLayoutRenderer = ({
   );
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const { core } = useJsonForms();
+  const parentFormContext = useFormContext();
+  const { formInitData } = parentFormContext;
 
   const uiType = (uischema as any).type;
   const isExplicitSwipeLayout = uiType === 'SwipeLayout';
@@ -152,6 +155,24 @@ const SwipeLayoutRenderer = ({
       ? (uischema as any).elements || []
       : [uischema];
   }, [uischema, isExplicitSwipeLayout]);
+
+  const { swipeOptions, nextButtonLabelOption, finalizeButtonLabelOption } =
+    useMemo(() => {
+      const raw = (uischema as any)?.options ?? {};
+      const nextRaw = raw.nextButtonLabel;
+      const finRaw = raw.finalizeButtonLabel;
+      return {
+        swipeOptions: raw,
+        nextButtonLabelOption:
+          typeof nextRaw === 'string' && nextRaw.trim() !== ''
+            ? nextRaw
+            : undefined,
+        finalizeButtonLabelOption:
+          typeof finRaw === 'string' && finRaw.trim() !== ''
+            ? finRaw
+            : undefined,
+      };
+    }, [uischema]);
 
   if (typeof handleChange !== 'function') {
     console.warn(
@@ -388,6 +409,61 @@ const SwipeLayoutRenderer = ({
     return layouts[currentPage]?.type === 'Finalize';
   }, [layouts, currentPage]);
 
+  const keyboardSubmitAction = useMemo(() => {
+    const errorCount = core?.errors?.length ?? 0;
+    if (isOnFinalizePage) {
+      return {
+        onTrigger: () => {
+          if (errorCount > 0 || !formInitData) return;
+          window.dispatchEvent(
+            new CustomEvent('finalizeForm', {
+              detail: { formInitData, data },
+            }),
+          );
+        },
+        disabled: errorCount > 0 || !formInitData,
+      };
+    }
+    if (nextVisiblePage !== null) {
+      return {
+        onTrigger: () => navigateToPage(nextVisiblePage),
+        disabled: isNavigating,
+      };
+    }
+    return undefined;
+  }, [
+    isOnFinalizePage,
+    nextVisiblePage,
+    navigateToPage,
+    isNavigating,
+    core?.errors,
+    formInitData,
+    data,
+  ]);
+
+  const keyboardEnterKeyHint = useMemo(
+    () =>
+      primaryKeyboardEnterKeyHint(
+        isOnFinalizePage,
+        nextVisiblePage !== null ? nextButtonLabelOption : undefined,
+        finalizeButtonLabelOption ?? 'Finalize',
+      ),
+    [
+      isOnFinalizePage,
+      nextVisiblePage,
+      nextButtonLabelOption,
+      finalizeButtonLabelOption,
+    ],
+  );
+
+  const formContextForSwipe = useMemo(
+    () => ({
+      formInitData: parentFormContext.formInitData,
+      keyboardEnterKeyHint,
+    }),
+    [parentFormContext.formInitData, keyboardEnterKeyHint],
+  );
+
   const handleSnackbarClose = useCallback(
     (event?: React.SyntheticEvent | Event, reason?: string) => {
       if (reason === 'clickaway') {
@@ -410,181 +486,197 @@ const SwipeLayoutRenderer = ({
 
   // ----- Header options (author-configurable) -----
 
-  const uiOptions = (uischema as any)?.options || {};
   const headerTitle: string | undefined =
-    uiOptions.headerTitle || (schema as any)?.title || undefined;
-  const headerFields: string[] = (uiOptions.headerFields || []).slice(0, 2);
+    swipeOptions.headerTitle || (schema as any)?.title || undefined;
+  const headerFields: string[] = (swipeOptions.headerFields || []).slice(0, 2);
 
   // ----- Render -----
 
   return (
-    <FormLayout
-      header={
-        <>
-          {/* Author-configured form title and sticky fields */}
-          {(headerTitle || headerFields.length > 0) && (
-            <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
-              {headerTitle && (
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 700,
-                    fontSize: '1.125rem',
-                    lineHeight: 1.3,
-                    color: 'text.primary',
-                    mb: headerFields.length > 0 ? 0.5 : 0,
-                    textAlign: 'left',
-                  }}>
-                  {headerTitle}
-                </Typography>
-              )}
-              {headerFields.length > 0 && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 0.5,
-                    pb: 0.5,
-                  }}>
-                  {headerFields.map((fieldKey: string) => {
-                    const fieldSchema = (schema as any)?.properties?.[fieldKey];
-                    const label = fieldSchema?.title || fieldKey;
-                    const value = data?.[fieldKey];
-                    const displayValue =
-                      value != null && value !== '' ? String(value) : '—';
-                    return (
-                      <Typography
-                        key={fieldKey}
-                        variant="caption"
-                        sx={{
-                          px: 1,
-                          py: 0.25,
-                          borderRadius: 1,
-                          backgroundColor: 'action.hover',
-                          fontSize: '0.75rem',
-                          color:
-                            displayValue === '—'
-                              ? 'text.disabled'
-                              : 'text.primary',
-                          fontWeight: displayValue === '—' ? 400 : 600,
-                          textAlign: 'left',
-                        }}>
-                        {label}: {displayValue}
-                      </Typography>
-                    );
-                  })}
-                </Box>
-              )}
-            </Box>
+    <FormContext.Provider value={formContextForSwipe}>
+      <FormLayout
+        keyboardSubmitAction={keyboardSubmitAction}
+        header={
+          <>
+            {/* Author-configured form title and sticky fields */}
+            {(headerTitle || headerFields.length > 0) && (
+              <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
+                {headerTitle && (
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 700,
+                      fontSize: '1.125rem',
+                      lineHeight: 1.3,
+                      color: 'text.primary',
+                      mb: headerFields.length > 0 ? 0.5 : 0,
+                      textAlign: 'left',
+                    }}>
+                    {headerTitle}
+                  </Typography>
+                )}
+                {headerFields.length > 0 && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 0.5,
+                      pb: 0.5,
+                    }}>
+                    {headerFields.map((fieldKey: string) => {
+                      const fieldSchema = (schema as any)?.properties?.[
+                        fieldKey
+                      ];
+                      const label = fieldSchema?.title || fieldKey;
+                      const value = data?.[fieldKey];
+                      const displayValue =
+                        value != null && value !== '' ? String(value) : '—';
+                      return (
+                        <Typography
+                          key={fieldKey}
+                          variant="caption"
+                          sx={{
+                            px: 1,
+                            py: 0.25,
+                            borderRadius: 1,
+                            backgroundColor: 'action.hover',
+                            fontSize: '0.75rem',
+                            color:
+                              displayValue === '—'
+                                ? 'text.disabled'
+                                : 'text.primary',
+                            fontWeight: displayValue === '—' ? 400 : 600,
+                            textAlign: 'left',
+                          }}>
+                          {label}: {displayValue}
+                        </Typography>
+                      );
+                    })}
+                  </Box>
+                )}
+              </Box>
+            )}
+            <FormProgressBar
+              currentPage={visiblePosition}
+              totalScreens={totalVisibleScreens}
+              data={data}
+              schema={schema}
+              uischema={uischema}
+              mode="screens"
+              isOnFinalizePage={isOnFinalizePage}
+              onNavigatePrevious={
+                prevVisiblePage !== null
+                  ? () => navigateToPage(prevVisiblePage)
+                  : undefined
+              }
+              onNavigateNext={
+                nextVisiblePage !== null
+                  ? () => navigateToPage(nextVisiblePage)
+                  : undefined
+              }
+              navigationDisabled={isNavigating}
+            />
+          </>
+        }
+        previousButton={
+          prevVisiblePage !== null
+            ? {
+                onClick: () => navigateToPage(prevVisiblePage),
+                disabled: isNavigating,
+              }
+            : undefined
+        }
+        nextButton={
+          nextVisiblePage !== null
+            ? {
+                onClick: () => navigateToPage(nextVisiblePage),
+                disabled: isNavigating,
+                label: nextButtonLabelOption,
+              }
+            : undefined
+        }
+        contentBottomPadding={80}
+        showNavigation={true}>
+        <div {...handlers} className="swipelayout_screen">
+          {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
+          {layouts.length > 0 && layouts[currentPage] && (
+            <JsonFormsDispatch
+              schema={schema}
+              uischema={layouts[currentPage]}
+              path={path}
+              enabled={enabled}
+              renderers={renderers}
+              cells={cells}
+            />
           )}
-          <FormProgressBar
-            currentPage={visiblePosition}
-            totalScreens={totalVisibleScreens}
-            data={data}
-            schema={schema}
-            uischema={uischema}
-            mode="screens"
-            isOnFinalizePage={isOnFinalizePage}
-          />
-        </>
-      }
-      previousButton={
-        prevVisiblePage !== null
-          ? {
-              onClick: () => navigateToPage(prevVisiblePage),
-              disabled: isNavigating,
-            }
-          : undefined
-      }
-      nextButton={
-        nextVisiblePage !== null
-          ? {
-              onClick: () => navigateToPage(nextVisiblePage),
-              disabled: isNavigating,
-            }
-          : undefined
-      }
-      contentBottomPadding={80}
-      showNavigation={true}>
-      <div {...handlers} className="swipelayout_screen">
-        {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
-        {layouts.length > 0 && layouts[currentPage] && (
-          <JsonFormsDispatch
-            schema={schema}
-            uischema={layouts[currentPage]}
-            path={path}
-            enabled={enabled}
-            renderers={renderers}
-            cells={cells}
-          />
-        )}
-      </div>
+        </div>
 
-      {snackbarOpen &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <Box
-            sx={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              minHeight: '100dvh',
-              height: '100%',
-              zIndex: 99,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 4,
-              backgroundColor: 'transparent',
-            }}>
+        {snackbarOpen &&
+          typeof document !== 'undefined' &&
+          createPortal(
             <Box
               sx={{
-                width: '100%',
-                maxWidth: 340,
-                borderRadius: CONFIRM_CARD_RADIUS,
-                border: `${CONFIRM_BORDER_WIDTH}px solid`,
-                borderColor: 'divider',
-                padding: `${CONFIRM_CARD_PADDING}px`,
-                backgroundColor: theme.palette.background.paper,
-                overflow: 'hidden',
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                minHeight: '100dvh',
+                height: '100%',
+                zIndex: 99,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 4,
+                backgroundColor: 'transparent',
               }}>
-              <Typography
-                variant="h6"
-                sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
-                Missing required fields
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ textAlign: 'center', mb: 3 }}>
-                {snackbarMessage ||
-                  'Some required fields are missing. Any unsaved changes will be available as a draft when you return.'}
-              </Typography>
               <Box
                 sx={{
-                  flexDirection: 'row',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  gap: 2,
-                  flexWrap: 'wrap',
+                  width: '100%',
+                  maxWidth: 340,
+                  borderRadius: CONFIRM_CARD_RADIUS,
+                  border: `${CONFIRM_BORDER_WIDTH}px solid`,
+                  borderColor: 'divider',
+                  padding: `${CONFIRM_CARD_PADDING}px`,
+                  backgroundColor: theme.palette.background.paper,
+                  overflow: 'hidden',
                 }}>
-                <Button
-                  variant="neutral"
-                  size="medium"
-                  onPress={handleSnackbarClose}>
-                  Stay here
-                </Button>
-                <Button variant="danger" size="medium" onPress={handleGoBack}>
-                  Go back
-                </Button>
+                <Typography
+                  variant="h6"
+                  sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
+                  Missing required fields
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ textAlign: 'center', mb: 3 }}>
+                  {snackbarMessage ||
+                    'Some required fields are missing. Any unsaved changes will be available as a draft when you return.'}
+                </Typography>
+                <Box
+                  sx={{
+                    flexDirection: 'row',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    gap: 2,
+                    flexWrap: 'wrap',
+                  }}>
+                  <Button
+                    variant="neutral"
+                    size="medium"
+                    onPress={handleSnackbarClose}>
+                    Stay here
+                  </Button>
+                  <Button variant="danger" size="medium" onPress={handleGoBack}>
+                    Go back
+                  </Button>
+                </Box>
               </Box>
-            </Box>
-          </Box>,
-          document.body,
-        )}
-    </FormLayout>
+            </Box>,
+            document.body,
+          )}
+      </FormLayout>
+    </FormContext.Provider>
   );
 };
 

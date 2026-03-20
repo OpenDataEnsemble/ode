@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
-import { Box, LinearProgress, Typography } from '@mui/material';
+import React, { useMemo, useCallback } from 'react';
+import { Box, IconButton, LinearProgress, Typography } from '@mui/material';
+import ChevronLeft from '@mui/icons-material/ChevronLeft';
+import ChevronRight from '@mui/icons-material/ChevronRight';
 import { tokens } from '../theme/tokens-adapter';
 
 type JsonSchema = {
@@ -39,6 +41,14 @@ interface FormProgressBarProps {
    * Whether the user is currently on the Finalize page
    */
   isOnFinalizePage?: boolean;
+  /**
+   * Optional narrow prev/next controls flanking the bar. Use the same callbacks
+   * as primary navigation (not `.click()` on other buttons) to avoid double events.
+   */
+  onNavigatePrevious?: () => void;
+  onNavigateNext?: () => void;
+  /** When true, both header chevrons are disabled (e.g. navigation in flight). */
+  navigationDisabled?: boolean;
 }
 
 /**
@@ -117,6 +127,13 @@ const countAnsweredQuestions = (
 /**
  * FormProgressBar component that displays form completion progress
  */
+const navIconButtonSx = {
+  flexShrink: 0,
+  p: 0.25,
+  color: 'text.secondary',
+  '&.Mui-disabled': { opacity: 0.35 },
+} as const;
+
 const FormProgressBar: React.FC<FormProgressBarProps> = ({
   currentPage,
   totalScreens,
@@ -124,6 +141,9 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   schema,
   mode = 'screens',
   isOnFinalizePage = false,
+  onNavigatePrevious,
+  onNavigateNext,
+  navigationDisabled = false,
 }) => {
   const progress = useMemo(() => {
     if (mode === 'screens' || mode === 'both') {
@@ -163,9 +183,21 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
     return 0;
   }, [currentPage, totalScreens, data, schema, mode, isOnFinalizePage]);
 
+  const handlePrev = useCallback(() => {
+    if (navigationDisabled || !onNavigatePrevious) return;
+    onNavigatePrevious();
+  }, [navigationDisabled, onNavigatePrevious]);
+
+  const handleNext = useCallback(() => {
+    if (navigationDisabled || !onNavigateNext) return;
+    onNavigateNext();
+  }, [navigationDisabled, onNavigateNext]);
+
   if (totalScreens === 0) {
     return null;
   }
+
+  const showHeaderNav = onNavigatePrevious != null || onNavigateNext != null;
 
   return (
     <Box
@@ -178,35 +210,68 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
         sx={{
           display: 'flex',
           alignItems: 'center',
-          gap: 1,
+          gap: { xs: 0.25, sm: 0.5 },
           mb: 0.5,
-          px: { xs: 1, sm: 2 },
+          px: { xs: 0.5, sm: 1 },
         }}>
-        <LinearProgress
-          variant="determinate"
-          value={progress}
+        {showHeaderNav ? (
+          <IconButton
+            type="button"
+            size="small"
+            aria-label="Previous screen"
+            onClick={handlePrev}
+            disabled={navigationDisabled || !onNavigatePrevious}
+            edge="start"
+            sx={navIconButtonSx}>
+            <ChevronLeft sx={{ fontSize: 22 }} />
+          </IconButton>
+        ) : null}
+        <Box
           sx={{
-            flexGrow: 1,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: `rgba(0, 0, 0, ${(tokens as any).opacity?.['10'] ?? 0.1})`,
-            '& .MuiLinearProgress-bar': {
-              borderRadius: 4,
-              transition: 'transform 0.4s ease-in-out',
-            },
-          }}
-        />
-        <Typography
-          variant="caption"
-          sx={{
-            minWidth: `${tokens.touchTarget.comfortable}px`,
-            textAlign: 'right',
-            color: 'text.secondary',
-            fontWeight: 500,
-            pr: { xs: 1, sm: 2 },
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flex: 1,
+            minWidth: 0,
           }}>
-          {progress}%
-        </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={progress}
+            sx={{
+              flexGrow: 1,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: `rgba(0, 0, 0, ${(tokens as any).opacity?.['10'] ?? 0.1})`,
+              '& .MuiLinearProgress-bar': {
+                borderRadius: 4,
+                transition: 'transform 0.4s ease-in-out',
+              },
+            }}
+          />
+          <Typography
+            variant="caption"
+            sx={{
+              flexShrink: 0,
+              minWidth: '2.25rem',
+              textAlign: 'right',
+              color: 'text.secondary',
+              fontWeight: 500,
+            }}>
+            {progress}%
+          </Typography>
+        </Box>
+        {showHeaderNav ? (
+          <IconButton
+            type="button"
+            size="small"
+            aria-label="Next screen"
+            onClick={handleNext}
+            disabled={navigationDisabled || !onNavigateNext}
+            edge="end"
+            sx={navIconButtonSx}>
+            <ChevronRight sx={{ fontSize: 22 }} />
+          </IconButton>
+        ) : null}
       </Box>
     </Box>
   );

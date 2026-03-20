@@ -74,6 +74,10 @@ import AdateQuestionRenderer, {
 import { shellMaterialRenderers } from './theme/material-wrappers';
 import { numberStepperRenderer } from './renderers/NumberStepperRenderer';
 import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
+import MaterialTextControlWithImeHint, {
+  materialTextControlWithImeHintTester,
+} from './jsonforms/MaterialTextControlWithImeHint';
+import type { KeyboardPrimaryEnterKeyHint } from './utils/keyboardEnterKeyHint';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import { draftService } from './services/DraftService';
@@ -215,15 +219,25 @@ const processUISchemaWithFinalize = (
 // Create context for sharing form metadata with renderers
 interface FormContextType {
   formInitData: FormInitData | null;
+  /**
+   * Hint for mobile keyboard IME action (Go / Next / Done).
+   * Set inside swipe layout; `undefined` elsewhere.
+   */
+  keyboardEnterKeyHint?: KeyboardPrimaryEnterKeyHint;
 }
 
 export const FormContext = createContext<FormContextType>({
   formInitData: null,
+  keyboardEnterKeyHint: undefined,
 });
 
 export const useFormContext = () => useContext(FormContext);
 
 export const customRenderers = [
+  {
+    tester: materialTextControlWithImeHintTester,
+    renderer: MaterialTextControlWithImeHint,
+  },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: finalizeTester, renderer: finalizeRenderer.renderer },
