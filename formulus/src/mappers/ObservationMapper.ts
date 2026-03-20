@@ -75,6 +75,15 @@ export class ObservationMapper {
     };
   }
 
+  /**
+   * Canonical observation id for API/sync: the `observation_id` column (server id).
+   * Falls back to Watermelon row id for empty legacy rows.
+   */
+  static observationIdFromDBModel(model: ObservationModel): string {
+    const col = model.observationId?.trim();
+    return col || model.id;
+  }
+
   // DB Model -> Domain
   static fromDBModel(model: ObservationModel): DomainObservation {
     let geolocation: ObservationGeolocation | null = null;
@@ -87,7 +96,7 @@ export class ObservationMapper {
     }
 
     return {
-      observationId: model.id,
+      observationId: ObservationMapper.observationIdFromDBModel(model),
       formType: model.formType,
       formVersion: model.formVersion,
       data:

@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 
@@ -12,14 +14,20 @@ import (
 )
 
 type AttachmentHandler struct {
-	service attachment.Service
-	log     *logger.Logger
+	service  attachment.Service
+	manifest attachment.ManifestService
+	log      *logger.Logger
 }
 
-func NewAttachmentHandler(log *logger.Logger, service attachment.Service) *AttachmentHandler {
+func NewAttachmentHandler(
+	log *logger.Logger,
+	service attachment.Service,
+	manifest attachment.ManifestService,
+) *AttachmentHandler {
 	return &AttachmentHandler{
-		service: service,
-		log:     log,
+		service:  service,
+		manifest: manifest,
+		log:      log,
 	}
 }
 
@@ -55,7 +63,7 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get the file from the form data
-	file, _, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		if errors.Is(err, http.ErrMissingFile) {
 			SendErrorResponse(w, http.StatusBadRequest, nil, "file is required")
@@ -77,10 +85,33 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Record manifest operation so other clients receive a download op in /attachments/manifest.
+	// client_id empty => NULL, meaning all clients (see migration comment on attachment_operations).
+	if err := h.recordAttachmentCreate(r.Context(), attachmentID, header); err != nil {
+		h.log.Error("Failed to record attachment manifest operation", "attachmentId", attachmentID, "error", err)
+		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to register attachment for sync")
+		return
+	}
+
 	// Return success response
 	SendJSONResponse(w, http.StatusOK, map[string]string{
 		"status": "success",
 	})
+}
+
+func (h *AttachmentHandler) recordAttachmentCreate(ctx context.Context, attachmentID string, header *multipart.FileHeader) error {
+	var sizePtr *int
+	if header != nil && header.Size > 0 {
+		s := int(header.Size)
+		sizePtr = &s
+	}
+	var contentType *string
+	if header != nil {
+		if ct := header.Header.Get("Content-Type"); ct != "" {
+			contentType = &ct
+		}
+	}
+	return h.manifest.RecordOperation(ctx, attachmentID, "create", "", sizePtr, contentType)
 }
 
 // DownloadAttachment handles GET /attachments/{attachment_id}

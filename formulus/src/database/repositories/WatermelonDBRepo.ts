@@ -119,6 +119,20 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     }
   }
 
+  /** Resolve a row by Watermelon id or by observation_id column (legacy ingested rows - TODO: Legacy support to be removed in vNextMinor). */
+  private async findObservationRecord(
+    stableId: string,
+  ): Promise<ObservationModel | null> {
+    try {
+      return await this.observationsCollection.find(stableId);
+    } catch {
+      const rows = await this.observationsCollection
+        .query(Q.where('observation_id', stableId))
+        .fetch();
+      return rows[0] ?? null;
+    }
+  }
+
   /**
    * Get an observation by its ID
    * @param id The unique identifier for the observation
@@ -235,10 +249,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         input.observationId,
       );
 
-      // Find the observation by ID (which is now the observationId)
-      const record = await this.observationsCollection.find(
-        input.observationId,
-      );
+      const record = await this.findObservationRecord(input.observationId);
 
       if (!record) {
         console.error('Observation not found with ID:', input.observationId);
@@ -292,8 +303,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     try {
       console.log('Deleting observation with ObservationId:', id);
 
-      // Find the observation by ID (which is now the observationId)
-      const record = await this.observationsCollection.find(id);
+      const record = await this.findObservationRecord(id);
 
       if (!record) {
         console.error('Observation not found with ID:', id);
@@ -424,38 +434,40 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       const existingMap = new Map(
         existingRecords.map(record => [record.observationId, record]),
       );
-      const batchOps = changes.map(change => {
-        const existing = existingMap.get(change.observationId);
-        if (existing) {
-          console.debug(`Preparing update for observation: ${existing.id}`);
-          if (existing.updatedAt > existing.syncedAt) {
-            console.debug(
-              `Skipping server change for ${existing.id} because it's locally dirty`,
-            );
-            return null; // skip applying server version (TODO: maybe include this information in the return value to be able to report it to the user)
+      const batchOps = changes
+        .map(change => {
+          const existing = existingMap.get(change.observationId);
+          if (existing) {
+            console.debug(`Preparing update for observation: ${existing.id}`);
+            if (existing.updatedAt > existing.syncedAt) {
+              console.debug(
+                `Skipping server change for ${existing.id} because it's locally dirty`,
+              );
+              return null; // skip applying server version (TODO: maybe include this information in the return value to be able to report it to the user)
+            }
+            return existing.prepareUpdate(record => {
+              record.formType = change.formType || record.formType;
+              record.formVersion = change.formVersion || record.formVersion;
+              record.data =
+                typeof change.data === 'string'
+                  ? change.data
+                  : JSON.stringify(change.data);
+              record.deleted = change.deleted ?? record.deleted;
+              // Set optional metadata if provided
+              if (change.author !== undefined) {
+                record.author = change.author ?? '';
+              }
+              if (change.deviceId !== undefined) {
+                record.deviceId = change.deviceId ?? '';
+              }
+              record.syncedAt = new Date();
+            });
           }
-          return existing.prepareUpdate(record => {
-            record.formType = change.formType || record.formType;
-            record.formVersion = change.formVersion || record.formVersion;
-            record.data =
-              typeof change.data === 'string'
-                ? change.data
-                : JSON.stringify(change.data);
-            record.deleted = change.deleted ?? record.deleted;
-            // Set optional metadata if provided
-            if (change.author !== undefined) {
-              record.author = change.author ?? '';
-            }
-            if (change.deviceId !== undefined) {
-              record.deviceId = change.deviceId ?? '';
-            }
-            record.syncedAt = new Date();
-          });
-        } else {
           console.debug(
             `Preparing create for new observation: ${change.observationId}`,
           );
           return this.observationsCollection.prepareCreate(record => {
+            record._raw.id = change.observationId;
             record.observationId = change.observationId;
             record.formType = change.formType || '';
             record.formVersion = change.formVersion || '1.0';
@@ -468,9 +480,11 @@ export class WatermelonDBRepo implements LocalRepoInterface {
             record.deleted = change.deleted ?? false;
             record.syncedAt = new Date();
           });
-        }
-      });
-      await this.database.batch(...batchOps);
+        })
+        .filter((op): op is NonNullable<typeof op> => op != null);
+      if (batchOps.length > 0) {
+        await this.database.batch(...batchOps);
+      }
       return batchOps.length;
     });
     return count;
@@ -501,11 +515,22 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    * @param ids The unique identifiers for the observations
    */
   async markObservationsAsSynced(ids: string[]): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
     const now = new Date();
     await this.database.write(async () => {
-      const records = await this.observationsCollection
+      const byPk = await this.observationsCollection
         .query(Q.where('id', Q.oneOf(ids)))
         .fetch();
+      const byObservationColumn = await this.observationsCollection
+        .query(Q.where('observation_id', Q.oneOf(ids)))
+        .fetch();
+      const merged = new Map<string, ObservationModel>();
+      for (const r of [...byPk, ...byObservationColumn]) {
+        merged.set(r.id, r);
+      }
+      const records = [...merged.values()];
 
       const batchOps = records.map(record =>
         record.prepareUpdate(rec => {
@@ -513,7 +538,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         }),
       );
 
-      await this.database.batch(...batchOps);
+      if (batchOps.length > 0) {
+        await this.database.batch(...batchOps);
+      }
     });
   }
 
@@ -599,7 +626,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     }
 
     return {
-      observationId: model.id, // Now model.id is the same as observationId
+      observationId: ObservationMapper.observationIdFromDBModel(model),
       formType: model.formType,
       formVersion: model.formVersion,
       data: parsedData,

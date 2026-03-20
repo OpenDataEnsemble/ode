@@ -105,9 +105,12 @@ func pingWithTimeout(db *sql.DB, timeout time.Duration) error {
 
 // ensureTestSchema creates or updates test database schema
 func ensureTestSchema(db *sql.DB) error {
-	// Drop existing tables to ensure clean state
+	// Drop existing tables to ensure clean state (order: triggers → tables → functions)
 	dropQueries := []string{
+		"DROP TRIGGER IF EXISTS attachment_operations_version_trigger ON attachment_operations",
 		"DROP TRIGGER IF EXISTS observations_version_trigger ON observations",
+		"DROP TABLE IF EXISTS attachment_operations",
+		"DROP FUNCTION IF EXISTS increment_attachment_sync_version()",
 		"DROP FUNCTION IF EXISTS update_sync_version()",
 		"DROP TABLE IF EXISTS observations",
 		"DROP TABLE IF EXISTS sync_version",
@@ -186,11 +189,68 @@ func ensureTestSchema(db *sql.DB) error {
 		return fmt.Errorf("failed to create trigger: %w", err)
 	}
 
+	// Attachment manifest (matches production migration; required for attachment sync integration tests)
+	attachmentTableSQL := `
+		CREATE TABLE IF NOT EXISTS attachment_operations (
+			id SERIAL PRIMARY KEY,
+			attachment_id VARCHAR(255) NOT NULL,
+			operation VARCHAR(10) NOT NULL CHECK (operation IN ('create', 'update', 'delete')),
+			client_id VARCHAR(255),
+			version BIGINT NOT NULL,
+			size INTEGER,
+			content_type VARCHAR(255),
+			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+		)
+	`
+	if _, err := db.Exec(attachmentTableSQL); err != nil {
+		return fmt.Errorf("failed to create attachment_operations table: %w", err)
+	}
+
+	attachmentIndexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_attachment_operations_version ON attachment_operations(version)`,
+		`CREATE INDEX IF NOT EXISTS idx_attachment_operations_client ON attachment_operations(client_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_attachment_operations_attachment_id ON attachment_operations(attachment_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_attachment_operations_version_client ON attachment_operations(version, client_id)`,
+	}
+	for _, q := range attachmentIndexes {
+		if _, err := db.Exec(q); err != nil {
+			return fmt.Errorf("failed to create attachment_operations index: %w", err)
+		}
+	}
+
+	incrementAttachmentVersionSQL := `
+		CREATE OR REPLACE FUNCTION increment_attachment_sync_version() RETURNS TRIGGER AS $$
+		BEGIN
+			UPDATE sync_version SET current_version = current_version + 1, updated_at = NOW() WHERE id = 1;
+			NEW.version = (SELECT current_version FROM sync_version WHERE id = 1);
+			NEW.created_at = NOW();
+			RETURN NEW;
+		END;
+		$$ LANGUAGE plpgsql;
+	`
+	if _, err := db.Exec(incrementAttachmentVersionSQL); err != nil {
+		return fmt.Errorf("failed to create increment_attachment_sync_version: %w", err)
+	}
+
+	attachmentTriggerSQL := `
+		CREATE TRIGGER attachment_operations_version_trigger
+			BEFORE INSERT ON attachment_operations
+			FOR EACH ROW
+			EXECUTE FUNCTION increment_attachment_sync_version();
+	`
+	if _, err := db.Exec(attachmentTriggerSQL); err != nil {
+		return fmt.Errorf("failed to create attachment_operations trigger: %w", err)
+	}
+
 	return nil
 }
 
 // ResetTestData cleans all test data and resets version to 1
 func ResetTestData(db *sql.DB) error {
+	if _, err := db.Exec("DELETE FROM attachment_operations"); err != nil {
+		return fmt.Errorf("failed to clean attachment_operations: %w", err)
+	}
+
 	// Clean observations
 	if _, err := db.Exec("DELETE FROM observations"); err != nil {
 		return fmt.Errorf("failed to clean observations: %w", err)
