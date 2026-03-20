@@ -124,6 +124,19 @@ This ensures:
 - Each APK is built against the exact assets produced in the same run
 - Formplayer build outputs do not pollute git history
 
+### SBOM (CycloneDX) on releases
+
+**Workflow**: `.github/workflows/sbom-release.yml`
+
+- Runs when a **GitHub Release is published** and uploads `*.cdx.json` files to that release (alongside other assets such as the Formulus APK from `formulus-android.yml`).
+- **Manual test**: Actions → *SBOM (CycloneDX)* → *Run workflow*; download the `cyclonedx-sbom` artifact.
+
+**Local generation** (requires Node + Go):
+
+```bash
+node scripts/sbom/generate-sboms.mjs --out sbom-dist
+```
+
 ## Using Published Images
 
 ### Pull Latest Release
