@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   Image,
   ScrollView,
 } from 'react-native';
@@ -44,14 +43,48 @@ const SettingsScreen = () => {
   const [initialServerUrl, setInitialServerUrl] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isHydrating, setIsHydrating] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    Promise.resolve().then(() => {
-      loadSettings();
-    });
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const hydrate = async () => {
+      try {
+        const [savedUrl, credentials] = await Promise.all([
+          serverConfigService.getServerUrl(),
+          Keychain.getGenericPassword(),
+        ]);
+        if (!mountedRef.current) {
+          return;
+        }
+
+        if (savedUrl) {
+          setInitialServerUrl(savedUrl);
+          setServerUrl(prev => (prev.trim() === '' ? savedUrl : prev));
+        }
+
+        if (credentials) {
+          setUsername(prev => (prev.trim() === '' ? credentials.username : prev));
+          setPassword(prev => (prev.trim() === '' ? credentials.password : prev));
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      } finally {
+        if (mountedRef.current) {
+          setIsHydrating(false);
+        }
+      }
+    };
+
+    hydrate();
   }, []);
 
   const handleServerSwitchIfNeeded = useCallback(
@@ -188,26 +221,6 @@ const SettingsScreen = () => {
     [initialServerUrl],
   );
 
-  const loadSettings = async () => {
-    try {
-      const savedUrl = await serverConfigService.getServerUrl();
-      if (savedUrl) {
-        setServerUrl(savedUrl);
-        setInitialServerUrl(savedUrl);
-      }
-
-      const credentials = await Keychain.getGenericPassword();
-      if (credentials) {
-        setUsername(credentials.username);
-        setPassword(credentials.password);
-      }
-    } catch (error) {
-      console.error('Failed to load settings:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleLogin = useCallback(async () => {
     const trimmedUrl = serverUrl.trim();
     const trimmedUsername = username.trim();
@@ -312,23 +325,8 @@ const SettingsScreen = () => {
   const isButtonDisabled = useMemo(() => {
     const isFieldsEmpty =
       !serverUrl.trim() || !username.trim() || !password.trim();
-    return isFieldsEmpty || isLoggingIn;
-  }, [serverUrl, username, password, isLoggingIn]);
-
-  if (isLoading) {
-    return (
-      <BlurredScreenBackground>
-        <View
-          style={[
-            styles.container,
-            styles.centered,
-            { backgroundColor: 'transparent' },
-          ]}>
-          <ActivityIndicator size="large" color={themeColors.primary} />
-        </View>
-      </BlurredScreenBackground>
-    );
-  }
+    return isHydrating || isFieldsEmpty || isLoggingIn;
+  }, [serverUrl, username, password, isHydrating, isLoggingIn]);
 
   return (
     <BlurredScreenBackground>
@@ -428,10 +426,6 @@ const SettingsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     alignItems: 'center',
