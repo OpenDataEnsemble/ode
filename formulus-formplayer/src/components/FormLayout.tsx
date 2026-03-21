@@ -1,11 +1,6 @@
 import React, { ReactNode, useCallback } from 'react';
-import { Box, Paper, Stack } from '@mui/material';
+import { Box, Paper } from '@mui/material';
 import { Button } from '@ode/components/react-web';
-import { tokens } from '../theme/tokens-adapter';
-
-const parsePx = (value: string): number =>
-  parseInt(String(value).replace('px', ''), 10);
-const spacing5 = parsePx(tokens.spacing?.[5] ?? '20px');
 
 /** Keeps a submit control in the DOM so mobile keyboards can trigger the primary action (Go / Send / →). */
 const visuallyHiddenSubmitStyle: React.CSSProperties = {
@@ -147,42 +142,53 @@ const FormLayout: React.FC<FormLayoutProps> = ({
           boxShadow: 'none',
           boxSizing: 'border-box',
         })}>
-        <Stack
-          direction="row"
-          spacing={2}
-          justifyContent="center"
-          sx={{
-            '& > *': {
-              flex: { xs: 1, sm: '0 1 auto' },
-              minWidth: {
-                xs: 'auto',
-                sm: `${spacing5 * 6}px`,
-                md: `${spacing5 * 7}px`,
-              },
-              maxWidth: { md: `${spacing5 * 10}px` },
-            },
-          }}>
-          {previousButton && (
-            <Button
-              variant="primary"
-              onPress={previousButton.onClick}
-              disabled={previousButton.disabled}
-              size="medium">
-              {previousButton.label || 'Previous'}
-            </Button>
-          )}
-          {nextButton && (
-            <Button
-              variant="primary"
-              nativeType={keyboardSubmitAction ? 'submit' : 'button'}
-              onPress={keyboardSubmitAction ? undefined : nextButton.onClick}
-              disabled={nextButton.disabled}
-              size="medium"
-              className="button-reverse-primary">
-              {nextButton.label || 'Next'}
-            </Button>
-          )}
-        </Stack>
+        <Box
+          sx={theme => ({
+            display: 'flex',
+            flexDirection: 'row',
+            width: '100%',
+            alignItems: 'center',
+            gap: theme.spacing(1),
+          })}>
+          <Box
+            sx={{
+              flex: '1 1 0',
+              minWidth: 0,
+              display: 'flex',
+              justifyContent: 'flex-start',
+            }}>
+            {previousButton && (
+              <Button
+                variant="primary"
+                onPress={previousButton.onClick}
+                disabled={previousButton.disabled}
+                size="medium"
+                style={{ maxWidth: '100%' }}>
+                {previousButton.label || 'Previous'}
+              </Button>
+            )}
+          </Box>
+          <Box
+            sx={{
+              flex: '1 1 0',
+              minWidth: 0,
+              display: 'flex',
+              justifyContent: 'flex-end',
+            }}>
+            {nextButton && (
+              <Button
+                variant="primary"
+                nativeType={keyboardSubmitAction ? 'submit' : 'button'}
+                onPress={keyboardSubmitAction ? undefined : nextButton.onClick}
+                disabled={nextButton.disabled}
+                size="medium"
+                className="button-reverse-primary"
+                style={{ maxWidth: '100%' }}>
+                {nextButton.label || 'Next'}
+              </Button>
+            )}
+          </Box>
+        </Box>
       </Paper>
     ) : null;
 
