@@ -1,4 +1,10 @@
-import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import React, {
+  useCallback,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   JsonFormsDispatch,
@@ -124,6 +130,20 @@ const CONFIRM_CARD_RADIUS = 0.7;
 const CONFIRM_BORDER_WIDTH = 1;
 const CONFIRM_CARD_PADDING = 16;
 
+/** Focus first text-like input on the screen (keeps mobile keyboard open across page changes). */
+function focusFirstEnabledTextInput(container: HTMLElement | null): void {
+  if (!container) return;
+  const sel =
+    'input:not([disabled]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),textarea:not([disabled])';
+  const el = container.querySelector<HTMLElement>(sel);
+  if (!el || typeof el.focus !== 'function') return;
+  try {
+    el.focus({ preventScroll: true });
+  } catch {
+    el.focus();
+  }
+}
+
 const SwipeLayoutRenderer = ({
   schema,
   uischema,
@@ -173,6 +193,24 @@ const SwipeLayoutRenderer = ({
             : undefined,
       };
     }, [uischema]);
+
+  const autoFocusFirstInput = swipeOptions.autoFocusFirstInput !== false;
+
+  const swipeScreenRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!autoFocusFirstInput) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (!cancelled) {
+        focusFirstEnabledTextInput(swipeScreenRef.current);
+      }
+    }, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [currentPage, autoFocusFirstInput]);
 
   if (typeof handleChange !== 'function') {
     console.warn(
@@ -405,6 +443,18 @@ const SwipeLayoutRenderer = ({
     },
   });
 
+  const { ref: swipeableRef, ...swipeHandlers } = handlers;
+
+  const mergedSwipeScreenRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      swipeScreenRef.current = el;
+      if (typeof swipeableRef === 'function') {
+        swipeableRef(el);
+      }
+    },
+    [swipeableRef],
+  );
+
   const isOnFinalizePage = useMemo(() => {
     return layouts[currentPage]?.type === 'Finalize';
   }, [layouts, currentPage]);
@@ -602,7 +652,10 @@ const SwipeLayoutRenderer = ({
         }
         contentBottomPadding={80}
         showNavigation={true}>
-        <div {...handlers} className="swipelayout_screen">
+        <div
+          ref={mergedSwipeScreenRef}
+          {...swipeHandlers}
+          className="swipelayout_screen">
           {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
           {layouts.length > 0 && layouts[currentPage] && (
             <JsonFormsDispatch
