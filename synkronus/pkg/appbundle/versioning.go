@@ -173,17 +173,21 @@ func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to get current version: %w", err)
 	}
 
-	// Filter directories and collect versions
+	// Filter directories and collect versions (numeric names only; matches PushBundle / getNextVersionNumber)
 	versions := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() {
-			version := entry.Name()
-			// Mark current version with an asterisk
-			if version == currentVersion {
-				version += " *"
-			}
-			versions = append(versions, version)
+		if !entry.IsDir() {
+			continue
 		}
+		name := entry.Name()
+		if _, err := strconv.Atoi(name); err != nil {
+			continue
+		}
+		version := name
+		if version == currentVersion {
+			version += " *"
+		}
+		versions = append(versions, version)
 	}
 
 	// Sort versions in descending order (newest first)

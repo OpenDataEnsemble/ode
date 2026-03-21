@@ -62,14 +62,6 @@ This document provides an overview of the unit tests in the Synkronus project, o
 - **GET /attachments/:id returns 401 without auth**
   - Validates that attachment file requests without authentication return 401 Unauthorized
 
-## Form Specifications Tests (formspecs.test.ts)
-
-- **GET /formspecs/:schemaType/:schemaVersion returns 401 without auth**
-  - Validates that form specifications requests without authentication return 401 Unauthorized
-
-- **GET /formspecs/:schemaType/:schemaVersion with invalid token returns 401**
-  - Validates that form specifications requests with invalid tokens return 401 Unauthorized
-
 ## Test Structure
 
 All tests use the `withTestServer` utility function that:

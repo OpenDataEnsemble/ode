@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -9,6 +10,11 @@ import (
 
 	_ "github.com/lib/pq"
 )
+
+// Serialize integration tests that share synkronus_test across parallel `go test` packages.
+// Session-level advisory lock: held from SetupTestDatabase until cleanup (see SetupTestDatabase).
+const testDBSchemaLockKey1 int32 = 0x53794e4b // "SYNK"
+const testDBSchemaLockKey2 int32 = 0x524f4e55 // "RONU"
 
 // TestDBConfig holds configuration for test database setup
 type TestDBConfig struct {
@@ -70,8 +76,24 @@ func SetupTestDatabase(t *testing.T) (*sql.DB, func()) {
 		t.Skipf("Test database not available: %v\nEnsure PostgreSQL is running and accessible", err)
 	}
 
-	// Ensure clean test environment
-	if err := ensureTestSchema(db); err != nil {
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
+	if err != nil {
+		db.Close()
+		t.Fatalf("Failed to reserve connection for test schema: %v", err)
+	}
+
+	// Block other packages/processes using the same DB until this test finishes (DDL + test body).
+	if _, err := conn.ExecContext(ctx, `SELECT pg_advisory_lock($1, $2)`, testDBSchemaLockKey1, testDBSchemaLockKey2); err != nil {
+		conn.Close()
+		db.Close()
+		t.Fatalf("Failed to acquire test DB lock: %v", err)
+	}
+
+	// Ensure clean test environment (must run on the locked connection so DDL is serialized).
+	if err := ensureTestSchema(ctx, conn); err != nil {
+		_, _ = conn.ExecContext(ctx, `SELECT pg_advisory_unlock($1, $2)`, testDBSchemaLockKey1, testDBSchemaLockKey2)
+		conn.Close()
 		db.Close()
 		t.Fatalf("Failed to setup test schema: %v", err)
 	}
@@ -81,6 +103,8 @@ func SetupTestDatabase(t *testing.T) (*sql.DB, func()) {
 			if err := ResetTestData(db); err != nil {
 				t.Errorf("Failed to reset test data: %v", err)
 			}
+			_, _ = conn.ExecContext(ctx, `SELECT pg_advisory_unlock($1, $2)`, testDBSchemaLockKey1, testDBSchemaLockKey2)
+			conn.Close()
 			db.Close()
 		}
 	}
@@ -104,7 +128,7 @@ func pingWithTimeout(db *sql.DB, timeout time.Duration) error {
 }
 
 // ensureTestSchema creates or updates test database schema
-func ensureTestSchema(db *sql.DB) error {
+func ensureTestSchema(ctx context.Context, conn *sql.Conn) error {
 	// Drop existing tables to ensure clean state (order: triggers → tables → functions)
 	dropQueries := []string{
 		"DROP TRIGGER IF EXISTS attachment_operations_version_trigger ON attachment_operations",
@@ -117,7 +141,7 @@ func ensureTestSchema(db *sql.DB) error {
 	}
 
 	for _, query := range dropQueries {
-		if _, err := db.Exec(query); err != nil {
+		if _, err := conn.ExecContext(ctx, query); err != nil {
 			// Log but don't fail on drop errors
 			fmt.Printf("Warning: %v\n", err)
 		}
@@ -131,17 +155,17 @@ func ensureTestSchema(db *sql.DB) error {
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)
 	`
-	if _, err := db.Exec(syncVersionSQL); err != nil {
+	if _, err := conn.ExecContext(ctx, syncVersionSQL); err != nil {
 		return fmt.Errorf("failed to create sync_version table: %w", err)
 	}
 
 	// Insert initial version
-	if _, err := db.Exec("INSERT INTO sync_version (current_version) VALUES (1)"); err != nil {
+	if _, err := conn.ExecContext(ctx, "INSERT INTO sync_version (current_version) VALUES (1)"); err != nil {
 		return fmt.Errorf("failed to insert initial version: %w", err)
 	}
 
 	// Enable UUID extension
-	_, err := db.Exec(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`)
+	_, err := conn.ExecContext(ctx, `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`)
 	if err != nil {
 		return fmt.Errorf("failed to enable uuid-ossp extension: %w", err)
 	}
@@ -161,7 +185,7 @@ func ensureTestSchema(db *sql.DB) error {
 			version BIGINT NOT NULL DEFAULT 1
 		)
 	`
-	if _, err := db.Exec(observationsSQL); err != nil {
+	if _, err := conn.ExecContext(ctx, observationsSQL); err != nil {
 		return fmt.Errorf("failed to create observations table: %w", err)
 	}
 
@@ -175,7 +199,7 @@ func ensureTestSchema(db *sql.DB) error {
 		END;
 		$$ LANGUAGE plpgsql;
 	`
-	if _, err := db.Exec(triggerFunctionSQL); err != nil {
+	if _, err := conn.ExecContext(ctx, triggerFunctionSQL); err != nil {
 		return fmt.Errorf("failed to create trigger function: %w", err)
 	}
 
@@ -185,7 +209,7 @@ func ensureTestSchema(db *sql.DB) error {
 			BEFORE INSERT OR UPDATE ON observations
 			FOR EACH ROW EXECUTE FUNCTION update_sync_version();
 	`
-	if _, err := db.Exec(triggerSQL); err != nil {
+	if _, err := conn.ExecContext(ctx, triggerSQL); err != nil {
 		return fmt.Errorf("failed to create trigger: %w", err)
 	}
 
@@ -202,7 +226,7 @@ func ensureTestSchema(db *sql.DB) error {
 			created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 		)
 	`
-	if _, err := db.Exec(attachmentTableSQL); err != nil {
+	if _, err := conn.ExecContext(ctx, attachmentTableSQL); err != nil {
 		return fmt.Errorf("failed to create attachment_operations table: %w", err)
 	}
 
@@ -213,7 +237,7 @@ func ensureTestSchema(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_attachment_operations_version_client ON attachment_operations(version, client_id)`,
 	}
 	for _, q := range attachmentIndexes {
-		if _, err := db.Exec(q); err != nil {
+		if _, err := conn.ExecContext(ctx, q); err != nil {
 			return fmt.Errorf("failed to create attachment_operations index: %w", err)
 		}
 	}
@@ -228,7 +252,7 @@ func ensureTestSchema(db *sql.DB) error {
 		END;
 		$$ LANGUAGE plpgsql;
 	`
-	if _, err := db.Exec(incrementAttachmentVersionSQL); err != nil {
+	if _, err := conn.ExecContext(ctx, incrementAttachmentVersionSQL); err != nil {
 		return fmt.Errorf("failed to create increment_attachment_sync_version: %w", err)
 	}
 
@@ -238,7 +262,7 @@ func ensureTestSchema(db *sql.DB) error {
 			FOR EACH ROW
 			EXECUTE FUNCTION increment_attachment_sync_version();
 	`
-	if _, err := db.Exec(attachmentTriggerSQL); err != nil {
+	if _, err := conn.ExecContext(ctx, attachmentTriggerSQL); err != nil {
 		return fmt.Errorf("failed to create attachment_operations trigger: %w", err)
 	}
 

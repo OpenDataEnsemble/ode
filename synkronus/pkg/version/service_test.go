@@ -38,4 +38,3 @@ func TestGetVersion_NoDB(t *testing.T) {
 		t.Error("Build.GoVersion is empty, want non-empty")
 	}
 }
-
