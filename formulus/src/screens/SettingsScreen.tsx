@@ -432,17 +432,16 @@ const SettingsScreen = () => {
           contentContainerStyle={styles.cardContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          {/* Server Settings section */}
           <Text
             style={[
               styles.sectionHeader,
               styles.sectionHeaderFirst,
               { color: sectionHeaderColor },
             ]}>
-            Server Settings
+            App Settings
           </Text>
           <Text style={[styles.titleSmall, { color: themeColors.onSurface }]}>
-            Please enter the server you want to connect to.
+            Please enter the details for your synkronus server
           </Text>
 
           <View style={styles.inputContainer}>
@@ -495,15 +494,14 @@ const SettingsScreen = () => {
             fullWidth
           />
 
-          {/* App Settings section (themes) */}
-          <Text
-            style={[
-              styles.sectionHeader,
-              styles.appSettingsSectionHeader,
-              { color: sectionHeaderColor },
-            ]}>
-            App Settings
-          </Text>
+          <View
+            style={{
+              height: odeBorderWidth.hairline,
+              backgroundColor: themeColors.divider as string,
+              marginVertical: odeSpacing.md,
+            }}
+          />
+
           <View style={styles.themesInlineRow}>
             <View style={styles.themesInlineLeft}>
               <Icon name="palette" size={22} color={themeColors.onSurface} />
