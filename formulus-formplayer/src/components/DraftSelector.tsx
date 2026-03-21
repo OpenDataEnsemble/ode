@@ -93,10 +93,12 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   };
 
   const formatDate = (date: Date): string =>
-    date.toLocaleDateString(undefined, {
+    date.toLocaleString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
 
   const draftsSection =
