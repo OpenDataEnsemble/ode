@@ -74,7 +74,10 @@ export class AppVersionService {
     try {
       const version = await this.getVersion();
       const buildNumber = await this.getBuildNumber();
-      return `${version} (${buildNumber})`;
+      if (buildNumber==='1') {
+        return version;
+      }
+      return `${version} (build: ${buildNumber})`;
     } catch (error) {
       console.error('AppVersionService: Error getting full version:', error);
       throw error;

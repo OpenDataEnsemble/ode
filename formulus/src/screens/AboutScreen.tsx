@@ -23,6 +23,9 @@ import {
 import logo from '../../assets/images/logo.png';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
+const WEBSITE_URL = 'https://opendataensemble.org';
+const GH_URL = 'https://github.com/OpenDataEnsemble';
+const EMAIL_URL = 'mailto:hello@opendataensemble.org';
 /** Repository notice; keep in sync with docs and release SBOMs. */
 const THIRD_PARTY_NOTICES_URL =
   'https://github.com/OpenDataEnsemble/ode/blob/main/THIRD_PARTY_NOTICES.md';
@@ -91,21 +94,85 @@ const AboutScreen: React.FC = () => {
           contentContainerStyle={styles.content}>
           <View style={cardStyle}>
             <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Formulus
+              Formulus - Part of Open Data Ensemble
             </Text>
             <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
               Formulus is the mobile app for collecting and synchronizing forms
-              and observations.
+              and observations. It relies on having a Synkronus server to sync with.
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              Please check out our website or GitHub pages for more information:
+              <Pressable
+                onPress={() => Linking.openURL(WEBSITE_URL)}
+                accessibilityRole="link"
+                accessibilityLabel="Open website opendataensemble.org">
+                <Text
+                  style={[
+                    styles.cardText,
+                    styles.link,
+                    { color: themeColors.primary },
+                  ]}>
+                  {WEBSITE_URL}
+                </Text>
+              </Pressable>
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              <Pressable
+                onPress={() => Linking.openURL(GH_URL)}
+                accessibilityRole="link"
+                accessibilityLabel="Open GitHub repository">
+                <Text
+                  style={[
+                    styles.cardText,
+                    styles.link,
+                    { color: themeColors.primary },
+                  ]}>
+                  {GH_URL}
+                </Text>
+              </Pressable>
             </Text>
           </View>
 
           <View style={cardStyle}>
             <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Support
+              Help & Support
             </Text>
             <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-              If you need help, contact your system administrator.
+              If you need help or support you are always welcome to try reaching out to our friendly community on the forum.
             </Text>
+            <Pressable
+              onPress={() => Linking.openURL(FORUM_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open forum opendataensemble.org">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                {FORUM_URL}
+              </Text>              
+            </Pressable>
+            <Text style={[styles.cardTitle, { color: sectionColor }, {marginTop: odeSpacing.md}]}>
+              Implementation assistance
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              If you are looking for professional assistance with implementing a project using ODE, you are more than
+              welcome to reach out to the team behind ODE on our forum or via email.
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(EMAIL_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open email to opendataensemble.org">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                {EMAIL_URL}
+              </Text>              
+            </Pressable>
           </View>
 
           <View style={cardStyle}>
