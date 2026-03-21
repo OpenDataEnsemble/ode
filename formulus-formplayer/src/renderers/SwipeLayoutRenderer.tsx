@@ -460,8 +460,13 @@ const SwipeLayoutRenderer = ({
     () => ({
       formInitData: parentFormContext.formInitData,
       keyboardEnterKeyHint,
+      draftSessionKey: parentFormContext.draftSessionKey ?? null,
     }),
-    [parentFormContext.formInitData, keyboardEnterKeyHint],
+    [
+      parentFormContext.formInitData,
+      parentFormContext.draftSessionKey,
+      keyboardEnterKeyHint,
+    ],
   );
 
   const handleSnackbarClose = useCallback(
@@ -686,7 +691,7 @@ const SwipeLayoutRenderer = ({
 
 const SwipeLayoutWrapper = (props: ControlProps) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const { formInitData } = useFormContext();
+  const { formInitData, draftSessionKey } = useFormContext();
   const { data } = props;
 
   // Save partial data whenever the page changes or data changes
@@ -695,11 +700,16 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       // Save the current form data before changing the page
       if (data && formInitData) {
         console.log('Saving draft data on page change:', data);
-        draftService.saveDraft(formInitData.formType, data, formInitData);
+        draftService.saveDraft(
+          formInitData.formType,
+          data,
+          formInitData,
+          draftSessionKey,
+        );
       }
       setCurrentPage(page);
     },
-    [data, formInitData],
+    [data, formInitData, draftSessionKey],
   );
 
   useEffect(() => {
@@ -707,7 +717,12 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       // Save the current form data before navigating to a specific page
       if (data && formInitData) {
         console.log('Saving draft data before navigation event:', data);
-        draftService.saveDraft(formInitData.formType, data, formInitData);
+        draftService.saveDraft(
+          formInitData.formType,
+          data,
+          formInitData,
+          draftSessionKey,
+        );
       }
       setCurrentPage(event.detail.page);
     };
@@ -723,7 +738,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
         handleNavigateToPage as EventListener,
       );
     };
-  }, [data, formInitData]);
+  }, [data, formInitData, draftSessionKey]);
 
   // Also save data when it changes (even without page change)
   useEffect(() => {
@@ -732,13 +747,18 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       const debounceTimer = setTimeout(() => {
         if (formInitData) {
           console.log('Saving draft data on data change:', data);
-          draftService.saveDraft(formInitData.formType, data, formInitData);
+          draftService.saveDraft(
+            formInitData.formType,
+            data,
+            formInitData,
+            draftSessionKey,
+          );
         }
       }, 1000); // 1 second debounce
 
       return () => clearTimeout(debounceTimer);
     }
-  }, [data, formInitData]);
+  }, [data, formInitData, draftSessionKey]);
 
   return (
     <SwipeLayoutRenderer
