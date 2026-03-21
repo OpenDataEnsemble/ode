@@ -30,6 +30,11 @@ export interface LocalRepoInterface {
   getObservationsByFormType(formType: string): Promise<Observation[]>;
 
   /**
+   * Get every observation row in local storage (including soft-deleted).
+   */
+  getAllObservations(): Promise<Observation[]>;
+
+  /**
    * Update an existing observation
    * @param input The observation ID and new data
    * @returns Promise resolving to a boolean indicating success

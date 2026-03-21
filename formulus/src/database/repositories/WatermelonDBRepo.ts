@@ -238,6 +238,22 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   }
 
   /**
+   * All local observation rows (including soft-deleted), for backup/export.
+   */
+  async getAllObservations(): Promise<Observation[]> {
+    try {
+      const rows = await this.observationsCollection.query().fetch();
+      return rows.map(row => this.mapObservationModelToInterface(row));
+    } catch (error) {
+      console.error(
+        'Error getting all observations:',
+        error instanceof Error ? error.message : String(error),
+      );
+      return [];
+    }
+  }
+
+  /**
    * Update an existing observation
    * @param input The observation ID and new data
    * @returns Promise resolving to a boolean indicating success
