@@ -54,6 +54,7 @@ jobs:
               - 'formulus-formplayer/**'
             synkronus:
               - 'synkronus/**'
+              - 'Dockerfile'
             synkronus-cli:
               - 'synkronus-cli/**'
 

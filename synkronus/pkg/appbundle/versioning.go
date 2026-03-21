@@ -475,21 +475,24 @@ func (s *Service) CompareAppInfos(ctx context.Context, versionA, versionB string
 
 // cleanupOldVersions removes old versions to keep only the maximum number of versions
 func (s *Service) cleanupOldVersions() error {
-	// Get all versions
+	current, err := s.getCurrentVersion()
+	if err != nil {
+		return fmt.Errorf("get current version: %w", err)
+	}
 	versions, err := s.GetVersions(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to get versions: %w", err)
 	}
 
-	// If we have fewer versions than the maximum, do nothing
 	if len(versions) <= s.maxVersions {
 		return nil
 	}
 
-	// Remove the oldest versions
 	for i := s.maxVersions; i < len(versions); i++ {
-		// Remove asterisk from the version if present
 		version := strings.TrimSuffix(versions[i], " *")
+		if current != "" && version == current {
+			continue
+		}
 		versionPath := filepath.Join(s.versionsPath, version)
 		s.log.Info("Removing old app bundle version", "version", version)
 		if err := os.RemoveAll(versionPath); err != nil {
