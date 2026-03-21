@@ -261,9 +261,7 @@ const SyncScreen = () => {
       try {
         const { synkronusApi } = await import('../api/synkronus/index');
         const manifest = await synkronusApi.getManifest();
-        setServerBundleVersion(
-          normalizeAppBundleVersion(manifest.version),
-        );
+        setServerBundleVersion(normalizeAppBundleVersion(manifest.version));
       } catch {
         setServerBundleVersion(currentVersion);
       }
