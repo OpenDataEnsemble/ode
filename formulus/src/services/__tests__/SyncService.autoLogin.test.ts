@@ -290,7 +290,7 @@ describe('SyncService - Auto-Login Integration', () => {
         username: 'testuser',
         role: 'read-write' as const,
       };
-      const mockManifest = { version: '1.0.0', files: [] };
+      const mockManifest = { version: '1', files: [] };
 
       (synkronusApi.getManifest as jest.Mock)
         .mockRejectedValueOnce({

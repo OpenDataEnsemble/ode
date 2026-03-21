@@ -34,7 +34,10 @@ import {
   odeRadius,
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
-import { normalizeAppBundleVersion } from '../utils/appBundleVersion';
+import {
+  isNumericAppBundleVersionString,
+  normalizeAppBundleVersion,
+} from '../utils/appBundleVersion';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
@@ -64,7 +67,7 @@ const SyncScreen = () => {
     sizeMB: number;
   }>({ count: 0, sizeMB: 0 });
   const [pendingObservations, setPendingObservations] = useState<number>(0);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isReadOnly, setIsReadOnly] = useState<boolean>(false);
   const [appBundleVersion, setAppBundleVersion] = useState<string>('0');
   const [serverBundleVersion, setServerBundleVersion] =
     useState<string>('Unknown');
@@ -123,6 +126,15 @@ const SyncScreen = () => {
       console.warn('Failed to update pending observations:', e);
     }
   }, [updatePendingUploads, updatePendingObservations]);
+
+  const refreshUserRole = useCallback(async () => {
+    try {
+      const userInfo = await getUserInfo();
+      setIsReadOnly(userInfo?.role === 'read-only');
+    } catch {
+      setIsReadOnly(false);
+    }
+  }, []);
 
   const handleSync = useCallback(async () => {
     if (syncState.isActive) return;
@@ -213,14 +225,6 @@ const SyncScreen = () => {
       return;
     }
 
-    if (!updateAvailable && !isAdmin) {
-      Alert.alert(
-        'Permission Denied',
-        'Admin privileges required to force update app bundle',
-      );
-      return;
-    }
-
     const hasPendingData = pendingObservations > 0 || pendingUploads.count > 0;
 
     if (hasPendingData) {
@@ -242,8 +246,6 @@ const SyncScreen = () => {
     await performAppBundleUpdate();
   }, [
     syncState.isActive,
-    updateAvailable,
-    isAdmin,
     pendingObservations,
     pendingUploads.count,
     performAppBundleUpdate,
@@ -252,27 +254,32 @@ const SyncScreen = () => {
 
   const checkForUpdates = useCallback(async () => {
     try {
-      const hasUpdate = await syncService.checkForUpdates();
-      setUpdateAvailable(hasUpdate);
-      const currentVersion = normalizeAppBundleVersion(
-        await AsyncStorage.getItem('@appVersion'),
-      );
-      setAppBundleVersion(currentVersion);
-      try {
-        const { synkronusApi } = await import('../api/synkronus/index');
-        const manifest = await synkronusApi.getManifest();
-        setServerBundleVersion(normalizeAppBundleVersion(manifest.version));
-      } catch {
-        setServerBundleVersion(currentVersion);
+      const status = await syncService.getAppBundleStatus();
+      if (status) {
+        setAppBundleVersion(status.localVersion);
+        setServerBundleVersion(status.serverVersion);
+        setUpdateAvailable(status.updateAvailable);
+      } else {
+        const localNorm = normalizeAppBundleVersion(
+          await AsyncStorage.getItem('@appVersion'),
+        );
+        setAppBundleVersion(
+          isNumericAppBundleVersionString(localNorm) ? localNorm : 'Unknown',
+        );
+        setServerBundleVersion('Unknown');
+        setUpdateAvailable(false);
       }
     } catch (error) {
       console.warn('Update check failed:', error);
     }
   }, []);
 
-  const getStatusText = (): string => {
-    if (syncState.isActive) {
-      if (activeOperation === 'update') return 'Updating app...';
+  const isObservationSyncActive =
+    syncState.isActive &&
+    (activeOperation === 'sync' || activeOperation === 'sync_then_update');
+
+  const getObservationStatusText = (): string => {
+    if (isObservationSyncActive) {
       if (activeOperation === 'sync_then_update')
         return 'Syncing & updating...';
       return 'Syncing...';
@@ -280,11 +287,11 @@ const SyncScreen = () => {
     if (syncState.error) return 'Error';
     if (pendingObservations > 0 || pendingUploads.count > 0)
       return 'Pending sync';
-    return 'All synced';
+    return 'No pending local changes';
   };
 
-  const status = getStatusText();
-  const statusColor = syncState.isActive
+  const observationStatus = getObservationStatusText();
+  const observationStatusColor = isObservationSyncActive
     ? themeColors.primary
     : syncState.error
       ? colors.semantic.error[500]
@@ -299,8 +306,7 @@ const SyncScreen = () => {
 
     const initialize = async () => {
       await syncService.initialize();
-      const userInfo = await getUserInfo();
-      setIsAdmin(userInfo?.role === 'admin');
+      await refreshUserRole();
       const lastSyncTime = await AsyncStorage.getItem('@lastSync');
       if (lastSyncTime) {
         setLastSync(lastSyncTime);
@@ -315,15 +321,26 @@ const SyncScreen = () => {
       unsubscribeStatus();
       unsubscribeProgress();
     };
-  }, [updatePendingUploads, updatePendingObservations, updateProgress]);
+  }, [
+    updatePendingUploads,
+    updatePendingObservations,
+    updateProgress,
+    refreshUserRole,
+  ]);
 
   // Refresh pending count and bundle status whenever the Sync screen gains focus
   useFocusEffect(
     useCallback(() => {
       updatePendingUploads();
       updatePendingObservations();
+      refreshUserRole();
       checkForUpdates();
-    }, [updatePendingUploads, updatePendingObservations, checkForUpdates]),
+    }, [
+      updatePendingUploads,
+      updatePendingObservations,
+      refreshUserRole,
+      checkForUpdates,
+    ]),
   );
 
   useEffect(() => {
@@ -383,6 +400,88 @@ const SyncScreen = () => {
   const isUpdateButtonActive =
     activeOperation === 'update' || activeOperation === 'sync_then_update';
 
+  const hasPendingLocalObservationChanges =
+    pendingObservations > 0 || pendingUploads.count > 0;
+  const syncObservationsButtonLabel = syncState.isActive
+    ? 'Syncing...'
+    : hasPendingLocalObservationChanges
+      ? 'Sync observations (pull+push)'
+      : 'Sync observations (pull)';
+
+  const showObservationProgress =
+    syncState.isActive && syncState.progress && activeOperation !== 'update';
+
+  const showBundleProgress =
+    syncState.isActive && syncState.progress && activeOperation === 'update';
+
+  const progressCard =
+    syncState.isActive && syncState.progress ? (
+      <View
+        style={[
+          styles.card,
+          styles.progressCard,
+          {
+            borderColor: themeColors.divider as string,
+            backgroundColor: cardBg,
+          },
+        ]}>
+        <View style={styles.progressHeader}>
+          <Icon name="sync" size={20} color={themeColors.primary as string} />
+          <Text
+            style={[
+              styles.progressTitle,
+              { color: themeColors.onSurface as string },
+            ]}>
+            {getProgressTitle()}
+          </Text>
+        </View>
+        <View
+          style={[
+            styles.progressBar,
+            {
+              backgroundColor: isDark
+                ? (colors.neutral[700] as string)
+                : (colors.neutral[200] as string),
+            },
+          ]}>
+          <Animated.View
+            style={[
+              styles.progressFill,
+              {
+                backgroundColor: themeColors.primary as string,
+                width: animatedProgress.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['0%', '100%'],
+                }),
+              },
+            ]}
+          />
+        </View>
+        <Text
+          style={[
+            styles.progressText,
+            {
+              color: isDark
+                ? (themeColors.onSurface as string)
+                : (colors.neutral[700] as string),
+            },
+          ]}>
+          {Math.round(
+            (syncState.progress.current / syncState.progress.total) * 100,
+          )}
+          %
+        </Text>
+        {syncState.canCancel && (
+          <Button
+            title="Cancel"
+            onPress={cancelSync}
+            variant="danger"
+            size="medium"
+          />
+        )}
+      </View>
+    ) : null;
+
   return (
     <BlurredScreenBackground>
       <SafeAreaView
@@ -405,6 +504,14 @@ const SyncScreen = () => {
           style={styles.scrollTransparent}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
+          <Text
+            style={[
+              styles.sectionTitle,
+              styles.dataSectionHeading,
+              { color: themeColors.onSurface as string },
+            ]}>
+            Observations and attachments
+          </Text>
           <View style={styles.statusCardsContainer}>
             <TouchableOpacity
               style={[
@@ -438,7 +545,7 @@ const SyncScreen = () => {
               <View style={styles.statusCardHeader}>
                 <Icon
                   name={
-                    syncState.isActive
+                    isObservationSyncActive
                       ? 'sync'
                       : syncState.error
                         ? 'alert-circle'
@@ -447,22 +554,22 @@ const SyncScreen = () => {
                           : 'check-circle'
                   }
                   size={20}
-                  color={statusColor as string}
+                  color={observationStatusColor as string}
                 />
                 <Text
                   style={[
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Status
+                  Observation status
                 </Text>
               </View>
               <Text
                 style={[
                   styles.statusCardValue,
-                  { color: statusColor as string },
+                  { color: observationStatusColor as string },
                 ]}>
-                {status}
+                {observationStatus}
               </Text>
               {!syncState.isActive &&
                 !syncState.error &&
@@ -497,7 +604,7 @@ const SyncScreen = () => {
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Last Sync
+                  Last observation sync
                 </Text>
               </View>
               <Text
@@ -525,8 +632,19 @@ const SyncScreen = () => {
                   styles.sectionTitle,
                   { color: themeColors.onSurface as string },
                 ]}>
-                Pending Items
+                Pending items
               </Text>
+              {isReadOnly &&
+                (pendingObservations > 0 || pendingUploads.count > 0) && (
+                  <Text
+                    style={[
+                      styles.readOnlyHint,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    Read-only accounts cannot upload changes. Sync still
+                    downloads updates from the server.
+                  </Text>
+                )}
               {pendingObservations > 0 && (
                 <View style={styles.pendingItem}>
                   <Icon
@@ -583,6 +701,85 @@ const SyncScreen = () => {
             </View>
           )}
 
+          {syncState.error && (
+            <View
+              style={[
+                styles.card,
+                styles.errorCard,
+                {
+                  borderColor: themeColors.divider as string,
+                  backgroundColor: cardBg,
+                },
+              ]}>
+              <View style={styles.errorHeader}>
+                <Icon
+                  name="alert-circle"
+                  size={20}
+                  color={colors.semantic.error.ios as string}
+                />
+                <Text style={styles.errorTitle}>Error</Text>
+              </View>
+              <Text
+                style={[
+                  styles.errorText,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                {syncState.error}
+              </Text>
+              <Button
+                title="Dismiss"
+                onPress={clearError}
+                variant="danger"
+                size="medium"
+              />
+            </View>
+          )}
+
+          {showObservationProgress && progressCard}
+
+          <View style={styles.actionsSection}>
+            <Button
+              title={syncObservationsButtonLabel}
+              onPress={handleSync}
+              disabled={syncState.isActive}>
+              {isSyncButtonActive ? (
+                <ActivityIndicator
+                  size="small"
+                  color={themeColors.onPrimary as string}
+                />
+              ) : (
+                <Icon
+                  name="sync"
+                  size={20}
+                  color={themeColors.onPrimary as string}
+                />
+              )}
+              <Text
+                style={[
+                  styles.actionButtonText,
+                  { color: themeColors.onPrimary as string },
+                ]}>
+                {syncObservationsButtonLabel}
+              </Text>
+            </Button>
+          </View>
+
+          <View
+            style={[
+              styles.sectionDivider,
+              { borderTopColor: themeColors.divider as string },
+            ]}
+          />
+
+          <Text
+            style={[
+              styles.sectionTitle,
+              styles.appBundleSectionHeading,
+              { color: themeColors.onSurface as string },
+            ]}>
+            App bundle
+          </Text>
+
           <View
             style={[
               styles.card,
@@ -593,14 +790,14 @@ const SyncScreen = () => {
                 backgroundColor: cardBg,
               },
             ]}>
+            <Text
+              style={[
+                styles.versionSectionSubtitle,
+                { color: themeColors.onSurface as string },
+              ]}>
+              Form definitions and custom app assets from the server
+            </Text>
             <View style={styles.versionRow}>
-              <Text
-                style={[
-                  styles.versionLabel,
-                  { color: themeColors.onSurface as string },
-                ]}>
-                App Bundle
-              </Text>
               <View style={styles.versionValues}>
                 <View style={styles.versionItem}>
                   <Text
@@ -658,141 +855,13 @@ const SyncScreen = () => {
             )}
           </View>
 
-          {syncState.isActive && syncState.progress && (
-            <View
-              style={[
-                styles.card,
-                styles.progressCard,
-                {
-                  borderColor: themeColors.divider as string,
-                  backgroundColor: cardBg,
-                },
-              ]}>
-              <View style={styles.progressHeader}>
-                <Icon
-                  name="sync"
-                  size={20}
-                  color={themeColors.primary as string}
-                />
-                <Text
-                  style={[
-                    styles.progressTitle,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  {getProgressTitle()}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.progressBar,
-                  {
-                    backgroundColor: isDark
-                      ? (colors.neutral[700] as string)
-                      : (colors.neutral[200] as string),
-                  },
-                ]}>
-                <Animated.View
-                  style={[
-                    styles.progressFill,
-                    {
-                      backgroundColor: themeColors.primary as string,
-                      width: animatedProgress.interpolate({
-                        inputRange: [0, 100],
-                        outputRange: ['0%', '100%'],
-                      }),
-                    },
-                  ]}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.progressText,
-                  {
-                    color: isDark
-                      ? (themeColors.onSurface as string)
-                      : (colors.neutral[700] as string),
-                  },
-                ]}>
-                {Math.round(
-                  (syncState.progress.current / syncState.progress.total) * 100,
-                )}
-                %
-              </Text>
-              {syncState.canCancel && (
-                <Button
-                  title="Cancel"
-                  onPress={cancelSync}
-                  variant="danger"
-                  size="medium"
-                />
-              )}
-            </View>
-          )}
-
-          {syncState.error && (
-            <View
-              style={[
-                styles.card,
-                styles.errorCard,
-                {
-                  borderColor: themeColors.divider as string,
-                  backgroundColor: cardBg,
-                },
-              ]}>
-              <View style={styles.errorHeader}>
-                <Icon
-                  name="alert-circle"
-                  size={20}
-                  color={colors.semantic.error.ios as string}
-                />
-                <Text style={styles.errorTitle}>Error</Text>
-              </View>
-              <Text
-                style={[
-                  styles.errorText,
-                  { color: themeColors.onSurface as string },
-                ]}>
-                {syncState.error}
-              </Text>
-              <Button
-                title="Dismiss"
-                onPress={clearError}
-                variant="danger"
-                size="medium"
-              />
-            </View>
-          )}
+          {showBundleProgress && progressCard}
 
           <View style={styles.actionsSection}>
             <Button
-              title={syncState.isActive ? 'Syncing...' : 'Sync Data'}
-              onPress={handleSync}
-              disabled={syncState.isActive}>
-              {isSyncButtonActive ? (
-                <ActivityIndicator
-                  size="small"
-                  color={themeColors.onPrimary as string}
-                />
-              ) : (
-                <Icon
-                  name="sync"
-                  size={20}
-                  color={themeColors.onPrimary as string}
-                />
-              )}
-              <Text
-                style={[
-                  styles.actionButtonText,
-                  { color: themeColors.onPrimary as string },
-                ]}>
-                {isSyncButtonActive ? 'Syncing...' : 'Sync Data'}
-              </Text>
-            </Button>
-
-            <Button
               title={syncState.isActive ? 'Updating...' : 'Update App Bundle'}
               onPress={handleCustomAppUpdate}
-              disabled={syncState.isActive || (!updateAvailable && !isAdmin)}>
+              disabled={syncState.isActive || !updateAvailable}>
               {isUpdateButtonActive ? (
                 <ActivityIndicator size="small" color={themeColors.primary} />
               ) : (
@@ -818,13 +887,17 @@ const SyncScreen = () => {
               </Text>
             )}
 
-            {!syncState.isActive && !updateAvailable && !isAdmin && (
+            {!syncState.isActive && !updateAvailable && (
               <Text
                 style={[
                   styles.hintText,
                   { color: themeColors.onSurface as string },
                 ]}>
-                No updates available
+                {serverBundleVersion === 'Unknown'
+                  ? 'Could not load server bundle version.'
+                  : appBundleVersion === 'Unknown'
+                    ? 'Could not read local bundle version.'
+                    : 'App bundle is up to date'}
               </Text>
             )}
           </View>
@@ -905,10 +978,25 @@ const styles = StyleSheet.create({
   pendingSection: {
     marginBottom: odeSpacing.md,
   },
+  readOnlyHint: {
+    fontSize: odeTypography.caption,
+    marginBottom: odeSpacing.sm,
+    lineHeight: 18,
+  },
   sectionTitle: {
     fontSize: odeTypography.sectionTitle,
     fontWeight: '600',
     marginBottom: odeSpacing.sm,
+  },
+  dataSectionHeading: {
+    marginBottom: odeSpacing.sm,
+  },
+  appBundleSectionHeading: {
+    marginBottom: odeSpacing.sm,
+  },
+  sectionDivider: {
+    borderTopWidth: odeBorderWidth.hairline,
+    marginVertical: odeSpacing.md,
   },
   pendingItem: {
     flexDirection: 'row',
@@ -930,14 +1018,15 @@ const styles = StyleSheet.create({
   versionCard: {
     marginBottom: odeSpacing.md,
   },
+  versionSectionSubtitle: {
+    fontSize: odeTypography.caption,
+    marginBottom: odeSpacing.sm,
+    opacity: 0.85,
+  },
   versionRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  versionLabel: {
-    fontSize: odeTypography.bodySm,
-    fontWeight: '500',
   },
   versionValues: {
     flexDirection: 'row',
