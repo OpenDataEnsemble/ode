@@ -228,7 +228,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
           px: fullScreen ? 2 : 0,
           py: fullScreen ? 2.5 : 2,
         }}>
-        <Box sx={{ width: '100%', maxWidth: 420 }}>
+        <Box sx={{ width: '100%', boxSizing: 'border-box' }}>
           {/* Start new form section – concise, left-aligned label with centered CTA */}
           <Box sx={{ mb: 2 }}>
             <Typography
