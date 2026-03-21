@@ -95,15 +95,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   showNavigation = true,
   keyboardSubmitAction,
 }) => {
-  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
-  const [initialViewportHeight] = useState<number>(() => {
-    if (typeof window === 'undefined') return 0;
-    if (window.visualViewport) {
-      return window.visualViewport.height;
-    }
-    return window.innerHeight;
-  });
-
+  const [keyboardInset, setKeyboardInset] = useState(0);
   useEffect(() => {
     if (typeof window !== 'undefined' && window.visualViewport) {
       const viewport = window.visualViewport;
@@ -111,9 +103,13 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       const handleViewportChange = () => {
         if (!viewport) return;
 
-        const heightDifference = initialViewportHeight - viewport.height;
-        const keyboardThreshold = initialViewportHeight * 0.15; // 15% of screen
-        setIsKeyboardVisible(heightDifference > keyboardThreshold);
+        // Keep the fixed footer anchored to the visual viewport bottom
+        // so it stays just above on-screen keyboards of varying heights.
+        const inset = Math.max(
+          0,
+          window.innerHeight - (viewport.height + viewport.offsetTop),
+        );
+        setKeyboardInset(inset);
       };
 
       viewport.addEventListener('resize', handleViewportChange);
@@ -129,7 +125,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       const initialHeight = window.innerHeight;
       const handleResize = () => {
         const currentHeight = window.innerHeight;
-        setIsKeyboardVisible(currentHeight < initialHeight * 0.85);
+        setKeyboardInset(Math.max(0, initialHeight - currentHeight));
       };
 
       window.addEventListener('resize', handleResize);
@@ -139,8 +135,6 @@ const FormLayout: React.FC<FormLayoutProps> = ({
         window.removeEventListener('resize', handleResize);
       };
     }
-    // initialViewportHeight is intentionally read only on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFormSubmit = useCallback(
@@ -160,11 +154,11 @@ const FormLayout: React.FC<FormLayoutProps> = ({
         overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
         paddingBottom:
-          showNavigation && (previousButton || nextButton) && !isKeyboardVisible
+          showNavigation && (previousButton || nextButton)
             ? {
-                xs: `calc(${theme.spacing(11)} + env(safe-area-inset-bottom, 0px))`,
-                sm: `calc(${theme.spacing(12)} + env(safe-area-inset-bottom, 0px))`,
-                md: `calc(${theme.spacing(13)} + env(safe-area-inset-bottom, 0px))`,
+                xs: `calc(${theme.spacing(11)} + env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
+                sm: `calc(${theme.spacing(12)} + env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
+                md: `calc(${theme.spacing(13)} + env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
               }
             : theme.spacing(4),
         overscrollBehavior: 'contain',
@@ -175,12 +169,12 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   );
 
   const navigationBar =
-    showNavigation && (previousButton || nextButton) && !isKeyboardVisible ? (
+    showNavigation && (previousButton || nextButton) ? (
       <Paper
         elevation={0}
         sx={theme => ({
           position: 'fixed',
-          bottom: 0,
+          bottom: `${keyboardInset}px`,
           left: 0,
           right: 0,
           zIndex: theme.zIndex.appBar,
@@ -199,7 +193,8 @@ const FormLayout: React.FC<FormLayoutProps> = ({
           borderTop: 'none',
           borderColor: 'transparent',
           boxShadow: 'none',
-          transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out',
+          transition:
+            'bottom 0.2s ease-in-out, opacity 0.2s ease-in-out, transform 0.2s ease-in-out',
           boxSizing: 'border-box',
         })}>
         <Stack
