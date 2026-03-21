@@ -512,7 +512,7 @@ const SettingsScreen = () => {
                   styles.appSettingsLabel,
                   { color: themeColors.onSurface },
                 ]}>
-                Themes:
+                Theme:
               </Text>
             </View>
 
