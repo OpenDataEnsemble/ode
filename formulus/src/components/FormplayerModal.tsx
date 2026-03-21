@@ -18,7 +18,7 @@ import {
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
-import BlurredScreenBackground from './BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import Icon from '@react-native-vector-icons/material-icons';
 import {
   resolveFormOperation,
@@ -73,6 +73,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Theme colors & resolved mode from AppThemeContext.
     const { themeColors, resolvedMode } = useAppTheme();
+    const shellStyle = useScreenShellStyle();
 
     // Internal state to track current form and observation data
     const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -612,7 +613,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <BlurredScreenBackground>
+        <View style={shellStyle}>
           <View
             style={[
               styles.container,
@@ -679,7 +680,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               </View>
             )}
           </View>
-        </BlurredScreenBackground>
+        </View>
       </Modal>
     );
   },

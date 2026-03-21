@@ -194,12 +194,5 @@ task copyWebviewAssets(type: Copy) {
     include '**/*.jsx'
     include '**/*.html'
 }
-task copyPlaceholderImages(type: Copy) {
-    from "${rootDir}/../assets/images"
-    into "${projectDir}/src/main/assets/images"
-    include 'welcome-bg-light.png'
-    include 'welcome-bg-dark.png'
-}
 copyWebviewAssets.dependsOn(generatePlaceholderTokens)
 preBuild.dependsOn(copyWebviewAssets)
-preBuild.dependsOn(copyPlaceholderImages)

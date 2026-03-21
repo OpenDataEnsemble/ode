@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { appVersionService } from '../services/AppVersionService';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeTypography,
@@ -32,6 +32,7 @@ const THIRD_PARTY_NOTICES_URL =
 
 const AboutScreen: React.FC = () => {
   const { themeColors, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
   const sectionColor = isDark
     ? (colors.neutral[200] as string)
@@ -59,7 +60,7 @@ const AboutScreen: React.FC = () => {
   }, []);
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         edges={['top']}>
@@ -197,7 +198,7 @@ const AboutScreen: React.FC = () => {
           )}
         </ScrollView>
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 

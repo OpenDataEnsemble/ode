@@ -12,10 +12,10 @@ import RNFS from 'react-native-fs';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import { colors } from '../theme/colors';
 import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -26,6 +26,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   const [isPlaceholder, setIsPlaceholder] = useState(false);
   const customAppRef = useRef<CustomAppWebViewHandle>(null);
   const { reloadTheme, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const { showConfirm } = useConfirmModal();
 
   useFocusEffect(
@@ -192,7 +193,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {isPlaceholder ? (
-        <BlurredScreenBackground>{content}</BlurredScreenBackground>
+        <View style={shellStyle}>{content}</View>
       ) : (
         content
       )}

@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeTypography,
@@ -33,6 +33,7 @@ const HelpScreen: React.FC = () => {
   const [exportingAttachments, setExportingAttachments] = useState(false);
   const [exportingObservations, setExportingObservations] = useState(false);
   const { themeColors, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
   const sectionColor = isDark
     ? (colors.neutral[200] as string)
@@ -76,7 +77,7 @@ const HelpScreen: React.FC = () => {
   };
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         edges={['top']}>
@@ -277,7 +278,7 @@ const HelpScreen: React.FC = () => {
           </View>
         </ScrollView>
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 

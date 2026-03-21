@@ -21,7 +21,7 @@ import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeRadius,
@@ -43,6 +43,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const { observationId } = route.params;
   const navigation = useNavigation();
   const { themeColors } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const { showConfirm } = useConfirmModal();
   const [observation, setObservation] = useState<Observation | null>(null);
   const [formName, setFormName] = useState<string>('');
@@ -227,7 +228,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
 
   if (loading) {
     return (
-      <BlurredScreenBackground>
+      <View style={shellStyle}>
         <SafeAreaView
           style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.loadingContainer}>
@@ -238,20 +239,20 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
             </Text>
           </View>
         </SafeAreaView>
-      </BlurredScreenBackground>
+      </View>
     );
   }
 
   if (!observation) {
     return (
-      <BlurredScreenBackground>
+      <View style={shellStyle}>
         <SafeAreaView
           style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Observation not found</Text>
           </View>
         </SafeAreaView>
-      </BlurredScreenBackground>
+      </View>
     );
   }
 
@@ -272,7 +273,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const onSurface = { color: themeColors.onSurface as string };
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}>
         <ScrollView
@@ -413,7 +414,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
           </View>
         </ScrollView>
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 

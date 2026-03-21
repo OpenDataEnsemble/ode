@@ -51,7 +51,7 @@ import {
   loadSettingsHydrationFromStorage,
 } from '../services/SettingsHydrationCache';
 import { Button } from '../components/common';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import Logo from '../../assets/images/logo.png';
 import { Moon, Monitor, Sun } from 'lucide-react-native';
 
@@ -66,6 +66,7 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 const SettingsScreen = () => {
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const { showConfirm } = useConfirmModal();
   const isDark = resolvedMode === 'dark';
   const sectionHeaderColor = isDark
@@ -401,7 +402,7 @@ const SettingsScreen = () => {
   }, [serverUrl, username, password, isHydrating, isLoggingIn]);
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         edges={['top']}>
@@ -582,7 +583,7 @@ const SettingsScreen = () => {
           onResult={handleQRResult}
         />
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 
