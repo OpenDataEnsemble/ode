@@ -148,11 +148,6 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		// Also register under /api for portal compatibility
 		r.Route("/api/app-bundle", appBundleRoutes)
 
-		// Form specifications routes
-		r.Route("/formspecs", func(r chi.Router) {
-			r.Get("/{schemaType}/{schemaVersion}", nil) // Not implemented yet
-		})
-
 		// User management routes
 		userRoutes := func(r chi.Router) {
 			// Admin-only routes
