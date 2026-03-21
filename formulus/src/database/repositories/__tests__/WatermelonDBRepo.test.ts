@@ -575,5 +575,81 @@ describe('WatermelonDBRepo', () => {
 
     const apiPayload = ObservationMapper.toApi(domain);
     expect(apiPayload.observation_id).toBe(serverObservationId);
+
+    expect(domain.author).toBe('alice');
+    expect(domain.deviceId).toBe('device-a');
+    expect(viaLookup!.author).toBe('alice');
+    expect(viaLookup!.deviceId).toBe('device-a');
+    expect(apiPayload.author).toBe('alice');
+    expect(apiPayload.device_id).toBe('device-a');
+  });
+
+  /**
+   * Regression: author and device_id must round-trip the same whether the row was
+   * created locally (saveObservation) or ingested from Synkronus (applyServerChanges).
+   * Mismatches here used to correlate with duplicate/strange sync behaviour when
+   * identity fields differed between code paths.
+   */
+  test('author and deviceId match between saveObservation and applyServerChanges', async () => {
+    const author = 'parity-author';
+    const deviceId = 'parity-device-001';
+
+    const localId = await repo.saveObservation({
+      formType: 'register_coffee',
+      data: { source: 'local' },
+      author,
+      deviceId,
+    });
+
+    const serverObservationId = 'obs_pulled_from_sync_2002';
+    const serverObservation: Observation = {
+      observationId: serverObservationId,
+      formType: 'register_coffee',
+      formVersion: '1.0',
+      createdAt: new Date('2025-01-02T10:00:00.000Z'),
+      updatedAt: new Date('2025-01-02T11:00:00.000Z'),
+      syncedAt: null,
+      deleted: false,
+      data: { source: 'server' },
+      geolocation: null,
+      author,
+      deviceId,
+    };
+
+    await repo.applyServerChanges([serverObservation]);
+
+    const local = await repo.getObservation(localId);
+    const synced = await repo.getObservation(serverObservationId);
+    expect(local).not.toBeNull();
+    expect(synced).not.toBeNull();
+
+    expect(local!.author).toBe(author);
+    expect(local!.deviceId).toBe(deviceId);
+    expect(synced!.author).toBe(author);
+    expect(synced!.deviceId).toBe(deviceId);
+
+    const collection = database.get('observations');
+    const [localRow] = await collection
+      .query(Q.where('observation_id', localId))
+      .fetch();
+    const [syncedRow] = await collection
+      .query(Q.where('observation_id', serverObservationId))
+      .fetch();
+
+    const domainLocal = ObservationMapper.fromDBModel(
+      localRow as ObservationModel,
+    );
+    const domainSynced = ObservationMapper.fromDBModel(
+      syncedRow as ObservationModel,
+    );
+    expect(domainLocal.author).toBe(author);
+    expect(domainLocal.deviceId).toBe(deviceId);
+    expect(domainSynced.author).toBe(author);
+    expect(domainSynced.deviceId).toBe(deviceId);
+
+    expect(ObservationMapper.toApi(domainLocal).author).toBe(author);
+    expect(ObservationMapper.toApi(domainLocal).device_id).toBe(deviceId);
+    expect(ObservationMapper.toApi(domainSynced).author).toBe(author);
+    expect(ObservationMapper.toApi(domainSynced).device_id).toBe(deviceId);
   });
 });
