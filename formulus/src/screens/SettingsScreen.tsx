@@ -13,7 +13,7 @@ import {
   Image,
   ScrollView,
 } from 'react-native';
-import { Input as ODEInput } from '../components/common';
+import { Input as ODEInput, PasswordInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -476,13 +476,13 @@ const SettingsScreen = () => {
             autoCorrect={false}
           />
 
-          <ODEInput
+          <PasswordInput
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
+            showLabel={false}
           />
 
           <Button
