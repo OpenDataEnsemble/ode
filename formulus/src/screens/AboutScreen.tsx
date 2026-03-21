@@ -25,7 +25,7 @@ import logo from '../../assets/images/logo.png';
 const FORUM_URL = 'https://forum.opendataensemble.org';
 const WEBSITE_URL = 'https://opendataensemble.org';
 const GH_URL = 'https://github.com/OpenDataEnsemble';
-const EMAIL_URL = 'mailto:hello@opendataensemble.org';
+
 /** Repository notice; keep in sync with docs and release SBOMs. */
 const THIRD_PARTY_NOTICES_URL =
   'https://github.com/OpenDataEnsemble/ode/blob/main/THIRD_PARTY_NOTICES.md';
