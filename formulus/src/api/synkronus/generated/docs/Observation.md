@@ -13,6 +13,8 @@
 | **synced_at**      | **string**                                              |                                            | [optional] [default to undefined] |
 | **deleted**        | **boolean**                                             |                                            | [default to undefined]            |
 | **geolocation**    | [**ObservationGeolocation**](ObservationGeolocation.md) |                                            | [optional] [default to undefined] |
+| **author**         | **string**                                              | Author/creator of the observation          | [default to undefined]            |
+| **device_id**      | **string**                                              | Device ID that created the observation     | [default to undefined]            |
 
 ## Example
 
@@ -29,6 +31,8 @@ const instance: Observation = {
   synced_at,
   deleted,
   geolocation,
+  author,
+  device_id,
 };
 ```
 

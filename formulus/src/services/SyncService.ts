@@ -12,7 +12,11 @@ import {
   isVersionMismatchError,
   HttpError,
 } from '../api/synkronus/Auth';
-import { normalizeAppBundleVersion } from '../utils/appBundleVersion';
+import {
+  appBundleVersionsDifferNumerically,
+  isNumericAppBundleVersionString,
+  normalizeAppBundleVersion,
+} from '../utils/appBundleVersion';
 type SyncStatusCallback = (status: string) => void;
 type SyncProgressDetailCallback = (progress: SyncProgress) => void;
 
@@ -304,30 +308,63 @@ export class SyncService {
     }
   }
 
-  public async checkForUpdates(): Promise<boolean> {
+  /**
+   * Loads local and server app bundle versions in one manifest request.
+   */
+  public async getAppBundleStatus(): Promise<{
+    localVersion: string;
+    serverVersion: string;
+    updateAvailable: boolean;
+  } | null> {
     try {
       const manifest = await this.withAutoLoginRetry(
         () => synkronusApi.getManifest(),
         'check for updates',
       );
-      const currentVersion = normalizeAppBundleVersion(
+      console.log(
+        '[AppBundle] getManifest response (check for updates)',
+        manifest,
+      );
+
+      const serverVersion = normalizeAppBundleVersion(manifest.version);
+      if (!isNumericAppBundleVersionString(serverVersion)) {
+        console.warn(
+          '[AppBundle] manifest.version is not numeric; treating check as failed:',
+          manifest.version,
+        );
+        return null;
+      }
+
+      const localVersion = normalizeAppBundleVersion(
         await AsyncStorage.getItem('@appVersion'),
       );
-      const serverVersion = normalizeAppBundleVersion(manifest.version);
-      // Only report an update when the version actually differs.
-      // The "force" flag controls whether we *perform* a fresh network check,
-      // not whether we force the result to "update available".
-      const updateAvailable = serverVersion !== currentVersion;
+      if (!isNumericAppBundleVersionString(localVersion)) {
+        return {
+          localVersion: 'Unknown',
+          serverVersion,
+          updateAvailable: false,
+        };
+      }
+
+      const updateAvailable = appBundleVersionsDifferNumerically(
+        localVersion,
+        serverVersion,
+      );
 
       if (updateAvailable) {
         this.updateStatus(`${this.getStatus()} (Update available)`);
       }
 
-      return updateAvailable;
+      return { localVersion, serverVersion, updateAvailable };
     } catch (error) {
       console.warn('Failed to check for updates', error);
-      return false;
+      return null;
     }
+  }
+
+  public async checkForUpdates(): Promise<boolean> {
+    const status = await this.getAppBundleStatus();
+    return status?.updateAvailable ?? false;
   }
 
   public async updateAppBundle(): Promise<void> {

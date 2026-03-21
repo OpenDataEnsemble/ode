@@ -13,7 +13,7 @@ import {
   Image,
   ScrollView,
 } from 'react-native';
-import { Input as ODEInput } from '../components/common';
+import { Input as ODEInput, PasswordInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -432,17 +432,16 @@ const SettingsScreen = () => {
           contentContainerStyle={styles.cardContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          {/* Server Settings section */}
           <Text
             style={[
               styles.sectionHeader,
               styles.sectionHeaderFirst,
               { color: sectionHeaderColor },
             ]}>
-            Server Settings
+            App Settings
           </Text>
           <Text style={[styles.titleSmall, { color: themeColors.onSurface }]}>
-            Please enter the server you want to connect to.
+            Please enter the details for your synkronus server
           </Text>
 
           <View style={styles.inputContainer}>
@@ -476,13 +475,13 @@ const SettingsScreen = () => {
             autoCorrect={false}
           />
 
-          <ODEInput
+          <PasswordInput
             placeholder="Password"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
+            showLabel={false}
           />
 
           <Button
@@ -495,15 +494,14 @@ const SettingsScreen = () => {
             fullWidth
           />
 
-          {/* App Settings section (themes) */}
-          <Text
-            style={[
-              styles.sectionHeader,
-              styles.appSettingsSectionHeader,
-              { color: sectionHeaderColor },
-            ]}>
-            App Settings
-          </Text>
+          <View
+            style={{
+              height: odeBorderWidth.hairline,
+              backgroundColor: themeColors.divider as string,
+              marginVertical: odeSpacing.md,
+            }}
+          />
+
           <View style={styles.themesInlineRow}>
             <View style={styles.themesInlineLeft}>
               <Icon name="palette" size={22} color={themeColors.onSurface} />
@@ -512,7 +510,7 @@ const SettingsScreen = () => {
                   styles.appSettingsLabel,
                   { color: themeColors.onSurface },
                 ]}>
-                Themes:
+                Theme:
               </Text>
             </View>
 
