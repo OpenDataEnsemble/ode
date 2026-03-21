@@ -1,5 +1,10 @@
+import { Platform } from 'react-native';
 import RNFS from 'react-native-fs';
-import Share from 'react-native-share';
+import {
+  saveDocuments,
+  isErrorWithCode,
+  errorCodes,
+} from '@react-native-documents/picker';
 import { zip } from 'react-native-zip-archive';
 
 const ATTACHMENTS_DIR = `${RNFS.DocumentDirectoryPath}/attachments`;
@@ -17,14 +22,15 @@ async function directoryHasAnyFile(dirPath: string): Promise<boolean> {
   return false;
 }
 
-function fileUrlForShare(absolutePath: string): string {
-  const normalized = absolutePath.replace(/^file:\/\//, '');
-  return `file://${normalized}`;
+/** `file://` URI safe for native document save (spaces etc.). */
+function pathToFileUri(path: string): string {
+  return `file://${encodeURI(path)}`;
 }
 
 /**
  * Zips the device-local `attachments` tree (including `pending_upload` and
- * GUID-based filenames) and opens the system share sheet. Does not modify app data.
+ * GUID-based filenames) and opens the system Save-as dialog so the user can
+ * store the archive (e.g. Downloads). Does not modify app data.
  */
 export const attachmentExportService = {
   async exportDeviceLocalAttachmentsZip(): Promise<void> {
@@ -48,23 +54,28 @@ export const attachmentExportService = {
 
     await zip(ATTACHMENTS_DIR, zipPath);
 
-    const shareUrl = fileUrlForShare(zipPath);
+    const sourceUri = pathToFileUri(zipPath);
 
     try {
-      await Share.open({
-        title: 'Export attachments',
-        subject: zipName,
-        url: shareUrl,
-        type: 'application/zip',
-        filename: zipName,
-        failOnCancel: false,
+      const results = await saveDocuments({
+        sourceUris: [sourceUri],
+        mimeType: 'application/zip',
+        fileName: zipName,
+        ...(Platform.OS === 'ios' ? { copy: true as const } : {}),
       });
+      const first = results[0];
+      if (first?.error) {
+        throw new Error(first.error);
+      }
+    } catch (e) {
+      if (isErrorWithCode(e) && e.code === errorCodes.OPERATION_CANCELED) {
+        return;
+      }
+      throw e;
     } finally {
-      setTimeout(() => {
-        RNFS.unlink(zipPath).catch(() => {
-          /* best-effort cleanup of cache */
-        });
-      }, 8000);
+      await RNFS.unlink(zipPath).catch(() => {
+        /* temp zip cleanup */
+      });
     }
   },
 };

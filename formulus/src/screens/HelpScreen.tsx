@@ -192,14 +192,14 @@ const HelpScreen: React.FC = () => {
           <View style={[cardStyle, styles.exportSection]}>
             <Text style={[styles.exportHint, mutedOnSurface]}>
               Export on-device attachment files (same paths and filenames as in
-              app storage, including unique ids) into a zip you can save or
-              share. Does not change any data in the app.
+              app storage, including unique ids) into a zip, then choose where
+              to save it (e.g. Downloads). Does not change any data in the app.
             </Text>
             <Pressable
               onPress={onExportAttachments}
               disabled={exportingAttachments}
               accessibilityRole="button"
-              accessibilityLabel="Download device-local attachment data as zip"
+              accessibilityLabel="Save device-local attachment data as zip file"
               accessibilityState={{ disabled: exportingAttachments }}
               style={({ pressed }) => [
                 styles.exportButton,
