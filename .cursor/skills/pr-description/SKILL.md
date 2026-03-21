@@ -1,6 +1,10 @@
 ---
 name: pr-description
-description: Generates pull request description body in raw markdown using the ODE PR template. Use when the user asks for a PR description, "/pr description", or wants copyable markdown for a PR body. Output is always in a fenced code block so it can be copied as-is. The PR title is set in the host (GitHub/GitLab) UI, not in the body.
+description: >-
+  Generates pull request description body in raw markdown using the ODE PR
+  template. Use when the user asks for a PR description, types "/pr description"
+  or "pr description", or wants copyable markdown for a PR body. Output is
+  always in a fenced markdown code block for one-click copy.
 ---
 
 # PR Description Generator
@@ -8,6 +12,7 @@ description: Generates pull request description body in raw markdown using the O
 ## When to use
 
 Apply this skill when the user:
+
 - Says **"/pr description"** or **"pr description"**
 - Asks for **PR body**, **PR template**, or **copyable markdown for a PR**
 - Wants to **fill out the PR template** for their changes
@@ -16,11 +21,7 @@ Apply this skill when the user:
 
 1. **Infer scope** from the conversation or recent edits (e.g. which files changed, what type of change).
 2. **Generate the PR body** using the ODE template below. Fill in Description, Type of Change, Component(s) Affected, Related Issue(s), Testing, Breaking Changes, Documentation, and Checklist based on context. Use `[x]` for checked items and `[ ]` for unchecked.
-3. **Output only raw markdown** inside a single fenced code block so the user can copy it:
-
-   ```markdown
-   <!-- paste full PR body here - no extra line before the first ## -->
-   ```
+3. **Output only raw markdown** inside a single fenced code block (language `markdown`) so the user can copy it. The first line inside the fence should be `## Description` (or the first section heading)—no extra blank line before it.
 
 4. **Do not** put a "# Pull Request Title" or title line in the body. Remind the user in one short sentence: *The PR title is set when you create the PR (e.g. in GitHub/GitLab); use Conventional Commits, e.g. `feat(docs): add X`.*
 
