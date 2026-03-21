@@ -89,6 +89,7 @@ import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
 import { loadCustomValidators } from './services/CustomValidatorLoader';
 import { customValidatorRegistry } from './services/CustomValidatorRegistry';
 import { executeAllCustomValidators } from './services/CustomValidatorExecutor';
+import { newDraftSessionKey } from './utils/draftSessionKey';
 
 // Mock and DevTestbed are loaded only in development via dynamic import (see index.tsx).
 // This keeps ~2000+ lines of mock code out of production bundles.
@@ -224,11 +225,17 @@ interface FormContextType {
    * Set inside swipe layout; `undefined` elsewhere.
    */
   keyboardEnterKeyHint?: KeyboardPrimaryEnterKeyHint;
+  /**
+   * Formplayer-only: which local draft row to update for unsaved (new) observations.
+   * Not part of the native bridge.
+   */
+  draftSessionKey: string | null;
 }
 
 export const FormContext = createContext<FormContextType>({
   formInitData: null,
   keyboardEnterKeyHint: undefined,
+  draftSessionKey: null,
 });
 
 export const useFormContext = () => useContext(FormContext);
@@ -279,6 +286,8 @@ function App() {
   const [showFinalizeMessage, setShowFinalizeMessage] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
+  /** Local draft identity for new observations only (not sent over the native bridge). */
+  const [draftSessionKey, setDraftSessionKey] = useState<string | null>(null);
   const [showDraftSelector, setShowDraftSelector] = useState(false);
   const [pendingFormInit, setPendingFormInit] = useState<FormInitData | null>(
     null,
@@ -314,8 +323,20 @@ function App() {
 
   // Separate function to handle actual form initialization
   const initializeForm = useCallback(
-    async (initData: FormInitData) => {
+    async (
+      initData: FormInitData,
+      /** When `observationId` is null: explicit session key (resume / start-new); omit to create one. */
+      newObservationDraftSessionKey?: string | null,
+    ) => {
       try {
+        if (initData.observationId != null) {
+          setDraftSessionKey(null);
+        } else if (newObservationDraftSessionKey !== undefined) {
+          setDraftSessionKey(newObservationDraftSessionKey);
+        } else {
+          setDraftSessionKey(newDraftSessionKey());
+        }
+
         const {
           formType: receivedFormType,
           params,
@@ -529,6 +550,7 @@ function App() {
     },
     [
       setFormInitData,
+      setDraftSessionKey,
       setSchema,
       setUISchema,
       setData,
@@ -792,11 +814,17 @@ function App() {
       formulusClient.current
         .submitObservationWithContext(payloadFormInit, payloadData)
         .then(() => {
-          // Only clean up drafts after a successful save
-          draftService.deleteDraftsForFormInstance(
-            payloadFormInit.formType,
-            payloadFormInit.observationId,
-          );
+          if (payloadFormInit.observationId != null) {
+            draftService.deleteDraftsForFormInstance(
+              payloadFormInit.formType,
+              payloadFormInit.observationId,
+            );
+          } else if (draftSessionKey) {
+            draftService.deleteDraftForNewObservationSession(
+              payloadFormInit.formType,
+              draftSessionKey,
+            );
+          }
           setSubmitError(null);
           setShowFinalizeMessage(true);
         })
@@ -825,7 +853,7 @@ function App() {
         handleFinalizeForm as EventListener,
       );
     };
-  }, [data, formInitData, uischema, schema]); // Include all dependencies
+  }, [data, formInitData, draftSessionKey, uischema, schema]); // Include all dependencies
 
   // Handler for resuming a draft
   const handleResumeDraft = useCallback(
@@ -840,8 +868,11 @@ function App() {
           savedData: draft.data,
         };
 
-        // Initialize form with draft data
-        initializeForm(initDataWithDraft);
+        // Initialize form with draft data (keep the same draft row when saving)
+        initializeForm(
+          initDataWithDraft,
+          draft.draftSessionKey ?? `legacy_${draft.id}`,
+        );
 
         // Hide draft selector
         setShowDraftSelector(false);
@@ -855,7 +886,7 @@ function App() {
   const handleStartNewForm = useCallback(() => {
     if (pendingFormInit) {
       console.log('Starting new form, ignoring drafts');
-      initializeForm(pendingFormInit);
+      initializeForm(pendingFormInit, newDraftSessionKey());
       setShowDraftSelector(false);
       setPendingFormInit(null);
     }
@@ -919,7 +950,12 @@ function App() {
 
       // Save draft data whenever form data changes
       if (formInitData) {
-        draftService.saveDraft(formInitData.formType, newData, formInitData);
+        draftService.saveDraft(
+          formInitData.formType,
+          newData,
+          formInitData,
+          draftSessionKey,
+        );
       }
 
       // Execute custom validators when data changes
@@ -949,7 +985,7 @@ function App() {
         }
       }
     },
-    [formInitData, uischema, schema, ajv],
+    [formInitData, draftSessionKey, uischema, schema, ajv],
   );
 
   // Create dynamic theme based on dark mode preference and custom app colors.
@@ -1084,7 +1120,7 @@ function App() {
 
   return (
     <ThemeProvider theme={currentTheme}>
-      <FormContext.Provider value={{ formInitData }}>
+      <FormContext.Provider value={{ formInitData, draftSessionKey }}>
         <div
           className="App"
           style={{

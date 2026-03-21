@@ -1,4 +1,10 @@
-import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import React, {
+  useCallback,
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   JsonFormsDispatch,
@@ -124,6 +130,20 @@ const CONFIRM_CARD_RADIUS = 0.7;
 const CONFIRM_BORDER_WIDTH = 1;
 const CONFIRM_CARD_PADDING = 16;
 
+/** Focus first text-like input on the screen (keeps mobile keyboard open across page changes). */
+function focusFirstEnabledTextInput(container: HTMLElement | null): void {
+  if (!container) return;
+  const sel =
+    'input:not([disabled]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),textarea:not([disabled])';
+  const el = container.querySelector<HTMLElement>(sel);
+  if (!el || typeof el.focus !== 'function') return;
+  try {
+    el.focus({ preventScroll: true });
+  } catch {
+    el.focus();
+  }
+}
+
 const SwipeLayoutRenderer = ({
   schema,
   uischema,
@@ -173,6 +193,24 @@ const SwipeLayoutRenderer = ({
             : undefined,
       };
     }, [uischema]);
+
+  const autoFocusFirstInput = swipeOptions.autoFocusFirstInput !== false;
+
+  const swipeScreenRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!autoFocusFirstInput) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (!cancelled) {
+        focusFirstEnabledTextInput(swipeScreenRef.current);
+      }
+    }, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [currentPage, autoFocusFirstInput]);
 
   if (typeof handleChange !== 'function') {
     console.warn(
@@ -405,6 +443,18 @@ const SwipeLayoutRenderer = ({
     },
   });
 
+  const { ref: swipeableRef, ...swipeHandlers } = handlers;
+
+  const mergedSwipeScreenRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      swipeScreenRef.current = el;
+      if (typeof swipeableRef === 'function') {
+        swipeableRef(el);
+      }
+    },
+    [swipeableRef],
+  );
+
   const isOnFinalizePage = useMemo(() => {
     return layouts[currentPage]?.type === 'Finalize';
   }, [layouts, currentPage]);
@@ -460,8 +510,13 @@ const SwipeLayoutRenderer = ({
     () => ({
       formInitData: parentFormContext.formInitData,
       keyboardEnterKeyHint,
+      draftSessionKey: parentFormContext.draftSessionKey ?? null,
     }),
-    [parentFormContext.formInitData, keyboardEnterKeyHint],
+    [
+      parentFormContext.formInitData,
+      parentFormContext.draftSessionKey,
+      keyboardEnterKeyHint,
+    ],
   );
 
   const handleSnackbarClose = useCallback(
@@ -597,7 +652,10 @@ const SwipeLayoutRenderer = ({
         }
         contentBottomPadding={80}
         showNavigation={true}>
-        <div {...handlers} className="swipelayout_screen">
+        <div
+          ref={mergedSwipeScreenRef}
+          {...swipeHandlers}
+          className="swipelayout_screen">
           {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
           {layouts.length > 0 && layouts[currentPage] && (
             <JsonFormsDispatch
@@ -686,7 +744,7 @@ const SwipeLayoutRenderer = ({
 
 const SwipeLayoutWrapper = (props: ControlProps) => {
   const [currentPage, setCurrentPage] = useState(0);
-  const { formInitData } = useFormContext();
+  const { formInitData, draftSessionKey } = useFormContext();
   const { data } = props;
 
   // Save partial data whenever the page changes or data changes
@@ -695,11 +753,16 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       // Save the current form data before changing the page
       if (data && formInitData) {
         console.log('Saving draft data on page change:', data);
-        draftService.saveDraft(formInitData.formType, data, formInitData);
+        draftService.saveDraft(
+          formInitData.formType,
+          data,
+          formInitData,
+          draftSessionKey,
+        );
       }
       setCurrentPage(page);
     },
-    [data, formInitData],
+    [data, formInitData, draftSessionKey],
   );
 
   useEffect(() => {
@@ -707,7 +770,12 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       // Save the current form data before navigating to a specific page
       if (data && formInitData) {
         console.log('Saving draft data before navigation event:', data);
-        draftService.saveDraft(formInitData.formType, data, formInitData);
+        draftService.saveDraft(
+          formInitData.formType,
+          data,
+          formInitData,
+          draftSessionKey,
+        );
       }
       setCurrentPage(event.detail.page);
     };
@@ -723,7 +791,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
         handleNavigateToPage as EventListener,
       );
     };
-  }, [data, formInitData]);
+  }, [data, formInitData, draftSessionKey]);
 
   // Also save data when it changes (even without page change)
   useEffect(() => {
@@ -732,13 +800,18 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       const debounceTimer = setTimeout(() => {
         if (formInitData) {
           console.log('Saving draft data on data change:', data);
-          draftService.saveDraft(formInitData.formType, data, formInitData);
+          draftService.saveDraft(
+            formInitData.formType,
+            data,
+            formInitData,
+            draftSessionKey,
+          );
         }
       }, 1000); // 1 second debounce
 
       return () => clearTimeout(debounceTimer);
     }
-  }, [data, formInitData]);
+  }, [data, formInitData, draftSessionKey]);
 
   return (
     <SwipeLayoutRenderer

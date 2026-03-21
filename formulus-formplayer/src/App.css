@@ -37,17 +37,91 @@
   }
 }
 
-/* Reverse-style button */
-.button-reverse-primary {
+/*
+ * ODE Web Button (not MUI) applies hover via inline styles: primary defaults to outline
+ * (transparent fill) and becomes solid green on hover — so “Previous” looked like it
+ * randomly turned solid (hover / sticky touch hover). We freeze hover/focus to match
+ * the default rest look. !important is required to override those inline styles.
+ */
+.ode-button {
+  transition: none !important;
+}
+
+/*
+ * Primary outline — not for filled CTAs (.formplayer-solid-primary is handled below).
+ */
+.ode-button.ode-button--primary:not(.formplayer-solid-primary):hover,
+.ode-button.ode-button--primary:not(.formplayer-solid-primary):focus-visible,
+.ode-button.ode-button--primary:not(.formplayer-solid-primary):active {
+  background-color: transparent !important;
+  color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
+  border-color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
+}
+
+.ode-button.ode-button--neutral:hover,
+.ode-button.ode-button--neutral:focus-visible,
+.ode-button.ode-button--neutral:active {
+  background-color: transparent !important;
+  color: #757575 !important;
+  border-color: #757575 !important;
+}
+
+.ode-button.ode-button--secondary:hover,
+.ode-button.ode-button--secondary:focus-visible,
+.ode-button.ode-button--secondary:active {
+  background-color: transparent !important;
+  color: #e9b85b !important;
+  border-color: #e9b85b !important;
+}
+
+/* Danger: light fill at rest (light mode) */
+.ode-button.ode-button--danger:hover,
+.ode-button.ode-button--danger:focus-visible,
+.ode-button.ode-button--danger:active {
+  background-color: #fef2f2 !important;
+  color: #dc2626 !important;
+  border-color: #f44336 !important;
+}
+
+[data-mui-color-scheme='dark'] .ode-button.ode-button--danger:hover,
+[data-mui-color-scheme='dark'] .ode-button.ode-button--danger:focus-visible,
+[data-mui-color-scheme='dark'] .ode-button.ode-button--danger:active {
+  background-color: rgba(244, 67, 54, 0.15) !important;
+  color: #dc2626 !important;
+  border-color: #f44336 !important;
+}
+
+/*
+ * Filled primary CTA (Next, Finalize): stay solid green; same on hover/focus as at rest.
+ * Must beat .ode-button.ode-button--primary:hover specificity (also has formplayer-solid).
+ */
+.ode-button.formplayer-solid-primary {
   background-color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
   color: var(--ode-color-neutral-white, #ffffff) !important;
   border-color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
 }
 
-.button-reverse-primary:hover {
-  background-color: transparent !important;
-  color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
+.ode-button.formplayer-solid-primary:hover,
+.ode-button.formplayer-solid-primary:focus-visible,
+.ode-button.formplayer-solid-primary:active {
+  background-color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
+  color: var(--ode-color-neutral-white, #ffffff) !important;
   border-color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
+  filter: none !important;
+}
+
+/* Keyboard focus (not hover): ODE sets outline: none inline */
+.ode-button:focus-visible {
+  outline: 2px solid var(--ode-color-brand-primary-500, #4f7f4e) !important;
+  outline-offset: 2px;
+}
+
+.ode-button.ode-button--danger:focus-visible {
+  outline-color: #f44336 !important;
+}
+
+.ode-button.ode-button--neutral:focus-visible {
+  outline-color: #757575 !important;
 }
 
 /* Hide native number input spinners - replaced with custom NumberStepperRenderer */
