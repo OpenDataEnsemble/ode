@@ -1,4 +1,4 @@
-import React, { ReactNode, useState, useEffect, useCallback } from 'react';
+import React, { ReactNode, useCallback } from 'react';
 import { Box, Paper, Stack } from '@mui/material';
 import { Button } from '@ode/components/react-web';
 import { tokens } from '../theme/tokens-adapter';
@@ -7,7 +7,7 @@ const parsePx = (value: string): number =>
   parseInt(String(value).replace('px', ''), 10);
 const spacing5 = parsePx(tokens.spacing?.[5] ?? '20px');
 
-/** Keeps a submit control in the DOM for IME Go/Send when the visible bar is hidden (e.g. keyboard open). */
+/** Keeps a submit control in the DOM so mobile keyboards can trigger the primary action (Go / Send / →). */
 const visuallyHiddenSubmitStyle: React.CSSProperties = {
   position: 'absolute',
   width: 1,
@@ -64,8 +64,7 @@ interface FormLayoutProps {
 
   /**
    * When set, wraps the scroll area and nav in a `<form>` so mobile keyboards
-   * (Go / Send / ->) submit this action. A visually hidden submit stays in the
-   * DOM when the bottom bar is hidden (e.g. while the keyboard is open).
+   * (Go / Send / →) submit this action via a visually hidden submit control.
    */
   keyboardSubmitAction?: {
     onTrigger: () => void;
@@ -78,14 +77,16 @@ interface FormLayoutProps {
  *
  * A robust, responsive layout component for forms that:
  * - Prevents navigation buttons from overlapping form content
- * - Handles mobile keyboard appearance correctly
+ * - Keeps prev/next in normal flex flow at the bottom of the WebView so when the
+ *   host app resizes the WebView for the keyboard (e.g. Android adjustResize), the
+ *   bar stays at the bottom of the visible area without visualViewport math.
  * - Ensures all form fields are scrollable and accessible
  * - Uses dynamic viewport height (100dvh) for proper mobile support
  *
  * Layout Structure:
  * - Header area (sticky at top, optional)
- * - Scrollable content area (flexible, with bottom padding)
- * - Navigation bar (sticky at bottom, non-overlapping)
+ * - Scrollable content area (flexible, minHeight 0)
+ * - Navigation bar (flex-shrink 0 at bottom of column — not position:fixed)
  */
 const FormLayout: React.FC<FormLayoutProps> = ({
   children,
@@ -95,48 +96,6 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   showNavigation = true,
   keyboardSubmitAction,
 }) => {
-  const [keyboardInset, setKeyboardInset] = useState(0);
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.visualViewport) {
-      const viewport = window.visualViewport;
-
-      const handleViewportChange = () => {
-        if (!viewport) return;
-
-        // Keep the fixed footer anchored to the visual viewport bottom
-        // so it stays just above on-screen keyboards of varying heights.
-        const inset = Math.max(
-          0,
-          window.innerHeight - (viewport.height + viewport.offsetTop),
-        );
-        setKeyboardInset(inset);
-      };
-
-      viewport.addEventListener('resize', handleViewportChange);
-      viewport.addEventListener('scroll', handleViewportChange);
-      handleViewportChange();
-
-      return () => {
-        viewport.removeEventListener('resize', handleViewportChange);
-        viewport.removeEventListener('scroll', handleViewportChange);
-      };
-    } else {
-      // Fallback for browsers without Visual Viewport API
-      const initialHeight = window.innerHeight;
-      const handleResize = () => {
-        const currentHeight = window.innerHeight;
-        setKeyboardInset(Math.max(0, initialHeight - currentHeight));
-      };
-
-      window.addEventListener('resize', handleResize);
-      handleResize();
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-      };
-    }
-  }, []);
-
   const handleFormSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -150,17 +109,11 @@ const FormLayout: React.FC<FormLayoutProps> = ({
     <Box
       sx={theme => ({
         flex: 1,
+        minHeight: 0,
         overflowY: 'auto',
         overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
-        paddingBottom:
-          showNavigation && (previousButton || nextButton)
-            ? {
-                xs: `calc(${theme.spacing(11)} + env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
-                sm: `calc(${theme.spacing(12)} + env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
-                md: `calc(${theme.spacing(13)} + env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
-              }
-            : theme.spacing(4),
+        paddingBottom: theme.spacing(2),
         overscrollBehavior: 'contain',
         position: 'relative',
       })}>
@@ -173,10 +126,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       <Paper
         elevation={0}
         sx={theme => ({
-          position: 'fixed',
-          bottom: `${keyboardInset}px`,
-          left: 0,
-          right: 0,
+          flexShrink: 0,
           zIndex: theme.zIndex.appBar,
           width: '100%',
           padding: {
@@ -190,11 +140,9 @@ const FormLayout: React.FC<FormLayoutProps> = ({
             md: `calc(${theme.spacing(1.5)} + env(safe-area-inset-bottom, 0px))`,
           },
           backgroundColor: 'background.default',
-          borderTop: 'none',
-          borderColor: 'transparent',
+          borderTop: `1px solid ${theme.palette.divider}`,
+          borderRadius: 0,
           boxShadow: 'none',
-          transition:
-            'bottom 0.2s ease-in-out, opacity 0.2s ease-in-out, transform 0.2s ease-in-out',
           boxSizing: 'border-box',
         })}>
         <Stack
@@ -259,10 +207,17 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       {navigationBar}
     </form>
   ) : (
-    <>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        width: '100%',
+      }}>
       {scrollArea}
       {navigationBar}
-    </>
+    </Box>
   );
 
   return (
