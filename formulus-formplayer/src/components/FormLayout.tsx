@@ -147,7 +147,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
             display: 'flex',
             flexDirection: 'row',
             width: '100%',
-            alignItems: 'center',
+            alignItems: 'stretch',
             gap: theme.spacing(1),
           })}>
           <Box
@@ -155,7 +155,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
               flex: '1 1 0',
               minWidth: 0,
               display: 'flex',
-              justifyContent: 'flex-start',
+              alignItems: 'stretch',
             }}>
             {previousButton && (
               <Button
@@ -163,7 +163,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 onPress={previousButton.onClick}
                 disabled={previousButton.disabled}
                 size="medium"
-                style={{ maxWidth: '100%' }}>
+                style={{ width: '100%', maxWidth: '100%' }}>
                 {previousButton.label || 'Previous'}
               </Button>
             )}
@@ -173,7 +173,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
               flex: '1 1 0',
               minWidth: 0,
               display: 'flex',
-              justifyContent: 'flex-end',
+              alignItems: 'stretch',
             }}>
             {nextButton && (
               <Button
@@ -183,7 +183,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 disabled={nextButton.disabled}
                 size="medium"
                 className="button-reverse-primary"
-                style={{ maxWidth: '100%' }}>
+                style={{ width: '100%', maxWidth: '100%' }}>
                 {nextButton.label || 'Next'}
               </Button>
             )}
