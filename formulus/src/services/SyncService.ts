@@ -12,6 +12,7 @@ import {
   isVersionMismatchError,
   HttpError,
 } from '../api/synkronus/Auth';
+import { normalizeAppBundleVersion } from '../utils/appBundleVersion';
 type SyncStatusCallback = (status: string) => void;
 type SyncProgressDetailCallback = (progress: SyncProgress) => void;
 
@@ -309,11 +310,14 @@ export class SyncService {
         () => synkronusApi.getManifest(),
         'check for updates',
       );
-      const currentVersion = (await AsyncStorage.getItem('@appVersion')) || '0';
+      const currentVersion = normalizeAppBundleVersion(
+        await AsyncStorage.getItem('@appVersion'),
+      );
+      const serverVersion = normalizeAppBundleVersion(manifest.version);
       // Only report an update when the version actually differs.
       // The "force" flag controls whether we *perform* a fresh network check,
       // not whether we force the result to "update available".
-      const updateAvailable = manifest.version !== currentVersion;
+      const updateAvailable = serverVersion !== currentVersion;
 
       if (updateAvailable) {
         this.updateStatus(`${this.getStatus()} (Update available)`);
@@ -358,7 +362,10 @@ export class SyncService {
       await this.downloadAppBundle();
 
       // Save the version after successful download
-      await AsyncStorage.setItem('@appVersion', manifest.version);
+      await AsyncStorage.setItem(
+        '@appVersion',
+        normalizeAppBundleVersion(manifest.version),
+      );
 
       // Invalidate FormService cache to reload new form specs
       this.updateStatus('Refreshing form specifications...');

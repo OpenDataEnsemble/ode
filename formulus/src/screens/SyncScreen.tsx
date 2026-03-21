@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import {
   odeRadius,
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
+import { normalizeAppBundleVersion } from '../utils/appBundleVersion';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
@@ -69,6 +70,7 @@ const SyncScreen = () => {
     useState<string>('Unknown');
   const [animatedProgress] = useState(new Animated.Value(0));
   const [activeOperation, setActiveOperation] = useState<ActiveOperation>(null);
+  const prevSyncWasActiveRef = useRef(false);
 
   const updatePendingUploads = useCallback(async () => {
     try {
@@ -252,12 +254,14 @@ const SyncScreen = () => {
     try {
       const hasUpdate = await syncService.checkForUpdates();
       setUpdateAvailable(hasUpdate);
-      const currentVersion = (await AsyncStorage.getItem('@appVersion')) || '0';
+      const currentVersion = normalizeAppBundleVersion(
+        await AsyncStorage.getItem('@appVersion'),
+      );
       setAppBundleVersion(currentVersion);
       try {
         const { synkronusApi } = await import('../api/synkronus/index');
         const manifest = await synkronusApi.getManifest();
-        setServerBundleVersion(manifest.version);
+        setServerBundleVersion(normalizeAppBundleVersion(manifest.version));
       } catch {
         setServerBundleVersion(currentVersion);
       }
@@ -295,7 +299,6 @@ const SyncScreen = () => {
 
     const initialize = async () => {
       await syncService.initialize();
-      await checkForUpdates();
       const userInfo = await getUserInfo();
       setIsAdmin(userInfo?.role === 'admin');
       const lastSyncTime = await AsyncStorage.getItem('@lastSync');
@@ -312,19 +315,15 @@ const SyncScreen = () => {
       unsubscribeStatus();
       unsubscribeProgress();
     };
-  }, [
-    checkForUpdates,
-    updatePendingUploads,
-    updatePendingObservations,
-    updateProgress,
-  ]);
+  }, [updatePendingUploads, updatePendingObservations, updateProgress]);
 
-  // Refresh pending count whenever the Sync screen gains focus so it stays in sync after creating observations
+  // Refresh pending count and bundle status whenever the Sync screen gains focus
   useFocusEffect(
     useCallback(() => {
       updatePendingUploads();
       updatePendingObservations();
-    }, [updatePendingUploads, updatePendingObservations]),
+      checkForUpdates();
+    }, [updatePendingUploads, updatePendingObservations, checkForUpdates]),
   );
 
   useEffect(() => {
@@ -352,11 +351,18 @@ const SyncScreen = () => {
     }).start();
   }, [syncState.progress, syncState.isActive, animatedProgress]);
 
+  // Refresh bundle status when a sync/update finishes — not on initial mount, to avoid
+  // racing the focus effect’s checkForUpdates() (see useFocusEffect above).
   useEffect(() => {
+    const wasActive = prevSyncWasActiveRef.current;
+    prevSyncWasActiveRef.current = syncState.isActive;
+
     if (!syncState.isActive && !syncState.error) {
       updatePendingUploads();
       updatePendingObservations();
-      checkForUpdates();
+      if (wasActive) {
+        checkForUpdates();
+      }
     }
   }, [
     syncState.isActive,
