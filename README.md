@@ -22,6 +22,19 @@ The server component written in Go. This handles data synchronization, storage, 
 ### **synkronus-cli**
 A command-line utility to interact with the Synkronus server. Use it to manage custom app data, handle user administration, export data to Parquet format, and perform various administrative tasks.
 
+You can install the CLI by running this command:
+
+#### Powershell
+```powershell
+irm https://raw.githubusercontent.com/OpenDataEnsemble/ode/main/scripts/install-synkronus-cli.ps1 | iex
+```
+
+#### Mac OS / zsh
+```sh
+curl -fsSL https://raw.githubusercontent.com/OpenDataEnsemble/ode/main/scripts/install-synkronus-cli.sh | bash
+```
+
+
 **License note:** this component is currently **GPL-2.0-or-later** (see `synkronus-cli/LICENSE`) while the QR PNG stack depends on GPL-classified libraries; we plan to swap in a stdlib-only renderer and return the CLI to **MIT**. See `synkronus-cli/FOLLOWUP-custom-qrcode-writer.md` and `THIRD_PARTY_NOTICES.md`.
 
 ### **synkronus-portal**
