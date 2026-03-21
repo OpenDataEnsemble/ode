@@ -86,7 +86,8 @@ COPY --from=synkronus-builder /build/synkronus /app/synkronus
 COPY --from=synkronus-builder /build/openapi /app/openapi
 COPY --from=synkronus-builder /build/static /app/static
 
-RUN mkdir -p /app/data/app-bundles && \
+# Mutable data: <binary-dir>/data → /app/data (mount one volume here). See Synkronus docs.
+RUN mkdir -p /app/data/app-bundle/active /app/data/app-bundle/versions /app/data/attachments && \
     chown -R synkronus:synkronus /app
 
 USER synkronus

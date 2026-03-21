@@ -77,7 +77,8 @@ func main() {
 
 	log.Info("Starting Synkronus API server", "version", version.BuildVersion())
 	log.Info("Configuration loaded from", "source", cfg.Source)
-	log.Debug("Configuration details", "port", cfg.Port, "logLevel", cfg.LogLevel, "appBundlePath", cfg.AppBundlePath)
+	log.Debug("Configuration details", "port", cfg.Port, "logLevel", cfg.LogLevel,
+		"dataDir", cfg.DataDir, "appBundlePath", cfg.AppBundlePath, "appBundleVersionsPath", cfg.AppBundleVersionsPath)
 
 	// Initialize database
 	dbConfig := database.DefaultConfig()
@@ -130,11 +131,12 @@ func main() {
 		return
 	}
 
-	// Initialize app bundle service
+	// Initialize app bundle service (paths fixed under <exe-dir>/data/app-bundle/...)
 	appBundleConfig := appbundle.DefaultConfig()
-	// Override app bundle config from configuration
 	appBundleConfig.BundlePath = cfg.AppBundlePath
+	appBundleConfig.VersionsPath = cfg.AppBundleVersionsPath
 	appBundleConfig.MaxVersions = cfg.MaxVersionsKept
+	log.Info("Local data layout", "dataDir", cfg.DataDir, "appBundleActive", cfg.AppBundlePath, "appBundleVersions", cfg.AppBundleVersionsPath)
 
 	appBundleService := appbundle.NewService(appBundleConfig, log)
 

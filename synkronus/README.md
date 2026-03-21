@@ -74,7 +74,6 @@ Synkronus uses a flexible configuration system that supports both environment va
 | `DB_CONNECTION` | PostgreSQL connection string | `postgres://user:password@localhost:5432/synkronus` |
 | `JWT_SECRET` | Secret key for JWT token signing | (required, no default) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
-| `APP_BUNDLE_PATH` | Directory path for app bundles | `./data/app-bundles` |
 | `MAX_VERSIONS_KEPT` | Maximum number of app bundle versions to keep | `5` |
 
 ### Running the API
@@ -96,6 +95,8 @@ go run cmd/synkronus/main.go
 - `DB_CONNECTION`: Database connection string
 - `JWT_SECRET`: Secret for JWT signing
 - `LOG_LEVEL`: Logging level (debug, info, warn, error)
+
+Mutable files use a fixed root of `<directory>/data` next to the `synkronus` executable (e.g. `/app/data` in the official image). App bundles always live under `<data>/app-bundle/active` and `<data>/app-bundle/versions`. `go run` / `go test` fall back to `./data` relative to cwd when the binary is in a Go temp build path.
 
 ## Deployment Architecture
 

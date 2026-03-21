@@ -7,7 +7,7 @@
 # For production deployment:
 # 1. Update all passwords and secrets
 # 2. Configure nginx SSL certificates (or use cloudflared tunnel)
-# 3. Set up persistent volumes
+# 3. Mount one volume at /app/data: bundles, versions, attachments
 # 4. Configure backup strategy
 
 services:
@@ -54,13 +54,9 @@ services:
       JWT_SECRET: "CHANGE_THIS_TO_RANDOM_32_CHAR_STRING"
       ADMIN_USERNAME: "admin"
       ADMIN_PASSWORD: "CHANGE_THIS_ADMIN_PASSWORD"
-      # App bundle storage path (inside container)
-      APP_BUNDLE_PATH: "/app/data/app-bundles"
-      # Maximum number of app bundle versions to keep
       MAX_VERSIONS_KEPT: "5"
     volumes:
-      # Persistent volume for app bundles
-      - app-bundles:/app/data/app-bundles
+      - synkronus_data:/app/data
     depends_on:
       - postgres
     restart: unless-stopped
@@ -98,4 +94,4 @@ services:
 
 volumes:
   postgres-data:
-  app-bundles:
+  synkronus_data:

@@ -48,8 +48,8 @@ COPY --from=builder /app/openapi /app/openapi
 # Copy static directory for static files
 COPY --from=builder /app/static /app/static
 
-# Create directories for data storage with proper permissions
-RUN mkdir -p /app/data/app-bundles && \
+# Mount a volume at /app/data. Subdirs also created at runtime.
+RUN mkdir -p /app/data/app-bundle/active /app/data/app-bundle/versions /app/data/attachments && \
     chown -R synkronus:synkronus /app
 
 # Switch to non-root user

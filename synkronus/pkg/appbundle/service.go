@@ -45,7 +45,8 @@ type Config struct {
 	MaxVersions int
 }
 
-// DefaultConfig returns a default configuration
+// DefaultConfig returns a default configuration for tests; production uses config.Load paths
+// (<dataDir>/app-bundle/active and .../versions).
 func DefaultConfig() Config {
 	return Config{
 		BundlePath:   "./app-bundle",
@@ -83,10 +84,12 @@ func (s *Service) Initialize(ctx context.Context) error {
 		}
 	}
 
-	// Check if we have versions but no current version set
 	if err := s.ensureCurrentVersionSet(ctx); err != nil {
 		s.log.Warn("Failed to ensure current version is set", "error", err)
-		// Continue anyway, this is not critical for startup
+	}
+
+	if err := s.ensureActiveBundleMaterialized(ctx); err != nil {
+		return fmt.Errorf("materialize active app bundle: %w", err)
 	}
 
 	// Generate the initial manifest
@@ -478,6 +481,27 @@ func (s *Service) ensureCurrentVersionSet(_ context.Context) error {
 	s.versionMutex.Unlock()
 
 	return nil
+}
+
+// ensureActiveBundleMaterialized copies CURRENT_VERSION into the active bundle directory when
+// APP_INFO.json is missing there (e.g. versions persisted on a volume but active dir was empty).
+func (s *Service) ensureActiveBundleMaterialized(ctx context.Context) error {
+	cur, err := s.getCurrentVersion()
+	if err != nil {
+		return err
+	}
+	if cur == "" {
+		return nil
+	}
+	appInfoPath := filepath.Join(s.bundlePath, "APP_INFO.json")
+	if _, err := os.Stat(appInfoPath); err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("stat %s: %w", appInfoPath, err)
+	}
+	s.log.Info("Active bundle directory empty; materializing current version", "version", cur)
+	return s.SwitchVersion(ctx, cur)
 }
 
 // GetBundleZipPath returns the filesystem path to the active bundle's zip archive

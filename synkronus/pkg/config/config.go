@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -23,12 +24,13 @@ type Config struct {
 	// Logging
 	LogLevel string
 
-	// File storage
-	DataDir string // Base directory for file storage (attachments, etc.)
+	// File storage root: absolute path to <directory-of-executable>/data (see resolvedMutableDataDir).
+	DataDir string
 
-	// App Bundle settings
-	AppBundlePath   string
-	MaxVersionsKept int
+	// App bundle storage: filepath.Join(DataDir, "app-bundle", "active" | "versions").
+	AppBundlePath         string
+	AppBundleVersionsPath string
+	MaxVersionsKept       int
 
 	// Internal tracking
 	Source string // Source of the configuration (env, .env file path, etc.)
@@ -132,14 +134,24 @@ func Load(log *logger.Logger) (*Config, error) {
 		log.Info("Configuration loaded", "source", configSource)
 	}
 
+	dataDir, err := resolvedMutableDataDir()
+	if err != nil {
+		return nil, fmt.Errorf("mutable data directory: %w", err)
+	}
+
+	appBundlePath := filepath.Join(dataDir, "app-bundle", "active")
+	appBundleVersionsPath := filepath.Join(dataDir, "app-bundle", "versions")
+
 	return &Config{
-		Port:            getEnvOrDefault("PORT", "8080"),
-		DatabaseURL:     getEnvOrDefault("DB_CONNECTION", "postgres://user:password@localhost:5432/synkronus"),
-		JWTSecret:       getEnvOrDefault("JWT_SECRET", ""),
-		LogLevel:        getEnvOrDefault("LOG_LEVEL", "info"),
-		AppBundlePath:   getEnvOrDefault("APP_BUNDLE_PATH", "./data/app-bundles"),
-		MaxVersionsKept: getEnvIntOrDefault("MAX_VERSIONS_KEPT", 5),
-		Source:          configSource,
+		Port:                  getEnvOrDefault("PORT", "8080"),
+		DatabaseURL:           getEnvOrDefault("DB_CONNECTION", "postgres://user:password@localhost:5432/synkronus"),
+		JWTSecret:             getEnvOrDefault("JWT_SECRET", ""),
+		LogLevel:              getEnvOrDefault("LOG_LEVEL", "info"),
+		DataDir:               dataDir,
+		AppBundlePath:         appBundlePath,
+		AppBundleVersionsPath: appBundleVersionsPath,
+		MaxVersionsKept:       getEnvIntOrDefault("MAX_VERSIONS_KEPT", 5),
+		Source:                configSource,
 	}, nil
 }
 
