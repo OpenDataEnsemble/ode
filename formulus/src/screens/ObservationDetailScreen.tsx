@@ -26,6 +26,7 @@ import {
   odeSpacing,
   odeRadius,
   odeScreenHeaderHeight,
+  odeBorderWidth,
 } from '../theme/odeDesign';
 
 interface ObservationDetailScreenProps {
@@ -46,6 +47,12 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const [observation, setObservation] = useState<Observation | null>(null);
   const [formName, setFormName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+
+  /** Matches Observation Details header bottom border (hairline + theme divider). */
+  const formDataRowSeparatorStyle = {
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomColor: themeColors.divider as string,
+  };
 
   useEffect(() => {
     loadObservation();
@@ -149,7 +156,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       return (
         <View
           key={key}
-          style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
+          style={[
+            styles.fieldContainer,
+            formDataRowSeparatorStyle,
+            { paddingLeft: level * 16 },
+          ]}>
           <Text style={fieldKeyStyle}>{key}:</Text>
           <Text style={[styles.fieldValue, { color: themeColors.onSurface }]}>
             null
@@ -162,7 +173,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       return (
         <View
           key={key}
-          style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
+          style={[
+            styles.fieldContainer,
+            formDataRowSeparatorStyle,
+            { paddingLeft: level * 16 },
+          ]}>
           <Text style={fieldKeyStyle}>{key}:</Text>
           {Object.entries(value).map(([k, v]) =>
             renderDataField(k, v, level + 1),
@@ -175,7 +190,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       return (
         <View
           key={key}
-          style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
+          style={[
+            styles.fieldContainer,
+            formDataRowSeparatorStyle,
+            { paddingLeft: level * 16 },
+          ]}>
           <Text style={fieldKeyStyle}>{key}:</Text>
           {value.map((item, index) => (
             <View key={index} style={styles.arrayItem}>
@@ -193,7 +212,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     return (
       <View
         key={key}
-        style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
+        style={[
+          styles.fieldContainer,
+          formDataRowSeparatorStyle,
+          { paddingLeft: level * 16 },
+        ]}>
         <Text style={fieldKeyStyle}>{key}:</Text>
         <Text style={[styles.fieldValue, { color: themeColors.onSurface }]}>
           {String(value)}
@@ -472,8 +495,6 @@ const styles = StyleSheet.create({
   fieldContainer: {
     marginBottom: odeSpacing.xs,
     paddingBottom: odeSpacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
     alignSelf: 'stretch',
   },
   fieldKey: {
