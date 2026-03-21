@@ -22,6 +22,8 @@ import {
 import logo from '../../assets/images/logo.png';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
+const EMAIL_URL = 'mailto:hello@opendataensemble.org';
+const GH_URL = 'https://github.com/OpenDataEnsemble';
 
 const HelpScreen: React.FC = () => {
   const { themeColors, resolvedMode } = useAppTheme();
@@ -73,6 +75,30 @@ const HelpScreen: React.FC = () => {
           contentContainerStyle={styles.content}>
           <View style={cardStyle}>
             <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Implementation assistance
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              If you are looking for professional assistance with implementing a
+              project using ODE, you are more than welcome to reach out to the
+              team behind ODE on our forum or via email.
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(EMAIL_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open email to opendataensemble.org">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                {EMAIL_URL}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
               Community Forum
             </Text>
             <Text style={[styles.cardText, styles.cardTextCentered, onSurface]}>
@@ -92,34 +118,54 @@ const HelpScreen: React.FC = () => {
                 {FORUM_URL}
               </Text>
             </Pressable>
-          </View>
-
-          <View style={cardStyle}>
-            <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Troubleshooting
-            </Text>
-            <Text style={[styles.cardText, onSurface]}>
-              If something is not working as expected:
-            </Text>
-            <Text style={[styles.cardText, onSurface]}>
-              1. Check your internet connection.
-            </Text>
-            <Text style={[styles.cardText, onSurface]}>
-              2. Try syncing again from the Sync tab.
-            </Text>
-            <Text style={[styles.cardText, onSurface]}>
-              3. If the issue persists, reach out via the forum.
-            </Text>
-          </View>
-
-          <View style={cardStyle}>
-            <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Administrator
+            <Text
+              style={[
+                styles.cardTitle,
+                { color: sectionColor },
+                { marginTop: odeSpacing.md },
+              ]}>
+              Find us on GitHub
             </Text>
             <Text style={[styles.cardText, styles.cardTextCentered, onSurface]}>
-              For account setup, server configuration, or access issues, contact
-              your system administrator.
+              You are also welcome to open an issue or pull request on our
+              GitHub repository.
             </Text>
+            <Pressable
+              onPress={() => Linking.openURL(GH_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open GitHub repository">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                {GH_URL}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Help & Support
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              If you need help or support you are always welcome to try reaching
+              out to our friendly community on the forum.
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(FORUM_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open forum opendataensemble.org">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                {FORUM_URL}
+              </Text>
+            </Pressable>
           </View>
         </ScrollView>
       </SafeAreaView>

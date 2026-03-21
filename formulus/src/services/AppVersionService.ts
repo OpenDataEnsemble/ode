@@ -74,7 +74,7 @@ export class AppVersionService {
     try {
       const version = await this.getVersion();
       const buildNumber = await this.getBuildNumber();
-      if (buildNumber==='1') {
+      if (buildNumber === '1') {
         return version;
       }
       return `${version} (build: ${buildNumber})`;

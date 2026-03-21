@@ -98,7 +98,8 @@ const AboutScreen: React.FC = () => {
             </Text>
             <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
               Formulus is the mobile app for collecting and synchronizing forms
-              and observations. It relies on having a Synkronus server to sync with.
+              and observations. It relies on having a Synkronus server to sync
+              with.
             </Text>
             <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
               Please check out our website or GitHub pages for more information:
@@ -131,48 +132,6 @@ const AboutScreen: React.FC = () => {
                 </Text>
               </Pressable>
             </Text>
-          </View>
-
-          <View style={cardStyle}>
-            <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Help & Support
-            </Text>
-            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-              If you need help or support you are always welcome to try reaching out to our friendly community on the forum.
-            </Text>
-            <Pressable
-              onPress={() => Linking.openURL(FORUM_URL)}
-              accessibilityRole="link"
-              accessibilityLabel="Open forum opendataensemble.org">
-              <Text
-                style={[
-                  styles.cardText,
-                  styles.link,
-                  { color: themeColors.primary },
-                ]}>
-                {FORUM_URL}
-              </Text>              
-            </Pressable>
-            <Text style={[styles.cardTitle, { color: sectionColor }, {marginTop: odeSpacing.md}]}>
-              Implementation assistance
-            </Text>
-            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-              If you are looking for professional assistance with implementing a project using ODE, you are more than
-              welcome to reach out to the team behind ODE on our forum or via email.
-            </Text>
-            <Pressable
-              onPress={() => Linking.openURL(EMAIL_URL)}
-              accessibilityRole="link"
-              accessibilityLabel="Open email to opendataensemble.org">
-              <Text
-                style={[
-                  styles.cardText,
-                  styles.link,
-                  { color: themeColors.primary },
-                ]}>
-                {EMAIL_URL}
-              </Text>              
-            </Pressable>
           </View>
 
           <View style={cardStyle}>
