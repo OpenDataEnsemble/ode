@@ -182,7 +182,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 onPress={keyboardSubmitAction ? undefined : nextButton.onClick}
                 disabled={nextButton.disabled}
                 size="medium"
-                className="button-reverse-primary"
+                className="formplayer-solid-primary"
                 style={{ width: '100%', maxWidth: '100%' }}>
                 {nextButton.label || 'Next'}
               </Button>

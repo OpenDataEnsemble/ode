@@ -344,7 +344,7 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           size="medium"
           onPress={handleFinalize}
           disabled={Boolean(hasErrors)}
-          className="button-reverse-primary"
+          className="formplayer-solid-primary"
           style={{ width: '100%' }}>
           Finalize
         </Button>

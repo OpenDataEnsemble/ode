@@ -37,17 +37,20 @@
   }
 }
 
-/* Reverse-style button */
-.button-reverse-primary {
+/*
+ * ODE primary buttons default to outline (transparent fill) and fill on hover.
+ * Use this class when a control should stay filled primary at rest (e.g. Next, Finalize).
+ * Hover darkens slightly — it does NOT flip back to outline (that was the old “reverse” behavior).
+ */
+.formplayer-solid-primary {
   background-color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
   color: var(--ode-color-neutral-white, #ffffff) !important;
   border-color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
 }
 
-.button-reverse-primary:hover {
-  background-color: transparent !important;
-  color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
-  border-color: var(--ode-color-brand-primary-500, #4f7f4e) !important;
+.formplayer-solid-primary:hover {
+  /* Slightly darker filled state; avoids color-mix for older WebViews */
+  filter: brightness(0.9);
 }
 
 /* Hide native number input spinners - replaced with custom NumberStepperRenderer */
