@@ -828,7 +828,8 @@ class SynkronusApi {
         ? res.data.records.map(ObservationMapper.fromApi)
         : [];
 
-      // 2. Apply to local db (local dirty records will not be applied = last update wins)
+      // 2. Apply to local db (local dirty records will not be applied = last update wins).
+      //    Skipped rows get a `last_write_won` tag (see syncConstants / WatermelonDBRepo).
       const pulledChanges = await repo.applyServerChanges(domainObservations); // ingest observations into WatermelonDB
       console.debug(`Applied ${pulledChanges} changes to local database`);
 
