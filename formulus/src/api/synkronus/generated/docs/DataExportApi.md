@@ -2,9 +2,9 @@
 
 All URIs are relative to _http://localhost_
 
-| Method                                          | HTTP request                | Description                               |
-| ----------------------------------------------- | --------------------------- | ----------------------------------------- |
-| [**getParquetExportZip**](#getparquetexportzip) | **GET** /dataexport/parquet | Download a ZIP archive of Parquet exports |
+| Method                                          | HTTP request                    | Description                               |
+| ----------------------------------------------- | ------------------------------- | ----------------------------------------- |
+| [**getParquetExportZip**](#getparquetexportzip) | **GET** /api/dataexport/parquet | Download a ZIP archive of Parquet exports |
 
 # **getParquetExportZip**
 

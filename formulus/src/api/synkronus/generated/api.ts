@@ -1218,7 +1218,7 @@ export const DataExportApiAxiosParamCreator = function (
     getParquetExportZip: async (
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
-      const localVarPath = `/dataexport/parquet`;
+      const localVarPath = `/api/dataexport/parquet`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1365,7 +1365,7 @@ export const DefaultApiAxiosParamCreator = function (
         'changePasswordRequest',
         changePasswordRequest,
       );
-      const localVarPath = `/users/change-password`;
+      const localVarPath = `/api/users/change-password`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1422,7 +1422,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'attachmentId' is not null or undefined
       assertParamExists('checkAttachmentExists', 'attachmentId', attachmentId);
-      const localVarPath = `/attachments/{attachment_id}`.replace(
+      const localVarPath = `/api/attachments/{attachment_id}`.replace(
         `{${'attachment_id'}}`,
         encodeURIComponent(String(attachmentId)),
       );
@@ -1474,7 +1474,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'createUserRequest' is not null or undefined
       assertParamExists('createUser', 'createUserRequest', createUserRequest);
-      const localVarPath = `/users/create`;
+      const localVarPath = `/api/users/create`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1533,7 +1533,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'username' is not null or undefined
       assertParamExists('deleteUser', 'username', username);
-      const localVarPath = `/users/{username}`.replace(
+      const localVarPath = `/api/users/{username}`.replace(
         `{${'username'}}`,
         encodeURIComponent(String(username)),
       );
@@ -1592,7 +1592,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'path' is not null or undefined
       assertParamExists('downloadAppBundleFile', 'path', path);
-      const localVarPath = `/app-bundle/download/{path}`.replace(
+      const localVarPath = `/api/app-bundle/download/{path}`.replace(
         `{${'path'}}`,
         encodeURIComponent(String(path)),
       );
@@ -1652,7 +1652,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'attachmentId' is not null or undefined
       assertParamExists('downloadAttachment', 'attachmentId', attachmentId);
-      const localVarPath = `/attachments/{attachment_id}`.replace(
+      const localVarPath = `/api/attachments/{attachment_id}`.replace(
         `{${'attachment_id'}}`,
         encodeURIComponent(String(attachmentId)),
       );
@@ -1704,7 +1704,7 @@ export const DefaultApiAxiosParamCreator = function (
       xApiVersion?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
-      const localVarPath = `/app-bundle/changes`;
+      const localVarPath = `/api/app-bundle/changes`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1760,7 +1760,7 @@ export const DefaultApiAxiosParamCreator = function (
       xApiVersion?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
-      const localVarPath = `/app-bundle/manifest`;
+      const localVarPath = `/api/app-bundle/manifest`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1808,7 +1808,7 @@ export const DefaultApiAxiosParamCreator = function (
       xApiVersion?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
-      const localVarPath = `/app-bundle/versions`;
+      const localVarPath = `/api/app-bundle/versions`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1864,7 +1864,7 @@ export const DefaultApiAxiosParamCreator = function (
         'attachmentManifestRequest',
         attachmentManifestRequest,
       );
-      const localVarPath = `/attachments/manifest`;
+      const localVarPath = `/api/attachments/manifest`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1917,7 +1917,7 @@ export const DefaultApiAxiosParamCreator = function (
     getVersion: async (
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
-      const localVarPath = `/version`;
+      const localVarPath = `/api/version`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -1958,7 +1958,7 @@ export const DefaultApiAxiosParamCreator = function (
       xApiVersion?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
-      const localVarPath = `/users`;
+      const localVarPath = `/api/users`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -2010,7 +2010,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'loginRequest' is not null or undefined
       assertParamExists('login', 'loginRequest', loginRequest);
-      const localVarPath = `/auth/login`;
+      const localVarPath = `/api/auth/login`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -2063,7 +2063,7 @@ export const DefaultApiAxiosParamCreator = function (
       bundle?: File,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
-      const localVarPath = `/app-bundle/push`;
+      const localVarPath = `/api/app-bundle/push`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -2130,7 +2130,7 @@ export const DefaultApiAxiosParamCreator = function (
         'refreshTokenRequest',
         refreshTokenRequest,
       );
-      const localVarPath = `/auth/refresh`;
+      const localVarPath = `/api/auth/refresh`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -2189,7 +2189,7 @@ export const DefaultApiAxiosParamCreator = function (
         'resetUserPasswordRequest',
         resetUserPasswordRequest,
       );
-      const localVarPath = `/users/reset-password`;
+      const localVarPath = `/api/users/reset-password`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -2248,7 +2248,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'version' is not null or undefined
       assertParamExists('switchAppBundleVersion', 'version', version);
-      const localVarPath = `/app-bundle/switch/{version}`.replace(
+      const localVarPath = `/api/app-bundle/switch/{version}`.replace(
         `{${'version'}}`,
         encodeURIComponent(String(version)),
       );
@@ -2307,7 +2307,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'syncPullRequest' is not null or undefined
       assertParamExists('syncPull', 'syncPullRequest', syncPullRequest);
-      const localVarPath = `/sync/pull`;
+      const localVarPath = `/api/sync/pull`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -2374,7 +2374,7 @@ export const DefaultApiAxiosParamCreator = function (
     ): Promise<RequestArgs> => {
       // verify required parameter 'syncPushRequest' is not null or undefined
       assertParamExists('syncPush', 'syncPushRequest', syncPushRequest);
-      const localVarPath = `/sync/push`;
+      const localVarPath = `/api/sync/push`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
       let baseOptions;
@@ -2435,7 +2435,7 @@ export const DefaultApiAxiosParamCreator = function (
       assertParamExists('uploadAttachment', 'attachmentId', attachmentId);
       // verify required parameter 'file' is not null or undefined
       assertParamExists('uploadAttachment', 'file', file);
-      const localVarPath = `/attachments/{attachment_id}`.replace(
+      const localVarPath = `/api/attachments/{attachment_id}`.replace(
         `{${'attachment_id'}}`,
         encodeURIComponent(String(attachmentId)),
       );
