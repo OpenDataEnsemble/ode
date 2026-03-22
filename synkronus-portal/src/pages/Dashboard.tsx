@@ -1316,7 +1316,7 @@ export function Dashboard() {
                 <div className="section-title">
                   <h2>Data Export</h2>
                   <p className="section-subtitle">
-                    Export observation data as Parquet files
+                    Download observations (Parquet or raw JSON) and all attachment files as ZIP archives
                   </p>
                 </div>
               </div>
@@ -1326,24 +1326,17 @@ export function Dashboard() {
                     <HiArrowDownTray />
                   </div>
                   <div className="export-content">
-                    <h3>Export All Data</h3>
-                    <p>Download all observation data as ZIP containing multiple Parquet files (one per form type)</p>
+                    <h3>Observations (Parquet)</h3>
+                    <p>
+                      ZIP of Parquet files—one file per form type, flattened columns
+                    </p>
                     <Button
                       variant="primary"
                       onPress={async () => {
                         try {
-                          const apiUrl = import.meta.env.VITE_API_URL || '/api';
-                          const token = localStorage.getItem('token');
-                          const response = await fetch(`${apiUrl}/dataexport/parquet`, {
-                            headers: {
-                              'Authorization': `Bearer ${token}`,
-                              'x-formulus-version': '1.0.0'
-                            }
-                          });
-                          if (!response.ok) {
-                            throw new Error(`Export failed: ${response.statusText}`);
-                          }
-                          const blob = await response.blob();
+                          const blob = await api.downloadBlob(
+                            '/dataexport/parquet',
+                          );
                           const url = window.URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
@@ -1352,14 +1345,91 @@ export function Dashboard() {
                           a.click();
                           window.URL.revokeObjectURL(url);
                           document.body.removeChild(a);
-                          setSuccess('Parquet files downloaded successfully!');
+                          setSuccess('Parquet export downloaded successfully!');
                         } catch (err) {
-                          setError(err instanceof Error ? err.message : 'Export failed');
+                          setError(
+                            err instanceof Error ? err.message : 'Export failed',
+                          );
                         }
                       }}
                       disabled={loading}
                       className="export-button">
                       <HiArrowDownTray /> Export Parquet
+                    </Button>
+                  </div>
+                </div>
+                <div className="export-card">
+                  <div className="export-icon">
+                    <HiDocumentText />
+                  </div>
+                  <div className="export-content">
+                    <h3>Observations (raw JSON)</h3>
+                    <p>
+                      ZIP of JSON files—one file per observation, nested{' '}
+                      <code>data</code> payload
+                    </p>
+                    <Button
+                      variant="primary"
+                      onPress={async () => {
+                        try {
+                          const blob = await api.downloadBlob(
+                            '/dataexport/raw-json',
+                          );
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `observations-raw-json-${new Date().toISOString().split('T')[0]}.zip`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                          setSuccess('Raw JSON export downloaded successfully!');
+                        } catch (err) {
+                          setError(
+                            err instanceof Error ? err.message : 'Export failed',
+                          );
+                        }
+                      }}
+                      disabled={loading}
+                      className="export-button">
+                      <HiArrowDownTray /> Export raw JSON
+                    </Button>
+                  </div>
+                </div>
+                <div className="export-card">
+                  <div className="export-icon">
+                    <HiArrowDownTray />
+                  </div>
+                  <div className="export-content">
+                    <h3>All attachments</h3>
+                    <p>
+                      ZIP of every stored attachment file (paths match attachment IDs in observation data)
+                    </p>
+                    <Button
+                      variant="primary"
+                      onPress={async () => {
+                        try {
+                          const blob = await api.downloadBlob(
+                            '/attachments/export-zip',
+                          );
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `attachments-export-${new Date().toISOString().split('T')[0]}.zip`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                          setSuccess('Attachments export downloaded successfully!');
+                        } catch (err) {
+                          setError(
+                            err instanceof Error ? err.message : 'Export failed',
+                          );
+                        }
+                      }}
+                      disabled={loading}
+                      className="export-button">
+                      <HiArrowDownTray /> Export attachments
                     </Button>
                   </div>
                 </div>
