@@ -8,9 +8,9 @@ func NewTestConfig() *config.Config {
 		AppBundlePath:         "./testdata/appbundles",
 		AppBundleVersionsPath: "./testdata/app-bundle-versions",
 		Port:                  "8080",
-		DatabaseURL:   "postgres://postgres:postgres@localhost:5432/synkronus_test?sslmode=disable",
-		JWTSecret:     "test-secret",
-		LogLevel:      "debug",
-		DataDir:       "./testdata",
+		DatabaseURL:           "postgres://postgres:postgres@localhost:5432/synkronus_test?sslmode=disable",
+		JWTSecret:             "test-secret",
+		LogLevel:              "debug",
+		DataDir:               "./testdata",
 	}
 }

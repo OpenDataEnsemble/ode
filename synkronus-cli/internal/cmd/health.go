@@ -18,15 +18,16 @@ func init() {
 		Long:  `Verify connectivity to the Synkronus API server.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			apiURL := strings.TrimRight(utils.EnsureScheme(viper.GetString("api.url")), "/")
+			healthURL := apiURL + "/health"
 
-			utils.PrintInfo("Checking API health at %s...", apiURL)
+			utils.PrintInfo("Checking API health at %s...", healthURL)
 
 			client := &http.Client{
 				Timeout: 10 * time.Second,
 			}
 
 			start := time.Now()
-			resp, err := client.Get(apiURL)
+			resp, err := client.Get(healthURL)
 			if err != nil {
 				return fmt.Errorf("connection failed: %w", err)
 			}

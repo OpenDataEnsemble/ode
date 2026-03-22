@@ -18,7 +18,7 @@ var (
 	ErrInvalidJSON              = errors.New("invalid JSON")
 	ErrInvalidExtension         = errors.New("invalid extension file")
 	ErrMissingExtensionModule   = errors.New("missing extension module")
-	ErrInvalidExtensionRenderer  = errors.New("invalid extension renderer")
+	ErrInvalidExtensionRenderer = errors.New("invalid extension renderer")
 )
 
 // ValidateBundle validates the structure and content of an app bundle ZIP file
@@ -329,18 +329,18 @@ func checkSchemaRendererReferences(data interface{}, availableRenderers map[stri
 		if format, ok := v["format"].(string); ok {
 			// Format-based renderers must be in extension renderers or built-in
 			if !extensionRenderers[format] && !isBuiltInRenderer(format) {
-			// Check if it's a known format
-			knownFormats := []string{"date", "date-time", "time", "photo", "qrcode", "signature", "select_file", "audio", "gps", "video", "adate", "html"}
-			isKnownFormat := false
-			for _, known := range knownFormats {
-				if format == known {
-					isKnownFormat = true
-					break
+				// Check if it's a known format
+				knownFormats := []string{"date", "date-time", "time", "photo", "qrcode", "signature", "select_file", "audio", "gps", "video", "adate", "html"}
+				isKnownFormat := false
+				for _, known := range knownFormats {
+					if format == known {
+						isKnownFormat = true
+						break
+					}
 				}
-			}
-			if !isKnownFormat {
-				return fmt.Errorf("schema property references renderer with format '%s' but no extension renderer is defined for this format", format)
-			}
+				if !isKnownFormat {
+					return fmt.Errorf("schema property references renderer with format '%s' but no extension renderer is defined for this format", format)
+				}
 			}
 		}
 
@@ -534,10 +534,10 @@ func validateExtensions(zipReader *zip.Reader) error {
 		// Check if module exists in bundle
 		// Modules can be in forms/ or app/ directories
 		moduleFound := false
-		
+
 		// Normalize path - remove leading "/" if present (v1 format uses absolute paths)
 		normalizedPath := strings.TrimPrefix(modulePath, "/")
-		
+
 		for _, file := range zipReader.File {
 			// Check various possible paths
 			if file.Name == modulePath ||
@@ -571,18 +571,18 @@ func checkUISchemaRendererReferences(data interface{}, availableRenderers map[st
 		if format, ok := v["format"].(string); ok {
 			// Format-based renderers must be in extension renderers or built-in
 			if !extensionRenderers[format] && !isBuiltInRenderer(format) {
-			// Check if it's a known format (date, date-time, time are built-in)
-			knownFormats := []string{"date", "date-time", "time", "photo", "qrcode", "signature", "select_file", "audio", "gps", "video", "adate", "html"}
-			isKnownFormat := false
-			for _, known := range knownFormats {
-				if format == known {
-					isKnownFormat = true
-					break
+				// Check if it's a known format (date, date-time, time are built-in)
+				knownFormats := []string{"date", "date-time", "time", "photo", "qrcode", "signature", "select_file", "audio", "gps", "video", "adate", "html"}
+				isKnownFormat := false
+				for _, known := range knownFormats {
+					if format == known {
+						isKnownFormat = true
+						break
+					}
 				}
-			}
-			if !isKnownFormat {
-				return fmt.Errorf("UI schema references renderer with format '%s' but no extension renderer is defined for this format", format)
-			}
+				if !isKnownFormat {
+					return fmt.Errorf("UI schema references renderer with format '%s' but no extension renderer is defined for this format", format)
+				}
 			}
 		}
 
