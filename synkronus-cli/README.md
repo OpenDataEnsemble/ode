@@ -146,8 +146,8 @@ synk app-bundle download index.html
 # Upload a new app bundle (admin only)
 synk app-bundle upload bundle.zip
 
-# Upload with auto-activation and verbose output
-synk app-bundle upload bundle.zip --activate --verbose
+# Upload without switching the active bundle (stage only), with verbose output
+synk app-bundle upload bundle.zip --stage-only --verbose
 
 # Switch to a specific app bundle version (admin only)
 synk app-bundle switch 20250507-123456

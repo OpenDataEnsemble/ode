@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Synkronus API
-  version: 1.0.3
+  version: 1.0.5
 paths:
   /health:
     get:
@@ -845,6 +845,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/attachments/export-zip:
+    get:
+      operationId: getAttachmentsExportZip
+      summary: Download all attachments as a streamed ZIP
+      description: >
+        Returns a ZIP containing every attachment whose latest manifest operation is create or update.
+        Entry paths correspond to attachment IDs. Large exports stream without buffering the full archive in memory.
+      tags:
+        - Attachments
+      responses:
+        '200':
+          description: ZIP archive stream
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          description: Attachment storage is not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: [read-only, read-write, admin]
+
   /api/attachments/{attachment_id}:
     put:
       operationId: uploadAttachment
@@ -959,7 +991,33 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
       security:
-        - bearerAuth: [read-only, read-write]
+        - bearerAuth: [read-only, read-write, admin]
+
+  /api/dataexport/raw-json:
+    get:
+      operationId: getRawJsonExportZip
+      summary: Download a ZIP archive of per-observation JSON files
+      description: >
+        Returns a ZIP archive where each non-deleted observation is one JSON file,
+        grouped by form type folder. Each file contains metadata fields and a nested `data` object with the form payload.
+      tags:
+        - DataExport
+      responses:
+        '200':
+          description: ZIP archive stream containing JSON files
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: [read-only, read-write, admin]
 
 components:
   schemas:
@@ -1260,8 +1318,6 @@ components:
         - created_at
         - updated_at
         - deleted
-        - author
-        - device_id
       properties:
         observation_id:
           type: string
@@ -1323,10 +1379,18 @@ components:
               description: When the GPS fix was obtained (ISO 8601)
         author:
           type: string
-          description: Author/creator of the observation
+          nullable: true
+          description: Optional author/creator identifier for the observation (e.g. username)
         device_id:
           type: string
-          description: Device ID that created the observation
+          nullable: true
+          description: Optional client device identifier for the observation
+        tags:
+          type: array
+          nullable: true
+          description: Optional list of string tags (labeling, extensions, data cleaning)
+          items:
+            type: string
 
 
     ProblemDetail:

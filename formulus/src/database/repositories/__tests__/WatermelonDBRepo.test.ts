@@ -22,6 +22,7 @@ import { ObservationModel } from '../../models/ObservationModel';
 import { WatermelonDBRepo } from '../WatermelonDBRepo';
 import { Observation } from '../LocalRepoInterface';
 import { ObservationMapper } from '../../../mappers/ObservationMapper';
+import { LAST_WRITE_WON_TAG } from '../../../sync/syncConstants';
 import { Q } from '@nozbe/watermelondb';
 
 // Create a test database with in-memory LokiJS adapter
@@ -651,5 +652,35 @@ describe('WatermelonDBRepo', () => {
     expect(ObservationMapper.toApi(domainLocal).device_id).toBe(deviceId);
     expect(ObservationMapper.toApi(domainSynced).author).toBe(author);
     expect(ObservationMapper.toApi(domainSynced).device_id).toBe(deviceId);
+  });
+
+  test('applyServerChanges adds last_write_won tag when local edits win over pulled server row', async () => {
+    const localId = await repo.saveObservation({
+      formType: 'form_lww',
+      data: { source: 'local' },
+    });
+
+    const serverObservation: Observation = {
+      observationId: localId,
+      formType: 'form_lww',
+      formVersion: '1.0',
+      createdAt: new Date('2025-01-02T10:00:00.000Z'),
+      updatedAt: new Date('2025-01-02T12:00:00.000Z'),
+      syncedAt: null,
+      deleted: false,
+      data: { source: 'server' },
+      geolocation: null,
+    };
+
+    const applied = await repo.applyServerChanges([serverObservation]);
+    expect(applied).toBe(1);
+
+    const local = await repo.getObservation(localId);
+    expect(local).not.toBeNull();
+    expect(local!.data).toEqual({ source: 'local' });
+    expect(local!.tags ?? []).toContain(LAST_WRITE_WON_TAG);
+
+    const appliedAgain = await repo.applyServerChanges([serverObservation]);
+    expect(appliedAgain).toBe(0);
   });
 });

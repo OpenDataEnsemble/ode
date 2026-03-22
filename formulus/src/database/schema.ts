@@ -2,7 +2,7 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 // Define the database schema
 export const schemas = appSchema({
-  version: 4,
+  version: 5,
   tables: [
     tableSchema({
       name: 'observations',
@@ -15,6 +15,7 @@ export const schemas = appSchema({
         { name: 'geolocation', type: 'string' },
         { name: 'author', type: 'string' },
         { name: 'device_id', type: 'string' },
+        { name: 'tags', type: 'string' },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
         { name: 'synced_at', type: 'number' },

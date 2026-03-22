@@ -216,16 +216,30 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 	return nil
 }
 
-// DownloadParquetExport downloads the Parquet export ZIP archive to the specified destination path
-func (c *Client) DownloadParquetExport(destPath string) error {
-	url := fmt.Sprintf("%s/api/dataexport/parquet", c.BaseURL)
-
+// downloadBinaryToFile performs an authenticated GET on path (must start with /, e.g. /api/dataexport/parquet)
+// and streams the body to destPath. Uses no overall HTTP timeout so large ZIP exports can complete.
+func (c *Client) downloadBinaryToFile(path string, destPath string) error {
+	url := fmt.Sprintf("%s%s", c.BaseURL, path)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
+	req.Header.Set("x-formulus-version", c.APIVersion)
+	token, err := auth.GetToken()
+	if err != nil {
+		return fmt.Errorf("authentication error: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := c.doRequest(req)
+	httpClient := &http.Client{
+		Timeout:   0,
+		Transport: c.HTTPClient.Transport,
+	}
+	if httpClient.Transport == nil {
+		httpClient.Transport = http.DefaultTransport
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -233,29 +247,41 @@ func (c *Client) DownloadParquetExport(destPath string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		msg := strings.TrimSpace(string(body))
+		if resp.StatusCode == http.StatusServiceUnavailable && msg == "" {
+			return fmt.Errorf("API error (status %d): service unavailable", resp.StatusCode)
+		}
+		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, msg)
 	}
 
-	// Create destination directory if it doesn't exist
 	destDir := filepath.Dir(destPath)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return err
 	}
 
-	// Create destination file
 	out, err := os.Create(destPath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	// Copy response body to file
 	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
+	return err
+}
 
-	return nil
+// DownloadParquetExport downloads the Parquet export ZIP archive to the specified destination path
+func (c *Client) DownloadParquetExport(destPath string) error {
+	return c.downloadBinaryToFile("/api/dataexport/parquet", destPath)
+}
+
+// DownloadRawJSONExport downloads the per-observation JSON ZIP export to the specified destination path
+func (c *Client) DownloadRawJSONExport(destPath string) error {
+	return c.downloadBinaryToFile("/api/dataexport/raw-json", destPath)
+}
+
+// DownloadAttachmentsExport downloads a ZIP of all current attachments to the specified destination path
+func (c *Client) DownloadAttachmentsExport(destPath string) error {
+	return c.downloadBinaryToFile("/api/attachments/export-zip", destPath)
 }
 
 // UploadAppBundle uploads a new app bundle

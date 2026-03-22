@@ -43,6 +43,16 @@ const migrations = schemaMigrations({
         },
       ],
     },
+    {
+      toVersion: 5,
+      steps: [
+        {
+          type: 'add_columns',
+          table: 'observations',
+          columns: [{ name: 'tags', type: 'string' }],
+        },
+      ],
+    },
   ],
 });
 

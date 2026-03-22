@@ -170,7 +170,7 @@ func ensureTestSchema(ctx context.Context, conn *sql.Conn) error {
 		return fmt.Errorf("failed to enable uuid-ossp extension: %w", err)
 	}
 
-	// Create observations table
+	// Create observations table (aligned with production migrations: geolocation, author, device_id, tags)
 	observationsSQL := `
 		CREATE TABLE observations (
 			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -182,7 +182,11 @@ func ensureTestSchema(ctx context.Context, conn *sql.Conn) error {
 			updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 			synced_at TIMESTAMP WITH TIME ZONE,
 			deleted BOOLEAN NOT NULL DEFAULT FALSE,
-			version BIGINT NOT NULL DEFAULT 1
+			version BIGINT NOT NULL DEFAULT 1,
+			geolocation JSONB,
+			author TEXT,
+			device_id TEXT,
+			tags TEXT[]
 		)
 	`
 	if _, err := conn.ExecContext(ctx, observationsSQL); err != nil {

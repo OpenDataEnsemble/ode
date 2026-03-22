@@ -16,6 +16,7 @@ export class ObservationModel extends Model {
   @text('geolocation') geolocation!: string; // JSON string of ObservationGeolocation or null
   @text('author') author!: string; // username of the logged-in user
   @text('device_id') deviceId!: string; // stable device identifier
+  @text('tags') tags!: string; // JSON array of strings or empty
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
   @date('synced_at') syncedAt!: Date;

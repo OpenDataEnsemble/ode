@@ -38,6 +38,7 @@ function observationToExportJson(obs: Observation): Record<string, unknown> {
     geolocation: obs.geolocation,
     author: obs.author ?? '',
     deviceId: obs.deviceId ?? '',
+    tags: obs.tags ?? [],
   };
 }
 

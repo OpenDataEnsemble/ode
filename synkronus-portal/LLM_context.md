@@ -61,8 +61,8 @@ Centralized HTTP client for all API requests:
 - **Automatic token injection**: Adds `Authorization: Bearer <token>` header to authenticated requests.
 - **Error handling**: Parses API error responses (`{ error: "...", message: "..." }`) and throws meaningful errors.
 - **Methods**:
-  - `api.login()` - POST `/auth/login`
-  - `api.refreshToken()` - POST `/auth/refresh`
+  - `api.login()` - POST `/auth/login` (relative to base; full path `/api/auth/login`)
+  - `api.refreshToken()` - POST `/auth/refresh` (full path `/api/auth/refresh`)
   - `api.get()`, `api.post()`, `api.put()`, `api.delete()` - Generic HTTP methods
 
 ### Protected Routes
@@ -161,17 +161,14 @@ function MyComponent() {
 
 ### Development (Vite Proxy)
 
-The `vite.config.ts` proxies `/api/*` requests to the backend:
-- **Docker**: `http://synkronus:8080` (service name)
-- **Local**: `http://localhost:8080`
-
-The proxy automatically rewrites `/api/auth/login` → `/auth/login` before forwarding.
+The `vite.config.ts` proxies `/api/*` and `/health` to the backend without rewriting paths (the server mounts REST under `/api` and keeps `/health` at the root).
 
 ### Production (Nginx)
 
 The `Dockerfile` includes nginx configuration that:
 - Serves the built React app from `/usr/share/nginx/html`
-- Proxies `/api/*` requests to `http://synkronus:8080` (Docker service name)
+- Proxies `/api/*` to the demo backend with the same URI (e.g. `/api/auth/login` → backend `/api/auth/login`)
+- Proxies `GET /health` to the backend for the apex health check
 
 ### Environment Variables
 

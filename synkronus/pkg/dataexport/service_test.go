@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"testing"
 
@@ -147,7 +148,8 @@ func TestService_ExportParquetZip(t *testing.T) {
 			cfg := &config.Config{}
 			service := NewService(tt.mockDB, cfg)
 
-			zipReader, err := service.ExportParquetZip(context.Background())
+			var zipBuf bytes.Buffer
+			err := service.ExportParquetZip(context.Background(), &zipBuf)
 
 			if tt.expectError {
 				if err == nil {
@@ -164,14 +166,8 @@ func TestService_ExportParquetZip(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			defer zipReader.Close()
 
-			// Read ZIP content
-			zipData, err := io.ReadAll(zipReader)
-			if err != nil {
-				t.Errorf("Failed to read ZIP data: %v", err)
-				return
-			}
+			zipData := zipBuf.Bytes()
 
 			// Parse ZIP file
 			zipReader2, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
@@ -196,6 +192,84 @@ func TestService_ExportParquetZip(t *testing.T) {
 				t.Errorf("Expected %d files, found %d", len(tt.expectedFiles), len(foundFiles))
 			}
 		})
+	}
+}
+
+func TestService_ExportRawJSONZip(t *testing.T) {
+	mockDB := &MockDatabaseInterface{
+		FormTypes: []string{"survey"},
+		FormTypeSchemas: map[string]*FormTypeSchema{
+			"survey": {
+				FormType: "survey",
+				Columns: []FormTypeColumn{
+					{Key: "question1", DataType: "string", SQLType: "text"},
+				},
+			},
+		},
+		ObservationsData: map[string][]ObservationRow{
+			"survey": {
+				{
+					ObservationID: "obs-1",
+					FormType:      "survey",
+					FormVersion:   "1.0",
+					CreatedAt:     "2023-01-01T00:00:00Z",
+					UpdatedAt:     "2023-01-01T00:00:00Z",
+					Deleted:       false,
+					Version:       1,
+					DataFields: map[string]interface{}{
+						"data_question1": "hello",
+					},
+				},
+			},
+		},
+	}
+	cfg := &config.Config{}
+	service := NewService(mockDB, cfg)
+
+	var zipBuf bytes.Buffer
+	if err := service.ExportRawJSONZip(context.Background(), &zipBuf); err != nil {
+		t.Fatalf("ExportRawJSONZip: %v", err)
+	}
+
+	zipData := zipBuf.Bytes()
+
+	zr, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("parse zip: %v", err)
+	}
+	if len(zr.File) != 1 {
+		t.Fatalf("expected 1 zip entry, got %d", len(zr.File))
+	}
+	if zr.File[0].Name != "survey/obs-1.json" {
+		t.Fatalf("unexpected entry name: %s", zr.File[0].Name)
+	}
+
+	rc, err := zr.File[0].Open()
+	if err != nil {
+		t.Fatalf("open entry: %v", err)
+	}
+	defer rc.Close()
+	body, err := io.ReadAll(rc)
+	if err != nil {
+		t.Fatalf("read entry: %v", err)
+	}
+
+	var payload rawObservationPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if payload.Data["question1"] != "hello" {
+		t.Fatalf("expected data.question1 hello, got %v", payload.Data["question1"])
+	}
+}
+
+func Test_unflattenDataFields(t *testing.T) {
+	out := unflattenDataFields(map[string]interface{}{
+		"data_a": 1,
+		"other":  "x",
+	})
+	if out["a"] != 1 || out["other"] != "x" {
+		t.Fatalf("unexpected: %#v", out)
 	}
 }
 
@@ -245,8 +319,8 @@ func TestService_buildArrowSchema(t *testing.T) {
 
 	arrowSchema := service.buildArrowSchema(schema)
 
-	// Check that we have the expected number of fields (9 base + 3 data fields)
-	expectedFieldCount := 9 + len(schema.Columns)
+	// Check that we have the expected number of fields (12 base + 3 data fields)
+	expectedFieldCount := 12 + len(schema.Columns)
 	if len(arrowSchema.Fields()) != expectedFieldCount {
 		t.Errorf("Expected %d fields, got %d", expectedFieldCount, len(arrowSchema.Fields()))
 	}
@@ -255,6 +329,7 @@ func TestService_buildArrowSchema(t *testing.T) {
 	baseFields := []string{
 		"observation_id", "form_type", "form_version", "created_at",
 		"updated_at", "synced_at", "deleted", "version", "geolocation",
+		"author", "device_id", "tags",
 	}
 
 	for i, expectedName := range baseFields {
@@ -266,7 +341,7 @@ func TestService_buildArrowSchema(t *testing.T) {
 	// Check data fields
 	dataFields := []string{"data_text_field", "data_number_field", "data_bool_field"}
 	for i, expectedName := range dataFields {
-		fieldIndex := 9 + i
+		fieldIndex := 12 + i
 		if arrowSchema.Field(fieldIndex).Name != expectedName {
 			t.Errorf("Expected field %d to be %s, got %s", fieldIndex, expectedName, arrowSchema.Field(fieldIndex).Name)
 		}

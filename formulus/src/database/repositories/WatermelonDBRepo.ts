@@ -11,6 +11,26 @@ import { geolocationService } from '../../services/GeolocationService';
 import { ToastService } from '../../services/ToastService';
 import { clientIdService } from '../../services/ClientIdService';
 import { getUserInfo } from '../../api/synkronus/Auth';
+import { LAST_WRITE_WON_TAG } from '../../sync/syncConstants';
+
+function parseTagsColumn(raw: string | undefined): string[] {
+  if (!raw?.trim()) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((t): t is string => typeof t === 'string');
+  } catch {
+    return [];
+  }
+}
+
+function serializeTagsColumn(tags: string[]): string {
+  return tags.length > 0 ? JSON.stringify(tags) : '';
+}
 
 /**
  * WatermelonDB implementation of the LocalRepoInterface
@@ -72,6 +92,11 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       const deviceId: string =
         input.deviceId ?? (await clientIdService.getClientId());
 
+      const stringifiedTags =
+        input.tags != null && input.tags.length > 0
+          ? JSON.stringify(input.tags)
+          : '';
+
       // Stringify geolocation for storage
       const stringifiedGeolocation = geolocation
         ? JSON.stringify(geolocation)
@@ -97,6 +122,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           record.geolocation = stringifiedGeolocation;
           record.author = author;
           record.deviceId = deviceId;
+          record.tags = stringifiedTags;
           record.deleted = false; // New observations are never deleted
           // Don't set syncedAt - let it be null so the observation is marked as pending sync
         });
@@ -459,7 +485,14 @@ export class WatermelonDBRepo implements LocalRepoInterface {
               console.debug(
                 `Skipping server change for ${existing.id} because it's locally dirty`,
               );
-              return null; // skip applying server version (TODO: maybe include this information in the return value to be able to report it to the user)
+              const currentTags = parseTagsColumn(existing.tags);
+              if (currentTags.includes(LAST_WRITE_WON_TAG)) {
+                return null;
+              }
+              const merged = [...currentTags, LAST_WRITE_WON_TAG];
+              return existing.prepareUpdate(record => {
+                record.tags = serializeTagsColumn(merged);
+              });
             }
             return existing.prepareUpdate(record => {
               record.formType = change.formType || record.formType;
@@ -475,6 +508,12 @@ export class WatermelonDBRepo implements LocalRepoInterface {
               }
               if (change.deviceId !== undefined) {
                 record.deviceId = change.deviceId ?? '';
+              }
+              if (change.tags !== undefined) {
+                record.tags =
+                  change.tags != null && change.tags.length > 0
+                    ? JSON.stringify(change.tags)
+                    : '';
               }
               record.syncedAt = new Date();
             });
@@ -493,6 +532,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
                 : JSON.stringify(change.data);
             record.author = change.author ?? '';
             record.deviceId = change.deviceId ?? '';
+            record.tags =
+              change.tags != null && change.tags.length > 0
+                ? JSON.stringify(change.tags)
+                : '';
             record.deleted = change.deleted ?? false;
             record.syncedAt = new Date();
           });
@@ -641,6 +684,18 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       }
     }
 
+    let tags: string[] | null = null;
+    if (model.tags && model.tags.trim()) {
+      try {
+        const parsed = JSON.parse(model.tags) as unknown;
+        if (Array.isArray(parsed)) {
+          tags = parsed.filter((t): t is string => typeof t === 'string');
+        }
+      } catch (e) {
+        console.warn('Failed to parse observation tags:', e);
+      }
+    }
+
     return {
       observationId: ObservationMapper.observationIdFromDBModel(model),
       formType: model.formType,
@@ -653,6 +708,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       geolocation,
       author: model.author ?? null,
       deviceId: model.deviceId ?? null,
+      tags,
     };
   }
 }

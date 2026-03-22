@@ -13,6 +13,7 @@ docs/AttachmentManifestRequest.md
 docs/AttachmentManifestResponse.md
 docs/AttachmentManifestResponseOperationCount.md
 docs/AttachmentOperation.md
+docs/AttachmentsApi.md
 docs/AuthResponse.md
 docs/BuildInfo.md
 docs/ChangeLog.md

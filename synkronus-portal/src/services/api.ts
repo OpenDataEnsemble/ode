@@ -267,4 +267,47 @@ export const api = {
 
     return response.blob();
   },
+
+  /**
+   * Download a binary response (ZIP, etc.) from an authenticated GET endpoint.
+   * Does not use JSON Content-Type; suitable for data export and attachment downloads.
+   */
+  async downloadBlob(endpoint: string): Promise<Blob> {
+    const token = localStorage.getItem('token');
+    const headers: Record<string, string> = {
+      'x-formulus-version': PORTAL_VERSION,
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const url = `${API_BASE_URL}${endpoint}`;
+    const response = await fetch(url, {
+      method: 'GET',
+      headers,
+    });
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData: ApiErrorResponse = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        errorMessage = response.statusText || errorMessage;
+      }
+
+      if (response.status === 401 && endpoint !== '/auth/login') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+        localStorage.removeItem('expiresAt');
+        window.location.href = '/';
+        throw new Error('Your session has expired. Please log in again.');
+      }
+
+      throw new Error(errorMessage);
+    }
+
+    return response.blob();
+  },
 };

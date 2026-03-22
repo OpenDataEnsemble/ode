@@ -40,6 +40,11 @@ func (m *mockAttachmentService) Exists(ctx context.Context, attachmentID string)
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *mockAttachmentService) WriteZip(ctx context.Context, w io.Writer, ids []string) error {
+	args := m.Called(ctx, w, ids)
+	return args.Error(0)
+}
+
 func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -267,4 +272,60 @@ func TestDownloadAttachment_StreamingErrorLogged(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Contains(t, buf.String(), "Failed to stream attachment")
+}
+
+func TestAttachmentHandler_ExportAllAttachmentsZip(t *testing.T) {
+	t.Run("storage unavailable", func(t *testing.T) {
+		handler := NewAttachmentHandler(logger.NewLogger(), nil, &mocks.MockAttachmentManifestService{})
+		req := httptest.NewRequest(http.MethodGet, "/api/attachments/export-zip", nil)
+		rr := httptest.NewRecorder()
+		handler.ExportAllAttachmentsZip(rr, req)
+		assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	})
+
+	t.Run("list error", func(t *testing.T) {
+		mockSvc := &mockAttachmentService{}
+		mockManifest := &mocks.MockAttachmentManifestService{
+			ListAllCurrentAttachmentIDsFunc: func(ctx context.Context) ([]string, error) {
+				return nil, errors.New("db error")
+			},
+		}
+		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+		req := httptest.NewRequest(http.MethodGet, "/api/attachments/export-zip", nil)
+		rr := httptest.NewRecorder()
+		handler.ExportAllAttachmentsZip(rr, req)
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	})
+
+	t.Run("write zip success", func(t *testing.T) {
+		mockSvc := &mockAttachmentService{}
+		mockManifest := &mocks.MockAttachmentManifestService{
+			ListAllCurrentAttachmentIDsFunc: func(ctx context.Context) ([]string, error) {
+				return []string{"a"}, nil
+			},
+		}
+		mockSvc.On("WriteZip", mock.Anything, mock.Anything, []string{"a"}).Return(nil)
+		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+		req := httptest.NewRequest(http.MethodGet, "/api/attachments/export-zip", nil)
+		rr := httptest.NewRecorder()
+		handler.ExportAllAttachmentsZip(rr, req)
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Equal(t, "application/zip", rr.Header().Get("Content-Type"))
+		mockSvc.AssertExpectations(t)
+	})
+
+	t.Run("write zip error before body", func(t *testing.T) {
+		mockSvc := &mockAttachmentService{}
+		mockManifest := &mocks.MockAttachmentManifestService{
+			ListAllCurrentAttachmentIDsFunc: func(ctx context.Context) ([]string, error) {
+				return []string{"a"}, nil
+			},
+		}
+		mockSvc.On("WriteZip", mock.Anything, mock.Anything, []string{"a"}).Return(errors.New("write fail"))
+		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+		req := httptest.NewRequest(http.MethodGet, "/api/attachments/export-zip", nil)
+		rr := httptest.NewRecorder()
+		handler.ExportAllAttachmentsZip(rr, req)
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+	})
 }
