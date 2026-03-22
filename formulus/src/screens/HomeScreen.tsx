@@ -192,11 +192,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {isPlaceholder ? (
-        <View style={shellStyle}>{content}</View>
-      ) : (
-        content
-      )}
+      {isPlaceholder ? <View style={shellStyle}>{content}</View> : content}
     </SafeAreaView>
   );
 };
