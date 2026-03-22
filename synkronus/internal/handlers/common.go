@@ -5,6 +5,18 @@ import (
 	"net/http"
 )
 
+// countingResponseWriter wraps http.ResponseWriter to detect whether any body bytes were written.
+type countingResponseWriter struct {
+	http.ResponseWriter
+	n int64
+}
+
+func (c *countingResponseWriter) Write(p []byte) (int, error) {
+	n, err := c.ResponseWriter.Write(p)
+	c.n += int64(n)
+	return n, err
+}
+
 // SendJSONResponse is a helper to send JSON responses
 func SendJSONResponse(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("content-type", "application/json")

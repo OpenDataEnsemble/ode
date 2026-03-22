@@ -51,6 +51,9 @@ type ManifestService interface {
 
 	// Initialize initializes the manifest service
 	Initialize(ctx context.Context) error
+
+	// ListAllCurrentAttachmentIDs returns IDs whose latest operation is create or update (not deleted).
+	ListAllCurrentAttachmentIDs(ctx context.Context) ([]string, error)
 }
 
 // manifestService implements ManifestService
@@ -209,6 +212,39 @@ func (s *manifestService) GetManifest(ctx context.Context, req AttachmentManifes
 		"totalDownloadSize", totalDownloadSize)
 
 	return response, nil
+}
+
+// ListAllCurrentAttachmentIDs returns attachment IDs that currently exist (latest op is create/update).
+func (s *manifestService) ListAllCurrentAttachmentIDs(ctx context.Context) ([]string, error) {
+	query := `
+		SELECT attachment_id FROM (
+			SELECT DISTINCT ON (attachment_id)
+				attachment_id,
+				operation
+			FROM attachment_operations
+			ORDER BY attachment_id, version DESC
+		) AS latest
+		WHERE operation IN ('create', 'update')
+		ORDER BY attachment_id
+	`
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list attachment IDs: %w", err)
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("failed to scan attachment id: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating attachment ids: %w", err)
+	}
+	return ids, nil
 }
 
 // RecordOperation records an attachment operation for sync tracking

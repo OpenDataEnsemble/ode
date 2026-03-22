@@ -4,18 +4,6 @@ import (
 	"net/http"
 )
 
-// countingResponseWriter wraps http.ResponseWriter to detect whether any body bytes were written.
-type countingResponseWriter struct {
-	http.ResponseWriter
-	n int64
-}
-
-func (c *countingResponseWriter) Write(p []byte) (int, error) {
-	n, err := c.ResponseWriter.Write(p)
-	c.n += int64(n)
-	return n, err
-}
-
 // ParquetExportHandler handles GET /dataexport/parquet
 // @Summary Download a ZIP archive of Parquet exports
 // @Description Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together.

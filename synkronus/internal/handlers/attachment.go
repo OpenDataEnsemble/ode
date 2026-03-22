@@ -9,8 +9,10 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 )
 
 type AttachmentHandler struct {
@@ -34,16 +36,57 @@ func NewAttachmentHandler(
 // RegisterRoutes registers the attachment routes
 func (h *AttachmentHandler) RegisterRoutes(r chi.Router, manifestHandler func(http.ResponseWriter, *http.Request)) {
 	r.Route("/attachments", func(r chi.Router) {
-		// Manifest endpoint
 		r.Post("/manifest", manifestHandler)
+		// Literal route before /{attachment_id} so "export-zip" is not treated as an ID.
+		r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/export-zip", h.ExportAllAttachmentsZip)
 
-		// Individual attachment routes
 		r.Route("/{attachment_id}", func(r chi.Router) {
 			r.Put("/", h.UploadAttachment)
 			r.Get("/", h.DownloadAttachment)
 			r.Head("/", h.CheckAttachment)
 		})
 	})
+}
+
+// ExportAllAttachmentsZip handles GET /attachments/export-zip
+// @Summary Download all attachments as a streamed ZIP
+// @Description Returns a ZIP archive containing every attachment whose latest manifest operation is create or update. Large exports stream without buffering the full archive in memory.
+// @Tags Attachments
+// @Produce application/zip
+// @Success 200 {file} binary "ZIP archive stream"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 403 {object} ErrorResponse "Forbidden"
+// @Failure 500 {object} ErrorResponse "Internal Server Error"
+// @Failure 503 {object} ErrorResponse "Service Unavailable"
+// @Security BearerAuth
+// @Router /api/attachments/export-zip [get]
+func (h *AttachmentHandler) ExportAllAttachmentsZip(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		SendErrorResponse(w, http.StatusServiceUnavailable, nil, "Attachment storage is not available")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"attachments_export.zip\"")
+
+	cw := &countingResponseWriter{ResponseWriter: w}
+	ids, err := h.manifest.ListAllCurrentAttachmentIDs(r.Context())
+	if err != nil {
+		if cw.n == 0 {
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to list attachments for export")
+			return
+		}
+		h.log.Error("List attachments for export failed after response started", "error", err)
+		return
+	}
+
+	if err := h.service.WriteZip(r.Context(), cw, ids); err != nil {
+		if cw.n == 0 {
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to export attachments")
+			return
+		}
+		h.log.Error("Attachment export failed after response started", "error", err)
+	}
 }
 
 // UploadAttachment handles PUT /attachments/{attachment_id}
