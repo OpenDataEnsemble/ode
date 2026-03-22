@@ -362,27 +362,56 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
               )}
           </View>
 
-          {observation.geolocation && (
-            <View style={sectionStyle}>
-              <Text style={[styles.sectionTitle, onSurface]}>Location</Text>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Latitude:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {typeof observation.geolocation === 'string'
-                    ? JSON.parse(observation.geolocation).latitude
-                    : observation.geolocation.latitude}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Longitude:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {typeof observation.geolocation === 'string'
-                    ? JSON.parse(observation.geolocation).longitude
-                    : observation.geolocation.longitude}
-                </Text>
-              </View>
-            </View>
-          )}
+          {observation.geolocation &&
+            (() => {
+              const geo =
+                typeof observation.geolocation === 'string'
+                  ? JSON.parse(observation.geolocation)
+                  : observation.geolocation;
+              const accuracyText =
+                typeof geo.accuracy === 'number' &&
+                Number.isFinite(geo.accuracy)
+                  ? `${Math.round(geo.accuracy)} m`
+                  : '—';
+              let fixTimeText = '—';
+              if (geo.timestamp && typeof geo.timestamp === 'string') {
+                const parsed = new Date(geo.timestamp);
+                fixTimeText = Number.isNaN(parsed.getTime())
+                  ? geo.timestamp
+                  : parsed.toLocaleString();
+              }
+              return (
+                <View style={sectionStyle}>
+                  <Text style={[styles.sectionTitle, onSurface]}>Location</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, onSurface]}>Latitude:</Text>
+                    <Text style={[styles.infoValue, onSurface]}>
+                      {geo.latitude}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, onSurface]}>
+                      Longitude:
+                    </Text>
+                    <Text style={[styles.infoValue, onSurface]}>
+                      {geo.longitude}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, onSurface]}>Accuracy:</Text>
+                    <Text style={[styles.infoValue, onSurface]}>
+                      {accuracyText}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, onSurface]}>Fix time:</Text>
+                    <Text style={[styles.infoValue, onSurface]}>
+                      {fixTimeText}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })()}
 
           <View style={sectionStyle}>
             <Text style={[styles.sectionTitle, onSurface]}>Ownership</Text>

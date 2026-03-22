@@ -141,7 +141,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         resolveFormOperationByType(currentFormType, completionResult);
       }
 
-      geolocationService.clearCache();
+      geolocationService.endObservationSession();
       onClose();
 
       // Reset closing state after a short delay to prevent rapid re-opening issues
@@ -184,6 +184,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         if (closeTimeoutRef.current) {
           clearTimeout(closeTimeoutRef.current);
         }
+        geolocationService.endObservationSession();
       };
     }, []);
 
@@ -212,8 +213,8 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         );
       }
 
-      // Start GPS acquisition early so the fix is ready at save time
-      geolocationService.preCacheLocation();
+      // GPS session: fresh fix + light watch while the user fills the form
+      geolocationService.beginObservationSession();
 
       setCurrentFormType(formType.id);
       setCurrentObservationId(observationId);

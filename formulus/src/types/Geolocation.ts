@@ -8,6 +8,8 @@ export interface ObservationGeolocation {
   accuracy?: number;
   altitude?: number | null;
   altitude_accuracy?: number | null;
+  /** When the GPS fix was obtained (ISO 8601), from the native position timestamp */
+  timestamp?: string;
 }
 
 /**

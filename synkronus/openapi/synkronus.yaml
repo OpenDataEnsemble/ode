@@ -1317,6 +1317,10 @@ components:
               nullable: true
               minimum: 0
               description: Vertical accuracy in meters
+            timestamp:
+              type: string
+              format: date-time
+              description: When the GPS fix was obtained (ISO 8601)
         author:
           type: string
           description: Author/creator of the observation

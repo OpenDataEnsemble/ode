@@ -668,7 +668,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                 accuracy: position.accuracy,
                 altitude: position.altitude,
                 altitudeAccuracy: position.altitude_accuracy,
-                timestamp: new Date().toISOString(),
+                timestamp: position.timestamp ?? new Date().toISOString(),
               },
             };
 
