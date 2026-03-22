@@ -9,8 +9,8 @@ import (
 
 // MockDataExportService is a mock implementation of dataexport.Service
 type MockDataExportService struct {
-	ExportParquetZipFunc func(ctx context.Context) (io.ReadCloser, error)
-	ExportRawJSONZipFunc func(ctx context.Context) (io.ReadCloser, error)
+	ExportParquetZipFunc func(ctx context.Context, w io.Writer) error
+	ExportRawJSONZipFunc func(ctx context.Context, w io.Writer) error
 }
 
 // NewMockDataExportService creates a new mock data export service
@@ -19,19 +19,19 @@ func NewMockDataExportService() *MockDataExportService {
 }
 
 // ExportParquetZip implements dataexport.Service
-func (m *MockDataExportService) ExportParquetZip(ctx context.Context) (io.ReadCloser, error) {
+func (m *MockDataExportService) ExportParquetZip(ctx context.Context, w io.Writer) error {
 	if m.ExportParquetZipFunc != nil {
-		return m.ExportParquetZipFunc(ctx)
+		return m.ExportParquetZipFunc(ctx, w)
 	}
-	return io.NopCloser(io.LimitReader(nil, 0)), nil
+	return nil
 }
 
 // ExportRawJSONZip implements dataexport.Service
-func (m *MockDataExportService) ExportRawJSONZip(ctx context.Context) (io.ReadCloser, error) {
+func (m *MockDataExportService) ExportRawJSONZip(ctx context.Context, w io.Writer) error {
 	if m.ExportRawJSONZipFunc != nil {
-		return m.ExportRawJSONZipFunc(ctx)
+		return m.ExportRawJSONZipFunc(ctx, w)
 	}
-	return io.NopCloser(io.LimitReader(nil, 0)), nil
+	return nil
 }
 
 // Ensure MockDataExportService implements dataexport.Service

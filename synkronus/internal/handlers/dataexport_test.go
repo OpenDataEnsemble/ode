@@ -22,10 +22,9 @@ func TestHandler_ParquetExportHandler(t *testing.T) {
 		{
 			name: "successful export",
 			setupMock: func(mock *mocks.MockDataExportService) {
-				mock.ExportParquetZipFunc = func(ctx context.Context) (io.ReadCloser, error) {
-					// Return a mock ZIP file content
-					zipContent := []byte("PK\x03\x04mock zip content")
-					return io.NopCloser(bytes.NewReader(zipContent)), nil
+				mock.ExportParquetZipFunc = func(ctx context.Context, w io.Writer) error {
+					_, err := w.Write([]byte("PK\x03\x04mock zip content"))
+					return err
 				}
 			},
 			expectedStatus: http.StatusOK,
@@ -35,8 +34,8 @@ func TestHandler_ParquetExportHandler(t *testing.T) {
 		{
 			name: "export service error",
 			setupMock: func(mock *mocks.MockDataExportService) {
-				mock.ExportParquetZipFunc = func(ctx context.Context) (io.ReadCloser, error) {
-					return nil, io.ErrUnexpectedEOF
+				mock.ExportParquetZipFunc = func(ctx context.Context, w io.Writer) error {
+					return io.ErrUnexpectedEOF
 				}
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -105,9 +104,9 @@ func TestHandler_RawJSONExportHandler(t *testing.T) {
 		{
 			name: "successful export",
 			setupMock: func(mock *mocks.MockDataExportService) {
-				mock.ExportRawJSONZipFunc = func(ctx context.Context) (io.ReadCloser, error) {
-					zipContent := []byte("PK\x03\x04mock zip content")
-					return io.NopCloser(bytes.NewReader(zipContent)), nil
+				mock.ExportRawJSONZipFunc = func(ctx context.Context, w io.Writer) error {
+					_, err := w.Write([]byte("PK\x03\x04mock zip content"))
+					return err
 				}
 			},
 			expectedStatus: http.StatusOK,
@@ -117,8 +116,8 @@ func TestHandler_RawJSONExportHandler(t *testing.T) {
 		{
 			name: "export service error",
 			setupMock: func(mock *mocks.MockDataExportService) {
-				mock.ExportRawJSONZipFunc = func(ctx context.Context) (io.ReadCloser, error) {
-					return nil, io.ErrUnexpectedEOF
+				mock.ExportRawJSONZipFunc = func(ctx context.Context, w io.Writer) error {
+					return io.ErrUnexpectedEOF
 				}
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -165,8 +164,7 @@ func TestHandler_ParquetExportHandler_Integration(t *testing.T) {
 
 	// Setup mock data export service with realistic behavior
 	mockDataExportService := mocks.NewMockDataExportService()
-	mockDataExportService.ExportParquetZipFunc = func(ctx context.Context) (io.ReadCloser, error) {
-		// Simulate a small ZIP file with proper headers
+	mockDataExportService.ExportParquetZipFunc = func(ctx context.Context, w io.Writer) error {
 		zipContent := []byte{
 			0x50, 0x4b, 0x03, 0x04, // ZIP file signature
 			0x14, 0x00, 0x00, 0x00, // Version, flags
@@ -176,7 +174,8 @@ func TestHandler_ParquetExportHandler_Integration(t *testing.T) {
 			0x00, 0x00, 0x00, 0x00, // Uncompressed size
 			0x00, 0x00, 0x00, 0x00, // Filename length, extra length
 		}
-		return io.NopCloser(bytes.NewReader(zipContent)), nil
+		_, err := w.Write(zipContent)
+		return err
 	}
 	h.dataExportService = mockDataExportService
 

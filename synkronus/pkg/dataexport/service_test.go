@@ -148,7 +148,8 @@ func TestService_ExportParquetZip(t *testing.T) {
 			cfg := &config.Config{}
 			service := NewService(tt.mockDB, cfg)
 
-			zipReader, err := service.ExportParquetZip(context.Background())
+			var zipBuf bytes.Buffer
+			err := service.ExportParquetZip(context.Background(), &zipBuf)
 
 			if tt.expectError {
 				if err == nil {
@@ -165,14 +166,8 @@ func TestService_ExportParquetZip(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			defer zipReader.Close()
 
-			// Read ZIP content
-			zipData, err := io.ReadAll(zipReader)
-			if err != nil {
-				t.Errorf("Failed to read ZIP data: %v", err)
-				return
-			}
+			zipData := zipBuf.Bytes()
 
 			// Parse ZIP file
 			zipReader2, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
@@ -231,16 +226,12 @@ func TestService_ExportRawJSONZip(t *testing.T) {
 	cfg := &config.Config{}
 	service := NewService(mockDB, cfg)
 
-	zipReader, err := service.ExportRawJSONZip(context.Background())
-	if err != nil {
+	var zipBuf bytes.Buffer
+	if err := service.ExportRawJSONZip(context.Background(), &zipBuf); err != nil {
 		t.Fatalf("ExportRawJSONZip: %v", err)
 	}
-	defer zipReader.Close()
 
-	zipData, err := io.ReadAll(zipReader)
-	if err != nil {
-		t.Fatalf("read zip: %v", err)
-	}
+	zipData := zipBuf.Bytes()
 
 	zr, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
 	if err != nil {
