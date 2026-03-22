@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   Linking,
   Pressable,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
@@ -20,12 +22,16 @@ import {
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import logo from '../../assets/images/logo.png';
+import { attachmentExportService } from '../services/AttachmentExportService';
+import { observationExportService } from '../services/ObservationExportService';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
 const EMAIL_URL = 'mailto:hello@opendataensemble.org';
 const GH_URL = 'https://github.com/OpenDataEnsemble';
 
 const HelpScreen: React.FC = () => {
+  const [exportingAttachments, setExportingAttachments] = useState(false);
+  const [exportingObservations, setExportingObservations] = useState(false);
   const { themeColors, resolvedMode } = useAppTheme();
   const isDark = resolvedMode === 'dark';
   const sectionColor = isDark
@@ -38,6 +44,36 @@ const HelpScreen: React.FC = () => {
     { borderColor: themeColors.divider as string, backgroundColor: cardBg },
   ];
   const onSurface = { color: themeColors.onSurface as string };
+  const mutedOnSurface = {
+    color: themeColors.onSurface as string,
+    opacity: 0.72,
+  };
+
+  const onExportAttachments = async () => {
+    setExportingAttachments(true);
+    try {
+      await attachmentExportService.exportDeviceLocalAttachmentsZip();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Could not export attachments.';
+      Alert.alert('Export failed', message);
+    } finally {
+      setExportingAttachments(false);
+    }
+  };
+
+  const onExportObservations = async () => {
+    setExportingObservations(true);
+    try {
+      await observationExportService.exportAllObservationsZip();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Could not export observations.';
+      Alert.alert('Export failed', message);
+    } finally {
+      setExportingObservations(false);
+    }
+  };
 
   return (
     <BlurredScreenBackground>
@@ -167,6 +203,78 @@ const HelpScreen: React.FC = () => {
               </Text>
             </Pressable>
           </View>
+
+          <View style={[cardStyle, styles.exportSection]}>
+            <Text style={[styles.exportHint, mutedOnSurface]}>
+              Export on-device attachment files (same paths and filenames as in
+              app storage, including unique ids) into a zip, then choose where
+              to save it (e.g. Downloads). Does not change any data in the app.
+            </Text>
+            <Pressable
+              onPress={onExportAttachments}
+              disabled={exportingAttachments}
+              accessibilityRole="button"
+              accessibilityLabel="Save device-local attachment data as zip file"
+              accessibilityState={{ disabled: exportingAttachments }}
+              style={({ pressed }) => [
+                styles.exportButton,
+                {
+                  borderColor: themeColors.primary as string,
+                  opacity: exportingAttachments ? 0.55 : pressed ? 0.85 : 1,
+                },
+              ]}>
+              {exportingAttachments ? (
+                <ActivityIndicator
+                  size="small"
+                  color={themeColors.primary as string}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.exportButtonText,
+                    { color: themeColors.primary as string },
+                  ]}>
+                  Download device-local attachment data
+                </Text>
+              )}
+            </Pressable>
+          </View>
+
+          <View style={[cardStyle, styles.exportSection]}>
+            <Text style={[styles.exportHint, mutedOnSurface]}>
+              Export all locally stored observations as one JSON file per row
+              (including soft-deleted), packaged in a zip. Choose where to save
+              it. Does not change any data in the app.
+            </Text>
+            <Pressable
+              onPress={onExportObservations}
+              disabled={exportingObservations}
+              accessibilityRole="button"
+              accessibilityLabel="Save all observations as zip of JSON files"
+              accessibilityState={{ disabled: exportingObservations }}
+              style={({ pressed }) => [
+                styles.exportButton,
+                {
+                  borderColor: themeColors.primary as string,
+                  opacity: exportingObservations ? 0.55 : pressed ? 0.85 : 1,
+                },
+              ]}>
+              {exportingObservations ? (
+                <ActivityIndicator
+                  size="small"
+                  color={themeColors.primary as string}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.exportButtonText,
+                    { color: themeColors.primary as string },
+                  ]}>
+                  Download observations (JSON zip)
+                </Text>
+              )}
+            </Pressable>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </BlurredScreenBackground>
@@ -238,6 +346,29 @@ const styles = StyleSheet.create({
   },
   cardTextCentered: { textAlign: 'left' },
   link: { marginTop: odeSpacing.sm, fontWeight: '600' },
+  exportSection: {
+    marginTop: odeSpacing.sm,
+    paddingVertical: odeSpacing.sm,
+  },
+  exportHint: {
+    fontSize: odeTypography.caption,
+    lineHeight: 18,
+    marginBottom: odeSpacing.md,
+  },
+  exportButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: odeSpacing.sm,
+    paddingHorizontal: odeSpacing.md,
+    borderRadius: odeRadius.card,
+    borderWidth: odeBorderWidth.hairline,
+    minWidth: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportButtonText: {
+    fontSize: odeTypography.bodySm,
+    fontWeight: '600',
+  },
 });
 
 export default HelpScreen;
