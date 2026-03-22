@@ -204,8 +204,16 @@ const HelpScreen: React.FC = () => {
             </Pressable>
           </View>
 
-          <View style={[cardStyle, styles.exportSection]}>
-            <Text style={[styles.exportHint, mutedOnSurface]}>
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Export device-local data
+            </Text>
+            <Text
+              style={[
+                styles.cardText,
+                styles.cardTextCentered,
+                mutedOnSurface,
+              ]}>
               Export on-device attachment files (same paths and filenames as in
               app storage, including unique ids) into a zip, then choose where
               to save it (e.g. Downloads). Does not change any data in the app.
@@ -219,32 +227,36 @@ const HelpScreen: React.FC = () => {
               style={({ pressed }) => [
                 styles.exportButton,
                 {
-                  borderColor: themeColors.primary as string,
                   opacity: exportingAttachments ? 0.55 : pressed ? 0.85 : 1,
+                  backgroundColor: themeColors.surface as string,
+                  borderColor: themeColors.divider as string,
                 },
               ]}>
               {exportingAttachments ? (
                 <ActivityIndicator
                   size="small"
-                  color={themeColors.primary as string}
+                  color={themeColors.onSurface as string}
                 />
               ) : (
                 <Text
                   style={[
                     styles.exportButtonText,
-                    { color: themeColors.primary as string },
+                    { color: themeColors.onSurface as string },
                   ]}>
                   Download device-local attachment data
                 </Text>
               )}
             </Pressable>
-          </View>
-
-          <View style={[cardStyle, styles.exportSection]}>
-            <Text style={[styles.exportHint, mutedOnSurface]}>
+            <Text
+              style={[
+                styles.cardText,
+                styles.cardTextCentered,
+                mutedOnSurface,
+                { marginTop: odeSpacing.sm },
+              ]}>
               Export all locally stored observations as one JSON file per row
-              (including soft-deleted), packaged in a zip. Choose where to save
-              it. Does not change any data in the app.
+              (including soft-deleted, but not drafts), packaged in a zip.
+              Choose where to save it. Does not change any data in the app.
             </Text>
             <Pressable
               onPress={onExportObservations}
@@ -255,20 +267,21 @@ const HelpScreen: React.FC = () => {
               style={({ pressed }) => [
                 styles.exportButton,
                 {
-                  borderColor: themeColors.primary as string,
                   opacity: exportingObservations ? 0.55 : pressed ? 0.85 : 1,
+                  backgroundColor: themeColors.surface as string,
+                  borderColor: themeColors.divider as string,
                 },
               ]}>
               {exportingObservations ? (
                 <ActivityIndicator
                   size="small"
-                  color={themeColors.primary as string}
+                  color={themeColors.onSurface as string}
                 />
               ) : (
                 <Text
                   style={[
                     styles.exportButtonText,
-                    { color: themeColors.primary as string },
+                    { color: themeColors.onSurface as string },
                   ]}>
                   Download observations (JSON zip)
                 </Text>
