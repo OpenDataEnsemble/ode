@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
@@ -85,6 +85,8 @@ export function Dashboard() {
   const [success, setSuccess] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Prevents overlapping listUsers calls without putting `loading` in loadUsers deps (which would retrigger the initial-load effect). */
+  const usersFetchInFlightRef = useRef(false);
 
   // User management modals
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -185,7 +187,7 @@ export function Dashboard() {
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
   // App bundle modals
-  const [autoActivate, setAutoActivate] = useState(false);
+  const [autoActivate, setAutoActivate] = useState(true);
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [showChangesModal, setShowChangesModal] = useState(false);
   const [showSwitchConfirm, setShowSwitchConfirm] = useState<string | null>(
@@ -301,11 +303,15 @@ export function Dashboard() {
     }
   };
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     if (user?.role !== 'admin') {
       setError('Admin access required');
       return;
     }
+
+    if (usersFetchInFlightRef.current) return;
+    usersFetchInFlightRef.current = true;
+
     setLoading(true);
     setError(null);
     try {
@@ -315,8 +321,9 @@ export function Dashboard() {
       setError(err instanceof Error ? err.message : 'Failed to load users');
     } finally {
       setLoading(false);
+      usersFetchInFlightRef.current = false;
     }
-  };
+  }, [user?.role]);
 
   
   const handleTabChange = (tab: TabType) => {
@@ -331,6 +338,16 @@ export function Dashboard() {
       loadUsers();
     }
   };
+
+  // Initial load: after login, the "users" tab is already active, but
+  // handleTabChange() won't run again. So explicitly fetch users when the
+  // logged-in user becomes an admin and the Users tab is active.
+  useEffect(() => {
+    if (activeTab !== 'users') return;
+    if (user?.role !== 'admin') return;
+    if (users.length !== 0) return;
+    loadUsers();
+  }, [activeTab, user?.role, users.length, loadUsers]);
 
   const handleUploadClick = () => {
     if (loading) return;
@@ -348,11 +365,33 @@ export function Dashboard() {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Enhanced file validation
     if (!file.name.endsWith('.zip')) {
-      setError('Please upload a ZIP file');
+      setError('Invalid file format. Please upload a valid ZIP file (.zip extension required)');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+      return;
+    }
+
+    // File size validation (50MB limit)
+    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+    if (file.size > maxSize) {
+      setError('File too large. Maximum size is 50MB. Please compress your bundle and try again.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Check if user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Your session has expired. Please log in again and try uploading.');
+      // Redirect to login or show login modal
+      setTimeout(() => {
+        window.location.reload(); // Simple redirect to login page
+      }, 3000);
       return;
     }
 
@@ -367,47 +406,74 @@ export function Dashboard() {
 
       const token = localStorage.getItem('token');
 
-      // Use XMLHttpRequest for upload progress (don't set Content-Type - browser does it automatically with boundary)
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener('progress', e => {
-        if (e.lengthComputable) {
-          const percentComplete = (e.loaded / e.total) * 100;
-          setUploadProgress(percentComplete);
-        }
-      });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // Use Promise wrapper for XMLHttpRequest
       const result = await new Promise<any>((resolve, reject) => {
+        // Use XMLHttpRequest for upload progress (don't set Content-Type - browser does it automatically with boundary)
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.addEventListener('progress', e => {
+          if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            setUploadProgress(percentComplete);
+          }
+        });
+
         xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
+          if (xhr.status === 200) {
             try {
               const result = JSON.parse(xhr.responseText);
               resolve(result);
-            } catch (_e) {
+            } catch (e) {
               reject(new Error('Invalid response from server'));
             }
+          } else if (xhr.status === 401) {
+            // Auth error
+            reject(new Error('Your session has expired. Please log in again.'));
+          } else if (xhr.status === 413) {
+            // Payload too large
+            reject(new Error('File too large. Maximum size is 50MB.'));
+          } else if (xhr.status === 400) {
+            // Bad request - validation error
+            try {
+              const errorData = JSON.parse(xhr.responseText);
+              reject(
+                new Error(
+                  `Validation failed: ${errorData.message || errorData.error || 'Invalid file format or content'}`,
+                ),
+              );
+            } catch (_e) {
+              reject(new Error('Validation failed: Invalid file format or content'));
+            }
+          } else if (xhr.status >= 500) {
+            // Server error
+            reject(new Error('Server error. Please try again later or contact support if the problem persists.'));
           } else {
+            // Other HTTP errors
             try {
               const errorData = JSON.parse(xhr.responseText);
               reject(
                 new Error(
                   errorData.message ||
                     errorData.error ||
-                    `Upload failed: ${xhr.status}`,
+                    `Upload failed with status ${xhr.status}: ${xhr.statusText}`,
                 ),
               );
             } catch (_e) {
               reject(
-                new Error(`Upload failed: ${xhr.status} ${xhr.statusText}`),
+                new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`),
               );
             }
           }
         });
 
         xhr.addEventListener('error', () =>
-          reject(new Error('Network error: Upload failed')),
+          reject(new Error('Network error: Unable to connect to server. Please check your internet connection and try again.')),
         );
+        
+        xhr.addEventListener('timeout', () =>
+          reject(new Error('Upload timeout: The upload took too long (2-minute limit). Please try again with a smaller file or better connection.')),
+        );
+        
         xhr.addEventListener('abort', () =>
           reject(new Error('Upload was cancelled')),
         );
@@ -415,6 +481,10 @@ export function Dashboard() {
         const apiBaseUrl = import.meta.env.VITE_API_URL || '/api';
         const uploadUrl = `${apiBaseUrl}/app-bundle/push`;
         xhr.open('POST', uploadUrl);
+        
+        // Set timeout for upload (2 minutes)
+        xhr.timeout = 2 * 60 * 1000; // 2 minutes in ms
+        
         if (token) {
           xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         }
@@ -422,6 +492,7 @@ export function Dashboard() {
         // Don't set Content-Type - browser sets it automatically with boundary for FormData
         xhr.send(formData);
       });
+
       setSuccess(
         `Bundle uploaded successfully! Version: ${result.manifest?.version || result.version || 'N/A'}`,
       );
@@ -873,6 +944,9 @@ export function Dashboard() {
                           disabled={loading}
                         />
                         <span>Auto-activate</span>
+                        <small className="auto-activate-hint">
+                          Check BEFORE uploading to auto-activate the bundle
+                        </small>
                       </label>
                     </>
                   )}
@@ -1242,7 +1316,7 @@ export function Dashboard() {
                 <div className="section-title">
                   <h2>Data Export</h2>
                   <p className="section-subtitle">
-                    Export observation data as Parquet files
+                    Download observations (Parquet or raw JSON) and all attachment files as ZIP archives
                   </p>
                 </div>
               </div>
@@ -1252,24 +1326,17 @@ export function Dashboard() {
                     <HiArrowDownTray />
                   </div>
                   <div className="export-content">
-                    <h3>Export All Data</h3>
-                    <p>Download all observation data as ZIP containing multiple Parquet files (one per form type)</p>
+                    <h3>Observations (Parquet)</h3>
+                    <p>
+                      ZIP of Parquet files—one file per form type, flattened columns
+                    </p>
                     <Button
                       variant="primary"
                       onPress={async () => {
                         try {
-                          const apiUrl = import.meta.env.VITE_API_URL || '/api';
-                          const token = localStorage.getItem('token');
-                          const response = await fetch(`${apiUrl}/dataexport/parquet`, {
-                            headers: {
-                              'Authorization': `Bearer ${token}`,
-                              'x-formulus-version': '1.0.0'
-                            }
-                          });
-                          if (!response.ok) {
-                            throw new Error(`Export failed: ${response.statusText}`);
-                          }
-                          const blob = await response.blob();
+                          const blob = await api.downloadBlob(
+                            '/dataexport/parquet',
+                          );
                           const url = window.URL.createObjectURL(blob);
                           const a = document.createElement('a');
                           a.href = url;
@@ -1278,14 +1345,91 @@ export function Dashboard() {
                           a.click();
                           window.URL.revokeObjectURL(url);
                           document.body.removeChild(a);
-                          setSuccess('Parquet files downloaded successfully!');
+                          setSuccess('Parquet export downloaded successfully!');
                         } catch (err) {
-                          setError(err instanceof Error ? err.message : 'Export failed');
+                          setError(
+                            err instanceof Error ? err.message : 'Export failed',
+                          );
                         }
                       }}
                       disabled={loading}
                       className="export-button">
                       <HiArrowDownTray /> Export Parquet
+                    </Button>
+                  </div>
+                </div>
+                <div className="export-card">
+                  <div className="export-icon">
+                    <HiDocumentText />
+                  </div>
+                  <div className="export-content">
+                    <h3>Observations (raw JSON)</h3>
+                    <p>
+                      ZIP of JSON files—one file per observation, nested{' '}
+                      <code>data</code> payload
+                    </p>
+                    <Button
+                      variant="primary"
+                      onPress={async () => {
+                        try {
+                          const blob = await api.downloadBlob(
+                            '/dataexport/raw-json',
+                          );
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `observations-raw-json-${new Date().toISOString().split('T')[0]}.zip`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                          setSuccess('Raw JSON export downloaded successfully!');
+                        } catch (err) {
+                          setError(
+                            err instanceof Error ? err.message : 'Export failed',
+                          );
+                        }
+                      }}
+                      disabled={loading}
+                      className="export-button">
+                      <HiArrowDownTray /> Export raw JSON
+                    </Button>
+                  </div>
+                </div>
+                <div className="export-card">
+                  <div className="export-icon">
+                    <HiArrowDownTray />
+                  </div>
+                  <div className="export-content">
+                    <h3>All attachments</h3>
+                    <p>
+                      ZIP of every stored attachment file (paths match attachment IDs in observation data)
+                    </p>
+                    <Button
+                      variant="primary"
+                      onPress={async () => {
+                        try {
+                          const blob = await api.downloadBlob(
+                            '/attachments/export-zip',
+                          );
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `attachments-export-${new Date().toISOString().split('T')[0]}.zip`;
+                          document.body.appendChild(a);
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                          document.body.removeChild(a);
+                          setSuccess('Attachments export downloaded successfully!');
+                        } catch (err) {
+                          setError(
+                            err instanceof Error ? err.message : 'Export failed',
+                          );
+                        }
+                      }}
+                      disabled={loading}
+                      className="export-button">
+                      <HiArrowDownTray /> Export attachments
                     </Button>
                   </div>
                 </div>

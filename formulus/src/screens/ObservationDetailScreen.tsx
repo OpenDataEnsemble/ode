@@ -11,17 +11,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../database/models/Observation';
 import { FormService } from '../services/FormService';
+import {
+  hasMeaningfulSyncedAt,
+  isObservationFullySynced,
+} from '../utils/observationSyncStatus';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useNavigation } from '@react-navigation/native';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeRadius,
   odeScreenHeaderHeight,
+  odeBorderWidth,
 } from '../theme/odeDesign';
 
 interface ObservationDetailScreenProps {
@@ -38,10 +43,17 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const { observationId } = route.params;
   const navigation = useNavigation();
   const { themeColors } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const { showConfirm } = useConfirmModal();
   const [observation, setObservation] = useState<Observation | null>(null);
   const [formName, setFormName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
+
+  /** Matches Observation Details header bottom border (hairline + theme divider). */
+  const formDataRowSeparatorStyle = {
+    borderBottomWidth: odeBorderWidth.hairline,
+    borderBottomColor: themeColors.divider as string,
+  };
 
   useEffect(() => {
     loadObservation();
@@ -145,7 +157,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       return (
         <View
           key={key}
-          style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
+          style={[
+            styles.fieldContainer,
+            formDataRowSeparatorStyle,
+            { paddingLeft: level * 16 },
+          ]}>
           <Text style={fieldKeyStyle}>{key}:</Text>
           <Text style={[styles.fieldValue, { color: themeColors.onSurface }]}>
             null
@@ -158,7 +174,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       return (
         <View
           key={key}
-          style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
+          style={[
+            styles.fieldContainer,
+            formDataRowSeparatorStyle,
+            { paddingLeft: level * 16 },
+          ]}>
           <Text style={fieldKeyStyle}>{key}:</Text>
           {Object.entries(value).map(([k, v]) =>
             renderDataField(k, v, level + 1),
@@ -171,7 +191,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       return (
         <View
           key={key}
-          style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
+          style={[
+            styles.fieldContainer,
+            formDataRowSeparatorStyle,
+            { paddingLeft: level * 16 },
+          ]}>
           <Text style={fieldKeyStyle}>{key}:</Text>
           {value.map((item, index) => (
             <View key={index} style={styles.arrayItem}>
@@ -189,7 +213,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     return (
       <View
         key={key}
-        style={[styles.fieldContainer, { paddingLeft: level * 16 }]}>
+        style={[
+          styles.fieldContainer,
+          formDataRowSeparatorStyle,
+          { paddingLeft: level * 16 },
+        ]}>
         <Text style={fieldKeyStyle}>{key}:</Text>
         <Text style={[styles.fieldValue, { color: themeColors.onSurface }]}>
           {String(value)}
@@ -200,7 +228,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
 
   if (loading) {
     return (
-      <BlurredScreenBackground>
+      <View style={shellStyle}>
         <SafeAreaView
           style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.loadingContainer}>
@@ -211,26 +239,24 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
             </Text>
           </View>
         </SafeAreaView>
-      </BlurredScreenBackground>
+      </View>
     );
   }
 
   if (!observation) {
     return (
-      <BlurredScreenBackground>
+      <View style={shellStyle}>
         <SafeAreaView
           style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Observation not found</Text>
           </View>
         </SafeAreaView>
-      </BlurredScreenBackground>
+      </View>
     );
   }
 
-  const isSynced =
-    observation.syncedAt &&
-    observation.syncedAt.getTime() > new Date('1980-01-01').getTime();
+  const isSynced = isObservationFullySynced(observation);
   const data =
     typeof observation.data === 'string'
       ? JSON.parse(observation.data)
@@ -247,7 +273,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const onSurface = { color: themeColors.onSurface as string };
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}>
         <ScrollView
@@ -323,37 +349,69 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
                 </Text>
               </View>
             </View>
-            {isSynced && observation.syncedAt && (
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Synced At:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {observation.syncedAt.toLocaleString()}
-                </Text>
-              </View>
-            )}
+            {hasMeaningfulSyncedAt(observation.syncedAt) &&
+              observation.syncedAt && (
+                <View style={styles.infoRow}>
+                  <Text style={[styles.infoLabel, onSurface]}>
+                    {isSynced ? 'Synced at:' : 'Last synced:'}
+                  </Text>
+                  <Text style={[styles.infoValue, onSurface]}>
+                    {observation.syncedAt.toLocaleString()}
+                  </Text>
+                </View>
+              )}
           </View>
 
-          {observation.geolocation && (
-            <View style={sectionStyle}>
-              <Text style={[styles.sectionTitle, onSurface]}>Location</Text>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Latitude:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {typeof observation.geolocation === 'string'
-                    ? JSON.parse(observation.geolocation).latitude
-                    : observation.geolocation.latitude}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoLabel, onSurface]}>Longitude:</Text>
-                <Text style={[styles.infoValue, onSurface]}>
-                  {typeof observation.geolocation === 'string'
-                    ? JSON.parse(observation.geolocation).longitude
-                    : observation.geolocation.longitude}
-                </Text>
-              </View>
-            </View>
-          )}
+          {observation.geolocation &&
+            (() => {
+              const geo =
+                typeof observation.geolocation === 'string'
+                  ? JSON.parse(observation.geolocation)
+                  : observation.geolocation;
+              const accuracyText =
+                typeof geo.accuracy === 'number' &&
+                Number.isFinite(geo.accuracy)
+                  ? `${Math.round(geo.accuracy)} m`
+                  : '—';
+              let fixTimeText = '—';
+              if (geo.timestamp && typeof geo.timestamp === 'string') {
+                const parsed = new Date(geo.timestamp);
+                fixTimeText = Number.isNaN(parsed.getTime())
+                  ? geo.timestamp
+                  : parsed.toLocaleString();
+              }
+              return (
+                <View style={sectionStyle}>
+                  <Text style={[styles.sectionTitle, onSurface]}>Location</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, onSurface]}>Latitude:</Text>
+                    <Text style={[styles.infoValue, onSurface]}>
+                      {geo.latitude}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, onSurface]}>
+                      Longitude:
+                    </Text>
+                    <Text style={[styles.infoValue, onSurface]}>
+                      {geo.longitude}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, onSurface]}>Accuracy:</Text>
+                    <Text style={[styles.infoValue, onSurface]}>
+                      {accuracyText}
+                    </Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={[styles.infoLabel, onSurface]}>Fix time:</Text>
+                    <Text style={[styles.infoValue, onSurface]}>
+                      {fixTimeText}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })()}
 
           <View style={sectionStyle}>
             <Text style={[styles.sectionTitle, onSurface]}>Ownership</Text>
@@ -376,6 +434,50 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
           </View>
 
           <View style={sectionStyle}>
+            <Text style={[styles.sectionTitle, onSurface]}>Tags</Text>
+            {(() => {
+              const displayTags = (observation.tags ?? [])
+                .map(t => (typeof t === 'string' ? t.trim() : ''))
+                .filter(Boolean);
+              if (displayTags.length === 0) {
+                return (
+                  <Text
+                    style={[
+                      styles.tagsEmpty,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    No tags
+                  </Text>
+                );
+              }
+              return (
+                <View style={styles.tagsWrap}>
+                  {displayTags.map((tag, index) => (
+                    <View
+                      key={`${tag}-${index}`}
+                      style={[
+                        styles.tagPill,
+                        {
+                          backgroundColor: themeColors.primaryLight as string,
+                          borderColor: themeColors.divider as string,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.tagPillText,
+                          { color: themeColors.primary as string },
+                        ]}
+                        numberOfLines={1}>
+                        {tag}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
+          </View>
+
+          <View style={sectionStyle}>
             <Text style={[styles.sectionTitle, onSurface]}>Form Data</Text>
             <View style={styles.dataContainer}>
               {Object.entries(data).map(([key, value]) =>
@@ -385,7 +487,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
           </View>
         </ScrollView>
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 
@@ -461,14 +563,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.neutral[900],
   },
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: odeSpacing.xs,
+    marginTop: odeSpacing.xxs,
+  },
+  tagPill: {
+    maxWidth: '100%',
+    paddingHorizontal: odeSpacing.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: odeBorderWidth.hairline,
+  },
+  tagPillText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  tagsEmpty: {
+    fontSize: 14,
+    opacity: 0.65,
+  },
   dataContainer: {
     marginTop: odeSpacing.xs,
   },
   fieldContainer: {
     marginBottom: odeSpacing.xs,
     paddingBottom: odeSpacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.neutral[100],
     alignSelf: 'stretch',
   },
   fieldKey: {

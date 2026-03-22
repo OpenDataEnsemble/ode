@@ -71,51 +71,39 @@ func TestProtectedEndpoints(t *testing.T) {
 		MaxAge:           300,
 	}))
 
-	// Public endpoints
 	r.Get("/health", mockHandler.HealthCheck)
-	r.Get("/api/versions", mockHandler.GetAPIVersions)
 
-	// Authentication routes
-	r.Route("/auth", func(r chi.Router) {
-		r.Post("/login", mockHandler.Login)
-		r.Post("/refresh", mockHandler.RefreshToken)
-	})
+	r.Route("/api", func(r chi.Router) {
+		r.Get("/versions", mockHandler.GetAPIVersions)
 
-	// Protected routes - require authentication
-	r.Group(func(r chi.Router) {
-		// Add authentication middleware
-		r.Use(authmw.AuthMiddleware(mockHandler.GetAuthService(), log))
-
-		// Sync routes
-		r.Route("/sync", func(r chi.Router) {
-			// Pull endpoint - accessible to all authenticated users
-			r.Post("/pull", mockHandler.Pull)
-
-			// Push endpoint - requires read-write or admin role
-			r.With(authmw.RequireRole(models.RoleReadWrite, models.RoleAdmin)).Post("/push", mockHandler.Push)
+		r.Route("/auth", func(r chi.Router) {
+			r.Post("/login", mockHandler.Login)
+			r.Post("/refresh", mockHandler.RefreshToken)
 		})
 
-		// App bundle routes
-		r.Route("/app-bundle", func(r chi.Router) {
-			// Read endpoints - accessible to all authenticated users
-			r.Get("/manifest", mockHandler.GetAppBundleManifest)
-			r.Get("/versions", mockHandler.GetAppBundleVersions)
-			r.Get("/download/{path}", mockHandler.GetAppBundleFile)
+		r.Group(func(r chi.Router) {
+			r.Use(authmw.AuthMiddleware(mockHandler.GetAuthService(), log))
 
-			// Write endpoints - require admin role
-			r.With(authmw.RequireRole(models.RoleAdmin)).Post("/push", mockHandler.PushAppBundle)
-			r.With(authmw.RequireRole(models.RoleAdmin)).Post("/switch/{version}", mockHandler.SwitchAppBundleVersion)
-		})
+			r.Route("/sync", func(r chi.Router) {
+				r.Post("/pull", mockHandler.Pull)
+				r.With(authmw.RequireRole(models.RoleReadWrite, models.RoleAdmin)).Post("/push", mockHandler.Push)
+			})
 
-		// User routes
-		r.Route("/users", func(r chi.Router) {
-			// Admin-only routes
-			r.With(authmw.RequireRole(models.RoleAdmin)).Post("/create", mockHandler.CreateUserHandler)
-			r.With(authmw.RequireRole(models.RoleAdmin)).Delete("/delete/{username}", mockHandler.DeleteUserHandler)
-			r.With(authmw.RequireRole(models.RoleAdmin)).Post("/reset-password", mockHandler.ResetPasswordHandler)
-			r.With(authmw.RequireRole(models.RoleAdmin)).Get("/list", mockHandler.ListUsersHandler)
-			// Authenticated user route
-			r.Post("/change-password", mockHandler.ChangePasswordHandler)
+			r.Route("/app-bundle", func(r chi.Router) {
+				r.Get("/manifest", mockHandler.GetAppBundleManifest)
+				r.Get("/versions", mockHandler.GetAppBundleVersions)
+				r.Get("/download/{path}", mockHandler.GetAppBundleFile)
+				r.With(authmw.RequireRole(models.RoleAdmin)).Post("/push", mockHandler.PushAppBundle)
+				r.With(authmw.RequireRole(models.RoleAdmin)).Post("/switch/{version}", mockHandler.SwitchAppBundleVersion)
+			})
+
+			r.Route("/users", func(r chi.Router) {
+				r.With(authmw.RequireRole(models.RoleAdmin)).Post("/create", mockHandler.CreateUserHandler)
+				r.With(authmw.RequireRole(models.RoleAdmin)).Delete("/delete/{username}", mockHandler.DeleteUserHandler)
+				r.With(authmw.RequireRole(models.RoleAdmin)).Post("/reset-password", mockHandler.ResetPasswordHandler)
+				r.With(authmw.RequireRole(models.RoleAdmin)).Get("/list", mockHandler.ListUsersHandler)
+				r.Post("/change-password", mockHandler.ChangePasswordHandler)
+			})
 		})
 	})
 
@@ -141,7 +129,7 @@ func TestProtectedEndpoints(t *testing.T) {
 	}{
 		{
 			name:           "Sync Pull - Without Auth",
-			endpoint:       "/sync/pull",
+			endpoint:       "/api/sync/pull",
 			method:         http.MethodPost,
 			body:           map[string]any{"client_id": "test-client"},
 			withAuth:       false,
@@ -149,7 +137,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "Sync Pull - With Auth",
-			endpoint:       "/sync/pull",
+			endpoint:       "/api/sync/pull",
 			method:         http.MethodPost,
 			body:           map[string]any{"client_id": "test-client"},
 			withAuth:       true,
@@ -157,7 +145,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "Sync Push - Without Auth",
-			endpoint:       "/sync/push",
+			endpoint:       "/api/sync/push",
 			method:         http.MethodPost,
 			body:           map[string]any{"transmission_id": "test-transmission", "client_id": "test-client", "records": []any{}},
 			withAuth:       false,
@@ -165,7 +153,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "Sync Push - With Auth",
-			endpoint:       "/sync/push",
+			endpoint:       "/api/sync/push",
 			method:         http.MethodPost,
 			body:           map[string]any{"transmission_id": "test-transmission", "client_id": "test-client", "records": []any{}},
 			withAuth:       true,
@@ -173,7 +161,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle Manifest - Without Auth",
-			endpoint:       "/app-bundle/manifest",
+			endpoint:       "/api/app-bundle/manifest",
 			method:         http.MethodGet,
 			body:           nil,
 			withAuth:       false,
@@ -181,7 +169,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle Manifest - With Auth",
-			endpoint:       "/app-bundle/manifest",
+			endpoint:       "/api/app-bundle/manifest",
 			method:         http.MethodGet,
 			body:           nil,
 			withAuth:       true,
@@ -189,7 +177,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle File - Without Auth",
-			endpoint:       "/app-bundle/download/index.html",
+			endpoint:       "/api/app-bundle/download/index.html",
 			method:         http.MethodGet,
 			body:           nil,
 			withAuth:       false,
@@ -197,7 +185,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle File - With Auth",
-			endpoint:       "/app-bundle/download/index.html",
+			endpoint:       "/api/app-bundle/download/index.html",
 			method:         http.MethodGet,
 			body:           nil,
 			withAuth:       true,
@@ -221,7 +209,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "Sync Pull - With Invalid Token",
-			endpoint:       "/sync/pull",
+			endpoint:       "/api/sync/pull",
 			method:         http.MethodPost,
 			body:           map[string]any{"client_id": "test-client"},
 			withAuth:       true,
@@ -230,7 +218,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "Sync Push - With Expired Token",
-			endpoint:       "/sync/push",
+			endpoint:       "/api/sync/push",
 			method:         http.MethodPost,
 			body:           map[string]any{"transmission_id": "test-transmission", "client_id": "test-client", "records": []any{}},
 			withAuth:       true,
@@ -239,7 +227,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle Manifest - With Invalid Token",
-			endpoint:       "/app-bundle/manifest",
+			endpoint:       "/api/app-bundle/manifest",
 			method:         http.MethodGet,
 			body:           nil,
 			withAuth:       true,
@@ -248,7 +236,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "Sync Push - With Read-Only User",
-			endpoint:       "/sync/push",
+			endpoint:       "/api/sync/push",
 			method:         http.MethodPost,
 			body:           map[string]any{"transmission_id": "test-transmission", "client_id": "test-client", "records": []any{}},
 			withAuth:       true,
@@ -257,7 +245,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "Sync Pull - With Read-Only User",
-			endpoint:       "/sync/pull",
+			endpoint:       "/api/sync/pull",
 			method:         http.MethodPost,
 			body:           map[string]any{"client_id": "test-client"},
 			withAuth:       true,
@@ -266,7 +254,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "Sync Push - With Admin User",
-			endpoint:       "/sync/push",
+			endpoint:       "/api/sync/push",
 			method:         http.MethodPost,
 			body:           map[string]any{"transmission_id": "test-transmission", "client_id": "test-client", "records": []any{}},
 			withAuth:       true,
@@ -276,7 +264,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle Versions - With Read-Only User",
-			endpoint:       "/app-bundle/versions",
+			endpoint:       "/api/app-bundle/versions",
 			method:         http.MethodGet,
 			body:           nil,
 			withAuth:       true,
@@ -285,7 +273,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle Push - With Read-Only User",
-			endpoint:       "/app-bundle/push",
+			endpoint:       "/api/app-bundle/push",
 			method:         http.MethodPost,
 			body:           nil, // Multipart form would be tested in handler unit tests
 			withAuth:       true,
@@ -294,7 +282,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle Push - With Admin User",
-			endpoint:       "/app-bundle/push",
+			endpoint:       "/api/app-bundle/push",
 			method:         http.MethodPost,
 			body:           nil, // Multipart form would be tested in handler unit tests
 			withAuth:       true,
@@ -303,7 +291,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle Switch - With Read-Only User",
-			endpoint:       "/app-bundle/switch/20250101-000000",
+			endpoint:       "/api/app-bundle/switch/20250101-000000",
 			method:         http.MethodPost,
 			body:           nil,
 			withAuth:       true,
@@ -312,7 +300,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		},
 		{
 			name:           "App Bundle Switch - With Admin User",
-			endpoint:       "/app-bundle/switch/20250101-000000",
+			endpoint:       "/api/app-bundle/switch/20250101-000000",
 			method:         http.MethodPost,
 			body:           nil,
 			withAuth:       true,

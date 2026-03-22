@@ -38,30 +38,7 @@ synkronus/
 
 **For production deployment**, we recommend using Docker Compose with nginx and cloudflared tunnel.
 
-See [DOCKER.md](./DOCKER.md) for quick start or [DEPLOYMENT.md](./DEPLOYMENT.md) for comprehensive deployment guide.
-
-```bash
-# Quick start with docker-compose
-cp docker-compose.example.yml docker-compose.yml
-# Edit docker-compose.yml with your secrets
-docker compose up -d
-
-# Or run directly with Docker
-docker pull ghcr.io/opendataensemble/synkronus:latest
-docker run -d -p 8080:8080 \
-  -e DB_CONNECTION="postgres://user:pass@host:5432/synkronus" \
-  -e JWT_SECRET="your-secret-key" \
-  -v synkronus-bundles:/app/data/app-bundles \
-  ghcr.io/opendataensemble/synkronus:latest
-```
-
-When using the provided `docker-compose` setup, the recommended way to initialize databases is:
-
-- Run a single PostgreSQL container (service `postgres`).
-- Use `docker compose exec postgres psql -U postgres` to create one or more databases and users for Synkronus.
-- Point each Synkronus instance at its own database via the `DB_CONNECTION` string.
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for the full step-by-step database initialization procedure.
+See [DOCKER.md](./DOCKER.md) for running pre-built images and local Docker usage, and [DEPLOYMENT.md](./DEPLOYMENT.md) for full production setup (including database initialization).
 
 ### Development Setup
 
@@ -97,7 +74,6 @@ Synkronus uses a flexible configuration system that supports both environment va
 | `DB_CONNECTION` | PostgreSQL connection string | `postgres://user:password@localhost:5432/synkronus` |
 | `JWT_SECRET` | Secret key for JWT token signing | (required, no default) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
-| `APP_BUNDLE_PATH` | Directory path for app bundles | `./data/app-bundles` |
 | `MAX_VERSIONS_KEPT` | Maximum number of app bundle versions to keep | `5` |
 
 ### Running the API
@@ -120,42 +96,11 @@ go run cmd/synkronus/main.go
 - `JWT_SECRET`: Secret for JWT signing
 - `LOG_LEVEL`: Logging level (debug, info, warn, error)
 
+Mutable files use a fixed root of `<directory>/data` next to the `synkronus` executable (e.g. `/app/data` in the official image). App bundles always live under `<data>/app-bundle/active` and `<data>/app-bundle/versions`. `go run` / `go test` fall back to `./data` relative to cwd when the binary is in a Go temp build path.
+
 ## Deployment Architecture
 
-Synkronus is designed to be deployed as a single Docker container with multiple processes managed by a supervisor:
-
-```
-┌─────────────────────────────────────────┐
-│             Docker Container            │
-│                                         │
-│  ┌─────────┐        ┌───────────────┐   │
-│  │  Nginx  │───────▶│   Synkronus   │   │
-│  │         │        │   Go Server   │   │
-│  └─────────┘        └───────────────┘   │
-│       │                     │           │
-│       │                     │           │
-│       ▼                     ▼           │
-│  ┌─────────┐        ┌───────────────┐   │
-│  │ Static  │        │  PostgreSQL   │   │
-│  │   UI    │        │   Database    │   │
-│  └─────────┘        └───────────────┘   │
-│                                         │
-└─────────────────────────────────────────┘
-```
-
-### Benefits
-
-- **Simple deployment**: Single container to manage
-- **Proper separation of concerns**: Nginx handles TLS, static files, and proxying
-- **Easy scaling**: Can be deployed to any container orchestration system
-
-### Implementation Details
-
-- **TLS/Let's Encrypt**: Automatic certificate management via Certbot with Nginx
-- **UI Integration**: Static SPA (Single Page Application) served by Nginx
-- **API Proxying**: Nginx proxies API requests to the Go server
-- **Data Persistence**: PostgreSQL database for robust data storage
-- **Configuration**: Environment variables for flexible deployment options
+For Docker-based deployment details (pre-built images, docker-compose configuration, and production setup), see `DOCKER.md` and `DEPLOYMENT.md`.
 
 ## API Documentation
 
@@ -163,104 +108,7 @@ API documentation is generated from the OpenAPI specification in `openapi/synkro
 
 ## Sync protocol
 
-Attachments (e.g. photos, audio recordings) are **binary blobs** referenced by observations. They are stored and transferred separately from the observation metadata to simplify synchronization, improve offline support, and reduce conflicts.
-
-### Core design principles
-
-- **Immutable attachments**  
-  - Once an attachment is uploaded, it cannot be modified in place.  
-  - Any "update" requires creating a new attachment with a new unique ID (typically a GUID).
-
-- **Separation of concerns**  
-  - Observation records sync via `/sync/pull` and `/sync/push`.  
-  - Attachments are uploaded and downloaded via dedicated endpoints.  
-  - This design ensures simpler, smaller payloads and clearer transaction boundaries.
-
-- **Stateless server**  
-  - The server does not maintain per-client state about which attachments have been uploaded or downloaded.  
-  - Clients manage their own attachment sync state.
-
-### Conflict avoidance
-
-- Because attachment IDs are generated as GUIDs client-side, filename clashes are extremely unlikely.
-- The server can include a simple existence check to reject accidental overwrites.
-
-### Clean-up and maintenance
-
-- Server can run periodic jobs to:
-- Identify orphaned attachments (no observation references).
-- Prune old or unused files.
-- Enforce retention policies.
-
-### Security considerations
-
-- Require authentication (e.g. bearer tokens) for all attachment endpoints.
-- Validate file types and sizes on upload to prevent abuse.
-- Optionally scan files for malware.
-
-### Example implementation notes
-
-- Filesystem storage for MVP:
-- Simple to implement and inspect.
-- Suitable for single-server deployments.
-
-- Cloud object storage (e.g. S3, GCS) for future:
-- Supports presigned URLs for direct client upload/download.
-- Handles scalability and redundancy.
-- Reduces server load.
-
-### Advantages of this server design
-
-- Keeps observation data sync API simple and JSON-only.  
-- Supports large binary payloads without bloating /sync/push or /sync/pull requests.  
-- Encourages incremental, resumable, offline-friendly sync strategies.  
-- Leaves attachment sync policy (e.g. lazy, bulk, partial) up to the client.  
-- Scales from MVP file-system storage to cloud-native solutions.
-
-## Minimal Sync Protocol Design
-
-This project uses a minimal sync approach for the `/sync/pull` and `/sync/push` endpoints that remains compatible with WatermelonDB's client-side helpers without requiring a full server-side change-tracking table.
-
-### Approach
-
-- Server stores a monotonic version number (via PostgreSQL trigger) for every observation change.
-- Each Observation record includes `created_at`, `updated_at`, and `deleted` fields.
-- Server simply returns all observations changed since the client's last known version.
-
-### Client-side adaptation
-
-- The client *infers* WatermelonDB's `_status`:
-  - `deleted` → `_status: "deleted"`
-  - `created_at == updated_at` → `_status: "created"`
-  - Else → `_status: "updated"`
-- `_changed` is hardcoded to `"data,deleted"` since most content is stored in the `data` JSON column.
-- The client wraps the server's flat `records` array into the expected WatermelonDB format:
-
-    ```json
-    {
-      "changes": {
-        "observations": [ ... ]
-      },
-      "timestamp": current_version
-    }
-    ```
-
-### Advantages
-
-- Requires no server-side schema changes or change-tracking tables.
-- Enables immediate shipping.
-- Compatible with WatermelonDB's `experimentalApplyRemoteChanges`.
-- Easy to side-load data or perform manual database edits on the server.
-
-### Trade-offs
-
-- Client carries responsibility for inferring `_status` and `_changed`.
-- Always sends/receives full `data` blobs.
-- Less granular change tracking.
-
-### Future Consideration
-
-This minimal approach is ideal for the current single-table use case. As requirements grow (e.g. multiple tables or better conflict resolution), the server can evolve to maintain an explicit changes log and deliver a richer sync protocol with exact `_status` and `_changed` values. See [WatermelonDB/Sync](https://watermelondb.dev/docs/Sync/Intro) for more details on how to align more closely with the WatermelonDB approach to sync.
+For the sync protocol design details (record model, attachment handling, pagination, and conflict strategy), see [`documentation/sync-protocol.md`](./documentation/sync-protocol.md).
 
 ## License
 

@@ -7,8 +7,8 @@ import { MainAppStackParamList } from '../types/NavigationTypes';
 import { colors } from '../theme/colors';
 import { Button } from '../components/common';
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import logo from '../../assets/images/logo.png';
 
 type WelcomeScreenNavigationProp = StackNavigationProp<MainAppStackParamList>;
@@ -51,6 +51,7 @@ const ode = {
 const WelcomeScreen = () => {
   const navigation = useNavigation<WelcomeScreenNavigationProp>();
   const { resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
 
   const handleGetStarted = () => {
@@ -66,7 +67,7 @@ const WelcomeScreen = () => {
   const textSecondary = isDark ? colors.neutral[400] : colors.neutral[600];
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView style={styles.container}>
         <View style={styles.content}>
           <View
@@ -136,7 +137,7 @@ const WelcomeScreen = () => {
           </View>
         </View>
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 

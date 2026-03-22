@@ -9,7 +9,7 @@ A comprehensive component library for the Open Data Ensemble (ODE) ecosystem. Th
 - **Modern Minimalist Design** - Clean, simple, and aesthetically beautiful components
 - **Platform-Specific** - Optimized implementations for React Native and React Web
 - **Token-Based** - Built on `@ode/tokens` for consistent design
-- **Accessible** - WCAG compliant with proper ARIA attributes
+- **Accessible** - supports `accessibilityLabel` (web: `aria-label`, React Native: native accessibility props where supported)
 - **Responsive** - Works seamlessly across all device sizes
 - **Dark Mode Ready** - Supports light and dark themes
 
@@ -91,13 +91,12 @@ function App() {
 
 ### Button
 
-Modern minimalist button with a unique fading border effect. When two buttons are placed together in a `ButtonGroup`, they automatically have opposite styles.
+Modern minimalist button with transparent/default styling and token-based colors. When used inside a `ButtonGroup`, paired buttons automatically use contrasting variants for visual emphasis.
 
 **Features:**
-- Fading border effect on one end (left button fades on right, right button fades on left)
 - Transparent background with border-colored text by default
-- On hover: background fills with border color, text changes to contrast color
-- Automatic opposite styling when paired
+- On hover/active: background fills with the border color, and text switches to a contrasting color
+- Automatic contrasting styling when paired in a `ButtonGroup`
 
 ```tsx
 // Single button
@@ -113,7 +112,7 @@ Modern minimalist button with a unique fading border effect. When two buttons ar
 ```
 
 **Props:**
-- `variant`: `'primary' | 'secondary' | 'neutral'` (default: `'primary'`)
+- `variant`: `'primary' | 'secondary' | 'neutral' | 'danger'` (default: `'primary'`)
 - `size`: `'small' | 'medium' | 'large'` (default: `'medium'`)
 - `disabled`: `boolean` (default: `false`)
 - `loading`: `boolean` (default: `false`)
@@ -185,7 +184,7 @@ All components follow these design principles:
 
 1. **Minimalism** - Clean, uncluttered interfaces that enhance usability
 2. **Consistency** - Unified design language using ODE tokens
-3. **Accessibility** - WCAG compliant with proper contrast ratios and touch targets
+3. **Accessibility** - supports `accessibilityLabel`/ARIA where applicable
 4. **Responsiveness** - Adapts seamlessly to all screen sizes
 5. **Performance** - Lightweight and optimized for fast rendering
 
@@ -194,9 +193,8 @@ All components follow these design principles:
 The button component features a unique design inspired by modern minimalist aesthetics:
 
 - **Default State**: Transparent background with colored border and matching text
-- **Fading Border**: Border fades on one end (left button fades right, right button fades left)
-- **Hover State**: Background fills with border color, text changes to high-contrast color
-- **Paired Buttons**: When two buttons are together, they have opposite color schemes
+- **Hover State**: Background fills with border color, text changes to a high-contrast color
+- **Paired Buttons**: When two buttons are together, they use contrasting color variants
 - **Smooth Transitions**: All state changes use smooth cubic-bezier animations
 
 ## Platform Differences

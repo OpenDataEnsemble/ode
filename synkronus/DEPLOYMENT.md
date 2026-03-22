@@ -175,19 +175,32 @@ Your Synkronus instance is now accessible at `https://synkronus.your-domain.com`
 |----------|---------|-------------|
 | `PORT` | `8080` | HTTP server port |
 | `LOG_LEVEL` | `info` | Logging level (`debug`, `info`, `warn`, `error`) |
-| `APP_BUNDLE_PATH` | `/app/data/app-bundles` | Path for app bundle storage |
 | `MAX_VERSIONS_KEPT` | `5` | Number of app bundle versions to retain |
 | `ADMIN_USERNAME` | `admin` | Initial admin username |
 | `ADMIN_PASSWORD` | `admin` | Initial admin password (CHANGE THIS!) |
 
+In the official container image, the process runs from **`/app`** (binary at **`/app/synkronus`**), so app bundles are stored at **`/app/data/app-bundle/active`** and **`/app/data/app-bundle/versions`**. Mount your persistent volume at **`/app/data`**.
+
 ## Volume Management
+
+### Migrating from older layouts
+
+Earlier examples used separate mounts for `/app/data/app-bundles` and `/app/data/app-bundle-versions`, and the active bundle lived at `app-bundles` instead of `app-bundle/active`. Mutable filesystem data for the official image lives under **`/app/data`** (see above).
+
+To move to a single volume at `/app/data`:
+
+1. Stop the stack.
+2. On the volume that will be mounted at `/app/data`, create: `app-bundle/active`, `app-bundle/versions`, and `attachments`.
+3. Copy the previous active bundle files into `app-bundle/active`, and numbered version folders into `app-bundle/versions`.
+4. Move attachment blobs into `attachments/` if they were stored elsewhere (e.g. under an old ephemeral path).
+5. In Compose, use one volume mount `synkronus_data:/app/data` (see `docker-compose.example.yml`).
 
 ### Persistent Volumes
 
-The docker-compose setup creates two persistent volumes:
+The docker-compose setup uses persistent volumes for:
 
 1. **postgres-data**: PostgreSQL database files
-2. **app-bundles**: Uploaded application bundles
+2. **synkronus_data** (or your chosen name): All Synkronus mutable filesystem data under `/app/data` (app-bundle active + versions, attachments)
 
 ```bash
 # List volumes
@@ -203,9 +216,9 @@ docker run --rm -v synkronus_postgres-data:/data -v $(pwd):/backup alpine tar cz
 docker run --rm -v synkronus_postgres-data:/data -v $(pwd):/backup alpine tar xzf /backup/postgres-backup.tar.gz -C /
 ```
 
-### App Bundle Directory Permissions
+### Data directory permissions (`/app/data` in Docker)
 
-When you bind-mount a host directory for `app-bundles`, the synkronus container must be able to write to that path. The container runs as user `synkronus` with `uid=1000` and `gid=1000`, so the host directory should be owned (or at least writable) by `1000:1000`.
+When you bind-mount a host directory at **`/app/data`** (next to the binary at `/app/synkronus`), the Synkronus container must be able to write there. The container runs as user `synkronus` with `uid=1000` and `gid=1000`, so the host directory should be owned (or at least writable) by `1000:1000`.
 
 ```bash
 # Check running containers
@@ -214,8 +227,8 @@ docker ps
 # Confirm the user inside the synkronus container
 docker exec -it <synkronus-container-id> id
 
-# Example: fix permissions on a host directory used for app bundles
-sudo chown -R 1000:1000 ~/server/app-bundles
+# Example: fix permissions on the host bind mount used for Synkronus data
+sudo chown -R 1000:1000 ~/server/synkronus-data
 ```
 
 If you use a different host path, adjust the `chown` command accordingly. After fixing permissions, you may need to restart the stack:
@@ -306,8 +319,10 @@ docker compose exec -T postgres psql -U synkronus_user synkronus < backup-202501
 tar czf synkronus-full-backup-$(date +%Y%m%d).tar.gz \
   docker-compose.yml \
   nginx.conf \
-  $(docker volume inspect synkronus_postgres-data --format '{{ .Mountpoint }}') \
-  $(docker volume inspect synkronus_app-bundles --format '{{ .Mountpoint }}')
+  $(docker volume inspect synkronus_postgres-data --format '{{ .Mountpoint }}')
+
+# Filesystem data (adjust volume name if Compose adds a project prefix — use `docker volume ls`):
+# docker run --rm -v synkronus_data:/data -v $(pwd):/backup alpine tar czf /backup/synkronus-data.tar.gz -C /data .
 ```
 
 ## Security Best Practices

@@ -60,6 +60,16 @@ export default defineConfig({
       interval: 100, // Polling interval in ms
     },
     proxy: {
+      // Health is mounted at /health (not under /api); proxy it for dev same-origin fetches
+      '/health': {
+        target:
+          process.env.DOCKER_ENV === 'true' ||
+          process.env.VITE_API_URL?.includes('synkronus:')
+            ? 'http://synkronus:8080'
+            : process.env.API_URL || process.env.VITE_API_URL || 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      },
       // Proxy API requests to the Synkronus backend
       // In Docker: uses service name 'synkronus'
       // Locally: uses 'localhost'
@@ -72,11 +82,8 @@ export default defineConfig({
             : process.env.API_URL || process.env.VITE_API_URL || 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-        rewrite: path => {
-          const rewritten = path.replace(/^\/api/, '');
-          console.log(`[Vite Proxy] Rewriting ${path} -> ${rewritten}`);
-          return rewritten;
-        },
+        // Forward /api/* to the backend with the same path (API routes are mounted under /api)
+        rewrite: path => path,
         configure: (proxy, _options) => {
           proxy.on('error', (err, req, _res) => {
             console.error('[Vite Proxy] Error:', err);

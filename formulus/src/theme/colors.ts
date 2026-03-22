@@ -118,6 +118,11 @@ export const colors = {
     background:
       (c.semantic as Record<string, Record<string, Record<string, string>>>)?.ui
         ?.overlay?.background ?? 'rgba(0, 0, 0, 0.5)',
+    /** Full-screen shell behind primary app surfaces (replaces former blurred bitmap). */
+    screenShell: {
+      light: '#ebebeb',
+      dark: '#413b2e',
+    },
   },
 };
 
@@ -161,7 +166,7 @@ function parseColorToRgb(
 /**
  * Return a color with the given alpha for translucent container backgrounds.
  * Accepts #RRGGBB, #RGB, #RRGGBBAA, rgb(), rgba(). Returns rgba(r,g,b,a)
- * so the blurred screen background shows through; rgba has reliable alpha on Android.
+ * so the screen shell background shows through; rgba has reliable alpha on Android.
  */
 export function withAlpha(color: string, alpha: number): string {
   const parsed = parseColorToRgb(color);
@@ -172,7 +177,7 @@ export function withAlpha(color: string, alpha: number): string {
   return `rgba(${parsed.r},${parsed.g},${parsed.b},${a})`;
 }
 
-/** Alpha for container backgrounds: more transparent so blurred screen background shows through. */
+/** Alpha for container backgrounds: more transparent so the screen shell shows through. */
 export const CONTAINER_ALPHA = 0.4;
 
 export default colors;

@@ -8,9 +8,10 @@ import (
 
 // MockAttachmentManifestService is a mock implementation of attachment.ManifestService
 type MockAttachmentManifestService struct {
-	GetManifestFunc     func(ctx context.Context, req attachment.AttachmentManifestRequest) (*attachment.AttachmentManifestResponse, error)
-	RecordOperationFunc func(ctx context.Context, attachmentID, operation, clientID string, size *int, contentType *string) error
-	InitializeFunc      func(ctx context.Context) error
+	GetManifestFunc                 func(ctx context.Context, req attachment.AttachmentManifestRequest) (*attachment.AttachmentManifestResponse, error)
+	RecordOperationFunc             func(ctx context.Context, attachmentID, operation, clientID string, size *int, contentType *string) error
+	InitializeFunc                  func(ctx context.Context) error
+	ListAllCurrentAttachmentIDsFunc func(ctx context.Context) ([]string, error)
 }
 
 // GetManifest implements attachment.ManifestService
@@ -43,4 +44,12 @@ func (m *MockAttachmentManifestService) Initialize(ctx context.Context) error {
 		return m.InitializeFunc(ctx)
 	}
 	return nil
+}
+
+// ListAllCurrentAttachmentIDs implements attachment.ManifestService
+func (m *MockAttachmentManifestService) ListAllCurrentAttachmentIDs(ctx context.Context) ([]string, error) {
+	if m.ListAllCurrentAttachmentIDsFunc != nil {
+		return m.ListAllCurrentAttachmentIDsFunc(ctx)
+	}
+	return nil, nil
 }

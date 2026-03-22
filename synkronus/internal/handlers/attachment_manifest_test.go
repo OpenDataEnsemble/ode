@@ -116,7 +116,7 @@ func TestAttachmentManifestHandler(t *testing.T) {
 			}
 
 			// Create request
-			req := httptest.NewRequest(http.MethodPost, "/attachments/manifest", bytes.NewReader(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/attachments/manifest", bytes.NewReader(body))
 			req.Header.Set("Content-Type", "application/json")
 
 			// Create response recorder

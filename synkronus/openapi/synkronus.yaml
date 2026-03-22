@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Synkronus API
-  version: 1.0.3
+  version: 1.0.5
 paths:
   /health:
     get:
@@ -48,7 +48,7 @@ paths:
                     format: date-time
                     description: Current server time
 
-  /version:
+  /api/version:
     get:
       operationId: getVersion
       summary: Get server version and system information
@@ -67,7 +67,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /app-bundle/changes:
+  /api/app-bundle/changes:
     get:
       operationId: getAppBundleChanges
       summary: Get changes between two app bundle versions
@@ -121,7 +121,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /app-bundle/manifest:
+  /api/app-bundle/manifest:
     get:
       operationId: getAppBundleManifest
       summary: Get the current custom app bundle manifest
@@ -149,7 +149,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AppBundleManifest'
 
-  /app-bundle/download/{path}:
+  /api/app-bundle/download/{path}:
     get:
       operationId: downloadAppBundleFile
       summary: Download a specific file from the app bundle
@@ -195,7 +195,7 @@ paths:
         '304':
           description: Not Modified
 
-  /app-bundle/versions:
+  /api/app-bundle/versions:
     get:
       operationId: getAppBundleVersions
       summary: Get a list of available app bundle versions
@@ -218,7 +218,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AppBundleVersions'
 
-  /app-bundle/push:
+  /api/app-bundle/push:
     post:
       operationId: pushAppBundle
       summary: Upload a new app bundle (admin only)
@@ -276,7 +276,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /app-bundle/switch/{version}:
+  /api/app-bundle/switch/{version}:
     post:
       operationId: switchAppBundleVersion
       summary: Switch to a specific app bundle version (admin only)
@@ -333,7 +333,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /auth/login:
+  /api/auth/login:
     post:
       operationId: login
       summary: Authenticate user and return JWT tokens
@@ -382,7 +382,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /auth/refresh:
+  /api/auth/refresh:
     post:
       operationId: refreshToken
       summary: Refresh JWT token
@@ -427,7 +427,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users/create:
+  /api/users/create:
     post:
       operationId: createUser
       summary: Create a new user (admin only)
@@ -494,7 +494,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users:
+  /api/users:
     get:
       operationId: listUsers
       summary: List all users (admin only)
@@ -532,7 +532,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users/{username}:
+  /api/users/{username}:
     delete:
       operationId: deleteUser
       summary: Delete a user (admin only)
@@ -590,7 +590,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users/reset-password:
+  /api/users/reset-password:
     post:
       operationId: resetUserPassword
       summary: Reset user password (admin only)
@@ -657,7 +657,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users/change-password:
+  /api/users/change-password:
     post:
       operationId: changePassword
       summary: Change user password (authenticated user)'s password
@@ -713,7 +713,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /sync/pull:
+  /api/sync/pull:
     post:
       operationId: syncPull
       summary: Pull updated records since last sync
@@ -768,7 +768,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncPullResponse'
 
-  /sync/push:
+  /api/sync/push:
     post:
       operationId: syncPush
       summary: Push new or updated records to the server
@@ -797,7 +797,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncPushResponse'
 
-  /attachments/manifest:
+  /api/attachments/manifest:
     post:
       operationId: getAttachmentManifest
       summary: Get attachment manifest for incremental sync
@@ -845,7 +845,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /attachments/{attachment_id}:
+  /api/attachments/export-zip:
+    get:
+      operationId: getAttachmentsExportZip
+      summary: Download all attachments as a streamed ZIP
+      description: >
+        Returns a ZIP containing every attachment whose latest manifest operation is create or update.
+        Entry paths correspond to attachment IDs. Large exports stream without buffering the full archive in memory.
+      tags:
+        - Attachments
+      responses:
+        '200':
+          description: ZIP archive stream
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          description: Attachment storage is not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+        - bearerAuth: [read-only, read-write, admin]
+
+  /api/attachments/{attachment_id}:
     put:
       operationId: uploadAttachment
       summary: Upload a new attachment with specified ID
@@ -934,7 +966,7 @@ paths:
         '404':
           description: Attachment not found
 
-  /dataexport/parquet:
+  /api/dataexport/parquet:
     get:
       summary: Download a ZIP archive of Parquet exports
       description: >
@@ -959,7 +991,33 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
       security:
-        - bearerAuth: [read-only, read-write]
+        - bearerAuth: [read-only, read-write, admin]
+
+  /api/dataexport/raw-json:
+    get:
+      operationId: getRawJsonExportZip
+      summary: Download a ZIP archive of per-observation JSON files
+      description: >
+        Returns a ZIP archive where each non-deleted observation is one JSON file,
+        grouped by form type folder. Each file contains metadata fields and a nested `data` object with the form payload.
+      tags:
+        - DataExport
+      responses:
+        '200':
+          description: ZIP archive stream containing JSON files
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: [read-only, read-write, admin]
 
 components:
   schemas:
@@ -1260,8 +1318,6 @@ components:
         - created_at
         - updated_at
         - deleted
-        - author
-        - device_id
       properties:
         observation_id:
           type: string
@@ -1317,12 +1373,24 @@ components:
               nullable: true
               minimum: 0
               description: Vertical accuracy in meters
+            timestamp:
+              type: string
+              format: date-time
+              description: When the GPS fix was obtained (ISO 8601)
         author:
           type: string
-          description: Author/creator of the observation
+          nullable: true
+          description: Optional author/creator identifier for the observation (e.g. username)
         device_id:
           type: string
-          description: Device ID that created the observation
+          nullable: true
+          description: Optional client device identifier for the observation
+        tags:
+          type: array
+          nullable: true
+          description: Optional list of string tags (labeling, extensions, data cleaning)
+          items:
+            type: string
 
 
     ProblemDetail:
@@ -1428,4 +1496,4 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: 'JWT token obtained from /auth/login'
+      description: 'JWT token obtained from /api/auth/login'

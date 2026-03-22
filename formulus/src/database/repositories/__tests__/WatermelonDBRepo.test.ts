@@ -1,9 +1,28 @@
+jest.mock('../../../services/GeolocationService', () => ({
+  geolocationService: {
+    getCachedLocation: jest.fn(() => null),
+    getCurrentLocationForObservation: jest.fn(async () => null),
+  },
+}));
+
+jest.mock('../../../services/ClientIdService', () => ({
+  clientIdService: {
+    getClientId: jest.fn(async () => 'jest-test-client'),
+  },
+}));
+
+jest.mock('../../../api/synkronus/Auth', () => ({
+  getUserInfo: jest.fn(async () => ({ username: 'jest-user' })),
+}));
+
 import { Database } from '@nozbe/watermelondb';
 import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
 import { schemas } from '../../schema';
 import { ObservationModel } from '../../models/ObservationModel';
 import { WatermelonDBRepo } from '../WatermelonDBRepo';
 import { Observation } from '../LocalRepoInterface';
+import { ObservationMapper } from '../../../mappers/ObservationMapper';
+import { LAST_WRITE_WON_TAG } from '../../../sync/syncConstants';
 import { Q } from '@nozbe/watermelondb';
 
 // Create a test database with in-memory LokiJS adapter
@@ -180,7 +199,7 @@ describe('WatermelonDBRepo', () => {
     expect(count).toBe(0);
   });
 
-  test('getObservationsByFormId should return observations for a specific form type', async () => {
+  test('getObservationsByFormType should return observations for a specific form type', async () => {
     // Arrange
     const formType1 = 'form-type-1';
     const formType2 = 'form-type-2';
@@ -235,7 +254,7 @@ describe('WatermelonDBRepo', () => {
     expect(records3.length).toBe(1);
 
     // Act
-    const observations = await repo.getObservationsByFormId(formType1);
+    const observations = await repo.getObservationsByFormType(formType1);
     console.log(
       `Found ${observations.length} observations for form type ${formType1}`,
     );
@@ -271,7 +290,8 @@ describe('WatermelonDBRepo', () => {
     console.log('Original observation:', originalObservation);
 
     // Act
-    const updateSuccess = await repo.updateObservation(id, {
+    const updateSuccess = await repo.updateObservation({
+      observationId: id,
       data: { field1: 'updated' },
     });
 
@@ -507,5 +527,160 @@ describe('WatermelonDBRepo', () => {
     }
   });
 
-  test.todo('synchronize should pull and push observations correctly');
+  /**
+   * Regression: observations ingested via applyServerChanges must keep the server's
+   * observation_id as the canonical id exposed to the app and to Synkronus push payloads.
+   *
+   * Why earlier tests missed it:
+   * - All existing WatermelonDBRepo tests only used saveObservation(), which sets both
+   *   Watermelon record id and observation_id to the same obs_${timestamp}_ value.
+   * - applyServerChanges was never covered (only a synchronize() todo).
+   * - prepareCreate for pull sets observation_id but leaves Watermelon to assign a
+   *   different internal id; mappers incorrectly used model.id as domain observationId,
+   *   so pushes could use a random uuid as observation_id and duplicate server rows.
+   */
+  test('applyServerChanges (new row): domain observationId matches server observation_id', async () => {
+    const serverObservationId = 'obs_pulled_from_sync_1001';
+    const serverObservation: Observation = {
+      observationId: serverObservationId,
+      formType: 'register_coffee',
+      formVersion: '1.0',
+      createdAt: new Date('2025-01-02T10:00:00.000Z'),
+      updatedAt: new Date('2025-01-02T11:00:00.000Z'),
+      syncedAt: null,
+      deleted: false,
+      data: { name: 'From server' },
+      geolocation: null,
+      author: 'alice',
+      deviceId: 'device-a',
+    };
+
+    const applied = await repo.applyServerChanges([serverObservation]);
+    expect(applied).toBe(1);
+
+    const collection = database.get('observations');
+    const [record] = await collection
+      .query(Q.where('observation_id', serverObservationId))
+      .fetch();
+    expect(record).toBeDefined();
+    const model = record as ObservationModel;
+    expect(model.observationId).toBe(serverObservationId);
+    expect(model.id).toBe(serverObservationId);
+
+    const domain = ObservationMapper.fromDBModel(model);
+    expect(domain.observationId).toBe(serverObservationId);
+
+    const viaLookup = await repo.getObservation(serverObservationId);
+    expect(viaLookup).not.toBeNull();
+    expect(viaLookup!.observationId).toBe(serverObservationId);
+
+    const apiPayload = ObservationMapper.toApi(domain);
+    expect(apiPayload.observation_id).toBe(serverObservationId);
+
+    expect(domain.author).toBe('alice');
+    expect(domain.deviceId).toBe('device-a');
+    expect(viaLookup!.author).toBe('alice');
+    expect(viaLookup!.deviceId).toBe('device-a');
+    expect(apiPayload.author).toBe('alice');
+    expect(apiPayload.device_id).toBe('device-a');
+  });
+
+  /**
+   * Regression: author and device_id must round-trip the same whether the row was
+   * created locally (saveObservation) or ingested from Synkronus (applyServerChanges).
+   * Mismatches here used to correlate with duplicate/strange sync behaviour when
+   * identity fields differed between code paths.
+   */
+  test('author and deviceId match between saveObservation and applyServerChanges', async () => {
+    const author = 'parity-author';
+    const deviceId = 'parity-device-001';
+
+    const localId = await repo.saveObservation({
+      formType: 'register_coffee',
+      data: { source: 'local' },
+      author,
+      deviceId,
+    });
+
+    const serverObservationId = 'obs_pulled_from_sync_2002';
+    const serverObservation: Observation = {
+      observationId: serverObservationId,
+      formType: 'register_coffee',
+      formVersion: '1.0',
+      createdAt: new Date('2025-01-02T10:00:00.000Z'),
+      updatedAt: new Date('2025-01-02T11:00:00.000Z'),
+      syncedAt: null,
+      deleted: false,
+      data: { source: 'server' },
+      geolocation: null,
+      author,
+      deviceId,
+    };
+
+    await repo.applyServerChanges([serverObservation]);
+
+    const local = await repo.getObservation(localId);
+    const synced = await repo.getObservation(serverObservationId);
+    expect(local).not.toBeNull();
+    expect(synced).not.toBeNull();
+
+    expect(local!.author).toBe(author);
+    expect(local!.deviceId).toBe(deviceId);
+    expect(synced!.author).toBe(author);
+    expect(synced!.deviceId).toBe(deviceId);
+
+    const collection = database.get('observations');
+    const [localRow] = await collection
+      .query(Q.where('observation_id', localId))
+      .fetch();
+    const [syncedRow] = await collection
+      .query(Q.where('observation_id', serverObservationId))
+      .fetch();
+
+    const domainLocal = ObservationMapper.fromDBModel(
+      localRow as ObservationModel,
+    );
+    const domainSynced = ObservationMapper.fromDBModel(
+      syncedRow as ObservationModel,
+    );
+    expect(domainLocal.author).toBe(author);
+    expect(domainLocal.deviceId).toBe(deviceId);
+    expect(domainSynced.author).toBe(author);
+    expect(domainSynced.deviceId).toBe(deviceId);
+
+    expect(ObservationMapper.toApi(domainLocal).author).toBe(author);
+    expect(ObservationMapper.toApi(domainLocal).device_id).toBe(deviceId);
+    expect(ObservationMapper.toApi(domainSynced).author).toBe(author);
+    expect(ObservationMapper.toApi(domainSynced).device_id).toBe(deviceId);
+  });
+
+  test('applyServerChanges adds last_write_won tag when local edits win over pulled server row', async () => {
+    const localId = await repo.saveObservation({
+      formType: 'form_lww',
+      data: { source: 'local' },
+    });
+
+    const serverObservation: Observation = {
+      observationId: localId,
+      formType: 'form_lww',
+      formVersion: '1.0',
+      createdAt: new Date('2025-01-02T10:00:00.000Z'),
+      updatedAt: new Date('2025-01-02T12:00:00.000Z'),
+      syncedAt: null,
+      deleted: false,
+      data: { source: 'server' },
+      geolocation: null,
+    };
+
+    const applied = await repo.applyServerChanges([serverObservation]);
+    expect(applied).toBe(1);
+
+    const local = await repo.getObservation(localId);
+    expect(local).not.toBeNull();
+    expect(local!.data).toEqual({ source: 'local' });
+    expect(local!.tags ?? []).toContain(LAST_WRITE_WON_TAG);
+
+    const appliedAgain = await repo.applyServerChanges([serverObservation]);
+    expect(appliedAgain).toBe(0);
+  });
 });

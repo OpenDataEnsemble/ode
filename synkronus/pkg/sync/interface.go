@@ -40,6 +40,12 @@ type Observation struct {
 	Deleted       bool            `json:"deleted" db:"deleted"`
 	Version       int64           `json:"version" db:"version"`
 	Geolocation   *Geolocation    `json:"geolocation,omitempty" db:"geolocation,json"`
+	// Author is an optional client-reported creator identifier (e.g. username).
+	Author *string `json:"author,omitempty"`
+	// DeviceID is an optional client device identifier.
+	DeviceID *string `json:"device_id,omitempty"`
+	// Tags is an optional list of string tags (extension, labeling, data cleaning).
+	Tags []string `json:"tags,omitempty"`
 }
 
 // SyncPullCursor represents pagination cursor for sync pull operations

@@ -72,7 +72,7 @@ func NewClient() *Client {
 // doRequest performs an HTTP request with authentication
 // GetVersion retrieves version information from the Synkronus server
 func (c *Client) GetVersion() (*SystemVersionInfo, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/version", c.BaseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/version", c.BaseURL), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating version request: %w", err)
 	}
@@ -188,7 +188,7 @@ func (c *Client) GetAppBundleManifest() (map[string]interface{}, error) {
 
 // GetAppBundleVersions retrieves available app bundle versions
 func (c *Client) GetAppBundleVersions() (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/app-bundle/versions", c.BaseURL)
+	url := fmt.Sprintf("%s/api/app-bundle/versions", c.BaseURL)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -259,16 +259,30 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 	return nil
 }
 
-// DownloadParquetExport downloads the Parquet export ZIP archive to the specified destination path
-func (c *Client) DownloadParquetExport(destPath string) error {
-	url := fmt.Sprintf("%s/dataexport/parquet", c.BaseURL)
-
+// downloadBinaryToFile performs an authenticated GET on path (must start with /, e.g. /api/dataexport/parquet)
+// and streams the body to destPath. Uses no overall HTTP timeout so large ZIP exports can complete.
+func (c *Client) downloadBinaryToFile(path string, destPath string) error {
+	url := fmt.Sprintf("%s%s", c.BaseURL, path)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
 	}
+	req.Header.Set("x-formulus-version", c.APIVersion)
+	token, err := auth.GetToken()
+	if err != nil {
+		return fmt.Errorf("authentication error: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 
-	resp, err := c.doRequest(req)
+	httpClient := &http.Client{
+		Timeout:   0,
+		Transport: c.HTTPClient.Transport,
+	}
+	if httpClient.Transport == nil {
+		httpClient.Transport = http.DefaultTransport
+	}
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
@@ -276,29 +290,41 @@ func (c *Client) DownloadParquetExport(destPath string) error {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+		msg := strings.TrimSpace(string(body))
+		if resp.StatusCode == http.StatusServiceUnavailable && msg == "" {
+			return fmt.Errorf("API error (status %d): service unavailable", resp.StatusCode)
+		}
+		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, msg)
 	}
 
-	// Create destination directory if it doesn't exist
 	destDir := filepath.Dir(destPath)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return err
 	}
 
-	// Create destination file
 	out, err := os.Create(destPath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	// Copy response body to file
 	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return err
-	}
+	return err
+}
 
-	return nil
+// DownloadParquetExport downloads the Parquet export ZIP archive to the specified destination path
+func (c *Client) DownloadParquetExport(destPath string) error {
+	return c.downloadBinaryToFile("/api/dataexport/parquet", destPath)
+}
+
+// DownloadRawJSONExport downloads the per-observation JSON ZIP export to the specified destination path
+func (c *Client) DownloadRawJSONExport(destPath string) error {
+	return c.downloadBinaryToFile("/api/dataexport/raw-json", destPath)
+}
+
+// DownloadAttachmentsExport downloads a ZIP of all current attachments to the specified destination path
+func (c *Client) DownloadAttachmentsExport(destPath string) error {
+	return c.downloadBinaryToFile("/api/attachments/export-zip", destPath)
 }
 
 // UploadAppBundle uploads a new app bundle
@@ -365,7 +391,7 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 
 // SwitchAppBundleVersion switches to a specific app bundle version
 func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/app-bundle/switch/%s", c.BaseURL, version)
+	url := fmt.Sprintf("%s/api/app-bundle/switch/%s", c.BaseURL, version)
 
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
@@ -393,7 +419,7 @@ func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{},
 
 // SyncPull pulls updated records from the server
 func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []string, limit int, pageToken string) (map[string]interface{}, error) {
-	requestURL := fmt.Sprintf("%s/sync/pull", c.BaseURL)
+	requestURL := fmt.Sprintf("%s/api/sync/pull", c.BaseURL)
 
 	// Build query parameters
 	var queryParams []string
@@ -472,7 +498,7 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 
 // SyncPush pushes records to the server
 func (c *Client) SyncPush(clientID string, transmissionID string, records []map[string]interface{}) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/sync/push", c.BaseURL)
+	url := fmt.Sprintf("%s/api/sync/push", c.BaseURL)
 
 	// Prepare request body
 	reqBody := map[string]interface{}{

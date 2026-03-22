@@ -20,6 +20,13 @@ export interface WebButtonProps extends ButtonProps {
    * The variant of the paired button (if any)
    */
   pairedVariant?: ButtonVariant;
+
+  /**
+   * Native `<button type>` — use `submit` inside a `<form>` so mobile keyboards
+   * (Go / Send) submit the form.
+   * @default 'button'
+   */
+  nativeType?: 'button' | 'submit' | 'reset';
 }
 
 // Extract token values
@@ -39,6 +46,7 @@ const Button: React.FC<WebButtonProps> = ({
   style,
   testID,
   accessibilityLabel,
+  nativeType = 'button',
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -227,7 +235,7 @@ const Button: React.FC<WebButtonProps> = ({
 
   return (
     <button
-      type="button"
+      type={nativeType}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

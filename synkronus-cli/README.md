@@ -146,8 +146,8 @@ synk app-bundle download index.html
 # Upload a new app bundle (admin only)
 synk app-bundle upload bundle.zip
 
-# Upload with auto-activation and verbose output
-synk app-bundle upload bundle.zip --activate --verbose
+# Upload without switching the active bundle (stage only), with verbose output
+synk app-bundle upload bundle.zip --stage-only --verbose
 
 # Switch to a specific app bundle version (admin only)
 synk app-bundle switch 20250507-123456
@@ -178,7 +178,16 @@ synk data export ./backups/observations_parquet.zip
 
 ## License
 
-MIT
+**GPL-2.0-or-later** — see [`LICENSE`](./LICENSE) in this directory.
+
+The rest of the ODE monorepo may use other licenses (for example MIT at the
+repository root). This applies to **synkronus-cli** only.
+
+**Planned follow-up:** replace the `yeqown/go-qrcode/writer/standard` (gg /
+freetype) stack with a small stdlib `qrcode.Writer` implementation so this
+component can return to a permissive license. See
+[`FOLLOWUP-custom-qrcode-writer.md`](./FOLLOWUP-custom-qrcode-writer.md) for a
+ticket-ready summary.
 
 
 ## Dev. notes

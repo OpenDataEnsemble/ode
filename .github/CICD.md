@@ -92,6 +92,7 @@ The workflow intelligently handles formplayer assets using two jobs:
 
 2. **`build-android` job** (depends on assets job):
    - Downloads the Formplayer assets artifact into `formulus/android/app/src/main/assets/formplayer_dist/`
+   - Runs `npm run vendor:notifee` in `formulus/` to clone the pinned [invertase/notifee](https://github.com/invertase/notifee) commit into `third_party/notifee` (gitignored; required for Gradle `:notifee_core`)
    - Builds the Android APK (debug for PRs, release for main/dev/release events)
 
 Formplayer assets are **not committed to git** and are ignored via `.gitignore`. CI builds always use the assets artifact produced in the same workflow run, ensuring a single, consistent source of truth for each build.
@@ -122,6 +123,19 @@ This ensures:
 - A single workflow owns both asset and APK builds
 - Each APK is built against the exact assets produced in the same run
 - Formplayer build outputs do not pollute git history
+
+### SBOM (CycloneDX) on releases
+
+**Workflow**: `.github/workflows/sbom-release.yml`
+
+- Runs when a **GitHub Release is published** and uploads `*.cdx.json` files to that release (alongside other assets such as the Formulus APK from `formulus-android.yml`).
+- **Manual test**: Actions → *SBOM (CycloneDX)* → *Run workflow*; download the `cyclonedx-sbom` artifact.
+
+**Local generation** (requires Node + Go):
+
+```bash
+node scripts/sbom/generate-sboms.mjs --out sbom-dist
+```
 
 ## Using Published Images
 

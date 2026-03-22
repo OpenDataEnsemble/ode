@@ -16,6 +16,7 @@ import { readFileAssets, MainBundlePath, readFile } from 'react-native-fs';
 import { FormulusWebViewMessageManager } from '../webview/FormulusWebViewHandler';
 import { FormInitData } from '../webview/FormulusInterfaceDefinition';
 import { colors } from '../theme/colors';
+import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
 
 export interface CustomAppWebViewHandle {
   reload: () => void;
@@ -36,7 +37,7 @@ interface CustomAppWebViewProps {
   onNavigateToSync?: () => void;
   /** Called when placeholder posts formulusNavigateToSettings (Login Now → login/settings screen). */
   onNavigateToSettings?: () => void;
-  /** When true, WebView and container use transparent background (e.g. for placeholder over BlurredScreenBackground). */
+  /** When true, WebView and container use transparent background (e.g. for placeholder over the app screen shell). */
   transparentBackground?: boolean;
 }
 
@@ -252,9 +253,17 @@ const CustomAppWebView = forwardRef<
             onNavigateToSyncRef.current?.();
             return;
           }
-          // Handle placeholder "Login Now" → navigate to Settings (login / server credentials / QR)
+          // Handle placeholder "Login Now" → hydrate settings cache before navigating so
+          // SettingsScreen gets a warm snapshot (same single-flight load as on-screen prefetch).
           if (eventData.type === 'formulusNavigateToSettings') {
-            onNavigateToSettingsRef.current?.();
+            void (async () => {
+              try {
+                await loadSettingsHydrationFromStorage();
+              } catch {
+                // SettingsScreen will load on mount if this fails
+              }
+              onNavigateToSettingsRef.current?.();
+            })();
             return;
           }
 

@@ -55,6 +55,21 @@
 
 ---
 
+### Observation root metadata (Synkronus API)
+
+In addition to `data` (form payload), each observation may include optional root-level fields. Clients and servers must treat all of these as **optional**; sync must succeed when they are absent.
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `geolocation` | object or null | Optional GPS fix (latitude, longitude, accuracy, etc.) |
+| `author` | string or null | Optional creator label (e.g. username) |
+| `device_id` | string or null | Optional stable device/client identifier |
+| `tags` | array of strings or null | Optional tags for labeling, future extensions, or data-cleaning workflows |
+
+These fields are stored with the observation and returned on pull; push payloads may omit any of them.
+
+---
+
 - The server validates that uploaded attachments match the `_hash` declared in the record reference
 - If an attachment is missing when a record references it, `_sync_state` remains `awaiting_upload`
 - If an attachment is deleted but still referenced, `_sync_state` becomes `missing`

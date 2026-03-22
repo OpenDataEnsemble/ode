@@ -24,6 +24,14 @@ With Metro running, open a new terminal window/pane from the root of your React 
 
 ### Android
 
+Before the first Android build (and after cloning the repo), vendor the **Notifee** native core so Gradle compiles it from source instead of downloading `app.notifee:core` (needed for [F-Droid](https://f-droid.org/) and avoids the `notifee.app` Maven repo):
+
+```sh
+npm run vendor:notifee
+```
+
+Then:
+
 ```sh
 # Using npm
 npm run android
@@ -31,6 +39,8 @@ npm run android
 # OR using Yarn
 yarn android
 ```
+
+See `third_party/README.md` for pinning the vendored commit when you upgrade `@notifee/react-native`.
 
 ### iOS
 

@@ -25,8 +25,7 @@ docker run -d `
   -p 8080:8080 `
   -e DB_CONNECTION="postgres://user:password@host:5432/synkronus" `
   -e JWT_SECRET="your-secret-key" `
-  -e APP_BUNDLE_PATH="/app/data/app-bundles" `
-  -v synkronus-bundles:/app/data/app-bundles `
+  -v synkronus_data:/app/data `
   ghcr.io/opendataensemble/synkronus:latest
 ```
 
@@ -116,8 +115,7 @@ docker run -d `
   -p 8080:8080 `
   -e DB_CONNECTION="postgres://user:password@host:5432/synkronus" `
   -e JWT_SECRET="your-secret-key" `
-  -e APP_BUNDLE_PATH="/app/data/app-bundles" `
-  -v synkronus-bundles:/app/data/app-bundles `
+  -v synkronus_data:/app/data `
   synkronus:local
 ```
 
@@ -167,17 +165,14 @@ docker-compose down -v
 |----------|----------|-------------|
 | `DB_CONNECTION` | ✅ | PostgreSQL connection string |
 | `JWT_SECRET` | ✅ | Secret for JWT tokens (min 32 chars) |
-| `APP_BUNDLE_PATH` | ⚠️ | Path for app bundles (default: `/app/data/app-bundles`) |
 
 ## Volume Mount (IMPORTANT!)
 
-**You MUST mount a volume** to persist app bundles:
+**Mount one volume** at `/app/data` so app bundles, version history, and attachments survive container restarts. The binary is at `/app/synkronus`; mutable data is always `<directory-of-binary>/data`, i.e. `/app/data`.
 
 ```
--v your-volume-name:/app/data/app-bundles
+-v your-volume-name:/app/data
 ```
-
-Without this, uploaded app bundles will be lost when the container restarts.
 
 ## Health Check
 

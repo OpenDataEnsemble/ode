@@ -42,7 +42,7 @@ func TestPushThenPull(t *testing.T) {
 
 		reqBytes, _ := json.Marshal(reqBody)
 		rr := httptest.NewRecorder()
-		h.Push(rr, httptest.NewRequest("POST", "/sync/push", bytes.NewReader(reqBytes)))
+		h.Push(rr, httptest.NewRequest("POST", "/api/sync/push", bytes.NewReader(reqBytes)))
 
 		if status := rr.Code; status != http.StatusOK {
 			t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -71,7 +71,7 @@ func TestPushThenPull(t *testing.T) {
 
 			reqBytes, _ := json.Marshal(reqBody)
 			rr := httptest.NewRecorder()
-			h.Pull(rr, httptest.NewRequest("POST", "/sync/pull", bytes.NewReader(reqBytes)))
+			h.Pull(rr, httptest.NewRequest("POST", "/api/sync/pull", bytes.NewReader(reqBytes)))
 
 			if status := rr.Code; status != http.StatusOK {
 				t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -137,7 +137,7 @@ func TestPushThenPull(t *testing.T) {
 
 				reqBytes, _ := json.Marshal(reqBody)
 				rr := httptest.NewRecorder()
-				h.Push(rr, httptest.NewRequest("POST", "/sync/push", bytes.NewReader(reqBytes)))
+				h.Push(rr, httptest.NewRequest("POST", "/api/sync/push", bytes.NewReader(reqBytes)))
 
 				if status := rr.Code; status != http.StatusOK {
 					t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
@@ -155,7 +155,7 @@ func TestPushThenPull(t *testing.T) {
 
 				reqBytes, _ = json.Marshal(reqBodyPull)
 				rr = httptest.NewRecorder()
-				h.Pull(rr, httptest.NewRequest("POST", "/sync/pull", bytes.NewReader(reqBytes)))
+				h.Pull(rr, httptest.NewRequest("POST", "/api/sync/pull", bytes.NewReader(reqBytes)))
 
 				if status := rr.Code; status != http.StatusOK {
 					t.Fatalf("handler returned wrong status code: got %v want %v", status, http.StatusOK)

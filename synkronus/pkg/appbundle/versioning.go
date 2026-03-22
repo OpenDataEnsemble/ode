@@ -173,17 +173,21 @@ func (s *Service) GetVersions(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to get current version: %w", err)
 	}
 
-	// Filter directories and collect versions
+	// Filter directories and collect versions (numeric names only; matches PushBundle / getNextVersionNumber)
 	versions := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if entry.IsDir() {
-			version := entry.Name()
-			// Mark current version with an asterisk
-			if version == currentVersion {
-				version += " *"
-			}
-			versions = append(versions, version)
+		if !entry.IsDir() {
+			continue
 		}
+		name := entry.Name()
+		if _, err := strconv.Atoi(name); err != nil {
+			continue
+		}
+		version := name
+		if version == currentVersion {
+			version += " *"
+		}
+		versions = append(versions, version)
 	}
 
 	// Sort versions in descending order (newest first)
@@ -471,21 +475,24 @@ func (s *Service) CompareAppInfos(ctx context.Context, versionA, versionB string
 
 // cleanupOldVersions removes old versions to keep only the maximum number of versions
 func (s *Service) cleanupOldVersions() error {
-	// Get all versions
+	current, err := s.getCurrentVersion()
+	if err != nil {
+		return fmt.Errorf("get current version: %w", err)
+	}
 	versions, err := s.GetVersions(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to get versions: %w", err)
 	}
 
-	// If we have fewer versions than the maximum, do nothing
 	if len(versions) <= s.maxVersions {
 		return nil
 	}
 
-	// Remove the oldest versions
 	for i := s.maxVersions; i < len(versions); i++ {
-		// Remove asterisk from the version if present
 		version := strings.TrimSuffix(versions[i], " *")
+		if current != "" && version == current {
+			continue
+		}
 		versionPath := filepath.Join(s.versionsPath, version)
 		s.log.Info("Removing old app bundle version", "version", version)
 		if err := os.RemoveAll(versionPath); err != nil {

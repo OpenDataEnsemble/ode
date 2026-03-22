@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,14 @@ import {
   ScrollView,
   Linking,
   Pressable,
+  Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeTypography,
@@ -18,11 +21,19 @@ import {
   odeRadius,
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
+import logo from '../../assets/images/logo.png';
+import { attachmentExportService } from '../services/AttachmentExportService';
+import { observationExportService } from '../services/ObservationExportService';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
+const EMAIL_URL = 'mailto:hello@opendataensemble.org';
+const GH_URL = 'https://github.com/OpenDataEnsemble';
 
 const HelpScreen: React.FC = () => {
+  const [exportingAttachments, setExportingAttachments] = useState(false);
+  const [exportingObservations, setExportingObservations] = useState(false);
   const { themeColors, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
   const sectionColor = isDark
     ? (colors.neutral[200] as string)
@@ -34,9 +45,39 @@ const HelpScreen: React.FC = () => {
     { borderColor: themeColors.divider as string, backgroundColor: cardBg },
   ];
   const onSurface = { color: themeColors.onSurface as string };
+  const mutedOnSurface = {
+    color: themeColors.onSurface as string,
+    opacity: 0.72,
+  };
+
+  const onExportAttachments = async () => {
+    setExportingAttachments(true);
+    try {
+      await attachmentExportService.exportDeviceLocalAttachmentsZip();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Could not export attachments.';
+      Alert.alert('Export failed', message);
+    } finally {
+      setExportingAttachments(false);
+    }
+  };
+
+  const onExportObservations = async () => {
+    setExportingObservations(true);
+    try {
+      await observationExportService.exportAllObservationsZip();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : 'Could not export observations.';
+      Alert.alert('Export failed', message);
+    } finally {
+      setExportingObservations(false);
+    }
+  };
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         edges={['top']}>
@@ -48,15 +89,51 @@ const HelpScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text
-            style={[styles.title, { color: themeColors.onPrimary as string }]}>
-            Help & Support
-          </Text>
+          <View style={styles.logoContainer}>
+            <View
+              style={[
+                styles.logoWrapper,
+                { borderColor: themeColors.onPrimary as string },
+              ]}>
+              <Image source={logo} style={styles.logo} resizeMode="contain" />
+            </View>
+            <Text
+              style={[
+                styles.title,
+                { color: themeColors.onPrimary as string },
+              ]}>
+              Help & Support
+            </Text>
+          </View>
         </View>
 
         <ScrollView
           style={styles.scrollTransparent}
           contentContainerStyle={styles.content}>
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Implementation assistance
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              If you are looking for professional assistance with implementing a
+              project using ODE, you are more than welcome to reach out to the
+              team behind ODE on our forum or via email.
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(EMAIL_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open email to opendataensemble.org">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                {EMAIL_URL}
+              </Text>
+            </Pressable>
+          </View>
+
           <View style={cardStyle}>
             <Text style={[styles.cardTitle, { color: sectionColor }]}>
               Community Forum
@@ -78,38 +155,143 @@ const HelpScreen: React.FC = () => {
                 {FORUM_URL}
               </Text>
             </Pressable>
-          </View>
-
-          <View style={cardStyle}>
-            <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Troubleshooting
-            </Text>
-            <Text style={[styles.cardText, onSurface]}>
-              If something is not working as expected:
-            </Text>
-            <Text style={[styles.cardText, onSurface]}>
-              1. Check your internet connection.
-            </Text>
-            <Text style={[styles.cardText, onSurface]}>
-              2. Try syncing again from the Sync tab.
-            </Text>
-            <Text style={[styles.cardText, onSurface]}>
-              3. If the issue persists, reach out via the forum.
-            </Text>
-          </View>
-
-          <View style={cardStyle}>
-            <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Administrator
+            <Text
+              style={[
+                styles.cardTitle,
+                { color: sectionColor },
+                { marginTop: odeSpacing.md },
+              ]}>
+              Find us on GitHub
             </Text>
             <Text style={[styles.cardText, styles.cardTextCentered, onSurface]}>
-              For account setup, server configuration, or access issues, contact
-              your system administrator.
+              You are also welcome to open an issue or pull request on our
+              GitHub repository.
             </Text>
+            <Pressable
+              onPress={() => Linking.openURL(GH_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open GitHub repository">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                {GH_URL}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Help & Support
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              If you need help or support you are always welcome to try reaching
+              out to our friendly community on the forum.
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(FORUM_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open forum opendataensemble.org">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                {FORUM_URL}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Export device-local data
+            </Text>
+            <Text
+              style={[
+                styles.cardText,
+                styles.cardTextCentered,
+                mutedOnSurface,
+              ]}>
+              Export on-device attachment files (same paths and filenames as in
+              app storage, including unique ids) into a zip, then choose where
+              to save it (e.g. Downloads). Does not change any data in the app.
+            </Text>
+            <Pressable
+              onPress={onExportAttachments}
+              disabled={exportingAttachments}
+              accessibilityRole="button"
+              accessibilityLabel="Save device-local attachment data as zip file"
+              accessibilityState={{ disabled: exportingAttachments }}
+              style={({ pressed }) => [
+                styles.exportButton,
+                {
+                  opacity: exportingAttachments ? 0.55 : pressed ? 0.85 : 1,
+                  backgroundColor: themeColors.surface as string,
+                  borderColor: themeColors.divider as string,
+                },
+              ]}>
+              {exportingAttachments ? (
+                <ActivityIndicator
+                  size="small"
+                  color={themeColors.onSurface as string}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.exportButtonText,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  Download device-local attachment data
+                </Text>
+              )}
+            </Pressable>
+            <Text
+              style={[
+                styles.cardText,
+                styles.cardTextCentered,
+                mutedOnSurface,
+                { marginTop: odeSpacing.sm },
+              ]}>
+              Export all locally stored observations as one JSON file per row
+              (including soft-deleted, but not drafts), packaged in a zip.
+              Choose where to save it. Does not change any data in the app.
+            </Text>
+            <Pressable
+              onPress={onExportObservations}
+              disabled={exportingObservations}
+              accessibilityRole="button"
+              accessibilityLabel="Save all observations as zip of JSON files"
+              accessibilityState={{ disabled: exportingObservations }}
+              style={({ pressed }) => [
+                styles.exportButton,
+                {
+                  opacity: exportingObservations ? 0.55 : pressed ? 0.85 : 1,
+                  backgroundColor: themeColors.surface as string,
+                  borderColor: themeColors.divider as string,
+                },
+              ]}>
+              {exportingObservations ? (
+                <ActivityIndicator
+                  size="small"
+                  color={themeColors.onSurface as string}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.exportButtonText,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  Download observations (JSON zip)
+                </Text>
+              )}
+            </Pressable>
           </View>
         </ScrollView>
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 
@@ -134,6 +316,27 @@ const styles = StyleSheet.create({
     marginBottom: odeSpacing.xs,
     textAlign: 'left',
   },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  logoWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'transparent',
+  },
   content: {
     padding: odeSpacing.md,
     paddingBottom: odeSpacing.xl,
@@ -157,6 +360,29 @@ const styles = StyleSheet.create({
   },
   cardTextCentered: { textAlign: 'left' },
   link: { marginTop: odeSpacing.sm, fontWeight: '600' },
+  exportSection: {
+    marginTop: odeSpacing.sm,
+    paddingVertical: odeSpacing.sm,
+  },
+  exportHint: {
+    fontSize: odeTypography.caption,
+    lineHeight: 18,
+    marginBottom: odeSpacing.md,
+  },
+  exportButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: odeSpacing.sm,
+    paddingHorizontal: odeSpacing.md,
+    borderRadius: odeRadius.card,
+    borderWidth: odeBorderWidth.hairline,
+    minWidth: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exportButtonText: {
+    fontSize: odeTypography.bodySm,
+    fontWeight: '600',
+  },
 });
 
 export default HelpScreen;

@@ -2,28 +2,28 @@
 
 All URIs are relative to _http://localhost_
 
-| Method                                                | HTTP request                          | Description                                               |
-| ----------------------------------------------------- | ------------------------------------- | --------------------------------------------------------- |
-| [**changePassword**](#changepassword)                 | **POST** /users/change-password       | Change user password (authenticated user)\&#39;s password |
-| [**checkAttachmentExists**](#checkattachmentexists)   | **HEAD** /attachments/{attachment_id} | Check if an attachment exists                             |
-| [**createUser**](#createuser)                         | **POST** /users/create                | Create a new user (admin only)                            |
-| [**deleteUser**](#deleteuser)                         | **DELETE** /users/{username}          | Delete a user (admin only)                                |
-| [**downloadAppBundleFile**](#downloadappbundlefile)   | **GET** /app-bundle/download/{path}   | Download a specific file from the app bundle              |
-| [**downloadAttachment**](#downloadattachment)         | **GET** /attachments/{attachment_id}  | Download an attachment by ID                              |
-| [**getAppBundleChanges**](#getappbundlechanges)       | **GET** /app-bundle/changes           | Get changes between two app bundle versions               |
-| [**getAppBundleManifest**](#getappbundlemanifest)     | **GET** /app-bundle/manifest          | Get the current custom app bundle manifest                |
-| [**getAppBundleVersions**](#getappbundleversions)     | **GET** /app-bundle/versions          | Get a list of available app bundle versions               |
-| [**getAttachmentManifest**](#getattachmentmanifest)   | **POST** /attachments/manifest        | Get attachment manifest for incremental sync              |
-| [**getVersion**](#getversion)                         | **GET** /version                      | Get server version and system information                 |
-| [**listUsers**](#listusers)                           | **GET** /users                        | List all users (admin only)                               |
-| [**login**](#login)                                   | **POST** /auth/login                  | Authenticate user and return JWT tokens                   |
-| [**pushAppBundle**](#pushappbundle)                   | **POST** /app-bundle/push             | Upload a new app bundle (admin only)                      |
-| [**refreshToken**](#refreshtoken)                     | **POST** /auth/refresh                | Refresh JWT token                                         |
-| [**resetUserPassword**](#resetuserpassword)           | **POST** /users/reset-password        | Reset user password (admin only)                          |
-| [**switchAppBundleVersion**](#switchappbundleversion) | **POST** /app-bundle/switch/{version} | Switch to a specific app bundle version (admin only)      |
-| [**syncPull**](#syncpull)                             | **POST** /sync/pull                   | Pull updated records since last sync                      |
-| [**syncPush**](#syncpush)                             | **POST** /sync/push                   | Push new or updated records to the server                 |
-| [**uploadAttachment**](#uploadattachment)             | **PUT** /attachments/{attachment_id}  | Upload a new attachment with specified ID                 |
+| Method                                                | HTTP request                              | Description                                               |
+| ----------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------- |
+| [**changePassword**](#changepassword)                 | **POST** /api/users/change-password       | Change user password (authenticated user)\&#39;s password |
+| [**checkAttachmentExists**](#checkattachmentexists)   | **HEAD** /api/attachments/{attachment_id} | Check if an attachment exists                             |
+| [**createUser**](#createuser)                         | **POST** /api/users/create                | Create a new user (admin only)                            |
+| [**deleteUser**](#deleteuser)                         | **DELETE** /api/users/{username}          | Delete a user (admin only)                                |
+| [**downloadAppBundleFile**](#downloadappbundlefile)   | **GET** /api/app-bundle/download/{path}   | Download a specific file from the app bundle              |
+| [**downloadAttachment**](#downloadattachment)         | **GET** /api/attachments/{attachment_id}  | Download an attachment by ID                              |
+| [**getAppBundleChanges**](#getappbundlechanges)       | **GET** /api/app-bundle/changes           | Get changes between two app bundle versions               |
+| [**getAppBundleManifest**](#getappbundlemanifest)     | **GET** /api/app-bundle/manifest          | Get the current custom app bundle manifest                |
+| [**getAppBundleVersions**](#getappbundleversions)     | **GET** /api/app-bundle/versions          | Get a list of available app bundle versions               |
+| [**getAttachmentManifest**](#getattachmentmanifest)   | **POST** /api/attachments/manifest        | Get attachment manifest for incremental sync              |
+| [**getVersion**](#getversion)                         | **GET** /api/version                      | Get server version and system information                 |
+| [**listUsers**](#listusers)                           | **GET** /api/users                        | List all users (admin only)                               |
+| [**login**](#login)                                   | **POST** /api/auth/login                  | Authenticate user and return JWT tokens                   |
+| [**pushAppBundle**](#pushappbundle)                   | **POST** /api/app-bundle/push             | Upload a new app bundle (admin only)                      |
+| [**refreshToken**](#refreshtoken)                     | **POST** /api/auth/refresh                | Refresh JWT token                                         |
+| [**resetUserPassword**](#resetuserpassword)           | **POST** /api/users/reset-password        | Reset user password (admin only)                          |
+| [**switchAppBundleVersion**](#switchappbundleversion) | **POST** /api/app-bundle/switch/{version} | Switch to a specific app bundle version (admin only)      |
+| [**syncPull**](#syncpull)                             | **POST** /api/sync/pull                   | Pull updated records since last sync                      |
+| [**syncPush**](#syncpush)                             | **POST** /api/sync/push                   | Push new or updated records to the server                 |
+| [**uploadAttachment**](#uploadattachment)             | **PUT** /api/attachments/{attachment_id}  | Upload a new attachment with specified ID                 |
 
 # **changePassword**
 

@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import colors from '../theme/colors';
 import { appVersionService } from '../services/AppVersionService';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeTypography,
@@ -23,9 +23,16 @@ import {
 import logo from '../../assets/images/logo.png';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
+const WEBSITE_URL = 'https://opendataensemble.org';
+const GH_URL = 'https://github.com/OpenDataEnsemble';
+
+/** Repository notice; keep in sync with docs and release SBOMs. */
+const THIRD_PARTY_NOTICES_URL =
+  'https://github.com/OpenDataEnsemble/ode/blob/main/THIRD_PARTY_NOTICES.md';
 
 const AboutScreen: React.FC = () => {
   const { themeColors, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
   const sectionColor = isDark
     ? (colors.neutral[200] as string)
@@ -53,7 +60,7 @@ const AboutScreen: React.FC = () => {
   }, []);
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         edges={['top']}>
@@ -65,40 +72,66 @@ const AboutScreen: React.FC = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text
-            style={[styles.title, { color: themeColors.onPrimary as string }]}>
-            About
-          </Text>
+          <View style={styles.logoContainer}>
+            <View
+              style={[
+                styles.logoWrapper,
+                { borderColor: themeColors.onPrimary as string },
+              ]}>
+              <Image source={logo} style={styles.logo} resizeMode="contain" />
+            </View>
+            <Text
+              style={[
+                styles.title,
+                { color: themeColors.onPrimary as string },
+              ]}>
+              About
+            </Text>
+          </View>
         </View>
 
         <ScrollView
           style={styles.scrollTransparent}
           contentContainerStyle={styles.content}>
-          <View style={styles.brandRow}>
-            <View style={styles.logoWrapper}>
-              <Image source={logo} style={styles.logo} resizeMode="contain" />
-            </View>
-            <Text style={[styles.appName, { color: themeColors.onSurface }]}>
-              ODE
-            </Text>
-          </View>
-
           <View style={cardStyle}>
             <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Formulus
+              Formulus - Part of Open Data Ensemble
             </Text>
             <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
               Formulus is the mobile app for collecting and synchronizing forms
-              and observations.
-            </Text>
-          </View>
-
-          <View style={cardStyle}>
-            <Text style={[styles.cardTitle, { color: sectionColor }]}>
-              Support
+              and observations. It relies on having a Synkronus server to sync
+              with.
             </Text>
             <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
-              If you need help, contact your system administrator.
+              Please check out our website or GitHub pages for more information:
+              <Pressable
+                onPress={() => Linking.openURL(WEBSITE_URL)}
+                accessibilityRole="link"
+                accessibilityLabel="Open website opendataensemble.org">
+                <Text
+                  style={[
+                    styles.cardText,
+                    styles.link,
+                    { color: themeColors.primary },
+                  ]}>
+                  {WEBSITE_URL}
+                </Text>
+              </Pressable>
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              <Pressable
+                onPress={() => Linking.openURL(GH_URL)}
+                accessibilityRole="link"
+                accessibilityLabel="Open GitHub repository">
+                <Text
+                  style={[
+                    styles.cardText,
+                    styles.link,
+                    { color: themeColors.primary },
+                  ]}>
+                  {GH_URL}
+                </Text>
+              </Pressable>
             </Text>
           </View>
 
@@ -125,6 +158,30 @@ const AboutScreen: React.FC = () => {
             </Pressable>
           </View>
 
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              Credits &amp; licenses
+            </Text>
+            <Text style={[styles.cardText, { color: themeColors.onSurface }]}>
+              This app includes open-source components. Third-party notices and
+              directions to the software bill of materials (SBOM) for releases
+              are in the project repository.
+            </Text>
+            <Pressable
+              onPress={() => Linking.openURL(THIRD_PARTY_NOTICES_URL)}
+              accessibilityRole="link"
+              accessibilityLabel="Open third-party notices in repository">
+              <Text
+                style={[
+                  styles.cardText,
+                  styles.link,
+                  { color: themeColors.primary },
+                ]}>
+                View third-party notices
+              </Text>
+            </Pressable>
+          </View>
+
           {!!version && (
             <Text style={[styles.version, { color: themeColors.onSurface }]}>
               v{version}
@@ -141,7 +198,7 @@ const AboutScreen: React.FC = () => {
           )}
         </ScrollView>
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 
@@ -170,35 +227,30 @@ const styles = StyleSheet.create({
     marginBottom: odeSpacing.xs,
     textAlign: 'left',
   },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
   content: {
     padding: odeSpacing.md,
     paddingBottom: odeSpacing.xl,
   },
-  brandRow: {
-    alignItems: 'center',
-    marginBottom: odeSpacing.md,
-    gap: odeSpacing.xs,
-  },
   logoWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.brand.primary[500] as string,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
     overflow: 'hidden',
     backgroundColor: 'transparent',
   },
   logo: {
-    width: 56,
-    height: 56,
+    width: 40,
+    height: 40,
     backgroundColor: 'transparent',
-  },
-  appName: {
-    fontSize: odeTypography.sectionTitle,
-    fontWeight: '700',
-    textAlign: 'center',
   },
   version: {
     marginTop: odeSpacing.xxs,

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,7 +45,8 @@ type Config struct {
 	MaxVersions int
 }
 
-// DefaultConfig returns a default configuration
+// DefaultConfig returns a default configuration for tests; production uses config.Load paths
+// (<dataDir>/app-bundle/active and .../versions).
 func DefaultConfig() Config {
 	return Config{
 		BundlePath:   "./app-bundle",
@@ -82,10 +84,12 @@ func (s *Service) Initialize(ctx context.Context) error {
 		}
 	}
 
-	// Check if we have versions but no current version set
 	if err := s.ensureCurrentVersionSet(ctx); err != nil {
 		s.log.Warn("Failed to ensure current version is set", "error", err)
-		// Continue anyway, this is not critical for startup
+	}
+
+	if err := s.ensureActiveBundleMaterialized(ctx); err != nil {
+		return fmt.Errorf("materialize active app bundle: %w", err)
 	}
 
 	// Generate the initial manifest
@@ -421,38 +425,46 @@ func (s *Service) hashManifest(manifest *Manifest) (string, error) {
 // ensureCurrentVersionSet checks if a current version is set, and if not,
 // sets the latest available version as current
 func (s *Service) ensureCurrentVersionSet(_ context.Context) error {
-	// Check if CURRENT_VERSION file exists
 	versionFile := filepath.Join(s.versionsPath, "CURRENT_VERSION")
 	if _, err := os.Stat(versionFile); err == nil {
-		// File exists, current version is already set
-		return nil
+		v, err := s.getCurrentVersion()
+		if err != nil {
+			return err
+		}
+		if v != "" {
+			s.versionMutex.Lock()
+			s.currentVersion = v
+			s.versionMutex.Unlock()
+			return nil
+		}
+		s.log.Warn("CURRENT_VERSION missing or invalid on disk; reassigning from available numeric versions")
 	}
 
-	// Read available versions
 	entries, err := os.ReadDir(s.versionsPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// No versions directory yet, nothing to do
 			return nil
 		}
 		return fmt.Errorf("failed to read versions directory: %w", err)
 	}
 
-	// Collect version directories
 	var versions []string
 	for _, entry := range entries {
-		if entry.IsDir() {
-			versions = append(versions, entry.Name())
+		if !entry.IsDir() {
+			continue
 		}
+		name := entry.Name()
+		if _, err := strconv.Atoi(name); err != nil {
+			continue
+		}
+		versions = append(versions, name)
 	}
 
-	// If no versions exist, nothing to do
 	if len(versions) == 0 {
 		s.log.Info("No app bundle versions found, skipping current version initialization")
 		return nil
 	}
 
-	// Sort versions in descending order to get the latest
 	sort.Slice(versions, func(i, j int) bool {
 		return versions[i] > versions[j]
 	})
@@ -460,15 +472,36 @@ func (s *Service) ensureCurrentVersionSet(_ context.Context) error {
 	latestVersion := versions[0]
 	s.log.Info("Setting initial current version", "version", latestVersion)
 
-	// Set the latest version as current
 	if err := os.WriteFile(versionFile, []byte(latestVersion), 0644); err != nil {
 		return fmt.Errorf("failed to write current version file: %w", err)
 	}
 
-	// Update in-memory state
+	s.versionMutex.Lock()
 	s.currentVersion = latestVersion
+	s.versionMutex.Unlock()
 
 	return nil
+}
+
+// ensureActiveBundleMaterialized copies CURRENT_VERSION into the active bundle directory when
+// APP_INFO.json is missing there (e.g. versions persisted on a volume but active dir was empty).
+func (s *Service) ensureActiveBundleMaterialized(ctx context.Context) error {
+	cur, err := s.getCurrentVersion()
+	if err != nil {
+		return err
+	}
+	if cur == "" {
+		return nil
+	}
+	appInfoPath := filepath.Join(s.bundlePath, "APP_INFO.json")
+	if _, err := os.Stat(appInfoPath); err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("stat %s: %w", appInfoPath, err)
+	}
+	s.log.Info("Active bundle directory empty; materializing current version", "version", cur)
+	return s.SwitchVersion(ctx, cur)
 }
 
 // GetBundleZipPath returns the filesystem path to the active bundle's zip archive

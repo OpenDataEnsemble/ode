@@ -30,8 +30,12 @@ export class ObservationMapper {
       syncedAt: apiObs.synced_at ? new Date(apiObs.synced_at) : null,
       deleted: apiObs.deleted || false,
       geolocation: apiObs.geolocation || null,
-      author: apiObs.author,
-      deviceId: apiObs.device_id,
+      author: apiObs.author ?? undefined,
+      deviceId: apiObs.device_id ?? undefined,
+      tags:
+        apiObs.tags != null && apiObs.tags.length > 0
+          ? [...apiObs.tags]
+          : undefined,
     };
   }
 
@@ -47,9 +51,18 @@ export class ObservationMapper {
       synced_at: domainObs.syncedAt?.toISOString() ?? null,
       deleted: domainObs.deleted,
       geolocation: domainObs.geolocation ?? null,
-      author: domainObs.author ?? '',
-      device_id: domainObs.deviceId ?? '',
     };
+    const author = domainObs.author?.trim();
+    if (author) {
+      payload.author = author;
+    }
+    const deviceId = domainObs.deviceId?.trim();
+    if (deviceId) {
+      payload.device_id = deviceId;
+    }
+    if (domainObs.tags != null && domainObs.tags.length > 0) {
+      payload.tags = [...domainObs.tags];
+    }
     return payload;
   }
 
@@ -70,9 +83,19 @@ export class ObservationMapper {
       createdAt: domainObs.createdAt,
       updatedAt: domainObs.updatedAt,
       syncedAt: domainObs.syncedAt || undefined,
-      author: domainObs.author,
-      deviceId: domainObs.deviceId,
+      author: domainObs.author ?? '',
+      deviceId: domainObs.deviceId ?? '',
+      tags: domainObs.tags?.length ? JSON.stringify(domainObs.tags) : '',
     };
+  }
+
+  /**
+   * Canonical observation id for API/sync: the `observation_id` column (server id).
+   * Falls back to Watermelon row id for empty legacy rows.
+   */
+  static observationIdFromDBModel(model: ObservationModel): string {
+    const col = model.observationId?.trim();
+    return col || model.id;
   }
 
   // DB Model -> Domain
@@ -86,8 +109,20 @@ export class ObservationMapper {
       }
     }
 
+    let tags: string[] | undefined;
+    if (model.tags && model.tags.trim()) {
+      try {
+        const parsed = JSON.parse(model.tags) as unknown;
+        if (Array.isArray(parsed)) {
+          tags = parsed.filter((t): t is string => typeof t === 'string');
+        }
+      } catch (error) {
+        console.warn('Failed to parse tags:', error);
+      }
+    }
+
     return {
-      observationId: model.id,
+      observationId: ObservationMapper.observationIdFromDBModel(model),
       formType: model.formType,
       formVersion: model.formVersion,
       data:
@@ -97,8 +132,9 @@ export class ObservationMapper {
       syncedAt: model.syncedAt,
       deleted: model.deleted,
       geolocation,
-      author: model.author ?? '',
-      deviceId: model.deviceId ?? '',
+      author: model.author?.trim() ? model.author : undefined,
+      deviceId: model.deviceId?.trim() ? model.deviceId : undefined,
+      tags,
     };
   }
 }

@@ -25,6 +25,11 @@ export interface Draft {
   updatedAt: Date;
   /** Optional observation ID if editing existing observation */
   observationId?: string | null;
+  /**
+   * Formplayer-only: distinguishes multiple unsaved drafts for the same formType
+   * (not part of the native bridge).
+   */
+  draftSessionKey?: string | null;
   /** Optional form parameters */
   params?: Record<string, any>;
 }
@@ -41,6 +46,7 @@ export interface DraftSummary {
   observationId?: string | null;
   /** Preview of form data for display */
   dataPreview: string;
+  draftSessionKey?: string | null;
 }
 
 /**
@@ -83,12 +89,26 @@ export class DraftService {
       if (!stored) return [];
 
       const drafts = JSON.parse(stored) as Draft[];
-      // Convert date strings back to Date objects
-      return drafts.map(draft => ({
+      const withDates = drafts.map(draft => ({
         ...draft,
         createdAt: new Date(draft.createdAt),
         updatedAt: new Date(draft.updatedAt),
       }));
+      let migrated = false;
+      const normalized = withDates.map(draft => {
+        if (draft.observationId != null) return draft;
+        if (draft.draftSessionKey) return draft;
+        migrated = true;
+        return { ...draft, draftSessionKey: `legacy_${draft.id}` };
+      });
+      if (migrated) {
+        try {
+          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(normalized));
+        } catch {
+          /* ignore */
+        }
+      }
+      return normalized;
     } catch (error) {
       console.error('Error loading drafts from localStorage:', error);
       return [];
@@ -123,28 +143,55 @@ export class DraftService {
     return validDrafts;
   }
 
+  private draftMatches(
+    draft: Draft,
+    formType: string,
+    observationId: string | null,
+    draftSessionKey: string | null,
+  ): boolean {
+    if (draft.formType !== formType) return false;
+    if (observationId !== null) {
+      return draft.observationId === observationId;
+    }
+    if (draft.observationId != null) return false;
+    return (
+      draftSessionKey != null &&
+      draftSessionKey !== '' &&
+      draft.draftSessionKey === draftSessionKey
+    );
+  }
+
   /**
-   * Save or update a draft
+   * Save or update a draft.
+   * @param draftSessionKey — Formplayer-only; required when `observationId` is null (pass from App / FormContext).
    */
   public saveDraft(
     formType: string,
     data: Record<string, any>,
     formInitData?: FormInitData,
+    draftSessionKey?: string | null,
   ): string {
     const drafts = this.getAllDrafts();
     const now = new Date();
 
-    // Look for existing draft for this form instance
-    const existingIndex = drafts.findIndex(
-      draft =>
-        draft.formType === formType &&
-        draft.observationId === (formInitData?.observationId || null),
+    const observationId = formInitData?.observationId ?? null;
+    const sessionKey =
+      observationId === null ? (draftSessionKey ?? null) : null;
+
+    if (observationId === null && (!sessionKey || sessionKey === '')) {
+      console.warn(
+        '[DraftService] saveDraft: missing draftSessionKey for new observation',
+      );
+      return '';
+    }
+
+    const existingIndex = drafts.findIndex(draft =>
+      this.draftMatches(draft, formType, observationId, sessionKey),
     );
 
     let draftId: string;
 
     if (existingIndex >= 0) {
-      // Update existing draft
       const existingDraft = drafts[existingIndex];
       draftId = existingDraft.id;
       drafts[existingIndex] = {
@@ -152,12 +199,15 @@ export class DraftService {
         data,
         updatedAt: now,
         params: formInitData?.params,
+        draftSessionKey:
+          observationId === null
+            ? (sessionKey ?? existingDraft.draftSessionKey)
+            : existingDraft.draftSessionKey,
       };
       console.log(
         `DraftService: Updated existing draft ${draftId} for ${formType}`,
       );
     } else {
-      // Create new draft
       draftId = this.generateDraftId(formType, formInitData?.observationId);
       const newDraft: Draft = {
         id: draftId,
@@ -166,14 +216,14 @@ export class DraftService {
         data,
         createdAt: now,
         updatedAt: now,
-        observationId: formInitData?.observationId || null,
+        observationId,
+        draftSessionKey: observationId === null ? sessionKey : null,
         params: formInitData?.params,
       };
       drafts.push(newDraft);
       console.log(`DraftService: Created new draft ${draftId} for ${formType}`);
     }
 
-    // Clean up old drafts and save
     const cleanedDrafts = this.cleanupOldDrafts(drafts);
     this.saveAllDrafts(cleanedDrafts);
 
@@ -220,6 +270,7 @@ export class DraftService {
         updatedAt: draft.updatedAt,
         observationId: draft.observationId,
         dataPreview: this.generateDataPreview(draft.data),
+        draftSessionKey: draft.draftSessionKey,
       }))
       .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
@@ -250,21 +301,18 @@ export class DraftService {
   }
 
   /**
-   * Delete all drafts for a specific form instance (called when form is finalized)
+   * Delete draft(s) for an existing observation after successful submit.
    */
   public deleteDraftsForFormInstance(
     formType: string,
-    observationId?: string | null,
+    observationId: string,
   ): number {
     const drafts = this.getAllDrafts();
     const initialLength = drafts.length;
 
     const filteredDrafts = drafts.filter(
       draft =>
-        !(
-          draft.formType === formType &&
-          draft.observationId === (observationId || null)
-        ),
+        !(draft.formType === formType && draft.observationId === observationId),
     );
 
     const deletedCount = initialLength - filteredDrafts.length;
@@ -272,10 +320,37 @@ export class DraftService {
     if (deletedCount > 0) {
       this.saveAllDrafts(filteredDrafts);
       console.log(
-        `DraftService: Deleted ${deletedCount} drafts for ${formType} (observationId: ${observationId})`,
+        `DraftService: Deleted ${deletedCount} draft(s) for ${formType} (observationId: ${observationId})`,
       );
     }
 
+    return deletedCount;
+  }
+
+  /**
+   * After successful submit of a *new* observation: remove only this session's draft row.
+   */
+  public deleteDraftForNewObservationSession(
+    formType: string,
+    draftSessionKey: string,
+  ): number {
+    const drafts = this.getAllDrafts();
+    const initialLength = drafts.length;
+    const filteredDrafts = drafts.filter(
+      draft =>
+        !(
+          draft.formType === formType &&
+          (draft.observationId === null || draft.observationId === undefined) &&
+          draft.draftSessionKey === draftSessionKey
+        ),
+    );
+    const deletedCount = initialLength - filteredDrafts.length;
+    if (deletedCount > 0) {
+      this.saveAllDrafts(filteredDrafts);
+      console.log(
+        `DraftService: Deleted ${deletedCount} draft(s) for ${formType} (new observation session)`,
+      );
+    }
     return deletedCount;
   }
 

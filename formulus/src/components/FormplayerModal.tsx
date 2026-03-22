@@ -18,7 +18,7 @@ import {
 import CustomAppWebView, {
   CustomAppWebViewHandle,
 } from '../components/CustomAppWebView';
-import BlurredScreenBackground from './BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import Icon from '@react-native-vector-icons/material-icons';
 import {
   resolveFormOperation,
@@ -61,6 +61,7 @@ export interface FormplayerModalHandle {
   handleSubmission: (data: {
     formType: string;
     finalData: Record<string, unknown>;
+    observationId?: string | null;
   }) => Promise<string>;
 }
 
@@ -72,6 +73,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Theme colors & resolved mode from AppThemeContext.
     const { themeColors, resolvedMode } = useAppTheme();
+    const shellStyle = useScreenShellStyle();
 
     // Internal state to track current form and observation data
     const [currentFormType, setCurrentFormType] = useState<string | null>(null);
@@ -139,7 +141,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         resolveFormOperationByType(currentFormType, completionResult);
       }
 
-      geolocationService.clearCache();
+      geolocationService.endObservationSession();
       onClose();
 
       // Reset closing state after a short delay to prevent rapid re-opening issues
@@ -182,6 +184,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         if (closeTimeoutRef.current) {
           clearTimeout(closeTimeoutRef.current);
         }
+        geolocationService.endObservationSession();
       };
     }, []);
 
@@ -210,8 +213,8 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         );
       }
 
-      // Start GPS acquisition early so the fix is ready at save time
-      geolocationService.preCacheLocation();
+      // GPS session: fresh fix + light watch while the user fills the form
+      geolocationService.beginObservationSession();
 
       setCurrentFormType(formType.id);
       setCurrentObservationId(observationId);
@@ -469,8 +472,15 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       async (data: {
         formType: string;
         finalData: Record<string, unknown>;
+        observationId?: string | null;
       }): Promise<string> => {
-        const { formType, finalData } = data;
+        const {
+          formType,
+          finalData,
+          observationId: observationIdFromBridge,
+        } = data;
+        const effectiveObservationId =
+          observationIdFromBridge ?? currentObservationId;
 
         // Set submitting state
         setIsSubmitting(true);
@@ -484,15 +494,15 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
           // Save the observation
           let resultObservationId: string;
-          if (currentObservationId) {
+          if (effectiveObservationId) {
             const updateSuccess = await localRepo.updateObservation({
-              observationId: currentObservationId,
+              observationId: effectiveObservationId,
               data: finalData,
             });
             if (!updateSuccess) {
               throw new Error('Failed to update observation');
             }
-            resultObservationId = currentObservationId;
+            resultObservationId = effectiveObservationId;
           } else {
             const newId = await localRepo.saveObservation({
               formType,
@@ -509,7 +519,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
           // Resolve the form operation with success result
           const completionResult: FormCompletionResult = {
-            status: currentObservationId ? 'form_updated' : 'form_submitted',
+            status: effectiveObservationId ? 'form_updated' : 'form_submitted',
             observationId: resultObservationId,
             formData: finalData,
             formType: formType,
@@ -524,7 +534,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           }
 
           // Show success message and close modal
-          const successMessage = currentObservationId
+          const successMessage = effectiveObservationId
             ? 'Observation updated successfully!'
             : 'Form submitted successfully!';
           showConfirm({
@@ -604,7 +614,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <BlurredScreenBackground>
+        <View style={shellStyle}>
           <View
             style={[
               styles.container,
@@ -671,7 +681,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               </View>
             )}
           </View>
-        </BlurredScreenBackground>
+        </View>
       </Modal>
     );
   },

@@ -3,13 +3,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appEvents } from '../webview/FormulusMessageHandlers';
 import { SyncProgress } from '../contexts/SyncContext';
 import { notificationService } from './NotificationService';
+import { getUserFacingAppBundleUpdateErrorMessage } from './appBundleUpdateErrors';
 import { FormService } from './FormService';
 import {
   autoLogin,
+  getUserFacingSyncErrorMessage,
   isUnauthorizedError,
   isVersionMismatchError,
   HttpError,
 } from '../api/synkronus/Auth';
+import {
+  appBundleVersionsDifferNumerically,
+  isNumericAppBundleVersionString,
+  normalizeAppBundleVersion,
+} from '../utils/appBundleVersion';
 type SyncStatusCallback = (status: string) => void;
 type SyncProgressDetailCallback = (progress: SyncProgress) => void;
 
@@ -282,9 +289,7 @@ export class SyncService {
       return finalVersion;
     } catch (error) {
       console.error('Sync failed', error);
-      const errorMessage = isVersionMismatchError(error)
-        ? error.message
-        : 'Unknown error occurred';
+      const errorMessage = getUserFacingSyncErrorMessage(error);
       this.updateStatus(`Sync failed: ${errorMessage}`);
 
       // Don't let notification service block error handling
@@ -303,27 +308,63 @@ export class SyncService {
     }
   }
 
-  public async checkForUpdates(): Promise<boolean> {
+  /**
+   * Loads local and server app bundle versions in one manifest request.
+   */
+  public async getAppBundleStatus(): Promise<{
+    localVersion: string;
+    serverVersion: string;
+    updateAvailable: boolean;
+  } | null> {
     try {
       const manifest = await this.withAutoLoginRetry(
         () => synkronusApi.getManifest(),
         'check for updates',
       );
-      const currentVersion = (await AsyncStorage.getItem('@appVersion')) || '0';
-      // Only report an update when the version actually differs.
-      // The "force" flag controls whether we *perform* a fresh network check,
-      // not whether we force the result to "update available".
-      const updateAvailable = manifest.version !== currentVersion;
+      console.log(
+        '[AppBundle] getManifest response (check for updates)',
+        manifest,
+      );
+
+      const serverVersion = normalizeAppBundleVersion(manifest.version);
+      if (!isNumericAppBundleVersionString(serverVersion)) {
+        console.warn(
+          '[AppBundle] manifest.version is not numeric; treating check as failed:',
+          manifest.version,
+        );
+        return null;
+      }
+
+      const localVersion = normalizeAppBundleVersion(
+        await AsyncStorage.getItem('@appVersion'),
+      );
+      if (!isNumericAppBundleVersionString(localVersion)) {
+        return {
+          localVersion: 'Unknown',
+          serverVersion,
+          updateAvailable: false,
+        };
+      }
+
+      const updateAvailable = appBundleVersionsDifferNumerically(
+        localVersion,
+        serverVersion,
+      );
 
       if (updateAvailable) {
         this.updateStatus(`${this.getStatus()} (Update available)`);
       }
 
-      return updateAvailable;
+      return { localVersion, serverVersion, updateAvailable };
     } catch (error) {
       console.warn('Failed to check for updates', error);
-      return false;
+      return null;
     }
+  }
+
+  public async checkForUpdates(): Promise<boolean> {
+    const status = await this.getAppBundleStatus();
+    return status?.updateAvailable ?? false;
   }
 
   public async updateAppBundle(): Promise<void> {
@@ -358,7 +399,10 @@ export class SyncService {
       await this.downloadAppBundle();
 
       // Save the version after successful download
-      await AsyncStorage.setItem('@appVersion', manifest.version);
+      await AsyncStorage.setItem(
+        '@appVersion',
+        normalizeAppBundleVersion(manifest.version),
+      );
 
       // Invalidate FormService cache to reload new form specs
       this.updateStatus('Refreshing form specifications...');
@@ -378,11 +422,12 @@ export class SyncService {
       appEvents.emit('bundleUpdated');
     } catch (error) {
       console.error('App sync failed', error);
-      const message = isVersionMismatchError(error)
-        ? error.message
-        : 'App sync failed';
+      const message = await getUserFacingAppBundleUpdateErrorMessage(error);
       this.updateStatus(message);
-      throw error;
+      if (error instanceof Error && message === error.message) {
+        throw error;
+      }
+      throw new Error(message);
     } finally {
       this.isSyncing = false;
       this.canCancel = false;

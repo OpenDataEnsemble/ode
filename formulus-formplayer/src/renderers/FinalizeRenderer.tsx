@@ -338,6 +338,18 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
         </Typography>
       )}
 
+      <Box sx={{ mt: 'auto', pt: 2 }}>
+        <Button
+          variant="primary"
+          size="medium"
+          onPress={handleFinalize}
+          disabled={Boolean(hasErrors)}
+          className="formplayer-solid-primary"
+          style={{ width: '100%' }}>
+          Finalize
+        </Button>
+      </Box>
+
       {/* Summary Section */}
       {summaryItems.length > 0 && (
         <Box
@@ -483,18 +495,6 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           </Box>
         </Box>
       )}
-
-      <Box sx={{ mt: 'auto', pt: 2 }}>
-        <Button
-          variant="primary"
-          size="medium"
-          onPress={handleFinalize}
-          disabled={Boolean(hasErrors)}
-          className="button-reverse-primary"
-          style={{ width: '100%' }}>
-          Finalize
-        </Button>
-      </Box>
     </Box>
   );
 };

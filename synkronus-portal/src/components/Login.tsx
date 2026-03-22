@@ -24,11 +24,23 @@ export function Login() {
       : dashboardBackgroundDark;
 
   useEffect(() => {
-    // Fetch server version on component mount
+    // Fetch server version on component mount.
+    // REST API lives under /api; /health stays at the server root (see synkronus router).
+    const backendUrl = (path: string) => {
+      const base = import.meta.env.VITE_API_URL || '/api';
+      if (base.startsWith('http')) {
+        const origin = base.replace(/\/$/, '');
+        if (path === '/health') return `${origin}/health`;
+        return `${origin}/api${path}`;
+      }
+      if (path === '/health') return '/health';
+      return `${base}${path}`;
+    };
+
     const fetchVersion = async () => {
       try {
         // Try version endpoint first
-        let response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/version`, {
+        let response = await fetch(backendUrl('/version'), {
           headers: {
             'x-formulus-version': '1.0.0'
           }
@@ -41,7 +53,7 @@ export function Login() {
         }
         
         // If version fails, try health endpoint (might have version info)
-        response = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/health`);
+        response = await fetch(backendUrl('/health'));
         if (response.ok) {
           const text = await response.text();
           // Health endpoint might return JSON with version info

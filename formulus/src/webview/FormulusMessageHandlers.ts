@@ -7,8 +7,15 @@ import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as ImagePicker from 'react-native-image-picker';
+import {
+  check,
+  request,
+  PERMISSIONS,
+  RESULTS,
+  Permission,
+} from 'react-native-permissions';
 import {
   pick,
   types,
@@ -73,6 +80,21 @@ class SimpleEventEmitter {
 
 export const appEvents = new SimpleEventEmitter();
 
+async function ensureCameraPermission(): Promise<string> {
+  const wanted: Permission | undefined = Platform.select({
+    ios: PERMISSIONS.IOS.CAMERA,
+    android: PERMISSIONS.ANDROID.CAMERA,
+  });
+  if (!wanted) {
+    return RESULTS.GRANTED;
+  }
+  let status = await check(wanted);
+  if (status === RESULTS.DENIED) {
+    status = await request(wanted);
+  }
+  return status;
+}
+
 const pendingFormOperations = new Map<
   string,
   {
@@ -134,6 +156,7 @@ let activeFormplayerModalRef: {
   handleSubmission: (data: {
     formType: string;
     finalData: Record<string, unknown>;
+    observationId?: string | null;
   }) => Promise<string>;
 } | null = null;
 
@@ -142,6 +165,7 @@ export const setActiveFormplayerModal = (
     handleSubmission: (data: {
       formType: string;
       finalData: Record<string, unknown>;
+      observationId?: string | null;
     }) => Promise<string>;
   } | null,
 ) => {
@@ -270,6 +294,18 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       formType: string;
       finalData: Record<string, unknown>;
     }) => {
+      // Formplayer uses updateObservation for existing rows; submitObservation for new.
+      // Route updates through the modal too so the operation promise resolves and the UI closes.
+      if (activeFormplayerModalRef) {
+        console.log(
+          'FormulusMessageHandlers: Delegating to FormplayerModal.handleSubmission (update)',
+        );
+        return await activeFormplayerModalRef.handleSubmission({
+          formType: data.formType,
+          finalData: data.finalData,
+          observationId: data.observationId,
+        });
+      }
       return await saveFormData(
         data.formType,
         data.finalData,
@@ -450,7 +486,21 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             {
               text: 'Camera',
               onPress: () => {
-                ImagePicker.launchCamera(options, handleImagePickerResponse);
+                void (async () => {
+                  const perm = await ensureCameraPermission();
+                  if (perm !== RESULTS.GRANTED) {
+                    resolve({
+                      fieldId,
+                      status: 'error',
+                      message:
+                        perm === RESULTS.BLOCKED
+                          ? 'Camera access is blocked. Enable camera permission in system settings.'
+                          : 'Camera permission is required to take a photo.',
+                    });
+                    return;
+                  }
+                  ImagePicker.launchCamera(options, handleImagePickerResponse);
+                })();
               },
             },
             {
@@ -618,7 +668,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                 accuracy: position.accuracy,
                 altitude: position.altitude,
                 altitudeAccuracy: position.altitude_accuracy,
-                timestamp: new Date().toISOString(),
+                timestamp: position.timestamp ?? new Date().toISOString(),
               },
             };
 
@@ -968,7 +1018,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       try {
         const credentials = await Keychain.getGenericPassword();
         if (!credentials) {
-          throw new Error('No user credentials found');
+          // Logged out — same shape as authenticated user; empty username is
+          // the contract for callers (e.g. placeholder) and must not throw.
+          return { username: '' };
         }
 
         // Retrieve role from stored user info (set during login)

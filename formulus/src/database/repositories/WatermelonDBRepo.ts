@@ -11,6 +11,26 @@ import { geolocationService } from '../../services/GeolocationService';
 import { ToastService } from '../../services/ToastService';
 import { clientIdService } from '../../services/ClientIdService';
 import { getUserInfo } from '../../api/synkronus/Auth';
+import { LAST_WRITE_WON_TAG } from '../../sync/syncConstants';
+
+function parseTagsColumn(raw: string | undefined): string[] {
+  if (!raw?.trim()) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter((t): t is string => typeof t === 'string');
+  } catch {
+    return [];
+  }
+}
+
+function serializeTagsColumn(tags: string[]): string {
+  return tags.length > 0 ? JSON.stringify(tags) : '';
+}
 
 /**
  * WatermelonDB implementation of the LocalRepoInterface
@@ -72,6 +92,11 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       const deviceId: string =
         input.deviceId ?? (await clientIdService.getClientId());
 
+      const stringifiedTags =
+        input.tags != null && input.tags.length > 0
+          ? JSON.stringify(input.tags)
+          : '';
+
       // Stringify geolocation for storage
       const stringifiedGeolocation = geolocation
         ? JSON.stringify(geolocation)
@@ -97,6 +122,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           record.geolocation = stringifiedGeolocation;
           record.author = author;
           record.deviceId = deviceId;
+          record.tags = stringifiedTags;
           record.deleted = false; // New observations are never deleted
           // Don't set syncedAt - let it be null so the observation is marked as pending sync
         });
@@ -116,6 +142,20 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         error instanceof Error ? error.message : String(error),
       );
       throw error;
+    }
+  }
+
+  /** Resolve a row by Watermelon id or by observation_id column (legacy ingested rows - TODO: Legacy support to be removed in vNextMinor). */
+  private async findObservationRecord(
+    stableId: string,
+  ): Promise<ObservationModel | null> {
+    try {
+      return await this.observationsCollection.find(stableId);
+    } catch {
+      const rows = await this.observationsCollection
+        .query(Q.where('observation_id', stableId))
+        .fetch();
+      return rows[0] ?? null;
     }
   }
 
@@ -224,6 +264,22 @@ export class WatermelonDBRepo implements LocalRepoInterface {
   }
 
   /**
+   * All local observation rows (including soft-deleted), for backup/export.
+   */
+  async getAllObservations(): Promise<Observation[]> {
+    try {
+      const rows = await this.observationsCollection.query().fetch();
+      return rows.map(row => this.mapObservationModelToInterface(row));
+    } catch (error) {
+      console.error(
+        'Error getting all observations:',
+        error instanceof Error ? error.message : String(error),
+      );
+      return [];
+    }
+  }
+
+  /**
    * Update an existing observation
    * @param input The observation ID and new data
    * @returns Promise resolving to a boolean indicating success
@@ -235,10 +291,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         input.observationId,
       );
 
-      // Find the observation by ID (which is now the observationId)
-      const record = await this.observationsCollection.find(
-        input.observationId,
-      );
+      const record = await this.findObservationRecord(input.observationId);
 
       if (!record) {
         console.error('Observation not found with ID:', input.observationId);
@@ -292,8 +345,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     try {
       console.log('Deleting observation with ObservationId:', id);
 
-      // Find the observation by ID (which is now the observationId)
-      const record = await this.observationsCollection.find(id);
+      const record = await this.findObservationRecord(id);
 
       if (!record) {
         console.error('Observation not found with ID:', id);
@@ -424,38 +476,53 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       const existingMap = new Map(
         existingRecords.map(record => [record.observationId, record]),
       );
-      const batchOps = changes.map(change => {
-        const existing = existingMap.get(change.observationId);
-        if (existing) {
-          console.debug(`Preparing update for observation: ${existing.id}`);
-          if (existing.updatedAt > existing.syncedAt) {
-            console.debug(
-              `Skipping server change for ${existing.id} because it's locally dirty`,
-            );
-            return null; // skip applying server version (TODO: maybe include this information in the return value to be able to report it to the user)
+      const batchOps = changes
+        .map(change => {
+          const existing = existingMap.get(change.observationId);
+          if (existing) {
+            console.debug(`Preparing update for observation: ${existing.id}`);
+            if (existing.updatedAt > existing.syncedAt) {
+              console.debug(
+                `Skipping server change for ${existing.id} because it's locally dirty`,
+              );
+              const currentTags = parseTagsColumn(existing.tags);
+              if (currentTags.includes(LAST_WRITE_WON_TAG)) {
+                return null;
+              }
+              const merged = [...currentTags, LAST_WRITE_WON_TAG];
+              return existing.prepareUpdate(record => {
+                record.tags = serializeTagsColumn(merged);
+              });
+            }
+            return existing.prepareUpdate(record => {
+              record.formType = change.formType || record.formType;
+              record.formVersion = change.formVersion || record.formVersion;
+              record.data =
+                typeof change.data === 'string'
+                  ? change.data
+                  : JSON.stringify(change.data);
+              record.deleted = change.deleted ?? record.deleted;
+              // Set optional metadata if provided
+              if (change.author !== undefined) {
+                record.author = change.author ?? '';
+              }
+              if (change.deviceId !== undefined) {
+                record.deviceId = change.deviceId ?? '';
+              }
+              if (change.tags !== undefined) {
+                record.tags =
+                  change.tags != null && change.tags.length > 0
+                    ? JSON.stringify(change.tags)
+                    : '';
+              }
+              record.syncedAt = new Date();
+            });
           }
-          return existing.prepareUpdate(record => {
-            record.formType = change.formType || record.formType;
-            record.formVersion = change.formVersion || record.formVersion;
-            record.data =
-              typeof change.data === 'string'
-                ? change.data
-                : JSON.stringify(change.data);
-            record.deleted = change.deleted ?? record.deleted;
-            // Set optional metadata if provided
-            if (change.author !== undefined) {
-              record.author = change.author ?? '';
-            }
-            if (change.deviceId !== undefined) {
-              record.deviceId = change.deviceId ?? '';
-            }
-            record.syncedAt = new Date();
-          });
-        } else {
           console.debug(
             `Preparing create for new observation: ${change.observationId}`,
           );
           return this.observationsCollection.prepareCreate(record => {
+            record._raw.id = change.observationId;
             record.observationId = change.observationId;
             record.formType = change.formType || '';
             record.formVersion = change.formVersion || '1.0';
@@ -465,12 +532,18 @@ export class WatermelonDBRepo implements LocalRepoInterface {
                 : JSON.stringify(change.data);
             record.author = change.author ?? '';
             record.deviceId = change.deviceId ?? '';
+            record.tags =
+              change.tags != null && change.tags.length > 0
+                ? JSON.stringify(change.tags)
+                : '';
             record.deleted = change.deleted ?? false;
             record.syncedAt = new Date();
           });
-        }
-      });
-      await this.database.batch(...batchOps);
+        })
+        .filter((op): op is NonNullable<typeof op> => op != null);
+      if (batchOps.length > 0) {
+        await this.database.batch(...batchOps);
+      }
       return batchOps.length;
     });
     return count;
@@ -501,11 +574,22 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    * @param ids The unique identifiers for the observations
    */
   async markObservationsAsSynced(ids: string[]): Promise<void> {
+    if (ids.length === 0) {
+      return;
+    }
     const now = new Date();
     await this.database.write(async () => {
-      const records = await this.observationsCollection
+      const byPk = await this.observationsCollection
         .query(Q.where('id', Q.oneOf(ids)))
         .fetch();
+      const byObservationColumn = await this.observationsCollection
+        .query(Q.where('observation_id', Q.oneOf(ids)))
+        .fetch();
+      const merged = new Map<string, ObservationModel>();
+      for (const r of [...byPk, ...byObservationColumn]) {
+        merged.set(r.id, r);
+      }
+      const records = [...merged.values()];
 
       const batchOps = records.map(record =>
         record.prepareUpdate(rec => {
@@ -513,7 +597,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         }),
       );
 
-      await this.database.batch(...batchOps);
+      if (batchOps.length > 0) {
+        await this.database.batch(...batchOps);
+      }
     });
   }
 
@@ -598,8 +684,20 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       }
     }
 
+    let tags: string[] | null = null;
+    if (model.tags && model.tags.trim()) {
+      try {
+        const parsed = JSON.parse(model.tags) as unknown;
+        if (Array.isArray(parsed)) {
+          tags = parsed.filter((t): t is string => typeof t === 'string');
+        }
+      } catch (e) {
+        console.warn('Failed to parse observation tags:', e);
+      }
+    }
+
     return {
-      observationId: model.id, // Now model.id is the same as observationId
+      observationId: ObservationMapper.observationIdFromDBModel(model),
       formType: model.formType,
       formVersion: model.formVersion,
       data: parsedData,
@@ -610,6 +708,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       geolocation,
       author: model.author ?? null,
       deviceId: model.deviceId ?? null,
+      tags,
     };
   }
 }

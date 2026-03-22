@@ -60,7 +60,7 @@ func TestPull(t *testing.T) {
 			}
 
 			// Create a test request
-			req := httptest.NewRequest(http.MethodPost, "/sync/pull", bytes.NewBuffer(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/sync/pull", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			if tc.etagHeader != "" {
 				req.Header.Set("If-None-Match", tc.etagHeader)
@@ -219,7 +219,7 @@ func TestPush(t *testing.T) {
 			}
 
 			// Create a test request
-			req := httptest.NewRequest(http.MethodPost, "/sync/push", bytes.NewBuffer(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/sync/push", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 

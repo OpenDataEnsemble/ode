@@ -22,8 +22,11 @@ export interface Observation {
   deleted: boolean;
   data: ObservationData;
   geolocation: ObservationGeolocation | null;
-  author: string;
-  deviceId: string;
+  /** Set when known; omit or leave empty when not applicable */
+  author?: string | null;
+  deviceId?: string | null;
+  /** Optional labels / extension hooks / cleaning markers */
+  tags?: string[] | null;
 }
 
 /**
@@ -42,6 +45,7 @@ export interface NewObservationInput {
   formVersion?: string; // Optional, defaults to "1.0"
   author?: string | null;
   deviceId?: string | null;
+  tags?: string[] | null;
 }
 
 /**

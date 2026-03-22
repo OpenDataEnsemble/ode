@@ -7,7 +7,14 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, ViewStyle } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  StyleSheet,
+  ViewStyle,
+  TextInputProps,
+} from 'react-native';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import colors from '../../theme/colors';
 
@@ -24,6 +31,9 @@ export interface InputProps {
   testID?: string;
   /** Optional element rendered on the right inside the input border (e.g. icon button). */
   rightAccessory?: React.ReactNode;
+  autoCapitalize?: TextInputProps['autoCapitalize'];
+  autoCorrect?: boolean;
+  keyboardType?: TextInputProps['keyboardType'];
 }
 
 const Input: React.FC<InputProps> = ({
@@ -38,6 +48,9 @@ const Input: React.FC<InputProps> = ({
   style,
   testID,
   rightAccessory,
+  autoCapitalize,
+  autoCorrect,
+  keyboardType,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
   const { themeColors, resolvedMode } = useAppTheme();
@@ -92,6 +105,9 @@ const Input: React.FC<InputProps> = ({
           placeholderTextColor={placeholderColor}
           editable={!disabled}
           secureTextEntry={secureTextEntry}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={autoCorrect}
+          keyboardType={keyboardType}
           style={[styles.input, { color: inputTextColor }]}
           testID={testID ? `${testID}-input` : undefined}
           accessibilityLabel={label || placeholder}

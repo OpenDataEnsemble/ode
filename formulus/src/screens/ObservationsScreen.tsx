@@ -20,6 +20,7 @@ import {
   SyncStatusButtons,
   SyncStatus,
 } from '../components/common';
+import { isObservationFullySynced } from '../utils/observationSyncStatus';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { FormService } from '../services/FormService';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -29,7 +30,7 @@ import { Observation } from '../database/models/Observation';
 import colors from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeTypography,
@@ -45,6 +46,7 @@ type ObservationsScreenNavigationProp = StackNavigationProp<
 
 const ObservationsScreen: React.FC = () => {
   const { themeColors, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
   const titleColor = isDark
     ? (themeColors.onSurface as string)
@@ -122,10 +124,8 @@ const ObservationsScreen: React.FC = () => {
 
     if (syncStatus !== 'all') {
       filtered = filtered.filter(obs => {
-        const isSynced =
-          obs.syncedAt &&
-          obs.syncedAt.getTime() > new Date('1980-01-01').getTime();
-        return syncStatus === 'synced' ? isSynced : !isSynced;
+        const synced = isObservationFullySynced(obs);
+        return syncStatus === 'synced' ? synced : !synced;
       });
     }
 
@@ -210,7 +210,7 @@ const ObservationsScreen: React.FC = () => {
 
   if (loading && filteredAndSorted.length === 0) {
     return (
-      <BlurredScreenBackground>
+      <View style={shellStyle}>
         <SafeAreaView
           style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.loadingContainer}>
@@ -221,13 +221,13 @@ const ObservationsScreen: React.FC = () => {
             </Text>
           </View>
         </SafeAreaView>
-      </BlurredScreenBackground>
+      </View>
     );
   }
 
   if (error && filteredAndSorted.length === 0) {
     return (
-      <BlurredScreenBackground>
+      <View style={shellStyle}>
         <SafeAreaView
           style={[styles.container, { backgroundColor: 'transparent' }]}>
           <EmptyState
@@ -238,12 +238,12 @@ const ObservationsScreen: React.FC = () => {
             onAction={refresh}
           />
         </SafeAreaView>
-      </BlurredScreenBackground>
+      </View>
     );
   }
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         edges={['top']}>
@@ -367,7 +367,7 @@ const ObservationsScreen: React.FC = () => {
           />
         )}
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 

@@ -1,10 +1,13 @@
 package attachment
 
 import (
+	"archive/zip"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/opendataensemble/synkronus/pkg/config"
 )
@@ -18,6 +21,9 @@ type Service interface {
 
 	// Exists checks if an attachment with the given ID exists
 	Exists(ctx context.Context, attachmentID string) (bool, error)
+
+	// WriteZip streams a ZIP archive containing each attachment ID as one entry (streaming, no full-archive buffer).
+	WriteZip(ctx context.Context, w io.Writer, ids []string) error
 }
 
 type service struct {
@@ -104,4 +110,41 @@ func (s *service) Exists(ctx context.Context, attachmentID string) (bool, error)
 		return false, nil
 	}
 	return false, err
+}
+
+// zipEntryNameForAttachment maps a logical attachment ID to a safe path inside a ZIP archive.
+func zipEntryNameForAttachment(attachmentID string) string {
+	name := strings.ReplaceAll(attachmentID, `\`, "/")
+	name = strings.TrimPrefix(name, "/")
+	if strings.Contains(name, "..") {
+		return strings.ReplaceAll(strings.ReplaceAll(attachmentID, "/", "_"), `\`, "_")
+	}
+	return name
+}
+
+// WriteZip writes one file per attachment ID into a ZIP stream. Missing files return an error.
+func (s *service) WriteZip(ctx context.Context, w io.Writer, ids []string) error {
+	zw := zip.NewWriter(w)
+	defer zw.Close()
+
+	for _, id := range ids {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		rc, err := s.Get(ctx, id)
+		if err != nil {
+			return fmt.Errorf("open attachment %q: %w", id, err)
+		}
+		entry, err := zw.Create(zipEntryNameForAttachment(id))
+		if err != nil {
+			rc.Close()
+			return fmt.Errorf("zip entry for %q: %w", id, err)
+		}
+		_, err = io.Copy(entry, rc)
+		rc.Close()
+		if err != nil {
+			return fmt.Errorf("write attachment %q: %w", id, err)
+		}
+	}
+	return nil
 }

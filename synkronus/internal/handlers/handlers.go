@@ -59,3 +59,8 @@ func (h *Handler) GetAuthService() auth.AuthServiceInterface {
 func (h *Handler) GetConfig() *config.Config {
 	return h.config
 }
+
+// AttachmentManifestService returns the attachment manifest service (sync operations).
+func (h *Handler) AttachmentManifestService() attachment.ManifestService {
+	return h.attachmentManifestService
+}

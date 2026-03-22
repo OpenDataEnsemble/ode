@@ -20,12 +20,11 @@
 - `/app-bundle/manifest` — get current app bundle version
 - `/sync/pull` & `/sync/push` — record synchronization
 - `/attachments/manifest` & `/attachments/:id` — sync binary files
-- `/formspecs/{schemaType}/{schemaVersion}` — get form schemas
 - JWT-based auth with `read-only` and `read-write` roles
 - Optional API versioning via `x-api-version` header
 - Optional ETag support for caching and efficiency
 
-Full OpenAPI spec lives in [`Synkronus Openapi`](Synkronus/Openapi.yaml)
+Full OpenAPI spec lives in [`synkronus/openapi/synkronus.yaml`](../openapi/synkronus.yaml)
 
 ---
 

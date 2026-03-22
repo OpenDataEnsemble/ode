@@ -1,41 +1,92 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 )
 
 type AttachmentHandler struct {
-	service attachment.Service
-	log     *logger.Logger
+	service  attachment.Service
+	manifest attachment.ManifestService
+	log      *logger.Logger
 }
 
-func NewAttachmentHandler(log *logger.Logger, service attachment.Service) *AttachmentHandler {
+func NewAttachmentHandler(
+	log *logger.Logger,
+	service attachment.Service,
+	manifest attachment.ManifestService,
+) *AttachmentHandler {
 	return &AttachmentHandler{
-		service: service,
-		log:     log,
+		service:  service,
+		manifest: manifest,
+		log:      log,
 	}
 }
 
 // RegisterRoutes registers the attachment routes
 func (h *AttachmentHandler) RegisterRoutes(r chi.Router, manifestHandler func(http.ResponseWriter, *http.Request)) {
 	r.Route("/attachments", func(r chi.Router) {
-		// Manifest endpoint
 		r.Post("/manifest", manifestHandler)
+		// Literal route before /{attachment_id} so "export-zip" is not treated as an ID.
+		r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/export-zip", h.ExportAllAttachmentsZip)
 
-		// Individual attachment routes
 		r.Route("/{attachment_id}", func(r chi.Router) {
 			r.Put("/", h.UploadAttachment)
 			r.Get("/", h.DownloadAttachment)
 			r.Head("/", h.CheckAttachment)
 		})
 	})
+}
+
+// ExportAllAttachmentsZip handles GET /attachments/export-zip
+// @Summary Download all attachments as a streamed ZIP
+// @Description Returns a ZIP archive containing every attachment whose latest manifest operation is create or update. Large exports stream without buffering the full archive in memory.
+// @Tags Attachments
+// @Produce application/zip
+// @Success 200 {file} binary "ZIP archive stream"
+// @Failure 401 {object} ErrorResponse "Unauthorized"
+// @Failure 403 {object} ErrorResponse "Forbidden"
+// @Failure 500 {object} ErrorResponse "Internal Server Error"
+// @Failure 503 {object} ErrorResponse "Service Unavailable"
+// @Security BearerAuth
+// @Router /api/attachments/export-zip [get]
+func (h *AttachmentHandler) ExportAllAttachmentsZip(w http.ResponseWriter, r *http.Request) {
+	if h.service == nil {
+		SendErrorResponse(w, http.StatusServiceUnavailable, nil, "Attachment storage is not available")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"attachments_export.zip\"")
+
+	cw := &countingResponseWriter{ResponseWriter: w}
+	ids, err := h.manifest.ListAllCurrentAttachmentIDs(r.Context())
+	if err != nil {
+		if cw.n == 0 {
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to list attachments for export")
+			return
+		}
+		h.log.Error("List attachments for export failed after response started", "error", err)
+		return
+	}
+
+	if err := h.service.WriteZip(r.Context(), cw, ids); err != nil {
+		if cw.n == 0 {
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to export attachments")
+			return
+		}
+		h.log.Error("Attachment export failed after response started", "error", err)
+	}
 }
 
 // UploadAttachment handles PUT /attachments/{attachment_id}
@@ -55,7 +106,7 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Get the file from the form data
-	file, _, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		if errors.Is(err, http.ErrMissingFile) {
 			SendErrorResponse(w, http.StatusBadRequest, nil, "file is required")
@@ -77,10 +128,33 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Record manifest operation so other clients receive a download op in /attachments/manifest.
+	// client_id empty => NULL, meaning all clients (see migration comment on attachment_operations).
+	if err := h.recordAttachmentCreate(r.Context(), attachmentID, header); err != nil {
+		h.log.Error("Failed to record attachment manifest operation", "attachmentId", attachmentID, "error", err)
+		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to register attachment for sync")
+		return
+	}
+
 	// Return success response
 	SendJSONResponse(w, http.StatusOK, map[string]string{
 		"status": "success",
 	})
+}
+
+func (h *AttachmentHandler) recordAttachmentCreate(ctx context.Context, attachmentID string, header *multipart.FileHeader) error {
+	var sizePtr *int
+	if header != nil && header.Size > 0 {
+		s := int(header.Size)
+		sizePtr = &s
+	}
+	var contentType *string
+	if header != nil {
+		if ct := header.Header.Get("Content-Type"); ct != "" {
+			contentType = &ct
+		}
+	}
+	return h.manifest.RecordOperation(ctx, attachmentID, "create", "", sizePtr, contentType)
 }
 
 // DownloadAttachment handles GET /attachments/{attachment_id}
