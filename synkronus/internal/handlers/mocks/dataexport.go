@@ -10,6 +10,7 @@ import (
 // MockDataExportService is a mock implementation of dataexport.Service
 type MockDataExportService struct {
 	ExportParquetZipFunc func(ctx context.Context) (io.ReadCloser, error)
+	ExportRawJSONZipFunc func(ctx context.Context) (io.ReadCloser, error)
 }
 
 // NewMockDataExportService creates a new mock data export service
@@ -21,6 +22,14 @@ func NewMockDataExportService() *MockDataExportService {
 func (m *MockDataExportService) ExportParquetZip(ctx context.Context) (io.ReadCloser, error) {
 	if m.ExportParquetZipFunc != nil {
 		return m.ExportParquetZipFunc(ctx)
+	}
+	return io.NopCloser(io.LimitReader(nil, 0)), nil
+}
+
+// ExportRawJSONZip implements dataexport.Service
+func (m *MockDataExportService) ExportRawJSONZip(ctx context.Context) (io.ReadCloser, error) {
+	if m.ExportRawJSONZipFunc != nil {
+		return m.ExportRawJSONZipFunc(ctx)
 	}
 	return io.NopCloser(io.LimitReader(nil, 0)), nil
 }

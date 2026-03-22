@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -20,6 +21,8 @@ import (
 type Service interface {
 	// ExportParquetZip exports observations data as a ZIP file containing Parquet files per form type
 	ExportParquetZip(ctx context.Context) (io.ReadCloser, error)
+	// ExportRawJSONZip exports each observation as its own JSON file inside a ZIP archive (one file per row).
+	ExportRawJSONZip(ctx context.Context) (io.ReadCloser, error)
 }
 
 // service implements the Service interface
@@ -63,6 +66,96 @@ func (s *service) ExportParquetZip(ctx context.Context) (io.ReadCloser, error) {
 
 	// Return reader for the ZIP buffer
 	return io.NopCloser(bytes.NewReader(zipBuffer.Bytes())), nil
+}
+
+// rawObservationPayload is the JSON shape for per-observation export (nested `data` matches stored form payload).
+type rawObservationPayload struct {
+	ObservationID string                 `json:"observation_id"`
+	FormType      string                 `json:"form_type"`
+	FormVersion   string                 `json:"form_version"`
+	CreatedAt     string                 `json:"created_at"`
+	UpdatedAt     string                 `json:"updated_at"`
+	SyncedAt      *string                `json:"synced_at,omitempty"`
+	Deleted       bool                   `json:"deleted"`
+	Version       int64                  `json:"version"`
+	Geolocation   json.RawMessage        `json:"geolocation,omitempty"`
+	Data          map[string]interface{} `json:"data"`
+}
+
+// ExportRawJSONZip exports each observation as a JSON file under `<form_type>/<observation_id>.json` inside a ZIP.
+func (s *service) ExportRawJSONZip(ctx context.Context) (io.ReadCloser, error) {
+	formTypes, err := s.db.GetFormTypes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get form types: %w", err)
+	}
+
+	zipBuffer := &bytes.Buffer{}
+	zipWriter := zip.NewWriter(zipBuffer)
+
+	for _, formType := range formTypes {
+		schema, err := s.db.GetFormTypeSchema(ctx, formType)
+		if err != nil {
+			zipWriter.Close()
+			return nil, fmt.Errorf("failed to get schema for form type %s: %w", formType, err)
+		}
+
+		observations, err := s.db.GetObservationsForFormType(ctx, formType, schema)
+		if err != nil {
+			zipWriter.Close()
+			return nil, fmt.Errorf("failed to get observations for form type %s: %w", formType, err)
+		}
+
+		prefix := s.sanitizeFilename(formType) + "/"
+		for _, obs := range observations {
+			entryName := prefix + s.sanitizeFilename(obs.ObservationID) + ".json"
+			w, err := zipWriter.Create(entryName)
+			if err != nil {
+				zipWriter.Close()
+				return nil, fmt.Errorf("failed to create ZIP entry %s: %w", entryName, err)
+			}
+
+			payload := rawObservationPayload{
+				ObservationID: obs.ObservationID,
+				FormType:      obs.FormType,
+				FormVersion:   obs.FormVersion,
+				CreatedAt:     obs.CreatedAt,
+				UpdatedAt:     obs.UpdatedAt,
+				SyncedAt:      obs.SyncedAt,
+				Deleted:       obs.Deleted,
+				Version:       obs.Version,
+				Geolocation:   obs.Geolocation,
+				Data:          unflattenDataFields(obs.DataFields),
+			}
+
+			enc := json.NewEncoder(w)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(payload); err != nil {
+				zipWriter.Close()
+				return nil, fmt.Errorf("failed to write JSON for %s: %w", entryName, err)
+			}
+		}
+	}
+
+	if err := zipWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close ZIP writer: %w", err)
+	}
+
+	return io.NopCloser(bytes.NewReader(zipBuffer.Bytes())), nil
+}
+
+func unflattenDataFields(dataFields map[string]interface{}) map[string]interface{} {
+	if len(dataFields) == 0 {
+		return map[string]interface{}{}
+	}
+	out := make(map[string]interface{}, len(dataFields))
+	for k, v := range dataFields {
+		key := k
+		if strings.HasPrefix(k, "data_") {
+			key = strings.TrimPrefix(k, "data_")
+		}
+		out[key] = v
+	}
+	return out
 }
 
 // exportFormTypeToZip exports a single form type as a parquet file to the ZIP archive

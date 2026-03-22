@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"testing"
 
@@ -196,6 +197,88 @@ func TestService_ExportParquetZip(t *testing.T) {
 				t.Errorf("Expected %d files, found %d", len(tt.expectedFiles), len(foundFiles))
 			}
 		})
+	}
+}
+
+func TestService_ExportRawJSONZip(t *testing.T) {
+	mockDB := &MockDatabaseInterface{
+		FormTypes: []string{"survey"},
+		FormTypeSchemas: map[string]*FormTypeSchema{
+			"survey": {
+				FormType: "survey",
+				Columns: []FormTypeColumn{
+					{Key: "question1", DataType: "string", SQLType: "text"},
+				},
+			},
+		},
+		ObservationsData: map[string][]ObservationRow{
+			"survey": {
+				{
+					ObservationID: "obs-1",
+					FormType:      "survey",
+					FormVersion:   "1.0",
+					CreatedAt:     "2023-01-01T00:00:00Z",
+					UpdatedAt:     "2023-01-01T00:00:00Z",
+					Deleted:       false,
+					Version:       1,
+					DataFields: map[string]interface{}{
+						"data_question1": "hello",
+					},
+				},
+			},
+		},
+	}
+	cfg := &config.Config{}
+	service := NewService(mockDB, cfg)
+
+	zipReader, err := service.ExportRawJSONZip(context.Background())
+	if err != nil {
+		t.Fatalf("ExportRawJSONZip: %v", err)
+	}
+	defer zipReader.Close()
+
+	zipData, err := io.ReadAll(zipReader)
+	if err != nil {
+		t.Fatalf("read zip: %v", err)
+	}
+
+	zr, err := zip.NewReader(bytes.NewReader(zipData), int64(len(zipData)))
+	if err != nil {
+		t.Fatalf("parse zip: %v", err)
+	}
+	if len(zr.File) != 1 {
+		t.Fatalf("expected 1 zip entry, got %d", len(zr.File))
+	}
+	if zr.File[0].Name != "survey/obs-1.json" {
+		t.Fatalf("unexpected entry name: %s", zr.File[0].Name)
+	}
+
+	rc, err := zr.File[0].Open()
+	if err != nil {
+		t.Fatalf("open entry: %v", err)
+	}
+	defer rc.Close()
+	body, err := io.ReadAll(rc)
+	if err != nil {
+		t.Fatalf("read entry: %v", err)
+	}
+
+	var payload rawObservationPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if payload.Data["question1"] != "hello" {
+		t.Fatalf("expected data.question1 hello, got %v", payload.Data["question1"])
+	}
+}
+
+func Test_unflattenDataFields(t *testing.T) {
+	out := unflattenDataFields(map[string]interface{}{
+		"data_a": 1,
+		"other":  "x",
+	})
+	if out["a"] != 1 || out["other"] != "x" {
+		t.Fatalf("unexpected: %#v", out)
 	}
 }
 

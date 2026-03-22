@@ -149,6 +149,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 
 			dataExportRoutes := func(r chi.Router) {
 				r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/parquet", h.ParquetExportHandler)
+				r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/raw-json", h.RawJSONExportHandler)
 			}
 			r.Route("/dataexport", dataExportRoutes)
 
