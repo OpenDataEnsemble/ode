@@ -70,7 +70,7 @@ func NewClient() *Client {
 // doRequest performs an HTTP request with authentication
 // GetVersion retrieves version information from the Synkronus server
 func (c *Client) GetVersion() (*SystemVersionInfo, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/version", c.BaseURL), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/version", c.BaseURL), nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating version request: %w", err)
 	}
@@ -145,7 +145,7 @@ func (c *Client) GetAppBundleManifest() (map[string]interface{}, error) {
 
 // GetAppBundleVersions retrieves available app bundle versions
 func (c *Client) GetAppBundleVersions() (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/app-bundle/versions", c.BaseURL)
+	url := fmt.Sprintf("%s/api/app-bundle/versions", c.BaseURL)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -218,7 +218,7 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 
 // DownloadParquetExport downloads the Parquet export ZIP archive to the specified destination path
 func (c *Client) DownloadParquetExport(destPath string) error {
-	url := fmt.Sprintf("%s/dataexport/parquet", c.BaseURL)
+	url := fmt.Sprintf("%s/api/dataexport/parquet", c.BaseURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -322,7 +322,7 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 
 // SwitchAppBundleVersion switches to a specific app bundle version
 func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/app-bundle/switch/%s", c.BaseURL, version)
+	url := fmt.Sprintf("%s/api/app-bundle/switch/%s", c.BaseURL, version)
 
 	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
@@ -350,7 +350,7 @@ func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{},
 
 // SyncPull pulls updated records from the server
 func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []string, limit int, pageToken string) (map[string]interface{}, error) {
-	requestURL := fmt.Sprintf("%s/sync/pull", c.BaseURL)
+	requestURL := fmt.Sprintf("%s/api/sync/pull", c.BaseURL)
 
 	// Build query parameters
 	var queryParams []string
@@ -429,7 +429,7 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 
 // SyncPush pushes records to the server
 func (c *Client) SyncPush(clientID string, transmissionID string, records []map[string]interface{}) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/sync/push", c.BaseURL)
+	url := fmt.Sprintf("%s/api/sync/push", c.BaseURL)
 
 	// Prepare request body
 	reqBody := map[string]interface{}{

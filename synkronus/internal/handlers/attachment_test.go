@@ -100,7 +100,7 @@ func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 			w.Close()
 
 			// Create request
-			req := httptest.NewRequest("PUT", "/attachments/"+tc.attachmentID, &b)
+			req := httptest.NewRequest("PUT", "/api/attachments/"+tc.attachmentID, &b)
 			req.Header.Set("Content-Type", w.FormDataContentType())
 
 			// Create response recorder
@@ -108,7 +108,7 @@ func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 
 			// Create router and make request
 			r := chi.NewRouter()
-			r.Put("/attachments/{attachment_id}", handler.UploadAttachment)
+			r.Put("/api/attachments/{attachment_id}", handler.UploadAttachment)
 			r.ServeHTTP(rr, req)
 
 			// Check response
@@ -168,14 +168,14 @@ func TestAttachmentHandler_DownloadAttachment(t *testing.T) {
 			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
 
 			// Create request
-			req := httptest.NewRequest("GET", "/attachments/"+tc.attachmentID, nil)
+			req := httptest.NewRequest("GET", "/api/attachments/"+tc.attachmentID, nil)
 
 			// Create response recorder
 			rr := httptest.NewRecorder()
 
 			// Create router and make request
 			r := chi.NewRouter()
-			r.Get("/attachments/{attachment_id}", handler.DownloadAttachment)
+			r.Get("/api/attachments/{attachment_id}", handler.DownloadAttachment)
 			r.ServeHTTP(rr, req)
 
 			// Check response
@@ -226,14 +226,14 @@ func TestAttachmentHandler_CheckAttachment(t *testing.T) {
 			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
 
 			// Create request
-			req := httptest.NewRequest("HEAD", "/attachments/"+tc.attachmentID, nil)
+			req := httptest.NewRequest("HEAD", "/api/attachments/"+tc.attachmentID, nil)
 
 			// Create response recorder
 			rr := httptest.NewRecorder()
 
 			// Create router and make request
 			r := chi.NewRouter()
-			r.Head("/attachments/{attachment_id}", handler.CheckAttachment)
+			r.Head("/api/attachments/{attachment_id}", handler.CheckAttachment)
 			r.ServeHTTP(rr, req)
 
 			// Check response
@@ -259,10 +259,10 @@ func TestDownloadAttachment_StreamingErrorLogged(t *testing.T) {
 
 	handler := NewAttachmentHandler(log, mockSvc, mockManifest)
 
-	req := httptest.NewRequest("GET", "/attachments/badfile", nil)
+	req := httptest.NewRequest("GET", "/api/attachments/badfile", nil)
 	rr := httptest.NewRecorder()
 	r := chi.NewRouter()
-	r.Get("/attachments/{attachment_id}", handler.DownloadAttachment)
+	r.Get("/api/attachments/{attachment_id}", handler.DownloadAttachment)
 	r.ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)

@@ -28,7 +28,7 @@ type UserChangePasswordRequest struct {
 
 // CreateUser calls POST /users to create a new user (admin)
 func (c *Client) CreateUser(reqBody UserCreateRequest) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/users", c.BaseURL)
+	url := fmt.Sprintf("%s/api/users", c.BaseURL)
 	body, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -60,7 +60,7 @@ func (c *Client) CreateUser(reqBody UserCreateRequest) (map[string]interface{}, 
 
 // DeleteUser calls DELETE /users/delete/{username} (admin)
 func (c *Client) DeleteUser(username string) error {
-	url := fmt.Sprintf("%s/users/delete/%s", c.BaseURL, username)
+	url := fmt.Sprintf("%s/api/users/delete/%s", c.BaseURL, username)
 	request, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
@@ -80,7 +80,7 @@ func (c *Client) DeleteUser(username string) error {
 
 // ResetUserPassword calls POST /users/reset-password (admin)
 func (c *Client) ResetUserPassword(reqBody UserResetPasswordRequest) error {
-	url := fmt.Sprintf("%s/users/reset-password", c.BaseURL)
+	url := fmt.Sprintf("%s/api/users/reset-password", c.BaseURL)
 	body, err := json.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
@@ -105,7 +105,7 @@ func (c *Client) ResetUserPassword(reqBody UserResetPasswordRequest) error {
 
 // ChangeOwnPassword calls POST /users/change-password (self)
 func (c *Client) ChangeOwnPassword(reqBody UserChangePasswordRequest) error {
-	url := fmt.Sprintf("%s/users/change-password", c.BaseURL)
+	url := fmt.Sprintf("%s/api/users/change-password", c.BaseURL)
 	body, err := json.Marshal(reqBody)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
@@ -130,7 +130,7 @@ func (c *Client) ChangeOwnPassword(reqBody UserChangePasswordRequest) error {
 
 // ListUsers calls GET /users (admin only)
 func (c *Client) ListUsers() ([]map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/users", c.BaseURL)
+	url := fmt.Sprintf("%s/api/users", c.BaseURL)
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

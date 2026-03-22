@@ -48,7 +48,7 @@ paths:
                     format: date-time
                     description: Current server time
 
-  /version:
+  /api/version:
     get:
       operationId: getVersion
       summary: Get server version and system information
@@ -67,7 +67,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /app-bundle/changes:
+  /api/app-bundle/changes:
     get:
       operationId: getAppBundleChanges
       summary: Get changes between two app bundle versions
@@ -121,7 +121,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /app-bundle/manifest:
+  /api/app-bundle/manifest:
     get:
       operationId: getAppBundleManifest
       summary: Get the current custom app bundle manifest
@@ -149,7 +149,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AppBundleManifest'
 
-  /app-bundle/download/{path}:
+  /api/app-bundle/download/{path}:
     get:
       operationId: downloadAppBundleFile
       summary: Download a specific file from the app bundle
@@ -195,7 +195,7 @@ paths:
         '304':
           description: Not Modified
 
-  /app-bundle/versions:
+  /api/app-bundle/versions:
     get:
       operationId: getAppBundleVersions
       summary: Get a list of available app bundle versions
@@ -218,7 +218,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AppBundleVersions'
 
-  /app-bundle/push:
+  /api/app-bundle/push:
     post:
       operationId: pushAppBundle
       summary: Upload a new app bundle (admin only)
@@ -276,7 +276,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /app-bundle/switch/{version}:
+  /api/app-bundle/switch/{version}:
     post:
       operationId: switchAppBundleVersion
       summary: Switch to a specific app bundle version (admin only)
@@ -333,7 +333,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /auth/login:
+  /api/auth/login:
     post:
       operationId: login
       summary: Authenticate user and return JWT tokens
@@ -382,7 +382,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /auth/refresh:
+  /api/auth/refresh:
     post:
       operationId: refreshToken
       summary: Refresh JWT token
@@ -427,7 +427,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users/create:
+  /api/users/create:
     post:
       operationId: createUser
       summary: Create a new user (admin only)
@@ -494,7 +494,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users:
+  /api/users:
     get:
       operationId: listUsers
       summary: List all users (admin only)
@@ -532,7 +532,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users/{username}:
+  /api/users/{username}:
     delete:
       operationId: deleteUser
       summary: Delete a user (admin only)
@@ -590,7 +590,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users/reset-password:
+  /api/users/reset-password:
     post:
       operationId: resetUserPassword
       summary: Reset user password (admin only)
@@ -657,7 +657,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /users/change-password:
+  /api/users/change-password:
     post:
       operationId: changePassword
       summary: Change user password (authenticated user)'s password
@@ -713,7 +713,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetail'
 
-  /sync/pull:
+  /api/sync/pull:
     post:
       operationId: syncPull
       summary: Pull updated records since last sync
@@ -768,7 +768,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncPullResponse'
 
-  /sync/push:
+  /api/sync/push:
     post:
       operationId: syncPush
       summary: Push new or updated records to the server
@@ -797,7 +797,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SyncPushResponse'
 
-  /attachments/manifest:
+  /api/attachments/manifest:
     post:
       operationId: getAttachmentManifest
       summary: Get attachment manifest for incremental sync
@@ -845,7 +845,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /attachments/{attachment_id}:
+  /api/attachments/{attachment_id}:
     put:
       operationId: uploadAttachment
       summary: Upload a new attachment with specified ID
@@ -934,7 +934,7 @@ paths:
         '404':
           description: Attachment not found
 
-  /dataexport/parquet:
+  /api/dataexport/parquet:
     get:
       summary: Download a ZIP archive of Parquet exports
       description: >
@@ -1432,4 +1432,4 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: 'JWT token obtained from /auth/login'
+      description: 'JWT token obtained from /api/auth/login'

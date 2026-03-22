@@ -63,12 +63,14 @@ func TestAttachmentUpload_FollowedByManifest_ReturnsDownloadForSecondDevice(t *t
 	)
 
 	r := chi.NewRouter()
-	r.Group(func(r chi.Router) {
-		r.Use(authmw.AuthMiddleware(&mockAuthService{}, log))
-		r.Route("/attachments", func(r chi.Router) {
-			r.Post("/manifest", h.AttachmentManifestHandler)
-			r.Route("/{attachment_id}", func(r chi.Router) {
-				r.Put("/", attHandler.UploadAttachment)
+	r.Route("/api", func(r chi.Router) {
+		r.Group(func(r chi.Router) {
+			r.Use(authmw.AuthMiddleware(&mockAuthService{}, log))
+			r.Route("/attachments", func(r chi.Router) {
+				r.Post("/manifest", h.AttachmentManifestHandler)
+				r.Route("/{attachment_id}", func(r chi.Router) {
+					r.Put("/", attHandler.UploadAttachment)
+				})
 			})
 		})
 	})
@@ -77,7 +79,7 @@ func TestAttachmentUpload_FollowedByManifest_ReturnsDownloadForSecondDevice(t *t
 	t.Cleanup(ts.Close)
 
 	attachmentID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jpg"
-	uploadURL := ts.URL + "/attachments/" + attachmentID
+	uploadURL := ts.URL + "/api/attachments/" + attachmentID
 
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
@@ -107,7 +109,7 @@ func TestAttachmentUpload_FollowedByManifest_ReturnsDownloadForSecondDevice(t *t
 	})
 	require.NoError(t, err)
 
-	mreq, err := http.NewRequest(http.MethodPost, ts.URL+"/attachments/manifest", bytes.NewReader(manifestBody))
+	mreq, err := http.NewRequest(http.MethodPost, ts.URL+"/api/attachments/manifest", bytes.NewReader(manifestBody))
 	require.NoError(t, err)
 	mreq.Header.Set("Content-Type", "application/json")
 	mreq.Header.Set("Authorization", "Bearer test-token")

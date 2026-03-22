@@ -72,11 +72,8 @@ export default defineConfig({
             : process.env.API_URL || process.env.VITE_API_URL || 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
-        rewrite: path => {
-          const rewritten = path.replace(/^\/api/, '');
-          console.log(`[Vite Proxy] Rewriting ${path} -> ${rewritten}`);
-          return rewritten;
-        },
+        // Forward /api/* to the backend with the same path (API routes are mounted under /api)
+        rewrite: path => path,
         configure: (proxy, _options) => {
           proxy.on('error', (err, req, _res) => {
             console.error('[Vite Proxy] Error:', err);

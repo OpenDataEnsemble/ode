@@ -45,7 +45,7 @@ func TestMiddleware(t *testing.T) {
 	handler := mw(next)
 
 	t.Run("no_header_returns_426", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", nil)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 		if rec.Code != http.StatusUpgradeRequired {
@@ -61,7 +61,7 @@ func TestMiddleware(t *testing.T) {
 	})
 
 	t.Run("unparseable_client_version_returns_426", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", nil)
 		req.Header.Set("X-Formulus-Version", "not-a-version")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
@@ -75,7 +75,7 @@ func TestMiddleware(t *testing.T) {
 
 	t.Run("matching_major_versions_pass", func(t *testing.T) {
 		// Server BuildVersion() default is "1.0.0" and client sends "1.0.0" → major versions match (1 == 1)
-		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", nil)
 		req.Header.Set("X-Formulus-Version", "1.0.0")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
@@ -89,7 +89,7 @@ func TestMiddleware(t *testing.T) {
 
 	t.Run("mismatched_major_versions_return_426", func(t *testing.T) {
 		// Client sends "2.0.0" but server is "1.0.0" → major versions mismatch (2 != 1)
-		req := httptest.NewRequest(http.MethodPost, "/auth/login", nil)
+		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", nil)
 		req.Header.Set("X-Formulus-Version", "2.0.0")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)

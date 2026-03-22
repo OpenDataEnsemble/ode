@@ -90,15 +90,12 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		FileServer(r, "/openapi", http.Dir(openapiDir))
 	}
 
-	// Authentication routes
+	// All REST API routes (except /health) under /api
 	authRoutes := func(r chi.Router) {
 		r.Use(formulusversion.Middleware(log))
 		r.Post("/login", h.Login)
 		r.Post("/refresh", h.RefreshToken)
 	}
-	r.Route("/auth", authRoutes)
-	// Also register under /api for portal compatibility
-	r.Route("/api/auth", authRoutes)
 
 	// Create attachment service
 	attachmentService, err := attachment.NewService(h.GetConfig())
@@ -113,71 +110,51 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		h.AttachmentManifestService(),
 	)
 
-	// Protected routes - require authentication
-	r.Group(func(r chi.Router) {
-		r.Use(formulusversion.Middleware(log))
-		// Add authentication middleware
-		r.Use(auth.AuthMiddleware(h.GetAuthService(), log))
+	r.Route("/api", func(r chi.Router) {
+		r.Route("/auth", authRoutes)
 
-		// Register attachment routes (including manifest endpoint)
-		attachmentHandler.RegisterRoutes(r, h.AttachmentManifestHandler)
+		// Protected routes - require authentication
+		r.Group(func(r chi.Router) {
+			r.Use(formulusversion.Middleware(log))
+			r.Use(auth.AuthMiddleware(h.GetAuthService(), log))
 
-		// Sync routes
-		r.Route("/sync", func(r chi.Router) {
-			// Pull endpoint - accessible to all authenticated users
-			r.Post("/pull", h.Pull)
+			attachmentHandler.RegisterRoutes(r, h.AttachmentManifestHandler)
 
-			// Push endpoint - requires read-write or admin role
-			r.With(auth.RequireRole(models.RoleReadWrite, models.RoleAdmin)).Post("/push", h.Push)
+			r.Route("/sync", func(r chi.Router) {
+				r.Post("/pull", h.Pull)
+				r.With(auth.RequireRole(models.RoleReadWrite, models.RoleAdmin)).Post("/push", h.Push)
+			})
+
+			appBundleRoutes := func(r chi.Router) {
+				r.Get("/manifest", h.GetAppBundleManifest)
+				r.Get("/download/{path}", h.GetAppBundleFile)
+				r.Get("/download-zip", h.DownloadBundleZip)
+				r.Get("/versions", h.GetAppBundleVersions)
+				r.Get("/changes", h.CompareAppBundleVersions)
+				r.With(auth.RequireRole(models.RoleAdmin)).Post("/push", h.PushAppBundle)
+				r.With(auth.RequireRole(models.RoleAdmin)).Post("/switch/{version}", h.SwitchAppBundleVersion)
+			}
+			r.Route("/app-bundle", appBundleRoutes)
+
+			userRoutes := func(r chi.Router) {
+				// Support both POST /api/users and POST /api/users/create for compatibility
+				r.With(auth.RequireRole(models.RoleAdmin)).Post("/", h.CreateUserHandler)
+				r.With(auth.RequireRole(models.RoleAdmin)).Post("/create", h.CreateUserHandler)
+				r.With(auth.RequireRole(models.RoleAdmin)).Delete("/delete/{username}", h.DeleteUserHandler)
+				r.With(auth.RequireRole(models.RoleAdmin)).Post("/reset-password", h.ResetPasswordHandler)
+				r.With(auth.RequireRole(models.RoleAdmin)).Get("/", h.ListUsersHandler)
+				r.Post("/change-password", h.ChangePasswordHandler)
+			}
+			r.Route("/users", userRoutes)
+
+			dataExportRoutes := func(r chi.Router) {
+				r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/parquet", h.ParquetExportHandler)
+			}
+			r.Route("/dataexport", dataExportRoutes)
+
+			r.Get("/version", h.GetVersion)
+			r.Get("/versions", h.GetAPIVersions)
 		})
-
-		// App bundle routes
-		appBundleRoutes := func(r chi.Router) {
-			// Read endpoints - accessible to all authenticated users
-			r.Get("/manifest", h.GetAppBundleManifest)
-			r.Get("/download/{path}", h.GetAppBundleFile)
-			r.Get("/download-zip", h.DownloadBundleZip)
-			r.Get("/versions", h.GetAppBundleVersions)
-			r.Get("/changes", h.CompareAppBundleVersions)
-
-			// Write endpoints - require admin role
-			r.With(auth.RequireRole(models.RoleAdmin)).Post("/push", h.PushAppBundle)
-			r.With(auth.RequireRole(models.RoleAdmin)).Post("/switch/{version}", h.SwitchAppBundleVersion)
-		}
-		r.Route("/app-bundle", appBundleRoutes)
-		// Also register under /api for portal compatibility
-		r.Route("/api/app-bundle", appBundleRoutes)
-
-		// User management routes
-		userRoutes := func(r chi.Router) {
-			// Admin-only routes
-			// Support both POST /users and POST /users/create for compatibility
-			// CLI uses POST /users, portal uses POST /users/create
-			r.With(auth.RequireRole(models.RoleAdmin)).Post("/", h.CreateUserHandler)
-			r.With(auth.RequireRole(models.RoleAdmin)).Post("/create", h.CreateUserHandler)
-			r.With(auth.RequireRole(models.RoleAdmin)).Delete("/delete/{username}", h.DeleteUserHandler)
-			r.With(auth.RequireRole(models.RoleAdmin)).Post("/reset-password", h.ResetPasswordHandler)
-			r.With(auth.RequireRole(models.RoleAdmin)).Get("/", h.ListUsersHandler)
-			// Authenticated user route
-			r.Post("/change-password", h.ChangePasswordHandler)
-		}
-		r.Route("/users", userRoutes)
-		// Also register under /api for portal compatibility
-		r.Route("/api/users", userRoutes)
-
-		// Data export routes
-		dataExportRoutes := func(r chi.Router) {
-			// Parquet export - accessible to read-only users and above
-			r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/parquet", h.ParquetExportHandler)
-		}
-		r.Route("/dataexport", dataExportRoutes)
-		// Also register under /api for portal compatibility
-		r.Route("/api/dataexport", dataExportRoutes)
-
-		// Version routes
-		r.Get("/version", h.GetVersion)
-		r.Get("/api/version", h.GetVersion)      // Also under /api for portal compatibility
-		r.Get("/api/versions", h.GetAPIVersions) // Not implemented yet
 	})
 
 	// Serve embedded React portal (SPA) for all other GET requests.
