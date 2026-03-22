@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   useFocusEffect,
@@ -8,7 +8,7 @@ import {
 } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { MainTabParamList, VisibleMainTab } from '../types/NavigationTypes';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import MenuDrawer from '../components/MenuDrawer';
 import { logout } from '../api/synkronus/Auth';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
@@ -19,6 +19,7 @@ type MoreScreenNavigationProp = BottomTabNavigationProp<
 >;
 
 const MoreScreen: React.FC = () => {
+  const shellStyle = useScreenShellStyle();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const route = useRoute();
   const navigation = useNavigation<MoreScreenNavigationProp>();
@@ -86,7 +87,7 @@ const MoreScreen: React.FC = () => {
   };
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView style={styles.container} edges={['top']}>
         <MenuDrawer
           visible={drawerVisible}
@@ -96,7 +97,7 @@ const MoreScreen: React.FC = () => {
           allowClose={true}
         />
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 

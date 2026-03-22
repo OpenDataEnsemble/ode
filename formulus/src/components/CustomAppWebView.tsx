@@ -37,7 +37,7 @@ interface CustomAppWebViewProps {
   onNavigateToSync?: () => void;
   /** Called when placeholder posts formulusNavigateToSettings (Login Now → login/settings screen). */
   onNavigateToSettings?: () => void;
-  /** When true, WebView and container use transparent background (e.g. for placeholder over BlurredScreenBackground). */
+  /** When true, WebView and container use transparent background (e.g. for placeholder over the app screen shell). */
   transparentBackground?: boolean;
 }
 

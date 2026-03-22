@@ -26,7 +26,7 @@ import {
 import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeTypography,
@@ -43,6 +43,7 @@ type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
 const SyncScreen = () => {
   const { themeColors, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
   const titleColor = isDark
     ? (themeColors.onSurface as string)
@@ -483,7 +484,7 @@ const SyncScreen = () => {
     ) : null;
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         edges={['top']}>
@@ -903,7 +904,7 @@ const SyncScreen = () => {
           </View>
         </ScrollView>
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 

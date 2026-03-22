@@ -18,7 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import colors from '../theme/colors';
 import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import BlurredScreenBackground from '../components/BlurredScreenBackground';
+import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
   odeTypography,
@@ -29,6 +29,7 @@ import {
 
 const FormsScreen: React.FC = () => {
   const { themeColors, resolvedMode } = useAppTheme();
+  const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
   const titleColor = isDark
     ? (themeColors.onSurface as string)
@@ -111,7 +112,7 @@ const FormsScreen: React.FC = () => {
 
   if (loading && forms.length === 0) {
     return (
-      <BlurredScreenBackground>
+      <View style={shellStyle}>
         <SafeAreaView
           style={[styles.container, { backgroundColor: 'transparent' }]}>
           <View style={styles.loadingContainer}>
@@ -122,13 +123,13 @@ const FormsScreen: React.FC = () => {
             </Text>
           </View>
         </SafeAreaView>
-      </BlurredScreenBackground>
+      </View>
     );
   }
 
   if (error && forms.length === 0) {
     return (
-      <BlurredScreenBackground>
+      <View style={shellStyle}>
         <SafeAreaView
           style={[styles.container, { backgroundColor: 'transparent' }]}>
           <EmptyState
@@ -139,12 +140,12 @@ const FormsScreen: React.FC = () => {
             onAction={refresh}
           />
         </SafeAreaView>
-      </BlurredScreenBackground>
+      </View>
     );
   }
 
   return (
-    <BlurredScreenBackground>
+    <View style={shellStyle}>
       <SafeAreaView
         style={[styles.container, { backgroundColor: 'transparent' }]}
         edges={['top']}>
@@ -251,7 +252,7 @@ const FormsScreen: React.FC = () => {
           />
         )}
       </SafeAreaView>
-    </BlurredScreenBackground>
+    </View>
   );
 };
 
