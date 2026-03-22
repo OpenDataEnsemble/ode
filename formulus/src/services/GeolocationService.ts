@@ -10,21 +10,31 @@ import {
 import { RESULTS } from 'react-native-permissions';
 
 /**
- * Service for on-demand geolocation capture for observations
- * Uses react-native-geolocation-service for reliable location access
+ * Geolocation for observations: one "session" per open form in FormplayerModal.
+ *
+ * - Clears any prior cache when a new form session starts (avoids reusing another
+ *   form's coordinates when the user saves before a new pre-fetch completes).
+ * - Refines the stored fix while the form is open: keeps the best horizontal
+ *   accuracy seen, with a light watch (battery-conscious intervals / distance).
+ * - Accepts a cached fix for up to CACHE_MAX_AGE_MS when saving (prefer stale vs none).
+ * - Uses maximumAge 0 on one-shot reads so we do not cement an old fused-network fix.
+ *
  */
 export class GeolocationService {
   private static instance: GeolocationService;
 
-  private config: GeolocationConfig = {
+  /** Used for one-shot reads; maximumAge 0 avoids reusing an OS-cached coarse fix. */
+  private readonly freshConfig: GeolocationConfig = {
     enableHighAccuracy: true,
     timeout: 10000,
-    maximumAge: 10000,
+    maximumAge: 0,
   };
 
   private cachedLocation: ObservationGeolocation | null = null;
   private cachedAt: number = 0;
-  private static readonly CACHE_MAX_AGE_MS = 120_000; // 2 minutes
+  private static readonly CACHE_MAX_AGE_MS = 300_000; // 5 minutes
+
+  private activeSessionCleanup: (() => void) | null = null;
 
   private constructor() {}
 
@@ -36,108 +46,86 @@ export class GeolocationService {
   }
 
   /**
-   * Get current location for an observation
-   * Uses react-native-geolocation-service for reliable location access
+   * Begin a form session: clear prior state, request an immediate fresh fix, and
+   * watch for better accuracy while the form is open. Call the returned cleanup
+   * (or `endObservationSession`) when the modal closes.
    */
-  public async getCurrentLocationForObservation(): Promise<ObservationGeolocation | null> {
-    try {
-      // Check and request permissions first
-      const permissionStatus = await ensureLocationPermission();
-      if (permissionStatus !== RESULTS.GRANTED) {
-        console.warn('Location permission not granted:', permissionStatus);
-        return null;
-      }
+  public beginObservationSession(): () => void {
+    this.endObservationSession();
+    this.clearCache();
 
-      // Get current position using react-native-geolocation-service
-      return new Promise<ObservationGeolocation | null>(resolve => {
-        Geolocation.getCurrentPosition(
-          position => {
-            const location = this.convertToObservationGeolocation(position);
-            console.debug('Got location for observation:', location);
-            resolve(location);
-          },
-          error => {
-            console.warn('Failed to get location for observation:', error);
-            resolve(null);
-          },
-          {
-            ...this.config,
-            forceRequestLocation: true,
-            showLocationDialog: true,
-          },
-        );
-      });
-    } catch (error) {
-      console.error('Error getting location for observation:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get current location with Promise-based API
-   * Useful for other parts of the app that need location
-   */
-  public async getCurrentPosition(): Promise<ObservationGeolocation | null> {
-    return this.getCurrentLocationForObservation();
-  }
-
-  /**
-   * Start watching position (for future use if needed)
-   * Returns a cleanup function to stop watching
-   */
-  public startWatching(
-    onUpdate: (location: ObservationGeolocation) => void,
-  ): () => void {
+    let cancelled = false;
     let watchId: number | null = null;
 
-    const startWatch = async () => {
-      const hasPermission = await hasLocationPermission();
-      if (!hasPermission) {
-        console.warn('Location permission not available for watching');
+    const cleanup = () => {
+      cancelled = true;
+      if (watchId !== null) {
+        Geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      this.clearCache();
+      if (this.activeSessionCleanup === cleanup) {
+        this.activeSessionCleanup = null;
+      }
+    };
+
+    this.activeSessionCleanup = cleanup;
+
+    const merge = (loc: ObservationGeolocation | null) => {
+      if (!loc || cancelled) {
         return;
       }
+      this.mergeBestCandidate(loc);
+    };
 
+    void this.getPositionOnce(this.freshConfig).then(merge);
+
+    void (async () => {
+      const ok = await hasLocationPermission();
+      if (cancelled || !ok) {
+        return;
+      }
       watchId = Geolocation.watchPosition(
         position => {
-          const location = this.convertToObservationGeolocation(position);
-          onUpdate(location);
+          merge(this.convertToObservationGeolocation(position));
         },
         error => {
           console.warn('Location watch error:', error);
         },
         {
           enableHighAccuracy: true,
-          distanceFilter: 25, // Battery-friendly: update when moved 25 meters
-          interval: 10000, // 10 seconds
-          fastestInterval: 5000, // 5 seconds
+          // Battery: avoid tight polling; refine when accuracy improves or user moves.
+          distanceFilter: 20,
+          interval: 20_000,
+          fastestInterval: 15_000,
         },
       );
-    };
+    })();
 
-    startWatch();
-
-    // Return cleanup function
-    return () => {
-      if (watchId !== null) {
-        Geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-    };
+    return cleanup;
   }
 
-  /** Fire-and-forget: start acquiring GPS so the result is cached for later. */
-  public preCacheLocation(): void {
-    this.getCurrentLocationForObservation()
-      .then(location => {
-        if (location) {
-          this.cachedLocation = location;
-          this.cachedAt = Date.now();
-        }
-      })
-      .catch(() => {});
+  public endObservationSession(): void {
+    if (!this.activeSessionCleanup) {
+      return;
+    }
+    const run = this.activeSessionCleanup;
+    this.activeSessionCleanup = null;
+    run();
   }
 
-  /** Return cached location if fresh enough, otherwise null. */
+  /**
+   * Get current location for an observation (fresh one-shot; not from OS cache).
+   */
+  public async getCurrentLocationForObservation(): Promise<ObservationGeolocation | null> {
+    return this.getPositionOnce(this.freshConfig);
+  }
+
+  public async getCurrentPosition(): Promise<ObservationGeolocation | null> {
+    return this.getCurrentLocationForObservation();
+  }
+
+  /** Return cached best fix if within TTL, otherwise null. */
   public getCachedLocation(): ObservationGeolocation | null {
     if (
       this.cachedLocation &&
@@ -153,28 +141,105 @@ export class GeolocationService {
     this.cachedAt = 0;
   }
 
-  /**
-   * Convert react-native-geolocation-service position to our observation format
-   */
+  private async getPositionOnce(
+    config: GeolocationConfig,
+  ): Promise<ObservationGeolocation | null> {
+    try {
+      const permissionStatus = await ensureLocationPermission();
+      if (permissionStatus !== RESULTS.GRANTED) {
+        console.warn('Location permission not granted:', permissionStatus);
+        return null;
+      }
+
+      return new Promise<ObservationGeolocation | null>(resolve => {
+        Geolocation.getCurrentPosition(
+          position => {
+            const location = this.convertToObservationGeolocation(position);
+            console.debug('Got location for observation:', location);
+            resolve(location);
+          },
+          error => {
+            console.warn('Failed to get location for observation:', error);
+            resolve(null);
+          },
+          {
+            ...config,
+            forceRequestLocation: true,
+            showLocationDialog: true,
+          },
+        );
+      });
+    } catch (error) {
+      console.error('Error getting location for observation:', error);
+      return null;
+    }
+  }
+
+  private mergeBestCandidate(incoming: ObservationGeolocation): void {
+    const prev = this.cachedLocation;
+    if (!prev) {
+      this.cachedLocation = incoming;
+      this.cachedAt = Date.now();
+      return;
+    }
+
+    const incAcc = this.accuracyMeters(incoming);
+    const prevAcc = this.accuracyMeters(prev);
+
+    if (incAcc < prevAcc) {
+      this.cachedLocation = incoming;
+      this.cachedAt = Date.now();
+      return;
+    }
+
+    if (incAcc === prevAcc) {
+      const incT = this.fixTimeMs(incoming);
+      const prevT = this.fixTimeMs(prev);
+      if (incT > prevT) {
+        this.cachedLocation = incoming;
+        this.cachedAt = Date.now();
+      }
+    }
+  }
+
+  private accuracyMeters(loc: ObservationGeolocation): number {
+    const a = loc.accuracy;
+    if (a == null || !Number.isFinite(a)) {
+      return Number.POSITIVE_INFINITY;
+    }
+    return Math.max(0, a);
+  }
+
+  private fixTimeMs(loc: ObservationGeolocation): number {
+    if (loc.timestamp) {
+      const t = Date.parse(loc.timestamp);
+      if (!Number.isNaN(t)) {
+        return t;
+      }
+    }
+    return 0;
+  }
+
   private convertToObservationGeolocation(
     position: Geolocation.GeoPosition,
   ): ObservationGeolocation {
+    const ts =
+      position.timestamp != null && Number.isFinite(position.timestamp)
+        ? new Date(position.timestamp).toISOString()
+        : undefined;
     return {
       latitude: position.coords.latitude,
       longitude: position.coords.longitude,
       accuracy: position.coords.accuracy,
       altitude: position.coords.altitude,
       altitude_accuracy: position.coords.altitudeAccuracy,
+      timestamp: ts,
     };
   }
 
-  /**
-   * Check if location services are available
-   */
   public async isLocationAvailable(): Promise<boolean> {
     return await hasLocationPermission();
   }
 }
 
-// Export singleton instance
 export const geolocationService = GeolocationService.getInstance();
