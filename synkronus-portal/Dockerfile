@@ -66,10 +66,8 @@ RUN echo 'server { \
     location / { \
         try_files $uri $uri/ /index.html; \
     } \
-    # Proxy API requests to demo server (demo.synkronus.cloud) \
-    # Strip /api prefix since demo server uses routes without /api prefix \
+    # Proxy API requests to demo server; backend mounts REST under /api \
     location /api { \
-        rewrite ^/api(.*)$ $1 break; \
         proxy_pass http://demo.synkronus.cloud; \
         proxy_http_version 1.1; \
         proxy_set_header Upgrade $http_upgrade; \
@@ -87,6 +85,15 @@ RUN echo 'server { \
         proxy_read_timeout 60s; \
         proxy_buffering off; \
         client_max_body_size 100M; \
+    } \
+    # Health lives at server root (not under /api), same as synkronus router \
+    location = /health { \
+        proxy_pass http://demo.synkronus.cloud; \
+        proxy_http_version 1.1; \
+        proxy_set_header Host demo.synkronus.cloud; \
+        proxy_set_header X-Real-IP $remote_addr; \
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
+        proxy_set_header X-Forwarded-Proto $scheme; \
     } \
 }' > /etc/nginx/conf.d/default.conf
 
