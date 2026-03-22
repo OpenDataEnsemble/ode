@@ -55,7 +55,7 @@ func TestHandler_ParquetExportHandler(t *testing.T) {
 			h.dataExportService = mockDataExportService
 
 			// Create request
-			req := httptest.NewRequest(http.MethodGet, "/dataexport/parquet", nil)
+			req := httptest.NewRequest(http.MethodGet, "/api/dataexport/parquet", nil)
 			w := httptest.NewRecorder()
 
 			// Call handler
@@ -116,7 +116,7 @@ func TestHandler_ParquetExportHandler_Integration(t *testing.T) {
 	h.dataExportService = mockDataExportService
 
 	// Create request
-	req := httptest.NewRequest(http.MethodGet, "/dataexport/parquet", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/dataexport/parquet", nil)
 	w := httptest.NewRecorder()
 
 	// Call handler

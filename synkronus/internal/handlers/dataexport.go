@@ -15,7 +15,7 @@ import (
 // @Failure 403 {object} ErrorResponse "Forbidden"
 // @Failure 500 {object} ErrorResponse "Internal Server Error"
 // @Security BearerAuth
-// @Router /dataexport/parquet [get]
+// @Router /api/dataexport/parquet [get]
 func (h *Handler) ParquetExportHandler(w http.ResponseWriter, r *http.Request) {
 	// Export data as parquet ZIP
 	zipReader, err := h.dataExportService.ExportParquetZip(r.Context())

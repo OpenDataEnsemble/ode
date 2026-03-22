@@ -48,7 +48,7 @@ func TestLogin(t *testing.T) {
 			}
 
 			// Create a test request
-			req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewBuffer(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/auth/login", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
@@ -124,7 +124,7 @@ func TestRefreshToken(t *testing.T) {
 			}
 
 			// Create a test request
-			req := httptest.NewRequest(http.MethodPost, "/auth/refresh", bytes.NewBuffer(body))
+			req := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 

@@ -46,7 +46,7 @@ func TestSyncE2E_VersionIncrement(t *testing.T) {
 		t.Fatalf("Failed to marshal pull request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", server.URL+"/sync/pull", bytes.NewReader(pullBody))
+	req, err := http.NewRequest("POST", server.URL+"/api/sync/pull", bytes.NewReader(pullBody))
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestSyncE2E_PartialFailure(t *testing.T) {
 		t.Fatalf("Failed to marshal push request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", server.URL+"/sync/push", bytes.NewReader(pushBody))
+	req, err := http.NewRequest("POST", server.URL+"/api/sync/push", bytes.NewReader(pushBody))
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestSyncE2E_SchemaTypeFiltering(t *testing.T) {
 		t.Fatalf("Failed to marshal push request: %v", err)
 	}
 
-	req, err := http.NewRequest("POST", server.URL+"/sync/push", bytes.NewReader(pushBody))
+	req, err := http.NewRequest("POST", server.URL+"/api/sync/push", bytes.NewReader(pushBody))
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestSyncE2E_SchemaTypeFiltering(t *testing.T) {
 		t.Fatalf("Failed to marshal pull request: %v", err)
 	}
 
-	req, err = http.NewRequest("POST", server.URL+"/sync/pull", bytes.NewReader(pullBody))
+	req, err = http.NewRequest("POST", server.URL+"/api/sync/pull", bytes.NewReader(pullBody))
 	if err != nil {
 		t.Fatalf("Failed to create request: %v", err)
 	}
@@ -289,8 +289,8 @@ func createTestServerWithDB(t *testing.T, db *sql.DB) *httptest.Server {
 
 	// Wrap sync endpoints with auth middleware
 	authMiddleware := authmw.AuthMiddleware(&mockAuthService{}, log)
-	mux.Handle("/sync/pull", authMiddleware(http.HandlerFunc(handler.Pull)))
-	mux.Handle("/sync/push", authMiddleware(http.HandlerFunc(handler.Push)))
+	mux.Handle("/api/sync/pull", authMiddleware(http.HandlerFunc(handler.Pull)))
+	mux.Handle("/api/sync/push", authMiddleware(http.HandlerFunc(handler.Push)))
 
 	return httptest.NewServer(mux)
 }

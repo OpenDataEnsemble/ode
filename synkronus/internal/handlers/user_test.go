@@ -49,7 +49,7 @@ func TestCreateUserHandler(t *testing.T) {
 		// Ensure the user does not exist (no setup needed)
 		payload := map[string]any{"username": "testuser", "password": "password", "role": "read-only"}
 		body, _ := json.Marshal(payload)
-		r := httptest.NewRequest(http.MethodPost, "/users/create", bytes.NewReader(body))
+		r := httptest.NewRequest(http.MethodPost, "/api/users/create", bytes.NewReader(body))
 		w := httptest.NewRecorder()
 		h.CreateUserHandler(w, r)
 		resp := w.Result()
@@ -62,7 +62,7 @@ func TestCreateUserHandler(t *testing.T) {
 		mockUserService.AddUser(existingUser)
 		payload := map[string]any{"username": "testuser", "password": "password", "role": "read-only"}
 		body, _ := json.Marshal(payload)
-		r := httptest.NewRequest(http.MethodPost, "/users/create", bytes.NewReader(body))
+		r := httptest.NewRequest(http.MethodPost, "/api/users/create", bytes.NewReader(body))
 		w := httptest.NewRecorder()
 		h.CreateUserHandler(w, r)
 		resp := w.Result()
@@ -105,7 +105,7 @@ func TestDeleteUserHandler(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.setup()
-			r := httptest.NewRequest(http.MethodDelete, "/users/delete/"+tc.username, nil)
+			r := httptest.NewRequest(http.MethodDelete, "/api/users/delete/"+tc.username, nil)
 			ctx := chi.NewRouteContext()
 			if tc.username != "" {
 				ctx.URLParams.Add("username", tc.username)
@@ -148,7 +148,7 @@ func TestResetPasswordHandler(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			body, _ := json.Marshal(tc.payload)
-			r := httptest.NewRequest(http.MethodPost, "/users/reset-password", bytes.NewReader(body))
+			r := httptest.NewRequest(http.MethodPost, "/api/users/reset-password", bytes.NewReader(body))
 			w := httptest.NewRecorder()
 			h.ResetPasswordHandler(w, r)
 			resp := w.Result()
@@ -196,7 +196,7 @@ func TestChangePasswordHandler(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			body, _ := json.Marshal(tc.payload)
-			r := httptest.NewRequest(http.MethodPost, "/users/change-password", bytes.NewReader(body))
+			r := httptest.NewRequest(http.MethodPost, "/api/users/change-password", bytes.NewReader(body))
 			ctx := r.Context()
 			if tc.username != "" {
 				ctx = context.WithValue(ctx, auth.UserKey, &models.User{Username: tc.username, Role: models.RoleReadOnly})

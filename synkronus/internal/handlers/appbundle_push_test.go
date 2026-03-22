@@ -84,7 +84,7 @@ func TestPushAppBundle(t *testing.T) {
 				}
 
 				// Create the request
-				req := httptest.NewRequest(http.MethodPost, "/app-bundle/push", body)
+				req := httptest.NewRequest(http.MethodPost, "/api/app-bundle/push", body)
 				req.Header.Set("Content-Type", writer.FormDataContentType())
 				return req, nil
 			},
@@ -104,7 +104,7 @@ func TestPushAppBundle(t *testing.T) {
 		{
 			name: "Unauthorized - No User in Context",
 			setupRequest: func() (*http.Request, error) {
-				req := httptest.NewRequest(http.MethodPost, "/app-bundle/push", nil)
+				req := httptest.NewRequest(http.MethodPost, "/api/app-bundle/push", nil)
 				return req, nil
 			},
 			setupContext: func(r *http.Request) {
@@ -116,7 +116,7 @@ func TestPushAppBundle(t *testing.T) {
 		{
 			name: "Bad Request - No Multipart Form",
 			setupRequest: func() (*http.Request, error) {
-				req := httptest.NewRequest(http.MethodPost, "/app-bundle/push", nil)
+				req := httptest.NewRequest(http.MethodPost, "/api/app-bundle/push", nil)
 				return req, nil
 			},
 			setupContext: func(r *http.Request) {
@@ -187,7 +187,7 @@ func TestGetAppBundleVersions(t *testing.T) {
 		{
 			name: "Successful Get Versions",
 			setupRequest: func() *http.Request {
-				return httptest.NewRequest(http.MethodGet, "/app-bundle/versions", nil)
+				return httptest.NewRequest(http.MethodGet, "/api/app-bundle/versions", nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedBody:   `"versions":["20250101-000000","20250102-000000"]`,
@@ -287,7 +287,7 @@ func TestSwitchAppBundleVersion(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create a test request with the version as a URL parameter
-			url := "/app-bundle/switch/" + tc.version
+			url := "/api/app-bundle/switch/" + tc.version
 			req := httptest.NewRequest(http.MethodPost, url, nil)
 
 			// Setup the chi router context with URL params

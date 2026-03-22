@@ -147,7 +147,7 @@ class SynkronusApi {
     );
     const urls = filesToDownload.map(
       file =>
-        `${config.basePath}/app-bundle/download/${encodeURIComponent(file.path)}`,
+        `${config.basePath}/api/app-bundle/download/${encodeURIComponent(file.path)}`,
     );
     const localFiles = filesToDownload.map(
       file => `${outputRootDirectory}/${file.path}`,
@@ -177,7 +177,7 @@ class SynkronusApi {
     const authToken =
       this.fastGetToken_cachedToken ?? (await this.fastGetToken());
 
-    const zipUrl = `${config.basePath}/app-bundle/download-zip`;
+    const zipUrl = `${config.basePath}/api/app-bundle/download-zip`;
     const tempZipPath = `${RNFS.CachesDirectoryPath}/bundle_temp.zip`;
     const tempExtractPath = `${RNFS.CachesDirectoryPath}/bundle_staging`;
     const appDir = `${RNFS.DocumentDirectoryPath}/app`;
@@ -367,7 +367,7 @@ class SynkronusApi {
     const config = await this.getConfig();
     const base = config.basePath.replace(/\/$/, '');
     const urls = downloadOps.map(
-      op => `${base}/attachments/${encodeURIComponent(op.attachment_id)}`,
+      op => `${base}/api/attachments/${encodeURIComponent(op.attachment_id)}`,
     );
     const localPaths = downloadOps.map(
       op => `${attachmentsDirectory}/${op.attachment_id}`,
@@ -616,7 +616,7 @@ class SynkronusApi {
     const config = await this.getConfig();
     const urls = attachments.map(
       attachment =>
-        `${config.basePath}/attachments/${encodeURIComponent(attachment)}`,
+        `${config.basePath}/api/attachments/${encodeURIComponent(attachment)}`,
     );
     const localFilePaths = attachments.map(
       attachment => `${downloadDirectory}/${attachment}`,

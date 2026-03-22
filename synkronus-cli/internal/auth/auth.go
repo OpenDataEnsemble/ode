@@ -36,7 +36,7 @@ type Claims struct {
 // Login authenticates with the Synkronus API and returns a token
 func Login(username, password string) (*TokenResponse, error) {
 	apiURL := normalizeBaseURL(utils.EnsureScheme(viper.GetString("api.url")))
-	loginURL := fmt.Sprintf("%s/auth/login", apiURL)
+	loginURL := fmt.Sprintf("%s/api/auth/login", apiURL)
 
 	// Prepare login request
 	loginData := map[string]string{
@@ -98,7 +98,7 @@ func Login(username, password string) (*TokenResponse, error) {
 // RefreshToken refreshes the JWT token
 func RefreshToken() (*TokenResponse, error) {
 	apiURL := normalizeBaseURL(utils.EnsureScheme(viper.GetString("api.url")))
-	refreshURL := fmt.Sprintf("%s/auth/refresh", apiURL)
+	refreshURL := fmt.Sprintf("%s/api/auth/refresh", apiURL)
 	refreshToken := viper.GetString("auth.refresh_token")
 
 	// Prepare refresh request
