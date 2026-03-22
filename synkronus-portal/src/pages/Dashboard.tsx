@@ -187,7 +187,7 @@ export function Dashboard() {
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
   // App bundle modals
-  const [autoActivate, setAutoActivate] = useState(false);
+  const [autoActivate, setAutoActivate] = useState(true);
   const [showManifestModal, setShowManifestModal] = useState(false);
   const [showChangesModal, setShowChangesModal] = useState(false);
   const [showSwitchConfirm, setShowSwitchConfirm] = useState<string | null>(
