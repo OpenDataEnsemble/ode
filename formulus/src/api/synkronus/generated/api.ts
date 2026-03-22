@@ -795,6 +795,12 @@ export interface ObservationGeolocation {
    * @memberof ObservationGeolocation
    */
   altitude_accuracy?: number | null;
+  /**
+   * When the GPS fix was obtained (ISO 8601)
+   * @type {string}
+   * @memberof ObservationGeolocation
+   */
+  timestamp?: string;
 }
 /**
  *
