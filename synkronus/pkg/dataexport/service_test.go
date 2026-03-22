@@ -319,8 +319,8 @@ func TestService_buildArrowSchema(t *testing.T) {
 
 	arrowSchema := service.buildArrowSchema(schema)
 
-	// Check that we have the expected number of fields (9 base + 3 data fields)
-	expectedFieldCount := 9 + len(schema.Columns)
+	// Check that we have the expected number of fields (12 base + 3 data fields)
+	expectedFieldCount := 12 + len(schema.Columns)
 	if len(arrowSchema.Fields()) != expectedFieldCount {
 		t.Errorf("Expected %d fields, got %d", expectedFieldCount, len(arrowSchema.Fields()))
 	}
@@ -329,6 +329,7 @@ func TestService_buildArrowSchema(t *testing.T) {
 	baseFields := []string{
 		"observation_id", "form_type", "form_version", "created_at",
 		"updated_at", "synced_at", "deleted", "version", "geolocation",
+		"author", "device_id", "tags",
 	}
 
 	for i, expectedName := range baseFields {
@@ -340,7 +341,7 @@ func TestService_buildArrowSchema(t *testing.T) {
 	// Check data fields
 	dataFields := []string{"data_text_field", "data_number_field", "data_bool_field"}
 	for i, expectedName := range dataFields {
-		fieldIndex := 9 + i
+		fieldIndex := 12 + i
 		if arrowSchema.Field(fieldIndex).Name != expectedName {
 			t.Errorf("Expected field %d to be %s, got %s", fieldIndex, expectedName, arrowSchema.Field(fieldIndex).Name)
 		}

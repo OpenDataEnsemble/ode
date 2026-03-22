@@ -68,6 +68,9 @@ type rawObservationPayload struct {
 	Deleted       bool                   `json:"deleted"`
 	Version       int64                  `json:"version"`
 	Geolocation   json.RawMessage        `json:"geolocation,omitempty"`
+	Author        *string                `json:"author,omitempty"`
+	DeviceID      *string                `json:"device_id,omitempty"`
+	Tags          []string               `json:"tags,omitempty"`
 	Data          map[string]interface{} `json:"data"`
 }
 
@@ -110,6 +113,9 @@ func (s *service) ExportRawJSONZip(ctx context.Context, w io.Writer) error {
 				Deleted:       obs.Deleted,
 				Version:       obs.Version,
 				Geolocation:   obs.Geolocation,
+				Author:        obs.Author,
+				DeviceID:      obs.DeviceID,
+				Tags:          obs.Tags,
 				Data:          unflattenDataFields(obs.DataFields),
 			}
 
@@ -214,6 +220,9 @@ func (s *service) buildArrowSchema(schema *FormTypeSchema) *arrow.Schema {
 		{Name: "deleted", Type: arrow.FixedWidthTypes.Boolean, Nullable: false},
 		{Name: "version", Type: arrow.PrimitiveTypes.Int64, Nullable: false},
 		{Name: "geolocation", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "author", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "device_id", Type: arrow.BinaryTypes.String, Nullable: true},
+		{Name: "tags", Type: arrow.BinaryTypes.String, Nullable: true},
 	}
 
 	// Add data fields
@@ -250,6 +259,9 @@ func (s *service) buildArrowRecord(observations []ObservationRow, schema *FormTy
 	deletedBuilder := builder.Field(6).(*array.BooleanBuilder)
 	versionBuilder := builder.Field(7).(*array.Int64Builder)
 	geolocationBuilder := builder.Field(8).(*array.StringBuilder)
+	authorBuilder := builder.Field(9).(*array.StringBuilder)
+	deviceIDBuilder := builder.Field(10).(*array.StringBuilder)
+	tagsBuilder := builder.Field(11).(*array.StringBuilder)
 
 	for _, obs := range observations {
 		obsIDBuilder.Append(obs.ObservationID)
@@ -269,11 +281,31 @@ func (s *service) buildArrowRecord(observations []ObservationRow, schema *FormTy
 		} else {
 			geolocationBuilder.AppendNull()
 		}
+		if obs.Author != nil {
+			authorBuilder.Append(*obs.Author)
+		} else {
+			authorBuilder.AppendNull()
+		}
+		if obs.DeviceID != nil {
+			deviceIDBuilder.Append(*obs.DeviceID)
+		} else {
+			deviceIDBuilder.AppendNull()
+		}
+		if obs.Tags != nil {
+			tagJSON, err := json.Marshal(obs.Tags)
+			if err != nil {
+				tagsBuilder.AppendNull()
+			} else {
+				tagsBuilder.Append(string(tagJSON))
+			}
+		} else {
+			tagsBuilder.AppendNull()
+		}
 	}
 
 	// Build data field columns
 	for i, col := range schema.Columns {
-		fieldBuilder := builder.Field(9 + i)
+		fieldBuilder := builder.Field(12 + i)
 		fieldName := "data_" + col.Key
 
 		for _, obs := range observations {

@@ -747,17 +747,23 @@ export interface Observation {
    */
   geolocation?: ObservationGeolocation | null;
   /**
-   * Author/creator of the observation
+   * Optional author/creator identifier for the observation (e.g. username)
    * @type {string}
    * @memberof Observation
    */
-  author: string;
+  author?: string | null;
   /**
-   * Device ID that created the observation
+   * Optional client device identifier for the observation
    * @type {string}
    * @memberof Observation
    */
-  device_id: string;
+  device_id?: string | null;
+  /**
+   * Optional tags for labeling, extensions, or data cleaning
+   * @type {Array<string>}
+   * @memberof Observation
+   */
+  tags?: string[] | null;
 }
 /**
  * Optional geolocation data for the observation

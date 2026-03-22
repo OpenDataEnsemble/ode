@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 // postgresDB implements DatabaseInterface for PostgreSQL
@@ -173,7 +175,10 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 			synced_at,
 			deleted,
 			version,
-			geolocation
+			geolocation,
+			author,
+			device_id,
+			tags
 			%s
 		FROM observations 
 		WHERE form_type = $1 AND deleted = false
@@ -190,9 +195,12 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 	for rows.Next() {
 		var obs ObservationRow
 		var geolocationBytes []byte
+		var author sql.NullString
+		var deviceID sql.NullString
+		var tags pq.StringArray
 
 		// Create slice for scanning - base columns plus data fields
-		scanArgs := make([]interface{}, 9+len(schema.Columns))
+		scanArgs := make([]interface{}, 12+len(schema.Columns))
 		scanArgs[0] = &obs.ObservationID
 		scanArgs[1] = &obs.FormType
 		scanArgs[2] = &obs.FormVersion
@@ -202,11 +210,14 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 		scanArgs[6] = &obs.Deleted
 		scanArgs[7] = &obs.Version
 		scanArgs[8] = &geolocationBytes
+		scanArgs[9] = &author
+		scanArgs[10] = &deviceID
+		scanArgs[11] = &tags
 
 		// Add data field scan targets
 		dataValues := make([]interface{}, len(schema.Columns))
 		for i := range schema.Columns {
-			scanArgs[9+i] = &dataValues[i]
+			scanArgs[12+i] = &dataValues[i]
 		}
 
 		if err := rows.Scan(scanArgs...); err != nil {
@@ -216,6 +227,17 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 		// Handle geolocation
 		if geolocationBytes != nil {
 			obs.Geolocation = json.RawMessage(geolocationBytes)
+		}
+		if author.Valid {
+			s := author.String
+			obs.Author = &s
+		}
+		if deviceID.Valid {
+			s := deviceID.String
+			obs.DeviceID = &s
+		}
+		if tags != nil {
+			obs.Tags = []string(tags)
 		}
 
 		// Build data fields map

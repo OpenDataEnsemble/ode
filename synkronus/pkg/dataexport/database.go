@@ -29,6 +29,9 @@ type ObservationRow struct {
 	Deleted       bool                   `json:"deleted"`
 	Version       int64                  `json:"version"`
 	Geolocation   json.RawMessage        `json:"geolocation"`
+	Author        *string                `json:"author,omitempty"`
+	DeviceID      *string                `json:"device_id,omitempty"`
+	Tags          []string               `json:"tags,omitempty"`
 	DataFields    map[string]interface{} `json:"data_fields"`
 }
 

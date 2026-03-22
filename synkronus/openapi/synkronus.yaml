@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Synkronus API
-  version: 1.0.4
+  version: 1.0.5
 paths:
   /health:
     get:
@@ -1318,8 +1318,6 @@ components:
         - created_at
         - updated_at
         - deleted
-        - author
-        - device_id
       properties:
         observation_id:
           type: string
@@ -1381,10 +1379,18 @@ components:
               description: When the GPS fix was obtained (ISO 8601)
         author:
           type: string
-          description: Author/creator of the observation
+          nullable: true
+          description: Optional author/creator identifier for the observation (e.g. username)
         device_id:
           type: string
-          description: Device ID that created the observation
+          nullable: true
+          description: Optional client device identifier for the observation
+        tags:
+          type: array
+          nullable: true
+          description: Optional list of string tags (labeling, extensions, data cleaning)
+          items:
+            type: string
 
 
     ProblemDetail:

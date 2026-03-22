@@ -21,6 +21,7 @@ describe('ObservationMapper sync identity (regression)', () => {
       deleted: false,
       author: 'a',
       deviceId: 'd1',
+      tags: '',
       createdAt: new Date('2025-01-01T00:00:00.000Z'),
       updatedAt: new Date('2025-01-02T00:00:00.000Z'),
       syncedAt: new Date('2025-01-03T00:00:00.000Z'),

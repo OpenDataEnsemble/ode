@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -80,7 +81,8 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 
 	queryBuilder.WriteString(`
 		SELECT observation_id, form_type, form_version, data, 
-		       created_at, updated_at, synced_at, deleted, version
+		       created_at, updated_at, synced_at, deleted, version,
+		       geolocation, author, device_id, tags
 		FROM observations 
 		WHERE version > $`)
 	queryBuilder.WriteString(strconv.Itoa(argIndex))
@@ -141,11 +143,16 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 	for rows.Next() {
 		var obs Observation
 		var syncedAt sql.NullString
+		var geoBytes []byte
+		var author sql.NullString
+		var deviceID sql.NullString
+		var tags pq.StringArray
 
 		err := rows.Scan(
 			&obs.ObservationID, &obs.FormType, &obs.FormVersion,
 			&obs.Data, &obs.CreatedAt, &obs.UpdatedAt, &syncedAt,
 			&obs.Deleted, &obs.Version,
+			&geoBytes, &author, &deviceID, &tags,
 		)
 		if err != nil {
 			s.log.Error("Failed to scan observation row", "error", err)
@@ -154,6 +161,25 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 
 		if syncedAt.Valid {
 			obs.SyncedAt = &syncedAt.String
+		}
+
+		if len(geoBytes) > 0 {
+			var g Geolocation
+			if err := json.Unmarshal(geoBytes, &g); err == nil {
+				obs.Geolocation = &g
+			}
+		}
+
+		if author.Valid {
+			s := author.String
+			obs.Author = &s
+		}
+		if deviceID.Valid {
+			s := deviceID.String
+			obs.DeviceID = &s
+		}
+		if tags != nil {
+			obs.Tags = []string(tags)
 		}
 
 		records = append(records, obs)
@@ -236,10 +262,35 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 			})
 		}
 
-		// Insert or update the observation
+		var authorArg interface{}
+		if record.Author != nil {
+			authorArg = *record.Author
+		}
+		var deviceArg interface{}
+		if record.DeviceID != nil {
+			deviceArg = *record.DeviceID
+		}
+		var tagsArg interface{}
+		if record.Tags != nil {
+			tagsArg = pq.Array(record.Tags)
+		}
+		var geoArg interface{}
+		if record.Geolocation != nil {
+			b, mErr := json.Marshal(record.Geolocation)
+			if mErr != nil {
+				failedRecords = append(failedRecords, map[string]interface{}{
+					"index":  i,
+					"error":  fmt.Sprintf("geolocation json: %v", mErr),
+					"record": record,
+				})
+				continue
+			}
+			geoArg = b
+		}
+
 		query := `
-			INSERT INTO observations (observation_id, form_type, form_version, data, created_at, updated_at, deleted)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
+			INSERT INTO observations (observation_id, form_type, form_version, data, created_at, updated_at, deleted, author, device_id, tags, geolocation)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			ON CONFLICT (observation_id) 
 			DO UPDATE SET 
 				form_type = EXCLUDED.form_type,
@@ -247,12 +298,17 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 				data = EXCLUDED.data,
 				updated_at = EXCLUDED.updated_at,
 				deleted = EXCLUDED.deleted,
+				author = EXCLUDED.author,
+				device_id = EXCLUDED.device_id,
+				tags = EXCLUDED.tags,
+				geolocation = EXCLUDED.geolocation,
 				version = observations.version + 1
 		`
 
 		_, err := tx.ExecContext(ctx, query,
 			record.ObservationID, record.FormType, record.FormVersion,
-			record.Data, record.CreatedAt, record.UpdatedAt, record.Deleted)
+			record.Data, record.CreatedAt, record.UpdatedAt, record.Deleted,
+			authorArg, deviceArg, tagsArg, geoArg)
 
 		if err != nil {
 			s.log.Error("Failed to insert/update observation", "error", err, "observationId", record.ObservationID)

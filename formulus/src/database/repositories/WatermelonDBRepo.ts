@@ -72,6 +72,11 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       const deviceId: string =
         input.deviceId ?? (await clientIdService.getClientId());
 
+      const stringifiedTags =
+        input.tags != null && input.tags.length > 0
+          ? JSON.stringify(input.tags)
+          : '';
+
       // Stringify geolocation for storage
       const stringifiedGeolocation = geolocation
         ? JSON.stringify(geolocation)
@@ -97,6 +102,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           record.geolocation = stringifiedGeolocation;
           record.author = author;
           record.deviceId = deviceId;
+          record.tags = stringifiedTags;
           record.deleted = false; // New observations are never deleted
           // Don't set syncedAt - let it be null so the observation is marked as pending sync
         });
@@ -476,6 +482,12 @@ export class WatermelonDBRepo implements LocalRepoInterface {
               if (change.deviceId !== undefined) {
                 record.deviceId = change.deviceId ?? '';
               }
+              if (change.tags !== undefined) {
+                record.tags =
+                  change.tags != null && change.tags.length > 0
+                    ? JSON.stringify(change.tags)
+                    : '';
+              }
               record.syncedAt = new Date();
             });
           }
@@ -493,6 +505,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
                 : JSON.stringify(change.data);
             record.author = change.author ?? '';
             record.deviceId = change.deviceId ?? '';
+            record.tags =
+              change.tags != null && change.tags.length > 0
+                ? JSON.stringify(change.tags)
+                : '';
             record.deleted = change.deleted ?? false;
             record.syncedAt = new Date();
           });
@@ -641,6 +657,18 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       }
     }
 
+    let tags: string[] | null = null;
+    if (model.tags && model.tags.trim()) {
+      try {
+        const parsed = JSON.parse(model.tags) as unknown;
+        if (Array.isArray(parsed)) {
+          tags = parsed.filter((t): t is string => typeof t === 'string');
+        }
+      } catch (e) {
+        console.warn('Failed to parse observation tags:', e);
+      }
+    }
+
     return {
       observationId: ObservationMapper.observationIdFromDBModel(model),
       formType: model.formType,
@@ -653,6 +681,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       geolocation,
       author: model.author ?? null,
       deviceId: model.deviceId ?? null,
+      tags,
     };
   }
 }
