@@ -217,11 +217,12 @@ Use the --preview flag to ensure you get the preview version of the app bundle.`
 	// Upload command
 	uploadCmd := &cobra.Command{
 		Use:   "upload [file]",
-		Short: "Upload a new app bundle",
+		Short: "Upload a new app bundle (activates by default)",
 		Long: `Upload a new app bundle ZIP file to the Synkronus API (admin only).
 
 The bundle will be validated before upload to ensure it has the correct structure.
-After upload, use --activate to automatically activate the new version.`,
+After a successful upload, the new version is activated automatically unless you pass
+--stage-only (-s), which uploads only and leaves the current active bundle unchanged.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			bundlePath := args[0]
@@ -232,8 +233,8 @@ After upload, use --activate to automatically activate the new version.`,
 				return fmt.Errorf("file not found: %s: %w", bundlePath, err)
 			}
 
-			// Get flags
-			activate, _ := cmd.Flags().GetBool("activate")
+			stageOnly, _ := cmd.Flags().GetBool("stage-only")
+			shouldActivate := !stageOnly
 			verbose, _ := cmd.Flags().GetBool("verbose")
 
 			// Validate bundle structure
@@ -310,8 +311,8 @@ After upload, use --activate to automatically activate the new version.`,
 				}
 			}
 
-			// Auto-activate if requested
-			if activate && version != "" {
+			// Activate by default unless --stage-only
+			if shouldActivate && version != "" {
 				fmt.Println()
 				color.Cyan("Activating version %s...", version)
 				switchResponse, err := c.SwitchAppBundleVersion(version)
@@ -326,16 +327,18 @@ After upload, use --activate to automatically activate the new version.`,
 						fmt.Printf("  %s\n", msg)
 					}
 				}
-			} else if version != "" {
+			} else if !shouldActivate && version != "" {
 				fmt.Println()
-				color.Cyan("Tip: Activate this version with:")
+				color.Cyan("Bundle staged (not activated). To activate this version:")
 				fmt.Printf("  synk app-bundle switch %s\n", version)
 			}
 
 			return nil
 		},
 	}
-	uploadCmd.Flags().BoolP("activate", "a", false, "Automatically activate the uploaded version")
+	uploadCmd.Flags().BoolP("stage-only", "s", false, "Upload only; do not activate the new version")
+	uploadCmd.Flags().BoolP("activate", "a", false, "")
+	_ = uploadCmd.Flags().MarkHidden("activate")
 	uploadCmd.Flags().BoolP("verbose", "v", false, "Show detailed information about the bundle and manifest")
 	appBundleCmd.AddCommand(uploadCmd)
 
