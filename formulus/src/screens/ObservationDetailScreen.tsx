@@ -434,6 +434,50 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
           </View>
 
           <View style={sectionStyle}>
+            <Text style={[styles.sectionTitle, onSurface]}>Tags</Text>
+            {(() => {
+              const displayTags = (observation.tags ?? [])
+                .map(t => (typeof t === 'string' ? t.trim() : ''))
+                .filter(Boolean);
+              if (displayTags.length === 0) {
+                return (
+                  <Text
+                    style={[
+                      styles.tagsEmpty,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    No tags
+                  </Text>
+                );
+              }
+              return (
+                <View style={styles.tagsWrap}>
+                  {displayTags.map((tag, index) => (
+                    <View
+                      key={`${tag}-${index}`}
+                      style={[
+                        styles.tagPill,
+                        {
+                          backgroundColor: themeColors.primaryLight as string,
+                          borderColor: themeColors.divider as string,
+                        },
+                      ]}>
+                      <Text
+                        style={[
+                          styles.tagPillText,
+                          { color: themeColors.primary as string },
+                        ]}
+                        numberOfLines={1}>
+                        {tag}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
+          </View>
+
+          <View style={sectionStyle}>
             <Text style={[styles.sectionTitle, onSurface]}>Form Data</Text>
             <View style={styles.dataContainer}>
               {Object.entries(data).map(([key, value]) =>
@@ -518,6 +562,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: colors.neutral[900],
+  },
+  tagsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: odeSpacing.xs,
+    marginTop: odeSpacing.xxs,
+  },
+  tagPill: {
+    maxWidth: '100%',
+    paddingHorizontal: odeSpacing.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: odeBorderWidth.hairline,
+  },
+  tagPillText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  tagsEmpty: {
+    fontSize: 14,
+    opacity: 0.65,
   },
   dataContainer: {
     marginTop: odeSpacing.xs,
