@@ -22,7 +22,7 @@
   "scripts": {
     "build": "npx style-dictionary build --config style-dictionary.config.js && node scripts/create-tokens-resolved.js",
     "clean": "rm -rf dist",
-    "prepare": "npm run build",
+    "prepare": "[ -d dist ] || npm run build",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
