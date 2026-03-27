@@ -1,0 +1,91 @@
+# Open Data Ensemble (ODE) — AI and developer guide
+
+This monorepo contains the core platform for **offline-first data collection** and **synchronization**. Use this file when you work across packages or need the big picture. For deep dives, open the **`AGENTS.md`** in the package you are changing.
+
+**Published architecture (users and external readers):** [Architecture overview](https://opendataensemble.org/docs/getting-started/architecture-overview) on [opendataensemble.org](https://opendataensemble.org/).
+
+---
+
+## Ecosystem map
+
+ODE is a **clearinghouse** model: data is collected on devices, synchronized through **Synkronus**, and is intended to **flow through** the system for local analysis and stewardship—not to live only on the server.
+
+- **Formulus** — React Native mobile app: runs forms (JSON Forms) and **custom app bundles** in WebViews, offline-first, syncs with Synkronus.
+- **Formulus Formplayer** — React web app embedded in Formulus: renders forms inside a WebView; shares the same bridge contract as custom apps.
+- **Synkronus** — Go backend: auth, sync, app bundle distribution, export, shared HTTP API.
+- **Synkronus Portal** — Web admin UI (React + Vite): same API as other clients; no privileged backend channel.
+- **Synkronus CLI** — `synk` command-line client: automation, bundles, sync, export.
+
+```mermaid
+flowchart LR
+  Formulus[Formulus_RN]
+  Formplayer[Formulus_Formplayer]
+  Synkronus[Synkronus_API]
+  Portal[Portal]
+  CLI[CLI]
+  Formulus -->|sync| Synkronus
+  Portal -->|same_API| Synkronus
+  CLI -->|same_API| Synkronus
+  Formulus -->|hosts_WebView| Formplayer
+```
+
+**Design principle:** [One backend, many clients](https://opendataensemble.org/docs/getting-started/architecture-overview) — prefer the public API for all user-facing tools.
+
+---
+
+## User profiles (what to optimize for)
+
+| Profile | Typical focus | Where to work |
+|--------|----------------|---------------|
+| **Platform developer** | You are editing **this repo**: RN, Go, React, shared packages, CI. | Package `AGENTS.md` below. |
+| **Custom app author** | You ship an **HTML/JS/CSS** app bundle and JSON forms for Formulus; you may **not** clone this monorepo. | [Custom app template (AI + author context)](https://github.com/OpenDataEnsemble/custom_app) and [documentation](https://opendataensemble.org/docs/). |
+
+Do not assume custom app authors have local checkouts of **ODE** or internal example repos.
+
+---
+
+## Monorepo layout
+
+| Package | Role | Stack | Agent guide |
+|---------|------|-------|-------------|
+| [formulus](formulus/) | Mobile runtime, WebViews, native bridge | React Native | [formulus/AGENTS.md](formulus/AGENTS.md) |
+| [formulus-formplayer](formulus-formplayer/) | Form UI in WebView | React, Vite, JSON Forms | [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md) |
+| [synkronus](synkronus/) | Sync API and coordination | Go | [synkronus/AGENTS.md](synkronus/AGENTS.md) |
+| [synkronus-cli](synkronus-cli/) | CLI for API operations | Go | [synkronus-cli/AGENTS.md](synkronus-cli/AGENTS.md) |
+| [synkronus-portal](synkronus-portal/) | Web administration | React, TypeScript, Vite | [synkronus-portal/AGENTS.md](synkronus-portal/AGENTS.md) |
+| [packages/tokens](packages/tokens/) | Design tokens (`@ode/tokens`) | Style Dictionary | [packages/tokens/AGENTS.md](packages/tokens/AGENTS.md) |
+| [packages/components](packages/components/) | Shared UI (`@ode/components`) | React | [packages/components/AGENTS.md](packages/components/AGENTS.md) |
+
+---
+
+## Cross-cutting contracts
+
+- **Formulus ↔ WebView (custom apps + formplayer):** [`formulus/src/webview/FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts) is the **source of truth** for the injected JavaScript API. Formplayer copies a synced TypeScript snapshot via `npm run sync-interface` in `formulus-formplayer` (see [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md)).
+- **Shared UI tokens:** Install **tokens** before **components** / **formplayer** where the docs require it (see package READMEs and formplayer AGENTS).
+
+---
+
+## CI and code quality
+
+- **Pipelines:** [.github/CICD.md](.github/CICD.md).
+- **Lint/format:** Run the relevant scripts in the **package you touch** (see root [README.md](README.md) and each package).
+- **Commits/PRs:** Conventional Commits and PR expectations are documented in [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md) (project-wide convention).
+
+---
+
+## Planned (not shipped here)
+
+Do **not** implement or assume APIs for these as if they were in-repo unless issues/specs say otherwise:
+
+- **ODE Custodian** — local data stewardship and correction workflows (roadmap; often CLI-first).
+- **ODE Workshop** — desktop dev environment for bundles/forms (roadmap).
+
+See [product roadmap context](https://opendataensemble.org/docs/) and organization roadmaps on [GitHub](https://github.com/OpenDataEnsemble).
+
+---
+
+## Custom app authors (pointer)
+
+Authoritative **public** documentation: [opendataensemble.org](https://opendataensemble.org/docs/).
+
+Optional **AI-focused** context (no ODE clone required): [custom_app](https://github.com/OpenDataEnsemble/custom_app) on GitHub (`README.md`, `AGENTS.md`, `CONTEXT_*.md`).
