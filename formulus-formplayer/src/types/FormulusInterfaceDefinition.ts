@@ -8,7 +8,7 @@
  * If you've checked out the monorepo use:
  * cp ..\formulus\src\webview\FormulusInterfaceDefinition.ts .\src\FormulusInterfaceDefinition.ts
  *
- * Current Version: 1.0.18
+ * Interface version: see `FORMULUS_INTERFACE_VERSION` below (single source of truth).
  */
 
 /**
@@ -468,10 +468,28 @@ export interface FormulusCallbacks {
  */
 export const FORMULUS_INTERFACE_VERSION = '1.1.0';
 
+/** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
+function semverSegments(version: string): [number, number, number] {
+  const core = version.split('-')[0].split('+')[0].trim();
+  const parts = core.split('.').map((s) => parseInt(s, 10));
+  const major = Number.isFinite(parts[0]) ? parts[0]! : 0;
+  const minor = Number.isFinite(parts[1]) ? parts[1]! : 0;
+  const patch = Number.isFinite(parts[2]) ? parts[2]! : 0;
+  return [major, minor, patch];
+}
+
+function compareSemver(a: string, b: string): number {
+  const [aMaj, aMin, aPat] = semverSegments(a);
+  const [bMaj, bMin, bPat] = semverSegments(b);
+  if (aMaj !== bMaj) return aMaj > bMaj ? 1 : -1;
+  if (aMin !== bMin) return aMin > bMin ? 1 : -1;
+  if (aPat !== bPat) return aPat > bPat ? 1 : -1;
+  return 0;
+}
+
 /**
- * Check if the current interface version is compatible with the required version
+ * Returns true if the running interface version is at least `requiredVersion` (semver major.minor.patch).
  */
 export function isCompatibleVersion(requiredVersion: string): boolean {
-  // Simple version comparison - can be enhanced for semantic versioning
-  return FORMULUS_INTERFACE_VERSION >= requiredVersion;
+  return compareSemver(FORMULUS_INTERFACE_VERSION, requiredVersion) >= 0;
 }
