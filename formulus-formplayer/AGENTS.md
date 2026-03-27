@@ -1,5 +1,7 @@
 # Formulus Formplayer — AI & Developer Guide
 
+**Monorepo:** See also [../AGENTS.md](../AGENTS.md) for the full ODE map and cross-package contracts.
+
 This file gives AI assistants and developers enough context to work effectively in this repo. For user-facing docs, see [README.md](./README.md).
 
 ## What this project is
