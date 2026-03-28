@@ -471,7 +471,7 @@ export const FORMULUS_INTERFACE_VERSION = '1.1.0';
 /** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
 function semverSegments(version: string): [number, number, number] {
   const core = version.split('-')[0].split('+')[0].trim();
-  const parts = core.split('.').map((s) => parseInt(s, 10));
+  const parts = core.split('.').map(s => parseInt(s, 10));
   const major = Number.isFinite(parts[0]) ? parts[0]! : 0;
   const minor = Number.isFinite(parts[1]) ? parts[1]! : 0;
   const patch = Number.isFinite(parts[2]) ? parts[2]! : 0;
