@@ -1,9 +1,9 @@
 /**
  * Wrapper for RNFS.downloadFile that automatically includes
- * the x-formulus-version header for all Synkronus downloads.
+ * the x-ode-version header for all Synkronus downloads.
  */
 import RNFS from 'react-native-fs';
-import { FORMULUS_VERSION } from '../../version';
+import { ODE_VERSION } from '../../version';
 
 export interface SynkronusDownloadOptions {
   fromUrl: string;
@@ -21,7 +21,7 @@ export interface SynkronusDownloadOptions {
 
 /**
  * Downloads a file from Synkronus server with required headers.
- * Automatically includes x-formulus-version header.
+ * Automatically includes x-ode-version header.
  */
 export function synkronusDownload(options: SynkronusDownloadOptions): {
   promise: Promise<RNFS.DownloadResult>;
@@ -31,7 +31,7 @@ export function synkronusDownload(options: SynkronusDownloadOptions): {
     toFile: options.toFile,
     headers: {
       Authorization: `Bearer ${options.authToken}`,
-      'x-formulus-version': FORMULUS_VERSION,
+      'x-ode-version': ODE_VERSION,
     },
     background: options.background ?? true,
     progressInterval: options.progressInterval ?? 500,

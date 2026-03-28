@@ -20,7 +20,7 @@ import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { clientIdService } from '../../services/ClientIdService';
 import { unzip } from 'react-native-zip-archive';
 import { synkronusDownload } from './download';
-import { FORMULUS_VERSION } from '../../version';
+import { ODE_VERSION } from '../../version';
 
 interface DownloadResult {
   success: boolean;
@@ -57,11 +57,6 @@ class SynkronusApi {
         accessToken: async () => {
           const token = await AsyncStorage.getItem('@token');
           return token || '';
-        },
-        baseOptions: {
-          headers: {
-            'x-formulus-version': FORMULUS_VERSION,
-          },
         },
       });
     }
@@ -161,7 +156,9 @@ class SynkronusApi {
    */
   async getManifest(): Promise<AppBundleManifest> {
     const api = await this.getApi();
-    const response = await api.getAppBundleManifest();
+    const response = await api.getAppBundleManifest({
+      xOdeVersion: ODE_VERSION,
+    });
     return response.data;
   }
 
@@ -274,6 +271,7 @@ class SynkronusApi {
 
       const api = await this.getApi();
       const manifestResponse = await api.getAttachmentManifest({
+        xOdeVersion: ODE_VERSION,
         attachmentManifestRequest: {
           client_id: clientId,
           since_version: lastAttachmentVersion,
@@ -812,6 +810,7 @@ class SynkronusApi {
 
     do {
       res = await api.syncPull({
+        xOdeVersion: ODE_VERSION,
         syncPullRequest: {
           client_id: clientId,
           since: {
@@ -929,6 +928,7 @@ class SynkronusApi {
       };
 
       const request: DefaultApiSyncPushRequest = {
+        xOdeVersion: ODE_VERSION,
         syncPushRequest,
       };
 

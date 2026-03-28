@@ -1,4 +1,4 @@
-/** Formulus version from package.json for x-formulus-version header. */
+/** Client version from package.json for x-ode-version header. */
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const packageJson = require('../package.json') as { version?: string };
 const v = packageJson.version?.trim();
@@ -7,4 +7,4 @@ if (!v) {
     'package.json must define "version" (semantic version, e.g. 1.0.0)',
   );
 }
-export const FORMULUS_VERSION = v;
+export const ODE_VERSION = v;
