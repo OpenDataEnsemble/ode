@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -41,6 +42,27 @@ func redactPassword(dsn string) string {
 
 	return u.String()
 }
+
+func firstNonEmptyEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func readForceAdminRecoveryEnv() (string, string, error) {
+	username := firstNonEmptyEnv("SYNKRONUS_RECOVERY_CREATE_USER", "synkronus_recovery_create_user")
+	password := firstNonEmptyEnv("SYNKRONUS_RECOVERY_CREATE_PASS", "synkronus_recovery_create_pass")
+
+	if (username == "" && password != "") || (username != "" && password == "") {
+		return "", "", errors.New("both SYNKRONUS_RECOVERY_CREATE_USER and SYNKRONUS_RECOVERY_CREATE_PASS must be set together")
+	}
+
+	return username, password, nil
+}
+
 func main() {
 	// Temporary logger for configuration loading
 	preLog := logger.NewLogger(
@@ -119,6 +141,14 @@ func main() {
 	if adminPassword := os.Getenv("ADMIN_PASSWORD"); adminPassword != "" {
 		authConfig.AdminPassword = adminPassword
 	}
+	forceAdminUsername, forceAdminPassword, err := readForceAdminRecoveryEnv()
+	if err != nil {
+		log.Error("Invalid startup admin recovery configuration", "error", err)
+		log.Info("Exiting due to invalid auth configuration")
+		return
+	}
+	authConfig.ForceCreateAdminUser = forceAdminUsername
+	authConfig.ForceCreateAdminPassword = forceAdminPassword
 
 	authService := auth.NewService(authConfig, userRepo, log)
 

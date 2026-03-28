@@ -75,6 +75,13 @@ Synkronus uses a flexible configuration system that supports both environment va
 | `JWT_SECRET` | Secret key for JWT token signing | (required, no default) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
 | `MAX_VERSIONS_KEPT` | Maximum number of app bundle versions to keep | `5` |
+| `ADMIN_USERNAME` | Initial admin username (bootstrap only) | `admin` |
+| `ADMIN_PASSWORD` | Initial admin password (bootstrap only) | `admin` |
+| `SYNKRONUS_RECOVERY_CREATE_USER` | Recovery admin username (must be paired with pass) | (empty) |
+| `SYNKRONUS_RECOVERY_CREATE_PASS` | Recovery admin plaintext password (must be paired with user) | (empty) |
+
+`ADMIN_USERNAME`/`ADMIN_PASSWORD` are only used when no users exist in the database.
+`SYNKRONUS_RECOVERY_CREATE_USER` + `SYNKRONUS_RECOVERY_CREATE_PASS` provide an emergency recovery flow: on startup, Synkronus creates or overwrites that user as an admin. Remove those recovery variables after regaining access to avoid resetting credentials on each restart.
 
 ### Running the API
 
@@ -98,6 +105,8 @@ go run cmd/synkronus/main.go
 - `DB_CONNECTION`: Database connection string
 - `JWT_SECRET`: Secret for JWT signing
 - `LOG_LEVEL`: Logging level (debug, info, warn, error)
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD`: bootstrap admin credentials (first user only)
+- `SYNKRONUS_RECOVERY_CREATE_USER` / `SYNKRONUS_RECOVERY_CREATE_PASS`: startup recovery override (create/update admin user)
 
 Mutable files use a fixed root of `<directory>/data` next to the `synkronus` executable (e.g. `/app/data` in the official image). App bundles always live under `<data>/app-bundle/active` and `<data>/app-bundle/versions`. `go run` / `go test` fall back to `./data` relative to cwd when the binary is in a Go temp build path.
 
