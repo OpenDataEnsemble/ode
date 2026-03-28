@@ -21,7 +21,7 @@
 - `/sync/pull` & `/sync/push` — record synchronization
 - `/attachments/manifest` & `/attachments/:id` — sync binary files
 - JWT-based auth with `read-only` and `read-write` roles
-- Optional API versioning via `x-api-version` header
+- Required client compatibility header: `x-ode-version: <semver>`
 - Optional ETag support for caching and efficiency
 
 Full OpenAPI spec lives in [`synkronus/openapi/synkronus.yaml`](../openapi/synkronus.yaml)

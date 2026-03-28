@@ -87,14 +87,14 @@ paths:
           schema:
             type: string
           description: The target version to compare against (defaults to previous version)
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       responses:
         '200':
           description: Successfully retrieved changes between versions
@@ -128,14 +128,14 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       responses:
         '200':
           description: Bundle file list
@@ -172,14 +172,14 @@ paths:
           in: header
           schema:
             type: string
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       responses:
         '200':
           description: File content
@@ -202,14 +202,14 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       responses:
         '200':
           description: List of available app bundle versions
@@ -225,14 +225,14 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
@@ -289,14 +289,14 @@ paths:
           schema:
             type: string
           description: Version identifier to switch to
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       responses:
         '200':
           description: Successfully switched to the specified version
@@ -339,14 +339,14 @@ paths:
       summary: Authenticate user and return JWT tokens
       description: Obtain a JWT token by providing username and password
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
@@ -388,14 +388,14 @@ paths:
       summary: Refresh JWT token
       description: Obtain a new JWT token using a refresh token
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
@@ -435,14 +435,14 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
@@ -502,14 +502,14 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       responses:
         '200':
           description: List of all users
@@ -546,14 +546,14 @@ paths:
           schema:
             type: string
           description: Username of the user to delete
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       responses:
         '200':
           description: User deleted successfully
@@ -598,14 +598,14 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
@@ -665,14 +665,14 @@ paths:
       security:
         - bearerAuth: [read-only, read-write, admin]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
@@ -746,14 +746,14 @@ paths:
             default: 50
           description: Maximum number of records to return
 
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
@@ -775,14 +775,14 @@ paths:
       security:
         - bearerAuth: [read-write]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
@@ -805,14 +805,14 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-api-version
+        - name: x-ode-version
           in: header
-          required: false
+          required: true
           schema:
             type: string
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
