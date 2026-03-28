@@ -159,6 +159,7 @@ const Button: React.FC<ButtonProps> = ({
         disabled={disabled || loading}
         style={[
           styles.button,
+          fullWidth && styles.buttonFullWidth,
           {
             paddingVertical: padding.vertical,
             paddingHorizontal: padding.horizontal,
@@ -203,13 +204,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   button: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
     borderWidth: 1,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  /** Avoid flex:1 here — it expands vertically in column parents (e.g. modals) and stretches the hit area. */
+  buttonFullWidth: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
   text: {
     fontWeight: '500',

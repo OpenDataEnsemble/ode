@@ -1,9 +1,25 @@
 import React, { Component, ErrorInfo } from 'react';
-import { Modal, View, Text, StyleSheet } from 'react-native';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  NativeModules,
+  TurboModuleRegistry,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import Button from './common/Button';
 
-class VisionCameraErrorBoundary extends Component<
+/** Native module is registered as RNCameraKitModule (not CameraKit). See react-native-camera-kit-no-google. */
+function isCameraKitNativeLinked(): boolean {
+  if (NativeModules.RNCameraKitModule != null) return true;
+  if (NativeModules.CameraKit != null) return true;
+  return TurboModuleRegistry.get('RNCameraKitModule') != null;
+}
+
+class QRScannerErrorBoundary extends Component<
   { children: React.ReactNode; fallback: React.ReactNode },
   { hasError: boolean }
 > {
@@ -12,7 +28,7 @@ class VisionCameraErrorBoundary extends Component<
   static getDerivedStateFromError = () => ({ hasError: true });
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.warn('QRScannerModal: VisionCamera error', error, info);
+    console.warn('QRScannerModal: camera kit error', error, info);
   }
 
   render() {
@@ -40,40 +56,46 @@ interface QRScannerModalProps {
   onResult?: (result: ScannerModalResults) => void;
 }
 
-// Only load QRScannerModalImpl if VisionCamera native module is linked
+// Only load QRScannerModalImpl if react-native-camera-kit-no-google is linked
 let QRScannerModalImpl: React.ComponentType<QRScannerModalProps> | null = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { NativeModules } = require('react-native');
-  if (NativeModules.CameraView) {
+  if (isCameraKitNativeLinked()) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     QRScannerModalImpl = require('./QRScannerModalImpl').default;
   }
 } catch (e) {
-  console.warn('QRScannerModal: VisionCamera not linked, using fallback', e);
+  console.warn('QRScannerModal: CameraKit not linked, using fallback', e);
 }
 
 const FallbackContent: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-  <View style={styles.container}>
-    <View style={styles.fallbackContainer}>
+  <SafeAreaView
+    style={styles.container}
+    edges={['top', 'bottom', 'left', 'right']}>
+    <ScrollView
+      style={styles.fallbackScrollView}
+      contentContainerStyle={styles.fallbackScrollContent}
+      keyboardShouldPersistTaps="handled">
       <Text style={styles.fallbackText}>
-        QR scanner not available. Camera module (react-native-vision-camera) is
-        not linked. Re-enable it in react-native.config.js and rebuild.
+        QR scanner not available. Camera module
+        (react-native-camera-kit-no-google) is not linked. Rebuild the native
+        app after installing the dependency.
       </Text>
-      <Button
-        title="Close"
-        onPress={onClose}
-        variant="secondary"
-        size="medium"
-      />
-    </View>
-  </View>
+      <View style={styles.fallbackButtonWrap}>
+        <Button
+          title="Close"
+          onPress={onClose}
+          variant="secondary"
+          size="medium"
+        />
+      </View>
+    </ScrollView>
+  </SafeAreaView>
 );
 
 const QRScannerModal: React.FC<QRScannerModalProps> = props => {
   if (QRScannerModalImpl) {
     return (
-      <VisionCameraErrorBoundary
+      <QRScannerErrorBoundary
         fallback={
           props.visible ? (
             <Modal visible animationType="slide" statusBarTranslucent>
@@ -82,7 +104,7 @@ const QRScannerModal: React.FC<QRScannerModalProps> = props => {
           ) : null
         }>
         <QRScannerModalImpl {...props} />
-      </VisionCameraErrorBoundary>
+      </QRScannerErrorBoundary>
     );
   }
 
@@ -90,37 +112,29 @@ const QRScannerModal: React.FC<QRScannerModalProps> = props => {
 
   return (
     <Modal visible={props.visible} animationType="slide" statusBarTranslucent>
-      <View style={styles.container}>
-        <View style={styles.fallbackContainer}>
-          <Text style={styles.fallbackText}>
-            QR scanner not available. Camera module (react-native-vision-camera)
-            is not linked. Re-enable it in react-native.config.js and rebuild.
-          </Text>
-          <Button
-            title="Close"
-            onPress={props.onClose}
-            variant="secondary"
-            size="medium"
-          />
-        </View>
-      </View>
+      <FallbackContent onClose={props.onClose} />
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.neutral.black },
-  fallbackContainer: {
-    flex: 1,
+  fallbackScrollView: { flex: 1 },
+  fallbackScrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
   },
   fallbackText: {
     color: colors.neutral.white,
     fontSize: 16,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  fallbackButtonWrap: {
+    alignSelf: 'center',
+    maxWidth: '100%',
   },
 });
 

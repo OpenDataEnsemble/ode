@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Modal,
   View,
@@ -6,19 +6,44 @@ import {
   StyleSheet,
   Dimensions,
   StatusBar,
+  Platform,
+  ActivityIndicator,
+  type ColorValue,
 } from 'react-native';
 import {
   Camera,
-  useCameraDevices,
-  useCodeScanner,
-  useCameraPermission,
-  CodeType,
-} from 'react-native-vision-camera';
+  CameraType,
+  type CodeFormat,
+} from 'react-native-camera-kit-no-google';
+import {
+  check,
+  request,
+  PERMISSIONS,
+  RESULTS,
+  type Permission,
+} from 'react-native-permissions';
 import { colors } from '../theme/colors';
 import { odeSpacing, odeButton } from '../theme/odeDesign';
 import Button from './common/Button';
 
 const { width } = Dimensions.get('window');
+
+/** iOS supports all listed types; Android (no-google fork) scans QR only — see library README. */
+const IOS_BARCODE_TYPES: CodeFormat[] = [
+  'qr',
+  'ean-13',
+  'ean-8',
+  'code-128',
+  'code-39',
+  'code-93',
+  'upc-a',
+  'upc-e',
+  'data-matrix',
+  'pdf-417',
+  'aztec',
+  'codabar',
+  'itf-14',
+];
 
 export interface ScannerModalResults {
   fieldId: string | undefined;
@@ -27,7 +52,7 @@ export interface ScannerModalResults {
   data?: {
     type: 'qrcode';
     value: string | undefined;
-    format: CodeType | unknown;
+    format: CodeFormat | unknown;
     timestamp: string;
   };
 }
@@ -39,6 +64,11 @@ interface QRScannerModalProps {
   onResult?: (result: ScannerModalResults) => void;
 }
 
+const cameraPermission: Permission | undefined = Platform.select({
+  ios: PERMISSIONS.IOS.CAMERA,
+  android: PERMISSIONS.ANDROID.CAMERA,
+});
+
 const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
   visible,
   onClose,
@@ -47,16 +77,10 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
 }) => {
   const [isScanning, setIsScanning] = useState(true);
   const [scannedData, setScannedData] = useState<string | null>(null);
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const devices = useCameraDevices();
-  const device = devices.find(d => d.position === 'back');
+  const [perm, setPerm] = useState<'checking' | 'granted' | 'denied'>(
+    'checking',
+  );
   const resultSentRef = useRef(false);
-
-  useEffect(() => {
-    if (visible && !hasPermission) {
-      requestPermission();
-    }
-  }, [visible, hasPermission, requestPermission]);
 
   useEffect(() => {
     if (!visible) return;
@@ -67,51 +91,71 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
     });
   }, [visible]);
 
-  const codeScanner = useCodeScanner({
-    codeTypes: [
-      'qr',
-      'ean-13',
-      'ean-8',
-      'code-128',
-      'code-39',
-      'code-93',
-      'upc-a',
-      'upc-e',
-      'data-matrix',
-      'pdf-417',
-      'aztec',
-      'codabar',
-      'itf',
-    ],
-    onCodeScanned: codes => {
-      if (!isScanning || resultSentRef.current || codes.length === 0) return;
-      const code = codes[0];
-      setScannedData(code.value || '');
+  useEffect(() => {
+    if (!visible) return;
+
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) setPerm('checking');
+    });
+
+    (async () => {
+      if (!cameraPermission) {
+        if (!cancelled) setPerm('granted');
+        return;
+      }
+      let status = await check(cameraPermission);
+      if (status === RESULTS.DENIED) {
+        status = await request(cameraPermission);
+      }
+      if (cancelled) return;
+      setPerm(status === RESULTS.GRANTED ? 'granted' : 'denied');
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  const requestCameraPermission = useCallback(async () => {
+    if (!cameraPermission) {
+      setPerm('granted');
+      return;
+    }
+    const status = await request(cameraPermission);
+    setPerm(status === RESULTS.GRANTED ? 'granted' : 'denied');
+  }, []);
+
+  const onReadCode = useCallback(
+    (event: {
+      nativeEvent: { codeStringValue: string; codeFormat: CodeFormat };
+    }) => {
+      if (!isScanning || resultSentRef.current) return;
+      const value = event.nativeEvent.codeStringValue;
+      const format = event.nativeEvent.codeFormat;
+      setScannedData(value || '');
       setIsScanning(false);
       resultSentRef.current = true;
-      if (onResult) {
-        onResult({
-          fieldId: fieldId || undefined,
-          status: 'success',
-          data: {
-            type: 'qrcode',
-            value: code.value,
-            format: code.type,
-            timestamp: new Date().toISOString(),
-          },
-        });
-      }
+      onResult?.({
+        fieldId: fieldId || undefined,
+        status: 'success',
+        data: {
+          type: 'qrcode',
+          value: value,
+          format,
+          timestamp: new Date().toISOString(),
+        },
+      });
     },
-  });
+    [isScanning, fieldId, onResult],
+  );
 
   const handleCancel = () => {
-    if (onResult) {
-      onResult({
-        fieldId: fieldId || undefined,
-        status: 'cancelled',
-        message: 'QR code scanning cancelled by user',
-      });
-    }
+    onResult?.({
+      fieldId: fieldId || undefined,
+      status: 'cancelled',
+      message: 'QR code scanning cancelled by user',
+    });
     onClose();
   };
 
@@ -125,7 +169,17 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
 
   if (!visible) return null;
 
-  if (!hasPermission) {
+  if (perm === 'checking') {
+    return (
+      <Modal visible={visible} animationType="slide" statusBarTranslucent>
+        <View style={[styles.container, styles.centered]}>
+          <ActivityIndicator size="large" color={colors.neutral.white} />
+        </View>
+      </Modal>
+    );
+  }
+
+  if (perm === 'denied') {
     return (
       <Modal visible={visible} animationType="slide" statusBarTranslucent>
         <View style={styles.container}>
@@ -136,32 +190,12 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
             <View style={styles.permissionButtonRow}>
               <Button
                 title="Grant Permission"
-                onPress={requestPermission}
+                onPress={requestCameraPermission}
                 variant="primary"
                 style={styles.permissionButton}
               />
               <Button
                 title="Cancel"
-                onPress={handleCancel}
-                variant="tertiary"
-                style={styles.cancelButtonFormulus}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  }
-
-  if (!device) {
-    return (
-      <Modal visible={visible} animationType="slide" statusBarTranslucent>
-        <View style={styles.container}>
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>No camera device found</Text>
-            <View style={styles.permissionButtonRow}>
-              <Button
-                title="Close"
                 onPress={handleCancel}
                 variant="tertiary"
                 style={styles.cancelButtonFormulus}
@@ -179,16 +213,23 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
       <View style={styles.container}>
         <Camera
           style={styles.camera}
-          device={device}
-          isActive={visible && isScanning}
-          codeScanner={codeScanner}
+          cameraType={CameraType.Back}
+          scanBarcode={isScanning}
+          showFrame
+          scanThrottleDelay={500}
+          allowedBarcodeTypes={
+            Platform.OS === 'android' ? ['qr'] : IOS_BARCODE_TYPES
+          }
+          onReadCode={onReadCode}
         />
         <View style={styles.overlay}>
           <View style={styles.topOverlay}>
             <Text style={styles.instructionText}>
               {scannedData
                 ? 'Code Scanned!'
-                : 'Point camera at QR code or barcode'}
+                : Platform.OS === 'android'
+                  ? 'Point camera at QR code'
+                  : 'Point camera at QR code or barcode'}
             </Text>
           </View>
           <View style={styles.scanFrame}>
@@ -239,6 +280,7 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.neutral.black },
+  centered: { justifyContent: 'center', alignItems: 'center' },
   camera: { flex: 1 },
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   topOverlay: {
@@ -266,7 +308,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 30,
     height: 30,
-    borderColor: colors.semantic.scanner.success,
+    borderColor: colors.semantic.scanner.success as unknown as ColorValue,
     borderWidth: 3,
   },
   topLeft: {
@@ -307,7 +349,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   resultText: {
-    color: colors.semantic.scanner.success,
+    color: colors.semantic.scanner.success as unknown as ColorValue,
     fontSize: 14,
     textAlign: 'center',
     marginBottom: 20,
@@ -342,18 +384,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   permissionText: {
-    color: colors.neutral.white,
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  errorText: {
     color: colors.neutral.white,
     fontSize: 18,
     textAlign: 'center',
