@@ -55,6 +55,7 @@ import {
   isVersionMismatchError,
 } from '../Auth';
 import { VersionMismatchError } from '../../../errors/VersionMismatchError';
+import { ODE_VERSION } from '../../../version';
 import { synkronusApi } from '../index';
 
 describe('Auth - Auto-Login', () => {
@@ -184,6 +185,7 @@ describe('Auth - Auto-Login', () => {
 
       expect(Keychain.getGenericPassword).toHaveBeenCalledTimes(1);
       expect(mockApi.login).toHaveBeenCalledWith({
+        xOdeVersion: ODE_VERSION,
         loginRequest: {
           username: mockCredentials.username,
           password: mockCredentials.password,
