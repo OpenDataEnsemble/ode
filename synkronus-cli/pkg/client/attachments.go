@@ -68,7 +68,7 @@ func (c *Client) DownloadAttachment(attachmentID string, outputPath string) erro
 		return err
 	}
 
-	resp, err := c.api.DownloadAttachmentWithResponse(context.Background(), attachmentID)
+	resp, err := c.api.DownloadAttachmentWithResponse(context.Background(), attachmentID, nil)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
@@ -98,7 +98,7 @@ func (c *Client) AttachmentExists(attachmentID string) (bool, error) {
 		return false, err
 	}
 
-	resp, err := c.api.CheckAttachmentExistsWithResponse(context.Background(), attachmentID)
+	resp, err := c.api.CheckAttachmentExistsWithResponse(context.Background(), attachmentID, nil)
 	if err != nil {
 		return false, fmt.Errorf("request failed: %w", err)
 	}

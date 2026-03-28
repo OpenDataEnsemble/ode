@@ -429,6 +429,18 @@ type GetAttachmentManifestParams struct {
 	XOdeVersion string `json:"x-ode-version"`
 }
 
+// DownloadAttachmentParams defines parameters for DownloadAttachment.
+type DownloadAttachmentParams struct {
+	// Original Prefer the original (uncompressed) attachment when available. Truthy values: `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no original exists.
+	Original *string `form:"original,omitempty" json:"original,omitempty"`
+}
+
+// CheckAttachmentExistsParams defines parameters for CheckAttachmentExists.
+type CheckAttachmentExistsParams struct {
+	// Original Prefer the original (uncompressed) attachment when available. Truthy values: `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no original exists.
+	Original *string `form:"original,omitempty" json:"original,omitempty"`
+}
+
 // UploadAttachmentMultipartBody defines parameters for UploadAttachment.
 type UploadAttachmentMultipartBody struct {
 	// File The binary file to upload
@@ -673,10 +685,10 @@ type ClientInterface interface {
 	GetAttachmentManifest(ctx context.Context, params *GetAttachmentManifestParams, body GetAttachmentManifestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DownloadAttachment request
-	DownloadAttachment(ctx context.Context, attachmentId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DownloadAttachment(ctx context.Context, attachmentId string, params *DownloadAttachmentParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CheckAttachmentExists request
-	CheckAttachmentExists(ctx context.Context, attachmentId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CheckAttachmentExists(ctx context.Context, attachmentId string, params *CheckAttachmentExistsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UploadAttachmentWithBody request with any body
 	UploadAttachmentWithBody(ctx context.Context, attachmentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -843,8 +855,8 @@ func (c *Client) GetAttachmentManifest(ctx context.Context, params *GetAttachmen
 	return c.Client.Do(req)
 }
 
-func (c *Client) DownloadAttachment(ctx context.Context, attachmentId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDownloadAttachmentRequest(c.Server, attachmentId)
+func (c *Client) DownloadAttachment(ctx context.Context, attachmentId string, params *DownloadAttachmentParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadAttachmentRequest(c.Server, attachmentId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -855,8 +867,8 @@ func (c *Client) DownloadAttachment(ctx context.Context, attachmentId string, re
 	return c.Client.Do(req)
 }
 
-func (c *Client) CheckAttachmentExists(ctx context.Context, attachmentId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCheckAttachmentExistsRequest(c.Server, attachmentId)
+func (c *Client) CheckAttachmentExists(ctx context.Context, attachmentId string, params *CheckAttachmentExistsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCheckAttachmentExistsRequest(c.Server, attachmentId, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1527,7 +1539,7 @@ func NewGetAttachmentManifestRequestWithBody(server string, params *GetAttachmen
 }
 
 // NewDownloadAttachmentRequest generates requests for DownloadAttachment
-func NewDownloadAttachmentRequest(server string, attachmentId string) (*http.Request, error) {
+func NewDownloadAttachmentRequest(server string, attachmentId string, params *DownloadAttachmentParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1550,6 +1562,28 @@ func NewDownloadAttachmentRequest(server string, attachmentId string) (*http.Req
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Original != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "original", *params.Original, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -1561,7 +1595,7 @@ func NewDownloadAttachmentRequest(server string, attachmentId string) (*http.Req
 }
 
 // NewCheckAttachmentExistsRequest generates requests for CheckAttachmentExists
-func NewCheckAttachmentExistsRequest(server string, attachmentId string) (*http.Request, error) {
+func NewCheckAttachmentExistsRequest(server string, attachmentId string, params *CheckAttachmentExistsParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1584,6 +1618,28 @@ func NewCheckAttachmentExistsRequest(server string, attachmentId string) (*http.
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Original != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "original", *params.Original, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("HEAD", queryURL.String(), nil)
@@ -2304,10 +2360,10 @@ type ClientWithResponsesInterface interface {
 	GetAttachmentManifestWithResponse(ctx context.Context, params *GetAttachmentManifestParams, body GetAttachmentManifestJSONRequestBody, reqEditors ...RequestEditorFn) (*GetAttachmentManifestHTTPResponse, error)
 
 	// DownloadAttachmentWithResponse request
-	DownloadAttachmentWithResponse(ctx context.Context, attachmentId string, reqEditors ...RequestEditorFn) (*DownloadAttachmentHTTPResponse, error)
+	DownloadAttachmentWithResponse(ctx context.Context, attachmentId string, params *DownloadAttachmentParams, reqEditors ...RequestEditorFn) (*DownloadAttachmentHTTPResponse, error)
 
 	// CheckAttachmentExistsWithResponse request
-	CheckAttachmentExistsWithResponse(ctx context.Context, attachmentId string, reqEditors ...RequestEditorFn) (*CheckAttachmentExistsHTTPResponse, error)
+	CheckAttachmentExistsWithResponse(ctx context.Context, attachmentId string, params *CheckAttachmentExistsParams, reqEditors ...RequestEditorFn) (*CheckAttachmentExistsHTTPResponse, error)
 
 	// UploadAttachmentWithBodyWithResponse request with any body
 	UploadAttachmentWithBodyWithResponse(ctx context.Context, attachmentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadAttachmentHTTPResponse, error)
@@ -3042,8 +3098,8 @@ func (c *ClientWithResponses) GetAttachmentManifestWithResponse(ctx context.Cont
 }
 
 // DownloadAttachmentWithResponse request returning *DownloadAttachmentHTTPResponse
-func (c *ClientWithResponses) DownloadAttachmentWithResponse(ctx context.Context, attachmentId string, reqEditors ...RequestEditorFn) (*DownloadAttachmentHTTPResponse, error) {
-	rsp, err := c.DownloadAttachment(ctx, attachmentId, reqEditors...)
+func (c *ClientWithResponses) DownloadAttachmentWithResponse(ctx context.Context, attachmentId string, params *DownloadAttachmentParams, reqEditors ...RequestEditorFn) (*DownloadAttachmentHTTPResponse, error) {
+	rsp, err := c.DownloadAttachment(ctx, attachmentId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3051,8 +3107,8 @@ func (c *ClientWithResponses) DownloadAttachmentWithResponse(ctx context.Context
 }
 
 // CheckAttachmentExistsWithResponse request returning *CheckAttachmentExistsHTTPResponse
-func (c *ClientWithResponses) CheckAttachmentExistsWithResponse(ctx context.Context, attachmentId string, reqEditors ...RequestEditorFn) (*CheckAttachmentExistsHTTPResponse, error) {
-	rsp, err := c.CheckAttachmentExists(ctx, attachmentId, reqEditors...)
+func (c *ClientWithResponses) CheckAttachmentExistsWithResponse(ctx context.Context, attachmentId string, params *CheckAttachmentExistsParams, reqEditors ...RequestEditorFn) (*CheckAttachmentExistsHTTPResponse, error) {
+	rsp, err := c.CheckAttachmentExists(ctx, attachmentId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
