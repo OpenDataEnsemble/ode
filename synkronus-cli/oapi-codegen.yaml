@@ -1,0 +1,8 @@
+package: generated
+output: generated/client.gen.go
+generate:
+  models: true
+  client: true
+output-options:
+  skip-prune: true
+  response-type-suffix: HTTPResponse
