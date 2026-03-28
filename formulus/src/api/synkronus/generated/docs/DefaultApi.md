@@ -39,21 +39,21 @@ import { DefaultApi, Configuration, ChangePasswordRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let changePasswordRequest: ChangePasswordRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.changePassword(
+  xOdeVersion,
   changePasswordRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                      | Type                      | Description                                                               | Notes                            |
-| ------------------------- | ------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **changePasswordRequest** | **ChangePasswordRequest** |                                                                           |                                  |
-| **xApiVersion**           | [**string**]              | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                      | Type                      | Description                                                                                                                     | Notes                 |
+| ------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **changePasswordRequest** | **ChangePasswordRequest** |                                                                                                                                 |                       |
+| **xOdeVersion**           | [**string**]              | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -138,21 +138,21 @@ import { DefaultApi, Configuration, CreateUserRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let createUserRequest: CreateUserRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.createUser(
+  xOdeVersion,
   createUserRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                  | Type                  | Description                                                               | Notes                            |
-| --------------------- | --------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **createUserRequest** | **CreateUserRequest** |                                                                           |                                  |
-| **xApiVersion**       | [**string**]          | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                  | Type                  | Description                                                                                                                     | Notes                 |
+| --------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **createUserRequest** | **CreateUserRequest** |                                                                                                                                 |                       |
+| **xOdeVersion**       | [**string**]          | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -194,17 +194,17 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let username: string; //Username of the user to delete (default to undefined)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 
-const { status, data } = await apiInstance.deleteUser(username, xApiVersion);
+const { status, data } = await apiInstance.deleteUser(username, xOdeVersion);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **username**    | [**string**] | Username of the user to delete                                            | defaults to undefined            |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                     | Notes                 |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **username**    | [**string**] | Username of the user to delete                                                                                                  | defaults to undefined |
+| **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -244,26 +244,26 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let path: string; // (default to undefined)
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let preview: boolean; //If true, returns the file from the latest version including unreleased changes (optional) (default to false)
 let ifNoneMatch: string; // (optional) (default to undefined)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.downloadAppBundleFile(
   path,
+  xOdeVersion,
   preview,
   ifNoneMatch,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name            | Type          | Description                                                                    | Notes                            |
-| --------------- | ------------- | ------------------------------------------------------------------------------ | -------------------------------- |
-| **path**        | [**string**]  |                                                                                | defaults to undefined            |
-| **preview**     | [**boolean**] | If true, returns the file from the latest version including unreleased changes | (optional) defaults to false     |
-| **ifNoneMatch** | [**string**]  |                                                                                | (optional) defaults to undefined |
-| **xApiVersion** | [**string**]  | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)      | (optional) defaults to undefined |
+| Name            | Type          | Description                                                                                                                     | Notes                            |
+| --------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **path**        | [**string**]  |                                                                                                                                 | defaults to undefined            |
+| **xOdeVersion** | [**string**]  | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined            |
+| **preview**     | [**boolean**] | If true, returns the file from the latest version including unreleased changes                                                  | (optional) defaults to false     |
+| **ifNoneMatch** | [**string**]  |                                                                                                                                 | (optional) defaults to undefined |
 
 ### Return type
 
@@ -347,24 +347,24 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let current: string; //The current version (defaults to latest) (optional) (default to undefined)
 let target: string; //The target version to compare against (defaults to previous version) (optional) (default to undefined)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.getAppBundleChanges(
+  xOdeVersion,
   current,
   target,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **current**     | [**string**] | The current version (defaults to latest)                                  | (optional) defaults to undefined |
-| **target**      | [**string**] | The target version to compare against (defaults to previous version)      | (optional) defaults to undefined |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                     | Notes                            |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined            |
+| **current**     | [**string**] | The current version (defaults to latest)                                                                                        | (optional) defaults to undefined |
+| **target**      | [**string**] | The target version to compare against (defaults to previous version)                                                            | (optional) defaults to undefined |
 
 ### Return type
 
@@ -402,16 +402,16 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 
-const { status, data } = await apiInstance.getAppBundleManifest(xApiVersion);
+const { status, data } = await apiInstance.getAppBundleManifest(xOdeVersion);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                     | Notes                 |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -446,16 +446,16 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 
-const { status, data } = await apiInstance.getAppBundleVersions(xApiVersion);
+const { status, data } = await apiInstance.getAppBundleVersions(xOdeVersion);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                     | Notes                 |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -492,21 +492,21 @@ import { DefaultApi, Configuration, AttachmentManifestRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let attachmentManifestRequest: AttachmentManifestRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.getAttachmentManifest(
+  xOdeVersion,
   attachmentManifestRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                          | Type                          | Description                                                               | Notes                            |
-| ----------------------------- | ----------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **attachmentManifestRequest** | **AttachmentManifestRequest** |                                                                           |                                  |
-| **xApiVersion**               | [**string**]                  | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                          | Type                          | Description                                                                                                                     | Notes                 |
+| ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **attachmentManifestRequest** | **AttachmentManifestRequest** |                                                                                                                                 |                       |
+| **xOdeVersion**               | [**string**]                  | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -589,16 +589,16 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 
-const { status, data } = await apiInstance.listUsers(xApiVersion);
+const { status, data } = await apiInstance.listUsers(xOdeVersion);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                     | Notes                 |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -637,18 +637,18 @@ import { DefaultApi, Configuration, LoginRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let loginRequest: LoginRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
-const { status, data } = await apiInstance.login(loginRequest, xApiVersion);
+const { status, data } = await apiInstance.login(xOdeVersion, loginRequest);
 ```
 
 ### Parameters
 
-| Name             | Type             | Description                                                               | Notes                            |
-| ---------------- | ---------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **loginRequest** | **LoginRequest** |                                                                           |                                  |
-| **xApiVersion**  | [**string**]     | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name             | Type             | Description                                                                                                                     | Notes                 |
+| ---------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **loginRequest** | **LoginRequest** |                                                                                                                                 |                       |
+| **xOdeVersion**  | [**string**]     | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -685,18 +685,18 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let bundle: File; //ZIP file containing the new app bundle (optional) (default to undefined)
 
-const { status, data } = await apiInstance.pushAppBundle(xApiVersion, bundle);
+const { status, data } = await apiInstance.pushAppBundle(xOdeVersion, bundle);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
-| **bundle**      | [**File**]   | ZIP file containing the new app bundle                                    | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                     | Notes                            |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined            |
+| **bundle**      | [**File**]   | ZIP file containing the new app bundle                                                                                          | (optional) defaults to undefined |
 
 ### Return type
 
@@ -737,21 +737,21 @@ import { DefaultApi, Configuration, RefreshTokenRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let refreshTokenRequest: RefreshTokenRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.refreshToken(
+  xOdeVersion,
   refreshTokenRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                    | Type                    | Description                                                               | Notes                            |
-| ----------------------- | ----------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **refreshTokenRequest** | **RefreshTokenRequest** |                                                                           |                                  |
-| **xApiVersion**         | [**string**]            | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                    | Type                    | Description                                                                                                                     | Notes                 |
+| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **refreshTokenRequest** | **RefreshTokenRequest** |                                                                                                                                 |                       |
+| **xOdeVersion**         | [**string**]            | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -790,21 +790,21 @@ import { DefaultApi, Configuration, ResetUserPasswordRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let resetUserPasswordRequest: ResetUserPasswordRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.resetUserPassword(
+  xOdeVersion,
   resetUserPasswordRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                         | Type                         | Description                                                               | Notes                            |
-| ---------------------------- | ---------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **resetUserPasswordRequest** | **ResetUserPasswordRequest** |                                                                           |                                  |
-| **xApiVersion**              | [**string**]                 | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                         | Type                         | Description                                                                                                                     | Notes                 |
+| ---------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **resetUserPasswordRequest** | **ResetUserPasswordRequest** |                                                                                                                                 |                       |
+| **xOdeVersion**              | [**string**]                 | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -844,20 +844,20 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let version: string; //Version identifier to switch to (default to undefined)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 
 const { status, data } = await apiInstance.switchAppBundleVersion(
   version,
-  xApiVersion,
+  xOdeVersion,
 );
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **version**     | [**string**] | Version identifier to switch to                                           | defaults to undefined            |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                     | Notes                 |
+| --------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **version**     | [**string**] | Version identifier to switch to                                                                                                 | defaults to undefined |
+| **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
@@ -898,27 +898,27 @@ import { DefaultApi, Configuration, SyncPullRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let syncPullRequest: SyncPullRequest; //
 let schemaType: string; //Filter by schemaType (optional) (default to undefined)
 let limit: number; //Maximum number of records to return (optional) (default to 50)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.syncPull(
+  xOdeVersion,
   syncPullRequest,
   schemaType,
   limit,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                | Type                | Description                                                               | Notes                            |
-| ------------------- | ------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **syncPullRequest** | **SyncPullRequest** |                                                                           |                                  |
-| **schemaType**      | [**string**]        | Filter by schemaType                                                      | (optional) defaults to undefined |
-| **limit**           | [**number**]        | Maximum number of records to return                                       | (optional) defaults to 50        |
-| **xApiVersion**     | [**string**]        | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                | Type                | Description                                                                                                                     | Notes                            |
+| ------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **syncPullRequest** | **SyncPullRequest** |                                                                                                                                 |                                  |
+| **xOdeVersion**     | [**string**]        | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined            |
+| **schemaType**      | [**string**]        | Filter by schemaType                                                                                                            | (optional) defaults to undefined |
+| **limit**           | [**number**]        | Maximum number of records to return                                                                                             | (optional) defaults to 50        |
 
 ### Return type
 
@@ -953,21 +953,21 @@ import { DefaultApi, Configuration, SyncPushRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let syncPushRequest: SyncPushRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.syncPush(
+  xOdeVersion,
   syncPushRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                | Type                | Description                                                               | Notes                            |
-| ------------------- | ------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **syncPushRequest** | **SyncPushRequest** |                                                                           |                                  |
-| **xApiVersion**     | [**string**]        | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                | Type                | Description                                                                                                                     | Notes                 |
+| ------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **syncPushRequest** | **SyncPushRequest** |                                                                                                                                 |                       |
+| **xOdeVersion**     | [**string**]        | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined |
 
 ### Return type
 
