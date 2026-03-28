@@ -1,6 +1,7 @@
 package formulusversion
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -55,8 +56,20 @@ func TestMiddleware(t *testing.T) {
 			t.Errorf("expected body with version error message, got %q", body)
 		}
 		// Check that server version is advertised in header
-		if rec.Header().Get("x-synkronus-version") == "" {
+		headerVersion := rec.Header().Get("x-synkronus-version")
+		if headerVersion == "" {
 			t.Error("expected x-synkronus-version header to be set")
+		}
+
+		var payload VersionMismatchResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &payload); err != nil {
+			t.Fatalf("expected JSON version mismatch payload: %v", err)
+		}
+		if payload.SynkronusVersion == "" {
+			t.Error("expected synkronus_version in payload")
+		}
+		if headerVersion != "" && payload.SynkronusVersion != headerVersion {
+			t.Errorf("expected payload synkronus_version (%q) to match header (%q)", payload.SynkronusVersion, headerVersion)
 		}
 	})
 

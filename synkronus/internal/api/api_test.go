@@ -1,10 +1,12 @@
 package api
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/opendataensemble/synkronus/internal/handlers"
 	"github.com/opendataensemble/synkronus/internal/handlers/mocks"
@@ -70,8 +72,8 @@ func TestNewRouter(t *testing.T) {
 
 	// Check content type
 	contentType := resp.Header.Get("content-type")
-	if contentType != "text/plain" {
-		t.Errorf("Expected content type %s, got %s", "text/plain", contentType)
+	if contentType != "application/json" {
+		t.Errorf("Expected content type %s, got %s", "application/json", contentType)
 	}
 
 	// Check response body
@@ -80,7 +82,19 @@ func TestNewRouter(t *testing.T) {
 		t.Fatalf("Failed to read response body: %v", err)
 	}
 
-	if string(body) != "OK" {
-		t.Errorf("Expected response body %s, got %s", "OK", string(body))
+	var payload map[string]string
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("Expected JSON health response, got error: %v body: %s", err, string(body))
+	}
+	if payload["status"] != "ok" {
+		t.Errorf("Expected health status %q, got %q", "ok", payload["status"])
+	}
+	if payload["version"] == "" {
+		t.Error("Expected version in health response")
+	}
+	if payload["timestamp"] == "" {
+		t.Error("Expected timestamp in health response")
+	} else if _, err := time.Parse(time.RFC3339, payload["timestamp"]); err != nil {
+		t.Errorf("Expected timestamp in RFC3339 format, got %q (%v)", payload["timestamp"], err)
 	}
 }
