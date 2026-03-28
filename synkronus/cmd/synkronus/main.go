@@ -100,7 +100,13 @@ func main() {
 	log.Info("Starting Synkronus API server", "version", version.BuildVersion())
 	log.Info("Configuration loaded from", "source", cfg.Source)
 	log.Debug("Configuration details", "port", cfg.Port, "logLevel", cfg.LogLevel,
-		"dataDir", cfg.DataDir, "appBundlePath", cfg.AppBundlePath, "appBundleVersionsPath", cfg.AppBundleVersionsPath)
+		"dataDir", cfg.DataDir,
+		"appBundlePath", cfg.AppBundlePath,
+		"appBundleVersionsPath", cfg.AppBundleVersionsPath,
+		"imageCompressionLevel", cfg.ImageCompressionLevel,
+		"imageMaxWidthPx", cfg.ImageMaxWidthPx,
+		"imageMaxHeightPx", cfg.ImageMaxHeightPx,
+		"imageApplyExifOrientation", cfg.ImageApplyExifOrientation)
 
 	// Initialize database
 	dbConfig := database.DefaultConfig()

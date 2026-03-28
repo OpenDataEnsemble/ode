@@ -924,6 +924,10 @@ paths:
     get:
       operationId: downloadAttachment
       summary: Download an attachment by ID
+      description: >
+        Downloads the processed attachment by default. If `original=true` (or `1` / `yes`)
+        and an uncompressed sibling exists, the original file is returned. If no original
+        exists, the endpoint falls back to the processed attachment.
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
@@ -933,6 +937,16 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - name: original
+          in: query
+          required: false
+          description: >
+            Prefer the original (uncompressed) attachment when available. Truthy values:
+            `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no
+            original exists.
+          schema:
+            type: string
+            example: "true"
       responses:
         '200':
           description: The binary attachment content
@@ -949,6 +963,9 @@ paths:
     head:
       operationId: checkAttachmentExists
       summary: Check if an attachment exists
+      description: >
+        Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`),
+        existence is checked against the original file first, with fallback to the processed file.
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
@@ -958,6 +975,16 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - name: original
+          in: query
+          required: false
+          description: >
+            Prefer the original (uncompressed) attachment when available. Truthy values:
+            `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no
+            original exists.
+          schema:
+            type: string
+            example: "true"
       responses:
         '200':
           description: Attachment exists

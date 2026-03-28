@@ -32,6 +32,12 @@ type Config struct {
 	AppBundleVersionsPath string
 	MaxVersionsKept       int
 
+	// Attachment image processing (all optional).
+	ImageCompressionLevel     int  // 0..10; 0 disables compression
+	ImageMaxWidthPx           int  // 0 disables width limit
+	ImageMaxHeightPx          int  // 0 disables height limit
+	ImageApplyExifOrientation bool // true enables EXIF orientation normalization
+
 	// Internal tracking
 	Source string // Source of the configuration (env, .env file path, etc.)
 }
@@ -142,16 +148,25 @@ func Load(log *logger.Logger) (*Config, error) {
 	appBundlePath := filepath.Join(dataDir, "app-bundle", "active")
 	appBundleVersionsPath := filepath.Join(dataDir, "app-bundle", "versions")
 
+	imageCompressionLevel := getEnvClampedIntWithWarnings(log, "SYNKRONUS_IMAGE_COMPRESSION_LEVEL", 0, 0, 10)
+	imageMaxWidthPx := getEnvNonNegativeIntWithWarnings(log, "SYNKRONUS_IMAGE_MAX_WIDTH_PX", 0)
+	imageMaxHeightPx := getEnvNonNegativeIntWithWarnings(log, "SYNKRONUS_IMAGE_MAX_HEIGHT_PX", 0)
+	imageApplyExifOrientation := getEnvBoolWithWarnings(log, "SYNKRONUS_IMAGE_APPLY_EXIF_ORIENTATION", true)
+
 	return &Config{
-		Port:                  getEnvOrDefault("PORT", "8080"),
-		DatabaseURL:           getEnvOrDefault("DB_CONNECTION", "postgres://user:password@localhost:5432/synkronus"),
-		JWTSecret:             getEnvOrDefault("JWT_SECRET", ""),
-		LogLevel:              getEnvOrDefault("LOG_LEVEL", "info"),
-		DataDir:               dataDir,
-		AppBundlePath:         appBundlePath,
-		AppBundleVersionsPath: appBundleVersionsPath,
-		MaxVersionsKept:       getEnvIntOrDefault("MAX_VERSIONS_KEPT", 5),
-		Source:                configSource,
+		Port:                      getEnvOrDefault("PORT", "8080"),
+		DatabaseURL:               getEnvOrDefault("DB_CONNECTION", "postgres://user:password@localhost:5432/synkronus"),
+		JWTSecret:                 getEnvOrDefault("JWT_SECRET", ""),
+		LogLevel:                  getEnvOrDefault("LOG_LEVEL", "info"),
+		DataDir:                   dataDir,
+		AppBundlePath:             appBundlePath,
+		AppBundleVersionsPath:     appBundleVersionsPath,
+		MaxVersionsKept:           getEnvIntOrDefault("MAX_VERSIONS_KEPT", 5),
+		ImageCompressionLevel:     imageCompressionLevel,
+		ImageMaxWidthPx:           imageMaxWidthPx,
+		ImageMaxHeightPx:          imageMaxHeightPx,
+		ImageApplyExifOrientation: imageApplyExifOrientation,
+		Source:                    configSource,
 	}, nil
 }
 
@@ -171,4 +186,67 @@ func getEnvIntOrDefault(key string, defaultValue int) int {
 		}
 	}
 	return defaultValue
+}
+
+func getEnvClampedIntWithWarnings(log *logger.Logger, key string, defaultValue, minValue, maxValue int) int {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return defaultValue
+	}
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		if log != nil {
+			log.Warn("Invalid integer environment variable, using default", "key", key, "value", value, "default", defaultValue)
+		}
+		return defaultValue
+	}
+	if intValue < minValue {
+		if log != nil {
+			log.Warn("Environment variable below minimum, clamping", "key", key, "value", intValue, "min", minValue)
+		}
+		return minValue
+	}
+	if intValue > maxValue {
+		if log != nil {
+			log.Warn("Environment variable above maximum, clamping", "key", key, "value", intValue, "max", maxValue)
+		}
+		return maxValue
+	}
+	return intValue
+}
+
+func getEnvNonNegativeIntWithWarnings(log *logger.Logger, key string, defaultValue int) int {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return defaultValue
+	}
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		if log != nil {
+			log.Warn("Invalid integer environment variable, using default", "key", key, "value", value, "default", defaultValue)
+		}
+		return defaultValue
+	}
+	if intValue < 0 {
+		if log != nil {
+			log.Warn("Environment variable cannot be negative, using default", "key", key, "value", intValue, "default", defaultValue)
+		}
+		return defaultValue
+	}
+	return intValue
+}
+
+func getEnvBoolWithWarnings(log *logger.Logger, key string, defaultValue bool) bool {
+	value, exists := os.LookupEnv(key)
+	if !exists || value == "" {
+		return defaultValue
+	}
+	boolValue, err := strconv.ParseBool(value)
+	if err != nil {
+		if log != nil {
+			log.Warn("Invalid boolean environment variable, using default", "key", key, "value", value, "default", defaultValue)
+		}
+		return defaultValue
+	}
+	return boolValue
 }
