@@ -54,8 +54,6 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 	}
 
 	schemaType := r.URL.Query().Get("schemaType")
-	apiVersion := r.Header.Get("x-api-version")
-
 	// Determine schema types to filter by
 	var schemaTypes []string
 	if schemaType != "" {
@@ -102,8 +100,7 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		"sinceVersion", sinceVersion,
 		"currentVersion", result.CurrentVersion,
 		"recordCount", len(result.Records),
-		"hasMore", result.HasMore,
-		"apiVersion", apiVersion)
+		"hasMore", result.HasMore)
 
 	SendJSONResponse(w, http.StatusOK, response)
 }
@@ -148,9 +145,6 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse API version header
-	apiVersion := r.Header.Get("x-api-version")
-
 	// Process the records using the sync service
 	result, err := h.syncService.ProcessPushedRecords(r.Context(), req.Records, req.ClientID, req.TransmissionID)
 	if err != nil {
@@ -174,8 +168,7 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 		"successCount", result.SuccessCount,
 		"failedCount", len(result.FailedRecords),
 		"warningCount", len(result.Warnings),
-		"currentVersion", result.CurrentVersion,
-		"apiVersion", apiVersion)
+		"currentVersion", result.CurrentVersion)
 
 	// Send response
 	SendJSONResponse(w, http.StatusOK, response)

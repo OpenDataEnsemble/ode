@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "prebuild": "npm run generate:api",
+    "generate:api": "openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated --additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original && npm run format",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
@@ -16,12 +18,14 @@
   "dependencies": {
     "@ode/components": "file:../packages/components",
     "@ode/tokens": "file:../packages/tokens",
+    "axios": "^1.13.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-icons": "^5.5.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@openapitools/openapi-generator-cli": "^2.26.0",
     "@types/node": "^24.10.9",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",

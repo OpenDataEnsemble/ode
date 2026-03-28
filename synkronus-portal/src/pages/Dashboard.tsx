@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
-import { PORTAL_VERSION } from '../version';
 import { Button, Input, Badge } from '@ode/components/react-web';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
 
@@ -33,10 +32,7 @@ import './Dashboard.css';
 
 const BRAND_PRIMARY = ColorBrandPrimary500;
 
-type TabType =
-  | 'users'
-  | 'app-bundles'
-  | 'data-export';
+type TabType = 'users' | 'app-bundles' | 'data-export';
 
 interface AppBundleVersion {
   version: string;
@@ -325,7 +321,6 @@ export function Dashboard() {
     }
   }, [user?.role]);
 
-  
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
     setError(null);
@@ -367,7 +362,9 @@ export function Dashboard() {
 
     // Enhanced file validation
     if (!file.name.endsWith('.zip')) {
-      setError('Invalid file format. Please upload a valid ZIP file (.zip extension required)');
+      setError(
+        'Invalid file format. Please upload a valid ZIP file (.zip extension required)',
+      );
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -377,7 +374,9 @@ export function Dashboard() {
     // File size validation (50MB limit)
     const maxSize = 50 * 1024 * 1024; // 50MB in bytes
     if (file.size > maxSize) {
-      setError('File too large. Maximum size is 50MB. Please compress your bundle and try again.');
+      setError(
+        'File too large. Maximum size is 50MB. Please compress your bundle and try again.',
+      );
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -385,9 +384,10 @@ export function Dashboard() {
     }
 
     // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Your session has expired. Please log in again and try uploading.');
+    if (!localStorage.getItem('token')) {
+      setError(
+        'Your session has expired. Please log in again and try uploading.',
+      );
       // Redirect to login or show login modal
       setTimeout(() => {
         window.location.reload(); // Simple redirect to login page
@@ -401,97 +401,7 @@ export function Dashboard() {
     setUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append('bundle', file);
-
-      const token = localStorage.getItem('token');
-
-      // Use Promise wrapper for XMLHttpRequest
-      const result = await new Promise<any>((resolve, reject) => {
-        // Use XMLHttpRequest for upload progress (don't set Content-Type - browser does it automatically with boundary)
-        const xhr = new XMLHttpRequest();
-
-        xhr.upload.addEventListener('progress', e => {
-          if (e.lengthComputable) {
-            const percentComplete = (e.loaded / e.total) * 100;
-            setUploadProgress(percentComplete);
-          }
-        });
-
-        xhr.addEventListener('load', () => {
-          if (xhr.status === 200) {
-            try {
-              const result = JSON.parse(xhr.responseText);
-              resolve(result);
-            } catch (e) {
-              reject(new Error('Invalid response from server'));
-            }
-          } else if (xhr.status === 401) {
-            // Auth error
-            reject(new Error('Your session has expired. Please log in again.'));
-          } else if (xhr.status === 413) {
-            // Payload too large
-            reject(new Error('File too large. Maximum size is 50MB.'));
-          } else if (xhr.status === 400) {
-            // Bad request - validation error
-            try {
-              const errorData = JSON.parse(xhr.responseText);
-              reject(
-                new Error(
-                  `Validation failed: ${errorData.message || errorData.error || 'Invalid file format or content'}`,
-                ),
-              );
-            } catch (_e) {
-              reject(new Error('Validation failed: Invalid file format or content'));
-            }
-          } else if (xhr.status >= 500) {
-            // Server error
-            reject(new Error('Server error. Please try again later or contact support if the problem persists.'));
-          } else {
-            // Other HTTP errors
-            try {
-              const errorData = JSON.parse(xhr.responseText);
-              reject(
-                new Error(
-                  errorData.message ||
-                    errorData.error ||
-                    `Upload failed with status ${xhr.status}: ${xhr.statusText}`,
-                ),
-              );
-            } catch (_e) {
-              reject(
-                new Error(`Upload failed with status ${xhr.status}: ${xhr.statusText}`),
-              );
-            }
-          }
-        });
-
-        xhr.addEventListener('error', () =>
-          reject(new Error('Network error: Unable to connect to server. Please check your internet connection and try again.')),
-        );
-        
-        xhr.addEventListener('timeout', () =>
-          reject(new Error('Upload timeout: The upload took too long (2-minute limit). Please try again with a smaller file or better connection.')),
-        );
-        
-        xhr.addEventListener('abort', () =>
-          reject(new Error('Upload was cancelled')),
-        );
-
-        const apiBaseUrl = import.meta.env.VITE_API_URL || '/api';
-        const uploadUrl = `${apiBaseUrl}/app-bundle/push`;
-        xhr.open('POST', uploadUrl);
-        
-        // Set timeout for upload (2 minutes)
-        xhr.timeout = 2 * 60 * 1000; // 2 minutes in ms
-        
-        if (token) {
-          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        }
-        xhr.setRequestHeader('x-formulus-version', PORTAL_VERSION);
-        // Don't set Content-Type - browser sets it automatically with boundary for FormData
-        xhr.send(formData);
-      });
+      const result = await api.uploadAppBundle(file, setUploadProgress);
 
       setSuccess(
         `Bundle uploaded successfully! Version: ${result.manifest?.version || result.version || 'N/A'}`,
@@ -850,7 +760,11 @@ export function Dashboard() {
                     y1="0%"
                     x2="100%"
                     y2="0%">
-                    <stop offset="0%" stopColor={BRAND_PRIMARY} stopOpacity="1" />
+                    <stop
+                      offset="0%"
+                      stopColor={BRAND_PRIMARY}
+                      stopOpacity="1"
+                    />
                     <stop
                       offset="85%"
                       stopColor={BRAND_PRIMARY}
@@ -873,7 +787,11 @@ export function Dashboard() {
                 />
               </svg>
               <span className="tab-icon">
-                {activeTab === 'data-export' ? <HiArrowDownTray /> : <HiArrowDownTray />}
+                {activeTab === 'data-export' ? (
+                  <HiArrowDownTray />
+                ) : (
+                  <HiArrowDownTray />
+                )}
               </span>
               <span>Data Export</span>
             </button>
@@ -905,7 +823,6 @@ export function Dashboard() {
         )}
 
         <div className="tab-content">
-          
           {activeTab === 'app-bundles' && (
             <div className="app-bundles-section">
               <div className="section-header">
@@ -1316,7 +1233,8 @@ export function Dashboard() {
                 <div className="section-title">
                   <h2>Data Export</h2>
                   <p className="section-subtitle">
-                    Download observations (Parquet or raw JSON) and all attachment files as ZIP archives
+                    Download observations (Parquet or raw JSON) and all
+                    attachment files as ZIP archives
                   </p>
                 </div>
               </div>
@@ -1328,7 +1246,8 @@ export function Dashboard() {
                   <div className="export-content">
                     <h3>Observations (Parquet)</h3>
                     <p>
-                      ZIP of Parquet files—one file per form type, flattened columns
+                      ZIP of Parquet files—one file per form type, flattened
+                      columns
                     </p>
                     <Button
                       variant="primary"
@@ -1348,7 +1267,9 @@ export function Dashboard() {
                           setSuccess('Parquet export downloaded successfully!');
                         } catch (err) {
                           setError(
-                            err instanceof Error ? err.message : 'Export failed',
+                            err instanceof Error
+                              ? err.message
+                              : 'Export failed',
                           );
                         }
                       }}
@@ -1383,10 +1304,14 @@ export function Dashboard() {
                           a.click();
                           window.URL.revokeObjectURL(url);
                           document.body.removeChild(a);
-                          setSuccess('Raw JSON export downloaded successfully!');
+                          setSuccess(
+                            'Raw JSON export downloaded successfully!',
+                          );
                         } catch (err) {
                           setError(
-                            err instanceof Error ? err.message : 'Export failed',
+                            err instanceof Error
+                              ? err.message
+                              : 'Export failed',
                           );
                         }
                       }}
@@ -1403,7 +1328,8 @@ export function Dashboard() {
                   <div className="export-content">
                     <h3>All attachments</h3>
                     <p>
-                      ZIP of every stored attachment file (paths match attachment IDs in observation data)
+                      ZIP of every stored attachment file (paths match
+                      attachment IDs in observation data)
                     </p>
                     <Button
                       variant="primary"
@@ -1420,10 +1346,14 @@ export function Dashboard() {
                           a.click();
                           window.URL.revokeObjectURL(url);
                           document.body.removeChild(a);
-                          setSuccess('Attachments export downloaded successfully!');
+                          setSuccess(
+                            'Attachments export downloaded successfully!',
+                          );
                         } catch (err) {
                           setError(
-                            err instanceof Error ? err.message : 'Export failed',
+                            err instanceof Error
+                              ? err.message
+                              : 'Export failed',
                           );
                         }
                       }}

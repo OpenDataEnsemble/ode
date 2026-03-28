@@ -11,6 +11,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func setupTestService() (*Service, *mocks.MockUserRepository) {
@@ -220,4 +221,66 @@ func TestInitialize(t *testing.T) {
 	// Verify password was hashed correctly - use bcrypt's own verification
 	// since we're using real password hashing in the service
 	assert.True(t, service.CheckPasswordHash(service.config.AdminPassword, user.PasswordHash))
+}
+
+func TestInitialize_ForceCreateAdminUserCreatesWhenMissing(t *testing.T) {
+	mockRepo := mocks.NewMockUserRepository()
+	config := Config{
+		JWTSecret:                "test-secret",
+		TokenExpiration:          time.Hour,
+		RefreshTokenExpiration:   time.Hour * 24,
+		AdminUsername:            "admin",
+		AdminPassword:            "admin",
+		ForceCreateAdminUser:     "recovery-admin",
+		ForceCreateAdminPassword: "new-recovery-password",
+	}
+	log := logger.NewLogger()
+	service := NewService(config, mockRepo, log)
+	ctx := context.Background()
+
+	err := service.Initialize(ctx)
+	require.NoError(t, err)
+
+	recoveryUser, err := mockRepo.GetByUsername(ctx, "recovery-admin")
+	require.NoError(t, err)
+	require.NotNil(t, recoveryUser)
+	assert.Equal(t, models.RoleAdmin, recoveryUser.Role)
+	assert.True(t, service.CheckPasswordHash("new-recovery-password", recoveryUser.PasswordHash))
+}
+
+func TestInitialize_ForceCreateAdminUserOverwritesExisting(t *testing.T) {
+	mockRepo := mocks.NewMockUserRepository()
+	log := logger.NewLogger()
+	ctx := context.Background()
+
+	previousHash, err := bcrypt.GenerateFromPassword([]byte("old-password"), bcrypt.DefaultCost)
+	require.NoError(t, err)
+	existingUser := &models.User{
+		ID:           uuid.New(),
+		Username:     "ops-admin",
+		PasswordHash: string(previousHash),
+		Role:         models.RoleReadOnly,
+	}
+	err = mockRepo.Create(ctx, existingUser)
+	require.NoError(t, err)
+
+	config := Config{
+		JWTSecret:                "test-secret",
+		TokenExpiration:          time.Hour,
+		RefreshTokenExpiration:   time.Hour * 24,
+		AdminUsername:            "admin",
+		AdminPassword:            "admin",
+		ForceCreateAdminUser:     "ops-admin",
+		ForceCreateAdminPassword: "overwritten-password",
+	}
+	service := NewService(config, mockRepo, log)
+
+	err = service.Initialize(ctx)
+	require.NoError(t, err)
+
+	updatedUser, err := mockRepo.GetByUsername(ctx, "ops-admin")
+	require.NoError(t, err)
+	require.NotNil(t, updatedUser)
+	assert.Equal(t, models.RoleAdmin, updatedUser.Role)
+	assert.True(t, service.CheckPasswordHash("overwritten-password", updatedUser.PasswordHash))
 }

@@ -17,6 +17,7 @@ jest.mock('../../../api/synkronus/Auth', () => ({
 
 import { Database } from '@nozbe/watermelondb';
 import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
+import logger from '@nozbe/watermelondb/utils/common/logger';
 import { schemas } from '../../schema';
 import { ObservationModel } from '../../models/ObservationModel';
 import { WatermelonDBRepo } from '../WatermelonDBRepo';
@@ -31,9 +32,8 @@ function createTestDatabase() {
     schema: schemas,
     // Don't use web workers in tests to avoid async issues
     useWebWorker: false,
-    // Don't use IndexedDB for tests
-    useIncrementalIndexedDB: false,
-    // Disable logging to reduce noise in test output
+    // `false` is deprecated; in Node (no IndexedDB) Loki still falls back to memory.
+    useIncrementalIndexedDB: true,
     dbName: 'test-watermelon-db',
   });
 
@@ -46,6 +46,15 @@ function createTestDatabase() {
 describe('WatermelonDBRepo', () => {
   let database: Database;
   let repo: WatermelonDBRepo;
+
+  beforeAll(() => {
+    logger.silence();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'debug').mockImplementation(() => {});
+  });
 
   beforeEach(async () => {
     // Create a fresh database for each test
@@ -134,6 +143,11 @@ describe('WatermelonDBRepo', () => {
     if (global.gc) {
       global.gc();
     }
+
+    jest.restoreAllMocks();
+    // Logger is a process-wide singleton; reset for other suites in the same worker.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (logger as any).silent = false;
   }, 10000); // Ensure enough time for cleanup
 
   test('saveObservation should create a new observation and return its ID', async () => {

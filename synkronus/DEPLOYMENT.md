@@ -178,8 +178,12 @@ Your Synkronus instance is now accessible at `https://synkronus.your-domain.com`
 | `MAX_VERSIONS_KEPT` | `5` | Number of app bundle versions to retain |
 | `ADMIN_USERNAME` | `admin` | Initial admin username |
 | `ADMIN_PASSWORD` | `admin` | Initial admin password (CHANGE THIS!) |
+| `SYNKRONUS_RECOVERY_CREATE_USER` | *(empty)* | Recovery admin username (must be set with pass) |
+| `SYNKRONUS_RECOVERY_CREATE_PASS` | *(empty)* | Recovery admin plaintext password (must be set with user) |
 
 In the official container image, the process runs from **`/app`** (binary at **`/app/synkronus`**), so app bundles are stored at **`/app/data/app-bundle/active`** and **`/app/data/app-bundle/versions`**. Mount your persistent volume at **`/app/data`**.
+
+`ADMIN_USERNAME`/`ADMIN_PASSWORD` are bootstrap credentials and only apply when there are no users yet. For emergency recovery, set `SYNKRONUS_RECOVERY_CREATE_USER` and `SYNKRONUS_RECOVERY_CREATE_PASS` together; on startup, Synkronus creates or overwrites that user as admin. Remove these recovery variables after use so credentials are not reset on every restart.
 
 ## Volume Management
 

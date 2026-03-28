@@ -75,12 +75,28 @@ Synkronus uses a flexible configuration system that supports both environment va
 | `JWT_SECRET` | Secret key for JWT token signing | (required, no default) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
 | `MAX_VERSIONS_KEPT` | Maximum number of app bundle versions to keep | `5` |
+| `ADMIN_USERNAME` | Initial admin username (bootstrap only) | `admin` |
+| `ADMIN_PASSWORD` | Initial admin password (bootstrap only) | `admin` |
+| `SYNKRONUS_RECOVERY_CREATE_USER` | Recovery admin username (must be paired with pass) | (empty) |
+| `SYNKRONUS_RECOVERY_CREATE_PASS` | Recovery admin plaintext password (must be paired with user) | (empty) |
+| `SYNKRONUS_IMAGE_COMPRESSION_LEVEL` | Upload-time image compression level (`0`-`10`) | `0` |
+| `SYNKRONUS_IMAGE_MAX_WIDTH_PX` | Max width bound for upload-time downscaling (`0` disables) | `0` |
+| `SYNKRONUS_IMAGE_MAX_HEIGHT_PX` | Max height bound for upload-time downscaling (`0` disables) | `0` |
+| `SYNKRONUS_IMAGE_APPLY_EXIF_ORIENTATION` | Apply EXIF orientation normalization before resize/compression | `true` |
+
+`ADMIN_USERNAME`/`ADMIN_PASSWORD` are only used when no users exist in the database.
+`SYNKRONUS_RECOVERY_CREATE_USER` + `SYNKRONUS_RECOVERY_CREATE_PASS` provide an emergency recovery flow: on startup, Synkronus creates or overwrites that user as an admin. Remove those recovery variables after regaining access to avoid resetting credentials on each restart.
+
+Attachment image processing is optional and only applies to supported image formats. If processing creates a smaller client-facing file, Synkronus stores it in `data/attachments/` and preserves the uploaded original in `data/attachments_uncompressed/` for export and explicit retrieval.
 
 ### Running the API
 
-```
-# Build the executable
-go build -o bin/synkronus cmd/synkronus/main.go
+```bash
+# Build the executable with injected version metadata
+VERSION=$(git describe --tags --always --dirty)
+COMMIT=$(git rev-parse HEAD)
+BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+go build -ldflags "-X github.com/opendataensemble/synkronus/pkg/version.version=${VERSION} -X github.com/opendataensemble/synkronus/pkg/version.commit=${COMMIT} -X github.com/opendataensemble/synkronus/pkg/version.buildTime=${BUILD_TIME}" -o bin/synkronus cmd/synkronus/main.go
 
 # Run the executable
 ./bin/synkronus
@@ -95,6 +111,11 @@ go run cmd/synkronus/main.go
 - `DB_CONNECTION`: Database connection string
 - `JWT_SECRET`: Secret for JWT signing
 - `LOG_LEVEL`: Logging level (debug, info, warn, error)
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD`: bootstrap admin credentials (first user only)
+- `SYNKRONUS_RECOVERY_CREATE_USER` / `SYNKRONUS_RECOVERY_CREATE_PASS`: startup recovery override (create/update admin user)
+- `SYNKRONUS_IMAGE_COMPRESSION_LEVEL`: upload-time image compression (`0` disables, `10` strongest)
+- `SYNKRONUS_IMAGE_MAX_WIDTH_PX` / `SYNKRONUS_IMAGE_MAX_HEIGHT_PX`: optional upload-time max bounding box (`0` disables axis)
+- `SYNKRONUS_IMAGE_APPLY_EXIF_ORIENTATION`: normalize EXIF orientation before resize/compression
 
 Mutable files use a fixed root of `<directory>/data` next to the `synkronus` executable (e.g. `/app/data` in the official image). App bundles always live under `<data>/app-bundle/active` and `<data>/app-bundle/versions`. `go run` / `go test` fall back to `./data` relative to cwd when the binary is in a Go temp build path.
 
@@ -105,6 +126,7 @@ For Docker-based deployment details (pre-built images, docker-compose configurat
 ## API Documentation
 
 API documentation is generated from the OpenAPI specification in `openapi/synkronus.yaml`.
+Attachment download endpoints support `?original=true` to prefer full-resolution originals when available (with fallback to processed content). See [`openapi/synkronus.yaml`](./openapi/synkronus.yaml) for exact semantics.
 
 ## Sync protocol
 
@@ -115,7 +137,10 @@ For the sync protocol design details (record model, attachment handling, paginat
 MIT
 
 ## Dev. notes
-Build with: `go build -o bin/synkronus.exe cmd/synkronus/main.go`
+Build with: `go build -ldflags "-X github.com/opendataensemble/synkronus/pkg/version.version=<version> -X github.com/opendataensemble/synkronus/pkg/version.commit=<commit> -X github.com/opendataensemble/synkronus/pkg/version.buildTime=<utc-rfc3339>" -o bin/synkronus.exe cmd/synkronus/main.go`
 Run with: `./bin/synkronus.exe` or `go run cmd/synkronus/main.go`
+
+On Windows PowerShell, you can use `./build.ps1` to build with version metadata from git.
+Without `-ldflags` version injection, `/health` reports the default fallback version (`1.0.0`).
 
 Icon: configured in versioninfo.json and built with goversioninfo `goversioninfo -o cmd/synkronus/resource.syso` to create a syso file next to main go file.

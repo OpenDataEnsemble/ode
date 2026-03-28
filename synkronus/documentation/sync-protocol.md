@@ -144,11 +144,10 @@ These fields are stored with the observation and returned on pull; push payloads
 - Minor version increments add new functionality in a backward-compatible manner
 - Patch version increments represent backward-compatible bug fixes
 
-#### Version Negotiation
-- Clients specify desired API version through the `x-api-version` header
-- Example: `x-api-version: 1.2.0`
-- If omitted, the server defaults to the latest stable version
-- Server respects highest compatible version less than or equal to requested version
+#### Version Compatibility
+- Clients MUST send `x-ode-version` on API requests
+- Example: `x-ode-version: 1.0.0`
+- Server validates major-version compatibility and returns `426 Upgrade Required` if missing, invalid, or incompatible
 
 #### Version Lifecycle
 - **Supported**: Currently maintained and recommended for use
@@ -157,8 +156,7 @@ These fields are stored with the observation and returned on pull; push payloads
 
 #### Version Discovery
 - GET `/api/versions` endpoint lists all available API versions and their status
-- Responses include `x-api-version-used` header indicating the version used to process the request
-- 406 Not Acceptable returned if requested version cannot be satisfied
+- Version-mismatch responses include `x-synkronus-version` to help clients detect compatible versions
 
 #### Backward Compatibility Guarantees
 - Within the same major version:

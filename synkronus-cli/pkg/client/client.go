@@ -2,12 +2,12 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +15,7 @@ import (
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/auth"
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/client/generated"
 	"github.com/spf13/viper"
 )
 
@@ -52,146 +53,209 @@ type BuildInfo struct {
 type Client struct {
 	BaseURL    string
 	APIVersion string
-	HTTPClient *http.Client
+	api        *generated.ClientWithResponses
+	initErr    error
 }
 
 // NewClient creates a new Synkronus API client
 func NewClient() *Client {
-	baseURL := utils.APIBaseURL(viper.GetString("api.url"))
+	baseURL := utils.OriginURL(viper.GetString("api.url"))
+	apiVersion := viper.GetString("api.version")
+	httpClient := &http.Client{
+		Timeout: time.Second * 30,
+	}
+
+	reqEditor := func(ctx context.Context, req *http.Request) error {
+		token, err := auth.GetToken()
+		if err != nil {
+			return fmt.Errorf("authentication error: %w", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		return nil
+	}
+
+	api, err := generated.NewClientWithResponses(
+		baseURL,
+		generated.WithHTTPClient(httpClient),
+		generated.WithRequestEditorFn(reqEditor),
+	)
+
 	return &Client{
 		BaseURL:    baseURL,
-		APIVersion: viper.GetString("api.version"),
-		HTTPClient: &http.Client{
-			Timeout: time.Second * 30,
-		},
+		APIVersion: apiVersion,
+		api:        api,
+		initErr:    err,
 	}
 }
 
-// doRequest performs an HTTP request with authentication
+func (c *Client) ensureReady() error {
+	if c.initErr != nil {
+		return fmt.Errorf("client initialization failed: %w", c.initErr)
+	}
+	return nil
+}
+
+func (c *Client) requiredVersion() (string, error) {
+	if c.APIVersion == "" {
+		return "", fmt.Errorf("api.version is required")
+	}
+	return c.APIVersion, nil
+}
+
+func toMap(v any) (map[string]interface{}, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]interface{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func toMapSlice[T any](v []T) ([]map[string]interface{}, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var out []map[string]interface{}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func apiError(status int, body []byte) error {
+	msg := strings.TrimSpace(string(body))
+	if msg == "" {
+		return fmt.Errorf("API error (status %d)", status)
+	}
+	return fmt.Errorf("API error (status %d): %s", status, msg)
+}
+
 // GetVersion retrieves version information from the Synkronus server
 func (c *Client) GetVersion() (*SystemVersionInfo, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/version", c.BaseURL), nil)
-	if err != nil {
-		return nil, fmt.Errorf("error creating version request: %w", err)
+	if err := c.ensureReady(); err != nil {
+		return nil, err
 	}
 
-	resp, err := c.doRequest(req)
+	resp, err := c.api.GetVersionWithResponse(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("version request failed: %w", err)
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		var errResp struct {
-			Error string `json:"error"`
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
+	}
+	version := &SystemVersionInfo{}
+	if resp.JSON200.Server != nil && resp.JSON200.Server.Version != nil {
+		version.Server.Version = *resp.JSON200.Server.Version
+	}
+	if resp.JSON200.Database != nil {
+		if resp.JSON200.Database.Type != nil {
+			version.Database.Type = *resp.JSON200.Database.Type
 		}
-		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
-			return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		if resp.JSON200.Database.Version != nil {
+			version.Database.Version = *resp.JSON200.Database.Version
 		}
-		return nil, fmt.Errorf("version check failed: %s", errResp.Error)
+		if resp.JSON200.Database.DatabaseName != nil {
+			version.Database.DatabaseName = *resp.JSON200.Database.DatabaseName
+		}
 	}
-
-	var versionInfo SystemVersionInfo
-	if err := json.NewDecoder(resp.Body).Decode(&versionInfo); err != nil {
-		return nil, fmt.Errorf("error parsing version response: %w", err)
+	if resp.JSON200.System != nil {
+		if resp.JSON200.System.Os != nil {
+			version.System.OS = *resp.JSON200.System.Os
+		}
+		if resp.JSON200.System.Architecture != nil {
+			version.System.Architecture = *resp.JSON200.System.Architecture
+		}
+		if resp.JSON200.System.Cpus != nil {
+			version.System.CPUs = *resp.JSON200.System.Cpus
+		}
 	}
-
-	return &versionInfo, nil
-}
-
-func (c *Client) doRequest(req *http.Request) (*http.Response, error) {
-	// Add API version header (x-formulus-version is required by some servers)
-	req.Header.Set("x-formulus-version", c.APIVersion)
-
-	// Get authentication token
-	token, err := auth.GetToken()
-	if err != nil {
-		return nil, fmt.Errorf("authentication error: %w", err)
+	if resp.JSON200.Build != nil {
+		if resp.JSON200.Build.Commit != nil {
+			version.Build.Commit = *resp.JSON200.Build.Commit
+		}
+		if resp.JSON200.Build.BuildTime != nil {
+			version.Build.BuildTime = *resp.JSON200.Build.BuildTime
+		}
+		if resp.JSON200.Build.GoVersion != nil {
+			version.Build.GoVersion = *resp.JSON200.Build.GoVersion
+		}
 	}
-
-	// Add authorization header
-	req.Header.Set("Authorization", "Bearer "+token)
-
-	// Perform request
-	return c.HTTPClient.Do(req)
+	return version, nil
 }
 
 // GetAppBundleManifest retrieves the app bundle manifest
 func (c *Client) GetAppBundleManifest() (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/app-bundle/manifest", c.BaseURL)
-	req, err := http.NewRequest("GET", url, nil)
+	if err := c.ensureReady(); err != nil {
+		return nil, err
+	}
+	version, err := c.requiredVersion()
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := c.doRequest(req)
+	resp, err := c.api.GetAppBundleManifestWithResponse(
+		context.Background(),
+		&generated.GetAppBundleManifestParams{XOdeVersion: version},
+	)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
-	}
-
-	return result, nil
+	return toMap(resp.JSON200)
 }
 
 // GetAppBundleVersions retrieves available app bundle versions
 func (c *Client) GetAppBundleVersions() (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/app-bundle/versions", c.BaseURL)
-	req, err := http.NewRequest("GET", url, nil)
+	if err := c.ensureReady(); err != nil {
+		return nil, err
+	}
+	version, err := c.requiredVersion()
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := c.doRequest(req)
+	resp, err := c.api.GetAppBundleVersionsWithResponse(
+		context.Background(),
+		&generated.GetAppBundleVersionsParams{XOdeVersion: version},
+	)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
-	}
-
-	return result, nil
+	return toMap(resp.JSON200)
 }
 
 // DownloadAppBundleFile downloads a specific file from the app bundle
 // If preview is true, adds ?preview=true to the request URL
 func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) error {
-	url := fmt.Sprintf("%s/app-bundle/download/%s", c.BaseURL, url.PathEscape(path))
+	if err := c.ensureReady(); err != nil {
+		return err
+	}
+	version, err := c.requiredVersion()
+	if err != nil {
+		return err
+	}
+	params := &generated.DownloadAppBundleFileParams{XOdeVersion: version}
 	if preview {
-		url += "?preview=true"
+		params.Preview = &preview
 	}
-
-	req, err := http.NewRequest("GET", url, nil)
+	resp, err := c.api.DownloadAppBundleFileWithResponse(
+		context.Background(),
+		path,
+		params,
+	)
 	if err != nil {
 		return err
 	}
-
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	if resp.StatusCode() != 200 {
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 
 	// Create destination directory if it doesn't exist
@@ -208,7 +272,7 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 	defer out.Close()
 
 	// Copy response body to file
-	_, err = io.Copy(out, resp.Body)
+	_, err = io.Copy(out, bytes.NewReader(resp.Body))
 	if err != nil {
 		return err
 	}
@@ -219,39 +283,50 @@ func (c *Client) DownloadAppBundleFile(path, destPath string, preview bool) erro
 // downloadBinaryToFile performs an authenticated GET on path (must start with /, e.g. /dataexport/parquet)
 // and streams the body to destPath. Uses no overall HTTP timeout so large ZIP exports can complete.
 func (c *Client) downloadBinaryToFile(path string, destPath string) error {
-	url := fmt.Sprintf("%s%s", c.BaseURL, path)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
+	if err := c.ensureReady(); err != nil {
 		return err
 	}
-	req.Header.Set("x-formulus-version", c.APIVersion)
-	token, err := auth.GetToken()
-	if err != nil {
-		return fmt.Errorf("authentication error: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
 
-	httpClient := &http.Client{
-		Timeout:   0,
-		Transport: c.HTTPClient.Transport,
-	}
-	if httpClient.Transport == nil {
-		httpClient.Transport = http.DefaultTransport
-	}
+	var body []byte
+	var status int
+	var err error
 
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		msg := strings.TrimSpace(string(body))
-		if resp.StatusCode == http.StatusServiceUnavailable && msg == "" {
-			return fmt.Errorf("API error (status %d): service unavailable", resp.StatusCode)
+	switch path {
+	case "/dataexport/parquet":
+		var resp *generated.GetParquetExportZipHTTPResponse
+		resp, err = c.api.GetParquetExportZipWithResponse(context.Background())
+		if err == nil {
+			body = resp.Body
+			status = resp.StatusCode()
 		}
-		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, msg)
+	case "/dataexport/raw-json":
+		var resp *generated.GetRawJsonExportZipHTTPResponse
+		resp, err = c.api.GetRawJsonExportZipWithResponse(context.Background())
+		if err == nil {
+			body = resp.Body
+			status = resp.StatusCode()
+		}
+	case "/attachments/export-zip":
+		var resp *generated.GetAttachmentsExportZipHTTPResponse
+		resp, err = c.api.GetAttachmentsExportZipWithResponse(context.Background())
+		if err == nil {
+			body = resp.Body
+			status = resp.StatusCode()
+		}
+	default:
+		return fmt.Errorf("unsupported binary export path: %s", path)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if status != 200 {
+		msg := strings.TrimSpace(string(body))
+		if status == 503 && msg == "" {
+			return fmt.Errorf("API error (status %d): service unavailable", status)
+		}
+		return fmt.Errorf("API error (status %d): %s", status, msg)
 	}
 
 	destDir := filepath.Dir(destPath)
@@ -265,7 +340,7 @@ func (c *Client) downloadBinaryToFile(path string, destPath string) error {
 	}
 	defer out.Close()
 
-	_, err = io.Copy(out, resp.Body)
+	_, err = io.Copy(out, bytes.NewReader(body))
 	return err
 }
 
@@ -286,7 +361,13 @@ func (c *Client) DownloadAttachmentsExport(destPath string) error {
 
 // UploadAppBundle uploads a new app bundle
 func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/app-bundle/push", c.BaseURL)
+	if err := c.ensureReady(); err != nil {
+		return nil, err
+	}
+	version, err := c.requiredVersion()
+	if err != nil {
+		return nil, err
+	}
 
 	// Open the bundle file
 	file, err := os.Open(bundlePath)
@@ -317,82 +398,52 @@ func (c *Client) UploadAppBundle(bundlePath string) (map[string]interface{}, err
 		return nil, err
 	}
 
-	// Create request
-	req, err := http.NewRequest("POST", url, body)
+	resp, err := c.api.PushAppBundleWithBodyWithResponse(
+		context.Background(),
+		&generated.PushAppBundleParams{XOdeVersion: version},
+		writer.FormDataContentType(),
+		body,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	// Set content type
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	// Send request
-	resp, err := c.doRequest(req)
-	if err != nil {
-		return nil, err
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
-	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	return result, nil
+	return toMap(resp.JSON200)
 }
 
 // SwitchAppBundleVersion switches to a specific app bundle version
 func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/app-bundle/switch/%s", c.BaseURL, version)
-
-	req, err := http.NewRequest("POST", url, nil)
+	if err := c.ensureReady(); err != nil {
+		return nil, err
+	}
+	apiVersion, err := c.requiredVersion()
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := c.doRequest(req)
+	resp, err := c.api.SwitchAppBundleVersionWithResponse(
+		context.Background(),
+		version,
+		&generated.SwitchAppBundleVersionParams{XOdeVersion: apiVersion},
+	)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
-	}
-
-	return result, nil
+	return toMap(resp.JSON200)
 }
 
 // SyncPull pulls updated records from the server
 func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []string, limit int, pageToken string) (map[string]interface{}, error) {
-	requestURL := fmt.Sprintf("%s/sync/pull", c.BaseURL)
-
-	// Build query parameters
-	var queryParams []string
-	if limit > 0 {
-		queryParams = append(queryParams, fmt.Sprintf("limit=%d", limit))
+	if err := c.ensureReady(); err != nil {
+		return nil, err
 	}
-	if pageToken != "" {
-		queryParams = append(queryParams, fmt.Sprintf("page_token=%s", url.QueryEscape(pageToken)))
-	}
-	if len(schemaTypes) == 1 {
-		// Single schemaType can be passed as query parameter
-		queryParams = append(queryParams, fmt.Sprintf("schemaType=%s", url.QueryEscape(schemaTypes[0])))
-	}
-
-	if len(queryParams) > 0 {
-		requestURL = fmt.Sprintf("%s?%s", requestURL, strings.Join(queryParams, "&"))
+	version, err := c.requiredVersion()
+	if err != nil {
+		return nil, err
 	}
 
 	// Prepare request body according to SyncPullRequest schema
@@ -420,42 +471,50 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
-	// Create request
-	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+	params := &generated.SyncPullParams{XOdeVersion: version}
+	if limit > 0 {
+		params.Limit = &limit
+	}
+	if len(schemaTypes) == 1 {
+		params.SchemaType = &schemaTypes[0]
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-
-	// Add API version header (x-formulus-version is required by some servers)
-	if c.APIVersion != "" {
-		req.Header.Set("x-formulus-version", c.APIVersion)
+	editors := []generated.RequestEditorFn{}
+	if pageToken != "" {
+		token := pageToken
+		editors = append(editors, func(ctx context.Context, req *http.Request) error {
+			q := req.URL.Query()
+			q.Set("page_token", token)
+			req.URL.RawQuery = q.Encode()
+			return nil
+		})
 	}
 
-	// Send request
-	resp, err := c.doRequest(req)
+	resp, err := c.api.SyncPullWithBodyWithResponse(
+		context.Background(),
+		params,
+		"application/json",
+		bytes.NewReader(jsonData),
+		editors...,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
-	}
-
-	return result, nil
+	return toMap(resp.JSON200)
 }
 
 // SyncPush pushes records to the server
 func (c *Client) SyncPush(clientID string, transmissionID string, records []map[string]interface{}) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/sync/push", c.BaseURL)
+	if err := c.ensureReady(); err != nil {
+		return nil, err
+	}
+	version, err := c.requiredVersion()
+	if err != nil {
+		return nil, err
+	}
 
 	// Prepare request body
 	reqBody := map[string]interface{}{
@@ -469,30 +528,17 @@ func (c *Client) SyncPush(clientID string, transmissionID string, records []map[
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
-	// Create request
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	// Send request
-	resp, err := c.doRequest(req)
+	resp, err := c.api.SyncPushWithBodyWithResponse(
+		context.Background(),
+		&generated.SyncPushParams{XOdeVersion: version},
+		"application/json",
+		bytes.NewReader(jsonData),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
-	}
-
-	return result, nil
+	return toMap(resp.JSON200)
 }
