@@ -82,6 +82,8 @@ const { status, data } = await apiInstance.changePassword(
 
 > checkAttachmentExists()
 
+Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`), existence is checked against the original file first, with fallback to the processed file.
+
 ### Example
 
 ```typescript
@@ -91,15 +93,20 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let attachmentId: string; // (default to undefined)
+let original: string; //Prefer the original (uncompressed) attachment when available. Truthy values: `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no original exists.  (optional) (default to undefined)
 
-const { status, data } = await apiInstance.checkAttachmentExists(attachmentId);
+const { status, data } = await apiInstance.checkAttachmentExists(
+  attachmentId,
+  original,
+);
 ```
 
 ### Parameters
 
-| Name             | Type         | Description | Notes                 |
-| ---------------- | ------------ | ----------- | --------------------- |
-| **attachmentId** | [**string**] |             | defaults to undefined |
+| Name             | Type         | Description                                                                                                                                                                                             | Notes                            |
+| ---------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **attachmentId** | [**string**] |                                                                                                                                                                                                         | defaults to undefined            |
+| **original**     | [**string**] | Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists. | (optional) defaults to undefined |
 
 ### Return type
 
@@ -291,6 +298,8 @@ const { status, data } = await apiInstance.downloadAppBundleFile(
 
 > File downloadAttachment()
 
+Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
+
 ### Example
 
 ```typescript
@@ -300,15 +309,20 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let attachmentId: string; // (default to undefined)
+let original: string; //Prefer the original (uncompressed) attachment when available. Truthy values: `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no original exists.  (optional) (default to undefined)
 
-const { status, data } = await apiInstance.downloadAttachment(attachmentId);
+const { status, data } = await apiInstance.downloadAttachment(
+  attachmentId,
+  original,
+);
 ```
 
 ### Parameters
 
-| Name             | Type         | Description | Notes                 |
-| ---------------- | ------------ | ----------- | --------------------- |
-| **attachmentId** | [**string**] |             | defaults to undefined |
+| Name             | Type         | Description                                                                                                                                                                                             | Notes                            |
+| ---------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **attachmentId** | [**string**] |                                                                                                                                                                                                         | defaults to undefined            |
+| **original**     | [**string**] | Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists. | (optional) defaults to undefined |
 
 ### Return type
 

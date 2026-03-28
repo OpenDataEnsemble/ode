@@ -1650,14 +1650,16 @@ export const DefaultApiAxiosParamCreator = function (
       };
     },
     /**
-     *
+     * Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`), existence is checked against the original file first, with fallback to the processed file.
      * @summary Check if an attachment exists
      * @param {string} attachmentId
+     * @param {string} [original] Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     checkAttachmentExists: async (
       attachmentId: string,
+      original?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'attachmentId' is not null or undefined
@@ -1684,6 +1686,10 @@ export const DefaultApiAxiosParamCreator = function (
       // authentication bearerAuth required
       // http bearer authentication required
       await setBearerAuthToObject(localVarHeaderParameter, configuration);
+
+      if (original !== undefined) {
+        localVarQueryParameter['original'] = original;
+      }
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
@@ -1886,14 +1892,16 @@ export const DefaultApiAxiosParamCreator = function (
       };
     },
     /**
-     *
+     * Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
      * @summary Download an attachment by ID
      * @param {string} attachmentId
+     * @param {string} [original] Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     downloadAttachment: async (
       attachmentId: string,
+      original?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'attachmentId' is not null or undefined
@@ -1920,6 +1928,10 @@ export const DefaultApiAxiosParamCreator = function (
       // authentication bearerAuth required
       // http bearer authentication required
       await setBearerAuthToObject(localVarHeaderParameter, configuration);
+
+      if (original !== undefined) {
+        localVarQueryParameter['original'] = original;
+      }
 
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
@@ -2800,14 +2812,16 @@ export const DefaultApiFp = function (configuration?: Configuration) {
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
-     *
+     * Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`), existence is checked against the original file first, with fallback to the processed file.
      * @summary Check if an attachment exists
      * @param {string} attachmentId
+     * @param {string} [original] Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async checkAttachmentExists(
       attachmentId: string,
+      original?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>
@@ -2815,6 +2829,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.checkAttachmentExists(
           attachmentId,
+          original,
           options,
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -2940,14 +2955,16 @@ export const DefaultApiFp = function (configuration?: Configuration) {
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
-     *
+     * Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
      * @summary Download an attachment by ID
      * @param {string} attachmentId
+     * @param {string} [original] Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async downloadAttachment(
       attachmentId: string,
+      original?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>
@@ -2955,6 +2972,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.downloadAttachment(
           attachmentId,
+          original,
           options,
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -3498,7 +3516,7 @@ export const DefaultApiFactory = function (
         .then(request => request(axios, basePath));
     },
     /**
-     *
+     * Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`), existence is checked against the original file first, with fallback to the processed file.
      * @summary Check if an attachment exists
      * @param {DefaultApiCheckAttachmentExistsRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -3509,7 +3527,11 @@ export const DefaultApiFactory = function (
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<void> {
       return localVarFp
-        .checkAttachmentExists(requestParameters.attachmentId, options)
+        .checkAttachmentExists(
+          requestParameters.attachmentId,
+          requestParameters.original,
+          options,
+        )
         .then(request => request(axios, basePath));
     },
     /**
@@ -3572,7 +3594,7 @@ export const DefaultApiFactory = function (
         .then(request => request(axios, basePath));
     },
     /**
-     *
+     * Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
      * @summary Download an attachment by ID
      * @param {DefaultApiDownloadAttachmentRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -3583,7 +3605,11 @@ export const DefaultApiFactory = function (
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<File> {
       return localVarFp
-        .downloadAttachment(requestParameters.attachmentId, options)
+        .downloadAttachment(
+          requestParameters.attachmentId,
+          requestParameters.original,
+          options,
+        )
         .then(request => request(axios, basePath));
     },
     /**
@@ -3873,6 +3899,13 @@ export interface DefaultApiCheckAttachmentExistsRequest {
    * @memberof DefaultApiCheckAttachmentExists
    */
   readonly attachmentId: string;
+
+  /**
+   * Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
+   * @type {string}
+   * @memberof DefaultApiCheckAttachmentExists
+   */
+  readonly original?: string;
 }
 
 /**
@@ -3964,6 +3997,13 @@ export interface DefaultApiDownloadAttachmentRequest {
    * @memberof DefaultApiDownloadAttachment
    */
   readonly attachmentId: string;
+
+  /**
+   * Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
+   * @type {string}
+   * @memberof DefaultApiDownloadAttachment
+   */
+  readonly original?: string;
 }
 
 /**
@@ -4268,7 +4308,7 @@ export class DefaultApi extends BaseAPI {
   }
 
   /**
-   *
+   * Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`), existence is checked against the original file first, with fallback to the processed file.
    * @summary Check if an attachment exists
    * @param {DefaultApiCheckAttachmentExistsRequest} requestParameters Request parameters.
    * @param {*} [options] Override http request option.
@@ -4280,7 +4320,11 @@ export class DefaultApi extends BaseAPI {
     options?: RawAxiosRequestConfig,
   ) {
     return DefaultApiFp(this.configuration)
-      .checkAttachmentExists(requestParameters.attachmentId, options)
+      .checkAttachmentExists(
+        requestParameters.attachmentId,
+        requestParameters.original,
+        options,
+      )
       .then(request => request(this.axios, this.basePath));
   }
 
@@ -4350,7 +4394,7 @@ export class DefaultApi extends BaseAPI {
   }
 
   /**
-   *
+   * Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
    * @summary Download an attachment by ID
    * @param {DefaultApiDownloadAttachmentRequest} requestParameters Request parameters.
    * @param {*} [options] Override http request option.
@@ -4362,7 +4406,11 @@ export class DefaultApi extends BaseAPI {
     options?: RawAxiosRequestConfig,
   ) {
     return DefaultApiFp(this.configuration)
-      .downloadAttachment(requestParameters.attachmentId, options)
+      .downloadAttachment(
+        requestParameters.attachmentId,
+        requestParameters.original,
+        options,
+      )
       .then(request => request(this.axios, this.basePath));
   }
 
