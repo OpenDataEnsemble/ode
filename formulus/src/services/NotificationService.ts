@@ -89,13 +89,22 @@ class NotificationService {
     }
     // Delayed cleanup: catch any fire-and-forget showSyncProgress calls
     // that were already in-flight when we stopped the service
-    setTimeout(async () => {
+    const cleanupTimer = setTimeout(async () => {
       try {
         await notifee.cancelNotification(this.syncNotificationId);
       } catch (_) {
         // ignore
       }
     }, 1000);
+    // In Node/Jest, unref avoids keeping the process alive.
+    if (
+      typeof cleanupTimer === 'object' &&
+      cleanupTimer !== null &&
+      'unref' in cleanupTimer &&
+      typeof cleanupTimer.unref === 'function'
+    ) {
+      cleanupTimer.unref();
+    }
   }
 
   async showSyncComplete(success: boolean, error?: string) {

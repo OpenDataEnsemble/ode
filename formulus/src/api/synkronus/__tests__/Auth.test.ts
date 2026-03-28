@@ -46,7 +46,15 @@ jest.mock('../index', () => ({
   },
 }));
 
-import { jest, describe, test, expect, beforeEach } from '@jest/globals';
+import {
+  jest,
+  describe,
+  test,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterAll,
+} from '@jest/globals';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -59,6 +67,16 @@ import { ODE_VERSION } from '../../../version';
 import { synkronusApi } from '../index';
 
 describe('Auth - Auto-Login', () => {
+  beforeAll(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

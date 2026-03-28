@@ -80,6 +80,19 @@ export class SyncService {
   }
 
   /**
+   * Test-safe reset hook for singleton state and subscription cleanup.
+   * Keeps production behavior unchanged while preventing cross-test leakage.
+   */
+  public clearAllSubscriptions(): void {
+    this.statusCallbacks.clear();
+    this.progressCallbacks.clear();
+    this.isSyncing = false;
+    this.canCancel = false;
+    this.shouldCancel = false;
+    this.autoLoginRetryCount = 0;
+  }
+
+  /**
    * Wraps an API call with automatic 401 error handling and retry with auto-login.
    * If a 401 error is detected, attempts to auto-login using stored credentials,
    * then retries the operation once.
