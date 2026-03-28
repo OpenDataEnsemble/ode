@@ -39,16 +39,16 @@ This endpoint does not have any parameters.
 ### HTTP request headers
 
 - **Content-Type**: Not defined
-- **Accept**: application/zip
+- **Accept**: application/zip, application/json
 
 ### HTTP response details
 
 | Status code | Description                                 | Response headers |
 | ----------- | ------------------------------------------- | ---------------- |
 | **200**     | ZIP archive stream containing Parquet files | -                |
-| **401**     |                                             | -                |
-| **403**     |                                             | -                |
-| **500**     |                                             | -                |
+| **401**     | Unauthorized                                | -                |
+| **403**     | Forbidden                                   | -                |
+| **500**     | Internal server error                       | -                |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -84,15 +84,15 @@ This endpoint does not have any parameters.
 ### HTTP request headers
 
 - **Content-Type**: Not defined
-- **Accept**: application/zip
+- **Accept**: application/zip, application/json
 
 ### HTTP response details
 
 | Status code | Description                              | Response headers |
 | ----------- | ---------------------------------------- | ---------------- |
 | **200**     | ZIP archive stream containing JSON files | -                |
-| **401**     |                                          | -                |
-| **403**     |                                          | -                |
-| **500**     |                                          | -                |
+| **401**     | Unauthorized                             | -                |
+| **403**     | Forbidden                                | -                |
+| **500**     | Internal server error                    | -                |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
