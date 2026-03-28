@@ -78,9 +78,12 @@ Synkronus uses a flexible configuration system that supports both environment va
 
 ### Running the API
 
-```
-# Build the executable
-go build -o bin/synkronus cmd/synkronus/main.go
+```bash
+# Build the executable with injected version metadata
+VERSION=$(git describe --tags --always --dirty)
+COMMIT=$(git rev-parse HEAD)
+BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+go build -ldflags "-X github.com/opendataensemble/synkronus/pkg/version.version=${VERSION} -X github.com/opendataensemble/synkronus/pkg/version.commit=${COMMIT} -X github.com/opendataensemble/synkronus/pkg/version.buildTime=${BUILD_TIME}" -o bin/synkronus cmd/synkronus/main.go
 
 # Run the executable
 ./bin/synkronus
@@ -115,7 +118,10 @@ For the sync protocol design details (record model, attachment handling, paginat
 MIT
 
 ## Dev. notes
-Build with: `go build -o bin/synkronus.exe cmd/synkronus/main.go`
+Build with: `go build -ldflags "-X github.com/opendataensemble/synkronus/pkg/version.version=<version> -X github.com/opendataensemble/synkronus/pkg/version.commit=<commit> -X github.com/opendataensemble/synkronus/pkg/version.buildTime=<utc-rfc3339>" -o bin/synkronus.exe cmd/synkronus/main.go`
 Run with: `./bin/synkronus.exe` or `go run cmd/synkronus/main.go`
+
+On Windows PowerShell, you can use `./build.ps1` to build with version metadata from git.
+Without `-ldflags` version injection, `/health` reports the default fallback version (`1.0.0`).
 
 Icon: configured in versioninfo.json and built with goversioninfo `goversioninfo -o cmd/synkronus/resource.syso` to create a syso file next to main go file.
