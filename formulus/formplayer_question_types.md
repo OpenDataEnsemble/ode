@@ -102,16 +102,8 @@ Allows users to scan QR codes or enter QR code data manually.
 
 **Supported Barcode Formats:**
 
-- **QR Code** - Quick Response codes (most common)
-- **Code 128** - Linear barcode used for product identification
-- **Code 39** - Alphanumeric barcode standard
-- **EAN-13** - European Article Number (product barcodes)
-- **EAN-8** - Short version of EAN-13
-- **UPC-A** - Universal Product Code (North American products)
-- **UPC-E** - Compressed version of UPC-A
-- **Data Matrix** - 2D barcode for small items
-- **PDF417** - Stacked linear barcode (driver's licenses, ID cards)
-- **Aztec** - 2D barcode used for transport tickets
+- **QR Code** - Quick Response codes
+
 
 **Data Structure:**
 The QR code field stores a simple string value:
