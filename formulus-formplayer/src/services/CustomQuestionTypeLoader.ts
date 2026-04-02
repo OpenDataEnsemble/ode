@@ -23,6 +23,7 @@ import type {
 } from '../types/CustomQuestionTypeContract';
 import { registerCustomQuestionTypes } from './CustomQuestionTypeRegistry';
 import type React from 'react';
+import Fuse from 'fuse.js';
 
 export interface CustomQuestionTypeLoadResult {
   /** JSON Forms renderer entries ready to be merged into the renderers array */
@@ -71,7 +72,7 @@ export async function loadCustomQuestionTypes(
 
       // Create a CommonJS-compatible sandbox with module/exports shims
       // The renderers use: module.exports = { default: ComponentFunction }
-      // They also expect React and MaterialUI as globals
+      // Injected: React, MaterialUI (window), Fuse (formplayer dependency)
       const moduleShim: { exports: Record<string, unknown> } = {
         exports: {},
       };
@@ -83,6 +84,7 @@ export async function loadCustomQuestionTypes(
         'exports',
         'React',
         'MaterialUI',
+        'Fuse',
         meta.source,
       );
       factory(
@@ -90,6 +92,7 @@ export async function loadCustomQuestionTypes(
         exportsShim,
         (window as any).React,
         (window as any).MaterialUI,
+        Fuse,
       );
 
       // Extract the component: try module.exports.default, then module.exports itself

@@ -67,7 +67,7 @@ interface CustomQuestionTypeProps {
 
 ### 3. Example Implementation: `renderer.js`
 
-Because the Formplayer evaluates this at runtime within a browser without a bundler, you cannot rely on ES modules (`import/export`). Instead, use CommonJS (`module.exports`) and rely on injected globals like `React` and `MaterialUI`.
+Because the Formplayer evaluates this at runtime within a browser without a bundler, you cannot rely on ES modules (`import/export`). Instead, use CommonJS (`module.exports`) and rely on injected parameters: **`React`**, **`MaterialUI`** (MUI), and **`Fuse`** (the default export from [fuse.js](https://fusejs.io/), same as `import Fuse from 'fuse.js'`). The loader passes these as arguments to your module body; treat them like globals inside `renderer.js` (for example, `const { useState } = React; new Fuse(list, options)`).
 
 ```javascript
 const { useState, useEffect } = React;
