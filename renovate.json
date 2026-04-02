@@ -3,5 +3,8 @@
   "extends": [
     "config:recommended"
   ],
-  "labels": ["dependencies"]
+  "labels": ["dependencies"],
+  "github-actions": {
+    "pinDigests": true
+  }
 }
