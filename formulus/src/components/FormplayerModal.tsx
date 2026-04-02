@@ -14,6 +14,7 @@ import {
   Text,
   Platform,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import CustomAppWebView, {
   CustomAppWebViewHandle,
@@ -614,7 +615,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         onRequestClose={handleClose}
         presentationStyle="fullScreen"
         statusBarTranslucent={false}>
-        <View style={shellStyle}>
+        <KeyboardAvoidingView
+          style={shellStyle}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View
             style={[
               styles.container,
@@ -681,7 +684,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               </View>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   },
