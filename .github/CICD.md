@@ -34,26 +34,31 @@ Images are published to **GitHub Container Registry (GHCR)**:
 
 #### Tagging Strategy
 
-| Branch/Event | Tags Generated | Description |
-|--------------|----------------|-------------|
-| `main` | `latest`, `main-{sha}` | Latest stable release |
-| `dev` | `dev`, `dev-{sha}` | Development pre-release |
-| Feature branches | `{branch-name}`, `{branch-name}-{sha}` | Feature-specific builds |
-| Pull Requests | `pr-{number}` | PR validation builds (not pushed) |
-| Manual with version | `v{version}`, `v{major}.{minor}`, `latest` | Versioned release |
+Image tags are computed by `docker/metadata-action`. The highest-priority tag per event is also used as the primary tag in manifest verification.
+
+| Event | Tags produced | Published? |
+|-------|--------------|------------|
+| Release | `v{X.Y.Z}`, `v{X.Y}` | Yes |
+| Push → `main` | `latest`, `sha-{short}` | Yes |
+| Push → `dev` | `dev`, `latest`, `sha-{short}` | Yes |
+| Push → other branch | `{branch-name}`, `sha-{short}` | Yes |
+| `workflow_dispatch` | `{branch-name}`, `sha-{short}` | Yes |
+| Pull request | `pr-{number}` | No (build only) |
 
 #### Build Features
 
-- **Multi-platform**: Builds for `linux/amd64` and `linux/arm64`
-- **Build Cache**: Uses GitHub Actions cache for faster builds
-- **Attestation**: Generates build provenance for security
-- **Metadata**: Includes OCI-compliant labels and annotations
+- **Multi-platform**: Builds for `linux/amd64` and `linux/arm64` using Buildah
+- **Attestation**: Generates SLSA build provenance and pushes it to GHCR
+- **Metadata**: Includes OCI-compliant labels (title, description, vendor, source, revision)
+- **Verification**: After push, the manifest list and per-arch layers are pulled to confirm correctness
 
 #### Permissions Required
 
 The workflow requires these permissions:
 - `contents: read` - To checkout the repository
 - `packages: write` - To publish to GHCR
+- `id-token: write` - For OIDC-based build provenance attestation
+- `attestations: write` - To push attestation records to GHCR
 
 #### Secrets Used
 
