@@ -24,38 +24,37 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/synkronus
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     name: Build and push combined Synkronus image
     permissions:
-      contents: write
+      contents: read
       packages: write
       id-token: write
       attestations: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0    # Full history so git describe can reach the last tag
-      
+
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user-static binfmt-support
+          sudo update-binfmts --enable qemu-aarch64
+
+      - name: Log in to Github Container Registry
+        uses: redhat-actions/podman-login@v1
         with:
-          platforms: all
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+          registry: ${{ env.REGISTRY }}
+
       - name: Determine Synkronus version from git
         id: version
         run: |
@@ -71,51 +70,69 @@ jobs:
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Building Synkronus with version: ${VERSION}"
-      
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
+
+      - name: Compute image tags and labels
+        id: tags
+        uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/opendataensemble/synkronus
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # For main branch: latest + version tag (manual dispatch) or release tag
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            # For dev branch: tag as both dev and latest (for demo server auto-updates)
-            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/dev' }}
-            # When triggered from a GitHub Release event, use the release tag name as the semver source
-            type=semver,pattern=v{{version}},enable=${{ github.event_name == 'release' }},value=${{ github.event.release.tag_name }}
-            type=semver,pattern=v{{major}}.{{minor}},enable=${{ github.event_name == 'release' }},value=${{ github.event.release.tag_name }}
-            # For other branches: branch name (pre-release)
-            type=ref,event=branch,enable=${{ github.event_name != 'release' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
-            # For PRs: pr-number
-            type=ref,event=pr
-            # SHA for traceability (only for non-release events)
-            type=sha,prefix=sha-,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' }}
-          labels: |
-            org.opencontainers.image.title=Synkronus
-            org.opencontainers.image.description=Synchronization API and Web Portal for offline-first applications
-            org.opencontainers.image.vendor=Open Data Ensemble
-      
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v5
+            # Release event: v<version> + v<major>.<minor>
+            type=semver,pattern=v{{version}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }},priority=1000
+            type=semver,pattern=v{{major}}.{{minor}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }},priority=900
+            # Pull requests: pr-<number>
+            type=ref,event=pr,priority=1000
+            # Non-release/non-PR refs: main/dev/other branches + sha
+            type=raw,value=latest,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }},priority=1000
+            type=raw,value=dev,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/dev' }},priority=1000
+            type=raw,value=latest,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/dev' }},priority=900
+            type=ref,event=branch,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }},priority=1000
+            type=sha,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' }},priority=100
+
+      - name: Build multi-arch image with Buildah
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
         with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          image: ${{ env.IMAGE_NAME }}
+          tags: ${{ steps.tags.outputs.tag-names }}
+          labels: ${{ steps.tags.outputs.labels }}
+          archs: amd64,arm64
+          containerfiles: |
+            ./Dockerfile
           build-args: |
             SYNKRONUS_VERSION=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      
+
+      - name: Push image manifest to registry
+        if: github.event_name != 'pull_request'
+        id: push-image
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}
+
+      - name: Verify image
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          PRIMARY_TAG="${{ steps.tags.outputs.version }}"
+
+          # Confirm the manifest list includes both target platforms.
+          skopeo inspect --raw "docker://${IMAGE}:${PRIMARY_TAG}" | \
+            jq -e '[.manifests[].platform | "\(.os)/\(.architecture)"] | index("linux/amd64") and index("linux/arm64")' >/dev/null
+          echo "Verified manifest platforms for ${IMAGE}:${PRIMARY_TAG}"
+
+          # Pull each platform explicitly to confirm the runtime layers are accessible.
+          podman pull --arch amd64 "${IMAGE}:${PRIMARY_TAG}"
+          podman pull --arch arm64 "${IMAGE}:${PRIMARY_TAG}"
+
       - name: Generate artifact attestation
         if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v1
         with:
-          subject-name: ${{ env.REGISTRY }}/opendataensemble/synkronus
-          subject-digest: ${{ steps.build.outputs.digest }}
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push-image.outputs.digest }}
           push-to-registry: true
