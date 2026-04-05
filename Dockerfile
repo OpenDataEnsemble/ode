@@ -2,6 +2,9 @@
 # Stage 1: Build the React application (Portal)
 FROM node:24-alpine AS portal-builder
 
+# OpenAPI Generator CLI invokes Java during synkronus-portal prebuild (not installed in node:alpine)
+RUN apk add --no-cache openjdk21-jre-headless
+
 WORKDIR /app
 
 # Copy package files for all packages (monorepo structure)
@@ -40,6 +43,10 @@ RUN npm run build || true
 # Build components (if needed)
 WORKDIR /app/packages/components
 RUN npm run build || true
+
+# Spec for generate:api (-i ../synkronus/openapi/synkronus.yaml); not part of synkronus-portal COPY above
+WORKDIR /app
+COPY synkronus/openapi ./synkronus/openapi
 
 # Build the portal application
 WORKDIR /app/synkronus-portal

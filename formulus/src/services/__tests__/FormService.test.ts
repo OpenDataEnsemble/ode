@@ -101,7 +101,17 @@ describe('FormService', () => {
   let formServiceInstance: FormServiceType;
   let ActualFormServiceClass: typeof FormServiceType;
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'debug').mockImplementation(() => {});
+
     // Reset modules to ensure a fresh instance of FormService for each test,
     // as it's a singleton and we are also resetting its internal state (formTypes) via API.
     jest.resetModules();

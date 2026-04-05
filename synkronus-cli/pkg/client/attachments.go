@@ -2,16 +2,19 @@ package client
 
 import (
 	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/http"
 	"os"
 )
 
 // UploadAttachment uploads a file to the server with the specified attachment ID
 func (c *Client) UploadAttachment(attachmentID string, filePath string) (map[string]interface{}, error) {
+	if err := c.ensureReady(); err != nil {
+		return nil, err
+	}
+
 	// Open the file
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -36,57 +39,41 @@ func (c *Client) UploadAttachment(attachmentID string, filePath string) (map[str
 	}
 
 	// Close the writer to finalize the form
-	writer.Close()
-
-	// Create request
-	url := fmt.Sprintf("%s/attachments/%s", c.BaseURL, attachmentID)
-	req, err := http.NewRequest("PUT", url, body)
-	if err != nil {
-		return nil, fmt.Errorf("error creating request: %w", err)
+	if err := writer.Close(); err != nil {
+		return nil, err
 	}
 
-	// Set content type with boundary
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	// Send request
-	resp, err := c.doRequest(req)
+	resp, err := c.api.UploadAttachmentWithBodyWithResponse(
+		context.Background(),
+		attachmentID,
+		writer.FormDataContentType(),
+		body,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	if resp.StatusCode() != 200 {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
 
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("error parsing response: %w", err)
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-
-	return result, nil
+	return toMap(resp.JSON200)
 }
 
 // DownloadAttachment downloads an attachment from the server
 func (c *Client) DownloadAttachment(attachmentID string, outputPath string) error {
-	// Create request
-	url := fmt.Sprintf("%s/attachments/%s", c.BaseURL, attachmentID)
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return fmt.Errorf("error creating request: %w", err)
+	if err := c.ensureReady(); err != nil {
+		return err
 	}
 
-	// Send request
-	resp, err := c.doRequest(req)
+	resp, err := c.api.DownloadAttachmentWithResponse(context.Background(), attachmentID, nil)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("API error (status %d): %s", resp.StatusCode, string(body))
+	if resp.StatusCode() != 200 {
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 
 	// Create output file
@@ -97,7 +84,7 @@ func (c *Client) DownloadAttachment(attachmentID string, outputPath string) erro
 	defer out.Close()
 
 	// Copy response body to file
-	_, err = io.Copy(out, resp.Body)
+	_, err = io.Copy(out, bytes.NewReader(resp.Body))
 	if err != nil {
 		return fmt.Errorf("error saving file: %w", err)
 	}
@@ -107,26 +94,21 @@ func (c *Client) DownloadAttachment(attachmentID string, outputPath string) erro
 
 // AttachmentExists checks if an attachment exists on the server
 func (c *Client) AttachmentExists(attachmentID string) (bool, error) {
-	// Create request
-	url := fmt.Sprintf("%s/attachments/%s", c.BaseURL, attachmentID)
-	req, err := http.NewRequest("HEAD", url, nil)
-	if err != nil {
-		return false, fmt.Errorf("error creating request: %w", err)
+	if err := c.ensureReady(); err != nil {
+		return false, err
 	}
 
-	// Send request
-	resp, err := c.doRequest(req)
+	resp, err := c.api.CheckAttachmentExistsWithResponse(context.Background(), attachmentID, nil)
 	if err != nil {
 		return false, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
 
-	switch resp.StatusCode {
-	case http.StatusOK:
+	switch resp.StatusCode() {
+	case 200:
 		return true, nil
-	case http.StatusNotFound:
+	case 404:
 		return false, nil
 	default:
-		return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return false, fmt.Errorf("unexpected status code: %d", resp.StatusCode())
 	}
 }

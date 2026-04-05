@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/internal/repository"
 	"github.com/opendataensemble/synkronus/pkg/logger"
@@ -25,16 +26,22 @@ type Config struct {
 	AdminUsername string
 	// AdminPassword is the default admin password
 	AdminPassword string
+	// ForceCreateAdminUser creates or updates an admin user on startup when explicitly configured.
+	ForceCreateAdminUser string
+	// ForceCreateAdminPassword is the plaintext password used for ForceCreateAdminUser.
+	ForceCreateAdminPassword string
 }
 
 // DefaultConfig returns a default configuration
 func DefaultConfig() Config {
 	return Config{
-		JWTSecret:              "change-me-in-production",
-		TokenExpiration:        time.Hour * 24,
-		RefreshTokenExpiration: time.Hour * 24 * 7,
-		AdminUsername:          "admin",
-		AdminPassword:          "admin",
+		JWTSecret:                "change-me-in-production",
+		TokenExpiration:          time.Hour * 24,
+		RefreshTokenExpiration:   time.Hour * 24 * 7,
+		AdminUsername:            "admin",
+		AdminPassword:            "admin",
+		ForceCreateAdminUser:     "",
+		ForceCreateAdminPassword: "",
 	}
 }
 
@@ -77,6 +84,43 @@ func (s *Service) Initialize(ctx context.Context) error {
 	// Create admin user if it doesn't exist
 	if err := s.userRepository.CreateAdminUserIfNotExists(ctx, s.config.AdminUsername, hashedPassword); err != nil {
 		return fmt.Errorf("failed to create admin user: %w", err)
+	}
+
+	// Optional recovery path: force-create or overwrite an admin user at startup.
+	if s.config.ForceCreateAdminUser != "" || s.config.ForceCreateAdminPassword != "" {
+		if s.config.ForceCreateAdminUser == "" || s.config.ForceCreateAdminPassword == "" {
+			return errors.New("force admin recovery requires both username and password")
+		}
+
+		forcedHash, err := s.HashPassword(s.config.ForceCreateAdminPassword)
+		if err != nil {
+			return fmt.Errorf("failed to hash forced admin password: %w", err)
+		}
+
+		existingUser, err := s.userRepository.GetByUsername(ctx, s.config.ForceCreateAdminUser)
+		if err != nil {
+			return fmt.Errorf("failed to query forced admin user: %w", err)
+		}
+
+		if existingUser == nil {
+			forcedAdmin := models.NewUser(
+				uuid.New(),
+				s.config.ForceCreateAdminUser,
+				forcedHash,
+				models.RoleAdmin,
+			)
+			if err := s.userRepository.Create(ctx, forcedAdmin); err != nil {
+				return fmt.Errorf("failed to create forced admin user: %w", err)
+			}
+			s.log.Warn("Startup recovery created admin user", "username", s.config.ForceCreateAdminUser)
+		} else {
+			existingUser.PasswordHash = forcedHash
+			existingUser.Role = models.RoleAdmin
+			if err := s.userRepository.Update(ctx, existingUser); err != nil {
+				return fmt.Errorf("failed to update forced admin user: %w", err)
+			}
+			s.log.Warn("Startup recovery updated admin user credentials", "username", s.config.ForceCreateAdminUser)
+		}
 	}
 
 	return nil

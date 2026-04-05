@@ -1,10 +1,10 @@
 package client
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/http"
+
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/client/generated"
 )
 
 // UserCreateRequest represents the payload for creating a user
@@ -28,126 +28,136 @@ type UserChangePasswordRequest struct {
 
 // CreateUser calls POST /users to create a new user (admin)
 func (c *Client) CreateUser(reqBody UserCreateRequest) (map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/users", c.BaseURL)
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	if err := c.ensureReady(); err != nil {
+		return nil, err
 	}
-	request, err := http.NewRequest("POST", url, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	resp, err := c.doRequest(request)
+	version, err := c.requiredVersion()
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode == http.StatusForbidden {
+
+	body := generated.CreateUserJSONRequestBody{
+		Username: reqBody.Username,
+		Password: reqBody.Password,
+		Role:     generated.CreateUserJSONBodyRole(reqBody.Role),
+	}
+
+	resp, err := c.api.CreateUserWithResponse(
+		context.Background(),
+		&generated.CreateUserParams{XOdeVersion: version},
+		body,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() == 403 {
 		return nil, fmt.Errorf("only admin can create users")
 	}
-	if resp.StatusCode != http.StatusCreated {
-		var apiErr map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
-		return nil, fmt.Errorf("API error: %v", apiErr)
+	if resp.JSON201 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-	return result, nil
+	return toMap(resp.JSON201)
 }
 
 // DeleteUser calls DELETE /users/delete/{username} (admin)
 func (c *Client) DeleteUser(username string) error {
-	url := fmt.Sprintf("%s/users/delete/%s", c.BaseURL, username)
-	request, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+	if err := c.ensureReady(); err != nil {
+		return err
 	}
-	resp, err := c.doRequest(request)
+	version, err := c.requiredVersion()
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		var apiErr map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
-		return fmt.Errorf("API error: %v", apiErr)
+	resp, err := c.api.DeleteUserWithResponse(
+		context.Background(),
+		username,
+		&generated.DeleteUserParams{XOdeVersion: version},
+	)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != 200 {
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
 
 // ResetUserPassword calls POST /users/reset-password (admin)
 func (c *Client) ResetUserPassword(reqBody UserResetPasswordRequest) error {
-	url := fmt.Sprintf("%s/users/reset-password", c.BaseURL)
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+	if err := c.ensureReady(); err != nil {
+		return err
 	}
-	request, err := http.NewRequest("POST", url, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	resp, err := c.doRequest(request)
+	version, err := c.requiredVersion()
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		var apiErr map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
-		return fmt.Errorf("API error: %v", apiErr)
+
+	body := generated.ResetUserPasswordJSONRequestBody{
+		Username:    reqBody.Username,
+		NewPassword: reqBody.NewPassword,
+	}
+
+	resp, err := c.api.ResetUserPasswordWithResponse(
+		context.Background(),
+		&generated.ResetUserPasswordParams{XOdeVersion: version},
+		body,
+	)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != 200 {
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
 
 // ChangeOwnPassword calls POST /users/change-password (self)
 func (c *Client) ChangeOwnPassword(reqBody UserChangePasswordRequest) error {
-	url := fmt.Sprintf("%s/users/change-password", c.BaseURL)
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+	if err := c.ensureReady(); err != nil {
+		return err
 	}
-	request, err := http.NewRequest("POST", url, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-	request.Header.Set("Content-Type", "application/json")
-	resp, err := c.doRequest(request)
+	version, err := c.requiredVersion()
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		var apiErr map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
-		return fmt.Errorf("API error: %v", apiErr)
+
+	body := generated.ChangePasswordJSONRequestBody{
+		CurrentPassword: reqBody.OldPassword,
+		NewPassword:     reqBody.NewPassword,
+	}
+
+	resp, err := c.api.ChangePasswordWithResponse(
+		context.Background(),
+		&generated.ChangePasswordParams{XOdeVersion: version},
+		body,
+	)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != 200 {
+		return apiError(resp.StatusCode(), resp.Body)
 	}
 	return nil
 }
 
 // ListUsers calls GET /users (admin only)
 func (c *Client) ListUsers() ([]map[string]interface{}, error) {
-	url := fmt.Sprintf("%s/users", c.BaseURL)
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+	if err := c.ensureReady(); err != nil {
+		return nil, err
 	}
-	resp, err := c.doRequest(request)
+	version, err := c.requiredVersion()
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		var apiErr map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
-		return nil, fmt.Errorf("API error: %v", apiErr)
+	resp, err := c.api.ListUsersWithResponse(
+		context.Background(),
+		&generated.ListUsersParams{XOdeVersion: version},
+	)
+	if err != nil {
+		return nil, err
 	}
-	var users []map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&users); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+	if resp.JSON200 == nil {
+		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-	return users, nil
+	return toMapSlice(*resp.JSON200)
 }

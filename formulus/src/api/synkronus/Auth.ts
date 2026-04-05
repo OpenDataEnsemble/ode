@@ -1,6 +1,7 @@
 import { synkronusApi } from './index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
+import { ODE_VERSION } from '../../version';
 
 export type UserRole = 'read-only' | 'read-write' | 'admin';
 
@@ -104,6 +105,7 @@ export const login = async (
   synkronusApi.clearTokenCache();
 
   const res = await api.login({
+    xOdeVersion: ODE_VERSION,
     loginRequest: { username, password },
   });
 
@@ -169,6 +171,7 @@ export const getApiAuthToken = async (): Promise<string | undefined> => {
 export const refreshToken = async () => {
   const api = await synkronusApi.getApi();
   const res = await api.refreshToken({
+    xOdeVersion: ODE_VERSION,
     refreshTokenRequest: {
       refreshToken: (await AsyncStorage.getItem('@refreshToken')) ?? '',
     },

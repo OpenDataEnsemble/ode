@@ -46,7 +46,15 @@ jest.mock('../index', () => ({
   },
 }));
 
-import { jest, describe, test, expect, beforeEach } from '@jest/globals';
+import {
+  jest,
+  describe,
+  test,
+  expect,
+  beforeEach,
+  beforeAll,
+  afterAll,
+} from '@jest/globals';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -55,9 +63,20 @@ import {
   isVersionMismatchError,
 } from '../Auth';
 import { VersionMismatchError } from '../../../errors/VersionMismatchError';
+import { ODE_VERSION } from '../../../version';
 import { synkronusApi } from '../index';
 
 describe('Auth - Auto-Login', () => {
+  beforeAll(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -184,6 +203,7 @@ describe('Auth - Auto-Login', () => {
 
       expect(Keychain.getGenericPassword).toHaveBeenCalledTimes(1);
       expect(mockApi.login).toHaveBeenCalledWith({
+        xOdeVersion: ODE_VERSION,
         loginRequest: {
           username: mockCredentials.username,
           password: mockCredentials.password,
