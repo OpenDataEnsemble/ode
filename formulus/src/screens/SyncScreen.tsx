@@ -562,7 +562,7 @@ const SyncScreen = () => {
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Observation status
+                  Status
                 </Text>
               </View>
               <Text
@@ -605,7 +605,7 @@ const SyncScreen = () => {
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Last observation sync
+                  Last Sync
                 </Text>
               </View>
               <Text
