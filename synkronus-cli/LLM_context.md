@@ -15,6 +15,7 @@ This file explains how to add new commands to the **synkronus-cli** project so f
     `Authorization: Bearer <token>` via `internal/auth.GetToken()`.
   - Required `x-ode-version` headers are passed through generated endpoint params
     using Viper `api.version`.
+- `ListUsers` returns typed `generated.UserListItem` (includes optional `presence` for last-seen); `synk user list` prints columns for last activity and client count.
 
 ## Configuration & Auth
 

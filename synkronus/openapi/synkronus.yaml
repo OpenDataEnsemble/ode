@@ -136,6 +136,12 @@ paths:
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
           description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - name: x-ode-client-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Optional client instance id for correlating app bundle checks with presence.
       responses:
         '200':
           description: Bundle file list
@@ -498,7 +504,9 @@ paths:
     get:
       operationId: listUsers
       summary: List all users (admin only)
-      description: Retrieve a list of all users in the system. Admin access required.
+      description: |
+        Retrieve a list of all users in the system. Admin access required.
+        Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
       security:
         - bearerAuth: [admin]
       parameters:
@@ -510,6 +518,12 @@ paths:
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
           description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - name: x-ode-client-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
       responses:
         '200':
           description: List of all users
@@ -518,7 +532,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UserResponse'
+                  $ref: '#/components/schemas/UserListItem'
         '401':
           description: Unauthorized
           content:
@@ -754,6 +768,12 @@ paths:
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
           description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - name: x-ode-client-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Optional client instance id; improves per-device presence when combined with sync body `client_id`.
       requestBody:
         required: true
         content:
@@ -783,6 +803,12 @@ paths:
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
           description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - name: x-ode-client-id
+          in: header
+          required: false
+          schema:
+            type: string
+          description: Optional client instance id; improves per-device presence when combined with sync body `client_id`.
       requestBody:
         required: true
         content:
@@ -1254,6 +1280,60 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    UserListItem:
+      type: object
+      required: [id, username, role, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        role:
+          type: string
+          enum: [read-only, read-write, admin]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        presence:
+          $ref: '#/components/schemas/UserPresenceSummary'
+    UserPresenceSummary:
+      type: object
+      properties:
+        lastSeenAt:
+          type: string
+          format: date-time
+          description: Latest activity across all clients for this user
+        clientCount:
+          type: integer
+          description: Number of distinct client ids seen
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserPresenceClient'
+    UserPresenceClient:
+      type: object
+      required: [clientId, lastSeenAt]
+      properties:
+        clientId:
+          type: string
+          description: Client id from sync or empty string when unknown
+        lastSeenAt:
+          type: string
+          format: date-time
+        lastDataVersion:
+          type: integer
+          format: int64
+          description: Last known sync data version cursor hint for this client
+        appBundleVersion:
+          type: string
+        lastOdeVersion:
+          type: string
+          description: ODE/Formulus client version header last seen for this row
 
     SyncPullRequest:
       type: object

@@ -23,7 +23,9 @@
 - `GET /attachments/:id?original=true` — prefer full-resolution originals when available (falls back to processed file)
 - JWT-based auth with `read-only` and `read-write` roles
 - Required client compatibility header: `x-ode-version: <semver>`
+- Optional `x-ode-client-id` for per-device presence on authenticated routes
 - Optional ETag support for caching and efficiency
+- User last-seen / presence (admin user list): see [user-presence.md](user-presence.md)
 
 Full OpenAPI spec lives in [`synkronus/openapi/synkronus.yaml`](../openapi/synkronus.yaml)
 Image-processing environment variables are documented in [`.env.example`](../.env.example) and the root [`README.md`](../README.md).

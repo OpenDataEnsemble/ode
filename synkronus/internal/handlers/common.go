@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 // countingResponseWriter wraps http.ResponseWriter to detect whether any body bytes were written.
@@ -48,4 +49,15 @@ func SendErrorResponse(w http.ResponseWriter, status int, err error, message str
 	}); encodeErr != nil {
 		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
 	}
+}
+
+func odeVersionFromRequest(r *http.Request) *string {
+	v := strings.TrimSpace(r.Header.Get("x-ode-version"))
+	if v == "" {
+		v = strings.TrimSpace(r.Header.Get("x-formulus-version"))
+	}
+	if v == "" {
+		return nil
+	}
+	return &v
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 	"github.com/opendataensemble/synkronus/pkg/middleware/formulusversion"
+	"github.com/opendataensemble/synkronus/pkg/middleware/presencemw"
 	"github.com/opendataensemble/synkronus/portal"
 )
 
@@ -46,7 +47,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"accept", "authorization", "content-type", "x-csrf-token", "x-ode-version", "x-formulus-version", "if-none-match"},
+		AllowedHeaders:   []string{"accept", "authorization", "content-type", "x-csrf-token", "x-ode-version", "x-formulus-version", "x-ode-client-id", "if-none-match"},
 		ExposedHeaders:   []string{"link", "etag"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -117,6 +118,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(formulusversion.Middleware(log))
 			r.Use(auth.AuthMiddleware(h.GetAuthService(), log))
+			r.Use(presencemw.Middleware(h.PresenceRecorder()))
 
 			attachmentHandler.RegisterRoutes(r, h.AttachmentManifestHandler)
 

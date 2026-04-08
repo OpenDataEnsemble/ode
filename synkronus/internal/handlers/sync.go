@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
+	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/pkg/presence"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
@@ -102,6 +105,8 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		"recordCount", len(result.Records),
 		"hasMore", result.HasMore)
 
+	h.recordPresenceAfterSyncPull(r, req.ClientID, sinceVersion)
+
 	SendJSONResponse(w, http.StatusOK, response)
 }
 
@@ -170,6 +175,56 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 		"warningCount", len(result.Warnings),
 		"currentVersion", result.CurrentVersion)
 
+	h.recordPresenceAfterSyncPush(r, req.ClientID, result.CurrentVersion)
+
 	// Send response
 	SendJSONResponse(w, http.StatusOK, response)
+}
+
+func (h *Handler) recordPresenceAfterSyncPull(r *http.Request, clientID string, sinceVersion int64) {
+	rec := h.PresenceRecorder()
+	if rec == nil {
+		return
+	}
+	u := auth.GetUserFromContext(r.Context())
+	if u == nil || u.Username == "" {
+		return
+	}
+	sv := sinceVersion
+	ode := odeVersionFromRequest(r)
+	ev := presence.Event{
+		Username:        u.Username,
+		ClientID:        clientID,
+		LastSeen:        time.Now().UTC(),
+		LastDataVersion: &sv,
+		SkipThrottle:    true,
+	}
+	if ode != nil {
+		ev.LastOdeVersion = ode
+	}
+	rec.Enqueue(ev)
+}
+
+func (h *Handler) recordPresenceAfterSyncPush(r *http.Request, clientID string, currentVersion int64) {
+	rec := h.PresenceRecorder()
+	if rec == nil {
+		return
+	}
+	u := auth.GetUserFromContext(r.Context())
+	if u == nil || u.Username == "" {
+		return
+	}
+	cv := currentVersion
+	ode := odeVersionFromRequest(r)
+	ev := presence.Event{
+		Username:        u.Username,
+		ClientID:        clientID,
+		LastSeen:        time.Now().UTC(),
+		LastDataVersion: &cv,
+		SkipThrottle:    true,
+	}
+	if ode != nil {
+		ev.LastOdeVersion = ode
+	}
+	rec.Enqueue(ev)
 }
