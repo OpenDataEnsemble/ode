@@ -419,6 +419,51 @@ export interface SystemVersionInfo {
 export interface UploadAttachment200Response {
   status?: string;
 }
+export interface UserListItem {
+  id: string;
+  username: string;
+  role: UserListItemRoleEnum;
+  createdAt: string;
+  updatedAt: string;
+  presence?: UserPresenceSummary;
+}
+
+export const UserListItemRoleEnum = {
+  ReadOnly: 'read-only',
+  ReadWrite: 'read-write',
+  Admin: 'admin',
+} as const;
+
+export type UserListItemRoleEnum =
+  (typeof UserListItemRoleEnum)[keyof typeof UserListItemRoleEnum];
+
+export interface UserPresenceClient {
+  /**
+   * Client id from sync or empty string when unknown
+   */
+  clientId: string;
+  lastSeenAt: string;
+  /**
+   * Last known sync data version cursor hint for this client
+   */
+  lastDataVersion?: number;
+  appBundleVersion?: string;
+  /**
+   * ODE/Formulus client version header last seen for this row
+   */
+  lastOdeVersion?: string;
+}
+export interface UserPresenceSummary {
+  /**
+   * Latest activity across all clients for this user
+   */
+  lastSeenAt?: string;
+  /**
+   * Number of distinct client ids seen
+   */
+  clientCount?: number;
+  clients?: Array<UserPresenceClient>;
+}
 export interface UserResponse {
   username: string;
   role: UserResponseRoleEnum;
@@ -1243,11 +1288,13 @@ export const DefaultApiAxiosParamCreator = function (
      *
      * @summary Get the current custom app bundle manifest
      * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} [xOdeClientId] Optional client instance id for correlating app bundle checks with presence.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     getAppBundleManifest: async (
       xOdeVersion: string,
+      xOdeClientId?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'xOdeVersion' is not null or undefined
@@ -1276,6 +1323,9 @@ export const DefaultApiAxiosParamCreator = function (
 
       if (xOdeVersion != null) {
         localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
+      if (xOdeClientId != null) {
+        localVarHeaderParameter['x-ode-client-id'] = String(xOdeClientId);
       }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
@@ -1451,14 +1501,16 @@ export const DefaultApiAxiosParamCreator = function (
       };
     },
     /**
-     * Retrieve a list of all users in the system. Admin access required.
+     * Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
      * @summary List all users (admin only)
      * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} [xOdeClientId] Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     listUsers: async (
       xOdeVersion: string,
+      xOdeClientId?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'xOdeVersion' is not null or undefined
@@ -1488,6 +1540,9 @@ export const DefaultApiAxiosParamCreator = function (
 
       if (xOdeVersion != null) {
         localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
+      if (xOdeClientId != null) {
+        localVarHeaderParameter['x-ode-client-id'] = String(xOdeClientId);
       }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
@@ -1823,6 +1878,7 @@ export const DefaultApiAxiosParamCreator = function (
      * @param {SyncPullRequest} syncPullRequest
      * @param {string} [schemaType] Filter by schemaType
      * @param {number} [limit] Maximum number of records to return
+     * @param {string} [xOdeClientId] Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -1831,6 +1887,7 @@ export const DefaultApiAxiosParamCreator = function (
       syncPullRequest: SyncPullRequest,
       schemaType?: string,
       limit?: number,
+      xOdeClientId?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'xOdeVersion' is not null or undefined
@@ -1871,6 +1928,9 @@ export const DefaultApiAxiosParamCreator = function (
       if (xOdeVersion != null) {
         localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
       }
+      if (xOdeClientId != null) {
+        localVarHeaderParameter['x-ode-client-id'] = String(xOdeClientId);
+      }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
         baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -1895,12 +1955,14 @@ export const DefaultApiAxiosParamCreator = function (
      * @summary Push new or updated records to the server
      * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
      * @param {SyncPushRequest} syncPushRequest
+     * @param {string} [xOdeClientId] Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     syncPush: async (
       xOdeVersion: string,
       syncPushRequest: SyncPushRequest,
+      xOdeClientId?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'xOdeVersion' is not null or undefined
@@ -1932,6 +1994,9 @@ export const DefaultApiAxiosParamCreator = function (
 
       if (xOdeVersion != null) {
         localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
+      if (xOdeClientId != null) {
+        localVarHeaderParameter['x-ode-client-id'] = String(xOdeClientId);
       }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
@@ -2280,11 +2345,13 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      *
      * @summary Get the current custom app bundle manifest
      * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} [xOdeClientId] Optional client instance id for correlating app bundle checks with presence.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async getAppBundleManifest(
       xOdeVersion: string,
+      xOdeClientId?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (
@@ -2295,6 +2362,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.getAppBundleManifest(
           xOdeVersion,
+          xOdeClientId,
           options,
         );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -2411,23 +2479,26 @@ export const DefaultApiFp = function (configuration?: Configuration) {
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
-     * Retrieve a list of all users in the system. Admin access required.
+     * Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
      * @summary List all users (admin only)
      * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} [xOdeClientId] Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async listUsers(
       xOdeVersion: string,
+      xOdeClientId?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (
         axios?: AxiosInstance,
         basePath?: string,
-      ) => AxiosPromise<Array<UserResponse>>
+      ) => AxiosPromise<Array<UserListItem>>
     > {
       const localVarAxiosArgs = await localVarAxiosParamCreator.listUsers(
         xOdeVersion,
+        xOdeClientId,
         options,
       );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -2625,6 +2696,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      * @param {SyncPullRequest} syncPullRequest
      * @param {string} [schemaType] Filter by schemaType
      * @param {number} [limit] Maximum number of records to return
+     * @param {string} [xOdeClientId] Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -2633,6 +2705,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
       syncPullRequest: SyncPullRequest,
       schemaType?: string,
       limit?: number,
+      xOdeClientId?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (
@@ -2645,6 +2718,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
         syncPullRequest,
         schemaType,
         limit,
+        xOdeClientId,
         options,
       );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -2665,12 +2739,14 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      * @summary Push new or updated records to the server
      * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
      * @param {SyncPushRequest} syncPushRequest
+     * @param {string} [xOdeClientId] Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async syncPush(
       xOdeVersion: string,
       syncPushRequest: SyncPushRequest,
+      xOdeClientId?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (
@@ -2681,6 +2757,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
       const localVarAxiosArgs = await localVarAxiosParamCreator.syncPush(
         xOdeVersion,
         syncPushRequest,
+        xOdeClientId,
         options,
       );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
@@ -2894,7 +2971,11 @@ export const DefaultApiFactory = function (
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<AppBundleManifest> {
       return localVarFp
-        .getAppBundleManifest(requestParameters.xOdeVersion, options)
+        .getAppBundleManifest(
+          requestParameters.xOdeVersion,
+          requestParameters.xOdeClientId,
+          options,
+        )
         .then(request => request(axios, basePath));
     },
     /**
@@ -2945,7 +3026,7 @@ export const DefaultApiFactory = function (
         .then(request => request(axios, basePath));
     },
     /**
-     * Retrieve a list of all users in the system. Admin access required.
+     * Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
      * @summary List all users (admin only)
      * @param {DefaultApiListUsersRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
@@ -2954,9 +3035,13 @@ export const DefaultApiFactory = function (
     listUsers(
       requestParameters: DefaultApiListUsersRequest,
       options?: RawAxiosRequestConfig,
-    ): AxiosPromise<Array<UserResponse>> {
+    ): AxiosPromise<Array<UserListItem>> {
       return localVarFp
-        .listUsers(requestParameters.xOdeVersion, options)
+        .listUsers(
+          requestParameters.xOdeVersion,
+          requestParameters.xOdeClientId,
+          options,
+        )
         .then(request => request(axios, basePath));
     },
     /**
@@ -3071,6 +3156,7 @@ export const DefaultApiFactory = function (
           requestParameters.syncPullRequest,
           requestParameters.schemaType,
           requestParameters.limit,
+          requestParameters.xOdeClientId,
           options,
         )
         .then(request => request(axios, basePath));
@@ -3090,6 +3176,7 @@ export const DefaultApiFactory = function (
         .syncPush(
           requestParameters.xOdeVersion,
           requestParameters.syncPushRequest,
+          requestParameters.xOdeClientId,
           options,
         )
         .then(request => request(axios, basePath));
@@ -3226,6 +3313,11 @@ export interface DefaultApiGetAppBundleManifestRequest {
    * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
    */
   readonly xOdeVersion: string;
+
+  /**
+   * Optional client instance id for correlating app bundle checks with presence.
+   */
+  readonly xOdeClientId?: string;
 }
 
 /**
@@ -3258,6 +3350,11 @@ export interface DefaultApiListUsersRequest {
    * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
    */
   readonly xOdeVersion: string;
+
+  /**
+   * Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
+   */
+  readonly xOdeClientId?: string;
 }
 
 /**
@@ -3346,6 +3443,11 @@ export interface DefaultApiSyncPullRequest {
    * Maximum number of records to return
    */
   readonly limit?: number;
+
+  /**
+   * Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
+   */
+  readonly xOdeClientId?: string;
 }
 
 /**
@@ -3358,6 +3460,11 @@ export interface DefaultApiSyncPushRequest {
   readonly xOdeVersion: string;
 
   readonly syncPushRequest: SyncPushRequest;
+
+  /**
+   * Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
+   */
+  readonly xOdeClientId?: string;
 }
 
 /**
@@ -3531,7 +3638,11 @@ export class DefaultApi extends BaseAPI {
     options?: RawAxiosRequestConfig,
   ) {
     return DefaultApiFp(this.configuration)
-      .getAppBundleManifest(requestParameters.xOdeVersion, options)
+      .getAppBundleManifest(
+        requestParameters.xOdeVersion,
+        requestParameters.xOdeClientId,
+        options,
+      )
       .then(request => request(this.axios, this.basePath));
   }
 
@@ -3584,7 +3695,7 @@ export class DefaultApi extends BaseAPI {
   }
 
   /**
-   * Retrieve a list of all users in the system. Admin access required.
+   * Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
    * @summary List all users (admin only)
    * @param {DefaultApiListUsersRequest} requestParameters Request parameters.
    * @param {*} [options] Override http request option.
@@ -3595,7 +3706,11 @@ export class DefaultApi extends BaseAPI {
     options?: RawAxiosRequestConfig,
   ) {
     return DefaultApiFp(this.configuration)
-      .listUsers(requestParameters.xOdeVersion, options)
+      .listUsers(
+        requestParameters.xOdeVersion,
+        requestParameters.xOdeClientId,
+        options,
+      )
       .then(request => request(this.axios, this.basePath));
   }
 
@@ -3716,6 +3831,7 @@ export class DefaultApi extends BaseAPI {
         requestParameters.syncPullRequest,
         requestParameters.schemaType,
         requestParameters.limit,
+        requestParameters.xOdeClientId,
         options,
       )
       .then(request => request(this.axios, this.basePath));
@@ -3736,6 +3852,7 @@ export class DefaultApi extends BaseAPI {
       .syncPush(
         requestParameters.xOdeVersion,
         requestParameters.syncPushRequest,
+        requestParameters.xOdeClientId,
         options,
       )
       .then(request => request(this.axios, this.basePath));

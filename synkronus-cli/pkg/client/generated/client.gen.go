@@ -40,6 +40,27 @@ func (e AttachmentOperationOperation) Valid() bool {
 	}
 }
 
+// Defines values for UserListItemRole.
+const (
+	UserListItemRoleAdmin     UserListItemRole = "admin"
+	UserListItemRoleReadOnly  UserListItemRole = "read-only"
+	UserListItemRoleReadWrite UserListItemRole = "read-write"
+)
+
+// Valid indicates whether the value is a known member of the UserListItemRole enum.
+func (e UserListItemRole) Valid() bool {
+	switch e {
+	case UserListItemRoleAdmin:
+		return true
+	case UserListItemRoleReadOnly:
+		return true
+	case UserListItemRoleReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UserResponseRole.
 const (
 	UserResponseRoleAdmin     UserResponseRole = "admin"
@@ -63,19 +84,19 @@ func (e UserResponseRole) Valid() bool {
 
 // Defines values for CreateUserJSONBodyRole.
 const (
-	CreateUserJSONBodyRoleAdmin     CreateUserJSONBodyRole = "admin"
-	CreateUserJSONBodyRoleReadOnly  CreateUserJSONBodyRole = "read-only"
-	CreateUserJSONBodyRoleReadWrite CreateUserJSONBodyRole = "read-write"
+	Admin     CreateUserJSONBodyRole = "admin"
+	ReadOnly  CreateUserJSONBodyRole = "read-only"
+	ReadWrite CreateUserJSONBodyRole = "read-write"
 )
 
 // Valid indicates whether the value is a known member of the CreateUserJSONBodyRole enum.
 func (e CreateUserJSONBodyRole) Valid() bool {
 	switch e {
-	case CreateUserJSONBodyRoleAdmin:
+	case Admin:
 		return true
-	case CreateUserJSONBodyRoleReadOnly:
+	case ReadOnly:
 		return true
-	case CreateUserJSONBodyRoleReadWrite:
+	case ReadWrite:
 		return true
 	default:
 		return false
@@ -352,6 +373,44 @@ type SystemVersionInfo struct {
 	System   *SystemInfo   `json:"system,omitempty"`
 }
 
+// UserListItem defines model for UserListItem.
+type UserListItem struct {
+	CreatedAt time.Time            `json:"createdAt"`
+	Id        openapi_types.UUID   `json:"id"`
+	Presence  *UserPresenceSummary `json:"presence,omitempty"`
+	Role      UserListItemRole     `json:"role"`
+	UpdatedAt time.Time            `json:"updatedAt"`
+	Username  string               `json:"username"`
+}
+
+// UserListItemRole defines model for UserListItem.Role.
+type UserListItemRole string
+
+// UserPresenceClient defines model for UserPresenceClient.
+type UserPresenceClient struct {
+	AppBundleVersion *string `json:"appBundleVersion,omitempty"`
+
+	// ClientId Client id from sync or empty string when unknown
+	ClientId string `json:"clientId"`
+
+	// LastDataVersion Last known sync data version cursor hint for this client
+	LastDataVersion *int64 `json:"lastDataVersion,omitempty"`
+
+	// LastOdeVersion ODE/Formulus client version header last seen for this row
+	LastOdeVersion *string   `json:"lastOdeVersion,omitempty"`
+	LastSeenAt     time.Time `json:"lastSeenAt"`
+}
+
+// UserPresenceSummary defines model for UserPresenceSummary.
+type UserPresenceSummary struct {
+	// ClientCount Number of distinct client ids seen
+	ClientCount *int                  `json:"clientCount,omitempty"`
+	Clients     *[]UserPresenceClient `json:"clients,omitempty"`
+
+	// LastSeenAt Latest activity across all clients for this user
+	LastSeenAt *time.Time `json:"lastSeenAt,omitempty"`
+}
+
 // UserResponse defines model for UserResponse.
 type UserResponse struct {
 	CreatedAt time.Time        `json:"createdAt"`
@@ -397,6 +456,9 @@ type DownloadAppBundleFileParams struct {
 type GetAppBundleManifestParams struct {
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XOdeClientId Optional client instance id for correlating app bundle checks with presence.
+	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
 }
 
 // PushAppBundleMultipartBody defines parameters for PushAppBundle.
@@ -484,18 +546,27 @@ type SyncPullParams struct {
 
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XOdeClientId Optional client instance id; improves per-device presence when combined with sync body `client_id`.
+	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
 }
 
 // SyncPushParams defines parameters for SyncPush.
 type SyncPushParams struct {
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XOdeClientId Optional client instance id; improves per-device presence when combined with sync body `client_id`.
+	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
 }
 
 // ListUsersParams defines parameters for ListUsers.
 type ListUsersParams struct {
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XOdeClientId Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
+	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
 }
 
 // ChangePasswordJSONBody defines parameters for ChangePassword.
@@ -1324,6 +1395,17 @@ func NewGetAppBundleManifestRequest(server string, params *GetAppBundleManifestP
 
 		req.Header.Set("x-ode-version", headerParam0)
 
+		if params.XOdeClientId != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-ode-client-id", *params.XOdeClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-ode-client-id", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -1932,6 +2014,17 @@ func NewSyncPullRequestWithBody(server string, params *SyncPullParams, contentTy
 
 		req.Header.Set("x-ode-version", headerParam0)
 
+		if params.XOdeClientId != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-ode-client-id", *params.XOdeClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-ode-client-id", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -1985,6 +2078,17 @@ func NewSyncPushRequestWithBody(server string, params *SyncPushParams, contentTy
 
 		req.Header.Set("x-ode-version", headerParam0)
 
+		if params.XOdeClientId != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-ode-client-id", *params.XOdeClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-ode-client-id", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -2024,6 +2128,17 @@ func NewListUsersRequest(server string, params *ListUsersParams) (*http.Request,
 		}
 
 		req.Header.Set("x-ode-version", headerParam0)
+
+		if params.XOdeClientId != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-ode-client-id", *params.XOdeClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-ode-client-id", headerParam1)
+		}
 
 	}
 
@@ -2825,7 +2940,7 @@ func (r SyncPushHTTPResponse) StatusCode() int {
 type ListUsersHTTPResponse struct {
 	Body                      []byte
 	HTTPResponse              *http.Response
-	JSON200                   *[]UserResponse
+	JSON200                   *[]UserListItem
 	ApplicationproblemJSON401 *ProblemDetail
 	ApplicationproblemJSON403 *ProblemDetail
 }
@@ -3903,7 +4018,7 @@ func ParseListUsersHTTPResponse(rsp *http.Response) (*ListUsersHTTPResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []UserResponse
+		var dest []UserListItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
