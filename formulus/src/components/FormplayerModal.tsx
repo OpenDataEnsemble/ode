@@ -48,6 +48,7 @@ import { geolocationService } from '../services/GeolocationService';
 
 interface FormplayerModalProps {
   visible: boolean;
+  isActive?: boolean;
   onClose: () => void;
 }
 
@@ -67,7 +68,7 @@ export interface FormplayerModalHandle {
 }
 
 const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
-  ({ visible, onClose }, ref) => {
+  ({ visible, isActive = true, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showConfirm } = useConfirmModal();
@@ -191,6 +192,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Track WebView ready state
     const [webViewReady, setWebViewReady] = useState(false);
+    const previousIsActiveRef = useRef(isActive);
 
     // Handle WebView load complete
     const handleWebViewLoad = () => {
@@ -585,14 +587,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Register/unregister modal with message handlers and reset form state
     useEffect(() => {
-      if (visible) {
+      if (visible && isActive) {
         // Register this modal as the active one for handling submissions
         setActiveFormplayerModal({ handleSubmission });
       } else {
-        // Unregister when modal is closed
+        // Inactive/hidden modals must not handle submissions.
         setActiveFormplayerModal(null);
+      }
 
-        // Reset form state when modal is closed
+      if (!visible) {
+        // Reset form state only when the modal actually closes.
         setTimeout(() => {
           setCurrentFormType(null);
           setCurrentFormDisplayName(null);
@@ -603,7 +607,20 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           setWebViewReady(false); // Reset WebView ready state
         }, 300); // Small delay to ensure modal is fully closed
       }
-    }, [visible, handleSubmission]);
+    }, [visible, isActive, handleSubmission]);
+
+    useEffect(() => {
+      if (
+        visible &&
+        isActive &&
+        webViewReady &&
+        currentFormType &&
+        previousIsActiveRef.current === false
+      ) {
+        webViewRef.current?.notifyReceiveFocus();
+      }
+      previousIsActiveRef.current = isActive;
+    }, [visible, isActive, webViewReady, currentFormType]);
 
     useImperativeHandle(ref, () => ({ initializeForm, handleSubmission }));
 

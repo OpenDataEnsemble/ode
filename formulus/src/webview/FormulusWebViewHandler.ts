@@ -264,7 +264,30 @@ export class FormulusWebViewMessageManager {
     }
   }
 
+  public notifyReceiveFocus(): void {
+    if (!this.webViewRef.current || !this.isWebViewReady) {
+      return;
+    }
+
+    this.webViewRef.current.injectJavaScript(`
+      (function() {
+        try {
+          if (typeof window.onReceiveFocus === 'function') {
+            Promise.resolve(window.onReceiveFocus()).catch(function(error) {
+              console.error('Error in window.onReceiveFocus:', error);
+            });
+          }
+        } catch (error) {
+          console.error('Error invoking window.onReceiveFocus:', error);
+        }
+      })();
+      true;
+    `);
+  }
+
   public handleReceiveFocus(): void {
+    this.notifyReceiveFocus();
+
     // Optionally call native-side handler if it exists for onReceiveFocus
     if (this.nativeSideHandlers.onReceiveFocus) {
       try {
