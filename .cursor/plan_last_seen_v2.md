@@ -105,8 +105,27 @@ Optional: `x-ode-version` / `x-formulus-version` via existing middleware for `la
 
 ## Testing
 
-- Unit: repository UPSERT, throttle, queue-full drop, shutdown.
-- Integration: authenticated traffic updates presence; login/public routes do not; no blocking on request path (mocks that would detect awaits).
+- **Synkronus:** Unit: repository UPSERT, throttle, queue-full drop, shutdown. Integration: authenticated traffic updates presence; login/public routes do not; no blocking on request path (mocks that would detect awaits).
+- **synkronus-cli:** Add or extend tests where the repo already does for similar features (e.g. client parsing, command output, flag handling) — follow existing patterns in `synkronus-cli`.
+- **synkronus-portal:** Add tests where relevant (e.g. formatting helpers, thin logic extracted from `Dashboard` if needed) — follow existing ESLint/Prettier and test conventions in that package.
+
+## Formatting (before review / PR)
+
+Run on touched packages so diffs stay clean and CI stays green:
+
+- **Go** (`synkronus`, `synkronus-cli`, and any other edited Go modules): `go fmt ./...` (or format only changed packages).
+- **synkronus-portal** (TypeScript/JSON touched by codegen or hand edits): `npm run format` from `synkronus-portal/` (see `package.json`).
+
+## PR description (final step)
+
+Before opening the PR, produce a **concise summary** suitable for pasting into the PR body so reviewers can orient quickly:
+
+- **What** changed (Synkronus / CLI / Portal — scope per package).
+- **Why** (presence / last-seen for operators; non-blocking writes).
+- **Notable details**: new migration, new headers, OpenAPI/client regen, admin-only fields, any behavior caveats (best-effort, queue drop).
+- **How to verify**: e.g. local steps, key tests, or manual checks.
+
+Match the repository’s PR template and tone if one exists. For ODE-style markdown body text, the **[`pr-description` skill](./skills/pr-description/SKILL.md)** documents the expected format.
 
 ## Deliverables checklist
 
@@ -117,4 +136,7 @@ Optional: `x-ode-version` / `x-formulus-version` via existing middleware for `la
 | Middleware + `api.go` wiring | After JWT; CORS if needed |
 | Sync + app-bundle hooks | Non-blocking enqueue |
 | Admin list / OpenAPI / docs | Per `synkronus/AGENTS.md` |
-| Tests | As above |
+| CLI + Portal | OpenAPI regen, `user list` / presence display, Users tab panel; docs + completion notes per extended plan |
+| Tests | Synkronus + CLI/Portal where relevant (see Testing) |
+| Formatting | `go fmt` on Go changes; `npm run format` in portal when applicable |
+| PR description | Short paste-ready summary for reviewers (see PR description section) |
