@@ -117,7 +117,7 @@ func TestAttachmentHandler_UploadAttachment(t *testing.T) {
 			}
 
 			// Create handler with mock service
-			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest, mocks.NewMockSyncService())
 
 			// Create a test file
 			var b bytes.Buffer
@@ -192,7 +192,7 @@ func TestAttachmentHandler_DownloadAttachment(t *testing.T) {
 			mockManifest := &mocks.MockAttachmentManifestService{}
 
 			// Create handler with mock service
-			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest, mocks.NewMockSyncService())
 
 			// Create request
 			req := httptest.NewRequest("GET", "/api/attachments/"+tc.attachmentID, nil)
@@ -220,7 +220,7 @@ func TestAttachmentHandler_DownloadAttachment_WithOriginalQuery(t *testing.T) {
 	mockSvc.On("OpenForDownload", mock.Anything, "photo.jpg", true).
 		Return(io.NopCloser(bytes.NewBufferString("original bytes")), nil)
 
-	handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, &mocks.MockAttachmentManifestService{})
+	handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, &mocks.MockAttachmentManifestService{}, mocks.NewMockSyncService())
 
 	req := httptest.NewRequest("GET", "/api/attachments/photo.jpg?original=true", nil)
 	rr := httptest.NewRecorder()
@@ -269,7 +269,7 @@ func TestAttachmentHandler_CheckAttachment(t *testing.T) {
 			mockManifest := &mocks.MockAttachmentManifestService{}
 
 			// Create handler with mock service
-			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+			handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest, mocks.NewMockSyncService())
 
 			// Create request
 			req := httptest.NewRequest("HEAD", "/api/attachments/"+tc.attachmentID, nil)
@@ -292,7 +292,7 @@ func TestAttachmentHandler_CheckAttachment_WithOriginalQuery(t *testing.T) {
 	mockSvc := &mockAttachmentService{}
 	mockSvc.On("ExistsForDownload", mock.Anything, "photo.jpg", true).Return(true, nil)
 
-	handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, &mocks.MockAttachmentManifestService{})
+	handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, &mocks.MockAttachmentManifestService{}, mocks.NewMockSyncService())
 	req := httptest.NewRequest("HEAD", "/api/attachments/photo.jpg?original=yes", nil)
 	rr := httptest.NewRecorder()
 	r := chi.NewRouter()
@@ -317,7 +317,7 @@ func TestDownloadAttachment_StreamingErrorLogged(t *testing.T) {
 
 	mockManifest := &mocks.MockAttachmentManifestService{}
 
-	handler := NewAttachmentHandler(log, mockSvc, mockManifest)
+	handler := NewAttachmentHandler(log, mockSvc, mockManifest, mocks.NewMockSyncService())
 
 	req := httptest.NewRequest("GET", "/api/attachments/badfile", nil)
 	rr := httptest.NewRecorder()
@@ -331,7 +331,7 @@ func TestDownloadAttachment_StreamingErrorLogged(t *testing.T) {
 
 func TestAttachmentHandler_ExportAllAttachmentsZip(t *testing.T) {
 	t.Run("storage unavailable", func(t *testing.T) {
-		handler := NewAttachmentHandler(logger.NewLogger(), nil, &mocks.MockAttachmentManifestService{})
+		handler := NewAttachmentHandler(logger.NewLogger(), nil, &mocks.MockAttachmentManifestService{}, mocks.NewMockSyncService())
 		req := httptest.NewRequest(http.MethodGet, "/api/attachments/export-zip", nil)
 		rr := httptest.NewRecorder()
 		handler.ExportAllAttachmentsZip(rr, req)
@@ -345,7 +345,7 @@ func TestAttachmentHandler_ExportAllAttachmentsZip(t *testing.T) {
 				return nil, errors.New("db error")
 			},
 		}
-		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest, mocks.NewMockSyncService())
 		req := httptest.NewRequest(http.MethodGet, "/api/attachments/export-zip", nil)
 		rr := httptest.NewRecorder()
 		handler.ExportAllAttachmentsZip(rr, req)
@@ -360,7 +360,7 @@ func TestAttachmentHandler_ExportAllAttachmentsZip(t *testing.T) {
 			},
 		}
 		mockSvc.On("WriteZip", mock.Anything, mock.Anything, []string{"a"}).Return(nil)
-		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest, mocks.NewMockSyncService())
 		req := httptest.NewRequest(http.MethodGet, "/api/attachments/export-zip", nil)
 		rr := httptest.NewRecorder()
 		handler.ExportAllAttachmentsZip(rr, req)
@@ -377,7 +377,7 @@ func TestAttachmentHandler_ExportAllAttachmentsZip(t *testing.T) {
 			},
 		}
 		mockSvc.On("WriteZip", mock.Anything, mock.Anything, []string{"a"}).Return(errors.New("write fail"))
-		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest)
+		handler := NewAttachmentHandler(logger.NewLogger(), mockSvc, mockManifest, mocks.NewMockSyncService())
 		req := httptest.NewRequest(http.MethodGet, "/api/attachments/export-zip", nil)
 		rr := httptest.NewRecorder()
 		handler.ExportAllAttachmentsZip(rr, req)

@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "prebuild": "npm run generate:api",
-    "generate:api": "npx @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated --additional-properties \"supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && npx prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
+    "generate:api": "npx --yes @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated \"--additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && npm run format",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "npx prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",

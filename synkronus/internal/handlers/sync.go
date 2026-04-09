@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -13,9 +14,10 @@ import (
 
 // SyncPullRequest represents the sync pull request payload according to OpenAPI spec
 type SyncPullRequest struct {
-	ClientID    string                `json:"client_id"`
-	Since       *SyncPullRequestSince `json:"since,omitempty"`
-	SchemaTypes []string              `json:"schema_types,omitempty"`
+	ClientID               string                `json:"client_id"`
+	Since                  *SyncPullRequestSince `json:"since,omitempty"`
+	SchemaTypes            []string              `json:"schema_types,omitempty"`
+	RepositoryGeneration   *int64                `json:"repository_generation,omitempty"`
 }
 
 // SyncPullRequestSince represents the pagination cursor in sync pull request
@@ -26,11 +28,12 @@ type SyncPullRequestSince struct {
 
 // SyncPullResponse represents the sync pull response payload according to OpenAPI spec
 type SyncPullResponse struct {
-	CurrentVersion    int64              `json:"current_version"`
-	Records           []sync.Observation `json:"records"`
-	ChangeCutoff      int64              `json:"change_cutoff"`
-	HasMore           *bool              `json:"has_more,omitempty"`
-	SyncFormatVersion *string            `json:"sync_format_version,omitempty"`
+	CurrentVersion         int64              `json:"current_version"`
+	RepositoryGeneration   int64              `json:"repository_generation"`
+	Records                []sync.Observation `json:"records"`
+	ChangeCutoff           int64              `json:"change_cutoff"`
+	HasMore                *bool              `json:"has_more,omitempty"`
+	SyncFormatVersion      *string            `json:"sync_format_version,omitempty"`
 }
 
 // Pull handles the /sync/pull endpoint
@@ -89,11 +92,12 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 	// Build response
 	syncFormatVersion := "1.0"
 	response := SyncPullResponse{
-		CurrentVersion:    result.CurrentVersion,
-		Records:           result.Records,
-		ChangeCutoff:      result.ChangeCutoff,
-		HasMore:           &result.HasMore,
-		SyncFormatVersion: &syncFormatVersion,
+		CurrentVersion:       result.CurrentVersion,
+		RepositoryGeneration: result.RepositoryGeneration,
+		Records:              result.Records,
+		ChangeCutoff:         result.ChangeCutoff,
+		HasMore:              &result.HasMore,
+		SyncFormatVersion:    &syncFormatVersion,
 	}
 
 	// Note: Clients should use change_cutoff as the next since.version for pagination
@@ -107,22 +111,25 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 
 	h.recordPresenceAfterSyncPull(r, req.ClientID, sinceVersion)
 
+	w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(result.RepositoryGeneration, 10))
 	SendJSONResponse(w, http.StatusOK, response)
 }
 
 // SyncPushRequest represents the sync push request payload according to OpenAPI spec
 type SyncPushRequest struct {
-	TransmissionID string             `json:"transmission_id"`
-	ClientID       string             `json:"client_id"`
-	Records        []sync.Observation `json:"records"`
+	TransmissionID       string             `json:"transmission_id"`
+	ClientID             string             `json:"client_id"`
+	Records              []sync.Observation `json:"records"`
+	RepositoryGeneration *int64             `json:"repository_generation,omitempty"`
 }
 
 // SyncPushResponse represents the sync push response payload according to OpenAPI spec
 type SyncPushResponse struct {
-	CurrentVersion int64                    `json:"current_version"`
-	SuccessCount   int                      `json:"success_count"`
-	FailedRecords  []map[string]interface{} `json:"failed_records,omitempty"`
-	Warnings       []sync.SyncWarning       `json:"warnings,omitempty"`
+	CurrentVersion         int64                    `json:"current_version"`
+	RepositoryGeneration   int64                    `json:"repository_generation"`
+	SuccessCount           int                      `json:"success_count"`
+	FailedRecords          []map[string]interface{} `json:"failed_records,omitempty"`
+	Warnings               []sync.SyncWarning       `json:"warnings,omitempty"`
 }
 
 // Push handles the /sync/push endpoint
@@ -150,9 +157,22 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Process the records using the sync service
-	result, err := h.syncService.ProcessPushedRecords(r.Context(), req.Records, req.ClientID, req.TransmissionID)
+	clientGen := sync.ParseClientRepositoryGeneration(r, req.RepositoryGeneration)
+	result, err := h.syncService.ProcessPushedRecords(r.Context(), req.Records, req.ClientID, req.TransmissionID, clientGen)
 	if err != nil {
+		if errors.Is(err, sync.ErrRepositoryGenerationMismatch) {
+			serverGen, gerr := h.syncService.GetRepositoryGeneration(r.Context())
+			if gerr != nil {
+				h.log.Error("Failed to read repository generation", "error", gerr)
+				SendErrorResponse(w, http.StatusInternalServerError, gerr, "Failed to verify repository generation")
+				return
+			}
+			w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(serverGen, 10))
+			SendErrorResponseWithCode(w, http.StatusConflict, err,
+				"Client repository_generation does not match the server; the repository was reset or upgraded. Pull sync state and align generation before pushing.",
+				CodeRepositoryResetRequired)
+			return
+		}
 		h.log.Error("Failed to process pushed records", "error", err)
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to process sync data")
 		return
@@ -160,10 +180,11 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 
 	// Build response from service result
 	response := SyncPushResponse{
-		CurrentVersion: result.CurrentVersion,
-		SuccessCount:   result.SuccessCount,
-		FailedRecords:  result.FailedRecords,
-		Warnings:       result.Warnings,
+		CurrentVersion:       result.CurrentVersion,
+		RepositoryGeneration: result.RepositoryGeneration,
+		SuccessCount:         result.SuccessCount,
+		FailedRecords:        result.FailedRecords,
+		Warnings:             result.Warnings,
 	}
 
 	h.log.Info("Sync push request processed",
@@ -177,7 +198,7 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 
 	h.recordPresenceAfterSyncPush(r, req.ClientID, result.CurrentVersion)
 
-	// Send response
+	w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(result.RepositoryGeneration, 10))
 	SendJSONResponse(w, http.StatusOK, response)
 }
 

@@ -56,12 +56,24 @@ func (s *Service) GetCurrentVersion(ctx context.Context) (int64, error) {
 	return version, nil
 }
 
+// GetRepositoryGeneration returns the monotonic repository epoch (increments on admin hard reset).
+func (s *Service) GetRepositoryGeneration(ctx context.Context) (int64, error) {
+	var gen int64
+	err := s.db.QueryRowContext(ctx, `SELECT repository_generation FROM sync_version WHERE id = 1`).Scan(&gen)
+	if err != nil {
+		s.log.Error("Failed to get repository generation", "error", err)
+		return 0, fmt.Errorf("failed to get repository generation: %w", err)
+	}
+	return gen, nil
+}
+
 // GetRecordsSinceVersion retrieves records that have changed since the specified version
 func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64, clientID string, schemaTypes []string, limit int, cursor *SyncPullCursor) (*SyncResult, error) {
-	// Get current version first
-	currentVersion, err := s.GetCurrentVersion(ctx)
+	var currentVersion, repositoryGeneration int64
+	err := s.db.QueryRowContext(ctx, `SELECT current_version, repository_generation FROM sync_version WHERE id = 1`).Scan(&currentVersion, &repositoryGeneration)
 	if err != nil {
-		return nil, err
+		s.log.Error("Failed to read sync_version", "error", err)
+		return nil, fmt.Errorf("failed to read sync version: %w", err)
 	}
 
 	// Set default limit if not specified
@@ -203,10 +215,11 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 	}
 
 	result := &SyncResult{
-		CurrentVersion: currentVersion,
-		Records:        records,
-		ChangeCutoff:   changeCutoff,
-		HasMore:        hasMore,
+		CurrentVersion:       currentVersion,
+		RepositoryGeneration: repositoryGeneration,
+		Records:              records,
+		ChangeCutoff:         changeCutoff,
+		HasMore:              hasMore,
 	}
 
 	s.log.Info("Retrieved records since version",
@@ -221,7 +234,7 @@ func (s *Service) GetRecordsSinceVersion(ctx context.Context, sinceVersion int64
 }
 
 // ProcessPushedRecords processes records pushed from a client
-func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observation, clientID string, transmissionID string) (*SyncPushResult, error) {
+func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observation, clientID string, transmissionID string, clientRepositoryGeneration int64) (*SyncPushResult, error) {
 	var successCount int
 	var failedRecords []map[string]interface{}
 	var warnings []SyncWarning
@@ -241,6 +254,15 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 			}
 		}
 	}()
+
+	var serverGen int64
+	if err := tx.QueryRowContext(ctx, `SELECT repository_generation FROM sync_version WHERE id = 1 FOR UPDATE`).Scan(&serverGen); err != nil {
+		s.log.Error("Failed to read repository generation", "error", err)
+		return nil, fmt.Errorf("failed to read repository generation: %w", err)
+	}
+	if serverGen != clientRepositoryGeneration {
+		return nil, ErrRepositoryGenerationMismatch
+	}
 
 	for i, record := range records {
 		// Validate required fields
@@ -323,9 +345,9 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 		successCount++
 	}
 
-	// Get the current version WITHIN the transaction to ensure consistency
-	var currentVersion int64
-	err = tx.QueryRowContext(ctx, "SELECT current_version FROM sync_version ORDER BY id DESC LIMIT 1").Scan(&currentVersion)
+	// Get the current version and repository epoch WITHIN the transaction to ensure consistency
+	var currentVersion, repositoryGeneration int64
+	err = tx.QueryRowContext(ctx, "SELECT current_version, repository_generation FROM sync_version WHERE id = 1").Scan(&currentVersion, &repositoryGeneration)
 	if err != nil {
 		s.log.Error("Failed to get current version within transaction", "error", err)
 		return nil, fmt.Errorf("failed to get current version: %w", err)
@@ -339,10 +361,11 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 	committed = true
 
 	result := &SyncPushResult{
-		CurrentVersion: currentVersion,
-		SuccessCount:   successCount,
-		FailedRecords:  failedRecords,
-		Warnings:       warnings,
+		CurrentVersion:       currentVersion,
+		RepositoryGeneration: repositoryGeneration,
+		SuccessCount:         successCount,
+		FailedRecords:        failedRecords,
+		Warnings:             warnings,
 	}
 
 	s.log.Info("Processed pushed records",
