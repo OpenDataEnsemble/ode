@@ -12,7 +12,7 @@ func init() {
 	adminCmd := &cobra.Command{
 		Use:   "admin",
 		Short: "Privileged server operations (requires admin JWT)",
-		Long: `Commands that mutate server-wide state. Authenticate with an admin account (synk login) first.`,
+		Long:  `Commands that mutate server-wide state. Authenticate with an admin account (synk login) first.`,
 	}
 
 	repositoryResetCmd := &cobra.Command{
