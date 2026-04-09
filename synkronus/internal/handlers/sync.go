@@ -14,10 +14,10 @@ import (
 
 // SyncPullRequest represents the sync pull request payload according to OpenAPI spec
 type SyncPullRequest struct {
-	ClientID               string                `json:"client_id"`
-	Since                  *SyncPullRequestSince `json:"since,omitempty"`
-	SchemaTypes            []string              `json:"schema_types,omitempty"`
-	RepositoryGeneration   *int64                `json:"repository_generation,omitempty"`
+	ClientID             string                `json:"client_id"`
+	Since                *SyncPullRequestSince `json:"since,omitempty"`
+	SchemaTypes          []string              `json:"schema_types,omitempty"`
+	RepositoryGeneration *int64                `json:"repository_generation,omitempty"`
 }
 
 // SyncPullRequestSince represents the pagination cursor in sync pull request
@@ -28,12 +28,12 @@ type SyncPullRequestSince struct {
 
 // SyncPullResponse represents the sync pull response payload according to OpenAPI spec
 type SyncPullResponse struct {
-	CurrentVersion         int64              `json:"current_version"`
-	RepositoryGeneration   int64              `json:"repository_generation"`
-	Records                []sync.Observation `json:"records"`
-	ChangeCutoff           int64              `json:"change_cutoff"`
-	HasMore                *bool              `json:"has_more,omitempty"`
-	SyncFormatVersion      *string            `json:"sync_format_version,omitempty"`
+	CurrentVersion       int64              `json:"current_version"`
+	RepositoryGeneration int64              `json:"repository_generation"`
+	Records              []sync.Observation `json:"records"`
+	ChangeCutoff         int64              `json:"change_cutoff"`
+	HasMore              *bool              `json:"has_more,omitempty"`
+	SyncFormatVersion    *string            `json:"sync_format_version,omitempty"`
 }
 
 // Pull handles the /sync/pull endpoint
@@ -125,11 +125,11 @@ type SyncPushRequest struct {
 
 // SyncPushResponse represents the sync push response payload according to OpenAPI spec
 type SyncPushResponse struct {
-	CurrentVersion         int64                    `json:"current_version"`
-	RepositoryGeneration   int64                    `json:"repository_generation"`
-	SuccessCount           int                      `json:"success_count"`
-	FailedRecords          []map[string]interface{} `json:"failed_records,omitempty"`
-	Warnings               []sync.SyncWarning       `json:"warnings,omitempty"`
+	CurrentVersion       int64                    `json:"current_version"`
+	RepositoryGeneration int64                    `json:"repository_generation"`
+	SuccessCount         int                      `json:"success_count"`
+	FailedRecords        []map[string]interface{} `json:"failed_records,omitempty"`
+	Warnings             []sync.SyncWarning       `json:"warnings,omitempty"`
 }
 
 // Push handles the /sync/push endpoint

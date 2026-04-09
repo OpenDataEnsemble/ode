@@ -58,20 +58,20 @@ type SyncPullCursor struct {
 
 // SyncResult represents the result of a sync pull operation
 type SyncResult struct {
-	CurrentVersion         int64         `json:"current_version"`
-	RepositoryGeneration   int64         `json:"repository_generation"`
-	Records                []Observation `json:"records"`
-	ChangeCutoff           int64         `json:"change_cutoff"`
-	HasMore                bool          `json:"has_more"`
+	CurrentVersion       int64         `json:"current_version"`
+	RepositoryGeneration int64         `json:"repository_generation"`
+	Records              []Observation `json:"records"`
+	ChangeCutoff         int64         `json:"change_cutoff"`
+	HasMore              bool          `json:"has_more"`
 }
 
 // SyncPushResult represents the result of a sync push operation
 type SyncPushResult struct {
-	CurrentVersion         int64                    `json:"current_version"`
-	RepositoryGeneration   int64                    `json:"repository_generation"`
-	SuccessCount           int                      `json:"success_count"`
-	FailedRecords          []map[string]interface{} `json:"failed_records,omitempty"`
-	Warnings               []SyncWarning            `json:"warnings,omitempty"`
+	CurrentVersion       int64                    `json:"current_version"`
+	RepositoryGeneration int64                    `json:"repository_generation"`
+	SuccessCount         int                      `json:"success_count"`
+	FailedRecords        []map[string]interface{} `json:"failed_records,omitempty"`
+	Warnings             []SyncWarning            `json:"warnings,omitempty"`
 }
 
 // SyncWarning represents a warning during sync operations

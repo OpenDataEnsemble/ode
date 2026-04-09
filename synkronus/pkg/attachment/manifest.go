@@ -30,11 +30,11 @@ type AttachmentManifestRequest struct {
 
 // AttachmentManifestResponse represents the response containing attachment manifest
 type AttachmentManifestResponse struct {
-	CurrentVersion         int64                 `json:"current_version"`
-	RepositoryGeneration   int64                 `json:"repository_generation"`
-	Operations             []AttachmentOperation `json:"operations"`
-	TotalDownloadSize      int64                 `json:"total_download_size"`
-	OperationCount         OperationCount        `json:"operation_count"`
+	CurrentVersion       int64                 `json:"current_version"`
+	RepositoryGeneration int64                 `json:"repository_generation"`
+	Operations           []AttachmentOperation `json:"operations"`
+	TotalDownloadSize    int64                 `json:"total_download_size"`
+	OperationCount       OperationCount        `json:"operation_count"`
 }
 
 // OperationCount represents the count of operations by type
