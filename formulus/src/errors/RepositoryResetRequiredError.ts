@@ -11,10 +11,7 @@ export class RepositoryResetRequiredError extends Error {
   /** Server epoch from the `x-repository-generation` response header, if present. */
   readonly serverRepositoryGeneration?: number;
 
-  constructor(
-    message?: string,
-    serverRepositoryGeneration?: number,
-  ) {
+  constructor(message?: string, serverRepositoryGeneration?: number) {
     super(
       message ??
         'The server data repository was reset. Clear local data and sync again.',
@@ -46,16 +43,13 @@ export function parseRepositoryResetFromAxios(
 
   const headerRaw = ax.response?.headers?.['x-repository-generation'];
   const headerStr = Array.isArray(headerRaw) ? headerRaw[0] : headerRaw;
-  const serverGenParsed =
-    headerStr != null ? Number(headerStr) : Number.NaN;
+  const serverGenParsed = headerStr != null ? Number(headerStr) : Number.NaN;
   const serverRepositoryGeneration = Number.isFinite(serverGenParsed)
     ? serverGenParsed
     : undefined;
 
   const bodyMsg =
-    ax.response?.data?.message ||
-    ax.response?.data?.error ||
-    undefined;
+    ax.response?.data?.message || ax.response?.data?.error || undefined;
 
   return new RepositoryResetRequiredError(
     typeof bodyMsg === 'string' ? bodyMsg : undefined,
