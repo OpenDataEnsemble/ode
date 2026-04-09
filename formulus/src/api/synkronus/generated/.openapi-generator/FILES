@@ -37,6 +37,8 @@ docs/ObservationGeolocation.md
 docs/ProblemDetail.md
 docs/ProblemDetailErrorsInner.md
 docs/RefreshTokenRequest.md
+docs/RepositoryResetRequest.md
+docs/RepositoryResetResponse.md
 docs/ResetUserPassword200Response.md
 docs/ResetUserPasswordRequest.md
 docs/ServerInfo.md

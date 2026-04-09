@@ -4,10 +4,10 @@ Count of operations by type
 
 ## Properties
 
-| Name         | Type       | Description | Notes                             |
-| ------------ | ---------- | ----------- | --------------------------------- |
-| **download** | **number** |             | [optional] [default to undefined] |
-| **\_delete** | **number** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**download** | **number** |  | [optional] [default to undefined]
+**_delete** | **number** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -15,8 +15,8 @@ Count of operations by type
 import { AttachmentManifestResponseOperationCount } from './api';
 
 const instance: AttachmentManifestResponseOperationCount = {
-  download,
-  _delete,
+    download,
+    _delete,
 };
 ```
 

@@ -1,12 +1,13 @@
 # DatabaseInfo
 
+
 ## Properties
 
-| Name              | Type       | Description | Notes                             |
-| ----------------- | ---------- | ----------- | --------------------------------- |
-| **type**          | **string** |             | [optional] [default to undefined] |
-| **version**       | **string** |             | [optional] [default to undefined] |
-| **database_name** | **string** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**type** | **string** |  | [optional] [default to undefined]
+**version** | **string** |  | [optional] [default to undefined]
+**database_name** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -14,9 +15,9 @@
 import { DatabaseInfo } from './api';
 
 const instance: DatabaseInfo = {
-  type,
-  version,
-  database_name,
+    type,
+    version,
+    database_name,
 };
 ```
 

@@ -1,10 +1,11 @@
 # ResetUserPassword200Response
 
+
 ## Properties
 
-| Name        | Type       | Description | Notes                             |
-| ----------- | ---------- | ----------- | --------------------------------- |
-| **message** | **string** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**message** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -12,7 +13,7 @@
 import { ResetUserPassword200Response } from './api';
 
 const instance: ResetUserPassword200Response = {
-  message,
+    message,
 };
 ```
 

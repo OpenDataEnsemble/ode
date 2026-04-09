@@ -1,21 +1,21 @@
-# AppBundlePushResponse
+# RepositoryResetResponse
 
 
 ## Properties
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**repository_generation** | **number** | New repository epoch after reset | [default to undefined]
 **message** | **string** |  | [default to undefined]
-**manifest** | [**AppBundleManifest**](AppBundleManifest.md) |  | [default to undefined]
 
 ## Example
 
 ```typescript
-import { AppBundlePushResponse } from './api';
+import { RepositoryResetResponse } from './api';
 
-const instance: AppBundlePushResponse = {
+const instance: RepositoryResetResponse = {
+    repository_generation,
     message,
-    manifest,
 };
 ```
 

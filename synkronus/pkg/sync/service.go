@@ -375,7 +375,8 @@ func (s *Service) ProcessPushedRecords(ctx context.Context, records []Observatio
 		"successCount", successCount,
 		"failedCount", len(failedRecords),
 		"warningCount", len(warnings),
-		"currentVersion", currentVersion)
+		"currentVersion", currentVersion,
+		"repositoryGeneration", repositoryGeneration)
 
 	return result, nil
 }

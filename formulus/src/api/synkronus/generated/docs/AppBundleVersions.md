@@ -1,10 +1,11 @@
 # AppBundleVersions
 
+
 ## Properties
 
-| Name         | Type                    | Description | Notes                  |
-| ------------ | ----------------------- | ----------- | ---------------------- |
-| **versions** | **Array&lt;string&gt;** |             | [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**versions** | **Array&lt;string&gt;** |  | [default to undefined]
 
 ## Example
 
@@ -12,7 +13,7 @@
 import { AppBundleVersions } from './api';
 
 const instance: AppBundleVersions = {
-  versions,
+    versions,
 };
 ```
 

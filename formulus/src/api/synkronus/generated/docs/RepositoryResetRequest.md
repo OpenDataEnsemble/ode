@@ -1,21 +1,19 @@
-# AppBundlePushResponse
+# RepositoryResetRequest
 
 
 ## Properties
 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**message** | **string** |  | [default to undefined]
-**manifest** | [**AppBundleManifest**](AppBundleManifest.md) |  | [default to undefined]
+**confirm** | **string** | Must be exactly RESET_REPOSITORY to authorize destructive reset | [default to undefined]
 
 ## Example
 
 ```typescript
-import { AppBundlePushResponse } from './api';
+import { RepositoryResetRequest } from './api';
 
-const instance: AppBundlePushResponse = {
-    message,
-    manifest,
+const instance: RepositoryResetRequest = {
+    confirm,
 };
 ```
 

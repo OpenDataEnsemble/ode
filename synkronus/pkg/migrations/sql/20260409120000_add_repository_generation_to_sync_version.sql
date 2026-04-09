@@ -1,4 +1,5 @@
 -- +goose Up
+-- Repository epoch for hard-reset gating (separate from observation stream current_version).
 ALTER TABLE sync_version
     ADD COLUMN IF NOT EXISTS repository_generation BIGINT NOT NULL DEFAULT 1,
     ADD COLUMN IF NOT EXISTS last_reset_at TIMESTAMPTZ,

@@ -4,10 +4,10 @@ Optional pagination cursor indicating the last seen change
 
 ## Properties
 
-| Name        | Type       | Description | Notes                             |
-| ----------- | ---------- | ----------- | --------------------------------- |
-| **version** | **number** |             | [optional] [default to undefined] |
-| **id**      | **string** |             | [optional] [default to undefined] |
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**version** | **number** |  | [optional] [default to undefined]
+**id** | **string** |  | [optional] [default to undefined]
 
 ## Example
 
@@ -15,8 +15,8 @@ Optional pagination cursor indicating the last seen change
 import { SyncPullRequestSince } from './api';
 
 const instance: SyncPullRequestSince = {
-  version,
-  id,
+    version,
+    id,
 };
 ```
 

@@ -16,6 +16,8 @@ var (
 	ErrSyncFailed = errors.New("sync operation failed")
 	// ErrVersionConflict is returned when there's a version conflict
 	ErrVersionConflict = errors.New("version conflict")
+	// ErrRepositoryGenerationMismatch is returned when the client's repository epoch does not match the server (e.g. after an admin hard reset).
+	ErrRepositoryGenerationMismatch = errors.New("repository generation mismatch")
 )
 
 // Geolocation represents geographic coordinates and accuracy information
@@ -87,7 +89,8 @@ type ServiceInterface interface {
 	// GetRecordsSinceVersion retrieves records that have changed since the specified version
 	GetRecordsSinceVersion(ctx context.Context, sinceVersion int64, clientID string, schemaTypes []string, limit int, cursor *SyncPullCursor) (*SyncResult, error)
 
-	// ProcessPushedRecords processes records pushed from a client. clientRepositoryGeneration must match the server epoch.
+	// ProcessPushedRecords processes records pushed from a client. clientRepositoryGeneration must match
+	// the server's repository_generation or ErrRepositoryGenerationMismatch is returned.
 	ProcessPushedRecords(ctx context.Context, records []Observation, clientID string, transmissionID string, clientRepositoryGeneration int64) (*SyncPushResult, error)
 
 	// GetCurrentVersion returns the current database version
