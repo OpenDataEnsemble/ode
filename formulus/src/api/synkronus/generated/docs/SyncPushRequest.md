@@ -1,14 +1,13 @@
 # SyncPushRequest
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**transmission_id** | **string** |  | [default to undefined]
-**client_id** | **string** |  | [default to undefined]
-**repository_generation** | **number** | Optional body copy of epoch; header x-repository-generation wins when both are sent. | [optional] [default to undefined]
-**records** | [**Array&lt;Observation&gt;**](Observation.md) |  | [default to undefined]
+| Name                      | Type                                           | Description                                                                          | Notes                             |
+| ------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------- |
+| **transmission_id**       | **string**                                     |                                                                                      | [default to undefined]            |
+| **client_id**             | **string**                                     |                                                                                      | [default to undefined]            |
+| **repository_generation** | **number**                                     | Optional body copy of epoch; header x-repository-generation wins when both are sent. | [optional] [default to undefined] |
+| **records**               | [**Array&lt;Observation&gt;**](Observation.md) |                                                                                      | [default to undefined]            |
 
 ## Example
 
@@ -16,10 +15,10 @@ Name | Type | Description | Notes
 import { SyncPushRequest } from './api';
 
 const instance: SyncPushRequest = {
-    transmission_id,
-    client_id,
-    repository_generation,
-    records,
+  transmission_id,
+  client_id,
+  repository_generation,
+  records,
 };
 ```
 

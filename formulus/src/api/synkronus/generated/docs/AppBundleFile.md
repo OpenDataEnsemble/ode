@@ -1,15 +1,14 @@
 # AppBundleFile
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**path** | **string** |  | [default to undefined]
-**size** | **number** |  | [default to undefined]
-**hash** | **string** |  | [default to undefined]
-**mimeType** | **string** |  | [default to undefined]
-**modTime** | **string** |  | [default to undefined]
+| Name         | Type       | Description | Notes                  |
+| ------------ | ---------- | ----------- | ---------------------- |
+| **path**     | **string** |             | [default to undefined] |
+| **size**     | **number** |             | [default to undefined] |
+| **hash**     | **string** |             | [default to undefined] |
+| **mimeType** | **string** |             | [default to undefined] |
+| **modTime**  | **string** |             | [default to undefined] |
 
 ## Example
 
@@ -17,11 +16,11 @@ Name | Type | Description | Notes
 import { AppBundleFile } from './api';
 
 const instance: AppBundleFile = {
-    path,
-    size,
-    hash,
-    mimeType,
-    modTime,
+  path,
+  size,
+  hash,
+  mimeType,
+  modTime,
 };
 ```
 

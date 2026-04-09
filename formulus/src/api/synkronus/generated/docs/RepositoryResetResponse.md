@@ -1,12 +1,11 @@
 # RepositoryResetResponse
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**repository_generation** | **number** | New repository epoch after reset | [default to undefined]
-**message** | **string** |  | [default to undefined]
+| Name                      | Type       | Description                      | Notes                  |
+| ------------------------- | ---------- | -------------------------------- | ---------------------- |
+| **repository_generation** | **number** | New repository epoch after reset | [default to undefined] |
+| **message**               | **string** |                                  | [default to undefined] |
 
 ## Example
 
@@ -14,8 +13,8 @@ Name | Type | Description | Notes
 import { RepositoryResetResponse } from './api';
 
 const instance: RepositoryResetResponse = {
-    repository_generation,
-    message,
+  repository_generation,
+  message,
 };
 ```
 

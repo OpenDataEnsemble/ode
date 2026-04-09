@@ -1,12 +1,11 @@
 # ProblemDetailErrorsInner
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**field** | **string** |  | [optional] [default to undefined]
-**message** | **string** |  | [optional] [default to undefined]
+| Name        | Type       | Description | Notes                             |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| **field**   | **string** |             | [optional] [default to undefined] |
+| **message** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -14,8 +13,8 @@ Name | Type | Description | Notes
 import { ProblemDetailErrorsInner } from './api';
 
 const instance: ProblemDetailErrorsInner = {
-    field,
-    message,
+  field,
+  message,
 };
 ```
 

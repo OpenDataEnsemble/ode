@@ -1,11 +1,10 @@
 # UploadAttachment200Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**status** | **string** |  | [optional] [default to undefined]
+| Name       | Type       | Description | Notes                             |
+| ---------- | ---------- | ----------- | --------------------------------- |
+| **status** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -13,7 +12,7 @@ Name | Type | Description | Notes
 import { UploadAttachment200Response } from './api';
 
 const instance: UploadAttachment200Response = {
-    status,
+  status,
 };
 ```
 

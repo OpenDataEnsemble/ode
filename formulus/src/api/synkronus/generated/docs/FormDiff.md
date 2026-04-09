@@ -1,11 +1,10 @@
 # FormDiff
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**form** | **string** |  | [optional] [default to undefined]
+| Name     | Type       | Description | Notes                             |
+| -------- | ---------- | ----------- | --------------------------------- |
+| **form** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -13,7 +12,7 @@ Name | Type | Description | Notes
 import { FormDiff } from './api';
 
 const instance: FormDiff = {
-    form,
+  form,
 };
 ```
 

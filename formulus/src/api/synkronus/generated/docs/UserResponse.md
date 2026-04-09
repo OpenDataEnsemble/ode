@@ -1,13 +1,12 @@
 # UserResponse
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**username** | **string** |  | [default to undefined]
-**role** | **string** |  | [default to undefined]
-**createdAt** | **string** |  | [default to undefined]
+| Name          | Type       | Description | Notes                  |
+| ------------- | ---------- | ----------- | ---------------------- |
+| **username**  | **string** |             | [default to undefined] |
+| **role**      | **string** |             | [default to undefined] |
+| **createdAt** | **string** |             | [default to undefined] |
 
 ## Example
 
@@ -15,9 +14,9 @@ Name | Type | Description | Notes
 import { UserResponse } from './api';
 
 const instance: UserResponse = {
-    username,
-    role,
-    createdAt,
+  username,
+  role,
+  createdAt,
 };
 ```
 

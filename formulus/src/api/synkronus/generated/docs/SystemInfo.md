@@ -1,13 +1,12 @@
 # SystemInfo
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**os** | **string** |  | [optional] [default to undefined]
-**architecture** | **string** |  | [optional] [default to undefined]
-**cpus** | **number** |  | [optional] [default to undefined]
+| Name             | Type       | Description | Notes                             |
+| ---------------- | ---------- | ----------- | --------------------------------- |
+| **os**           | **string** |             | [optional] [default to undefined] |
+| **architecture** | **string** |             | [optional] [default to undefined] |
+| **cpus**         | **number** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -15,9 +14,9 @@ Name | Type | Description | Notes
 import { SystemInfo } from './api';
 
 const instance: SystemInfo = {
-    os,
-    architecture,
-    cpus,
+  os,
+  architecture,
+  cpus,
 };
 ```
 

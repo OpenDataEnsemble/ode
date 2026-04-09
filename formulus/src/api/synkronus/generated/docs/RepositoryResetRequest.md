@@ -1,11 +1,10 @@
 # RepositoryResetRequest
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**confirm** | **string** | Must be exactly RESET_REPOSITORY to authorize destructive reset | [default to undefined]
+| Name        | Type       | Description                                                     | Notes                  |
+| ----------- | ---------- | --------------------------------------------------------------- | ---------------------- |
+| **confirm** | **string** | Must be exactly RESET_REPOSITORY to authorize destructive reset | [default to undefined] |
 
 ## Example
 
@@ -13,7 +12,7 @@ Name | Type | Description | Notes
 import { RepositoryResetRequest } from './api';
 
 const instance: RepositoryResetRequest = {
-    confirm,
+  confirm,
 };
 ```
 

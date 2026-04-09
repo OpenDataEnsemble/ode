@@ -4,14 +4,14 @@ Optional geolocation data for the observation
 
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**latitude** | **number** | Latitude in decimal degrees | [optional] [default to undefined]
-**longitude** | **number** | Longitude in decimal degrees | [optional] [default to undefined]
-**accuracy** | **number** | Horizontal accuracy in meters | [optional] [default to undefined]
-**altitude** | **number** | Elevation in meters above sea level | [optional] [default to undefined]
-**altitude_accuracy** | **number** | Vertical accuracy in meters | [optional] [default to undefined]
-**timestamp** | **string** | When the GPS fix was obtained (ISO 8601) | [optional] [default to undefined]
+| Name                  | Type       | Description                              | Notes                             |
+| --------------------- | ---------- | ---------------------------------------- | --------------------------------- |
+| **latitude**          | **number** | Latitude in decimal degrees              | [optional] [default to undefined] |
+| **longitude**         | **number** | Longitude in decimal degrees             | [optional] [default to undefined] |
+| **accuracy**          | **number** | Horizontal accuracy in meters            | [optional] [default to undefined] |
+| **altitude**          | **number** | Elevation in meters above sea level      | [optional] [default to undefined] |
+| **altitude_accuracy** | **number** | Vertical accuracy in meters              | [optional] [default to undefined] |
+| **timestamp**         | **string** | When the GPS fix was obtained (ISO 8601) | [optional] [default to undefined] |
 
 ## Example
 
@@ -19,12 +19,12 @@ Name | Type | Description | Notes
 import { ObservationGeolocation } from './api';
 
 const instance: ObservationGeolocation = {
-    latitude,
-    longitude,
-    accuracy,
-    altitude,
-    altitude_accuracy,
-    timestamp,
+  latitude,
+  longitude,
+  accuracy,
+  altitude,
+  altitude_accuracy,
+  timestamp,
 };
 ```
 

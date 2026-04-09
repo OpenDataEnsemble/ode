@@ -1,13 +1,12 @@
 # AuthResponse
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**token** | **string** |  | [default to undefined]
-**refreshToken** | **string** |  | [default to undefined]
-**expiresAt** | **number** |  | [default to undefined]
+| Name             | Type       | Description | Notes                  |
+| ---------------- | ---------- | ----------- | ---------------------- |
+| **token**        | **string** |             | [default to undefined] |
+| **refreshToken** | **string** |             | [default to undefined] |
+| **expiresAt**    | **number** |             | [default to undefined] |
 
 ## Example
 
@@ -15,9 +14,9 @@ Name | Type | Description | Notes
 import { AuthResponse } from './api';
 
 const instance: AuthResponse = {
-    token,
-    refreshToken,
-    expiresAt,
+  token,
+  refreshToken,
+  expiresAt,
 };
 ```
 

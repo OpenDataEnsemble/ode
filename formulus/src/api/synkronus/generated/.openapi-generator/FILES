@@ -52,6 +52,9 @@ docs/SyncPushResponseWarningsInner.md
 docs/SystemInfo.md
 docs/SystemVersionInfo.md
 docs/UploadAttachment200Response.md
+docs/UserListItem.md
+docs/UserPresenceClient.md
+docs/UserPresenceSummary.md
 docs/UserResponse.md
 git_push.sh
 index.ts

@@ -1,11 +1,10 @@
 # ChangePassword200Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**message** | **string** |  | [optional] [default to undefined]
+| Name        | Type       | Description | Notes                             |
+| ----------- | ---------- | ----------- | --------------------------------- |
+| **message** | **string** |             | [optional] [default to undefined] |
 
 ## Example
 
@@ -13,7 +12,7 @@ Name | Type | Description | Notes
 import { ChangePassword200Response } from './api';
 
 const instance: ChangePassword200Response = {
-    message,
+  message,
 };
 ```
 

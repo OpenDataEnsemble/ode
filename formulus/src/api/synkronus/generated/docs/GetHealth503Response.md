@@ -1,13 +1,12 @@
 # GetHealth503Response
 
-
 ## Properties
 
-Name | Type | Description | Notes
------------- | ------------- | ------------- | -------------
-**status** | **string** |  | [optional] [default to undefined]
-**error** | **string** | Description of the error | [optional] [default to undefined]
-**timestamp** | **string** | Current server time | [optional] [default to undefined]
+| Name          | Type       | Description              | Notes                             |
+| ------------- | ---------- | ------------------------ | --------------------------------- |
+| **status**    | **string** |                          | [optional] [default to undefined] |
+| **error**     | **string** | Description of the error | [optional] [default to undefined] |
+| **timestamp** | **string** | Current server time      | [optional] [default to undefined] |
 
 ## Example
 
@@ -15,9 +14,9 @@ Name | Type | Description | Notes
 import { GetHealth503Response } from './api';
 
 const instance: GetHealth503Response = {
-    status,
-    error,
-    timestamp,
+  status,
+  error,
+  timestamp,
 };
 ```
 
