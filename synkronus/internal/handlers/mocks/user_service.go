@@ -93,10 +93,16 @@ func (m *MockUserService) ChangePassword(ctx context.Context, username, currentP
 }
 
 // ListUsers implements userPkg.UserServiceInterface
-func (m *MockUserService) ListUsers(ctx context.Context) ([]models.User, error) {
-	var users []models.User
-	for _, user := range m.users {
-		users = append(users, *user)
+func (m *MockUserService) ListUsers(ctx context.Context) ([]models.UserListItem, error) {
+	var out []models.UserListItem
+	for _, u := range m.users {
+		out = append(out, models.UserListItem{
+			ID:        u.ID,
+			Username:  u.Username,
+			Role:      u.Role,
+			CreatedAt: u.CreatedAt,
+			UpdatedAt: u.UpdatedAt,
+		})
 	}
-	return users, nil
+	return out, nil
 }

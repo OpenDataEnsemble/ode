@@ -60,6 +60,7 @@ func TestAttachmentUpload_FollowedByManifest_ReturnsDownloadForSecondDevice(t *t
 		&mockVersionService{},
 		manifestSvc,
 		mocks.NewMockDataExportService(),
+		nil,
 	)
 
 	r := chi.NewRouter()

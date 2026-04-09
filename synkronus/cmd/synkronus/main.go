@@ -23,6 +23,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/dataexport"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/migrations"
+	"github.com/opendataensemble/synkronus/pkg/presence"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 	"github.com/opendataensemble/synkronus/pkg/user"
 	"github.com/opendataensemble/synkronus/pkg/version"
@@ -134,6 +135,8 @@ func main() {
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db, log)
+	presenceRepo := repository.NewPresenceRepository(db, log)
+	presenceRecorder := presence.NewRecorder(presenceRepo, log, presence.DefaultConfig())
 
 	// Initialize auth service
 	authConfig := auth.DefaultConfig()
@@ -196,7 +199,7 @@ func main() {
 	}
 
 	// Initialize user service
-	userService := user.NewService(userRepo, authService, log)
+	userService := user.NewService(userRepo, presenceRepo, authService, log)
 
 	// Initialize version service
 	versionService := version.NewService(db.DB())
@@ -232,6 +235,7 @@ func main() {
 		versionService,
 		attachmentManifestService,
 		dataExportService,
+		presenceRecorder,
 	)
 
 	// Create the API router with handlers
@@ -274,6 +278,8 @@ func main() {
 	// Create a deadline to wait for current operations to complete
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
+	presenceRecorder.Shutdown(shutdownCtx)
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Error("Server forced to shutdown", "error", err.Error())

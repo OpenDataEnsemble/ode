@@ -29,8 +29,17 @@ import odeLogo from '../assets/ode-logo-round.png';
 import dashboardBackgroundDark from '../assets/dashboard-background.png';
 import dashboardBackgroundLight from '../assets/dashboard-background-light.png';
 import './Dashboard.css';
+import type { UserListItem } from '../api/synkronus/generated';
 
 const BRAND_PRIMARY = ColorBrandPrimary500;
+
+function userMatchesSearch(u: UserListItem, query: string): boolean {
+  if (!query) return true;
+  const q = query.toLowerCase();
+  return (
+    u.username.toLowerCase().includes(q) || u.role.toLowerCase().includes(q)
+  );
+}
 
 type TabType = 'users' | 'app-bundles' | 'data-export';
 
@@ -64,18 +73,12 @@ interface AppBundleVersionsResponse {
   versions: string[];
 }
 
-interface User {
-  username: string;
-  role: string;
-  createdAt?: string;
-}
-
 export function Dashboard() {
   const { user, logout } = useAuth();
   const { resolvedTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('users');
   const [appBundles, setAppBundles] = useState<AppBundleVersion[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -1008,6 +1011,52 @@ export function Dashboard() {
                 </div>
               </div>
 
+              {users.length > 0 && (
+                <div className="last-activity-panel">
+                  <div className="last-activity-header">
+                    <HiChartBar aria-hidden />
+                    <h3>Last activity</h3>
+                  </div>
+                  <div className="last-activity-grid">
+                    {users
+                      .filter(u => userMatchesSearch(u, userSearchQuery))
+                      .map(u => {
+                        const hasPresence =
+                          u.presence &&
+                          (u.presence.lastSeenAt != null ||
+                            (u.presence.clientCount != null &&
+                              u.presence.clientCount > 0));
+                        return (
+                          <div key={u.username} className="last-activity-card">
+                            <span className="last-activity-user">
+                              {u.username}
+                            </span>
+                            <span className="last-activity-meta">
+                              {hasPresence && u.presence?.lastSeenAt
+                                ? new Date(
+                                    u.presence.lastSeenAt,
+                                  ).toLocaleString(undefined, {
+                                    dateStyle: 'medium',
+                                    timeStyle: 'short',
+                                  })
+                                : 'Not available'}
+                              {hasPresence &&
+                                u.presence?.clientCount != null &&
+                                u.presence.clientCount > 0 && (
+                                  <span className="last-activity-clients">
+                                    {' '}
+                                    · {u.presence.clientCount} client
+                                    {u.presence.clientCount === 1 ? '' : 's'}
+                                  </span>
+                                )}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
+
               {/* Users Table */}
               {loading && users.length === 0 ? (
                 <div className="loading-state">
@@ -1068,14 +1117,7 @@ export function Dashboard() {
                         </thead>
                         <tbody>
                           {users
-                            .filter(u => {
-                              if (!userSearchQuery) return true;
-                              const query = userSearchQuery.toLowerCase();
-                              return (
-                                u.username.toLowerCase().includes(query) ||
-                                u.role.toLowerCase().includes(query)
-                              );
-                            })
+                            .filter(u => userMatchesSearch(u, userSearchQuery))
                             .map(u => (
                               <tr key={u.username}>
                                 <td>
@@ -1146,14 +1188,8 @@ export function Dashboard() {
                         </tbody>
                       </table>
                     </div>
-                    {users.filter(u => {
-                      if (!userSearchQuery) return true;
-                      const query = userSearchQuery.toLowerCase();
-                      return (
-                        u.username.toLowerCase().includes(query) ||
-                        u.role.toLowerCase().includes(query)
-                      );
-                    }).length === 0 && (
+                    {users.filter(u => userMatchesSearch(u, userSearchQuery))
+                      .length === 0 && (
                       <div
                         className={
                           userSearchQuery

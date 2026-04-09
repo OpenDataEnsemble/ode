@@ -39,6 +39,7 @@ func userHandlerTestHelper() (*Handler, *mocks.MockUserService) {
 		mockVersionService,
 		mockAttachmentManifestService,
 		mockDataExportService,
+		nil,
 	), mockUserService
 }
 

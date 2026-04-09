@@ -33,6 +33,6 @@ type UserServiceInterface interface {
 	// Returns an error if the user doesn't exist or the current password is incorrect
 	ChangePassword(ctx context.Context, username, currentPassword, newPassword string) error
 
-	// ListUsers lists all users in the system (admin operation)
-	ListUsers(ctx context.Context) ([]models.User, error)
+	// ListUsers lists all users in the system (admin operation), including optional presence.
+	ListUsers(ctx context.Context) ([]models.UserListItem, error)
 }

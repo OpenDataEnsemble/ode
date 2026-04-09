@@ -447,9 +447,11 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
+let xOdeClientId: string; //Optional client instance id for correlating app bundle checks with presence. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.getAppBundleManifest(
-    xOdeVersion
+    xOdeVersion,
+    xOdeClientId
 );
 ```
 
@@ -458,6 +460,7 @@ const { status, data } = await apiInstance.getAppBundleManifest(
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
+| **xOdeClientId** | [**string**] | Optional client instance id for correlating app bundle checks with presence. | (optional) defaults to undefined|
 
 
 ### Return type
@@ -635,9 +638,9 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listUsers**
-> Array<UserResponse> listUsers()
+> Array<UserListItem> listUsers()
 
-Retrieve a list of all users in the system. Admin access required.
+Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity. 
 
 ### Example
 
@@ -651,9 +654,11 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
+let xOdeClientId: string; //Optional client instance id (browser/CLI); used for presence when sent with authenticated requests. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.listUsers(
-    xOdeVersion
+    xOdeVersion,
+    xOdeClientId
 );
 ```
 
@@ -662,11 +667,12 @@ const { status, data } = await apiInstance.listUsers(
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
+| **xOdeClientId** | [**string**] | Optional client instance id (browser/CLI); used for presence when sent with authenticated requests. | (optional) defaults to undefined|
 
 
 ### Return type
 
-**Array<UserResponse>**
+**Array<UserListItem>**
 
 ### Authorization
 
@@ -995,12 +1001,14 @@ let xOdeVersion: string; //Required client version header using semantic version
 let syncPullRequest: SyncPullRequest; //
 let schemaType: string; //Filter by schemaType (optional) (default to undefined)
 let limit: number; //Maximum number of records to return (optional) (default to 50)
+let xOdeClientId: string; //Optional client instance id; improves per-device presence when combined with sync body `client_id`. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.syncPull(
     xOdeVersion,
     syncPullRequest,
     schemaType,
-    limit
+    limit,
+    xOdeClientId
 );
 ```
 
@@ -1012,6 +1020,7 @@ const { status, data } = await apiInstance.syncPull(
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
 | **schemaType** | [**string**] | Filter by schemaType | (optional) defaults to undefined|
 | **limit** | [**number**] | Maximum number of records to return | (optional) defaults to 50|
+| **xOdeClientId** | [**string**] | Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;. | (optional) defaults to undefined|
 
 
 ### Return type
@@ -1053,10 +1062,12 @@ const apiInstance = new DefaultApi(configuration);
 
 let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let syncPushRequest: SyncPushRequest; //
+let xOdeClientId: string; //Optional client instance id; improves per-device presence when combined with sync body `client_id`. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.syncPush(
     xOdeVersion,
-    syncPushRequest
+    syncPushRequest,
+    xOdeClientId
 );
 ```
 
@@ -1066,6 +1077,7 @@ const { status, data } = await apiInstance.syncPush(
 |------------- | ------------- | ------------- | -------------|
 | **syncPushRequest** | **SyncPushRequest**|  | |
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
+| **xOdeClientId** | [**string**] | Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;. | (optional) defaults to undefined|
 
 
 ### Return type

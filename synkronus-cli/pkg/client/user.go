@@ -140,8 +140,8 @@ func (c *Client) ChangeOwnPassword(reqBody UserChangePasswordRequest) error {
 	return nil
 }
 
-// ListUsers calls GET /users (admin only)
-func (c *Client) ListUsers() ([]map[string]interface{}, error) {
+// ListUsers calls GET /api/users (admin only).
+func (c *Client) ListUsers() ([]generated.UserListItem, error) {
 	if err := c.ensureReady(); err != nil {
 		return nil, err
 	}
@@ -159,5 +159,5 @@ func (c *Client) ListUsers() ([]map[string]interface{}, error) {
 	if resp.JSON200 == nil {
 		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-	return toMapSlice(*resp.JSON200)
+	return *resp.JSON200, nil
 }
