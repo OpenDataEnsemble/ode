@@ -48,7 +48,7 @@ func TestService_VersionIncrement(t *testing.T) {
 	}
 
 	// Process the record
-	result, err := service.ProcessPushedRecords(ctx, []Observation{testRecord}, "test-client", "test-transmission")
+	result, err := service.ProcessPushedRecords(ctx, []Observation{testRecord}, "test-client", "test-transmission", 1)
 	if err != nil {
 		t.Fatalf("Failed to process records: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestService_TransactionRollback(t *testing.T) {
 		},
 	}
 
-	result, err := service.ProcessPushedRecords(ctx, records, "test-client", "test-transmission")
+	result, err := service.ProcessPushedRecords(ctx, records, "test-client", "test-transmission", 1)
 	if err != nil {
 		t.Fatalf("Failed to process records: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestService_ConcurrentAccess(t *testing.T) {
 				}
 			}
 
-			result, err := service.ProcessPushedRecords(ctx, records, fmt.Sprintf("client-%d", id), fmt.Sprintf("transmission-%d", id))
+			result, err := service.ProcessPushedRecords(ctx, records, fmt.Sprintf("client-%d", id), fmt.Sprintf("transmission-%d", id), 1)
 			if err != nil {
 				errors <- err
 				return

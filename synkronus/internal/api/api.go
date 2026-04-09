@@ -47,8 +47,8 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"accept", "authorization", "content-type", "x-csrf-token", "x-ode-version", "x-formulus-version", "x-ode-client-id", "if-none-match"},
-		ExposedHeaders:   []string{"link", "etag"},
+		AllowedHeaders:   []string{"accept", "authorization", "content-type", "x-csrf-token", "x-ode-version", "x-formulus-version", "x-ode-client-id", "x-repository-generation", "if-none-match"},
+		ExposedHeaders:   []string{"link", "etag", "x-repository-generation"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}))
@@ -109,6 +109,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		log,
 		attachmentService,
 		h.AttachmentManifestService(),
+		h.SyncService(),
 	)
 
 	r.Route("/api", func(r chi.Router) {
@@ -157,6 +158,8 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 
 			r.Get("/version", h.GetVersion)
 			r.Get("/versions", h.GetAPIVersions)
+
+			r.With(auth.RequireRole(models.RoleAdmin)).Post("/admin/repository/reset", h.PostRepositoryReset)
 		})
 	})
 

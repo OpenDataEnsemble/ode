@@ -436,8 +436,26 @@ func (c *Client) SwitchAppBundleVersion(version string) (map[string]interface{},
 	return toMap(resp.JSON200)
 }
 
+// AdminRepositoryReset performs an irreversible server-side wipe of observation and attachment sync data (admin JWT).
+func (c *Client) AdminRepositoryReset() (*generated.RepositoryResetResponse, error) {
+	if err := c.ensureReady(); err != nil {
+		return nil, err
+	}
+	resp, err := c.api.AdminRepositoryResetWithResponse(
+		context.Background(),
+		generated.RepositoryResetRequest{Confirm: generated.RESETREPOSITORY},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	if resp.JSON200 != nil {
+		return resp.JSON200, nil
+	}
+	return nil, apiError(resp.StatusCode(), resp.Body)
+}
+
 // SyncPull pulls updated records from the server
-func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []string, limit int, pageToken string) (map[string]interface{}, error) {
+func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []string, limit int, pageToken string, repositoryGeneration *int64) (map[string]interface{}, error) {
 	if err := c.ensureReady(); err != nil {
 		return nil, err
 	}
@@ -449,6 +467,9 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 	// Prepare request body according to SyncPullRequest schema
 	reqBody := map[string]interface{}{
 		"client_id": clientID,
+	}
+	if repositoryGeneration != nil {
+		reqBody["repository_generation"] = *repositoryGeneration
 	}
 
 	// Add 'since' object if currentVersion is provided
@@ -472,6 +493,9 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 	}
 
 	params := &generated.SyncPullParams{XOdeVersion: version}
+	if repositoryGeneration != nil {
+		params.XRepositoryGeneration = repositoryGeneration
+	}
 	if limit > 0 {
 		params.Limit = &limit
 	}
@@ -507,7 +531,7 @@ func (c *Client) SyncPull(clientID string, currentVersion int64, schemaTypes []s
 }
 
 // SyncPush pushes records to the server
-func (c *Client) SyncPush(clientID string, transmissionID string, records []map[string]interface{}) (map[string]interface{}, error) {
+func (c *Client) SyncPush(clientID string, transmissionID string, records []map[string]interface{}, repositoryGeneration *int64) (map[string]interface{}, error) {
 	if err := c.ensureReady(); err != nil {
 		return nil, err
 	}
@@ -522,15 +546,23 @@ func (c *Client) SyncPush(clientID string, transmissionID string, records []map[
 		"transmission_id": transmissionID,
 		"records":         records,
 	}
+	if repositoryGeneration != nil {
+		reqBody["repository_generation"] = *repositoryGeneration
+	}
 
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling request: %w", err)
 	}
 
+	pushParams := &generated.SyncPushParams{XOdeVersion: version}
+	if repositoryGeneration != nil {
+		pushParams.XRepositoryGeneration = repositoryGeneration
+	}
+
 	resp, err := c.api.SyncPushWithBodyWithResponse(
 		context.Background(),
-		&generated.SyncPushParams{XOdeVersion: version},
+		pushParams,
 		"application/json",
 		bytes.NewReader(jsonData),
 	)

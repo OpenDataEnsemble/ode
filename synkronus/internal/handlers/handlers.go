@@ -73,3 +73,8 @@ func (h *Handler) AttachmentManifestService() attachment.ManifestService {
 func (h *Handler) PresenceRecorder() *presence.Recorder {
 	return h.presenceRecorder
 }
+
+// SyncService returns the sync service (repository generation, push/pull).
+func (h *Handler) SyncService() sync.ServiceInterface {
+	return h.syncService
+}

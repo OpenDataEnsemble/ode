@@ -16,6 +16,8 @@ var (
 	ErrSyncFailed = errors.New("sync operation failed")
 	// ErrVersionConflict is returned when there's a version conflict
 	ErrVersionConflict = errors.New("version conflict")
+	// ErrRepositoryGenerationMismatch is returned when the client's repository epoch does not match the server (e.g. after an admin hard reset).
+	ErrRepositoryGenerationMismatch = errors.New("repository generation mismatch")
 )
 
 // Geolocation represents geographic coordinates and accuracy information
@@ -56,18 +58,20 @@ type SyncPullCursor struct {
 
 // SyncResult represents the result of a sync pull operation
 type SyncResult struct {
-	CurrentVersion int64         `json:"current_version"`
-	Records        []Observation `json:"records"`
-	ChangeCutoff   int64         `json:"change_cutoff"`
-	HasMore        bool          `json:"has_more"`
+	CurrentVersion       int64         `json:"current_version"`
+	RepositoryGeneration int64         `json:"repository_generation"`
+	Records              []Observation `json:"records"`
+	ChangeCutoff         int64         `json:"change_cutoff"`
+	HasMore              bool          `json:"has_more"`
 }
 
 // SyncPushResult represents the result of a sync push operation
 type SyncPushResult struct {
-	CurrentVersion int64                    `json:"current_version"`
-	SuccessCount   int                      `json:"success_count"`
-	FailedRecords  []map[string]interface{} `json:"failed_records,omitempty"`
-	Warnings       []SyncWarning            `json:"warnings,omitempty"`
+	CurrentVersion       int64                    `json:"current_version"`
+	RepositoryGeneration int64                    `json:"repository_generation"`
+	SuccessCount         int                      `json:"success_count"`
+	FailedRecords        []map[string]interface{} `json:"failed_records,omitempty"`
+	Warnings             []SyncWarning            `json:"warnings,omitempty"`
 }
 
 // SyncWarning represents a warning during sync operations
@@ -85,11 +89,18 @@ type ServiceInterface interface {
 	// GetRecordsSinceVersion retrieves records that have changed since the specified version
 	GetRecordsSinceVersion(ctx context.Context, sinceVersion int64, clientID string, schemaTypes []string, limit int, cursor *SyncPullCursor) (*SyncResult, error)
 
-	// ProcessPushedRecords processes records pushed from a client
-	ProcessPushedRecords(ctx context.Context, records []Observation, clientID string, transmissionID string) (*SyncPushResult, error)
+	// ProcessPushedRecords processes records pushed from a client. clientRepositoryGeneration must match
+	// the server's repository_generation or ErrRepositoryGenerationMismatch is returned.
+	ProcessPushedRecords(ctx context.Context, records []Observation, clientID string, transmissionID string, clientRepositoryGeneration int64) (*SyncPushResult, error)
 
 	// GetCurrentVersion returns the current database version
 	GetCurrentVersion(ctx context.Context) (int64, error)
+
+	// GetRepositoryGeneration returns the monotonic repository epoch (increments on admin hard reset).
+	GetRepositoryGeneration(ctx context.Context) (int64, error)
+
+	// HardResetRepository wipes observation and attachment sync state and increments the epoch.
+	HardResetRepository(ctx context.Context, adminUsername string) (int64, error)
 
 	// Initialize initializes the sync service
 	Initialize(ctx context.Context) error

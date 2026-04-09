@@ -23,16 +23,18 @@ type AttachmentOperation struct {
 
 // AttachmentManifestRequest represents the request for attachment manifest
 type AttachmentManifestRequest struct {
-	ClientID     string `json:"client_id"`
-	SinceVersion int64  `json:"since_version"`
+	ClientID             string `json:"client_id"`
+	SinceVersion         int64  `json:"since_version"`
+	RepositoryGeneration *int64 `json:"repository_generation,omitempty"`
 }
 
 // AttachmentManifestResponse represents the response containing attachment manifest
 type AttachmentManifestResponse struct {
-	CurrentVersion    int64                 `json:"current_version"`
-	Operations        []AttachmentOperation `json:"operations"`
-	TotalDownloadSize int64                 `json:"total_download_size"`
-	OperationCount    OperationCount        `json:"operation_count"`
+	CurrentVersion       int64                 `json:"current_version"`
+	RepositoryGeneration int64                 `json:"repository_generation"`
+	Operations           []AttachmentOperation `json:"operations"`
+	TotalDownloadSize    int64                 `json:"total_download_size"`
+	OperationCount       OperationCount        `json:"operation_count"`
 }
 
 // OperationCount represents the count of operations by type
@@ -103,9 +105,8 @@ func (s *manifestService) Initialize(ctx context.Context) error {
 
 // GetManifest returns attachment operations since the specified version
 func (s *manifestService) GetManifest(ctx context.Context, req AttachmentManifestRequest) (*AttachmentManifestResponse, error) {
-	// Get current version
-	var currentVersion int64
-	err := s.db.QueryRowContext(ctx, "SELECT current_version FROM sync_version WHERE id = 1").Scan(&currentVersion)
+	var currentVersion, repoGen int64
+	err := s.db.QueryRowContext(ctx, "SELECT current_version, repository_generation FROM sync_version WHERE id = 1").Scan(&currentVersion, &repoGen)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current version: %w", err)
 	}
@@ -193,9 +194,10 @@ func (s *manifestService) GetManifest(ctx context.Context, req AttachmentManifes
 	}
 
 	response := &AttachmentManifestResponse{
-		CurrentVersion:    currentVersion,
-		Operations:        operations,
-		TotalDownloadSize: totalDownloadSize,
+		CurrentVersion:       currentVersion,
+		RepositoryGeneration: repoGen,
+		Operations:           operations,
+		TotalDownloadSize:    totalDownloadSize,
 		OperationCount: OperationCount{
 			Download: downloadCount,
 			Delete:   deleteCount,

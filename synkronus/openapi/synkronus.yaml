@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Synkronus API
-  version: 1.0.5
+  version: 1.0.6
 paths:
   /health:
     get:
@@ -774,6 +774,14 @@ paths:
           schema:
             type: string
           description: Optional client instance id; improves per-device presence when combined with sync body `client_id`.
+        - name: x-repository-generation
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          description: Client's repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header.
       requestBody:
         required: true
         content:
@@ -809,6 +817,14 @@ paths:
           schema:
             type: string
           description: Optional client instance id; improves per-device presence when combined with sync body `client_id`.
+        - name: x-repository-generation
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          description: Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
       requestBody:
         required: true
         content:
@@ -822,6 +838,65 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SyncPushResponse'
+        '409':
+          description: Repository epoch mismatch (e.g. after admin hard reset). Client must pull current state and align repository_generation before pushing.
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/admin/repository/reset:
+    post:
+      operationId: adminRepositoryReset
+      summary: Irreversibly wipe server observation and attachment sync data (admin only)
+      description: >
+        Destructive operation: deletes all observations and attachment manifest rows, resets the observation stream
+        cursor, increments repository_generation, and clears attachment files on disk. App bundles are not removed.
+        Requires body `{ "confirm": "RESET_REPOSITORY" }`.
+      security:
+        - bearerAuth: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepositoryResetRequest'
+      responses:
+        '200':
+          description: Reset completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryResetResponse'
+        '400':
+          description: Invalid confirmation body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (non-admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/attachments/manifest:
     post:
@@ -839,6 +914,14 @@ paths:
             pattern: '^\d+\.\d+\.\d+$'
             example: '1.0.0'
           description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - name: x-repository-generation
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          description: Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
       requestBody:
         required: true
         content:
@@ -852,6 +935,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AttachmentManifestResponse'
+        '409':
+          description: Repository epoch mismatch
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '400':
           description: Invalid request parameters
           content:
@@ -916,6 +1010,14 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - name: x-repository-generation
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          description: Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
       requestBody:
         required: true
         content:
@@ -945,7 +1047,11 @@ paths:
         '401':
           description: Unauthorized
         '409':
-          description: Conflict (attachment already exists and cannot be overwritten)
+          description: Conflict — attachment already exists, or repository_generation mismatch (epoch; align before upload)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
     get:
       operationId: downloadAttachment
@@ -1133,6 +1239,13 @@ components:
         error:
           type: string
           example: "Failed to get version information"
+        message:
+          type: string
+          description: Optional human-readable detail
+        code:
+          type: string
+          description: Stable machine-readable code (e.g. repository_reset_required)
+          example: repository_reset_required
     ChangeLog:
       type: object
       properties:
@@ -1335,12 +1448,37 @@ components:
           type: string
           description: ODE/Formulus client version header last seen for this row
 
+    RepositoryResetRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: string
+          enum: [RESET_REPOSITORY]
+          description: Must be exactly RESET_REPOSITORY to authorize destructive reset
+
+    RepositoryResetResponse:
+      type: object
+      required: [repository_generation, message]
+      properties:
+        repository_generation:
+          type: integer
+          format: int64
+          description: New repository epoch after reset
+        message:
+          type: string
+
     SyncPullRequest:
       type: object
       required: [client_id]
       properties:
         client_id:
           type: string
+        repository_generation:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Optional body copy of epoch; header x-repository-generation wins when both are sent.
         since:
           type: object
           description: Optional pagination cursor indicating the last seen change
@@ -1356,11 +1494,15 @@ components:
 
     SyncPullResponse:
       type: object
-      required: [current_version, records, change_cutoff]
+      required: [current_version, repository_generation, records, change_cutoff]
       properties:
         current_version:
           type: integer
           description: Current database version number that increments with each update
+        repository_generation:
+          type: integer
+          format: int64
+          description: Monotonic repository epoch (increments on admin hard reset only)
         records:
           type: array
           items:
@@ -1384,6 +1526,11 @@ components:
           format: uuid
         client_id:
           type: string
+        repository_generation:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Optional body copy of epoch; header x-repository-generation wins when both are sent.
         records:
           type: array
           items:
@@ -1391,11 +1538,14 @@ components:
 
     SyncPushResponse:
       type: object
-      required: [current_version, success_count]
+      required: [current_version, repository_generation, success_count]
       properties:
         current_version:
           type: integer
           description: Current database version number after processing the push
+        repository_generation:
+          type: integer
+          format: int64
         success_count:
           type: integer
         failed_records:
@@ -1539,15 +1689,24 @@ components:
           description: Data version number from which to get attachment changes (0 for all attachments)
           example: 42
           minimum: 0
+        repository_generation:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Optional body copy of epoch; header wins when both are sent.
 
     AttachmentManifestResponse:
       type: object
-      required: [current_version, operations]
+      required: [current_version, repository_generation, operations]
       properties:
         current_version:
           type: integer
           description: Current database version number
           example: 45
+        repository_generation:
+          type: integer
+          format: int64
+          description: Monotonic repository epoch
         operations:
           type: array
           description: List of attachment operations to perform
