@@ -26,7 +26,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/synkronus
+  # OCI/GHCR image names must be lowercase; repository_owner can be mixed-case.
+  IMAGE_NAME: ${{ format('{0}/synkronus', toLower(github.repository_owner)) }}
+  # Run JS-based actions on Node 24 until they ship Node 24-native runners (see GitHub changelog).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
