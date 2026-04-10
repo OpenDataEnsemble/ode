@@ -59,6 +59,7 @@ export interface FormplayerModalHandle {
     observationId: string | null,
     existingObservationData: Record<string, unknown> | null,
     operationId: string | null,
+    returnOnly?: boolean,
   ) => void;
   handleSubmission: (data: {
     formType: string;
@@ -94,6 +95,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Track if form has been successfully submitted to avoid double resolution
     const [formSubmitted, setFormSubmitted] = useState(false);
+
+    // Track if this form should return JSON only without saving to database
+    // Used for child forms embedded in linked-table scenarios
+    const [returnOnly, setReturnOnly] = useState(false);
 
     // Author-configurable display name shown in the native header bar
     const [currentFormDisplayName, setCurrentFormDisplayName] = useState<
@@ -208,6 +213,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       observationId: string | null,
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
+      returnOnlyMode: boolean = false,
     ) => {
       // Check if WebView is ready, if not log a warning (retry logic will handle it)
       if (!webViewReady) {
@@ -215,6 +221,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           '[FormplayerModal] WebView not ready yet, form init will be queued by message handler',
         );
       }
+
+      // Set returnOnly flag for this form session
+      setReturnOnly(returnOnlyMode);
 
       // GPS session: fresh fix + light watch while the user fills the form
       geolocationService.beginObservationSession();
@@ -489,32 +498,44 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         setIsSubmitting(true);
 
         try {
-          // Get the local repository from the database service
-          const localRepo = databaseService.getLocalRepo();
-          if (!localRepo) {
-            throw new Error('Database repository not available');
-          }
-
-          // Save the observation
+          // Save the observation (optional - skip if returnOnly flag is set)
           let resultObservationId: string;
-          if (effectiveObservationId) {
-            const updateSuccess = await localRepo.updateObservation({
-              observationId: effectiveObservationId,
-              data: finalData,
-            });
-            if (!updateSuccess) {
-              throw new Error('Failed to update observation');
+          
+          if (!returnOnly) {
+            // Normal mode: save to database
+            const localRepo = databaseService.getLocalRepo();
+            if (!localRepo) {
+              throw new Error('Database repository not available');
             }
-            resultObservationId = effectiveObservationId;
+
+            if (effectiveObservationId) {
+              const updateSuccess = await localRepo.updateObservation({
+                observationId: effectiveObservationId,
+                data: finalData,
+              });
+              if (!updateSuccess) {
+                throw new Error('Failed to update observation');
+              }
+              resultObservationId = effectiveObservationId;
+            } else {
+              const newId = await localRepo.saveObservation({
+                formType,
+                data: finalData,
+              });
+              if (!newId) {
+                throw new Error('Failed to save new observation');
+              }
+              resultObservationId = newId;
+            }
           } else {
-            const newId = await localRepo.saveObservation({
-              formType,
-              data: finalData,
-            });
-            if (!newId) {
-              throw new Error('Failed to save new observation');
-            }
-            resultObservationId = newId;
+            // returnOnly mode: just generate ID, don't save to database
+            // This is used for embedded child forms in linked-table scenarios
+            resultObservationId =
+              effectiveObservationId || crypto.randomUUID();
+            console.log(
+              '[FormplayerModal] Form returned without DB save (returnOnly mode):',
+              resultObservationId,
+            );
           }
 
           // Mark form as successfully submitted
@@ -582,7 +603,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           throw error;
         }
       },
-      [currentObservationId, currentOperationId, onClose, showConfirm],
+      [currentObservationId, currentOperationId, onClose, showConfirm, returnOnly],
     );
 
     // Register/unregister modal with message handlers and reset form state

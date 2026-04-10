@@ -66,6 +66,7 @@ function AppInner(): React.JSX.Element {
     observationId: string | null;
     savedData: Record<string, unknown> | null;
     operationId: string | null;
+    returnOnly?: boolean;  // For child forms opened from linkedtable
   };
 
   const [formplayerStack, setFormplayerStack] = useState<
@@ -96,6 +97,7 @@ function AppInner(): React.JSX.Element {
             entry.observationId,
             entry.savedData,
             entry.operationId,
+            entry.returnOnly,  // ← Pass returnOnly flag
           );
         }, 200);
       };
@@ -138,7 +140,7 @@ function AppInner(): React.JSX.Element {
     );
 
     const handleOpenFormplayer = async (config: FormInitData) => {
-      const { formType, observationId, params, savedData, operationId } =
+      const { formType, observationId, params, savedData, operationId, returnOnly } =
         config;
 
       try {
@@ -172,6 +174,7 @@ function AppInner(): React.JSX.Element {
           observationId: observationId || null,
           savedData: savedData || null,
           operationId: operationId || null,
+          returnOnly: returnOnly || false,  // Include returnOnly flag
         };
 
         setFormplayerStack(current => [...current, entry]);

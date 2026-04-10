@@ -56,6 +56,7 @@ export interface FormInitData {
   formSchema?: unknown;
   uiSchema?: unknown;
   operationId?: string;
+  returnOnly?: boolean;  // For embedded child forms: return JSON without saving to DB
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
     custom_types: Record<string, { source: string }>;
