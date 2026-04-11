@@ -530,8 +530,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           } else {
             // returnOnly mode: just generate ID, don't save to database
             // This is used for embedded child forms in linked-table scenarios
-            resultObservationId =
-              effectiveObservationId || crypto.randomUUID();
+            resultObservationId = '';
             console.log(
               '[FormplayerModal] Form returned without DB save (returnOnly mode):',
               resultObservationId,

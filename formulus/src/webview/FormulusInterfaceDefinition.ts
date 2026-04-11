@@ -285,6 +285,7 @@ export interface FormulusInterface {
     formType: string,
     params: Record<string, unknown>,
     savedData: Record<string, unknown>,
+    options?: { returnOnly?: boolean },
   ): Promise<FormCompletionResult>;
 
   /**

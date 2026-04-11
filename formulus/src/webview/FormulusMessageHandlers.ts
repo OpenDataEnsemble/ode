@@ -116,6 +116,7 @@ const startFormplayerOperation = (
   params: Record<string, unknown> = {},
   savedData: Record<string, unknown> = {},
   observationId: string | null = null,
+  returnOnly: boolean = false,
 ): Promise<FormCompletionResult> => {
   const operationId = `${formType}_${Date.now()}_${Math.random()
     .toString(36)
@@ -135,6 +136,7 @@ const startFormplayerOperation = (
       savedData,
       observationId,
       operationId,
+      returnOnly,
     });
 
     setTimeout(
@@ -1168,12 +1170,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const service = await FormService.getInstance();
       return await service.getObservationsByQuery(options);
     },
-    onOpenFormplayer: async (data: FormInitData) => {
+    onOpenFormplayer: async (data: FormInitData & { options?: { returnOnly?: boolean } }) => {
       return startFormplayerOperation(
         data.formType,
         data.params,
         data.savedData,
         data.observationId ?? null,
+        data.options?.returnOnly || data.returnOnly || false,
       );
     },
     onFormplayerInitialized: (_data: {
