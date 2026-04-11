@@ -285,7 +285,7 @@
     },
 
     // openFormplayer: formType: string, params: Record<string, any>, savedData: Record<string, any> => Promise<FormCompletionResult>
-    openFormplayer: function (formType, params, savedData) {
+    openFormplayer: function (formType, params, savedData, options) {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -342,6 +342,7 @@
             formType: formType,
             params: params,
             savedData: savedData,
+            options: options,
           }),
         );
       });

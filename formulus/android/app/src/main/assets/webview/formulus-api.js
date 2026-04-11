@@ -50,7 +50,7 @@ const FormulusAPI = {
    * @param {Object} savedData - Previously saved form data (for editing)
    * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
-  openFormplayer: function (formType, params, savedData) {},
+  openFormplayer: function (formType, params, savedData, options) {},
 
   /**
    * Get observations for a specific form

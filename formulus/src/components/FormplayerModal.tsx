@@ -96,9 +96,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     // Track if form has been successfully submitted to avoid double resolution
     const [formSubmitted, setFormSubmitted] = useState(false);
 
-    // Track if this form should return JSON only without saving to database
-    // Used for child forms embedded in linked-table scenarios
-    const [returnOnly, setReturnOnly] = useState(false);
+    // Child / linked-table forms: return JSON only, do not persist as observations.
+    // Ref updates synchronously in initializeForm so submit cannot run before flag is set.
+    const returnOnlyRef = useRef(false);
 
     // Author-configurable display name shown in the native header bar
     const [currentFormDisplayName, setCurrentFormDisplayName] = useState<
@@ -222,8 +222,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         );
       }
 
-      // Set returnOnly flag for this form session
-      setReturnOnly(returnOnlyMode);
+      returnOnlyRef.current = returnOnlyMode;
 
       // GPS session: fresh fix + light watch while the user fills the form
       geolocationService.beginObservationSession();
@@ -457,6 +456,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         uiSchema: formType.uiSchema ?? {},
         extensions,
         customQuestionTypes,
+        returnOnly: returnOnlyMode,
       } as FormInitData;
 
       if (!webViewRef.current) {
@@ -501,7 +501,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           // Save the observation (optional - skip if returnOnly flag is set)
           let resultObservationId: string;
 
-          if (!returnOnly) {
+          if (!returnOnlyRef.current) {
             // Normal mode: save to database
             const localRepo = databaseService.getLocalRepo();
             if (!localRepo) {
@@ -607,7 +607,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         currentOperationId,
         onClose,
         showConfirm,
-        returnOnly,
       ],
     );
 
@@ -631,6 +630,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           setIsClosing(false); // Reset closing state when modal is fully closed
           setFormSubmitted(false); // Reset submission flag
           setWebViewReady(false); // Reset WebView ready state
+          returnOnlyRef.current = false;
         }, 300); // Small delay to ensure modal is fully closed
       }
     }, [visible, isActive, handleSubmission]);

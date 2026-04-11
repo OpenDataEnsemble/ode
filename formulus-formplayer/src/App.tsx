@@ -329,7 +329,10 @@ function App() {
       newObservationDraftSessionKey?: string | null,
     ) => {
       try {
-        if (initData.observationId != null) {
+        if (initData.returnOnly) {
+          // Embedded child form: data lives only in memory until returned to parent; no local drafts.
+          setDraftSessionKey(null);
+        } else if (initData.observationId != null) {
           setDraftSessionKey(null);
         } else if (newObservationDraftSessionKey !== undefined) {
           setDraftSessionKey(newObservationDraftSessionKey);
@@ -590,7 +593,7 @@ function App() {
         // Check if this is a new form (no savedData) and if drafts exist
         const hasExistingSavedData =
           savedData && Object.keys(savedData).length > 0;
-        if (!hasExistingSavedData) {
+        if (!initData.returnOnly && !hasExistingSavedData) {
           const availableDrafts = draftService.getDraftsForForm(
             receivedFormType,
             (formSchema as any)?.version,
@@ -948,8 +951,8 @@ function App() {
     ({ data: newData }: { data: FormData }) => {
       setData(newData);
 
-      // Save draft data whenever form data changes
-      if (formInitData) {
+      // Save draft data whenever form data changes (skip embedded return-only child forms)
+      if (formInitData && !formInitData.returnOnly) {
         draftService.saveDraft(
           formInitData.formType,
           newData,
