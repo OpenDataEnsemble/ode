@@ -10,6 +10,15 @@ Formplayer supports a plugin system that allows you to render custom UI componen
 4. **Loading Payload**: When Formulus opens a form, it reads all custom question types in the `question_types` folder and injects their source code into the Formplayer WebView.
 5. **Execution**: Formplayer dynamically evaluates and registers your component. It wraps it in an error boundary and adapts it to the JSONForms architecture.
 
+### Formulus API: WebView file URLs (v1.2.0+)
+
+Inside the WebView, `<img src>` cannot load legacy relative paths like `/default/data/tables/...`. Use the injected `getFormulus()` API (see `FormulusInterfaceDefinition.ts` in Formulus / Formplayer):
+
+- **`getAttachmentUri(fileName)`** — returns a `file://` URL if that basename exists under the app attachments directory (or `pending_upload`), else `null`. Use the observation media `filename` / `photo.filename` basename.
+- **`getAttachmentsUri()`** — base `file://` URL for the attachments folder (trailing slash).
+- **`getCustomAppUri()`** — base `file://` URL for `DocumentDirectory/app/`.
+- **`getFormSpecsUri()`** — base `file://` URL for `DocumentDirectory/forms/`.
+
 ---
 
 ## Creating a Custom Question Type

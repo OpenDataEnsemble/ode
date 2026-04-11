@@ -12,6 +12,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opendataensemble/synkronus/pkg/appbundle"
+	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/pkg/presence"
 )
 
 // GetAppBundleManifest handles the /app-bundle/manifest endpoint
@@ -37,8 +39,34 @@ func (h *Handler) GetAppBundleManifest(w http.ResponseWriter, r *http.Request) {
 	// Set ETag header
 	w.Header().Set("ETag", etag)
 
+	h.recordPresenceAfterAppBundleManifest(r, manifest)
+
 	// Send the response
 	SendJSONResponse(w, http.StatusOK, manifest)
+}
+
+func (h *Handler) recordPresenceAfterAppBundleManifest(r *http.Request, manifest *appbundle.Manifest) {
+	rec := h.PresenceRecorder()
+	if rec == nil || manifest == nil {
+		return
+	}
+	u := auth.GetUserFromContext(r.Context())
+	if u == nil || u.Username == "" {
+		return
+	}
+	clientID := strings.TrimSpace(r.Header.Get("x-ode-client-id"))
+	ver := manifest.Version
+	ode := odeVersionFromRequest(r)
+	ev := presence.Event{
+		Username:         u.Username,
+		ClientID:         clientID,
+		AppBundleVersion: &ver,
+		SkipThrottle:     true,
+	}
+	if ode != nil {
+		ev.LastOdeVersion = ode
+	}
+	rec.Enqueue(ev)
 }
 
 // GetAppBundleFile handles the /app-bundle/{path} endpoint

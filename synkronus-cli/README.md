@@ -168,6 +168,15 @@ synk sync pull --client-id your-client-id --after-change-id 1234 --schema-types 
 synk sync push data.json
 ```
 
+### User management (admin)
+
+```bash
+# List users with role, last activity timestamp (UTC), and client count (N/A when absent)
+synk user list
+
+# Create, delete, reset password, change own password — see synk user --help
+```
+
 ### Data Export
 
 ```bash

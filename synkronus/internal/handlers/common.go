@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 // countingResponseWriter wraps http.ResponseWriter to detect whether any body bytes were written.
@@ -28,14 +29,29 @@ func SendJSONResponse(w http.ResponseWriter, status int, data any) {
 	}
 }
 
+// Stable machine-readable error codes (OpenAPI / clients branch on these).
+const (
+	CodeRepositoryResetRequired = "repository_reset_required"
+)
+
 // ErrorResponse represents a standard error response
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message,omitempty"`
+	Code    string `json:"code,omitempty"`
 }
 
 // SendErrorResponse is a helper to send error responses
 func SendErrorResponse(w http.ResponseWriter, status int, err error, message string) {
+	sendErrorPayload(w, status, err, message, "")
+}
+
+// SendErrorResponseWithCode sends a JSON error including an optional stable code (e.g. for HTTP 409).
+func SendErrorResponseWithCode(w http.ResponseWriter, status int, err error, message, code string) {
+	sendErrorPayload(w, status, err, message, code)
+}
+
+func sendErrorPayload(w http.ResponseWriter, status int, err error, message, code string) {
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(status)
 	errMsg := "An error occurred"
@@ -45,7 +61,19 @@ func SendErrorResponse(w http.ResponseWriter, status int, err error, message str
 	if encodeErr := json.NewEncoder(w).Encode(ErrorResponse{
 		Error:   errMsg,
 		Message: message,
+		Code:    code,
 	}); encodeErr != nil {
 		http.Error(w, "Failed to encode error response", http.StatusInternalServerError)
 	}
+}
+
+func odeVersionFromRequest(r *http.Request) *string {
+	v := strings.TrimSpace(r.Header.Get("x-ode-version"))
+	if v == "" {
+		v = strings.TrimSpace(r.Header.Get("x-formulus-version"))
+	}
+	if v == "" {
+		return nil
+	}
+	return &v
 }

@@ -14,12 +14,14 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
 type AttachmentHandler struct {
-	service  attachment.Service
-	manifest attachment.ManifestService
-	log      *logger.Logger
+	service     attachment.Service
+	manifest    attachment.ManifestService
+	syncService sync.ServiceInterface
+	log         *logger.Logger
 }
 
 const maxAttachmentUploadBytes = 32 << 20
@@ -28,11 +30,13 @@ func NewAttachmentHandler(
 	log *logger.Logger,
 	service attachment.Service,
 	manifest attachment.ManifestService,
+	syncService sync.ServiceInterface,
 ) *AttachmentHandler {
 	return &AttachmentHandler{
-		service:  service,
-		manifest: manifest,
-		log:      log,
+		service:     service,
+		manifest:    manifest,
+		syncService: syncService,
+		log:         log,
 	}
 }
 
@@ -101,8 +105,23 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	clientGen := sync.ParseClientRepositoryGeneration(r, nil)
+	serverGen, err := h.syncService.GetRepositoryGeneration(r.Context())
+	if err != nil {
+		h.log.Error("Failed to read repository generation", "error", err)
+		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to verify repository generation")
+		return
+	}
+	if clientGen != serverGen {
+		w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(serverGen, 10))
+		SendErrorResponseWithCode(w, http.StatusConflict, sync.ErrRepositoryGenerationMismatch,
+			"Client repository_generation does not match the server; align generation before uploading attachments.",
+			CodeRepositoryResetRequired)
+		return
+	}
+
 	// Parse the multipart form
-	err := r.ParseMultipartForm(maxAttachmentUploadBytes)
+	err = r.ParseMultipartForm(maxAttachmentUploadBytes)
 	if err != nil {
 		SendErrorResponse(w, http.StatusBadRequest, err, "Failed to parse multipart form")
 		return

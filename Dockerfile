@@ -24,7 +24,7 @@ RUN npm ci
 
 # Install dependencies for components
 WORKDIR /app/packages/components
-RUN npm install
+RUN npm ci
 
 # Install dependencies for portal
 WORKDIR /app/synkronus-portal

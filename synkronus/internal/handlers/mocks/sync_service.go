@@ -9,17 +9,19 @@ import (
 
 // MockSyncService is a mock implementation of the sync.ServiceInterface for testing
 type MockSyncService struct {
-	currentVersion int64
-	observations   []sync.Observation
-	initialized    bool
+	currentVersion       int64
+	repositoryGeneration int64
+	observations         []sync.Observation
+	initialized          bool
 }
 
 // NewMockSyncService creates a new mock sync service
 func NewMockSyncService() *MockSyncService {
 	return &MockSyncService{
-		currentVersion: 1,
-		observations:   make([]sync.Observation, 0), // Initialize as empty slice, not nil
-		initialized:    false,
+		currentVersion:       1,
+		repositoryGeneration: 1,
+		observations:         make([]sync.Observation, 0), // Initialize as empty slice, not nil
+		initialized:          true,
 	}
 }
 
@@ -35,6 +37,25 @@ func (m *MockSyncService) GetCurrentVersion(ctx context.Context) (int64, error) 
 		return 0, fmt.Errorf("sync service not initialized")
 	}
 	return m.currentVersion, nil
+}
+
+// GetRepositoryGeneration returns the mock repository epoch.
+func (m *MockSyncService) GetRepositoryGeneration(ctx context.Context) (int64, error) {
+	if !m.initialized {
+		return 0, fmt.Errorf("sync service not initialized")
+	}
+	return m.repositoryGeneration, nil
+}
+
+// HardResetRepository mocks an admin reset (increments epoch and clears observations).
+func (m *MockSyncService) HardResetRepository(ctx context.Context, adminUsername string) (int64, error) {
+	if !m.initialized {
+		return 0, fmt.Errorf("sync service not initialized")
+	}
+	m.observations = make([]sync.Observation, 0)
+	m.currentVersion = 1
+	m.repositoryGeneration++
+	return m.repositoryGeneration, nil
 }
 
 // GetRecordsSinceVersion mocks retrieving records that have changed since the specified version
@@ -81,17 +102,21 @@ func (m *MockSyncService) GetRecordsSinceVersion(ctx context.Context, sinceVersi
 	}
 
 	return &sync.SyncResult{
-		CurrentVersion: m.currentVersion,
-		Records:        filteredRecords,
-		ChangeCutoff:   changeCutoff,
-		HasMore:        false, // Mock always returns all data
+		CurrentVersion:       m.currentVersion,
+		RepositoryGeneration: m.repositoryGeneration,
+		Records:              filteredRecords,
+		ChangeCutoff:         changeCutoff,
+		HasMore:              false, // Mock always returns all data
 	}, nil
 }
 
 // ProcessPushedRecords mocks processing records pushed from a client
-func (m *MockSyncService) ProcessPushedRecords(ctx context.Context, records []sync.Observation, clientID string, transmissionID string) (*sync.SyncPushResult, error) {
+func (m *MockSyncService) ProcessPushedRecords(ctx context.Context, records []sync.Observation, clientID string, transmissionID string, clientRepositoryGeneration int64) (*sync.SyncPushResult, error) {
 	if !m.initialized {
 		return nil, fmt.Errorf("sync service not initialized")
+	}
+	if clientRepositoryGeneration != m.repositoryGeneration {
+		return nil, sync.ErrRepositoryGenerationMismatch
 	}
 
 	var successCount int
@@ -126,9 +151,10 @@ func (m *MockSyncService) ProcessPushedRecords(ctx context.Context, records []sy
 	}
 
 	return &sync.SyncPushResult{
-		CurrentVersion: m.currentVersion,
-		SuccessCount:   successCount,
-		FailedRecords:  failedRecords,
-		Warnings:       warnings,
+		CurrentVersion:       m.currentVersion,
+		RepositoryGeneration: m.repositoryGeneration,
+		SuccessCount:         successCount,
+		FailedRecords:        failedRecords,
+		Warnings:             warnings,
 	}, nil
 }

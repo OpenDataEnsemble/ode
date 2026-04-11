@@ -10,6 +10,7 @@ on:
       - 'synkronus-portal/**'
       - 'packages/**'
       - 'Dockerfile'
+      - 'Dockerfile.slim'
       - '.github/workflows/synkronus-docker.yml'
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - 'synkronus-portal/**'
       - 'packages/**'
       - 'Dockerfile'
+      - 'Dockerfile.slim'
       - '.github/workflows/synkronus-docker.yml'
   workflow_dispatch:
   release:
@@ -24,45 +26,26 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/synkronus
+  # OCI/GHCR image names must be lowercase; repository_owner can be mixed-case.
+  IMAGE_NAME: ${{ format('{0}/synkronus', toLower(github.repository_owner)) }}
+  # Run JS-based actions on Node 24 until they ship Node 24-native runners (see GitHub changelog).
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
-    name: Build and push combined Synkronus image
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-
+    name: Build portal and cross-compile Synkronus
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0    # Full history so git describe can reach the last tag
-
-      - name: Set up QEMU
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-user-static binfmt-support
-          sudo update-binfmts --enable qemu-aarch64
-
-      - name: Log in to Github Container Registry
-        uses: redhat-actions/podman-login@v1
-        with:
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-          registry: ${{ env.REGISTRY }}
+          fetch-depth: 0
 
       - name: Determine Synkronus version from git
         id: version
         run: |
-          # fetch-depth: 0 on checkout guarantees all tags are available.
-          # --abbrev=0: output only the nearest tag name (e.g. v1.0.0), never
-          # the commit-distance suffix (v1.0.0-3-gabcdef1). This keeps the
-          # baked-in version stable across every push until a new tag is created.
-          # Fallback "1.0.0" is parseable by parseMajor in case the repo has no tags yet.
           if [ "${{ github.event_name }}" == "release" ]; then
             VERSION="${{ github.event.release.tag_name }}"
           else
@@ -71,6 +54,210 @@ jobs:
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Building Synkronus with version: ${VERSION}"
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache-dependency-path: synkronus/go.sum
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            packages/tokens/package-lock.json
+            packages/components/package-lock.json
+            synkronus-portal/package-lock.json
+
+      - name: Set up Java (OpenAPI Generator)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Build portal and Synkronus binaries
+        env:
+          SYNKRONUS_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ROOT="${GITHUB_WORKSPACE}"
+          cd "${ROOT}/packages/tokens"
+          npm ci
+          npm run build || true
+          cd "${ROOT}/packages/components"
+          npm ci
+          npm run build || true
+          cd "${ROOT}/synkronus-portal"
+          npm ci
+          npm run build
+          mkdir -p "${ROOT}/synkronus/portal/dist"
+          cp -a dist/. "${ROOT}/synkronus/portal/dist/"
+          cd "${ROOT}/synkronus"
+          LD_FLAGS="-w -s -X github.com/opendataensemble/synkronus/pkg/version.version=${SYNKRONUS_VERSION}"
+          mkdir -p "${ROOT}/docker-dist"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -ldflags="${LD_FLAGS}" -o "${ROOT}/docker-dist/synkronus-linux-amd64" ./cmd/synkronus
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -ldflags="${LD_FLAGS}" -o "${ROOT}/docker-dist/synkronus-linux-arm64" ./cmd/synkronus
+          cp -a openapi "${ROOT}/docker-dist/"
+          cp -a static "${ROOT}/docker-dist/"
+
+      - name: Upload docker build context artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synkronus-docker-dist
+          path: docker-dist/
+          if-no-files-found: error
+
+  image-amd64:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Build linux/amd64 image
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download docker build context
+        uses: actions/download-artifact@v4
+        with:
+          name: synkronus-docker-dist
+          path: docker-dist/
+
+      - name: Stage build context for Dockerfile.slim
+        run: |
+          set -euo pipefail
+          mkdir -p docker-context
+          cp docker-dist/synkronus-linux-amd64 docker-context/synkronus
+          chmod +x docker-context/synkronus
+          cp -a docker-dist/openapi docker-context/openapi
+          cp -a docker-dist/static docker-context/static
+
+      - name: Log in to Github Container Registry
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+
+      - name: Compute image metadata (scratch tag)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=tmp-${{ github.run_id }}-amd64
+
+      - name: Build image with Buildah
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: ${{ steps.meta.outputs.tag-names }}
+          labels: ${{ steps.meta.outputs.labels }}
+          archs: amd64
+          containerfiles: |
+            ./Dockerfile.slim
+          context: docker-context
+
+      - name: Push image to registry
+        id: push
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}
+
+  image-arm64:
+    needs: build
+    runs-on: ubuntu-24.04-arm
+    name: Build linux/arm64 image
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download docker build context
+        uses: actions/download-artifact@v4
+        with:
+          name: synkronus-docker-dist
+          path: docker-dist/
+
+      - name: Stage build context for Dockerfile.slim
+        run: |
+          set -euo pipefail
+          mkdir -p docker-context
+          cp docker-dist/synkronus-linux-arm64 docker-context/synkronus
+          chmod +x docker-context/synkronus
+          cp -a docker-dist/openapi docker-context/openapi
+          cp -a docker-dist/static docker-context/static
+
+      - name: Log in to Github Container Registry
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/podman-login@v1
+        with:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+
+      - name: Compute image metadata (scratch tag)
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=tmp-${{ github.run_id }}-arm64
+
+      - name: Build image with Buildah
+        id: build-image
+        uses: redhat-actions/buildah-build@v2
+        with:
+          image: ${{ env.IMAGE_NAME }}
+          tags: ${{ steps.meta.outputs.tag-names }}
+          labels: ${{ steps.meta.outputs.labels }}
+          archs: arm64
+          containerfiles: |
+            ./Dockerfile.slim
+          context: docker-context
+
+      - name: Push image to registry
+        id: push
+        if: github.event_name != 'pull_request'
+        uses: redhat-actions/push-to-registry@v2
+        with:
+          image: ${{ steps.build-image.outputs.image }}
+          tags: ${{ steps.build-image.outputs.tags }}
+          registry: ${{ env.REGISTRY }}
+
+  merge-manifests:
+    if: github.event_name != 'pull_request'
+    needs: [image-amd64, image-arm64]
+    runs-on: ubuntu-latest
+    name: Merge multi-arch manifest and publish tags
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Log in to Github Container Registry (docker)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Compute image tags and labels
         id: tags
         uses: docker/metadata-action@v6
@@ -78,61 +265,63 @@ jobs:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            # Release event: v<version> + v<major>.<minor>
             type=semver,pattern=v{{version}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }},priority=1000
             type=semver,pattern=v{{major}}.{{minor}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }},priority=900
-            # Pull requests: pr-<number>
             type=ref,event=pr,priority=1000
-            # Non-release/non-PR refs: main/dev/other branches + sha
             type=raw,value=latest,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }},priority=1000
             type=raw,value=dev,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/dev' }},priority=1000
             type=raw,value=latest,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/dev' }},priority=900
             type=ref,event=branch,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }},priority=1000
             type=sha,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' }},priority=100
 
-      - name: Build multi-arch image with Buildah
-        id: build-image
-        uses: redhat-actions/buildah-build@v2
-        with:
-          image: ${{ env.IMAGE_NAME }}
-          tags: ${{ steps.tags.outputs.tag-names }}
-          labels: ${{ steps.tags.outputs.labels }}
-          archs: amd64,arm64
-          containerfiles: |
-            ./Dockerfile
-          build-args: |
-            SYNKRONUS_VERSION=${{ steps.version.outputs.version }}
-
-      - name: Push image manifest to registry
-        if: github.event_name != 'pull_request'
-        id: push-image
-        uses: redhat-actions/push-to-registry@v2
-        with:
-          image: ${{ steps.build-image.outputs.image }}
-          tags: ${{ steps.build-image.outputs.tags }}
-          registry: ${{ env.REGISTRY }}
+      - name: Create and push multi-arch manifest
+        id: merge
+        env:
+          AMD64_DIGEST: ${{ needs.image-amd64.outputs.digest }}
+          ARM64_DIGEST: ${{ needs.image-arm64.outputs.digest }}
+          TAG_NAMES: ${{ steps.tags.outputs.tag-names }}
+        run: |
+          set -euo pipefail
+          IMG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          AMD64_REF="${IMG}@${AMD64_DIGEST}"
+          ARM64_REF="${IMG}@${ARM64_DIGEST}"
+          mapfile -t TAGS < <(echo "${TAG_NAMES}" | sed '/^$/d')
+          if [ "${#TAGS[@]}" -eq 0 ]; then
+            echo "No tags from metadata-action" >&2
+            exit 1
+          fi
+          TAG_ARGS=()
+          for t in "${TAGS[@]}"; do
+            TAG_ARGS+=(-t "${IMG}:${t}")
+          done
+          docker buildx imagetools create "${TAG_ARGS[@]}" "${AMD64_REF}" "${ARM64_REF}"
 
       - name: Verify image
-        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
           PRIMARY_TAG="${{ steps.tags.outputs.version }}"
 
-          # Confirm the manifest list includes both target platforms.
-          skopeo inspect --raw "docker://${IMAGE}:${PRIMARY_TAG}" | \
+          docker manifest inspect "${IMAGE}:${PRIMARY_TAG}" | \
             jq -e '[.manifests[].platform | "\(.os)/\(.architecture)"] | index("linux/amd64") and index("linux/arm64")' >/dev/null
           echo "Verified manifest platforms for ${IMAGE}:${PRIMARY_TAG}"
 
-          # Pull each platform explicitly to confirm the runtime layers are accessible.
-          podman pull --arch amd64 "${IMAGE}:${PRIMARY_TAG}"
-          podman pull --arch arm64 "${IMAGE}:${PRIMARY_TAG}"
+          docker pull --platform linux/amd64 "${IMAGE}:${PRIMARY_TAG}"
+          docker pull --platform linux/arm64 "${IMAGE}:${PRIMARY_TAG}"
+
+      - name: Capture manifest digest for attestation
+        id: manifest-digest
+        run: |
+          set -euo pipefail
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          PRIMARY_TAG="${{ steps.tags.outputs.version }}"
+          DIGEST=$(docker buildx imagetools inspect "${IMAGE}:${PRIMARY_TAG}" --format '{{json .}}' | jq -r '.manifest.digest')
+          echo "digest=${DIGEST}" >> "${GITHUB_OUTPUT}"
 
       - name: Generate artifact attestation
-        if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.push-image.outputs.digest }}
+          subject-digest: ${{ steps.manifest-digest.outputs.digest }}
           push-to-registry: true

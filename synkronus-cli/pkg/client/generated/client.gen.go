@@ -40,6 +40,42 @@ func (e AttachmentOperationOperation) Valid() bool {
 	}
 }
 
+// Defines values for RepositoryResetRequestConfirm.
+const (
+	RESETREPOSITORY RepositoryResetRequestConfirm = "RESET_REPOSITORY"
+)
+
+// Valid indicates whether the value is a known member of the RepositoryResetRequestConfirm enum.
+func (e RepositoryResetRequestConfirm) Valid() bool {
+	switch e {
+	case RESETREPOSITORY:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UserListItemRole.
+const (
+	UserListItemRoleAdmin     UserListItemRole = "admin"
+	UserListItemRoleReadOnly  UserListItemRole = "read-only"
+	UserListItemRoleReadWrite UserListItemRole = "read-write"
+)
+
+// Valid indicates whether the value is a known member of the UserListItemRole enum.
+func (e UserListItemRole) Valid() bool {
+	switch e {
+	case UserListItemRoleAdmin:
+		return true
+	case UserListItemRoleReadOnly:
+		return true
+	case UserListItemRoleReadWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UserResponseRole.
 const (
 	UserResponseRoleAdmin     UserResponseRole = "admin"
@@ -63,19 +99,19 @@ func (e UserResponseRole) Valid() bool {
 
 // Defines values for CreateUserJSONBodyRole.
 const (
-	CreateUserJSONBodyRoleAdmin     CreateUserJSONBodyRole = "admin"
-	CreateUserJSONBodyRoleReadOnly  CreateUserJSONBodyRole = "read-only"
-	CreateUserJSONBodyRoleReadWrite CreateUserJSONBodyRole = "read-write"
+	Admin     CreateUserJSONBodyRole = "admin"
+	ReadOnly  CreateUserJSONBodyRole = "read-only"
+	ReadWrite CreateUserJSONBodyRole = "read-write"
 )
 
 // Valid indicates whether the value is a known member of the CreateUserJSONBodyRole enum.
 func (e CreateUserJSONBodyRole) Valid() bool {
 	switch e {
-	case CreateUserJSONBodyRoleAdmin:
+	case Admin:
 		return true
-	case CreateUserJSONBodyRoleReadOnly:
+	case ReadOnly:
 		return true
-	case CreateUserJSONBodyRoleReadWrite:
+	case ReadWrite:
 		return true
 	default:
 		return false
@@ -126,6 +162,9 @@ type AttachmentManifestRequest struct {
 	// ClientId Unique identifier for the client requesting the manifest
 	ClientId string `json:"client_id"`
 
+	// RepositoryGeneration Optional body copy of epoch; header wins when both are sent.
+	RepositoryGeneration *int64 `json:"repository_generation,omitempty"`
+
 	// SinceVersion Data version number from which to get attachment changes (0 for all attachments)
 	SinceVersion int `json:"since_version"`
 }
@@ -143,6 +182,9 @@ type AttachmentManifestResponse struct {
 
 	// Operations List of attachment operations to perform
 	Operations []AttachmentOperation `json:"operations"`
+
+	// RepositoryGeneration Monotonic repository epoch
+	RepositoryGeneration int64 `json:"repository_generation"`
 
 	// TotalDownloadSize Total size in bytes of all attachments to download
 	TotalDownloadSize *int `json:"total_download_size,omitempty"`
@@ -206,7 +248,12 @@ type DatabaseInfo struct {
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
+	// Code Stable machine-readable code (e.g. repository_reset_required)
+	Code  *string `json:"code,omitempty"`
 	Error *string `json:"error,omitempty"`
+
+	// Message Optional human-readable detail
+	Message *string `json:"message,omitempty"`
 }
 
 // FieldChange defines model for FieldChange.
@@ -286,6 +333,23 @@ type ProblemDetail struct {
 	Type     string  `json:"type"`
 }
 
+// RepositoryResetRequest defines model for RepositoryResetRequest.
+type RepositoryResetRequest struct {
+	// Confirm Must be exactly RESET_REPOSITORY to authorize destructive reset
+	Confirm RepositoryResetRequestConfirm `json:"confirm"`
+}
+
+// RepositoryResetRequestConfirm Must be exactly RESET_REPOSITORY to authorize destructive reset
+type RepositoryResetRequestConfirm string
+
+// RepositoryResetResponse defines model for RepositoryResetResponse.
+type RepositoryResetResponse struct {
+	Message string `json:"message"`
+
+	// RepositoryGeneration New repository epoch after reset
+	RepositoryGeneration int64 `json:"repository_generation"`
+}
+
 // ServerInfo defines model for ServerInfo.
 type ServerInfo struct {
 	Version *string `json:"version,omitempty"`
@@ -293,8 +357,11 @@ type ServerInfo struct {
 
 // SyncPullRequest defines model for SyncPullRequest.
 type SyncPullRequest struct {
-	ClientId    string    `json:"client_id"`
-	SchemaTypes *[]string `json:"schema_types,omitempty"`
+	ClientId string `json:"client_id"`
+
+	// RepositoryGeneration Optional body copy of epoch; header x-repository-generation wins when both are sent.
+	RepositoryGeneration *int64    `json:"repository_generation,omitempty"`
+	SchemaTypes          *[]string `json:"schema_types,omitempty"`
 
 	// Since Optional pagination cursor indicating the last seen change
 	Since *struct {
@@ -312,25 +379,32 @@ type SyncPullResponse struct {
 	CurrentVersion int `json:"current_version"`
 
 	// HasMore Indicates if there are more records available beyond this response
-	HasMore           *bool         `json:"has_more,omitempty"`
-	Records           []Observation `json:"records"`
-	SyncFormatVersion *string       `json:"sync_format_version,omitempty"`
+	HasMore *bool         `json:"has_more,omitempty"`
+	Records []Observation `json:"records"`
+
+	// RepositoryGeneration Monotonic repository epoch (increments on admin hard reset only)
+	RepositoryGeneration int64   `json:"repository_generation"`
+	SyncFormatVersion    *string `json:"sync_format_version,omitempty"`
 }
 
 // SyncPushRequest defines model for SyncPushRequest.
 type SyncPushRequest struct {
-	ClientId       string             `json:"client_id"`
-	Records        []Observation      `json:"records"`
-	TransmissionId openapi_types.UUID `json:"transmission_id"`
+	ClientId string        `json:"client_id"`
+	Records  []Observation `json:"records"`
+
+	// RepositoryGeneration Optional body copy of epoch; header x-repository-generation wins when both are sent.
+	RepositoryGeneration *int64             `json:"repository_generation,omitempty"`
+	TransmissionId       openapi_types.UUID `json:"transmission_id"`
 }
 
 // SyncPushResponse defines model for SyncPushResponse.
 type SyncPushResponse struct {
 	// CurrentVersion Current database version number after processing the push
-	CurrentVersion int                       `json:"current_version"`
-	FailedRecords  *[]map[string]interface{} `json:"failed_records,omitempty"`
-	SuccessCount   int                       `json:"success_count"`
-	Warnings       *[]struct {
+	CurrentVersion       int                       `json:"current_version"`
+	FailedRecords        *[]map[string]interface{} `json:"failed_records,omitempty"`
+	RepositoryGeneration int64                     `json:"repository_generation"`
+	SuccessCount         int                       `json:"success_count"`
+	Warnings             *[]struct {
 		Code    string `json:"code"`
 		Id      string `json:"id"`
 		Message string `json:"message"`
@@ -350,6 +424,44 @@ type SystemVersionInfo struct {
 	Database *DatabaseInfo `json:"database,omitempty"`
 	Server   *ServerInfo   `json:"server,omitempty"`
 	System   *SystemInfo   `json:"system,omitempty"`
+}
+
+// UserListItem defines model for UserListItem.
+type UserListItem struct {
+	CreatedAt time.Time            `json:"createdAt"`
+	Id        openapi_types.UUID   `json:"id"`
+	Presence  *UserPresenceSummary `json:"presence,omitempty"`
+	Role      UserListItemRole     `json:"role"`
+	UpdatedAt time.Time            `json:"updatedAt"`
+	Username  string               `json:"username"`
+}
+
+// UserListItemRole defines model for UserListItem.Role.
+type UserListItemRole string
+
+// UserPresenceClient defines model for UserPresenceClient.
+type UserPresenceClient struct {
+	AppBundleVersion *string `json:"appBundleVersion,omitempty"`
+
+	// ClientId Client id from sync or empty string when unknown
+	ClientId string `json:"clientId"`
+
+	// LastDataVersion Last known sync data version cursor hint for this client
+	LastDataVersion *int64 `json:"lastDataVersion,omitempty"`
+
+	// LastOdeVersion ODE/Formulus client version header last seen for this row
+	LastOdeVersion *string   `json:"lastOdeVersion,omitempty"`
+	LastSeenAt     time.Time `json:"lastSeenAt"`
+}
+
+// UserPresenceSummary defines model for UserPresenceSummary.
+type UserPresenceSummary struct {
+	// ClientCount Number of distinct client ids seen
+	ClientCount *int                  `json:"clientCount,omitempty"`
+	Clients     *[]UserPresenceClient `json:"clients,omitempty"`
+
+	// LastSeenAt Latest activity across all clients for this user
+	LastSeenAt *time.Time `json:"lastSeenAt,omitempty"`
 }
 
 // UserResponse defines model for UserResponse.
@@ -397,6 +509,9 @@ type DownloadAppBundleFileParams struct {
 type GetAppBundleManifestParams struct {
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XOdeClientId Optional client instance id for correlating app bundle checks with presence.
+	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
 }
 
 // PushAppBundleMultipartBody defines parameters for PushAppBundle.
@@ -427,6 +542,9 @@ type GetAppBundleVersionsParams struct {
 type GetAttachmentManifestParams struct {
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XRepositoryGeneration Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
+	XRepositoryGeneration *int64 `json:"x-repository-generation,omitempty"`
 }
 
 // DownloadAttachmentParams defines parameters for DownloadAttachment.
@@ -445,6 +563,12 @@ type CheckAttachmentExistsParams struct {
 type UploadAttachmentMultipartBody struct {
 	// File The binary file to upload
 	File openapi_types.File `json:"file"`
+}
+
+// UploadAttachmentParams defines parameters for UploadAttachment.
+type UploadAttachmentParams struct {
+	// XRepositoryGeneration Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
+	XRepositoryGeneration *int64 `json:"x-repository-generation,omitempty"`
 }
 
 // LoginJSONBody defines parameters for Login.
@@ -484,18 +608,33 @@ type SyncPullParams struct {
 
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XOdeClientId Optional client instance id; improves per-device presence when combined with sync body `client_id`.
+	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
+
+	// XRepositoryGeneration Client's repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header.
+	XRepositoryGeneration *int64 `json:"x-repository-generation,omitempty"`
 }
 
 // SyncPushParams defines parameters for SyncPush.
 type SyncPushParams struct {
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XOdeClientId Optional client instance id; improves per-device presence when combined with sync body `client_id`.
+	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
+
+	// XRepositoryGeneration Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
+	XRepositoryGeneration *int64 `json:"x-repository-generation,omitempty"`
 }
 
 // ListUsersParams defines parameters for ListUsers.
 type ListUsersParams struct {
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
+
+	// XOdeClientId Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
+	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
 }
 
 // ChangePasswordJSONBody defines parameters for ChangePassword.
@@ -554,6 +693,9 @@ type DeleteUserParams struct {
 	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
 	XOdeVersion string `json:"x-ode-version"`
 }
+
+// AdminRepositoryResetJSONRequestBody defines body for AdminRepositoryReset for application/json ContentType.
+type AdminRepositoryResetJSONRequestBody = RepositoryResetRequest
 
 // PushAppBundleMultipartRequestBody defines body for PushAppBundle for multipart/form-data ContentType.
 type PushAppBundleMultipartRequestBody PushAppBundleMultipartBody
@@ -658,6 +800,11 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// AdminRepositoryResetWithBody request with any body
+	AdminRepositoryResetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AdminRepositoryReset(ctx context.Context, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetAppBundleChanges request
 	GetAppBundleChanges(ctx context.Context, params *GetAppBundleChangesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -691,7 +838,7 @@ type ClientInterface interface {
 	CheckAttachmentExists(ctx context.Context, attachmentId string, params *CheckAttachmentExistsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UploadAttachmentWithBody request with any body
-	UploadAttachmentWithBody(ctx context.Context, attachmentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UploadAttachmentWithBody(ctx context.Context, attachmentId string, params *UploadAttachmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// LoginWithBody request with any body
 	LoginWithBody(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -745,6 +892,30 @@ type ClientInterface interface {
 
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) AdminRepositoryResetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRepositoryResetRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) AdminRepositoryReset(ctx context.Context, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRepositoryResetRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) GetAppBundleChanges(ctx context.Context, params *GetAppBundleChangesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -879,8 +1050,8 @@ func (c *Client) CheckAttachmentExists(ctx context.Context, attachmentId string,
 	return c.Client.Do(req)
 }
 
-func (c *Client) UploadAttachmentWithBody(ctx context.Context, attachmentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUploadAttachmentRequestWithBody(c.Server, attachmentId, contentType, body)
+func (c *Client) UploadAttachmentWithBody(ctx context.Context, attachmentId string, params *UploadAttachmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUploadAttachmentRequestWithBody(c.Server, attachmentId, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1131,6 +1302,46 @@ func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (
 	return c.Client.Do(req)
 }
 
+// NewAdminRepositoryResetRequest calls the generic AdminRepositoryReset builder with application/json body
+func NewAdminRepositoryResetRequest(server string, body AdminRepositoryResetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdminRepositoryResetRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAdminRepositoryResetRequestWithBody generates requests for AdminRepositoryReset with any type of body
+func NewAdminRepositoryResetRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/repository/reset")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetAppBundleChangesRequest generates requests for GetAppBundleChanges
 func NewGetAppBundleChangesRequest(server string, params *GetAppBundleChangesParams) (*http.Request, error) {
 	var err error
@@ -1323,6 +1534,17 @@ func NewGetAppBundleManifestRequest(server string, params *GetAppBundleManifestP
 		}
 
 		req.Header.Set("x-ode-version", headerParam0)
+
+		if params.XOdeClientId != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-ode-client-id", *params.XOdeClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-ode-client-id", headerParam1)
+		}
 
 	}
 
@@ -1533,6 +1755,17 @@ func NewGetAttachmentManifestRequestWithBody(server string, params *GetAttachmen
 
 		req.Header.Set("x-ode-version", headerParam0)
 
+		if params.XRepositoryGeneration != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-repository-generation", *params.XRepositoryGeneration, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "integer", Format: "int64"})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-repository-generation", headerParam1)
+		}
+
 	}
 
 	return req, nil
@@ -1651,7 +1884,7 @@ func NewCheckAttachmentExistsRequest(server string, attachmentId string, params 
 }
 
 // NewUploadAttachmentRequestWithBody generates requests for UploadAttachment with any type of body
-func NewUploadAttachmentRequestWithBody(server string, attachmentId string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUploadAttachmentRequestWithBody(server string, attachmentId string, params *UploadAttachmentParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -1682,6 +1915,21 @@ func NewUploadAttachmentRequestWithBody(server string, attachmentId string, cont
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XRepositoryGeneration != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-repository-generation", *params.XRepositoryGeneration, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "integer", Format: "int64"})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-repository-generation", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -1932,6 +2180,28 @@ func NewSyncPullRequestWithBody(server string, params *SyncPullParams, contentTy
 
 		req.Header.Set("x-ode-version", headerParam0)
 
+		if params.XOdeClientId != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-ode-client-id", *params.XOdeClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-ode-client-id", headerParam1)
+		}
+
+		if params.XRepositoryGeneration != nil {
+			var headerParam2 string
+
+			headerParam2, err = runtime.StyleParamWithOptions("simple", false, "x-repository-generation", *params.XRepositoryGeneration, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "integer", Format: "int64"})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-repository-generation", headerParam2)
+		}
+
 	}
 
 	return req, nil
@@ -1985,6 +2255,28 @@ func NewSyncPushRequestWithBody(server string, params *SyncPushParams, contentTy
 
 		req.Header.Set("x-ode-version", headerParam0)
 
+		if params.XOdeClientId != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-ode-client-id", *params.XOdeClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-ode-client-id", headerParam1)
+		}
+
+		if params.XRepositoryGeneration != nil {
+			var headerParam2 string
+
+			headerParam2, err = runtime.StyleParamWithOptions("simple", false, "x-repository-generation", *params.XRepositoryGeneration, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "integer", Format: "int64"})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-repository-generation", headerParam2)
+		}
+
 	}
 
 	return req, nil
@@ -2024,6 +2316,17 @@ func NewListUsersRequest(server string, params *ListUsersParams) (*http.Request,
 		}
 
 		req.Header.Set("x-ode-version", headerParam0)
+
+		if params.XOdeClientId != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-ode-client-id", *params.XOdeClientId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("x-ode-client-id", headerParam1)
+		}
 
 	}
 
@@ -2333,6 +2636,11 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// AdminRepositoryResetWithBodyWithResponse request with any body
+	AdminRepositoryResetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error)
+
+	AdminRepositoryResetWithResponse(ctx context.Context, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error)
+
 	// GetAppBundleChangesWithResponse request
 	GetAppBundleChangesWithResponse(ctx context.Context, params *GetAppBundleChangesParams, reqEditors ...RequestEditorFn) (*GetAppBundleChangesHTTPResponse, error)
 
@@ -2366,7 +2674,7 @@ type ClientWithResponsesInterface interface {
 	CheckAttachmentExistsWithResponse(ctx context.Context, attachmentId string, params *CheckAttachmentExistsParams, reqEditors ...RequestEditorFn) (*CheckAttachmentExistsHTTPResponse, error)
 
 	// UploadAttachmentWithBodyWithResponse request with any body
-	UploadAttachmentWithBodyWithResponse(ctx context.Context, attachmentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadAttachmentHTTPResponse, error)
+	UploadAttachmentWithBodyWithResponse(ctx context.Context, attachmentId string, params *UploadAttachmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadAttachmentHTTPResponse, error)
 
 	// LoginWithBodyWithResponse request with any body
 	LoginWithBodyWithResponse(ctx context.Context, params *LoginParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LoginHTTPResponse, error)
@@ -2420,6 +2728,32 @@ type ClientWithResponsesInterface interface {
 
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthHTTPResponse, error)
+}
+
+type AdminRepositoryResetHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RepositoryResetResponse
+	JSON400      *ErrorResponse
+	JSON401      *ErrorResponse
+	JSON403      *ErrorResponse
+	JSON500      *ErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r AdminRepositoryResetHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdminRepositoryResetHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type GetAppBundleChangesHTTPResponse struct {
@@ -2597,6 +2931,7 @@ type GetAttachmentManifestHTTPResponse struct {
 	JSON200      *AttachmentManifestResponse
 	JSON400      *ErrorResponse
 	JSON401      *ErrorResponse
+	JSON409      *ErrorResponse
 	JSON500      *ErrorResponse
 }
 
@@ -2664,6 +2999,7 @@ type UploadAttachmentHTTPResponse struct {
 	JSON200      *struct {
 		Status *string `json:"status,omitempty"`
 	}
+	JSON409 *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2804,6 +3140,7 @@ type SyncPushHTTPResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *SyncPushResponse
+	JSON409      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -2825,7 +3162,7 @@ func (r SyncPushHTTPResponse) StatusCode() int {
 type ListUsersHTTPResponse struct {
 	Body                      []byte
 	HTTPResponse              *http.Response
-	JSON200                   *[]UserResponse
+	JSON200                   *[]UserListItem
 	ApplicationproblemJSON401 *ProblemDetail
 	ApplicationproblemJSON403 *ProblemDetail
 }
@@ -3017,6 +3354,23 @@ func (r GetHealthHTTPResponse) StatusCode() int {
 	return 0
 }
 
+// AdminRepositoryResetWithBodyWithResponse request with arbitrary body returning *AdminRepositoryResetHTTPResponse
+func (c *ClientWithResponses) AdminRepositoryResetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error) {
+	rsp, err := c.AdminRepositoryResetWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRepositoryResetHTTPResponse(rsp)
+}
+
+func (c *ClientWithResponses) AdminRepositoryResetWithResponse(ctx context.Context, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error) {
+	rsp, err := c.AdminRepositoryReset(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdminRepositoryResetHTTPResponse(rsp)
+}
+
 // GetAppBundleChangesWithResponse request returning *GetAppBundleChangesHTTPResponse
 func (c *ClientWithResponses) GetAppBundleChangesWithResponse(ctx context.Context, params *GetAppBundleChangesParams, reqEditors ...RequestEditorFn) (*GetAppBundleChangesHTTPResponse, error) {
 	rsp, err := c.GetAppBundleChanges(ctx, params, reqEditors...)
@@ -3116,8 +3470,8 @@ func (c *ClientWithResponses) CheckAttachmentExistsWithResponse(ctx context.Cont
 }
 
 // UploadAttachmentWithBodyWithResponse request with arbitrary body returning *UploadAttachmentHTTPResponse
-func (c *ClientWithResponses) UploadAttachmentWithBodyWithResponse(ctx context.Context, attachmentId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadAttachmentHTTPResponse, error) {
-	rsp, err := c.UploadAttachmentWithBody(ctx, attachmentId, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UploadAttachmentWithBodyWithResponse(ctx context.Context, attachmentId string, params *UploadAttachmentParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UploadAttachmentHTTPResponse, error) {
+	rsp, err := c.UploadAttachmentWithBody(ctx, attachmentId, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3295,6 +3649,60 @@ func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEdit
 		return nil, err
 	}
 	return ParseGetHealthHTTPResponse(rsp)
+}
+
+// ParseAdminRepositoryResetHTTPResponse parses an HTTP response from a AdminRepositoryResetWithResponse call
+func ParseAdminRepositoryResetHTTPResponse(rsp *http.Response) (*AdminRepositoryResetHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdminRepositoryResetHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RepositoryResetResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseGetAppBundleChangesHTTPResponse parses an HTTP response from a GetAppBundleChangesWithResponse call
@@ -3604,6 +4012,13 @@ func ParseGetAttachmentManifestHTTPResponse(rsp *http.Response) (*GetAttachmentM
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -3670,6 +4085,13 @@ func ParseUploadAttachmentHTTPResponse(rsp *http.Response) (*UploadAttachmentHTT
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	}
 
@@ -3883,6 +4305,13 @@ func ParseSyncPushHTTPResponse(rsp *http.Response) (*SyncPushHTTPResponse, error
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -3903,7 +4332,7 @@ func ParseListUsersHTTPResponse(rsp *http.Response) (*ListUsersHTTPResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []UserResponse
+		var dest []UserListItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

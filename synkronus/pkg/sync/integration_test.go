@@ -48,7 +48,7 @@ func TestDatabaseIntegration_VersionIncrement(t *testing.T) {
 	}
 
 	// Process the record
-	result, err := service.ProcessPushedRecords(ctx, []Observation{testRecord}, "test-client", "test-transmission-1")
+	result, err := service.ProcessPushedRecords(ctx, []Observation{testRecord}, "test-client", "test-transmission-1", 1)
 	if err != nil {
 		t.Fatalf("Failed to process records: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestDatabaseIntegration_VersionIncrement(t *testing.T) {
 	updateRecord.Data = json.RawMessage(`{"field1": "updated_value"}`)
 	updateRecord.UpdatedAt = time.Now().Format(time.RFC3339)
 
-	updateResult, err := service.ProcessPushedRecords(ctx, []Observation{updateRecord}, "test-client", "test-transmission-2")
+	updateResult, err := service.ProcessPushedRecords(ctx, []Observation{updateRecord}, "test-client", "test-transmission-2", 1)
 	if err != nil {
 		t.Fatalf("Failed to process update: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestDatabaseIntegration_TransactionRollback(t *testing.T) {
 		},
 	}
 
-	result, err := service.ProcessPushedRecords(ctx, records, "test-client", "test-transmission-rollback")
+	result, err := service.ProcessPushedRecords(ctx, records, "test-client", "test-transmission-rollback", 1)
 	if err != nil {
 		t.Fatalf("Failed to process records: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestDatabaseIntegration_ConcurrentAccess(t *testing.T) {
 				}
 			}
 
-			result, err := service.ProcessPushedRecords(ctx, records, fmt.Sprintf("client-%d", id), fmt.Sprintf("transmission-%d", id))
+			result, err := service.ProcessPushedRecords(ctx, records, fmt.Sprintf("client-%d", id), fmt.Sprintf("transmission-%d", id), 1)
 			if err != nil {
 				errors <- fmt.Errorf("goroutine %d failed: %w", id, err)
 				return
@@ -331,7 +331,7 @@ func TestDatabaseIntegration_VersionConsistency(t *testing.T) {
 			Deleted:       false,
 		}
 
-		result, err := service.ProcessPushedRecords(ctx, []Observation{record}, "test-client", fmt.Sprintf("transmission-%d", i))
+		result, err := service.ProcessPushedRecords(ctx, []Observation{record}, "test-client", fmt.Sprintf("transmission-%d", i), 1)
 		if err != nil {
 			t.Fatalf("Operation %d failed: %v", i, err)
 		}

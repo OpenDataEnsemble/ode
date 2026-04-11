@@ -11,6 +11,10 @@
 
 ### ✅ Core Sync Design
 - Pull → Push model: client pulls recent changes, then pushes local changes
+- **Repository generation (epoch)** is separate from the **change stream cursor** (`since.version` / `change_id`):
+  - `repository_generation` is a monotonic integer on the server; it increments only when an administrator performs a **hard repository reset** (wiping observation/attachment sync state).
+  - Clients must send `X-Repository-Generation` on push, attachment manifest, and attachment upload; responses include the current epoch in JSON (and may repeat it in the header).
+  - If the client’s epoch lags or diverges, the server responds with **409 Conflict** and stable error `code: repository_reset_required`. Clients must align (typically by pulling fresh state after wiping local observation/attachment data that no longer matches the server).
 - Each record contains:
   - `id`
   - `schemaType`

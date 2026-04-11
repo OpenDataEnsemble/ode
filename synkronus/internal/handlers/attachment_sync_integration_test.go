@@ -45,21 +45,22 @@ func TestAttachmentUpload_FollowedByManifest_ReturnsDownloadForSecondDevice(t *t
 	manifestSvc := attachment.NewManifestService(db, cfg, log)
 	require.NoError(t, manifestSvc.Initialize(context.Background()))
 
-	attHandler := NewAttachmentHandler(log, attSvc, manifestSvc)
+	syncSvc := sync.NewService(db, sync.DefaultConfig(), log)
+	require.NoError(t, syncSvc.Initialize(context.Background()))
 
-	mockSync := mocks.NewMockSyncService()
-	require.NoError(t, mockSync.Initialize(context.Background()))
+	attHandler := NewAttachmentHandler(log, attSvc, manifestSvc, syncSvc)
 
 	h := NewHandler(
 		log,
 		cfg,
 		&mockAuthService{},
 		&mockAppBundleService{},
-		mockSync,
+		syncSvc,
 		&mockUserService{},
 		&mockVersionService{},
 		manifestSvc,
 		mocks.NewMockDataExportService(),
+		nil,
 	)
 
 	r := chi.NewRouter()

@@ -44,6 +44,7 @@ func TestNewRouter(t *testing.T) {
 		mockVersionService,
 		mockAttachmentManifestService,
 		mockDataExportService,
+		nil,
 	)
 
 	// Create a new router
