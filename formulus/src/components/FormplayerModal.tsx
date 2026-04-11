@@ -602,12 +602,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           throw error;
         }
       },
-      [
-        currentObservationId,
-        currentOperationId,
-        onClose,
-        showConfirm,
-      ],
+      [currentObservationId, currentOperationId, onClose, showConfirm],
     );
 
     // Register/unregister modal with message handlers and reset form state
