@@ -66,7 +66,7 @@ const ObservationCard: React.FC<ObservationCardProps> = ({
             size={24}
             color={
               isSynced
-                ? (themeColors.primary as string)
+                ? (colors.brand.primary['500'] as string)
                 : colors.semantic.warning[500]
             }
           />

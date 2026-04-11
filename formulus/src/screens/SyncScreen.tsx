@@ -292,6 +292,8 @@ const SyncScreen = () => {
   };
 
   const observationStatus = getObservationStatusText();
+  /** Check icon on idle success uses ODE brand green; status text still follows app theme primary. */
+  const odeStatusIconGreen = colors.brand.primary['500'] as string;
   const observationStatusColor = isObservationSyncActive
     ? themeColors.primary
     : syncState.error
@@ -299,6 +301,13 @@ const SyncScreen = () => {
       : pendingObservations > 0 || pendingUploads.count > 0
         ? colors.semantic.warning[500]
         : (themeColors.primary as string);
+  const observationStatusIconColor = isObservationSyncActive
+    ? themeColors.primary
+    : syncState.error
+      ? colors.semantic.error[500]
+      : pendingObservations > 0 || pendingUploads.count > 0
+        ? colors.semantic.warning[500]
+        : odeStatusIconGreen;
 
   useEffect(() => {
     const unsubscribeStatus = syncService.subscribeToStatusUpdates(() => {});
@@ -555,7 +564,7 @@ const SyncScreen = () => {
                           : 'check-circle'
                   }
                   size={20}
-                  color={observationStatusColor as string}
+                  color={observationStatusIconColor as string}
                 />
                 <Text
                   style={[
