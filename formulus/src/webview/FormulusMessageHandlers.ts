@@ -1170,7 +1170,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const service = await FormService.getInstance();
       return await service.getObservationsByQuery(options);
     },
-    onOpenFormplayer: async (data: FormInitData & { options?: { returnOnly?: boolean } }) => {
+    onOpenFormplayer: async (
+      data: FormInitData & { options?: { returnOnly?: boolean } },
+    ) => {
       return startFormplayerOperation(
         data.formType,
         data.params,

@@ -500,7 +500,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         try {
           // Save the observation (optional - skip if returnOnly flag is set)
           let resultObservationId: string;
-          
+
           if (!returnOnly) {
             // Normal mode: save to database
             const localRepo = databaseService.getLocalRepo();
@@ -602,7 +602,13 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           throw error;
         }
       },
-      [currentObservationId, currentOperationId, onClose, showConfirm, returnOnly],
+      [
+        currentObservationId,
+        currentOperationId,
+        onClose,
+        showConfirm,
+        returnOnly,
+      ],
     );
 
     // Register/unregister modal with message handlers and reset form state
