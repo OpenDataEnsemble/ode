@@ -40,6 +40,18 @@ import {
   operationServerMap,
 } from './base';
 
+export interface APIVersionInfo {
+  version: string;
+  releaseDate: string;
+  deprecated: boolean;
+}
+export interface APIVersionsResponse {
+  versions: Array<APIVersionInfo>;
+  /**
+   * Identifier of the current API contract version
+   */
+  current: string;
+}
 export interface AppBundleChangeLog {
   compare_version_a: string;
   compare_version_b: string;
@@ -398,7 +410,7 @@ export interface SwitchAppBundleVersion200Response {
 export interface SyncPullRequest {
   client_id: string;
   /**
-   * Optional body copy of epoch; header x-repository-generation wins when both are sent.
+   * Optional body copy of epoch; header x-repository-generation wins when both are sent. Must match the server or the request returns 409.
    */
   repository_generation?: number;
   since?: SyncPullRequestSince;
@@ -539,12 +551,16 @@ export const AttachmentsApiAxiosParamCreator = function (
     /**
      * Returns a ZIP containing every attachment whose latest manifest operation is create or update. Entry paths correspond to attachment IDs. Large exports stream without buffering the full archive in memory.
      * @summary Download all attachments as a streamed ZIP
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     getAttachmentsExportZip: async (
+      xOdeVersion: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('getAttachmentsExportZip', 'xOdeVersion', xOdeVersion);
       const localVarPath = `/api/attachments/export-zip`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -567,6 +583,9 @@ export const AttachmentsApiAxiosParamCreator = function (
 
       localVarHeaderParameter['Accept'] = 'application/zip,application/json';
 
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
         baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -594,16 +613,21 @@ export const AttachmentsApiFp = function (configuration?: Configuration) {
     /**
      * Returns a ZIP containing every attachment whose latest manifest operation is create or update. Entry paths correspond to attachment IDs. Large exports stream without buffering the full archive in memory.
      * @summary Download all attachments as a streamed ZIP
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async getAttachmentsExportZip(
+      xOdeVersion: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>
     > {
       const localVarAxiosArgs =
-        await localVarAxiosParamCreator.getAttachmentsExportZip(options);
+        await localVarAxiosParamCreator.getAttachmentsExportZip(
+          xOdeVersion,
+          options,
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
         operationServerMap['AttachmentsApi.getAttachmentsExportZip']?.[
@@ -633,18 +657,30 @@ export const AttachmentsApiFactory = function (
     /**
      * Returns a ZIP containing every attachment whose latest manifest operation is create or update. Entry paths correspond to attachment IDs. Large exports stream without buffering the full archive in memory.
      * @summary Download all attachments as a streamed ZIP
+     * @param {AttachmentsApiGetAttachmentsExportZipRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     getAttachmentsExportZip(
+      requestParameters: AttachmentsApiGetAttachmentsExportZipRequest,
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<File> {
       return localVarFp
-        .getAttachmentsExportZip(options)
+        .getAttachmentsExportZip(requestParameters.xOdeVersion, options)
         .then(request => request(axios, basePath));
     },
   };
 };
+
+/**
+ * Request parameters for getAttachmentsExportZip operation in AttachmentsApi.
+ */
+export interface AttachmentsApiGetAttachmentsExportZipRequest {
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
+}
 
 /**
  * AttachmentsApi - object-oriented interface
@@ -653,12 +689,16 @@ export class AttachmentsApi extends BaseAPI {
   /**
    * Returns a ZIP containing every attachment whose latest manifest operation is create or update. Entry paths correspond to attachment IDs. Large exports stream without buffering the full archive in memory.
    * @summary Download all attachments as a streamed ZIP
+   * @param {AttachmentsApiGetAttachmentsExportZipRequest} requestParameters Request parameters.
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public getAttachmentsExportZip(options?: RawAxiosRequestConfig) {
+  public getAttachmentsExportZip(
+    requestParameters: AttachmentsApiGetAttachmentsExportZipRequest,
+    options?: RawAxiosRequestConfig,
+  ) {
     return AttachmentsApiFp(this.configuration)
-      .getAttachmentsExportZip(options)
+      .getAttachmentsExportZip(requestParameters.xOdeVersion, options)
       .then(request => request(this.axios, this.basePath));
   }
 }
@@ -673,12 +713,16 @@ export const DataExportApiAxiosParamCreator = function (
     /**
      * Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together.
      * @summary Download a ZIP archive of Parquet exports
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     getParquetExportZip: async (
+      xOdeVersion: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('getParquetExportZip', 'xOdeVersion', xOdeVersion);
       const localVarPath = `/api/dataexport/parquet`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -701,6 +745,9 @@ export const DataExportApiAxiosParamCreator = function (
 
       localVarHeaderParameter['Accept'] = 'application/zip,application/json';
 
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
         baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -718,12 +765,16 @@ export const DataExportApiAxiosParamCreator = function (
     /**
      * Returns a ZIP archive where each non-deleted observation is one JSON file, grouped by form type folder. Each file contains metadata fields and a nested `data` object with the form payload.
      * @summary Download a ZIP archive of per-observation JSON files
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     getRawJsonExportZip: async (
+      xOdeVersion: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('getRawJsonExportZip', 'xOdeVersion', xOdeVersion);
       const localVarPath = `/api/dataexport/raw-json`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -746,6 +797,9 @@ export const DataExportApiAxiosParamCreator = function (
 
       localVarHeaderParameter['Accept'] = 'application/zip,application/json';
 
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
         baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -773,16 +827,21 @@ export const DataExportApiFp = function (configuration?: Configuration) {
     /**
      * Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together.
      * @summary Download a ZIP archive of Parquet exports
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async getParquetExportZip(
+      xOdeVersion: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>
     > {
       const localVarAxiosArgs =
-        await localVarAxiosParamCreator.getParquetExportZip(options);
+        await localVarAxiosParamCreator.getParquetExportZip(
+          xOdeVersion,
+          options,
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
         operationServerMap['DataExportApi.getParquetExportZip']?.[
@@ -799,16 +858,21 @@ export const DataExportApiFp = function (configuration?: Configuration) {
     /**
      * Returns a ZIP archive where each non-deleted observation is one JSON file, grouped by form type folder. Each file contains metadata fields and a nested `data` object with the form payload.
      * @summary Download a ZIP archive of per-observation JSON files
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async getRawJsonExportZip(
+      xOdeVersion: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>
     > {
       const localVarAxiosArgs =
-        await localVarAxiosParamCreator.getRawJsonExportZip(options);
+        await localVarAxiosParamCreator.getRawJsonExportZip(
+          xOdeVersion,
+          options,
+        );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
         operationServerMap['DataExportApi.getRawJsonExportZip']?.[
@@ -838,27 +902,55 @@ export const DataExportApiFactory = function (
     /**
      * Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together.
      * @summary Download a ZIP archive of Parquet exports
+     * @param {DataExportApiGetParquetExportZipRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    getParquetExportZip(options?: RawAxiosRequestConfig): AxiosPromise<File> {
+    getParquetExportZip(
+      requestParameters: DataExportApiGetParquetExportZipRequest,
+      options?: RawAxiosRequestConfig,
+    ): AxiosPromise<File> {
       return localVarFp
-        .getParquetExportZip(options)
+        .getParquetExportZip(requestParameters.xOdeVersion, options)
         .then(request => request(axios, basePath));
     },
     /**
      * Returns a ZIP archive where each non-deleted observation is one JSON file, grouped by form type folder. Each file contains metadata fields and a nested `data` object with the form payload.
      * @summary Download a ZIP archive of per-observation JSON files
+     * @param {DataExportApiGetRawJsonExportZipRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
-    getRawJsonExportZip(options?: RawAxiosRequestConfig): AxiosPromise<File> {
+    getRawJsonExportZip(
+      requestParameters: DataExportApiGetRawJsonExportZipRequest,
+      options?: RawAxiosRequestConfig,
+    ): AxiosPromise<File> {
       return localVarFp
-        .getRawJsonExportZip(options)
+        .getRawJsonExportZip(requestParameters.xOdeVersion, options)
         .then(request => request(axios, basePath));
     },
   };
 };
+
+/**
+ * Request parameters for getParquetExportZip operation in DataExportApi.
+ */
+export interface DataExportApiGetParquetExportZipRequest {
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
+}
+
+/**
+ * Request parameters for getRawJsonExportZip operation in DataExportApi.
+ */
+export interface DataExportApiGetRawJsonExportZipRequest {
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
+}
 
 /**
  * DataExportApi - object-oriented interface
@@ -867,24 +959,32 @@ export class DataExportApi extends BaseAPI {
   /**
    * Returns a ZIP file containing multiple Parquet files, each representing a flattened export of observations per form type. Supports downloading the entire dataset as separate Parquet files bundled together.
    * @summary Download a ZIP archive of Parquet exports
+   * @param {DataExportApiGetParquetExportZipRequest} requestParameters Request parameters.
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public getParquetExportZip(options?: RawAxiosRequestConfig) {
+  public getParquetExportZip(
+    requestParameters: DataExportApiGetParquetExportZipRequest,
+    options?: RawAxiosRequestConfig,
+  ) {
     return DataExportApiFp(this.configuration)
-      .getParquetExportZip(options)
+      .getParquetExportZip(requestParameters.xOdeVersion, options)
       .then(request => request(this.axios, this.basePath));
   }
 
   /**
    * Returns a ZIP archive where each non-deleted observation is one JSON file, grouped by form type folder. Each file contains metadata fields and a nested `data` object with the form payload.
    * @summary Download a ZIP archive of per-observation JSON files
+   * @param {DataExportApiGetRawJsonExportZipRequest} requestParameters Request parameters.
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public getRawJsonExportZip(options?: RawAxiosRequestConfig) {
+  public getRawJsonExportZip(
+    requestParameters: DataExportApiGetRawJsonExportZipRequest,
+    options?: RawAxiosRequestConfig,
+  ) {
     return DataExportApiFp(this.configuration)
-      .getRawJsonExportZip(options)
+      .getRawJsonExportZip(requestParameters.xOdeVersion, options)
       .then(request => request(this.axios, this.basePath));
   }
 }
@@ -899,14 +999,18 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Destructive operation: deletes all observations and attachment manifest rows, resets the observation stream cursor, increments repository_generation, and clears attachment files on disk. App bundles are not removed. Requires body `{ \"confirm\": \"RESET_REPOSITORY\" }`.
      * @summary Irreversibly wipe server observation and attachment sync data (admin only)
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {RepositoryResetRequest} repositoryResetRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     adminRepositoryReset: async (
+      xOdeVersion: string,
       repositoryResetRequest: RepositoryResetRequest,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('adminRepositoryReset', 'xOdeVersion', xOdeVersion);
       // verify required parameter 'repositoryResetRequest' is not null or undefined
       assertParamExists(
         'adminRepositoryReset',
@@ -936,6 +1040,9 @@ export const DefaultApiAxiosParamCreator = function (
       localVarHeaderParameter['Content-Type'] = 'application/json';
       localVarHeaderParameter['Accept'] = 'application/json';
 
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
         baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -958,7 +1065,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Change password for the currently authenticated user
      * @summary Change user password (authenticated user)\'s password
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {ChangePasswordRequest} changePasswordRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1026,17 +1133,21 @@ export const DefaultApiAxiosParamCreator = function (
      * Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`), existence is checked against the original file first, with fallback to the processed file.
      * @summary Check if an attachment exists
      * @param {string} attachmentId
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [original] Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     checkAttachmentExists: async (
       attachmentId: string,
+      xOdeVersion: string,
       original?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'attachmentId' is not null or undefined
       assertParamExists('checkAttachmentExists', 'attachmentId', attachmentId);
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('checkAttachmentExists', 'xOdeVersion', xOdeVersion);
       const localVarPath = `/api/attachments/{attachment_id}`.replace(
         `{${'attachment_id'}}`,
         encodeURIComponent(String(attachmentId)),
@@ -1064,6 +1175,9 @@ export const DefaultApiAxiosParamCreator = function (
         localVarQueryParameter['original'] = original;
       }
 
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
         baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -1081,7 +1195,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Create a new user with specified username, password, and role
      * @summary Create a new user (admin only)
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {CreateUserRequest} createUserRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1145,7 +1259,7 @@ export const DefaultApiAxiosParamCreator = function (
      * Delete a user by username
      * @summary Delete a user (admin only)
      * @param {string} username Username of the user to delete
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -1205,7 +1319,7 @@ export const DefaultApiAxiosParamCreator = function (
      *
      * @summary Download a specific file from the app bundle
      * @param {string} path
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {boolean} [preview] If true, returns the file from the latest version including unreleased changes
      * @param {string} [ifNoneMatch]
      * @param {*} [options] Override http request option.
@@ -1272,20 +1386,76 @@ export const DefaultApiAxiosParamCreator = function (
       };
     },
     /**
+     * Returns the full custom app bundle archive for the active version as `application/zip`.
+     * @summary Download the active app bundle as a single ZIP
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    downloadAppBundleZip: async (
+      xOdeVersion: string,
+      options: RawAxiosRequestConfig = {},
+    ): Promise<RequestArgs> => {
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('downloadAppBundleZip', 'xOdeVersion', xOdeVersion);
+      const localVarPath = `/api/app-bundle/download-zip`;
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = {
+        method: 'GET',
+        ...baseOptions,
+        ...options,
+      };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      // authentication bearerAuth required
+      // http bearer authentication required
+      await setBearerAuthToObject(localVarHeaderParameter, configuration);
+
+      localVarHeaderParameter['Accept'] = 'application/zip,application/json';
+
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = {
+        ...localVarHeaderParameter,
+        ...headersFromBaseOptions,
+        ...options.headers,
+      };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
      * Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
      * @summary Download an attachment by ID
      * @param {string} attachmentId
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [original] Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     downloadAttachment: async (
       attachmentId: string,
+      xOdeVersion: string,
       original?: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'attachmentId' is not null or undefined
       assertParamExists('downloadAttachment', 'attachmentId', attachmentId);
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('downloadAttachment', 'xOdeVersion', xOdeVersion);
       const localVarPath = `/api/attachments/{attachment_id}`.replace(
         `{${'attachment_id'}}`,
         encodeURIComponent(String(attachmentId)),
@@ -1315,6 +1485,61 @@ export const DefaultApiAxiosParamCreator = function (
 
       localVarHeaderParameter['Accept'] = 'application/octet-stream';
 
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
+      setSearchParams(localVarUrlObj, localVarQueryParameter);
+      let headersFromBaseOptions =
+        baseOptions && baseOptions.headers ? baseOptions.headers : {};
+      localVarRequestOptions.headers = {
+        ...localVarHeaderParameter,
+        ...headersFromBaseOptions,
+        ...options.headers,
+      };
+
+      return {
+        url: toPathString(localVarUrlObj),
+        options: localVarRequestOptions,
+      };
+    },
+    /**
+     * Returns version metadata for the public HTTP API (compatibility hints for clients).
+     * @summary List supported API contract versions
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    getAPIVersions: async (
+      xOdeVersion: string,
+      options: RawAxiosRequestConfig = {},
+    ): Promise<RequestArgs> => {
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('getAPIVersions', 'xOdeVersion', xOdeVersion);
+      const localVarPath = `/api/versions`;
+      // use dummy base URL string because the URL constructor only accepts absolute URLs.
+      const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+      let baseOptions;
+      if (configuration) {
+        baseOptions = configuration.baseOptions;
+      }
+
+      const localVarRequestOptions = {
+        method: 'GET',
+        ...baseOptions,
+        ...options,
+      };
+      const localVarHeaderParameter = {} as any;
+      const localVarQueryParameter = {} as any;
+
+      // authentication bearerAuth required
+      // http bearer authentication required
+      await setBearerAuthToObject(localVarHeaderParameter, configuration);
+
+      localVarHeaderParameter['Accept'] = 'application/json';
+
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
         baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -1332,7 +1557,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Compares two versions of the app bundle and returns detailed changes
      * @summary Get changes between two app bundle versions
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [current] The current version (defaults to latest)
      * @param {string} [target] The target version to compare against (defaults to previous version)
      * @param {*} [options] Override http request option.
@@ -1396,7 +1621,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      *
      * @summary Get the current custom app bundle manifest
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [xOdeClientId] Optional client instance id for correlating app bundle checks with presence.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1453,7 +1678,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      *
      * @summary Get a list of available app bundle versions
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -1505,7 +1730,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
      * @summary Get attachment manifest for incremental sync
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {AttachmentManifestRequest} attachmentManifestRequest
      * @param {number} [xRepositoryGeneration] Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
      * @param {*} [options] Override http request option.
@@ -1582,12 +1807,16 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Returns detailed version information about the server, including build information and system details
      * @summary Get server version and system information
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     getVersion: async (
+      xOdeVersion: string,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('getVersion', 'xOdeVersion', xOdeVersion);
       const localVarPath = `/api/version`;
       // use dummy base URL string because the URL constructor only accepts absolute URLs.
       const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -1604,8 +1833,15 @@ export const DefaultApiAxiosParamCreator = function (
       const localVarHeaderParameter = {} as any;
       const localVarQueryParameter = {} as any;
 
+      // authentication bearerAuth required
+      // http bearer authentication required
+      await setBearerAuthToObject(localVarHeaderParameter, configuration);
+
       localVarHeaderParameter['Accept'] = 'application/json';
 
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
       setSearchParams(localVarUrlObj, localVarQueryParameter);
       let headersFromBaseOptions =
         baseOptions && baseOptions.headers ? baseOptions.headers : {};
@@ -1623,7 +1859,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
      * @summary List all users (admin only)
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [xOdeClientId] Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1681,7 +1917,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Obtain a JWT token by providing username and password
      * @summary Authenticate user and return JWT tokens
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {LoginRequest} loginRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1740,7 +1976,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      *
      * @summary Upload a new app bundle (admin only)
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {File} [bundle] ZIP file containing the new app bundle
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1804,7 +2040,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Obtain a new JWT token using a refresh token
      * @summary Refresh JWT token
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {RefreshTokenRequest} refreshTokenRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1867,7 +2103,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Reset password for a specified user
      * @summary Reset user password (admin only)
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {ResetUserPasswordRequest} resetUserPasswordRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -1935,7 +2171,7 @@ export const DefaultApiAxiosParamCreator = function (
      *
      * @summary Switch to a specific app bundle version (admin only)
      * @param {string} version Version identifier to switch to
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -1994,12 +2230,12 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      * Retrieves records that have changed since a specified version.  **Pagination Pattern:** 1. Send initial request with `since.version` (or omit for all records) 2. Process returned records 3. If `has_more` is true, make next request using `change_cutoff` as the new `since.version` 4. Repeat until `has_more` is false  Example pagination flow: - Request 1: `since: {version: 100}` → Response: `change_cutoff: 150, has_more: true` - Request 2: `since: {version: 150}` → Response: `change_cutoff: 200, has_more: false`
      * @summary Pull updated records since last sync
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {SyncPullRequest} syncPullRequest
      * @param {string} [schemaType] Filter by schemaType
      * @param {number} [limit] Maximum number of records to return
      * @param {string} [xOdeClientId] Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
-     * @param {number} [xRepositoryGeneration] Client\&#39;s repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header.
+     * @param {number} [xRepositoryGeneration] Client repository epoch; must match the server. Omitted or invalid values are treated as 1. Successful responses include the current epoch in JSON and in this header.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -2084,7 +2320,7 @@ export const DefaultApiAxiosParamCreator = function (
     /**
      *
      * @summary Push new or updated records to the server
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {SyncPushRequest} syncPushRequest
      * @param {string} [xOdeClientId] Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
      * @param {number} [xRepositoryGeneration] Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
@@ -2163,6 +2399,7 @@ export const DefaultApiAxiosParamCreator = function (
      *
      * @summary Upload a new attachment with specified ID
      * @param {string} attachmentId
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {File} file The binary file to upload
      * @param {number} [xRepositoryGeneration] Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
      * @param {*} [options] Override http request option.
@@ -2170,12 +2407,15 @@ export const DefaultApiAxiosParamCreator = function (
      */
     uploadAttachment: async (
       attachmentId: string,
+      xOdeVersion: string,
       file: File,
       xRepositoryGeneration?: number,
       options: RawAxiosRequestConfig = {},
     ): Promise<RequestArgs> => {
       // verify required parameter 'attachmentId' is not null or undefined
       assertParamExists('uploadAttachment', 'attachmentId', attachmentId);
+      // verify required parameter 'xOdeVersion' is not null or undefined
+      assertParamExists('uploadAttachment', 'xOdeVersion', xOdeVersion);
       // verify required parameter 'file' is not null or undefined
       assertParamExists('uploadAttachment', 'file', file);
       const localVarPath = `/api/attachments/{attachment_id}`.replace(
@@ -2211,6 +2451,9 @@ export const DefaultApiAxiosParamCreator = function (
       localVarHeaderParameter['Content-Type'] = 'multipart/form-data';
       localVarHeaderParameter['Accept'] = 'application/json';
 
+      if (xOdeVersion != null) {
+        localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+      }
       if (xRepositoryGeneration != null) {
         localVarHeaderParameter['x-repository-generation'] =
           typeof xRepositoryGeneration === 'string'
@@ -2247,11 +2490,13 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Destructive operation: deletes all observations and attachment manifest rows, resets the observation stream cursor, increments repository_generation, and clears attachment files on disk. App bundles are not removed. Requires body `{ \"confirm\": \"RESET_REPOSITORY\" }`.
      * @summary Irreversibly wipe server observation and attachment sync data (admin only)
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {RepositoryResetRequest} repositoryResetRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async adminRepositoryReset(
+      xOdeVersion: string,
       repositoryResetRequest: RepositoryResetRequest,
       options?: RawAxiosRequestConfig,
     ): Promise<
@@ -2262,6 +2507,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     > {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.adminRepositoryReset(
+          xOdeVersion,
           repositoryResetRequest,
           options,
         );
@@ -2281,7 +2527,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Change password for the currently authenticated user
      * @summary Change user password (authenticated user)\'s password
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {ChangePasswordRequest} changePasswordRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -2318,12 +2564,14 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      * Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`), existence is checked against the original file first, with fallback to the processed file.
      * @summary Check if an attachment exists
      * @param {string} attachmentId
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [original] Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async checkAttachmentExists(
       attachmentId: string,
+      xOdeVersion: string,
       original?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
@@ -2332,6 +2580,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.checkAttachmentExists(
           attachmentId,
+          xOdeVersion,
           original,
           options,
         );
@@ -2351,7 +2600,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Create a new user with specified username, password, and role
      * @summary Create a new user (admin only)
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {CreateUserRequest} createUserRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -2385,7 +2634,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      * Delete a user by username
      * @summary Delete a user (admin only)
      * @param {string} username Username of the user to delete
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -2421,7 +2670,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      *
      * @summary Download a specific file from the app bundle
      * @param {string} path
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {boolean} [preview] If true, returns the file from the latest version including unreleased changes
      * @param {string} [ifNoneMatch]
      * @param {*} [options] Override http request option.
@@ -2458,15 +2707,48 @@ export const DefaultApiFp = function (configuration?: Configuration) {
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
+     * Returns the full custom app bundle archive for the active version as `application/zip`.
+     * @summary Download the active app bundle as a single ZIP
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async downloadAppBundleZip(
+      xOdeVersion: string,
+      options?: RawAxiosRequestConfig,
+    ): Promise<
+      (axios?: AxiosInstance, basePath?: string) => AxiosPromise<File>
+    > {
+      const localVarAxiosArgs =
+        await localVarAxiosParamCreator.downloadAppBundleZip(
+          xOdeVersion,
+          options,
+        );
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath =
+        operationServerMap['DefaultApi.downloadAppBundleZip']?.[
+          localVarOperationServerIndex
+        ]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(
+          localVarAxiosArgs,
+          globalAxios,
+          BASE_PATH,
+          configuration,
+        )(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
      * Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
      * @summary Download an attachment by ID
      * @param {string} attachmentId
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [original] Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async downloadAttachment(
       attachmentId: string,
+      xOdeVersion: string,
       original?: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
@@ -2475,6 +2757,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.downloadAttachment(
           attachmentId,
+          xOdeVersion,
           original,
           options,
         );
@@ -2492,9 +2775,42 @@ export const DefaultApiFp = function (configuration?: Configuration) {
         )(axios, localVarOperationServerBasePath || basePath);
     },
     /**
+     * Returns version metadata for the public HTTP API (compatibility hints for clients).
+     * @summary List supported API contract versions
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    async getAPIVersions(
+      xOdeVersion: string,
+      options?: RawAxiosRequestConfig,
+    ): Promise<
+      (
+        axios?: AxiosInstance,
+        basePath?: string,
+      ) => AxiosPromise<APIVersionsResponse>
+    > {
+      const localVarAxiosArgs = await localVarAxiosParamCreator.getAPIVersions(
+        xOdeVersion,
+        options,
+      );
+      const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+      const localVarOperationServerBasePath =
+        operationServerMap['DefaultApi.getAPIVersions']?.[
+          localVarOperationServerIndex
+        ]?.url;
+      return (axios, basePath) =>
+        createRequestFunction(
+          localVarAxiosArgs,
+          globalAxios,
+          BASE_PATH,
+          configuration,
+        )(axios, localVarOperationServerBasePath || basePath);
+    },
+    /**
      * Compares two versions of the app bundle and returns detailed changes
      * @summary Get changes between two app bundle versions
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [current] The current version (defaults to latest)
      * @param {string} [target] The target version to compare against (defaults to previous version)
      * @param {*} [options] Override http request option.
@@ -2531,7 +2847,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      *
      * @summary Get the current custom app bundle manifest
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [xOdeClientId] Optional client instance id for correlating app bundle checks with presence.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -2568,7 +2884,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      *
      * @summary Get a list of available app bundle versions
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -2602,7 +2918,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Returns a manifest of attachment changes (new, updated, deleted) since a specified data version
      * @summary Get attachment manifest for incremental sync
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {AttachmentManifestRequest} attachmentManifestRequest
      * @param {number} [xRepositoryGeneration] Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
      * @param {*} [options] Override http request option.
@@ -2642,10 +2958,12 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Returns detailed version information about the server, including build information and system details
      * @summary Get server version and system information
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     async getVersion(
+      xOdeVersion: string,
       options?: RawAxiosRequestConfig,
     ): Promise<
       (
@@ -2653,8 +2971,10 @@ export const DefaultApiFp = function (configuration?: Configuration) {
         basePath?: string,
       ) => AxiosPromise<SystemVersionInfo>
     > {
-      const localVarAxiosArgs =
-        await localVarAxiosParamCreator.getVersion(options);
+      const localVarAxiosArgs = await localVarAxiosParamCreator.getVersion(
+        xOdeVersion,
+        options,
+      );
       const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
       const localVarOperationServerBasePath =
         operationServerMap['DefaultApi.getVersion']?.[
@@ -2671,7 +2991,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
      * @summary List all users (admin only)
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {string} [xOdeClientId] Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -2707,7 +3027,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Obtain a JWT token by providing username and password
      * @summary Authenticate user and return JWT tokens
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {LoginRequest} loginRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -2739,7 +3059,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      *
      * @summary Upload a new app bundle (admin only)
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {File} [bundle] ZIP file containing the new app bundle
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -2775,7 +3095,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Obtain a new JWT token using a refresh token
      * @summary Refresh JWT token
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {RefreshTokenRequest} refreshTokenRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -2808,7 +3128,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Reset password for a specified user
      * @summary Reset user password (admin only)
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {ResetUserPasswordRequest} resetUserPasswordRequest
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
@@ -2846,7 +3166,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      *
      * @summary Switch to a specific app bundle version (admin only)
      * @param {string} version Version identifier to switch to
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -2882,12 +3202,12 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      * Retrieves records that have changed since a specified version.  **Pagination Pattern:** 1. Send initial request with `since.version` (or omit for all records) 2. Process returned records 3. If `has_more` is true, make next request using `change_cutoff` as the new `since.version` 4. Repeat until `has_more` is false  Example pagination flow: - Request 1: `since: {version: 100}` → Response: `change_cutoff: 150, has_more: true` - Request 2: `since: {version: 150}` → Response: `change_cutoff: 200, has_more: false`
      * @summary Pull updated records since last sync
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {SyncPullRequest} syncPullRequest
      * @param {string} [schemaType] Filter by schemaType
      * @param {number} [limit] Maximum number of records to return
      * @param {string} [xOdeClientId] Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
-     * @param {number} [xRepositoryGeneration] Client\&#39;s repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header.
+     * @param {number} [xRepositoryGeneration] Client repository epoch; must match the server. Omitted or invalid values are treated as 1. Successful responses include the current epoch in JSON and in this header.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
@@ -2930,7 +3250,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
     /**
      *
      * @summary Push new or updated records to the server
-     * @param {string} xOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {SyncPushRequest} syncPushRequest
      * @param {string} [xOdeClientId] Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.
      * @param {number} [xRepositoryGeneration] Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
@@ -2973,6 +3293,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      *
      * @summary Upload a new attachment with specified ID
      * @param {string} attachmentId
+     * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
      * @param {File} file The binary file to upload
      * @param {number} [xRepositoryGeneration] Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
      * @param {*} [options] Override http request option.
@@ -2980,6 +3301,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
      */
     async uploadAttachment(
       attachmentId: string,
+      xOdeVersion: string,
       file: File,
       xRepositoryGeneration?: number,
       options?: RawAxiosRequestConfig,
@@ -2992,6 +3314,7 @@ export const DefaultApiFp = function (configuration?: Configuration) {
       const localVarAxiosArgs =
         await localVarAxiosParamCreator.uploadAttachment(
           attachmentId,
+          xOdeVersion,
           file,
           xRepositoryGeneration,
           options,
@@ -3034,7 +3357,11 @@ export const DefaultApiFactory = function (
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<RepositoryResetResponse> {
       return localVarFp
-        .adminRepositoryReset(requestParameters.repositoryResetRequest, options)
+        .adminRepositoryReset(
+          requestParameters.xOdeVersion,
+          requestParameters.repositoryResetRequest,
+          options,
+        )
         .then(request => request(axios, basePath));
     },
     /**
@@ -3070,6 +3397,7 @@ export const DefaultApiFactory = function (
       return localVarFp
         .checkAttachmentExists(
           requestParameters.attachmentId,
+          requestParameters.xOdeVersion,
           requestParameters.original,
           options,
         )
@@ -3135,6 +3463,21 @@ export const DefaultApiFactory = function (
         .then(request => request(axios, basePath));
     },
     /**
+     * Returns the full custom app bundle archive for the active version as `application/zip`.
+     * @summary Download the active app bundle as a single ZIP
+     * @param {DefaultApiDownloadAppBundleZipRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    downloadAppBundleZip(
+      requestParameters: DefaultApiDownloadAppBundleZipRequest,
+      options?: RawAxiosRequestConfig,
+    ): AxiosPromise<File> {
+      return localVarFp
+        .downloadAppBundleZip(requestParameters.xOdeVersion, options)
+        .then(request => request(axios, basePath));
+    },
+    /**
      * Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
      * @summary Download an attachment by ID
      * @param {DefaultApiDownloadAttachmentRequest} requestParameters Request parameters.
@@ -3148,9 +3491,25 @@ export const DefaultApiFactory = function (
       return localVarFp
         .downloadAttachment(
           requestParameters.attachmentId,
+          requestParameters.xOdeVersion,
           requestParameters.original,
           options,
         )
+        .then(request => request(axios, basePath));
+    },
+    /**
+     * Returns version metadata for the public HTTP API (compatibility hints for clients).
+     * @summary List supported API contract versions
+     * @param {DefaultApiGetAPIVersionsRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    getAPIVersions(
+      requestParameters: DefaultApiGetAPIVersionsRequest,
+      options?: RawAxiosRequestConfig,
+    ): AxiosPromise<APIVersionsResponse> {
+      return localVarFp
+        .getAPIVersions(requestParameters.xOdeVersion, options)
         .then(request => request(axios, basePath));
     },
     /**
@@ -3230,14 +3589,16 @@ export const DefaultApiFactory = function (
     /**
      * Returns detailed version information about the server, including build information and system details
      * @summary Get server version and system information
+     * @param {DefaultApiGetVersionRequest} requestParameters Request parameters.
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      */
     getVersion(
+      requestParameters: DefaultApiGetVersionRequest,
       options?: RawAxiosRequestConfig,
     ): AxiosPromise<SystemVersionInfo> {
       return localVarFp
-        .getVersion(options)
+        .getVersion(requestParameters.xOdeVersion, options)
         .then(request => request(axios, basePath));
     },
     /**
@@ -3412,6 +3773,7 @@ export const DefaultApiFactory = function (
       return localVarFp
         .uploadAttachment(
           requestParameters.attachmentId,
+          requestParameters.xOdeVersion,
           requestParameters.file,
           requestParameters.xRepositoryGeneration,
           options,
@@ -3425,6 +3787,11 @@ export const DefaultApiFactory = function (
  * Request parameters for adminRepositoryReset operation in DefaultApi.
  */
 export interface DefaultApiAdminRepositoryResetRequest {
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
+
   readonly repositoryResetRequest: RepositoryResetRequest;
 }
 
@@ -3433,7 +3800,7 @@ export interface DefaultApiAdminRepositoryResetRequest {
  */
 export interface DefaultApiChangePasswordRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3447,6 +3814,11 @@ export interface DefaultApiCheckAttachmentExistsRequest {
   readonly attachmentId: string;
 
   /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
+
+  /**
    * Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
    */
   readonly original?: string;
@@ -3457,7 +3829,7 @@ export interface DefaultApiCheckAttachmentExistsRequest {
  */
 export interface DefaultApiCreateUserRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3474,7 +3846,7 @@ export interface DefaultApiDeleteUserRequest {
   readonly username: string;
 
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 }
@@ -3486,7 +3858,7 @@ export interface DefaultApiDownloadAppBundleFileRequest {
   readonly path: string;
 
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3499,10 +3871,25 @@ export interface DefaultApiDownloadAppBundleFileRequest {
 }
 
 /**
+ * Request parameters for downloadAppBundleZip operation in DefaultApi.
+ */
+export interface DefaultApiDownloadAppBundleZipRequest {
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
+}
+
+/**
  * Request parameters for downloadAttachment operation in DefaultApi.
  */
 export interface DefaultApiDownloadAttachmentRequest {
   readonly attachmentId: string;
+
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
 
   /**
    * Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists.
@@ -3511,11 +3898,21 @@ export interface DefaultApiDownloadAttachmentRequest {
 }
 
 /**
+ * Request parameters for getAPIVersions operation in DefaultApi.
+ */
+export interface DefaultApiGetAPIVersionsRequest {
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
+}
+
+/**
  * Request parameters for getAppBundleChanges operation in DefaultApi.
  */
 export interface DefaultApiGetAppBundleChangesRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3535,7 +3932,7 @@ export interface DefaultApiGetAppBundleChangesRequest {
  */
 export interface DefaultApiGetAppBundleManifestRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3550,7 +3947,7 @@ export interface DefaultApiGetAppBundleManifestRequest {
  */
 export interface DefaultApiGetAppBundleVersionsRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 }
@@ -3560,7 +3957,7 @@ export interface DefaultApiGetAppBundleVersionsRequest {
  */
 export interface DefaultApiGetAttachmentManifestRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3573,11 +3970,21 @@ export interface DefaultApiGetAttachmentManifestRequest {
 }
 
 /**
+ * Request parameters for getVersion operation in DefaultApi.
+ */
+export interface DefaultApiGetVersionRequest {
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
+}
+
+/**
  * Request parameters for listUsers operation in DefaultApi.
  */
 export interface DefaultApiListUsersRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3592,7 +3999,7 @@ export interface DefaultApiListUsersRequest {
  */
 export interface DefaultApiLoginRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3604,7 +4011,7 @@ export interface DefaultApiLoginRequest {
  */
 export interface DefaultApiPushAppBundleRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3619,7 +4026,7 @@ export interface DefaultApiPushAppBundleRequest {
  */
 export interface DefaultApiRefreshTokenRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3631,7 +4038,7 @@ export interface DefaultApiRefreshTokenRequest {
  */
 export interface DefaultApiResetUserPasswordRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3648,7 +4055,7 @@ export interface DefaultApiSwitchAppBundleVersionRequest {
   readonly version: string;
 
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 }
@@ -3658,7 +4065,7 @@ export interface DefaultApiSwitchAppBundleVersionRequest {
  */
 export interface DefaultApiSyncPullRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3680,7 +4087,7 @@ export interface DefaultApiSyncPullRequest {
   readonly xOdeClientId?: string;
 
   /**
-   * Client\&#39;s repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header.
+   * Client repository epoch; must match the server. Omitted or invalid values are treated as 1. Successful responses include the current epoch in JSON and in this header.
    */
   readonly xRepositoryGeneration?: number;
 }
@@ -3690,7 +4097,7 @@ export interface DefaultApiSyncPullRequest {
  */
 export interface DefaultApiSyncPushRequest {
   /**
-   * Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
    */
   readonly xOdeVersion: string;
 
@@ -3712,6 +4119,11 @@ export interface DefaultApiSyncPushRequest {
  */
 export interface DefaultApiUploadAttachmentRequest {
   readonly attachmentId: string;
+
+  /**
+   * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+   */
+  readonly xOdeVersion: string;
 
   /**
    * The binary file to upload
@@ -3740,7 +4152,11 @@ export class DefaultApi extends BaseAPI {
     options?: RawAxiosRequestConfig,
   ) {
     return DefaultApiFp(this.configuration)
-      .adminRepositoryReset(requestParameters.repositoryResetRequest, options)
+      .adminRepositoryReset(
+        requestParameters.xOdeVersion,
+        requestParameters.repositoryResetRequest,
+        options,
+      )
       .then(request => request(this.axios, this.basePath));
   }
 
@@ -3778,6 +4194,7 @@ export class DefaultApi extends BaseAPI {
     return DefaultApiFp(this.configuration)
       .checkAttachmentExists(
         requestParameters.attachmentId,
+        requestParameters.xOdeVersion,
         requestParameters.original,
         options,
       )
@@ -3847,6 +4264,22 @@ export class DefaultApi extends BaseAPI {
   }
 
   /**
+   * Returns the full custom app bundle archive for the active version as `application/zip`.
+   * @summary Download the active app bundle as a single ZIP
+   * @param {DefaultApiDownloadAppBundleZipRequest} requestParameters Request parameters.
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public downloadAppBundleZip(
+    requestParameters: DefaultApiDownloadAppBundleZipRequest,
+    options?: RawAxiosRequestConfig,
+  ) {
+    return DefaultApiFp(this.configuration)
+      .downloadAppBundleZip(requestParameters.xOdeVersion, options)
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
    * Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
    * @summary Download an attachment by ID
    * @param {DefaultApiDownloadAttachmentRequest} requestParameters Request parameters.
@@ -3860,9 +4293,26 @@ export class DefaultApi extends BaseAPI {
     return DefaultApiFp(this.configuration)
       .downloadAttachment(
         requestParameters.attachmentId,
+        requestParameters.xOdeVersion,
         requestParameters.original,
         options,
       )
+      .then(request => request(this.axios, this.basePath));
+  }
+
+  /**
+   * Returns version metadata for the public HTTP API (compatibility hints for clients).
+   * @summary List supported API contract versions
+   * @param {DefaultApiGetAPIVersionsRequest} requestParameters Request parameters.
+   * @param {*} [options] Override http request option.
+   * @throws {RequiredError}
+   */
+  public getAPIVersions(
+    requestParameters: DefaultApiGetAPIVersionsRequest,
+    options?: RawAxiosRequestConfig,
+  ) {
+    return DefaultApiFp(this.configuration)
+      .getAPIVersions(requestParameters.xOdeVersion, options)
       .then(request => request(this.axios, this.basePath));
   }
 
@@ -3947,12 +4397,16 @@ export class DefaultApi extends BaseAPI {
   /**
    * Returns detailed version information about the server, including build information and system details
    * @summary Get server version and system information
+   * @param {DefaultApiGetVersionRequest} requestParameters Request parameters.
    * @param {*} [options] Override http request option.
    * @throws {RequiredError}
    */
-  public getVersion(options?: RawAxiosRequestConfig) {
+  public getVersion(
+    requestParameters: DefaultApiGetVersionRequest,
+    options?: RawAxiosRequestConfig,
+  ) {
     return DefaultApiFp(this.configuration)
-      .getVersion(options)
+      .getVersion(requestParameters.xOdeVersion, options)
       .then(request => request(this.axios, this.basePath));
   }
 
@@ -4136,6 +4590,7 @@ export class DefaultApi extends BaseAPI {
     return DefaultApiFp(this.configuration)
       .uploadAttachment(
         requestParameters.attachmentId,
+        requestParameters.xOdeVersion,
         requestParameters.file,
         requestParameters.xRepositoryGeneration,
         options,
