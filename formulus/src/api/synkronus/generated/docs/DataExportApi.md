@@ -21,12 +21,16 @@ import { DataExportApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DataExportApi(configuration);
 
-const { status, data } = await apiInstance.getParquetExportZip();
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+
+const { status, data } = await apiInstance.getParquetExportZip(xOdeVersion);
 ```
 
 ### Parameters
 
-This endpoint does not have any parameters.
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -66,12 +70,16 @@ import { DataExportApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DataExportApi(configuration);
 
-const { status, data } = await apiInstance.getRawJsonExportZip();
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+
+const { status, data } = await apiInstance.getRawJsonExportZip(xOdeVersion);
 ```
 
 ### Parameters
 
-This endpoint does not have any parameters.
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
