@@ -73,6 +73,7 @@ func TestAttachmentManifestHandler(t *testing.T) {
 		mockVersionService,
 		mockAttachmentManifestService,
 		mockDataExportService,
+		nil,
 	)
 
 	tests := []struct {

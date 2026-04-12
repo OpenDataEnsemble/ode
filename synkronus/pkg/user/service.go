@@ -13,17 +13,19 @@ import (
 
 // Service implements the UserServiceInterface
 type Service struct {
-	userRepo    repository.UserRepositoryInterface
-	authService auth.AuthServiceInterface
-	log         *logger.Logger
+	userRepo     repository.UserRepositoryInterface
+	presenceRepo *repository.PresenceRepository
+	authService  auth.AuthServiceInterface
+	log          *logger.Logger
 }
 
 // NewService creates a new user service
-func NewService(userRepo repository.UserRepositoryInterface, authService auth.AuthServiceInterface, log *logger.Logger) *Service {
+func NewService(userRepo repository.UserRepositoryInterface, presenceRepo *repository.PresenceRepository, authService auth.AuthServiceInterface, log *logger.Logger) *Service {
 	return &Service{
-		userRepo:    userRepo,
-		authService: authService,
-		log:         log,
+		userRepo:     userRepo,
+		presenceRepo: presenceRepo,
+		authService:  authService,
+		log:          log,
 	}
 }
 
@@ -150,10 +152,37 @@ func (s *Service) ChangePassword(ctx context.Context, username, currentPassword,
 }
 
 // ListUsers lists all users in the system (admin operation)
-func (s *Service) ListUsers(ctx context.Context) ([]models.User, error) {
+func (s *Service) ListUsers(ctx context.Context) ([]models.UserListItem, error) {
 	userList, err := s.userRepo.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
-	return userList, nil
+	names := make([]string, 0, len(userList))
+	for _, u := range userList {
+		names = append(names, u.Username)
+	}
+	var byName map[string][]models.UserPresenceClient
+	if s.presenceRepo != nil {
+		byName, err = s.presenceRepo.ListByUsernames(ctx, names)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load presence: %w", err)
+		}
+	} else {
+		byName = map[string][]models.UserPresenceClient{}
+	}
+	out := make([]models.UserListItem, 0, len(userList))
+	for _, u := range userList {
+		item := models.UserListItem{
+			ID:        u.ID,
+			Username:  u.Username,
+			Role:      u.Role,
+			CreatedAt: u.CreatedAt,
+			UpdatedAt: u.UpdatedAt,
+		}
+		if clients, ok := byName[u.Username]; ok && len(clients) > 0 {
+			item.Presence = models.NewUserPresenceSummary(clients)
+		}
+		out = append(out, item)
+	}
+	return out, nil
 }

@@ -77,8 +77,20 @@ Examples:
 				fmt.Printf("Page Token: %s\n", pageToken)
 			}
 
+			var repoGenPtr *int64
+			if cmd.Flags().Changed("repository-generation") {
+				v, err := cmd.Flags().GetInt64("repository-generation")
+				if err != nil {
+					return err
+				}
+				if v < 1 {
+					return fmt.Errorf("repository-generation must be >= 1")
+				}
+				repoGenPtr = &v
+			}
+
 			c := client.NewClient()
-			response, err := c.SyncPull(clientID, currentVersion, schemaTypesStr, limit, pageToken)
+			response, err := c.SyncPull(clientID, currentVersion, schemaTypesStr, limit, pageToken, repoGenPtr)
 			if err != nil {
 				return fmt.Errorf("sync pull failed: %w", err)
 			}
@@ -117,6 +129,7 @@ Examples:
 	pullCmd.Flags().StringSlice("schema-types", []string{}, "Comma-separated list of schema types to filter")
 	pullCmd.Flags().Int("limit", 0, "Maximum number of records to return")
 	pullCmd.Flags().String("page-token", "", "Pagination token from previous response")
+	pullCmd.Flags().Int64("repository-generation", 0, "Repository epoch (must match server; omit to default to 1 on the server)")
 	pullCmd.MarkFlagRequired("client-id")
 	syncCmd.AddCommand(pullCmd)
 
@@ -196,8 +209,20 @@ Examples:
 				transmissionID = uuid.New().String()
 			}
 
+			var repoGenPtr *int64
+			if cmd.Flags().Changed("repository-generation") {
+				v, err := cmd.Flags().GetInt64("repository-generation")
+				if err != nil {
+					return err
+				}
+				if v < 1 {
+					return fmt.Errorf("repository-generation must be >= 1")
+				}
+				repoGenPtr = &v
+			}
+
 			c := client.NewClient()
-			response, err := c.SyncPush(clientID, transmissionID, recordsFormatted)
+			response, err := c.SyncPush(clientID, transmissionID, recordsFormatted, repoGenPtr)
 			if err != nil {
 				return fmt.Errorf("sync push failed: %w", err)
 			}
@@ -252,6 +277,7 @@ Examples:
 	}
 	pushCmd.Flags().String("client-id", "", "Client ID for synchronization")
 	pushCmd.Flags().String("transmission-id", "", "Unique ID for this transmission (for idempotency)")
+	pushCmd.Flags().Int64("repository-generation", 0, "Repository epoch (must match server; omit to default to 1 on the server)")
 	pushCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
 	syncCmd.AddCommand(pushCmd)
 }

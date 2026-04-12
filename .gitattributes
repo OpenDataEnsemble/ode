@@ -1,0 +1,25 @@
+# Normalize line endings: LF in repo and working tree (avoids CRLF churn on Windows).
+* text=auto eol=lf
+
+# Shell / Docker (explicit LF)
+*.sh text eol=lf
+*.bash text eol=lf
+Dockerfile text eol=lf
+*.dockerfile text eol=lf
+
+# Windows scripts: CRLF so cmd.exe treats them correctly
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

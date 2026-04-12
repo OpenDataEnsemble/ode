@@ -1,0 +1,30 @@
+# CI/runtime-only image: expects a pre-built Synkronus binary plus openapi/static in the build context.
+# Build context layout: ./synkronus (binary), ./openapi/, ./static/
+# Portal assets are embedded in the binary at compile time.
+
+FROM alpine:3.23
+
+RUN apk --no-cache add ca-certificates tzdata wget
+
+RUN addgroup -g 1000 synkronus && \
+    adduser -D -u 1000 -G synkronus synkronus
+
+WORKDIR /app
+
+COPY synkronus /app/synkronus
+COPY openapi /app/openapi
+COPY static /app/static
+
+RUN mkdir -p /app/data/app-bundle/active /app/data/app-bundle/versions /app/data/attachments && \
+    chown -R synkronus:synkronus /app
+
+USER synkronus
+
+ENV PORT=80
+
+EXPOSE 80
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget --no-verbose --tries=1 -O - http://127.0.0.1/health || exit 1
+
+CMD ["/app/synkronus"]

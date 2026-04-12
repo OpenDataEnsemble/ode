@@ -7,6 +7,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/config"
 	"github.com/opendataensemble/synkronus/pkg/dataexport"
 	"github.com/opendataensemble/synkronus/pkg/logger"
+	"github.com/opendataensemble/synkronus/pkg/presence"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 	"github.com/opendataensemble/synkronus/pkg/user"
 	"github.com/opendataensemble/synkronus/pkg/version"
@@ -23,6 +24,7 @@ type Handler struct {
 	versionService            version.Service
 	attachmentManifestService attachment.ManifestService
 	dataExportService         dataexport.Service
+	presenceRecorder          *presence.Recorder
 }
 
 // NewHandler creates a new Handler instance
@@ -36,6 +38,7 @@ func NewHandler(
 	versionService version.Service,
 	attachmentManifestService attachment.ManifestService,
 	dataExportService dataexport.Service,
+	presenceRecorder *presence.Recorder,
 ) *Handler {
 	return &Handler{
 		log:                       log,
@@ -47,6 +50,7 @@ func NewHandler(
 		versionService:            versionService,
 		attachmentManifestService: attachmentManifestService,
 		dataExportService:         dataExportService,
+		presenceRecorder:          presenceRecorder,
 	}
 }
 
@@ -63,4 +67,14 @@ func (h *Handler) GetConfig() *config.Config {
 // AttachmentManifestService returns the attachment manifest service (sync operations).
 func (h *Handler) AttachmentManifestService() attachment.ManifestService {
 	return h.attachmentManifestService
+}
+
+// PresenceRecorder returns the async presence recorder (may be nil in tests).
+func (h *Handler) PresenceRecorder() *presence.Recorder {
+	return h.presenceRecorder
+}
+
+// SyncService returns the sync service (repository generation, push/pull).
+func (h *Handler) SyncService() sync.ServiceInterface {
+	return h.syncService
 }

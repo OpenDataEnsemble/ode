@@ -12,6 +12,7 @@ import {
   isVersionMismatchError,
   HttpError,
 } from '../api/synkronus/Auth';
+import { isRepositoryResetRequiredError } from '../errors/RepositoryResetRequiredError';
 import {
   appBundleVersionsDifferNumerically,
   isNumericAppBundleVersionString,
@@ -110,6 +111,9 @@ export class SyncService {
       // Version mismatch: do not retry, surface clear message
       if (isVersionMismatchError(error)) {
         // Re-throw the VersionMismatchError as-is (it already has the message)
+        throw error;
+      }
+      if (isRepositoryResetRequiredError(error)) {
         throw error;
       }
       // Check if this is a 401 Unauthorized error

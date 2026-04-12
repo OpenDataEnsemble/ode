@@ -448,6 +448,34 @@ export interface FormulusInterface {
    * @returns {Promise<'light' | 'dark' | 'system'>} Current theme mode; 'system' means follow device preference.
    */
   getThemeMode(): Promise<'light' | 'dark' | 'system'>;
+
+  /**
+   * Resolve a synced or camera-saved attachment to a WebView-loadable `file://` URL.
+   * Checks `{DocumentDirectory}/attachments/` and `pending_upload/`. Pass the basename only
+   * (e.g. `photo.filename` from observation data); path segments and ".." are rejected.
+   * @param fileName - Attachment file basename
+   * @returns `file://` URL if the file exists, otherwise `null`
+   */
+  getAttachmentUri(fileName: string): Promise<string | null>;
+
+  /**
+   * Base `file://` URL for the attachments directory (trailing slash).
+   * @returns e.g. `file:///.../attachments/`
+   */
+  getAttachmentsUri(): Promise<string>;
+
+  /**
+   * Base `file://` URL for the custom app bundle root (`DocumentDirectory/app/`, trailing slash).
+   * @returns App directory URL for extensions, question_types, etc.
+   */
+  getCustomAppUri(): Promise<string>;
+
+  /**
+   * Primary `file://` URL for downloaded form specs (`DocumentDirectory/forms/`, trailing slash).
+   * Some bundles also use files under the custom app `forms/` subdirectory.
+   * @returns Forms directory URL
+   */
+  getFormSpecsUri(): Promise<string>;
 }
 
 /**
@@ -466,7 +494,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = '1.1.0';
+export const FORMULUS_INTERFACE_VERSION = '1.2.0';
 
 /** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
 function semverSegments(version: string): [number, number, number] {

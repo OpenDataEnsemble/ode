@@ -41,6 +41,7 @@ import {
   VersionMismatchError,
   isVersionMismatchError,
 } from '../../errors/VersionMismatchError';
+import { isRepositoryResetRequiredError } from '../../errors/RepositoryResetRequiredError';
 
 export { VersionMismatchError, isVersionMismatchError };
 
@@ -312,6 +313,9 @@ export const isNotFoundError = (error: unknown): boolean => {
  */
 export const getUserFacingSyncErrorMessage = (error: unknown): string => {
   if (isVersionMismatchError(error)) {
+    return (error as Error).message;
+  }
+  if (isRepositoryResetRequiredError(error)) {
     return (error as Error).message;
   }
   if (isForbiddenError(error)) {

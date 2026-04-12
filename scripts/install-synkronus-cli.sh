@@ -4,7 +4,7 @@ set -euo pipefail
 VERSION="latest"
 OWNER="OpenDataEnsemble"
 REPO="ode"
-ASSET_NAME="synkronus-cli_Darwin_arm64.tar.gz"
+ASSET_NAME="synkronus-cli-darwin-arm64"
 BINARY_NAME="synk"
 COMMAND_NAME="synk"
 INSTALL_DIR="${HOME}/.local/bin"

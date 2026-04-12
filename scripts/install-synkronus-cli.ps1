@@ -3,7 +3,7 @@ param(
     [string]$Version = "latest",
     [string]$Owner = "OpenDataEnsemble",
     [string]$Repo = "ode",
-    [string]$AssetName = "synkronus-cli_Windows_x86_64.zip",
+    [string]$AssetName = "synkronus-cli-windows-amd.zip",
     [string]$BinaryName = "synk.exe",
     [string]$CommandName = "synk",
     [string]$InstallDir = "$env:LOCALAPPDATA\Programs\synkronus-cli"

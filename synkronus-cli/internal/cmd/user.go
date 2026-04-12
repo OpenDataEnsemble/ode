@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/client"
 	"github.com/spf13/cobra"
@@ -30,12 +31,20 @@ var listUsersCmd = &cobra.Command{
 			fmt.Println("No users found.")
 			return
 		}
-		fmt.Printf("%-24s %-12s\n", "USERNAME", "ROLE")
-		fmt.Println(strings.Repeat("-", 36))
+		fmt.Printf("%-22s %-12s %-28s %-10s\n", "USERNAME", "ROLE", "LAST ACTIVITY (UTC)", "CLIENTS")
+		fmt.Println(strings.Repeat("-", 76))
 		for _, u := range users {
-			uname, _ := u["username"].(string)
-			role, _ := u["role"].(string)
-			fmt.Printf("%-24s %-12s\n", uname, role)
+			last := "N/A"
+			nClients := "N/A"
+			if u.Presence != nil {
+				if u.Presence.LastSeenAt != nil {
+					last = u.Presence.LastSeenAt.UTC().Format(time.RFC3339)
+				}
+				if u.Presence.ClientCount != nil {
+					nClients = fmt.Sprintf("%d", *u.Presence.ClientCount)
+				}
+			}
+			fmt.Printf("%-22s %-12s %-28s %-10s\n", u.Username, string(u.Role), last, nClients)
 		}
 	},
 }

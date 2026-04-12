@@ -45,6 +45,7 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 		mockVersionService,
 		mockAttachmentManifestService,
 		mockDataExportService,
+		nil,
 	)
 
 	return h, mockAppBundleService

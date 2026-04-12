@@ -282,6 +282,7 @@ func createTestServerWithDB(t *testing.T, db *sql.DB) *httptest.Server {
 		&mockVersionService{},
 		mockAttachmentManifestService,
 		mockDataExportService,
+		nil,
 	)
 
 	// Create router with authentication middleware
@@ -364,8 +365,8 @@ func (m *mockUserService) ResetPassword(ctx context.Context, username, newPasswo
 func (m *mockUserService) ChangePassword(ctx context.Context, username, currentPassword, newPassword string) error {
 	return nil
 }
-func (m *mockUserService) ListUsers(ctx context.Context) ([]models.User, error) {
-	return []models.User{}, nil
+func (m *mockUserService) ListUsers(ctx context.Context) ([]models.UserListItem, error) {
+	return []models.UserListItem{}, nil
 }
 
 type mockVersionService struct{}
