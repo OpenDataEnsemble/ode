@@ -120,6 +120,18 @@ class FormulusClient {
   }
 
   /**
+   * Resolve an attachment basename to a WebView-loadable URL (draft, committed, or pending upload).
+   */
+  public async getAttachmentUri(fileName: string): Promise<string | null> {
+    await this.tryEnsureFormulus();
+    if (this.formulus) {
+      return this.formulus.getAttachmentUri(fileName);
+    }
+    console.warn('Formulus interface not available for getAttachmentUri');
+    return null;
+  }
+
+  /**
    * Request location from the Formulus RN app.
    * The shared interface no longer returns a typed LocationResult; this
    * simply forwards the request and returns the underlying Promise<void>.

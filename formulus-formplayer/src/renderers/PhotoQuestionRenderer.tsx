@@ -77,18 +77,44 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   // Get the current photo data from the form data (now JSON format)
   const currentPhotoData = data || null;
 
-  // Set photo URL from stored data if available
+  // Prefer uri; else resolve basename via bridge (draft → committed → pending upload)
   useEffect(() => {
-    console.log('Photo data changed:', currentPhotoData);
-    if (currentPhotoData?.uri) {
-      // For WebView, we need to handle file:// URLs differently
-      // In development/mock mode, file URLs might work, but in production we need a different approach
-      console.log('Setting photo URL from stored data:', currentPhotoData.uri);
-      setPhotoUrl(currentPhotoData.uri);
-    } else {
-      console.log('No photo URI found, clearing photoUrl state');
-      setPhotoUrl(null);
-    }
+    let cancelled = false;
+    const run = async () => {
+      console.log('Photo data changed:', currentPhotoData);
+      if (currentPhotoData?.uri) {
+        const u = currentPhotoData.uri;
+        const display =
+          u.startsWith('file://') || u.startsWith('http')
+            ? u
+            : `file://${u}`;
+        console.log('Setting photo URL from stored data:', display);
+        if (!cancelled) setPhotoUrl(display);
+        return;
+      }
+      if (currentPhotoData?.filename) {
+        const resolved = await formulusClient.current.getAttachmentUri(
+          currentPhotoData.filename,
+        );
+        if (!cancelled) {
+          setPhotoUrl(resolved);
+          console.log(
+            'Resolved photo from filename:',
+            currentPhotoData.filename,
+            resolved,
+          );
+        }
+        return;
+      }
+      if (!cancelled) {
+        console.log('No photo URI or filename, clearing photoUrl state');
+        setPhotoUrl(null);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [currentPhotoData]);
 
   // Handle camera request with new Promise-based approach

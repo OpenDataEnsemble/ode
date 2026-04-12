@@ -328,6 +328,12 @@ class WebViewMock {
             this.showAudioSimulationPopup(fieldId);
           });
         },
+        getAttachmentUri: (_fileName: string): Promise<string | null> => {
+          console.log(
+            '[WebView Mock] getAttachmentUri (browser dev: no local files)',
+          );
+          return Promise.resolve(null);
+        },
         launchIntent: (
           fieldId: string,
           intentData: Record<string, any>,

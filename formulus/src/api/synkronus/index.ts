@@ -761,10 +761,8 @@ class SynkronusApi {
   }
 
   /**
-   * Save a new attachment for immediate use and queue it for upload
-   * This should be called when a new attachment is created (e.g., from camera)
-   * The file is saved to both the main attachments folder (for immediate use in forms)
-   * and the unsynced folder (as an upload queue)
+   * Save a new attachment under draft storage until the observation is saved; promotion
+   * to main + pending_upload runs when the observation is persisted (see attachmentStorage).
    */
   async saveNewAttachment(
     attachmentId: string,
@@ -772,28 +770,19 @@ class SynkronusApi {
     isBase64: boolean = true,
   ): Promise<string> {
     const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-    const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+    const draftDirectory = `${attachmentsDirectory}/draft`;
 
-    // Ensure both directories exist
     await RNFS.mkdir(attachmentsDirectory);
-    await RNFS.mkdir(pendingUploadDirectory);
+    await RNFS.mkdir(draftDirectory);
 
-    const mainFilePath = `${attachmentsDirectory}/${attachmentId}`;
-    const pendingFilePath = `${pendingUploadDirectory}/${attachmentId}`;
+    const draftFilePath = `${draftDirectory}/${attachmentId}`;
     const encoding = isBase64 ? 'base64' : 'utf8';
 
-    // Save to both locations
-    await Promise.all([
-      RNFS.writeFile(mainFilePath, fileData, encoding),
-      RNFS.writeFile(pendingFilePath, fileData, encoding),
-    ]);
+    await RNFS.writeFile(draftFilePath, fileData, encoding);
 
-    console.debug(
-      `Saved new attachment: ${attachmentId} (available immediately, queued for upload)`,
-    );
+    console.debug(`Saved new draft attachment: ${attachmentId}`);
 
-    // Return the path that should be stored in observation data
-    return mainFilePath;
+    return draftFilePath;
   }
 
   /**
