@@ -56,17 +56,17 @@ const SyncScreen = () => {
   const bundleStatusOkBg = isDark
     ? withAlpha(colors.semantic.success[500] as unknown as string, 0.16)
     : (colors.semantic.success[50] as unknown as string);
-  const bundleStatusOkText = (
-    isDark
-      ? colors.semantic.success[500]
-      : colors.semantic.success[600]
-  ) as unknown as string;
+  const bundleStatusOkText = (isDark
+    ? colors.semantic.success[500]
+    : colors.semantic.success[600]) as unknown as string;
   const bundleStatusUpdateBg = isDark
     ? withAlpha(colors.semantic.warning[500] as unknown as string, 0.2)
     : (colors.semantic.warning[50] as unknown as string);
-  const bundleStatusUpdateText = colors.semantic.warning[
-    600
-  ] as unknown as string;
+  const bundleStatusUpdateText = colors.semantic
+    .warning[600] as unknown as string;
+  const bundleVersionPanelBg = isDark
+    ? withAlpha(colors.neutral.white as string, 0.06)
+    : withAlpha(colors.neutral.black as string, 0.04);
   const _headerBg = isDark
     ? (colors.neutral[900] as string)
     : (colors.neutral[50] as string);
@@ -545,7 +545,10 @@ const SyncScreen = () => {
   return (
     <View style={shellStyle}>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}
+        style={[
+          styles.container,
+          { backgroundColor: colors.neutral.transparent },
+        ]}
         edges={['top']}>
         <View
           style={[
@@ -850,7 +853,8 @@ const SyncScreen = () => {
                 backgroundColor: cardBg,
               },
             ]}>
-            <Text style={[styles.appBundleSubtitle, { color: mutedForeground }]}>
+            <Text
+              style={[styles.appBundleSubtitle, { color: mutedForeground }]}>
               Form definitions and custom app assets
             </Text>
 
@@ -878,9 +882,7 @@ const SyncScreen = () => {
                 styles.bundleVersionPanel,
                 {
                   borderColor: themeColors.divider as string,
-                  backgroundColor: isDark
-                    ? 'rgba(255,255,255,0.06)'
-                    : 'rgba(0,0,0,0.04)',
+                  backgroundColor: bundleVersionPanelBg,
                 },
               ]}>
               <View style={styles.bundleVersionTextFlex}>
@@ -908,7 +910,9 @@ const SyncScreen = () => {
                   disabled={syncState.isActive || !updateAvailable}
                   loading={isUpdateButtonActive}
                   active={
-                    updateAvailable && !syncState.isActive && !isUpdateButtonActive
+                    updateAvailable &&
+                    !syncState.isActive &&
+                    !isUpdateButtonActive
                   }
                 />
               </View>
@@ -961,7 +965,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   scrollTransparent: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   scrollContent: {
     padding: odeSpacing.md,
