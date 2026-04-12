@@ -66,9 +66,6 @@ const SyncScreen = () => {
     : (colors.semantic.warning[50] as unknown as string);
   const bundleStatusUpdateText = colors.semantic
     .warning[600] as unknown as string;
-  const bundleVersionPanelBg = isDark
-    ? withAlpha(colors.neutral.white as string, 0.06)
-    : withAlpha(colors.neutral.black as string, 0.04);
   const _headerBg = isDark
     ? (colors.neutral[900] as string)
     : (colors.neutral[50] as string);
@@ -933,63 +930,91 @@ const SyncScreen = () => {
               Form definitions and custom app assets
             </Text>
 
-            <View
-              style={[
-                styles.bundleStatusPill,
-                { backgroundColor: bundleStatusPill.bg },
-              ]}>
-              <Icon
-                name={bundleStatusPill.icon}
-                size={18}
-                color={bundleStatusPill.iconColor}
-              />
-              <Text
+            <View style={styles.bundlePillActionsRow}>
+              <View
                 style={[
-                  styles.bundleStatusPillText,
-                  { color: bundleStatusPill.textColor },
+                  styles.bundleStatusPill,
+                  { backgroundColor: bundleStatusPill.bg },
                 ]}>
-                {bundleStatusPill.label}
-              </Text>
+                <Icon
+                  name={bundleStatusPill.icon}
+                  size={18}
+                  color={bundleStatusPill.iconColor}
+                />
+                <Text
+                  style={[
+                    styles.bundleStatusPillText,
+                    { color: bundleStatusPill.textColor },
+                  ]}>
+                  {bundleStatusPill.label}
+                </Text>
+              </View>
+              {updateAvailable && (
+                <View style={styles.bundleUpdateButtonWrap}>
+                  <Button
+                    variant="primary"
+                    size="small"
+                    title={isUpdateButtonActive ? 'Updating...' : 'Update'}
+                    onPress={handleCustomAppUpdate}
+                    disabled={syncState.isActive || !updateAvailable}
+                    loading={isUpdateButtonActive}
+                    active={
+                      updateAvailable &&
+                      !syncState.isActive &&
+                      !isUpdateButtonActive
+                    }
+                  />
+                </View>
+              )}
             </View>
 
             <View
               style={[
-                styles.bundleVersionPanel,
-                {
-                  borderColor: themeColors.divider as string,
-                  backgroundColor: bundleVersionPanelBg,
-                },
+                styles.bundleVersionSection,
+                { borderTopColor: themeColors.divider as string },
               ]}>
-              <View style={styles.bundleVersionTextFlex}>
-                <Text
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={[
-                    styles.bundleVersionLine,
-                    { color: themeColors.onSurface as string },
-                  ]}>
-                  <Text style={{ color: mutedForeground }}>Version: </Text>
-                  <Text style={styles.bundleVersionEmphasis}>Local</Text>
-                  <Text> {appBundleVersion}</Text>
-                  <Text style={{ color: mutedForeground }}> • </Text>
-                  <Text style={styles.bundleVersionEmphasis}>Server</Text>
-                  <Text> {serverBundleVersion}</Text>
-                </Text>
-              </View>
-              <View style={styles.bundleUpdateButtonWrap}>
-                <Button
-                  variant="primary"
-                  size="small"
-                  title={isUpdateButtonActive ? 'Updating...' : 'Update'}
-                  onPress={handleCustomAppUpdate}
-                  disabled={syncState.isActive || !updateAvailable}
-                  loading={isUpdateButtonActive}
-                  active={
-                    updateAvailable &&
-                    !syncState.isActive &&
-                    !isUpdateButtonActive
-                  }
-                />
+              <Text
+                style={[
+                  styles.bundleVersionHeading,
+                  { color: mutedForeground },
+                ]}>
+                Version
+              </Text>
+              <View style={styles.bundleVersionRows}>
+                <View style={styles.bundleVersionRow}>
+                  <Text
+                    style={[
+                      styles.bundleVersionRole,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    Local
+                  </Text>
+                  <Text
+                    selectable
+                    style={[
+                      styles.bundleVersionValue,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    {appBundleVersion}
+                  </Text>
+                </View>
+                <View style={styles.bundleVersionRow}>
+                  <Text
+                    style={[
+                      styles.bundleVersionRole,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    Server
+                  </Text>
+                  <Text
+                    selectable
+                    style={[
+                      styles.bundleVersionValue,
+                      { color: themeColors.onSurface as string },
+                    ]}>
+                    {serverBundleVersion}
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -1129,44 +1154,65 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.bodySm,
     lineHeight: 20,
   },
+  bundlePillActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: odeSpacing.sm,
+    flexWrap: 'wrap',
+  },
   bundleStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
     gap: odeSpacing.xs,
     paddingVertical: odeSpacing.xs,
     paddingHorizontal: odeSpacing.md,
     borderRadius: 9999,
-    maxWidth: '100%',
   },
   bundleStatusPillText: {
     fontSize: odeTypography.bodySm,
     fontWeight: '600',
     flexShrink: 1,
   },
-  bundleVersionPanel: {
+  bundleVersionSection: {
+    marginTop: odeSpacing.md,
+    paddingTop: odeSpacing.md,
+    borderTopWidth: odeBorderWidth.hairline,
+  },
+  bundleVersionHeading: {
+    fontSize: odeTypography.caption,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: odeSpacing.xs,
+  },
+  bundleVersionRows: {
+    gap: odeSpacing.xs,
+  },
+  bundleVersionRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: odeSpacing.sm,
-    marginTop: odeSpacing.xs,
-    padding: odeSpacing.md,
-    borderRadius: odeRadius.inner,
-    borderWidth: odeBorderWidth.hairline,
   },
-  bundleVersionTextFlex: {
-    flex: 1,
-    minWidth: 0,
-    marginRight: odeSpacing.xs,
-  },
-  bundleVersionLine: {
+  bundleVersionRole: {
     fontSize: odeTypography.bodySm,
+    fontWeight: '700',
+    minWidth: 56,
     lineHeight: 22,
   },
-  bundleVersionEmphasis: {
-    fontWeight: '700',
+  bundleVersionValue: {
+    flex: 1,
+    fontSize: odeTypography.bodySm,
+    fontWeight: '500',
+    fontFamily: 'monospace',
+    lineHeight: 22,
   },
   bundleUpdateButtonWrap: {
     flexShrink: 0,
+    marginLeft: 'auto',
   },
   appBundleFootnote: {
     fontSize: odeTypography.caption,
