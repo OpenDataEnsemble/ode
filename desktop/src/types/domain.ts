@@ -103,6 +103,9 @@ export interface AuthSession {
 /** Client-side server tier for confirmation strictness (mirrors Rust `ProfileEnvironment`). */
 export type ProfileEnvironment = 'production' | 'staging' | 'development';
 
+/** Default sidebar mode when opening the app or switching profiles (mirrors Rust `DefaultAppMode`). */
+export type DefaultAppMode = 'data_management' | 'workbench';
+
 /** One Synkronus server + local paths + DB (see Rust `ServerProfile`). */
 export interface ServerProfile {
   id: string;
@@ -114,12 +117,35 @@ export interface ServerProfile {
   attachmentsPath?: string | null;
   /** Client-only guardrail; not sent to Synkronus as an API mode. */
   environment?: ProfileEnvironment | null;
+  /** Which mode subtree to open by default for this profile. */
+  defaultAppMode?: DefaultAppMode | null;
 }
 
 export interface AppSettings {
   activeProfileId: string;
   profiles: ServerProfile[];
   dataDirectory: string;
+}
+
+/** Mirrors Rust `AppBundleState` under `<workspace>/bundles/state.json`. */
+export interface AppBundleState {
+  schemaVersion: number;
+  activeVersion: string;
+  activeHash: string;
+  downloadedAt: string;
+  archivedVersions: string[];
+}
+
+/** One form folder under `bundles/active/forms/` (or `bundles/active/app/forms/`). */
+export interface ActiveBundleFormEntry {
+  formType: string;
+}
+
+/** Loaded `schema.json` + `ui.json` for a form type. */
+export interface BundleFormSpec {
+  formType: string;
+  formSchema: unknown;
+  uiSchema: unknown;
 }
 
 /** Result of reading a password from the OS secure store (keyring). */

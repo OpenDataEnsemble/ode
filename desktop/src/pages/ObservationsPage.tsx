@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { tauriClient } from '../lib/tauriClient';
 import {
   createNewObservationSaveRequest,
@@ -8,6 +8,7 @@ import {
   tagsToCommaSeparated,
 } from '../lib/observation';
 import { useCustodianStore } from '../store/useCustodianStore';
+import type { FormPreviewEditState } from '../lib/formPreviewNavigation';
 import type {
   ObservationExtras,
   ObservationRecord,
@@ -44,6 +45,7 @@ function formatDate(value?: string | null) {
 type FilterMode = 'all' | 'dirty' | 'conflicts' | 'recent';
 
 export function ObservationsPage() {
+  const navigate = useNavigate();
   const {
     observations,
     observationsTotal,
@@ -262,6 +264,37 @@ export function ObservationsPage() {
     setSelectedObservationId(req.id);
   }
 
+  function editInFormplayer() {
+    if (!selected) {
+      return;
+    }
+    let dataObj: unknown;
+    try {
+      dataObj = JSON.parse(draftData);
+    } catch {
+      window.alert('Data must be valid JSON before opening in formplayer.');
+      return;
+    }
+    if (!dataObj || typeof dataObj !== 'object' || Array.isArray(dataObj)) {
+      window.alert('Data must be a JSON object (Synkronus Observation.data).');
+      return;
+    }
+    const ft = draftFormType.trim();
+    if (!ft) {
+      window.alert('Set form_type before opening in formplayer.');
+      return;
+    }
+    const payload: FormPreviewEditState = {
+      formType: ft,
+      observationId: selected.id,
+      params: {},
+      savedData: dataObj as Record<string, unknown>,
+    };
+    navigate('/workbench/form-preview', {
+      state: { formPreviewEdit: payload },
+    });
+  }
+
   function touchDraft() {
     setDraftDirty(true);
   }
@@ -410,6 +443,13 @@ export function ObservationsPage() {
                     className="secondary"
                     onClick={() => void restoreLastBackup(selected.id)}>
                     Restore backup
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={!draftFormType.trim()}
+                    onClick={() => editInFormplayer()}>
+                    Edit in formplayer
                   </button>
                   <button type="button" onClick={() => void saveNow()}>
                     Save local

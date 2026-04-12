@@ -1,6 +1,7 @@
 use std::{
+    collections::{HashMap, HashSet},
     fs,
-    io::BufWriter,
+    io::{BufWriter, Cursor},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::Mutex,
@@ -14,8 +15,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Manager;
 use thiserror::Error;
+use url::Url;
 use uuid::Uuid;
 use walkdir::WalkDir;
+use zip::read::ZipArchive;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
@@ -45,6 +48,31 @@ impl From<CustodianError> for String {
 
 const CREDENTIAL_SERVICE: &str = "org.opendataensemble.custodian.password";
 
+/// Local app-bundle layout under `<workspace>/bundles/` (`archives/*.zip`, `active/`, `state.json`).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AppBundleState {
+    pub schema_version: u32,
+    pub active_version: String,
+    pub active_hash: String,
+    pub downloaded_at: String,
+    pub archived_versions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveBundleFormEntry {
+    pub form_type: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BundleFormSpec {
+    pub form_type: String,
+    pub form_schema: Value,
+    pub ui_schema: Value,
+}
+
 /// Client-side guardrail for confirmations (not interpreted by Synkronus).
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -53,6 +81,14 @@ enum ProfileEnvironment {
     Production,
     Staging,
     Development,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+enum DefaultAppMode {
+    #[default]
+    DataManagement,
+    Workbench,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,6 +103,8 @@ struct ServerProfile {
     attachments_path: Option<String>,
     #[serde(default)]
     environment: ProfileEnvironment,
+    #[serde(default)]
+    default_app_mode: DefaultAppMode,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -468,6 +506,7 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             database_path: db_path.to_string_lossy().to_string(),
             attachments_path: None,
             environment: ProfileEnvironment::default(),
+            default_app_mode: DefaultAppMode::default(),
         }],
     }
 }
@@ -488,6 +527,7 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             database_path: db.to_string_lossy().to_string(),
             attachments_path: None,
             environment: ProfileEnvironment::default(),
+            default_app_mode: DefaultAppMode::default(),
         }],
     }
 }
@@ -697,6 +737,60 @@ fn backup_workspace_zip(ctx: &AppCtx, zip_path: &Path) -> Result<(), CustodianEr
     zip.finish()
         .map_err(|e| CustodianError::Message(e.to_string()))?;
     Ok(())
+}
+
+fn sanitize_version_for_filename(version: &str) -> String {
+    let s: String = version
+        .trim()
+        .chars()
+        .map(|c| match c {
+            'a'..='z' | 'A'..='Z' | '0'..='9' | '.' | '-' | '_' | '+' => c,
+            _ => '_',
+        })
+        .collect();
+    if s.is_empty() {
+        "unknown".to_string()
+    } else {
+        s
+    }
+}
+
+fn extract_zip_to_dir(zip_bytes: &[u8], dest: &Path) -> Result<(), CustodianError> {
+    let reader = Cursor::new(zip_bytes);
+    let mut archive = ZipArchive::new(reader)
+        .map_err(|e| CustodianError::Message(format!("invalid zip: {}", e)))?;
+    for i in 0..archive.len() {
+        let mut file = archive
+            .by_index(i)
+            .map_err(|e| CustodianError::Message(format!("zip entry: {}", e)))?;
+        let rel = match file.enclosed_name() {
+            Some(p) => p.to_owned(),
+            None => continue,
+        };
+        let outpath = dest.join(rel);
+        if file.is_dir() || file.name().ends_with('/') {
+            fs::create_dir_all(&outpath)?;
+        } else {
+            if let Some(parent) = outpath.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            let mut outfile = fs::File::create(&outpath)?;
+            std::io::copy(&mut file, &mut outfile)
+                .map_err(|e| CustodianError::Message(e.to_string()))?;
+        }
+    }
+    Ok(())
+}
+
+fn read_app_bundle_state_unlocked(bundles_root: &Path) -> Result<Option<AppBundleState>, CustodianError> {
+    let path = bundles_root.join("state.json");
+    if !path.exists() {
+        return Ok(None);
+    }
+    let raw = fs::read_to_string(&path)?;
+    let v: AppBundleState =
+        serde_json::from_str(&raw).map_err(|e| CustodianError::Message(e.to_string()))?;
+    Ok(Some(v))
 }
 
 fn persist_config(ctx: &AppCtx) -> Result<(), CustodianError> {
@@ -1629,6 +1723,352 @@ fn write_workspace_attachment(
     fs::write(&path, data).map_err(|e| e.to_string())
 }
 
+/// Write arbitrary bytes under the active profile workspace (e.g. `bundles/app-bundle.zip`).
+/// Rejects empty paths, `..`, and other traversal attempts.
+#[tauri::command]
+fn write_workspace_file(
+    relative_path: String,
+    data: Vec<u8>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<String, String> {
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let rel = relative_path
+        .trim()
+        .trim_start_matches(['/', '\\'])
+        .to_string();
+    if rel.is_empty() {
+        return Err("relative path is required".to_string());
+    }
+    for part in rel.split(|c| c == '/' || c == '\\') {
+        if part.is_empty() || part == "." || part == ".." {
+            return Err("invalid relative path".to_string());
+        }
+    }
+    let dest = ws.join(&rel);
+    if !dest.starts_with(&ws) {
+        return Err("path escapes workspace".to_string());
+    }
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(&dest, data).map_err(|e| e.to_string())?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn get_app_bundle_state(ctx: tauri::State<'_, AppCtx>) -> Result<Option<AppBundleState>, String> {
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let bundles = ws.join("bundles");
+    read_app_bundle_state_unlocked(&bundles).map_err(|e| e.to_string())
+}
+
+/// Writes `bundles/archives/{version}.zip`, replaces `bundles/active/` with extracted contents,
+/// and updates `bundles/state.json`. Removes legacy `bundles/app-bundle.zip` if present.
+#[tauri::command]
+fn apply_app_bundle_download(
+    version: String,
+    hash: String,
+    zip_bytes: Vec<u8>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<AppBundleState, String> {
+    let ver = version.trim();
+    if ver.is_empty() {
+        return Err("version is required".to_string());
+    }
+    let hash = hash.trim();
+    if hash.is_empty() {
+        return Err("hash is required".to_string());
+    }
+    if zip_bytes.is_empty() {
+        return Err("zip is empty".to_string());
+    }
+    with_workspace_fs_exclusive(&ctx, |ctx| {
+        let ws = get_workspace_path(ctx)?;
+        let bundles = ws.join("bundles");
+        let archives_dir = bundles.join("archives");
+        let active_dir = bundles.join("active");
+        fs::create_dir_all(&archives_dir)?;
+        let prev = read_app_bundle_state_unlocked(&bundles)?;
+        let mut archived = prev
+            .as_ref()
+            .map(|s| s.archived_versions.clone())
+            .unwrap_or_default();
+        if !archived.iter().any(|v| v == ver) {
+            archived.push(ver.to_string());
+        }
+        archived.sort();
+        let sanit = sanitize_version_for_filename(ver);
+        let archive_zip = archives_dir.join(format!("{sanit}.zip"));
+        fs::write(&archive_zip, &zip_bytes)?;
+        if active_dir.exists() {
+            fs::remove_dir_all(&active_dir)?;
+        }
+        fs::create_dir_all(&active_dir)?;
+        extract_zip_to_dir(&zip_bytes, &active_dir)?;
+        let state = AppBundleState {
+            schema_version: 1,
+            active_version: ver.to_string(),
+            active_hash: hash.to_string(),
+            downloaded_at: Utc::now().to_rfc3339(),
+            archived_versions: archived,
+        };
+        let state_path = bundles.join("state.json");
+        if let Some(parent) = state_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(
+            &state_path,
+            serde_json::to_string_pretty(&state)
+                .map_err(|e| CustodianError::Message(e.to_string()))?,
+        )?;
+        let legacy = bundles.join("app-bundle.zip");
+        if legacy.exists() {
+            let _ = fs::remove_file(&legacy);
+        }
+        Ok(state)
+    })
+    .map_err(|e: CustodianError| e.to_string())
+}
+
+fn active_bundle_form_roots(workspace: &Path) -> Vec<PathBuf> {
+    vec![
+        workspace.join("bundles/active/forms"),
+        workspace.join("bundles/active/app/forms"),
+    ]
+}
+
+fn reserved_form_dir_name(name: &str) -> bool {
+    matches!(name, "extensions" | "question_types" | "validators")
+        || name.starts_with('.')
+        || name.starts_with("temp_")
+}
+
+fn sanitize_form_type_id(raw: &str) -> Result<String, String> {
+    let t = raw.trim();
+    if t.is_empty() {
+        return Err("form_type is required".to_string());
+    }
+    if t.contains('/') || t.contains('\\') || t.contains("..") {
+        return Err("invalid form_type".to_string());
+    }
+    Ok(t.to_string())
+}
+
+#[tauri::command]
+fn list_active_bundle_forms(
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Vec<ActiveBundleFormEntry>, String> {
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for root in active_bundle_form_roots(&ws) {
+        let rd = match fs::read_dir(&root) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        for entry in rd {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !entry.file_type().map_err(|e| e.to_string())?.is_dir() {
+                continue;
+            }
+            if reserved_form_dir_name(&name) {
+                continue;
+            }
+            let schema = entry.path().join("schema.json");
+            let ui = entry.path().join("ui.json");
+            if schema.is_file() && ui.is_file() && seen.insert(name.clone()) {
+                out.push(ActiveBundleFormEntry { form_type: name });
+            }
+        }
+    }
+    out.sort_by(|a, b| a.form_type.cmp(&b.form_type));
+    Ok(out)
+}
+
+#[tauri::command]
+fn read_bundle_form_spec(
+    form_type: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<BundleFormSpec, String> {
+    let ft = sanitize_form_type_id(&form_type)?;
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    for root in active_bundle_form_roots(&ws) {
+        let dir = root.join(&ft);
+        let schema_path = dir.join("schema.json");
+        let ui_path = dir.join("ui.json");
+        if schema_path.is_file() && ui_path.is_file() {
+            let form_schema: Value = serde_json::from_str(
+                &fs::read_to_string(&schema_path).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
+            let ui_schema: Value = serde_json::from_str(
+                &fs::read_to_string(&ui_path).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
+            return Ok(BundleFormSpec {
+                form_type: ft,
+                form_schema,
+                ui_schema,
+            });
+        }
+    }
+    Err(format!(
+        "Form \"{}\" not found under bundles/active (expected schema.json + ui.json).",
+        ft
+    ))
+}
+
+fn scan_js_modules_first_wins(
+    workspace: &Path,
+    dirs: &[&str],
+    validator: bool,
+) -> Result<HashMap<String, String>, String> {
+    let mut out = HashMap::new();
+    for dir in dirs {
+        let full = workspace.join(dir);
+        if !full.is_dir() {
+            continue;
+        }
+        let rd = fs::read_dir(&full).map_err(|e| e.to_string())?;
+        for entry in rd {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let ty = entry.file_type().map_err(|e| e.to_string())?;
+            if !ty.is_dir() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            if out.contains_key(&name) {
+                continue;
+            }
+            let path = if validator {
+                entry.path().join("index.js")
+            } else {
+                let r = entry.path().join("renderer.js");
+                if r.is_file() {
+                    r
+                } else {
+                    entry.path().join("index.js")
+                }
+            };
+            if path.is_file() {
+                let source = fs::read_to_string(&path).map_err(|e| e.to_string())?;
+                out.insert(name, source);
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn bundle_cqt_to_json(
+    custom_types: HashMap<String, String>,
+    validators: HashMap<String, String>,
+) -> Value {
+    let mut m = serde_json::Map::new();
+    if !custom_types.is_empty() {
+        let mut o = serde_json::Map::new();
+        for (k, v) in custom_types {
+            let mut inner = serde_json::Map::new();
+            inner.insert("source".to_string(), Value::String(v));
+            o.insert(k, Value::Object(inner));
+        }
+        m.insert("custom_types".to_string(), Value::Object(o));
+    }
+    if !validators.is_empty() {
+        let mut o = serde_json::Map::new();
+        for (k, v) in validators {
+            let mut inner = serde_json::Map::new();
+            inner.insert("source".to_string(), Value::String(v));
+            o.insert(k, Value::Object(inner));
+        }
+        m.insert("validators".to_string(), Value::Object(o));
+    }
+    Value::Object(m)
+}
+
+#[tauri::command]
+fn read_workspace_text_file(
+    relative_path: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<String, String> {
+    let path = resolve_workspace_path(&ctx, Some(relative_path)).map_err(|e| e.to_string())?;
+    fs::read_to_string(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn write_text_file(path: String, contents: String) -> Result<(), String> {
+    let t = path.trim();
+    if t.is_empty() {
+        return Err("path is empty".to_string());
+    }
+    fs::write(t, contents).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_active_bundle_forms_file_base_url(
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<String, String> {
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let forms = ws.join("bundles/active/forms");
+    Url::from_directory_path(&forms)
+        .map(|u| u.to_string().trim_end_matches('/').to_string())
+        .map_err(|()| "failed to build file URL for bundles/active/forms".to_string())
+}
+
+/// `file://` URL for an existing directory under the workspace (trailing slash per `Url` rules).
+#[tauri::command]
+fn workspace_directory_file_url(
+    relative_path: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<String, String> {
+    let path = resolve_workspace_path(&ctx, Some(relative_path)).map_err(|e| e.to_string())?;
+    if !path.exists() {
+        return Err(format!("path does not exist: {}", path.display()));
+    }
+    if !path.is_dir() {
+        return Err("path is not a directory".to_string());
+    }
+    Url::from_directory_path(&path)
+        .map(|u| u.to_string())
+        .map_err(|()| "invalid directory for file URL".to_string())
+}
+
+/// Resolve `attachments/<file_name>` to a `file://` URL if the file exists (basename only; no path segments).
+#[tauri::command]
+fn workspace_attachment_file_url(
+    file_name: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Option<String>, String> {
+    let t = file_name.trim();
+    if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+        return Err("invalid attachment file name".to_string());
+    }
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let path = ws.join("attachments").join(t);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    Url::from_file_path(&path)
+        .map(|u| Some(u.to_string()))
+        .map_err(|()| "invalid file URL".to_string())
+}
+
+#[tauri::command]
+fn scan_bundle_custom_question_types(ctx: tauri::State<'_, AppCtx>) -> Result<Value, String> {
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let qt_dirs = [
+        "bundles/active/question_types",
+        "bundles/active/forms/question_types",
+    ];
+    let val_dirs = [
+        "bundles/active/validators",
+        "bundles/active/forms/validators",
+    ];
+    let custom_types = scan_js_modules_first_wins(&ws, &qt_dirs, false)?;
+    let validators = scan_js_modules_first_wins(&ws, &val_dirs, true)?;
+    Ok(bundle_cqt_to_json(custom_types, validators))
+}
+
 #[tauri::command]
 fn remove_workspace_attachment(
     attachment_id: String,
@@ -1955,6 +2395,17 @@ pub fn run() {
             move_workspace,
             backup_workspace,
             write_workspace_attachment,
+            write_workspace_file,
+            get_app_bundle_state,
+            apply_app_bundle_download,
+            list_active_bundle_forms,
+            read_bundle_form_spec,
+            read_workspace_text_file,
+            write_text_file,
+            get_active_bundle_forms_file_base_url,
+            workspace_directory_file_url,
+            workspace_attachment_file_url,
+            scan_bundle_custom_question_types,
             remove_workspace_attachment,
             get_observation,
             save_observation,
@@ -1993,5 +2444,17 @@ mod tests {
         let local_remote = Some("2026-03-27T10:00:00Z".to_string());
         let incoming = Some("2026-03-28T10:00:00Z".to_string());
         assert!(!should_mark_conflict(false, &local_remote, &incoming));
+    }
+
+    #[test]
+    fn sanitize_version_for_filename_keeps_semverish_tokens() {
+        assert_eq!(
+            super::sanitize_version_for_filename("1.2.3-rc1"),
+            "1.2.3-rc1"
+        );
+        assert_eq!(
+            super::sanitize_version_for_filename("weird/name"),
+            "weird_name"
+        );
     }
 }

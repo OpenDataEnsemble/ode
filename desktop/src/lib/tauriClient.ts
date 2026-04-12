@@ -12,6 +12,9 @@ import type {
   ObservationRecord,
   SaveObservationRequest,
   ServerProfile,
+  ActiveBundleFormEntry,
+  AppBundleState,
+  BundleFormSpec,
   SetSyncStateRequest,
   SyncLoginRequest,
   SyncPullRequest,
@@ -81,6 +84,41 @@ export const tauriClient = {
       attachmentId,
       data: Array.from(data),
     }),
+  /** Relative to active profile workspace root (e.g. `bundles/app-bundle.zip`). */
+  writeWorkspaceFile: (relativePath: string, data: Uint8Array) =>
+    invokeSafe<string>('write_workspace_file', {
+      relativePath,
+      data: Array.from(data),
+    }),
+  getAppBundleState: () =>
+    invokeSafe<AppBundleState | null>('get_app_bundle_state'),
+  /** Writes `bundles/archives/{version}.zip`, extracts to `bundles/active/`, updates `state.json`. */
+  applyAppBundleDownload: (args: {
+    version: string;
+    hash: string;
+    zipBytes: Uint8Array;
+  }) =>
+    invokeSafe<AppBundleState>('apply_app_bundle_download', {
+      version: args.version,
+      hash: args.hash,
+      zipBytes: Array.from(args.zipBytes),
+    }),
+  listActiveBundleForms: () =>
+    invokeSafe<ActiveBundleFormEntry[]>('list_active_bundle_forms'),
+  readBundleFormSpec: (formType: string) =>
+    invokeSafe<BundleFormSpec>('read_bundle_form_spec', { formType }),
+  readWorkspaceTextFile: (relativePath: string) =>
+    invokeSafe<string>('read_workspace_text_file', { relativePath }),
+  writeTextFile: (path: string, contents: string) =>
+    invokeSafe<void>('write_text_file', { path, contents }),
+  getActiveBundleFormsFileBaseUrl: () =>
+    invokeSafe<string>('get_active_bundle_forms_file_base_url'),
+  workspaceDirectoryFileUrl: (relativePath: string) =>
+    invokeSafe<string>('workspace_directory_file_url', { relativePath }),
+  workspaceAttachmentFileUrl: (fileName: string) =>
+    invokeSafe<string | null>('workspace_attachment_file_url', { fileName }),
+  scanBundleCustomQuestionTypes: () =>
+    invokeSafe<Record<string, unknown>>('scan_bundle_custom_question_types'),
   removeWorkspaceAttachment: (attachmentId: string) =>
     invokeSafe<void>('remove_workspace_attachment', { attachmentId }),
   getObservation: (id: string) =>

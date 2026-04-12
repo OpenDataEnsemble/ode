@@ -7,13 +7,16 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import brandMarkUrl from './assets/custodian.png';
 import { OverviewPage } from './pages/OverviewPage';
 import { ObservationsPage } from './pages/ObservationsPage';
 import { SyncPage } from './pages/SyncPage';
 import { ProfilesPage } from './pages/ProfilesPage';
 import { ImportPage } from './pages/ImportPage';
-import { WorkbenchPage } from './pages/WorkbenchPage';
+import { FormPreviewPage } from './pages/FormPreviewPage';
+import { WorkbenchBundlesPage } from './pages/WorkbenchBundlesPage';
+import { WorkbenchCustomAppPage } from './pages/WorkbenchCustomAppPage';
 import { useSynkServerStatus } from './hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
@@ -65,6 +68,28 @@ function ModeSwitch() {
   const navigate = useNavigate();
   const location = useLocation();
   const isWorkbench = location.pathname.startsWith('/workbench');
+  const active = useCustodianStore(selectActiveProfileState);
+  const upsertProfileRemote = useCustodianStore(s => s.upsertProfileRemote);
+
+  async function goData() {
+    navigate('/data/overview');
+    if (active) {
+      await upsertProfileRemote({
+        ...active,
+        defaultAppMode: 'data_management',
+      });
+    }
+  }
+
+  async function goWorkbench() {
+    navigate('/workbench/bundles');
+    if (active) {
+      await upsertProfileRemote({
+        ...active,
+        defaultAppMode: 'workbench',
+      });
+    }
+  }
 
   return (
     <div className="mode-switch" role="tablist" aria-label="Application mode">
@@ -73,7 +98,7 @@ function ModeSwitch() {
         role="tab"
         className={`mode-switch-btn${!isWorkbench ? ' mode-switch-btn-active' : ''}`}
         aria-selected={!isWorkbench}
-        onClick={() => navigate('/data/overview')}>
+        onClick={() => void goData()}>
         Data
       </button>
       <button
@@ -81,11 +106,48 @@ function ModeSwitch() {
         role="tab"
         className={`mode-switch-btn${isWorkbench ? ' mode-switch-btn-active' : ''}`}
         aria-selected={isWorkbench}
-        onClick={() => navigate('/workbench/bundles')}>
+        onClick={() => void goWorkbench()}>
         Workbench
       </button>
     </div>
   );
+}
+
+/** On profile switch (not initial mount), navigate to that profile’s default mode home. */
+function ProfileSwitchNavigation() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const activeProfileId = useCustodianStore(s => s.activeProfileId);
+  const profiles = useCustodianStore(s => s.profiles);
+  const prevIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prevIdRef.current === null) {
+      prevIdRef.current = activeProfileId;
+      return;
+    }
+    if (prevIdRef.current === activeProfileId) {
+      return;
+    }
+    prevIdRef.current = activeProfileId;
+    if (location.pathname === '/data/profiles') {
+      return;
+    }
+    const p = profiles.find(x => x.id === activeProfileId);
+    const mode = p?.defaultAppMode ?? 'data_management';
+    navigate(mode === 'workbench' ? '/workbench/bundles' : '/data/overview', {
+      replace: true,
+    });
+  }, [activeProfileId, profiles, navigate, location.pathname]);
+
+  return null;
+}
+
+function RootRedirect() {
+  const p = useCustodianStore(selectActiveProfileState);
+  const mode = p?.defaultAppMode ?? 'data_management';
+  const to = mode === 'workbench' ? '/workbench/bundles' : '/data/overview';
+  return <Navigate to={to} replace />;
 }
 
 function EnvironmentBadge() {
@@ -112,10 +174,17 @@ function Shell() {
   return (
     <div className="app">
       <ProfilesBootstrap />
+      <ProfileSwitchNavigation />
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">
-            <span className="material-symbols-outlined">shield_person</span>
+            <img
+              src={brandMarkUrl}
+              alt=""
+              className="brand-icon-img"
+              width={36}
+              height={36}
+            />
           </div>
           <div>
             <h1>ODE Desktop</h1>
@@ -148,7 +217,7 @@ function Shell() {
 
       <main className="content">
         <Routes>
-          <Route path="/" element={<Navigate to="/data/overview" replace />} />
+          <Route path="/" element={<RootRedirect />} />
           <Route
             path="/overview"
             element={<Navigate to="/data/overview" replace />}
@@ -193,9 +262,12 @@ function Shell() {
           <Route path="/data/sync" element={<SyncPage />} />
           <Route path="/data/profiles" element={<ProfilesPage />} />
 
-          <Route path="/workbench/bundles" element={<WorkbenchPage />} />
-          <Route path="/workbench/form-preview" element={<WorkbenchPage />} />
-          <Route path="/workbench/custom-app" element={<WorkbenchPage />} />
+          <Route path="/workbench/bundles" element={<WorkbenchBundlesPage />} />
+          <Route path="/workbench/form-preview" element={<FormPreviewPage />} />
+          <Route
+            path="/workbench/custom-app"
+            element={<WorkbenchCustomAppPage />}
+          />
           <Route
             path="/workbench"
             element={<Navigate to="/workbench/bundles" replace />}

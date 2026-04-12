@@ -3,14 +3,18 @@
  * Full WebView host wiring is tracked in the ODE Desktop plan.
  */
 
-/** Subset of fields hosts pass into formplayer init (expand as integration grows). */
-export interface FormInitDataShape {
+/** Mirrors `FormulusInterfaceDefinition.FormInitData` for the embedded formplayer host. */
+export interface FormInitData {
   formType: string;
-  observationId?: string | null;
-  params?: unknown;
-  savedData?: unknown;
+  observationId: string | null;
+  params: Record<string, unknown>;
+  savedData: Record<string, unknown>;
   formSchema?: unknown;
   uiSchema?: unknown;
+  operationId?: string;
   extensions?: unknown;
   customQuestionTypes?: unknown;
 }
+
+/** @deprecated Use `FormInitData` */
+export type FormInitDataShape = FormInitData;

@@ -678,6 +678,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "thiserror 2.0.18",
+ "url",
  "uuid",
  "walkdir",
  "zip",

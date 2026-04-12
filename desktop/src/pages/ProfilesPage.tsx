@@ -67,6 +67,7 @@ function emptyProfile(dataDirectory: string): ServerProfile {
     databasePath,
     attachmentsPath: null,
     environment: 'production',
+    defaultAppMode: 'data_management',
   };
 }
 
