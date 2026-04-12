@@ -860,6 +860,15 @@ paths:
         Requires body `{ "confirm": "RESET_REPOSITORY" }`.
       security:
         - bearerAuth: [admin]
+      parameters:
+        - name: x-ode-version
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: '^\d+\.\d+\.\d+$'
+            example: '1.0.0'
+          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
       requestBody:
         required: true
         content:
