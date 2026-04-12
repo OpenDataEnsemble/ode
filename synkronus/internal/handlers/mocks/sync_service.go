@@ -47,6 +47,11 @@ func (m *MockSyncService) GetRepositoryGeneration(ctx context.Context) (int64, e
 	return m.repositoryGeneration, nil
 }
 
+// SetRepositoryGeneration sets the mock server epoch (for handler tests).
+func (m *MockSyncService) SetRepositoryGeneration(gen int64) {
+	m.repositoryGeneration = gen
+}
+
 // HardResetRepository mocks an admin reset (increments epoch and clears observations).
 func (m *MockSyncService) HardResetRepository(ctx context.Context, adminUsername string) (int64, error) {
 	if !m.initialized {
