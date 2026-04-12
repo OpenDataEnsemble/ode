@@ -85,9 +85,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
       if (currentPhotoData?.uri) {
         const u = currentPhotoData.uri;
         const display =
-          u.startsWith('file://') || u.startsWith('http')
-            ? u
-            : `file://${u}`;
+          u.startsWith('file://') || u.startsWith('http') ? u : `file://${u}`;
         console.log('Setting photo URL from stored data:', display);
         if (!cancelled) setPhotoUrl(display);
         return;

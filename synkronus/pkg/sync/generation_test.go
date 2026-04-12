@@ -11,10 +11,10 @@ func TestParseClientRepositoryGeneration(t *testing.T) {
 	bodyNeg := int64(-1)
 
 	tests := []struct {
-		name         string
-		headerValue  string
-		body         *int64
-		want         int64
+		name        string
+		headerValue string
+		body        *int64
+		want        int64
 	}{
 		{
 			name:        "omitted header and body defaults to 1",
