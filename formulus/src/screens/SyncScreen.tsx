@@ -23,7 +23,7 @@ import {
   getUserInfo,
   getUserFacingSyncErrorMessage,
 } from '../api/synkronus/Auth';
-import colors from '../theme/colors';
+import colors, { withAlpha } from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
@@ -49,6 +49,24 @@ const SyncScreen = () => {
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
   const cardBg = themeColors.surface as string;
+  const mutedForeground = (
+    isDark ? colors.neutral[400] : colors.neutral[600]
+  ) as string;
+  const bundleSuccessGreen = colors.brand.primary['500'] as string;
+  const bundleStatusOkBg = isDark
+    ? withAlpha(colors.semantic.success[500] as unknown as string, 0.16)
+    : (colors.semantic.success[50] as unknown as string);
+  const bundleStatusOkText = (
+    isDark
+      ? colors.semantic.success[500]
+      : colors.semantic.success[600]
+  ) as unknown as string;
+  const bundleStatusUpdateBg = isDark
+    ? withAlpha(colors.semantic.warning[500] as unknown as string, 0.2)
+    : (colors.semantic.warning[50] as unknown as string);
+  const bundleStatusUpdateText = colors.semantic.warning[
+    600
+  ] as unknown as string;
   const _headerBg = isDark
     ? (colors.neutral[900] as string)
     : (colors.neutral[50] as string);
@@ -292,6 +310,7 @@ const SyncScreen = () => {
   };
 
   const observationStatus = getObservationStatusText();
+  const odeStatusIconGreen = colors.brand.primary['500'] as string;
   const observationStatusColor = isObservationSyncActive
     ? themeColors.primary
     : syncState.error
@@ -299,6 +318,13 @@ const SyncScreen = () => {
       : pendingObservations > 0 || pendingUploads.count > 0
         ? colors.semantic.warning[500]
         : (themeColors.primary as string);
+  const observationStatusIconColor = isObservationSyncActive
+    ? themeColors.primary
+    : syncState.error
+      ? colors.semantic.error[500]
+      : pendingObservations > 0 || pendingUploads.count > 0
+        ? colors.semantic.warning[500]
+        : odeStatusIconGreen;
 
   useEffect(() => {
     const unsubscribeStatus = syncService.subscribeToStatusUpdates(() => {});
@@ -400,6 +426,39 @@ const SyncScreen = () => {
     activeOperation === 'sync' || activeOperation === 'sync_then_update';
   const isUpdateButtonActive =
     activeOperation === 'update' || activeOperation === 'sync_then_update';
+
+  const bundleVersionsKnown =
+    appBundleVersion !== 'Unknown' && serverBundleVersion !== 'Unknown';
+
+  const bundleStatusPill = (() => {
+    if (updateAvailable) {
+      return {
+        bg: bundleStatusUpdateBg,
+        icon: 'arrow-down-circle' as const,
+        iconColor: bundleStatusUpdateText,
+        label: 'Update available',
+        textColor: bundleStatusUpdateText,
+      };
+    }
+    if (!bundleVersionsKnown) {
+      return {
+        bg: isDark
+          ? withAlpha(colors.neutral[500] as string, 0.22)
+          : (colors.neutral[100] as string),
+        icon: 'information-outline' as const,
+        iconColor: mutedForeground,
+        label: 'Could not verify versions',
+        textColor: themeColors.onSurface as string,
+      };
+    }
+    return {
+      bg: bundleStatusOkBg,
+      icon: 'check-circle' as const,
+      iconColor: bundleSuccessGreen,
+      label: 'Up-to-date',
+      textColor: bundleStatusOkText,
+    };
+  })();
 
   const hasPendingLocalObservationChanges =
     pendingObservations > 0 || pendingUploads.count > 0;
@@ -555,14 +614,14 @@ const SyncScreen = () => {
                           : 'check-circle'
                   }
                   size={20}
-                  color={observationStatusColor as string}
+                  color={observationStatusIconColor as string}
                 />
                 <Text
                   style={[
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Observation status
+                  Status
                 </Text>
               </View>
               <Text
@@ -605,7 +664,7 @@ const SyncScreen = () => {
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Last observation sync
+                  Last Sync
                 </Text>
               </View>
               <Text
@@ -784,124 +843,91 @@ const SyncScreen = () => {
           <View
             style={[
               styles.card,
-              styles.versionCard,
+              styles.appBundleCard,
               {
-                borderWidth: 1,
+                borderWidth: odeBorderWidth.hairline,
                 borderColor: themeColors.divider as string,
                 backgroundColor: cardBg,
               },
             ]}>
-            <Text
-              style={[
-                styles.versionSectionSubtitle,
-                { color: themeColors.onSurface as string },
-              ]}>
-              Form definitions and custom app assets from the server
+            <Text style={[styles.appBundleSubtitle, { color: mutedForeground }]}>
+              Form definitions and custom app assets
             </Text>
-            <View style={styles.versionRow}>
-              <View style={styles.versionValues}>
-                <View style={styles.versionItem}>
-                  <Text
-                    style={[
-                      styles.versionItemLabel,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    Local
-                  </Text>
-                  <Text
-                    style={[
-                      styles.versionItemValue,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    {appBundleVersion}
-                  </Text>
-                </View>
-                <View
+
+            <View
+              style={[
+                styles.bundleStatusPill,
+                { backgroundColor: bundleStatusPill.bg },
+              ]}>
+              <Icon
+                name={bundleStatusPill.icon}
+                size={18}
+                color={bundleStatusPill.iconColor}
+              />
+              <Text
+                style={[
+                  styles.bundleStatusPillText,
+                  { color: bundleStatusPill.textColor },
+                ]}>
+                {bundleStatusPill.label}
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.bundleVersionPanel,
+                {
+                  borderColor: themeColors.divider as string,
+                  backgroundColor: isDark
+                    ? 'rgba(255,255,255,0.06)'
+                    : 'rgba(0,0,0,0.04)',
+                },
+              ]}>
+              <View style={styles.bundleVersionTextFlex}>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
                   style={[
-                    styles.versionDivider,
-                    { backgroundColor: themeColors.divider as string },
-                  ]}
+                    styles.bundleVersionLine,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  <Text style={{ color: mutedForeground }}>Version: </Text>
+                  <Text style={styles.bundleVersionEmphasis}>Local</Text>
+                  <Text> {appBundleVersion}</Text>
+                  <Text style={{ color: mutedForeground }}> • </Text>
+                  <Text style={styles.bundleVersionEmphasis}>Server</Text>
+                  <Text> {serverBundleVersion}</Text>
+                </Text>
+              </View>
+              <View style={styles.bundleUpdateButtonWrap}>
+                <Button
+                  variant="primary"
+                  size="small"
+                  title={isUpdateButtonActive ? 'Updating...' : 'Update'}
+                  onPress={handleCustomAppUpdate}
+                  disabled={syncState.isActive || !updateAvailable}
+                  loading={isUpdateButtonActive}
+                  active={
+                    updateAvailable && !syncState.isActive && !isUpdateButtonActive
+                  }
                 />
-                <View style={styles.versionItem}>
-                  <Text
-                    style={[
-                      styles.versionItemLabel,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    Server
-                  </Text>
-                  <Text
-                    style={[
-                      styles.versionItemValue,
-                      { color: themeColors.onSurface as string },
-                    ]}>
-                    {serverBundleVersion}
-                  </Text>
-                </View>
               </View>
             </View>
-            {updateAvailable && (
-              <View
-                style={[
-                  styles.updateBadge,
-                  { borderTopColor: themeColors.divider as string },
-                ]}>
-                <Icon
-                  name="arrow-down-circle"
-                  size={16}
-                  color={colors.semantic.success[500] as unknown as string}
-                />
-                <Text style={styles.updateBadgeText}>Update available</Text>
-              </View>
+
+            {!bundleVersionsKnown && (
+              <Text
+                style={[styles.appBundleFootnote, { color: mutedForeground }]}>
+                {serverBundleVersion === 'Unknown' &&
+                appBundleVersion === 'Unknown'
+                  ? 'Could not load bundle version information.'
+                  : serverBundleVersion === 'Unknown'
+                    ? 'Could not load server bundle version.'
+                    : 'Could not read local bundle version.'}
+              </Text>
             )}
           </View>
 
           {showBundleProgress && progressCard}
-
-          <View style={styles.actionsSection}>
-            <Button
-              title={syncState.isActive ? 'Updating...' : 'Update App Bundle'}
-              onPress={handleCustomAppUpdate}
-              disabled={syncState.isActive || !updateAvailable}>
-              {isUpdateButtonActive ? (
-                <ActivityIndicator size="small" color={themeColors.primary} />
-              ) : (
-                <Icon name="download" size={20} color={themeColors.primary} />
-              )}
-              <Text
-                style={[
-                  styles.actionButtonText,
-                  styles.secondaryButtonText,
-                  { color: themeColors.primary as string },
-                ]}>
-                {isUpdateButtonActive ? 'Updating...' : 'Update App Bundle'}
-              </Text>
-            </Button>
-
-            {!syncState.isActive && updateAvailable && (
-              <Text
-                style={[
-                  styles.updateNotification,
-                  { color: themeColors.onSurface as string },
-                ]}>
-                Update available
-              </Text>
-            )}
-
-            {!syncState.isActive && !updateAvailable && (
-              <Text
-                style={[
-                  styles.hintText,
-                  { color: themeColors.onSurface as string },
-                ]}>
-                {serverBundleVersion === 'Unknown'
-                  ? 'Could not load server bundle version.'
-                  : appBundleVersion === 'Unknown'
-                    ? 'Could not read local bundle version.'
-                    : 'App bundle is up to date'}
-              </Text>
-            )}
-          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -1016,51 +1042,57 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.bodySm,
     fontWeight: '600',
   },
-  versionCard: {
+  appBundleCard: {
     marginBottom: odeSpacing.md,
+    gap: odeSpacing.sm,
   },
-  versionSectionSubtitle: {
-    fontSize: odeTypography.caption,
-    marginBottom: odeSpacing.sm,
-    opacity: 0.85,
+  appBundleSubtitle: {
+    fontSize: odeTypography.bodySm,
+    lineHeight: 20,
   },
-  versionRow: {
+  bundleStatusPill: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: odeSpacing.xs,
+    paddingVertical: odeSpacing.xs,
+    paddingHorizontal: odeSpacing.md,
+    borderRadius: 9999,
+    maxWidth: '100%',
   },
-  versionValues: {
+  bundleStatusPillText: {
+    fontSize: odeTypography.bodySm,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  bundleVersionPanel: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: odeSpacing.sm,
+    marginTop: odeSpacing.xs,
+    padding: odeSpacing.md,
+    borderRadius: odeRadius.inner,
+    borderWidth: odeBorderWidth.hairline,
   },
-  versionItem: {
-    alignItems: 'flex-end',
+  bundleVersionTextFlex: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: odeSpacing.xs,
   },
-  versionItemLabel: {
-    fontSize: odeTypography.caption,
-    marginBottom: odeSpacing.xxs,
-  },
-  versionItemValue: {
+  bundleVersionLine: {
     fontSize: odeTypography.bodySm,
-    fontWeight: '600',
+    lineHeight: 22,
   },
-  versionDivider: {
-    width: 1,
-    height: 20,
+  bundleVersionEmphasis: {
+    fontWeight: '700',
   },
-  updateBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
+  bundleUpdateButtonWrap: {
+    flexShrink: 0,
   },
-  updateBadgeText: {
-    fontSize: 12,
-    color: colors.semantic.success[500] as unknown as string,
-    fontWeight: '500',
+  appBundleFootnote: {
+    fontSize: odeTypography.caption,
+    lineHeight: 18,
+    marginTop: odeSpacing.xs,
   },
   progressCard: {
     marginBottom: odeSpacing.md,
@@ -1122,17 +1154,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   secondaryButtonText: {},
-  hintText: {
-    fontSize: 12,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-  updateNotification: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4,
-  },
 });
 
 export default SyncScreen;
