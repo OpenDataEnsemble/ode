@@ -155,14 +155,12 @@ export function FormFinalizeDialog({
         </p>
         <div className="button-row" style={{ marginTop: '1rem' }}>
           <button type="button" disabled={busy} onClick={() => void handleSaveJson()}>
-            Save as .json file…
+            Save as .json file
           </button>
         </div>
         <p
-          className="notice warn"
-          style={{ fontSize: '0.85rem', margin: '1rem 0 0.5rem' }}>
-          Data saved to the database will be synced to the server endpoint when you
-          run sync.
+          className="notice warn" style={{ fontSize: '0.85rem', margin: '1rem 0 0.5rem' }}>
+          Observations saved to the database will be synced to the server endpoint next time you sync.
         </p>
         <label
           style={{
@@ -178,10 +176,11 @@ export function FormFinalizeDialog({
             disabled={busy}
             onChange={e => setTagTestdata(e.target.checked)}
           />
-          <span>
-            Add &quot;{TESTDATA_TAG}&quot; tag to this observation (database save
-            only)
-          </span>
+          <p
+          className="notice warn"
+          style={{ fontSize: '0.85rem', margin: '1rem 0 0.5rem' }}>
+            Add &quot;{TESTDATA_TAG}&quot; tag to this observation
+          </p>
         </label>
         {error ? (
           <p className="notice error" style={{ margin: '0.5rem 0' }}>
