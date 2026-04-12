@@ -2056,11 +2056,16 @@ fn workspace_attachment_file_url(
 #[tauri::command]
 fn scan_bundle_custom_question_types(ctx: tauri::State<'_, AppCtx>) -> Result<Value, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    // Prefer `bundles/active/app/**` (Synkronus zip layout) before legacy flat paths.
     let qt_dirs = [
+        "bundles/active/app/question_types",
+        "bundles/active/app/forms/question_types",
         "bundles/active/question_types",
         "bundles/active/forms/question_types",
     ];
     let val_dirs = [
+        "bundles/active/app/validators",
+        "bundles/active/app/forms/validators",
         "bundles/active/validators",
         "bundles/active/forms/validators",
     ];

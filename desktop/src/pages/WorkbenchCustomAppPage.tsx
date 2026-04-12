@@ -5,10 +5,7 @@ import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
 import type { FinalizeRequest } from '../lib/formPreviewBridge';
 import { handleFormPreviewBridgeMessage } from '../lib/formPreviewBridge';
 import { tauriClient } from '../lib/tauriClient';
-import {
-  WORKSPACE_BUNDLE_ACTIVE_DIR,
-  WORKSPACE_BUNDLE_STATE_FILE,
-} from '../lib/workspacePaths';
+import { WORKSPACE_BUNDLE_STATE_FILE } from '../lib/workspacePaths';
 import type { AppBundleState } from '../types/domain';
 
 export function WorkbenchCustomAppPage() {

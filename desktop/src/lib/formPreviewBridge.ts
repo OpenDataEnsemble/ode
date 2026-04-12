@@ -15,7 +15,7 @@
  * | `launchIntent` / `callSubform` | **Stub** — not supported in preview. |
  * | `requestConnectivityStatus` / `requestSyncStatus` | **No-op** success (`result` omitted) so callers resolve. |
  * | `runLocalModel` | **Stub** — no on-device ML in preview. |
- * | `getCurrentUser` | `{ username: '' }` (matches interface when unauthenticated). |
+ * | `getCurrentUser` | Active profile `username` + `label` as `displayName` (from `get_settings`). |
  * | `getThemeMode` | `'system'`. |
  * | `getAttachmentUri` | `workspace/attachments/<basename>` → `file://` if file exists, else `null`. |
  * | `getAttachmentsUri` | `file://` for `attachments/` directory if it exists. |
@@ -386,9 +386,27 @@ export async function handleFormPreviewBridgeMessage(
         );
         return;
 
-      case 'getCurrentUser':
-        reply('getCurrentUser', { result: { username: '' } });
+      case 'getCurrentUser': {
+        try {
+          const settings = await tauriClient.getSettings();
+          const active = settings.profiles.find(
+            p => p.id === settings.activeProfileId,
+          );
+          const username = (active?.username ?? '').trim();
+          const label = (active?.label ?? '').trim();
+          reply('getCurrentUser', {
+            result: {
+              username,
+              ...(label ? { displayName: label } : {}),
+            },
+          });
+        } catch (e) {
+          reply('getCurrentUser', {
+            error: e instanceof Error ? e.message : String(e),
+          });
+        }
         return;
+      }
 
       case 'getThemeMode':
         reply('getThemeMode', { result: 'system' });
