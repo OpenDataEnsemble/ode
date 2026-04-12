@@ -284,6 +284,27 @@ This will:
 
 The `build:rn` script automatically handles cleaning, so no need to run `clean-rn-assets` separately.
 
+## ODE Desktop (Tauri)
+
+**Workflow file**: `.github/workflows/ode-desktop.yml`
+
+### Triggers
+
+- **Pull requests** and **pushes** to `main` / `dev` when files under `desktop/**` change (or the workflow file itself)
+- **Manual dispatch**
+
+### Path filters
+
+Runs only when `desktop/**` or `.github/workflows/ode-desktop.yml` changes.
+
+### What it runs
+
+From `desktop/`: `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm typecheck`, `pnpm codegen:synk-client`, then **fails** if `desktop/src/generated` drifts from the regenerated OpenAPI client. From `desktop/src-tauri/`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`.
+
+### Formplayer embed
+
+After building formplayer (`npm run build` in `formulus-formplayer`), copy its `build/` into the desktop app with `pnpm copy:formplayer` from `desktop/` (see `desktop/README.md`). Copied assets are gitignored under `desktop/public/formplayer_dist/`.
+
 ## Future Enhancements
 
 Potential improvements to the CI/CD pipeline:

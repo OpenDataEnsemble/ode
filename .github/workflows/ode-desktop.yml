@@ -1,0 +1,74 @@
+name: ODE Desktop
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/ode-desktop.yml'
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/ode-desktop.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '24'
+
+jobs:
+  desktop:
+    name: Lint, test, and Rust checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      - name: Enable corepack
+        run: corepack enable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: Prettier
+        run: pnpm format:check
+
+      - name: Vitest
+        run: pnpm test
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Regenerate Synkronus TypeScript client
+        run: pnpm codegen:synk-client
+
+      - name: Verify generated client matches repository
+        working-directory: ${{ github.workspace }}
+        run: git diff --exit-code -- desktop/src/generated
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cargo fmt, clippy, test
+        working-directory: desktop/src-tauri
+        run: |
+          cargo fmt --check
+          cargo clippy -- -D warnings
+          cargo test

@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Copied formplayer production build (from ../formulus-formplayer)
+public/formplayer_dist
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
