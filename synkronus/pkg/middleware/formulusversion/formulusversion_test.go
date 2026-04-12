@@ -114,13 +114,13 @@ func TestMiddleware(t *testing.T) {
 		}
 	})
 
-	t.Run("fallback_to_x_formulus_version_passes_during_transition", func(t *testing.T) {
+	t.Run("x_formulus_version_alone_returns_426", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/api/auth/login", nil)
 		req.Header.Set("x-formulus-version", "1.0.0")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
-		if rec.Code != http.StatusOK {
-			t.Errorf("expected 200 when fallback header is used, got %d body %s", rec.Code, rec.Body.String())
+		if rec.Code != http.StatusUpgradeRequired {
+			t.Errorf("expected 426 when only x-formulus-version is sent, got %d", rec.Code)
 		}
 	})
 }

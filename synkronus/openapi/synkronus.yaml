@@ -53,6 +53,10 @@ paths:
       operationId: getVersion
       summary: Get server version and system information
       description: Returns detailed version information about the server, including build information and system details
+      security:
+        - bearerAuth: [read-only, read-write, admin]
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: Successful response with version information
@@ -60,12 +64,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemVersionInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/versions:
+    get:
+      operationId: getAPIVersions
+      summary: List supported API contract versions
+      description: Returns version metadata for the public HTTP API (compatibility hints for clients).
+      security:
+        - bearerAuth: [read-only, read-write, admin]
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
+      responses:
+        '200':
+          description: API version list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIVersionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/app-bundle/changes:
     get:
@@ -87,14 +112,7 @@ paths:
           schema:
             type: string
           description: The target version to compare against (defaults to previous version)
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: Successfully retrieved changes between versions
@@ -128,14 +146,7 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
         - name: x-ode-client-id
           in: header
           required: false
@@ -178,14 +189,7 @@ paths:
           in: header
           schema:
             type: string
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: File content
@@ -201,6 +205,34 @@ paths:
         '304':
           description: Not Modified
 
+  /api/app-bundle/download-zip:
+    get:
+      operationId: downloadAppBundleZip
+      summary: Download the active app bundle as a single ZIP
+      description: Returns the full custom app bundle archive for the active version as `application/zip`.
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
+      responses:
+        '200':
+          description: ZIP archive of the app bundle
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Bundle zip not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/app-bundle/versions:
     get:
       operationId: getAppBundleVersions
@@ -208,14 +240,7 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: List of available app bundle versions
@@ -231,14 +256,7 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -295,14 +313,7 @@ paths:
           schema:
             type: string
           description: Version identifier to switch to
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: Successfully switched to the specified version
@@ -345,14 +356,7 @@ paths:
       summary: Authenticate user and return JWT tokens
       description: Obtain a JWT token by providing username and password
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -394,14 +398,7 @@ paths:
       summary: Refresh JWT token
       description: Obtain a new JWT token using a refresh token
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -441,14 +438,7 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -510,14 +500,7 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
         - name: x-ode-client-id
           in: header
           required: false
@@ -560,14 +543,7 @@ paths:
           schema:
             type: string
           description: Username of the user to delete
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: User deleted successfully
@@ -612,14 +588,7 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -679,14 +648,7 @@ paths:
       security:
         - bearerAuth: [read-only, read-write, admin]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -760,14 +722,7 @@ paths:
             default: 50
           description: Maximum number of records to return
 
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
         - name: x-ode-client-id
           in: header
           required: false
@@ -781,7 +736,7 @@ paths:
             type: integer
             format: int64
             minimum: 1
-          description: Client's repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header.
+          description: Client repository epoch; must match the server. Omitted or invalid values are treated as 1. Successful responses include the current epoch in JSON and in this header.
       requestBody:
         required: true
         content:
@@ -791,10 +746,27 @@ paths:
       responses:
         '200':
           description: Sync data
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+              description: Current repository epoch (same as response body `repository_generation`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SyncPullResponse'
+        '409':
+          description: Repository epoch mismatch (e.g. after admin hard reset). Client must align repository_generation before pulling.
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/sync/push:
     post:
@@ -803,14 +775,7 @@ paths:
       security:
         - bearerAuth: [read-write]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
         - name: x-ode-client-id
           in: header
           required: false
@@ -834,6 +799,12 @@ paths:
       responses:
         '200':
           description: Sync result
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+              description: Current repository epoch (same as response body `repository_generation`).
           content:
             application/json:
               schema:
@@ -861,14 +832,7 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -878,6 +842,12 @@ paths:
       responses:
         '200':
           description: Reset completed
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+              description: New repository epoch after reset (same as response body `repository_generation`).
           content:
             application/json:
               schema:
@@ -915,14 +885,7 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-ode-version
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
+        - $ref: '#/components/parameters/XOdeVersion'
         - name: x-repository-generation
           in: header
           required: false
@@ -983,6 +946,8 @@ paths:
         Entry paths correspond to attachment IDs. Large exports stream without buffering the full archive in memory.
       tags:
         - Attachments
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: ZIP archive stream
@@ -1019,6 +984,7 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - $ref: '#/components/parameters/XOdeVersion'
         - name: x-repository-generation
           in: header
           required: false
@@ -1078,6 +1044,7 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - $ref: '#/components/parameters/XOdeVersion'
         - name: original
           in: query
           required: false
@@ -1116,6 +1083,7 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - $ref: '#/components/parameters/XOdeVersion'
         - name: original
           in: query
           required: false
@@ -1144,6 +1112,8 @@ paths:
       operationId: getParquetExportZip
       tags:
         - DataExport
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: ZIP archive stream containing Parquet files
@@ -1170,6 +1140,8 @@ paths:
         grouped by form type folder. Each file contains metadata fields and a nested `data` object with the form payload.
       tags:
         - DataExport
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: ZIP archive stream containing JSON files
@@ -1188,7 +1160,43 @@ paths:
         - bearerAuth: [read-only, read-write, admin]
 
 components:
+  parameters:
+    XOdeVersion:
+      name: x-ode-version
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^([vV])?\d+\.\d+\.\d+([+.-].*)?$'
+        example: '1.0.0'
+      description: >-
+        Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
   schemas:
+    APIVersionsResponse:
+      type: object
+      required: [versions, current]
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/APIVersionInfo'
+        current:
+          type: string
+          description: Identifier of the current API contract version
+          example: '1.0.0'
+    APIVersionInfo:
+      type: object
+      required: [version, releaseDate, deprecated]
+      properties:
+        version:
+          type: string
+          example: '1.0.0'
+        releaseDate:
+          type: string
+          format: date
+          example: '2025-01-01'
+        deprecated:
+          type: boolean
     SystemVersionInfo:
       type: object
       properties:
@@ -1487,7 +1495,7 @@ components:
           type: integer
           format: int64
           minimum: 1
-          description: Optional body copy of epoch; header x-repository-generation wins when both are sent.
+          description: Optional body copy of epoch; header x-repository-generation wins when both are sent. Must match the server or the request returns 409.
         since:
           type: object
           description: Optional pagination cursor indicating the last seen change

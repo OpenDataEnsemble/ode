@@ -11,10 +11,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/version"
 )
 
-const (
-	headerODEVersion      = "x-ode-version"
-	headerFormulusVersion = "x-formulus-version"
-)
+const headerODEVersion = "x-ode-version"
 
 // VersionMismatchResponse is the JSON body returned when version check fails (mismatch or invalid/missing version).
 // Uses HTTP 426 Upgrade Required status code - the standard HTTP status for version incompatibility.
@@ -24,27 +21,20 @@ type VersionMismatchResponse struct {
 }
 
 // Middleware returns a middleware that requires x-ode-version and checks major version match.
-// Transitional fallback: if x-ode-version is missing, x-formulus-version is accepted.
-// TODO: remove x-formulus-version fallback in an upcoming major version.
 func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			serverVer := version.BuildVersion()
-			clientHeaderName := headerODEVersion
 			clientVer := strings.TrimSpace(r.Header.Get(headerODEVersion))
 			if clientVer == "" {
-				clientVer = strings.TrimSpace(r.Header.Get(headerFormulusVersion))
-				clientHeaderName = headerFormulusVersion
-			}
-			if clientVer == "" {
-				log.Warn("Missing version header", "required_header", headerODEVersion, "fallback_header", headerFormulusVersion)
+				log.Warn("Missing version header", "required_header", headerODEVersion)
 				writeVersionError(w, "missing x-ode-version header. client must send a valid semantic version.", serverVer)
 				return
 			}
 			clientMajor, ok := parseMajor(clientVer)
 			if !ok {
-				log.Warn("Client version header unparseable", "header", clientHeaderName, "value", clientVer)
-				writeVersionError(w, fmt.Sprintf("%s must be a valid semantic version (e.g. 1.0.0).", clientHeaderName), serverVer)
+				log.Warn("Client version header unparseable", "header", headerODEVersion, "value", clientVer)
+				writeVersionError(w, fmt.Sprintf("%s must be a valid semantic version (e.g. 1.0.0).", headerODEVersion), serverVer)
 				return
 			}
 			serverMajor, ok := parseMajor(serverVer)
@@ -55,7 +45,7 @@ func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 			}
 			if clientMajor != serverMajor {
 				log.Warn("Client-Synkronus version mismatch",
-					"client_header", clientHeaderName,
+					"client_header", headerODEVersion,
 					"client_version", clientVer,
 					"synkronus_version", serverVer,
 					"client_major", clientMajor,
