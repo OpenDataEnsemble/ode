@@ -384,6 +384,7 @@ const SyncScreen = () => {
   };
 
   const observationStatus = getObservationStatusText();
+  /** Check icon on idle success uses ODE brand green; status text still follows app theme primary. */
   const odeStatusIconGreen = colors.brand.primary['500'] as string;
   const observationStatusColor = isObservationSyncActive
     ? themeColors.primary
