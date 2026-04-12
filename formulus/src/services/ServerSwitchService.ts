@@ -42,6 +42,7 @@ class ServerSwitchService {
     }
     await RNFS.mkdir(attachmentsDirectory);
     await RNFS.mkdir(`${attachmentsDirectory}/pending_upload`);
+    await RNFS.mkdir(`${attachmentsDirectory}/draft`);
 
     // 2) Clear app bundle and forms (fail fast)
     await synkronusApi.removeAppBundleFiles();

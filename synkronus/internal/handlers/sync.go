@@ -50,9 +50,24 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	clientGen := sync.ParseClientRepositoryGeneration(r, req.RepositoryGeneration)
+	serverGen, genErr := h.syncService.GetRepositoryGeneration(r.Context())
+	if genErr != nil {
+		h.log.Error("Failed to read repository generation", "error", genErr)
+		SendErrorResponse(w, http.StatusInternalServerError, genErr, "Failed to verify repository generation")
+		return
+	}
+	if clientGen != serverGen {
+		w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(serverGen, 10))
+		SendErrorResponseWithCode(w, http.StatusConflict, sync.ErrRepositoryGenerationMismatch,
+			"Client repository_generation does not match the server; pull sync state and align generation before pulling.",
+			CodeRepositoryResetRequired)
+		return
+	}
+
 	// Parse query parameters
 	limitStr := r.URL.Query().Get("limit")
-	limit := 100 // default limit
+	limit := 50 // default limit (matches OpenAPI)
 	if limitStr != "" {
 		if parsedLimit, err := strconv.Atoi(limitStr); err == nil && parsedLimit > 0 {
 			limit = parsedLimit

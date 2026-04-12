@@ -4,7 +4,7 @@ Synkronus records **best-effort** per-user, per-client activity for operators. W
 
 ## Behavior
 
-- **Protected routes** (after JWT): optional heartbeat via middleware using `x-ode-client-id` (may be empty; stored as an empty string key) and `x-ode-version` / `x-formulus-version` for client version hints. Heartbeats are **throttled** per `(username, client_id)` to limit load.
+- **Protected routes** (after JWT): optional heartbeat via middleware using `x-ode-client-id` (may be empty; stored as an empty string key) and `x-ode-version` for client version hints. Heartbeats are **throttled** per `(username, client_id)` to limit load.
 - **Sync**: successful `POST /api/sync/pull` and `POST /api/sync/push` enqueue richer updates (sync cursor / `current_version`) with **throttle bypass** so version metadata is not dropped.
 - **App bundle**: successful `GET /api/app-bundle/manifest` records the resolved manifest `version` for that user and client header.
 - **Queue**: if the internal queue is full, events are **dropped** and logged; API responses still succeed.

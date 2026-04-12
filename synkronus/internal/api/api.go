@@ -47,7 +47,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"accept", "authorization", "content-type", "x-csrf-token", "x-ode-version", "x-formulus-version", "x-ode-client-id", "x-repository-generation", "if-none-match"},
+		AllowedHeaders:   []string{"accept", "authorization", "content-type", "x-csrf-token", "x-ode-version", "x-ode-client-id", "x-repository-generation", "if-none-match"},
 		ExposedHeaders:   []string{"link", "etag", "x-repository-generation"},
 		AllowCredentials: true,
 		MaxAge:           300,

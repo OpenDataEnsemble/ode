@@ -10,9 +10,8 @@ import (
 )
 
 const (
-	headerODEClientID     = "x-ode-client-id"
-	headerODEVersion      = "x-ode-version"
-	headerFormulusVersion = "x-formulus-version"
+	headerODEClientID = "x-ode-client-id"
+	headerODEVersion  = "x-ode-version"
 )
 
 // Middleware records throttled presence for authenticated requests (after AuthMiddleware).
@@ -29,9 +28,6 @@ func Middleware(rec *presence.Recorder) func(http.Handler) http.Handler {
 			}
 			clientID := strings.TrimSpace(r.Header.Get(headerODEClientID))
 			odeVer := strings.TrimSpace(r.Header.Get(headerODEVersion))
-			if odeVer == "" {
-				odeVer = strings.TrimSpace(r.Header.Get(headerFormulusVersion))
-			}
 			var odePtr *string
 			if odeVer != "" {
 				odePtr = &odeVer

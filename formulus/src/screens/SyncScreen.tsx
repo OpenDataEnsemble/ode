@@ -23,7 +23,10 @@ import {
   getUserInfo,
   getUserFacingSyncErrorMessage,
 } from '../api/synkronus/Auth';
-import { isRepositoryResetRequiredError } from '../errors/RepositoryResetRequiredError';
+import {
+  isRepositoryResetRequiredError,
+  type RepositoryResetRequiredError,
+} from '../errors/RepositoryResetRequiredError';
 import { repositoryRecoveryService } from '../services/RepositoryRecoveryService';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
@@ -42,6 +45,11 @@ import {
 } from '../utils/appBundleVersion';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
+
+const REPOSITORY_RESET_ALERT_TITLE = 'Server data was reset';
+
+const REPOSITORY_RESET_ALERT_MESSAGE =
+  'The server replaced its observation dataset (a new data generation). To sync again, this device must delete all local observations and all attachment files, including items that have not been uploaded yet.\n\nThis cannot be undone. Erase everything on this device and sync again?';
 
 const SyncScreen = () => {
   const { themeColors, resolvedMode } = useAppTheme();
@@ -154,6 +162,47 @@ const SyncScreen = () => {
     }
   }, []);
 
+  const runRepositoryResetRecovery = useCallback(
+    (
+      error: RepositoryResetRequiredError,
+      activeOp: ActiveOperation,
+      afterWipe: () => Promise<void>,
+      failureTitle: string,
+    ) => {
+      Alert.alert(
+        REPOSITORY_RESET_ALERT_TITLE,
+        REPOSITORY_RESET_ALERT_MESSAGE,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Erase and sync',
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                try {
+                  startSync(true);
+                  setActiveOperation(activeOp);
+                  await repositoryRecoveryService.wipeLocalSyncState(
+                    error.serverRepositoryGeneration,
+                  );
+                  await afterWipe();
+                  finishSync();
+                } catch (e) {
+                  const msg = getUserFacingSyncErrorMessage(e);
+                  finishSync(msg);
+                  Alert.alert(failureTitle, msg);
+                } finally {
+                  setActiveOperation(null);
+                }
+              })();
+            },
+          },
+        ],
+      );
+    },
+    [startSync, finishSync],
+  );
+
   const handleSync = useCallback(async () => {
     if (syncState.isActive) return;
 
@@ -176,34 +225,14 @@ const SyncScreen = () => {
     } catch (error) {
       if (isRepositoryResetRequiredError(error)) {
         syncError = getUserFacingSyncErrorMessage(error);
-        Alert.alert(
-          'Server repository reset',
-          'Your local data no longer matches this server. Clear local observations and attachments, then sync again?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Clear and sync',
-              style: 'destructive',
-              onPress: () => {
-                void (async () => {
-                  try {
-                    startSync(true);
-                    setActiveOperation('sync');
-                    await repositoryRecoveryService.wipeLocalSyncState();
-                    await syncService.syncObservations(true);
-                    await refreshAfterOperation();
-                    finishSync();
-                  } catch (e) {
-                    const msg = getUserFacingSyncErrorMessage(e);
-                    finishSync(msg);
-                    Alert.alert('Sync failed', msg);
-                  } finally {
-                    setActiveOperation(null);
-                  }
-                })();
-              },
-            },
-          ],
+        runRepositoryResetRecovery(
+          error,
+          'sync',
+          async () => {
+            await syncService.syncObservations(true);
+            await refreshAfterOperation();
+          },
+          'Sync failed',
         );
       } else {
         syncError = getUserFacingSyncErrorMessage(error);
@@ -213,7 +242,13 @@ const SyncScreen = () => {
       finishSync(syncError);
       setActiveOperation(null);
     }
-  }, [syncState.isActive, startSync, finishSync, refreshAfterOperation]);
+  }, [
+    syncState.isActive,
+    startSync,
+    finishSync,
+    refreshAfterOperation,
+    runRepositoryResetRecovery,
+  ]);
 
   const performAppBundleUpdate = useCallback(async () => {
     try {
@@ -262,39 +297,19 @@ const SyncScreen = () => {
       if (isRepositoryResetRequiredError(error)) {
         const errorMessage = getUserFacingSyncErrorMessage(error);
         finishSync(errorMessage);
-        Alert.alert(
-          'Server repository reset',
-          'Your local data no longer matches this server. Clear local observations and attachments, then sync again?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Clear and sync',
-              style: 'destructive',
-              onPress: () => {
-                void (async () => {
-                  try {
-                    startSync(true);
-                    setActiveOperation('sync_then_update');
-                    await repositoryRecoveryService.wipeLocalSyncState();
-                    await syncService.syncObservations(true);
-                    await syncService.updateAppBundle();
-                    setUpdateAvailable(false);
-                    await refreshAfterOperation();
-                    finishSync();
-                    const formService = await import('../services/FormService');
-                    const fs = await formService.FormService.getInstance();
-                    await fs.invalidateCache();
-                  } catch (e) {
-                    const msg = getUserFacingSyncErrorMessage(e);
-                    finishSync(msg);
-                    Alert.alert('Operation failed', msg);
-                  } finally {
-                    setActiveOperation(null);
-                  }
-                })();
-              },
-            },
-          ],
+        runRepositoryResetRecovery(
+          error,
+          'sync_then_update',
+          async () => {
+            await syncService.syncObservations(true);
+            await syncService.updateAppBundle();
+            setUpdateAvailable(false);
+            await refreshAfterOperation();
+            const formService = await import('../services/FormService');
+            const fs = await formService.FormService.getInstance();
+            await fs.invalidateCache();
+          },
+          'Operation failed',
         );
       } else {
         const errorMessage = getUserFacingSyncErrorMessage(error);
@@ -304,7 +319,12 @@ const SyncScreen = () => {
     } finally {
       setActiveOperation(null);
     }
-  }, [startSync, finishSync, refreshAfterOperation]);
+  }, [
+    startSync,
+    finishSync,
+    refreshAfterOperation,
+    runRepositoryResetRecovery,
+  ]);
 
   const handleCustomAppUpdate = useCallback(async () => {
     if (syncState.isActive) return;

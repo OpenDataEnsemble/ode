@@ -4,6 +4,7 @@ import {
   AppBundleManifest,
   AttachmentOperation,
   DefaultApiSyncPushRequest,
+  SyncPullResponse,
   SyncPushRequest,
 } from './generated';
 import { Observation } from '../../database/models/Observation';
@@ -16,14 +17,70 @@ import {
   SYNC_WRITE_FORBIDDEN_MESSAGE,
 } from './Auth';
 import { databaseService } from '../../database/DatabaseService';
+import { database } from '../../database/database';
 import randomId from '@nozbe/watermelondb/utils/common/randomId';
 import { clientIdService } from '../../services/ClientIdService';
 import { unzip } from 'react-native-zip-archive';
 import { synkronusDownload } from './download';
 import { ODE_VERSION } from '../../version';
-import { parseRepositoryResetFromAxios } from '../../errors/RepositoryResetRequiredError';
+import {
+  isRepositoryResetRequiredError,
+  parseRepositoryResetFromAxios,
+  RepositoryResetRequiredError,
+} from '../../errors/RepositoryResetRequiredError';
+import type { AxiosError, AxiosResponse } from 'axios';
 
 const REPOSITORY_GENERATION_STORAGE_KEY = '@repository_generation';
+
+/** Best-effort read of x-repository-generation from Axios response headers (case varies). */
+function headerRepositoryGeneration(
+  headers: AxiosResponse<unknown>['headers'] | undefined,
+): string | undefined {
+  if (!headers || typeof headers !== 'object') return undefined;
+  const h = headers as Record<string, unknown>;
+  const direct = h['x-repository-generation'] ?? h['X-Repository-Generation'];
+  if (typeof direct === 'string') return direct;
+  if (Array.isArray(direct) && direct[0] != null) return String(direct[0]);
+  const maybeGet = (headers as { get?: (k: string) => string | undefined }).get;
+  if (typeof maybeGet === 'function') {
+    const v = maybeGet('x-repository-generation');
+    if (v != null) return v;
+  }
+  return undefined;
+}
+
+function logRepositoryGenerationSync(
+  message: string,
+  payload?: Record<string, unknown>,
+): void {
+  if (payload != null) {
+    console.log(`[RepositoryGeneration] ${message}`, payload);
+  } else {
+    console.log(`[RepositoryGeneration] ${message}`);
+  }
+}
+
+function logAxiosErrorForRepoGen(operation: string, error: unknown): void {
+  const ax = error as AxiosError<{
+    code?: string;
+    message?: string;
+  }>;
+  const status = ax.response?.status;
+  if (status == null) {
+    logRepositoryGenerationSync(`${operation} failed (no HTTP response)`, {
+      message: ax.message,
+    });
+    return;
+  }
+  logRepositoryGenerationSync(`${operation} HTTP ${status}`, {
+    url: ax.config?.url,
+    method: ax.config?.method,
+    responseData: ax.response?.data,
+    headerXRepositoryGeneration: headerRepositoryGeneration(
+      ax.response?.headers,
+    ),
+  });
+}
 
 interface DownloadResult {
   success: boolean;
@@ -87,12 +144,55 @@ class SynkronusApi {
     gen: number | undefined,
   ): Promise<void> {
     if (gen == null || !Number.isFinite(gen)) return;
+    const prev = await AsyncStorage.getItem(REPOSITORY_GENERATION_STORAGE_KEY);
     await AsyncStorage.setItem(REPOSITORY_GENERATION_STORAGE_KEY, String(gen));
+    if (prev !== String(gen)) {
+      logRepositoryGenerationSync('persisted server repository_generation', {
+        previous: prev ?? '(missing)',
+        new: gen,
+      });
+    }
   }
 
   private rethrowIfRepositoryResetConflict(error: unknown): void {
     const parsed = parseRepositoryResetFromAxios(error);
-    if (parsed) throw parsed;
+    if (parsed) {
+      logRepositoryGenerationSync(
+        'repository_reset_required — mapped to RepositoryResetRequiredError',
+        {
+          serverRepositoryGeneration: parsed.serverRepositoryGeneration,
+          message: parsed.message,
+        },
+      );
+      throw parsed;
+    }
+  }
+
+  /**
+   * Synkronus should return 409 when epochs mismatch; if we ever get HTTP 200 with a
+   * different repository_generation than we sent, treat it as reset required and do not persist.
+   */
+  private ensureRepoGenResponseMatchesSent(
+    operation: string,
+    clientGenSent: number,
+    responseGen: number | undefined,
+  ): void {
+    if (responseGen == null || !Number.isFinite(Number(responseGen))) {
+      return;
+    }
+    const sent = Math.floor(Number(clientGenSent));
+    const fromBody = Math.floor(Number(responseGen));
+    if (sent === fromBody) {
+      return;
+    }
+    logRepositoryGenerationSync(
+      `${operation}: response repository_generation does not match client (defensive check)`,
+      { clientGenSent: sent, responseRepositoryGeneration: fromBody },
+    );
+    throw new RepositoryResetRequiredError(
+      'The server repository epoch no longer matches this device. Clear local data and sync again.',
+      fromBody,
+    );
   }
 
   /**
@@ -291,16 +391,27 @@ class SynkronusApi {
       );
 
       const api = await this.getApi();
+      const manifestClientGen = await this.getRepositoryGenerationForRequest();
+      logRepositoryGenerationSync('getAttachmentManifest request', {
+        clientXRepositoryGeneration: manifestClientGen,
+        sinceVersion: lastAttachmentVersion,
+      });
       const manifestResponse = await api.getAttachmentManifest({
         xOdeVersion: ODE_VERSION,
         attachmentManifestRequest: {
           client_id: clientId,
           since_version: lastAttachmentVersion,
+          repository_generation: manifestClientGen,
         },
-        xRepositoryGeneration: await this.getRepositoryGenerationForRequest(),
+        xRepositoryGeneration: manifestClientGen,
       });
 
       const manifest = manifestResponse.data;
+      this.ensureRepoGenResponseMatchesSent(
+        'getAttachmentManifest',
+        manifestClientGen,
+        manifest.repository_generation,
+      );
       await this.persistRepositoryGenerationFromResponse(
         manifest.repository_generation,
       );
@@ -344,6 +455,9 @@ class SynkronusApi {
       );
     } catch (error: unknown) {
       this.rethrowIfRepositoryResetConflict(error);
+      if (isRepositoryResetRequiredError(error)) {
+        throw error;
+      }
       console.error('Failed to process attachment manifest:', error);
       throw error; // Let the error bubble up so we can fix the root cause
     }
@@ -761,10 +875,8 @@ class SynkronusApi {
   }
 
   /**
-   * Save a new attachment for immediate use and queue it for upload
-   * This should be called when a new attachment is created (e.g., from camera)
-   * The file is saved to both the main attachments folder (for immediate use in forms)
-   * and the unsynced folder (as an upload queue)
+   * Save a new attachment under draft storage until the observation is saved; promotion
+   * to main + pending_upload runs when the observation is persisted (see attachmentStorage).
    */
   async saveNewAttachment(
     attachmentId: string,
@@ -772,28 +884,19 @@ class SynkronusApi {
     isBase64: boolean = true,
   ): Promise<string> {
     const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-    const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+    const draftDirectory = `${attachmentsDirectory}/draft`;
 
-    // Ensure both directories exist
     await RNFS.mkdir(attachmentsDirectory);
-    await RNFS.mkdir(pendingUploadDirectory);
+    await RNFS.mkdir(draftDirectory);
 
-    const mainFilePath = `${attachmentsDirectory}/${attachmentId}`;
-    const pendingFilePath = `${pendingUploadDirectory}/${attachmentId}`;
+    const draftFilePath = `${draftDirectory}/${attachmentId}`;
     const encoding = isBase64 ? 'base64' : 'utf8';
 
-    // Save to both locations
-    await Promise.all([
-      RNFS.writeFile(mainFilePath, fileData, encoding),
-      RNFS.writeFile(pendingFilePath, fileData, encoding),
-    ]);
+    await RNFS.writeFile(draftFilePath, fileData, encoding);
 
-    console.debug(
-      `Saved new attachment: ${attachmentId} (available immediately, queued for upload)`,
-    );
+    console.debug(`Saved new draft attachment: ${attachmentId}`);
 
-    // Return the path that should be stored in observation data
-    return mainFilePath;
+    return draftFilePath;
   }
 
   /**
@@ -838,22 +941,55 @@ class SynkronusApi {
     const schemaTypes = undefined; // TODO: Feature: Maybe allow partial sync
     let res;
     let currentSince = since;
+    let totalServerRecordsThisPull = 0;
 
     do {
-      res = await api.syncPull({
-        xOdeVersion: ODE_VERSION,
-        syncPullRequest: {
-          client_id: clientId,
-          since: {
-            version: currentSince,
+      const clientGen = await this.getRepositoryGenerationForRequest();
+      logRepositoryGenerationSync('syncPull request', {
+        clientXRepositoryGeneration: clientGen,
+        sinceVersion: currentSince,
+      });
+
+      try {
+        res = await api.syncPull({
+          xOdeVersion: ODE_VERSION,
+          syncPullRequest: {
+            client_id: clientId,
+            repository_generation: clientGen,
+            since: {
+              version: currentSince,
+            },
+            schema_types: schemaTypes,
           },
-          schema_types: schemaTypes,
-        },
-        xRepositoryGeneration: await this.getRepositoryGenerationForRequest(),
+          xRepositoryGeneration: clientGen,
+        });
+      } catch (err: unknown) {
+        logAxiosErrorForRepoGen('syncPull', err);
+        this.rethrowIfRepositoryResetConflict(err);
+        throw err;
+      }
+
+      const pullRes = res as AxiosResponse<SyncPullResponse>;
+      logRepositoryGenerationSync('syncPull response OK', {
+        clientSent: clientGen,
+        sinceVersion: currentSince,
+        bodyRepositoryGeneration: res.data.repository_generation,
+        bodyCurrentVersion: res.data.current_version,
+        bodyHasMore: res.data.has_more,
+        recordsInThisPage: res.data.records?.length ?? 0,
+        headerXRepositoryGeneration: headerRepositoryGeneration(
+          pullRes.headers,
+        ),
+        note: 'repository_generation = server epoch (resets); current_version = observation stream cursor — a 4 and a 1 here are not a mismatch.',
       });
 
       console.debug('Pull response: ', res.data);
 
+      this.ensureRepoGenResponseMatchesSent(
+        'syncPull',
+        clientGen,
+        res.data.repository_generation,
+      );
       await this.persistRepositoryGenerationFromResponse(
         res.data.repository_generation,
       );
@@ -862,6 +998,8 @@ class SynkronusApi {
       const domainObservations = res.data.records
         ? res.data.records.map(ObservationMapper.fromApi)
         : [];
+
+      totalServerRecordsThisPull += domainObservations.length;
 
       // 2. Apply to local db (local dirty records will not be applied = last update wins).
       //    Skipped rows get a `last_write_won` tag (see syncConstants / WatermelonDBRepo).
@@ -881,6 +1019,26 @@ class SynkronusApi {
         console.debug(`Continuing pagination from version ${currentSince}`);
       }
     } while (res.data.has_more);
+
+    logRepositoryGenerationSync('syncPull all pages done', {
+      totalServerRecordsReceived: totalServerRecordsThisPull,
+      finalBodyCurrentVersion: res.data.current_version,
+      finalBodyRepositoryGeneration: res.data.repository_generation,
+    });
+
+    if (totalServerRecordsThisPull === 0) {
+      const localObservationRows = await database
+        .get('observations')
+        .query()
+        .fetchCount();
+      if (localObservationRows > 0) {
+        console.warn(
+          '[RepositoryGeneration] Pull returned 0 observation records across all pages, but the local DB still has',
+          localObservationRows,
+          'row(s). An empty pull does not delete local rows (applyServerChanges is a no-op when there are no server records). This is normal if you only have offline/unsynced drafts. If the server was reset and repository_generation already matches the client, stale synced rows can remain until you use the repository-reset flow (Erase and sync) or clear local data.',
+        );
+      }
+    }
 
     // Only when all observations are pulled and ingested by WatermelonDB, update the last seen version
     await AsyncStorage.setItem(
@@ -942,6 +1100,16 @@ class SynkronusApi {
       // 3. Check if we have observations to push
       if (localChanges.length === 0) {
         console.debug('No local changes to push');
+        const skipGen = await this.getRepositoryGenerationForRequest();
+        const lastSeen =
+          (await AsyncStorage.getItem('@last_seen_version')) ?? '(missing)';
+        logRepositoryGenerationSync(
+          'syncPush skipped (no local observation rows to push)',
+          {
+            effectiveClientGen: skipGen,
+            lastSeenVersion: lastSeen,
+          },
+        );
 
         // If we uploaded attachments, report that
         if (includeAttachments && attachmentUploadResults.length > 0) {
@@ -957,22 +1125,44 @@ class SynkronusApi {
       }
 
       // 3. Push observations to server
+      const pushClientGen = await this.getRepositoryGenerationForRequest();
       const syncPushRequest: SyncPushRequest = {
         client_id: await clientIdService.getClientId(),
         records: localChanges.map(ObservationMapper.toApi),
         transmission_id: transmissionId,
+        repository_generation: pushClientGen,
       };
 
       const request: DefaultApiSyncPushRequest = {
         xOdeVersion: ODE_VERSION,
         syncPushRequest,
-        xRepositoryGeneration: await this.getRepositoryGenerationForRequest(),
+        xRepositoryGeneration: pushClientGen,
       };
+
+      logRepositoryGenerationSync('syncPush request', {
+        clientXRepositoryGeneration: pushClientGen,
+        observationCount: localChanges.length,
+      });
 
       console.debug(
         `Pushing ${localChanges.length} observations with transmission ID: ${transmissionId}`,
       );
       const res = await api.syncPush(request);
+
+      logRepositoryGenerationSync('syncPush response OK', {
+        clientSent: pushClientGen,
+        bodyRepositoryGeneration: res.data.repository_generation,
+        bodyCurrentVersion: res.data.current_version,
+        headerXRepositoryGeneration: headerRepositoryGeneration(
+          (res as AxiosResponse<unknown>).headers,
+        ),
+      });
+
+      this.ensureRepoGenResponseMatchesSent(
+        'syncPush',
+        pushClientGen,
+        res.data.repository_generation,
+      );
       await this.persistRepositoryGenerationFromResponse(
         res.data.repository_generation,
       );
@@ -1009,7 +1199,11 @@ class SynkronusApi {
 
       return res.data.current_version;
     } catch (error: unknown) {
+      logAxiosErrorForRepoGen('syncPush', error);
       this.rethrowIfRepositoryResetConflict(error);
+      if (isRepositoryResetRequiredError(error)) {
+        throw error;
+      }
       console.error('Failed to push observations:', error);
       if (isForbiddenError(error)) {
         throw new Error(SYNC_WRITE_FORBIDDEN_MESSAGE);
@@ -1027,10 +1221,26 @@ class SynkronusApi {
         ? 'Syncing observations with attachments'
         : 'Syncing observations',
     );
+    const rawStored = await AsyncStorage.getItem(
+      REPOSITORY_GENERATION_STORAGE_KEY,
+    );
+    const effectiveGen = await this.getRepositoryGenerationForRequest();
+    logRepositoryGenerationSync('syncObservations start', {
+      storageRaw: rawStored ?? '(missing)',
+      effectiveClientGen: effectiveGen,
+      includeAttachments,
+    });
     const version = await this.pullObservations(includeAttachments);
     console.debug('Pull completed @ data version ' + version);
     await this.pushObservations(includeAttachments);
     console.debug('Push completed');
+    const storageAfter = await AsyncStorage.getItem(
+      REPOSITORY_GENERATION_STORAGE_KEY,
+    );
+    logRepositoryGenerationSync('syncObservations finished', {
+      observationDataVersion: version,
+      storageRepositoryGeneration: storageAfter ?? '(missing)',
+    });
     return version;
   }
 }

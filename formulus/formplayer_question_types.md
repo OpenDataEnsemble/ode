@@ -104,7 +104,6 @@ Allows users to scan QR codes or enter QR code data manually.
 
 - **QR Code** - Quick Response codes
 
-
 **Data Structure:**
 The QR code field stores a simple string value:
 

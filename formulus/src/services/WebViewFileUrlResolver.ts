@@ -34,13 +34,16 @@ export function safeAttachmentBasename(raw: unknown): string | null {
 
 const attachmentsRoot = (): string =>
   `${RNFS.DocumentDirectoryPath}/attachments`;
+const draftRoot = (): string =>
+  `${RNFS.DocumentDirectoryPath}/attachments/draft`;
 const pendingRoot = (): string =>
   `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
 const customAppRoot = (): string => `${RNFS.DocumentDirectoryPath}/app`;
 const formsRoot = (): string => `${RNFS.DocumentDirectoryPath}/forms`;
 
 /**
- * Return file:// URL for an attachment file if it exists in main or pending_upload folder.
+ * Return file:// URL for an attachment file if it exists in draft (unsaved capture),
+ * committed folder, or pending_upload.
  */
 export async function resolveAttachmentFileUrl(
   fileName: string,
@@ -49,9 +52,13 @@ export async function resolveAttachmentFileUrl(
   if (!base) {
     return null;
   }
+  const draftPath = `${draftRoot()}/${base}`;
   const mainPath = `${attachmentsRoot()}/${base}`;
   const pendingPath = `${pendingRoot()}/${base}`;
   try {
+    if (await RNFS.exists(draftPath)) {
+      return pathToFileUrl(draftPath);
+    }
     if (await RNFS.exists(mainPath)) {
       return pathToFileUrl(mainPath);
     }

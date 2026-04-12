@@ -11,7 +11,12 @@ const REPOSITORY_GENERATION_KEY = '@repository_generation';
  * auth session, and app bundle/forms.
  */
 class RepositoryRecoveryService {
-  async wipeLocalSyncState(): Promise<void> {
+  /**
+   * @param serverRepositoryGeneration - When the server returned 409, pass the epoch from
+   *   `x-repository-generation` so the next sync matches Synkronus (default client gen 1 would
+   *   still conflict after a reset).
+   */
+  async wipeLocalSyncState(serverRepositoryGeneration?: number): Promise<void> {
     const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
     try {
       if (await RNFS.exists(attachmentsDirectory)) {
@@ -22,6 +27,7 @@ class RepositoryRecoveryService {
     }
     await RNFS.mkdir(attachmentsDirectory);
     await RNFS.mkdir(`${attachmentsDirectory}/pending_upload`);
+    await RNFS.mkdir(`${attachmentsDirectory}/draft`);
 
     await database.write(async () => {
       await database.unsafeResetDatabase();
@@ -33,6 +39,17 @@ class RepositoryRecoveryService {
       REPOSITORY_GENERATION_KEY,
       '@lastSync',
     ]);
+
+    if (
+      serverRepositoryGeneration != null &&
+      Number.isFinite(serverRepositoryGeneration) &&
+      serverRepositoryGeneration >= 1
+    ) {
+      await AsyncStorage.setItem(
+        REPOSITORY_GENERATION_KEY,
+        String(Math.floor(serverRepositoryGeneration)),
+      );
+    }
 
     synkronusApi.clearTokenCache();
   }
