@@ -39,7 +39,17 @@ export function parseRepositoryResetFromAxios(
   }>;
   if (ax.response?.status !== 409) return null;
   const code = ax.response?.data?.code;
-  if (code !== CODE_REPOSITORY_RESET_REQUIRED) return null;
+  if (code !== CODE_REPOSITORY_RESET_REQUIRED) {
+    console.warn(
+      '[RepositoryGeneration] HTTP 409 but sync error code is not repository_reset_required; client will not show repository-reset recovery.',
+      {
+        code,
+        message: ax.response?.data?.message,
+        data: ax.response?.data,
+      },
+    );
+    return null;
+  }
 
   const headerRaw = ax.response?.headers?.['x-repository-generation'];
   const headerStr = Array.isArray(headerRaw) ? headerRaw[0] : headerRaw;
