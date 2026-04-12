@@ -7,8 +7,17 @@ import {
   postFormplayerBridgeReply,
 } from '../formPreviewBridge';
 
+vi.mock('@tauri-apps/api/core', () => ({
+  convertFileSrc: (path: string) => `asset:${path}`,
+}));
+
+vi.mock('@tauri-apps/api/path', () => ({
+  join: (...parts: string[]) => parts.join('/'),
+}));
+
 vi.mock('../tauriClient', () => ({
   tauriClient: {
+    getWorkspace: vi.fn().mockResolvedValue('/mock/ws'),
     listActiveBundleForms: vi.fn().mockResolvedValue([
       { formType: 'demo' },
     ]),

@@ -19,7 +19,7 @@
  * | `getThemeMode` | `'system'`. |
  * | `getAttachmentUri` | `workspace/attachments/<basename>` → `file://` if file exists, else `null`. |
  * | `getAttachmentsUri` | `file://` for `attachments/` directory if it exists. |
- * | `getCustomAppUri` | `file://` for `bundles/active/` if it exists. |
+ * | `getCustomAppUri` | Tauri asset URL for `bundles/active/` (directory of `app/`), not `file://`. |
  * | `getFormSpecsUri` | `getActiveBundleFormsFileBaseUrl()` (`bundles/active/forms`). |
  *
  * Messages **without** `messageId` (e.g. `formplayerReadyToReceiveInit` from the iframe stub) are ignored at the host.
@@ -27,6 +27,8 @@
  * Unknown `type` values still receive `{ type: <type>_response, messageId, error }` so the iframe never hangs.
  */
 
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { dirname, join } from '@tauri-apps/api/path';
 import { tauriClient } from './tauriClient';
 import type { ObservationRecord } from '../types/domain';
 
@@ -171,6 +173,17 @@ export type FormPreviewBridgeContext = {
   onFinalize: (
     request: FinalizeRequest,
   ) => Promise<{ result?: string; error?: string }>;
+  /**
+   * When set (Workbench custom app), `openFormplayer` navigates to Form preview instead
+   * of stubbing. The Promise still resolves immediately with `cancelled` — full
+   * `submitObservation`/`updateObservation` completion in Form preview is not yet wired
+   * back to this Promise.
+   */
+  onOpenFormplayerNavigate?: (payload: {
+    formType: string;
+    params: Record<string, unknown>;
+    savedData: Record<string, unknown>;
+  }) => void;
 };
 
 export async function handleFormPreviewBridgeMessage(
@@ -217,7 +230,22 @@ export async function handleFormPreviewBridgeMessage(
         return;
       }
 
-      case 'openFormplayer':
+      case 'openFormplayer': {
+        const formType = String(data.formType ?? '');
+        const params = (data.params ?? {}) as Record<string, unknown>;
+        const savedData = (data.savedData ?? {}) as Record<string, unknown>;
+        if (ctx.onOpenFormplayerNavigate) {
+          ctx.onOpenFormplayerNavigate({ formType, params, savedData });
+          reply('openFormplayer', {
+            result: {
+              status: 'cancelled',
+              formType,
+              message:
+                'ODE Desktop opened Form preview in the workbench. The Promise resolves immediately; full completion is not wired back to the custom app yet.',
+            },
+          });
+          return;
+        }
         reply(
           'openFormplayer',
           stubReason(
@@ -225,6 +253,7 @@ export async function handleFormPreviewBridgeMessage(
           ),
         );
         return;
+      }
 
       case 'getObservations': {
         const formType = String(data.formType ?? '');
@@ -392,7 +421,15 @@ export async function handleFormPreviewBridgeMessage(
 
       case 'getCustomAppUri': {
         try {
-          const url = await tauriClient.workspaceDirectoryFileUrl('bundles/active');
+          const ws = await tauriClient.getWorkspace();
+          if (!ws) {
+            reply('getCustomAppUri', { error: 'No workspace configured.' });
+            return;
+          }
+          const appDirPath = await join(ws, 'bundles', 'active', 'app');
+          const activeBundlePath = await dirname(appDirPath);
+          const u = convertFileSrc(activeBundlePath);
+          const url = u.endsWith('/') ? u : `${u}/`;
           reply('getCustomAppUri', { result: url });
         } catch (e) {
           reply('getCustomAppUri', {

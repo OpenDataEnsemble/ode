@@ -180,6 +180,51 @@ body {
   overflow: hidden;
 }
 
+.page.page-custom-app {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.page.page-custom-app > .page-header {
+  flex-shrink: 0;
+}
+
+.page.page-custom-app > .notice,
+.page.page-custom-app > .muted {
+  flex-shrink: 0;
+}
+
+.page.page-custom-app .custom-app-bundle-line {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.page.page-custom-app .custom-app-hash {
+  font-size: 0.85em;
+  word-break: break-all;
+}
+
+.page.page-custom-app .custom-app-embed-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page.page-custom-app .custom-app-embed-panel .formplayer-embed-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.page.page-custom-app .custom-app-embed-panel .formplayer-embed-frame {
+  flex: 1;
+  min-height: 0;
+}
+
 .split.split-form-preview {
   flex: 1;
   min-height: 0;

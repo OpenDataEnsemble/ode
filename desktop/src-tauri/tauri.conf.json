@@ -20,7 +20,25 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:* https://*; img-src 'self' data: blob: https://*; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self';"
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* https://* http://ipc.localhost https://ipc.localhost http://asset.localhost https://asset.localhost; img-src 'self' data: blob: https://* http://asset.localhost https://asset.localhost asset:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com http://asset.localhost https://asset.localhost asset:; font-src 'self' https://fonts.gstatic.com http://asset.localhost https://asset.localhost asset:; script-src 'self' 'unsafe-inline' blob: http://asset.localhost https://asset.localhost asset:; media-src 'self' blob: http://asset.localhost https://asset.localhost asset:; worker-src 'self' blob: http://asset.localhost https://asset.localhost asset:;",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$HOME/**",
+          "$DOCUMENT/**",
+          "$DESKTOP/**",
+          "$DOWNLOAD/**",
+          "$DATA/**",
+          "$LOCALDATA/**",
+          "$TEMP/**",
+          "/media/**",
+          "/mnt/**",
+          "/opt/**",
+          "/srv/**",
+          "/tmp/**",
+          "**"
+        ]
+      }
     }
   },
   "bundle": {
