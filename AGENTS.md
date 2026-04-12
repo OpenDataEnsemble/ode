@@ -15,7 +15,7 @@ ODE is a **clearinghouse** model: data is collected on devices, synchronized thr
 - **Synkronus** — Go backend: auth, sync, app bundle distribution, export, shared HTTP API.
 - **Synkronus Portal** — Web admin UI (React + Vite): same API as other clients; no privileged backend channel.
 - **Synkronus CLI** — `synk` command-line client: automation, bundles, sync, export.
-- **ODE Desktop** — Tauri app: **Data management** + **Forms / app workbench**; lands under `ode/` (folder TBD). See [ROADMAP.md](ROADMAP.md).
+- **ODE Desktop** — Tauri app: **Data management** + **Forms / app workbench**; source in [`desktop/`](desktop/). See [ROADMAP.md](ROADMAP.md).
 
 ```mermaid
 flowchart LR

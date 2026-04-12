@@ -18,6 +18,7 @@ Details: [architecture overview](https://opendataensemble.org/docs/getting-start
 | **Formulus Formplayer** | Web bundle embedded in Formulus (JSON Forms UI) |
 | **Portal** | Browser admin: users, bundles, export |
 | **Synkronus CLI** | Scripting, automation, `synk` |
+| **ODE Desktop** | Desktop app: data management + forms/app workbench ([`desktop/`](desktop/)) |
 
 CI overview: [.github/CICD.md](.github/CICD.md).
 
@@ -34,7 +35,7 @@ CI overview: [.github/CICD.md](.github/CICD.md).
 
 Same Synkronus API as everything else. Form behaviour should match **Formulus** / **formplayer** for the same bundle (extensions, `ext.json`, custom question types).
 
-Detailed requirements live in the **ODE Desktop** project plan (Cursor plan / custodian repo). Implementation is modular, not phased.
+Detailed requirements live in the **ODE Desktop** project plan ([`desktop/`](desktop/) in this repo). Implementation is modular, not phased.
 
 ---
 
