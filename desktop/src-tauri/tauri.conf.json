@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "custodian",
+  "productName": "ODE Desktop",
   "version": "0.1.0",
   "identifier": "org.opendataensemble.custodian",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Custodian",
+        "title": "ODE Desktop",
         "width": 1280,
         "height": 820,
         "minWidth": 960,

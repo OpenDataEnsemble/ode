@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { confirmDestructiveAction } from '../lib/destructivePolicy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
@@ -57,6 +58,15 @@ export function SyncPage() {
   }
 
   async function push() {
+    if (
+      !confirmDestructiveAction(
+        activeProfile?.environment ?? 'production',
+        'push',
+        `Server: ${serverUrl || '(not set)'}`,
+      )
+    ) {
+      return;
+    }
     try {
       const n = await synkPush({ baseUrl: serverUrl });
       appendLog(
@@ -72,7 +82,9 @@ export function SyncPage() {
 
   async function resetServerAndPull() {
     if (
-      !window.confirm(
+      !confirmDestructiveAction(
+        activeProfile?.environment ?? 'production',
+        'server_reset',
         'Reset the server repository? This deletes all observations and attachment ' +
           'manifest data on Synkronus (app bundles are kept), creates a new server data ' +
           'generation, then pulls so this device archives its current workspace and ' +
@@ -106,8 +118,8 @@ export function SyncPage() {
         <p>
           Pull remote changes into your local repository and push pending
           updates to Synkronus.{' '}
-          <Link to="/profiles">Authenticate in Profiles</Link> for the active
-          profile before syncing (your token is saved automatically).
+          <Link to="/data/profiles">Authenticate in Profiles</Link> for the
+          active profile before syncing (your token is saved automatically).
         </p>
       </header>
 
@@ -136,7 +148,7 @@ export function SyncPage() {
             ) : (
               <span className="muted">
                 Not authenticated —{' '}
-                <Link to="/profiles">open Profiles</Link> to sign in.
+                <Link to="/data/profiles">open Profiles</Link> to sign in.
               </span>
             )}
           </dd>
@@ -151,8 +163,10 @@ export function SyncPage() {
             {health && health.conflictCount > 0 ? (
               <>
                 {' '}
-                — review in{' '}
-                <Link to="/observations">Observations</Link> (Conflicts filter)
+                — review in <Link to="/data/observations">
+                  Observations
+                </Link>{' '}
+                (Conflicts filter)
               </>
             ) : null}
           </dd>
@@ -181,9 +195,9 @@ export function SyncPage() {
       <div className="panel">
         <h3>Server repository reset</h3>
         <p className="muted">
-          Admin-only: wipe remote observation data and start a new repository generation
-          on the server, then pull so this profile archives its current workspace and
-          syncs against the empty server state.
+          Admin-only: wipe remote observation data and start a new repository
+          generation on the server, then pull so this profile archives its
+          current workspace and syncs against the empty server state.
         </p>
         <div className="button-row">
           <button

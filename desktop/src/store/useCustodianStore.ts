@@ -56,7 +56,7 @@ async function pullSyncWithAttachments(
   token: string,
   clientId: string,
 ): Promise<ImportResult> {
-  let syncState = await tauriClient.getSyncState();
+  const syncState = await tauriClient.getSyncState();
   let repoGen = syncState.repositoryGeneration;
   const obsVer = syncState.observationSyncVersion;
 
@@ -632,7 +632,9 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         const id = get().activeProfileId;
         const authSession = get().authSessionsByProfileId[id];
         if (!authSession) {
-          throw new Error('Authenticate first before resetting the server repository.');
+          throw new Error(
+            'Authenticate first before resetting the server repository.',
+          );
         }
         const baseUrl = (request?.baseUrl ?? authSession.baseUrl).trim();
         const token = authSession.token;

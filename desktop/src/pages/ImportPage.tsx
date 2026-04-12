@@ -95,7 +95,8 @@ export function ImportPage() {
           upload_file
         </span>
         <p>
-          <strong>Drop files here</strong> or use the file picker (multi-select).
+          <strong>Drop files here</strong> or use the file picker
+          (multi-select).
         </p>
         <input
           type="file"

@@ -18,23 +18,23 @@ Hash routes: `#/overview`, `#/observations`, `#/import`, `#/sync`, `#/profiles`.
 
 Authoritative detail for each primary screen (purpose, user questions, scope, actions, data):
 
-| Screen   | Spec |
-|----------|------|
-| Overview | [docs/screens/overview.md](./screens/overview.md) |
+| Screen       | Spec                                                      |
+| ------------ | --------------------------------------------------------- |
+| Overview     | [docs/screens/overview.md](./screens/overview.md)         |
 | Observations | [docs/screens/observations.md](./screens/observations.md) |
-| Import   | [docs/screens/import.md](./screens/import.md) |
-| Sync     | [docs/screens/sync.md](./screens/sync.md) |
-| Profiles | [docs/screens/profiles.md](./screens/profiles.md) |
+| Import       | [docs/screens/import.md](./screens/import.md)             |
+| Sync         | [docs/screens/sync.md](./screens/sync.md)                 |
+| Profiles     | [docs/screens/profiles.md](./screens/profiles.md)         |
 
 ---
 
 ## Follow-up (review checklist)
 
-| Task | Status | Notes |
-|------|--------|--------|
-| Keyring / Linux fallback | Done | See [profiles.md](./screens/profiles.md) |
-| Structured UI review | Open | Walk specs above; mark keep/remove/defer |
-| Linux deps for testers | Optional | README / Profiles: Secret Service for saved passwords |
-| Token storage hardening | Future | Tokens in `localStorage` per profile; could move to keyring |
+| Task                     | Status   | Notes                                                       |
+| ------------------------ | -------- | ----------------------------------------------------------- |
+| Keyring / Linux fallback | Done     | See [profiles.md](./screens/profiles.md)                    |
+| Structured UI review     | Open     | Walk specs above; mark keep/remove/defer                    |
+| Linux deps for testers   | Optional | README / Profiles: Secret Service for saved passwords       |
+| Token storage hardening  | Future   | Tokens in `localStorage` per profile; could move to keyring |
 
 Capture review decisions in an issue or doc section with a date.

@@ -804,6 +804,77 @@ button.secondary.danger {
   font-family: ui-monospace, monospace;
 }
 
+.mode-switch {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: 0.5rem;
+  background: #0a1228;
+  border: 1px solid #2d3449;
+}
+
+.mode-switch-btn {
+  flex: 1;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.65rem;
+  border: none;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  background: transparent;
+  color: #90a3cb;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.mode-switch-btn:hover {
+  color: #d9e3fd;
+  background: #1b2742;
+}
+
+.mode-switch-btn-active {
+  background: #2f2ebe;
+  color: #f3f5ff;
+}
+
+.mode-switch-btn-active:hover {
+  background: #3a38c4;
+  color: #fff;
+}
+
+.env-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.35rem;
+  font-weight: 600;
+}
+
+.env-badge-staging {
+  background: rgba(255, 184, 77, 0.2);
+  color: #ffc46a;
+  border: 1px solid rgba(255, 184, 77, 0.45);
+}
+
+.env-badge-development {
+  background: rgba(77, 212, 106, 0.15);
+  color: #7ee89a;
+  border: 1px solid rgba(77, 212, 106, 0.4);
+}
+
+.workbench-page .card {
+  background: #0f1830;
+  border: 1px solid #2d3449;
+  border-radius: 0.65rem;
+  padding: 1rem 1.1rem;
+}
+
+.workbench-page .card + .card {
+  margin-top: 0.75rem;
+}
+
 @media (max-width: 1080px) {
   .app {
     grid-template-columns: 1fr;

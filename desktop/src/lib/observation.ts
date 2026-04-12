@@ -16,7 +16,9 @@ export function createEmptyObservationFormData(): ObservationFormData {
   return {};
 }
 
-export function tagsToCommaSeparated(tags: string[] | null | undefined): string {
+export function tagsToCommaSeparated(
+  tags: string[] | null | undefined,
+): string {
   return tags?.length ? tags.join(', ') : '';
 }
 

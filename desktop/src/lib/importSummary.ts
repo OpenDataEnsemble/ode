@@ -49,11 +49,7 @@ export function extractObservationsFromJson(
       continue;
     }
     const data =
-      o.data !== undefined
-        ? o.data
-        : o.payload !== undefined
-          ? o.payload
-          : {};
+      o.data !== undefined ? o.data : o.payload !== undefined ? o.payload : {};
     const formType =
       asNonEmptyString(o.formType) ?? asNonEmptyString(o.form_type) ?? null;
     const updatedRaw =
@@ -77,7 +73,8 @@ export function extractObservationsFromJson(
   if (observations.length === 0) {
     return {
       observations: [],
-      error: 'No observation objects with an id (observationId / observation_id / id)',
+      error:
+        'No observation objects with an id (observationId / observation_id / id)',
     };
   }
   return { observations };
@@ -157,10 +154,7 @@ export async function parseObservationJsonFile(
   try {
     const text = await file.text();
     const root = JSON.parse(text) as unknown;
-    const { observations, error } = extractObservationsFromJson(
-      root,
-      fileName,
-    );
+    const { observations, error } = extractObservationsFromJson(root, fileName);
     if (error) {
       return { fileName, observations: [], error };
     }

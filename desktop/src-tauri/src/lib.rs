@@ -11,13 +11,13 @@ use keyring::Entry;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
-use walkdir::WalkDir;
-use zip::write::SimpleFileOptions;
-use zip::{CompressionMethod, ZipWriter};
 use serde_json::Value;
 use tauri::Manager;
 use thiserror::Error;
 use uuid::Uuid;
+use walkdir::WalkDir;
+use zip::write::SimpleFileOptions;
+use zip::{CompressionMethod, ZipWriter};
 
 #[derive(Debug, Error)]
 enum CustodianError {
@@ -45,6 +45,16 @@ impl From<CustodianError> for String {
 
 const CREDENTIAL_SERVICE: &str = "org.opendataensemble.custodian.password";
 
+/// Client-side guardrail for confirmations (not interpreted by Synkronus).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+enum ProfileEnvironment {
+    #[default]
+    Production,
+    Staging,
+    Development,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ServerProfile {
@@ -55,6 +65,8 @@ struct ServerProfile {
     workspace_path: Option<String>,
     database_path: String,
     attachments_path: Option<String>,
+    #[serde(default)]
+    environment: ProfileEnvironment,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -356,7 +368,11 @@ fn parse_time(value: &Option<String>) -> Option<DateTime<Utc>> {
     })
 }
 
-fn should_mark_conflict(local_dirty: bool, local_remote: &Option<String>, incoming: &Option<String>) -> bool {
+fn should_mark_conflict(
+    local_dirty: bool,
+    local_remote: &Option<String>,
+    incoming: &Option<String>,
+) -> bool {
     if !local_dirty {
         return false;
     }
@@ -451,6 +467,7 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             workspace_path: Some(workspace_dir.to_string_lossy().to_string()),
             database_path: db_path.to_string_lossy().to_string(),
             attachments_path: None,
+            environment: ProfileEnvironment::default(),
         }],
     }
 }
@@ -470,6 +487,7 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             workspace_path: Some(workspace_path.to_string()),
             database_path: db.to_string_lossy().to_string(),
             attachments_path: None,
+            environment: ProfileEnvironment::default(),
         }],
     }
 }
@@ -613,7 +631,9 @@ fn rename_or_move_entry(src: &Path, dst: &Path) -> Result<(), CustodianError> {
 }
 
 fn validate_move_destination(src: &Path, dest: &Path) -> Result<(), CustodianError> {
-    let src_canon = src.canonicalize().map_err(|e| CustodianError::Message(e.to_string()))?;
+    let src_canon = src
+        .canonicalize()
+        .map_err(|e| CustodianError::Message(e.to_string()))?;
     if path_is_strict_descendant(&src_canon, dest) {
         return Err(CustodianError::Message(
             "destination cannot be inside the workspace".to_string(),
@@ -625,7 +645,9 @@ fn validate_move_destination(src: &Path, dest: &Path) -> Result<(), CustodianErr
                 "destination must be a directory".to_string(),
             ));
         }
-        let dest_canon = dest.canonicalize().map_err(|e| CustodianError::Message(e.to_string()))?;
+        let dest_canon = dest
+            .canonicalize()
+            .map_err(|e| CustodianError::Message(e.to_string()))?;
         if src_canon == dest_canon {
             return Err(CustodianError::Message(
                 "destination is the same as workspace".to_string(),
@@ -660,7 +682,9 @@ fn backup_workspace_zip(ctx: &AppCtx, zip_path: &Path) -> Result<(), CustodianEr
         if path.is_dir() {
             continue;
         }
-        let rel = path.strip_prefix(&ws).map_err(|e| CustodianError::Message(e.to_string()))?;
+        let rel = path
+            .strip_prefix(&ws)
+            .map_err(|e| CustodianError::Message(e.to_string()))?;
         let name = rel.to_string_lossy();
         if name.ends_with(".sqlite3-wal") || name.ends_with(".sqlite3-shm") {
             continue;
@@ -717,7 +741,10 @@ fn get_workspace_path(ctx: &AppCtx) -> Result<PathBuf, CustodianError> {
     Ok(PathBuf::from(value))
 }
 
-fn resolve_workspace_path(ctx: &AppCtx, relative: Option<String>) -> Result<PathBuf, CustodianError> {
+fn resolve_workspace_path(
+    ctx: &AppCtx,
+    relative: Option<String>,
+) -> Result<PathBuf, CustodianError> {
     let workspace = get_workspace_path(ctx)?;
     let candidate = match relative {
         Some(rel) if !rel.is_empty() => workspace.join(rel),
@@ -748,7 +775,9 @@ fn read_auth_token(ctx: &AppCtx, explicit: Option<String>) -> Result<String, Cus
     guard
         .as_ref()
         .map(|session| session.token.clone())
-        .ok_or_else(|| CustodianError::Message("no auth token found; call synk_login first".to_string()))
+        .ok_or_else(|| {
+            CustodianError::Message("no auth token found; call synk_login first".to_string())
+        })
 }
 
 fn read_base_url(ctx: &AppCtx, explicit: Option<String>) -> Result<String, CustodianError> {
@@ -763,10 +792,15 @@ fn read_base_url(ctx: &AppCtx, explicit: Option<String>) -> Result<String, Custo
     guard
         .as_ref()
         .map(|session| session.base_url.clone())
-        .ok_or_else(|| CustodianError::Message("no base url found; call synk_login first".to_string()))
+        .ok_or_else(|| {
+            CustodianError::Message("no base url found; call synk_login first".to_string())
+        })
 }
 
-fn upsert_observation_from_api(conn: &Connection, incoming: &ApiObservation) -> Result<bool, CustodianError> {
+fn upsert_observation_from_api(
+    conn: &Connection,
+    incoming: &ApiObservation,
+) -> Result<bool, CustodianError> {
     let existing: Option<(bool, Option<String>, String)> = conn
         .query_row(
             "SELECT dirty, remote_updated_at, payload FROM observations WHERE id = ?1",
@@ -793,7 +827,12 @@ fn upsert_observation_from_api(conn: &Connection, incoming: &ApiObservation) -> 
                      remote_updated_at = ?2,
                      last_saved_at = ?3
                  WHERE id = ?4",
-                params![payload, incoming.updated_at, timestamp, incoming.observation_id],
+                params![
+                    payload,
+                    incoming.updated_at,
+                    timestamp,
+                    incoming.observation_id
+                ],
             )?;
             return Ok(true);
         }
@@ -971,7 +1010,11 @@ struct CredentialDeleteResult {
 }
 
 #[tauri::command]
-fn credential_set(profile_id: String, password: String, ctx: tauri::State<'_, AppCtx>) -> Result<CredentialSetResult, String> {
+fn credential_set(
+    profile_id: String,
+    password: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<CredentialSetResult, String> {
     let _ = &ctx;
     let entry = match credential_entry(&profile_id) {
         Ok(e) => e,
@@ -999,7 +1042,10 @@ fn credential_set(profile_id: String, password: String, ctx: tauri::State<'_, Ap
 }
 
 #[tauri::command]
-fn credential_get(profile_id: String, ctx: tauri::State<'_, AppCtx>) -> Result<CredentialGetResult, String> {
+fn credential_get(
+    profile_id: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<CredentialGetResult, String> {
     let _ = &ctx;
     let entry = match credential_entry(&profile_id) {
         Err(_) => {
@@ -1027,7 +1073,10 @@ fn credential_get(profile_id: String, ctx: tauri::State<'_, AppCtx>) -> Result<C
 }
 
 #[tauri::command]
-fn credential_delete(profile_id: String, ctx: tauri::State<'_, AppCtx>) -> Result<CredentialDeleteResult, String> {
+fn credential_delete(
+    profile_id: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<CredentialDeleteResult, String> {
     let _ = &ctx;
     let entry = match credential_entry(&profile_id) {
         Err(msg) => {
@@ -1103,7 +1152,10 @@ fn set_workspace(path: String, ctx: tauri::State<'_, AppCtx>) -> Result<(), Stri
 }
 
 #[tauri::command]
-fn list_workspace_items(relative_path: Option<String>, ctx: tauri::State<'_, AppCtx>) -> Result<Vec<WorkspaceItem>, String> {
+fn list_workspace_items(
+    relative_path: Option<String>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Vec<WorkspaceItem>, String> {
     let path = resolve_workspace_path(&ctx, relative_path).map_err(|err| err.to_string())?;
     let mut items = Vec::new();
     for entry in fs::read_dir(path).map_err(|err| err.to_string())? {
@@ -1121,7 +1173,10 @@ fn list_workspace_items(relative_path: Option<String>, ctx: tauri::State<'_, App
 }
 
 #[tauri::command]
-fn save_observation(req: SaveObservationRequest, ctx: tauri::State<'_, AppCtx>) -> Result<ObservationRecord, String> {
+fn save_observation(
+    req: SaveObservationRequest,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<ObservationRecord, String> {
     {
         let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
         let tx = conn.transaction().map_err(|err| err.to_string())?;
@@ -1181,7 +1236,10 @@ fn save_observation(req: SaveObservationRequest, ctx: tauri::State<'_, AppCtx>) 
 }
 
 #[tauri::command]
-fn restore_last_backup(observation_id: String, ctx: tauri::State<'_, AppCtx>) -> Result<ObservationRecord, String> {
+fn restore_last_backup(
+    observation_id: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<ObservationRecord, String> {
     {
         let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
         let tx = conn.transaction().map_err(|err| err.to_string())?;
@@ -1244,7 +1302,11 @@ fn get_observation(id: String, ctx: tauri::State<'_, AppCtx>) -> Result<Observat
 }
 
 #[tauri::command]
-fn list_observations(query: Option<String>, limit: Option<i64>, ctx: tauri::State<'_, AppCtx>) -> Result<Vec<ObservationRecord>, String> {
+fn list_observations(
+    query: Option<String>,
+    limit: Option<i64>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Vec<ObservationRecord>, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let text_query = query.unwrap_or_default();
     let pattern = format!("%{}%", text_query.to_lowercase());
@@ -1365,10 +1427,7 @@ fn list_observations_page(
     for row in rows {
         out.push(row.map_err(|err| err.to_string())?);
     }
-    Ok(ListObservationsPageResult {
-        rows: out,
-        total,
-    })
+    Ok(ListObservationsPageResult { rows: out, total })
 }
 
 fn map_observation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ObservationRecord> {
@@ -1526,9 +1585,7 @@ fn backup_workspace(zip_path: String, ctx: tauri::State<'_, AppCtx>) -> Result<S
     }
     with_workspace_fs_exclusive(&ctx, |ctx| {
         backup_workspace_zip(ctx, &path)?;
-        let out = path
-            .canonicalize()
-            .unwrap_or_else(|_| path.clone());
+        let out = path.canonicalize().unwrap_or_else(|_| path.clone());
         Ok(out.to_string_lossy().to_string())
     })
     .map_err(|e| e.to_string())
@@ -1536,10 +1593,14 @@ fn backup_workspace(zip_path: String, ctx: tauri::State<'_, AppCtx>) -> Result<S
 
 /// Moves `sqlite` and `attachments` under `workspace/previous_generations/<stamp>/`, then recreates a fresh layout.
 #[tauri::command]
-fn archive_workspace_for_repository_generation(ctx: tauri::State<'_, AppCtx>) -> Result<String, String> {
+fn archive_workspace_for_repository_generation(
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<String, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let stamp = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
-    let dest = ws.join("previous_generations").join(format!("{stamp}_archive"));
+    let dest = ws
+        .join("previous_generations")
+        .join(format!("{stamp}_archive"));
     with_workspace_fs_exclusive(&ctx, move |_ctx| {
         fs::create_dir_all(&dest).map_err(|e| CustodianError::Message(e.to_string()))?;
         for sub in ["sqlite", "attachments"] {
@@ -1569,7 +1630,10 @@ fn write_workspace_attachment(
 }
 
 #[tauri::command]
-fn remove_workspace_attachment(attachment_id: String, ctx: tauri::State<'_, AppCtx>) -> Result<(), String> {
+fn remove_workspace_attachment(
+    attachment_id: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<(), String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let path = ws.join("attachments").join(&attachment_id);
     if path.exists() {
@@ -1579,14 +1643,18 @@ fn remove_workspace_attachment(attachment_id: String, ctx: tauri::State<'_, AppC
 }
 
 #[tauri::command]
-fn import_observations(observations: Vec<ApiObservation>, ctx: tauri::State<'_, AppCtx>) -> Result<ImportResult, String> {
+fn import_observations(
+    observations: Vec<ApiObservation>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<ImportResult, String> {
     let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let tx = conn.transaction().map_err(|err| err.to_string())?;
     let mut imported = 0usize;
     let mut conflicts = 0usize;
 
     for observation in observations {
-        let conflict = upsert_observation_from_api(&tx, &observation).map_err(|err| err.to_string())?;
+        let conflict =
+            upsert_observation_from_api(&tx, &observation).map_err(|err| err.to_string())?;
         imported += 1;
         if conflict {
             conflicts += 1;
@@ -1599,7 +1667,10 @@ fn import_observations(observations: Vec<ApiObservation>, ctx: tauri::State<'_, 
     .map_err(|err| err.to_string())?;
     tx.commit().map_err(|err| err.to_string())?;
 
-    Ok(ImportResult { imported, conflicts })
+    Ok(ImportResult {
+        imported,
+        conflicts,
+    })
 }
 
 #[tauri::command]
@@ -1638,7 +1709,11 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
         .query_row("SELECT COUNT(*) FROM observations", [], |row| row.get(0))
         .map_err(|err| err.to_string())?;
     let dirty_count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM observations WHERE dirty = 1", [], |row| row.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM observations WHERE dirty = 1",
+            [],
+            |row| row.get(0),
+        )
         .map_err(|err| err.to_string())?;
     let conflict_count: i64 = conn
         .query_row(
@@ -1648,14 +1723,18 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
         )
         .map_err(|err| err.to_string())?;
     let last_save_at: Option<String> = conn
-        .query_row("SELECT MAX(last_saved_at) FROM observations", [], |row| row.get(0))
+        .query_row("SELECT MAX(last_saved_at) FROM observations", [], |row| {
+            row.get(0)
+        })
         .optional()
         .map_err(|err| err.to_string())?
         .flatten();
     let (last_pull_at, last_push_at): (Option<String>, Option<String>) = conn
-        .query_row("SELECT last_pull_at, last_push_at FROM sync_state WHERE id = 1", [], |row| {
-            Ok((row.get(0)?, row.get(1)?))
-        })
+        .query_row(
+            "SELECT last_pull_at, last_push_at FROM sync_state WHERE id = 1",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
         .map_err(|err| err.to_string())?;
     let (workspace_path, db_path_str) = {
         let cfg = ctx
@@ -1685,16 +1764,23 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
 fn repair_repository(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
     {
         let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        conn.execute_batch("VACUUM; REINDEX;").map_err(|err| err.to_string())?;
+        conn.execute_batch("VACUUM; REINDEX;")
+            .map_err(|err| err.to_string())?;
     }
     get_app_health(ctx)
 }
 
 #[tauri::command]
-async fn synk_login(req: SyncLoginRequest, ctx: tauri::State<'_, AppCtx>) -> Result<AuthSession, String> {
+async fn synk_login(
+    req: SyncLoginRequest,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<AuthSession, String> {
     let client = reqwest::Client::new();
     let response = client
-        .post(format!("{}/api/auth/login", req.base_url.trim_end_matches('/')))
+        .post(format!(
+            "{}/api/auth/login",
+            req.base_url.trim_end_matches('/')
+        ))
         .header(CONTENT_TYPE, "application/json")
         .json(&serde_json::json!({
             "username": req.username,
@@ -1730,10 +1816,15 @@ async fn synk_login(req: SyncLoginRequest, ctx: tauri::State<'_, AppCtx>) -> Res
 }
 
 #[tauri::command]
-async fn synk_pull(req: SyncPullRequest, ctx: tauri::State<'_, AppCtx>) -> Result<ImportResult, String> {
+async fn synk_pull(
+    req: SyncPullRequest,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<ImportResult, String> {
     let base_url = read_base_url(&ctx, req.base_url).map_err(|err| err.to_string())?;
     let token = read_auth_token(&ctx, req.token).map_err(|err| err.to_string())?;
-    let endpoint = req.endpoint.unwrap_or_else(|| "/api/observations".to_string());
+    let endpoint = req
+        .endpoint
+        .unwrap_or_else(|| "/api/observations".to_string());
     let url = format!("{}{}", base_url.trim_end_matches('/'), endpoint);
 
     let client = reqwest::Client::new();
@@ -1750,7 +1841,8 @@ async fn synk_pull(req: SyncPullRequest, ctx: tauri::State<'_, AppCtx>) -> Resul
     let observations = if body.is_array() {
         serde_json::from_value::<Vec<ApiObservation>>(body).map_err(|err| err.to_string())?
     } else if let Some(value) = body.get("observations") {
-        serde_json::from_value::<Vec<ApiObservation>>(value.clone()).map_err(|err| err.to_string())?
+        serde_json::from_value::<Vec<ApiObservation>>(value.clone())
+            .map_err(|err| err.to_string())?
     } else {
         return Err("pull response does not contain an observations array".to_string());
     };
@@ -1761,7 +1853,9 @@ async fn synk_pull(req: SyncPullRequest, ctx: tauri::State<'_, AppCtx>) -> Resul
 async fn synk_push(req: SyncPushRequest, ctx: tauri::State<'_, AppCtx>) -> Result<usize, String> {
     let base_url = read_base_url(&ctx, req.base_url).map_err(|err| err.to_string())?;
     let token = read_auth_token(&ctx, req.token).map_err(|err| err.to_string())?;
-    let endpoint = req.endpoint.unwrap_or_else(|| "/api/observations".to_string());
+    let endpoint = req
+        .endpoint
+        .unwrap_or_else(|| "/api/observations".to_string());
     let url = format!("{}{}", base_url.trim_end_matches('/'), endpoint);
     let outgoing = {
         let conn = open_db(&ctx).map_err(|err| err.to_string())?;
@@ -1818,10 +1912,7 @@ async fn synk_push(req: SyncPushRequest, ctx: tauri::State<'_, AppCtx>) -> Resul
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let config_dir = app
-                .path()
-                .app_config_dir()
-                .map_err(|err| err.to_string())?;
+            let config_dir = app.path().app_config_dir().map_err(|err| err.to_string())?;
             let data_dir = app.path().app_data_dir().map_err(|err| err.to_string())?;
             fs::create_dir_all(&config_dir).map_err(|err| err.to_string())?;
             fs::create_dir_all(&data_dir).map_err(|err| err.to_string())?;

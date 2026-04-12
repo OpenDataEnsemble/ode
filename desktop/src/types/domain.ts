@@ -100,6 +100,9 @@ export interface AuthSession {
   expiresAt?: number;
 }
 
+/** Client-side server tier for confirmation strictness (mirrors Rust `ProfileEnvironment`). */
+export type ProfileEnvironment = 'production' | 'staging' | 'development';
+
 /** One Synkronus server + local paths + DB (see Rust `ServerProfile`). */
 export interface ServerProfile {
   id: string;
@@ -109,6 +112,8 @@ export interface ServerProfile {
   workspacePath?: string | null;
   databasePath: string;
   attachmentsPath?: string | null;
+  /** Client-only guardrail; not sent to Synkronus as an API mode. */
+  environment?: ProfileEnvironment | null;
 }
 
 export interface AppSettings {

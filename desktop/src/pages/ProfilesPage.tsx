@@ -6,12 +6,13 @@ import {
   workspaceAttachmentsDir,
   workspaceSqlitePath,
 } from '../lib/workspacePaths';
-import type { ServerProfile } from '../types/domain';
+import type { ProfileEnvironment, ServerProfile } from '../types/domain';
 import {
   selectActiveProfileState,
   selectAuthSessionForActiveProfile,
   useCustodianStore,
 } from '../store/useCustodianStore';
+import { confirmDestructiveAction } from '../lib/destructivePolicy';
 
 function PasswordField({
   id,
@@ -65,6 +66,7 @@ function emptyProfile(dataDirectory: string): ServerProfile {
     workspacePath,
     databasePath,
     attachmentsPath: null,
+    environment: 'production',
   };
 }
 
@@ -92,9 +94,11 @@ export function ProfilesPage() {
   const [passwordStorageAvailable, setPasswordStorageAvailable] =
     useState(true);
   const [profileNotice, setProfileNotice] = useState<string | null>(null);
-  const [profileNoticeTone, setProfileNoticeTone] = useState<'warn' | 'success'>(
-    'warn',
-  );
+  const [profileNoticeTone, setProfileNoticeTone] = useState<
+    'warn' | 'success'
+  >('warn');
+  const [environment, setEnvironment] =
+    useState<ProfileEnvironment>('production');
 
   const syncDraftFromActive = useCallback(async (p: ServerProfile | null) => {
     if (!p) {
@@ -104,6 +108,7 @@ export function ProfilesPage() {
     setServerUrl(p.serverUrl ?? '');
     setUsername(p.username ?? '');
     setWorkspacePath(p.workspacePath ?? '');
+    setEnvironment(p.environment ?? 'production');
     setProfileNotice(null);
     setProfileNoticeTone('warn');
     try {
@@ -218,7 +223,9 @@ export function ProfilesPage() {
     }
     const ws = workspacePath.trim();
     if (!ws) {
-      setProfileNotice('Choose a workspace folder. The app stores sqlite, attachments, and exports under it.');
+      setProfileNotice(
+        'Choose a workspace folder. The app stores sqlite, attachments, and exports under it.',
+      );
       return;
     }
     setProfileNotice(null);
@@ -232,6 +239,7 @@ export function ProfilesPage() {
       workspacePath: ws,
       databasePath,
       attachmentsPath: null,
+      environment,
     };
     await upsertProfileRemote(profile);
     if (password.trim()) {
@@ -264,7 +272,9 @@ export function ProfilesPage() {
       return;
     }
     if (
-      !window.confirm(
+      !confirmDestructiveAction(
+        active.environment ?? 'production',
+        'profile_delete',
         `Delete profile "${active.label}"? Local repository files on disk are not removed.`,
       )
     ) {
@@ -367,9 +377,9 @@ export function ProfilesPage() {
         <div className="panel">
           <h3>Authentication</h3>
           <p className="profiles-auth-lead">
-            Sign in to Synkronus for this profile. Your access token (and refresh
-            token when provided) is stored in this app; sync will retry sign-in
-            using a saved password if the session expires.
+            Sign in to Synkronus for this profile. Your access token (and
+            refresh token when provided) is stored in this app; sync will retry
+            sign-in using a saved password if the session expires.
           </p>
           <dl className="kv-grid">
             <dt>Status</dt>
@@ -408,6 +418,22 @@ export function ProfilesPage() {
                 onChange={e => setLabel(e.target.value)}
                 placeholder="e.g. Production"
               />
+            </label>
+            <label>
+              Environment tier
+              <select
+                value={environment}
+                onChange={e =>
+                  setEnvironment(e.target.value as ProfileEnvironment)
+                }>
+                <option value="production">Production</option>
+                <option value="staging">Staging</option>
+                <option value="development">Development</option>
+              </select>
+              <span className="muted small-hint">
+                Client-side guardrail for confirmations only — not sent to
+                Synkronus as a server mode.
+              </span>
             </label>
             <label>
               Server URL
@@ -449,10 +475,10 @@ export function ProfilesPage() {
                       </p>
                       <p>
                         On Ubuntu and many desktops, install and run{' '}
-                        <code>gnome-keyring</code> and ensure a graphical session
-                        provides the Secret Service (D-Bus). On SSH-only or
-                        minimal environments the keyring may be unavailable—enter
-                        your password when you authenticate.
+                        <code>gnome-keyring</code> and ensure a graphical
+                        session provides the Secret Service (D-Bus). On SSH-only
+                        or minimal environments the keyring may be
+                        unavailable—enter your password when you authenticate.
                       </p>
                     </div>
                   </details>
@@ -507,13 +533,9 @@ export function ProfilesPage() {
               </p>
               <dl className="kv-grid kv-grid-tight">
                 <dt>SQLite database</dt>
-                <dd className="path-dd">
-                  {derivedDb || '—'}
-                </dd>
+                <dd className="path-dd">{derivedDb || '—'}</dd>
                 <dt>Attachments</dt>
-                <dd className="path-dd">
-                  {derivedAttachments || '—'}
-                </dd>
+                <dd className="path-dd">{derivedAttachments || '—'}</dd>
               </dl>
             </div>
           </div>

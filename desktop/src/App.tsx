@@ -4,6 +4,8 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
+  useNavigate,
 } from 'react-router-dom';
 import { useEffect, useMemo } from 'react';
 import { OverviewPage } from './pages/OverviewPage';
@@ -11,6 +13,7 @@ import { ObservationsPage } from './pages/ObservationsPage';
 import { SyncPage } from './pages/SyncPage';
 import { ProfilesPage } from './pages/ProfilesPage';
 import { ImportPage } from './pages/ImportPage';
+import { WorkbenchPage } from './pages/WorkbenchPage';
 import { useSynkServerStatus } from './hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
@@ -18,12 +21,22 @@ import {
 } from './store/useCustodianStore';
 import './App.css';
 
-const navItems = [
-  { to: '/overview', label: 'Overview', icon: 'dashboard' },
-  { to: '/observations', label: 'Observations', icon: 'manage_search' },
-  { to: '/import', label: 'Import', icon: 'input' },
-  { to: '/sync', label: 'Sync', icon: 'sync_alt' },
-  { to: '/profiles', label: 'Profiles', icon: 'badge' },
+const DATA_NAV = [
+  { to: '/data/overview', label: 'Overview', icon: 'dashboard' },
+  { to: '/data/observations', label: 'Observations', icon: 'manage_search' },
+  { to: '/data/import', label: 'Import', icon: 'input' },
+  { to: '/data/sync', label: 'Sync', icon: 'sync_alt' },
+  { to: '/data/profiles', label: 'Profiles', icon: 'badge' },
+];
+
+const WORKBENCH_NAV = [
+  { to: '/workbench/bundles', label: 'Bundles', icon: 'inventory_2' },
+  {
+    to: '/workbench/form-preview',
+    label: 'Form preview',
+    icon: 'article',
+  },
+  { to: '/workbench/custom-app', label: 'Custom app', icon: 'web' },
 ];
 
 function ServerStatusIndicator() {
@@ -48,8 +61,53 @@ function ProfilesBootstrap() {
   return null;
 }
 
+function ModeSwitch() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isWorkbench = location.pathname.startsWith('/workbench');
+
+  return (
+    <div className="mode-switch" role="tablist" aria-label="Application mode">
+      <button
+        type="button"
+        role="tab"
+        className={`mode-switch-btn${!isWorkbench ? ' mode-switch-btn-active' : ''}`}
+        aria-selected={!isWorkbench}
+        onClick={() => navigate('/data/overview')}>
+        Data
+      </button>
+      <button
+        type="button"
+        role="tab"
+        className={`mode-switch-btn${isWorkbench ? ' mode-switch-btn-active' : ''}`}
+        aria-selected={isWorkbench}
+        onClick={() => navigate('/workbench/bundles')}>
+        Workbench
+      </button>
+    </div>
+  );
+}
+
+function EnvironmentBadge() {
+  const active = useCustodianStore(selectActiveProfileState);
+  const tier = active?.environment ?? 'production';
+  if (tier === 'production') {
+    return null;
+  }
+  return (
+    <div
+      className={`env-badge env-badge-${tier}`}
+      title="Profile environment tier">
+      {tier}
+    </div>
+  );
+}
+
 function Shell() {
   const year = useMemo(() => new Date().getFullYear(), []);
+  const location = useLocation();
+  const isWorkbench = location.pathname.startsWith('/workbench');
+  const navItems = isWorkbench ? WORKBENCH_NAV : DATA_NAV;
 
   return (
     <div className="app">
@@ -60,16 +118,20 @@ function Shell() {
             <span className="material-symbols-outlined">shield_person</span>
           </div>
           <div>
-            <h1>Custodian</h1>
-            <p>ODE Data Stewardship</p>
+            <h1>ODE Desktop</h1>
+            <p>Data &amp; collection tooling</p>
           </div>
         </div>
+        <ModeSwitch />
+        <EnvironmentBadge />
         <nav className="nav">
           {navItems.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/overview'}
+              end={
+                item.to === '/data/overview' || item.to === '/workbench/bundles'
+              }
               className={({ isActive }) =>
                 `nav-link${isActive ? ' active' : ''}`
               }>
@@ -86,29 +148,58 @@ function Shell() {
 
       <main className="content">
         <Routes>
-          <Route path="/" element={<Navigate to="/overview" replace />} />
-          <Route path="/overview" element={<OverviewPage />} />
-          <Route path="/observations" element={<ObservationsPage />} />
+          <Route path="/" element={<Navigate to="/data/overview" replace />} />
+          <Route
+            path="/overview"
+            element={<Navigate to="/data/overview" replace />}
+          />
+          <Route
+            path="/observations"
+            element={<Navigate to="/data/observations" replace />}
+          />
+          <Route
+            path="/import"
+            element={<Navigate to="/data/import" replace />}
+          />
+          <Route path="/sync" element={<Navigate to="/data/sync" replace />} />
+          <Route
+            path="/profiles"
+            element={<Navigate to="/data/profiles" replace />}
+          />
           <Route
             path="/records"
-            element={<Navigate to="/observations" replace />}
+            element={<Navigate to="/data/observations" replace />}
           />
           <Route
             path="/explorer"
-            element={<Navigate to="/observations" replace />}
+            element={<Navigate to="/data/observations" replace />}
           />
-          <Route path="/import" element={<ImportPage />} />
-          <Route path="/sync" element={<SyncPage />} />
-          <Route path="/health" element={<Navigate to="/overview" replace />} />
+          <Route
+            path="/health"
+            element={<Navigate to="/data/overview" replace />}
+          />
           <Route
             path="/workspace"
-            element={<Navigate to="/profiles" replace />}
+            element={<Navigate to="/data/profiles" replace />}
           />
           <Route
             path="/settings"
-            element={<Navigate to="/profiles" replace />}
+            element={<Navigate to="/data/profiles" replace />}
           />
-          <Route path="/profiles" element={<ProfilesPage />} />
+
+          <Route path="/data/overview" element={<OverviewPage />} />
+          <Route path="/data/observations" element={<ObservationsPage />} />
+          <Route path="/data/import" element={<ImportPage />} />
+          <Route path="/data/sync" element={<SyncPage />} />
+          <Route path="/data/profiles" element={<ProfilesPage />} />
+
+          <Route path="/workbench/bundles" element={<WorkbenchPage />} />
+          <Route path="/workbench/form-preview" element={<WorkbenchPage />} />
+          <Route path="/workbench/custom-app" element={<WorkbenchPage />} />
+          <Route
+            path="/workbench"
+            element={<Navigate to="/workbench/bundles" replace />}
+          />
         </Routes>
       </main>
     </div>

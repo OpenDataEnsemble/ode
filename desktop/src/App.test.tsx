@@ -35,9 +35,7 @@ vi.mock('./lib/tauriClient', () => ({
     setWorkspace: vi.fn(),
     listWorkspaceItems: vi.fn().mockResolvedValue([]),
     listObservations: vi.fn().mockResolvedValue([]),
-    listObservationsPage: vi
-      .fn()
-      .mockResolvedValue({ rows: [], total: 0 }),
+    listObservationsPage: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
     listFormTypes: vi.fn().mockResolvedValue([]),
     getSyncState: vi.fn().mockResolvedValue({
       repositoryGeneration: 1,
@@ -74,9 +72,11 @@ describe('App shell', () => {
   it('renders the overview and primary navigation', async () => {
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Overview' }),
+      ).toBeInTheDocument();
     });
-    expect(screen.getByText('Custodian')).toBeInTheDocument();
+    expect(screen.getByText('ODE Desktop')).toBeInTheDocument();
     const nav = screen.getByRole('navigation');
     expect(within(nav).getByText('Overview')).toBeInTheDocument();
     expect(within(nav).getByText('Observations')).toBeInTheDocument();

@@ -1,87 +1,97 @@
-# Custodian (Tauri + React + Rust)
+# ODE Desktop
 
-Custodian is the ODE desktop stewardship app prototype built with Tauri, React, and Rust.
+**ODE Desktop** is the Open Data Ensemble **desktop application** (Tauri + React + Rust). It provides two modes:
 
-**Custodian** is the desktop stewardship tool for ODE repositories. It lets you manage a local repository per profile, inspect and correct observations, import JSON data, and synchronize deliberate changes back to Synkronus.
+| Mode                      | Purpose                                                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Data management**       | Pull, inspect, correct, and sync **observations**; import/export; conflicts and local workspace state.                                  |
+| **Forms / app workbench** | Develop and test **app bundles**, embedded **formplayer**, and **custom apps** — aligned with Formulus and the shared WebView contract. |
 
-## Quick start
+The internal Rust crate may still be named `custodian`; user-facing strings use **ODE Desktop**.
+
+## Who it is for
+
+- **Field and data staff** managing observations and sync (Data management).
+- **Form and app authors** testing bundles and custom apps against Synkronus before mobile deploy (Workbench).
+
+Relationship to other ODE components: **Synkronus** (API), **Formulus** + **formplayer** (runtime parity), **Portal** and **CLI** (same public API — no privileged desktop channel). Long-form prose here is intended to be **copy-friendly** for [opendataensemble.org](https://opendataensemble.org/) documentation; keep user-facing sections free of repo-only trivia (put contributor notes under **Development**).
+
+## Install
+
+Official builds are produced with **`pnpm tauri build`** (artifacts vary by OS: `.msi`, `.dmg`, `.app`, AppImage, `.deb`, etc.). When releases are published, attach those bundles to **GitHub Releases** and link them from project docs.
+
+**Prerequisites**
+
+- **Windows**: WebView2 (usually present on current Windows 10/11).
+- **Linux**: WebKitGTK and related packages as required by [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/).
+- **macOS**: Xcode command-line tools for development builds.
+
+A placeholder **curl-style** installer script is at `scripts/install-ode-desktop.sh` (to be wired to real release asset URLs). For early testing, run from source (below).
+
+## Quick start (development)
+
+From the monorepo root:
 
 ```bash
+cd desktop
 pnpm install
 pnpm dev
+```
+
+In another terminal:
+
+```bash
+cd desktop
 pnpm tauri dev
 ```
 
-## Tests and build
+## Scripts
 
-```bash
-pnpm test
-pnpm build
-```
+| Script                              | Purpose                                                                                                     |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                          | Vite dev server (frontend).                                                                                 |
+| `pnpm build`                        | Typecheck + Vite production build.                                                                          |
+| `pnpm tauri build`                  | Full desktop bundle (runs `pnpm build` first per `tauri.conf.json`).                                        |
+| `pnpm lint` / `pnpm lint:fix`       | ESLint.                                                                                                     |
+| `pnpm format` / `pnpm format:check` | Prettier.                                                                                                   |
+| `pnpm test`                         | Vitest (unit / component tests).                                                                            |
+| `pnpm typecheck`                    | `tsc --noEmit`.                                                                                             |
+| `pnpm codegen:synk-client`          | Regenerate TypeScript client from Synkronus OpenAPI.                                                        |
+| `pnpm copy:formplayer`              | Copy `../formulus-formplayer/build/` → `public/formplayer_dist/` (run `npm run build` in formplayer first). |
 
-Format code:
-
-```bash
-pnpm format
-pnpm format:check
-```
-
-Rust tests:
+### Rust (backend)
 
 ```bash
 cd src-tauri
 cargo test
+cargo fmt
+cargo clippy
 ```
 
-## OpenAPI client generation
+## OpenAPI client
 
-This project includes a regeneration command for a Synkronus API client (TypeScript fetch client):
+Configuration is in `openapi.client.config.json` (paths relative to `desktop/`):
 
-```bash
-pnpm codegen:synk-client
-```
+- Default spec: `../synkronus/openapi/synkronus.yaml`
+- Output: `src/generated/synkronus-client`
 
-### Where the source spec is configured
-
-Default source and output paths are configured in:
-
-- `openapi.client.config.json`
-
-```json
-{
-  "sourceSpecRelativePath": "../ODE/synkronus/openapi/synkronus.yaml",
-  "outputRelativePath": "src/generated/synkronus-client"
-}
-```
-
-Both paths are **relative to the project root** so this can move into the monorepo without hardcoded absolute paths.
-
-### Override the spec path/output path at runtime
-
-You can override either path via environment variables:
+Override at generation time:
 
 - `OPENAPI_SPEC_RELATIVE_PATH`
 - `OPENAPI_OUTPUT_RELATIVE_PATH`
 
-PowerShell example:
+CI regenerates the client and **fails** if the repo does not match (`ode-desktop` workflow).
 
-```powershell
-$env:OPENAPI_SPEC_RELATIVE_PATH="../ODE/synkronus/openapi/synkronus.yaml"
-pnpm codegen:synk-client
-```
+## Architecture pointers
 
-### Notes
+- **Bridge contract**: [`formulus/src/webview/FormulusInterfaceDefinition.ts`](../formulus/src/webview/FormulusInterfaceDefinition.ts) — source of truth for `formulusAPI` / postMessage. After changes, run **`sync-interface`** in `formulus-formplayer` and mirror behavior in the desktop WebView host.
+- **Bundle extensions**: merge rules for `forms/ext.json` and `forms/{form}/ext.json` follow Formulus `ExtensionService`; see `src/lib/bundleResolution.ts`.
+- **Embedded formplayer**: production build copied into `public/formplayer_dist/`; load in a WebView with the same **`FormInitData`** expectations as mobile (see `src/lib/formplayerHost.ts` for placeholder types).
 
-- Generated files are written to `src/generated/synkronus-client`.
-- Generation uses `@openapitools/openapi-generator-cli` with `typescript-fetch`.
-- If needed, ensure Java is available on your machine for the generator runtime.
-- The app currently uses an in-process Rust sync implementation in `src-tauri/src/lib.rs`.
-- The generated client is intended as a robust contract-aligned artifact and migration path as the integration evolves.
+## Application icon (Linux)
 
-# Tauri + React + Typescript
+Bundled icons live under `src-tauri/icons/` and are referenced from `src-tauri/tauri.conf.json` **`bundle.icon`**. Misplaced **iOS-style** asset folders are not used for Tauri Linux bundles and have been removed to avoid confusion. For deb/AppImage installs, verify the packaged **`.desktop`** file **`Icon=`** entry resolves on Ubuntu/GNOME (dash, dock, Alt+Tab).
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+## Contributing
 
-## Recommended IDE Setup
-
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+Conventional Commits; run `pnpm lint`, `pnpm format:check`, and `pnpm test` before pushing. PRs touching `desktop/**` trigger the **ODE Desktop** GitHub Actions workflow (see `.github/CICD.md`).

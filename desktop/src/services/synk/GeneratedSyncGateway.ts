@@ -38,11 +38,15 @@ function toIsoTimestamp(value: unknown): string {
   }
   if (typeof value === 'string') {
     const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+    return Number.isNaN(d.getTime())
+      ? new Date().toISOString()
+      : d.toISOString();
   }
   if (typeof value === 'number' && Number.isFinite(value)) {
     const d = new Date(value);
-    return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+    return Number.isNaN(d.getTime())
+      ? new Date().toISOString()
+      : d.toISOString();
   }
   return new Date().toISOString();
 }
@@ -65,14 +69,10 @@ function mapObservationToApiObservation(value: Observation): ApiObservation {
   };
 }
 
-function mapObservationToOpenApi(
-  observation: ObservationRecord,
-): Observation {
+function mapObservationToOpenApi(observation: ObservationRecord): Observation {
   const x = observation.extras;
   const updatedAt = parseMaybeDate(observation.updatedAt);
-  const createdAt = x?.createdAt
-    ? parseMaybeDate(x.createdAt)
-    : updatedAt;
+  const createdAt = x?.createdAt ? parseMaybeDate(x.createdAt) : updatedAt;
   const payloadObject =
     observation.payload && typeof observation.payload === 'object'
       ? (observation.payload as Record<string, unknown>)

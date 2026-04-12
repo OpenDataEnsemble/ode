@@ -96,11 +96,7 @@ export function ObservationsPage() {
       page: 0,
       pageSize: observationListParams.pageSize,
     });
-  }, [
-    formTypeFilter,
-    loadObservations,
-    observationListParams.pageSize,
-  ]);
+  }, [formTypeFilter, loadObservations, observationListParams.pageSize]);
 
   useEffect(() => {
     if (!selectedObservationId) {
@@ -217,11 +213,7 @@ export function ObservationsPage() {
       window.alert('Data must be valid JSON before saving.');
       return;
     }
-    if (
-      !dataObj ||
-      typeof dataObj !== 'object' ||
-      Array.isArray(dataObj)
-    ) {
+    if (!dataObj || typeof dataObj !== 'object' || Array.isArray(dataObj)) {
       window.alert('Data must be a JSON object (Synkronus Observation.data).');
       return;
     }
@@ -293,7 +285,10 @@ export function ObservationsPage() {
 
       <div className="split split-observations">
         <div className="panel panel-observations-list">
-          <div className="filter-chips" role="group" aria-label="Observation filters">
+          <div
+            className="filter-chips"
+            role="group"
+            aria-label="Observation filters">
             {(
               [
                 ['all', 'All'],
@@ -305,7 +300,9 @@ export function ObservationsPage() {
               <button
                 key={key}
                 type="button"
-                className={filter === key ? 'filter-chip active' : 'filter-chip'}
+                className={
+                  filter === key ? 'filter-chip active' : 'filter-chip'
+                }
                 onClick={() => setFilter(key)}>
                 {lab}
               </button>
@@ -339,40 +336,41 @@ export function ObservationsPage() {
           </label>
           <p className="muted small-hint">
             Paged list (search + form type). Chip filters apply to the current
-            page. Repository totals are on <Link to="/overview">Overview</Link>.
+            page. Repository totals are on{' '}
+            <Link to="/data/overview">Overview</Link>.
           </p>
           <div className="observations-list-scroll">
             <ul className="list">
-            {filteredObservations.map(item => (
-              <li key={item.id} className="observation-row">
-                <button
-                  type="button"
-                  className="linkish"
-                  onClick={() => setSelectedObservationId(item.id)}>
-                  <span>{item.id}</span>
-                  <small>{item.formType ?? 'no-form-type'}</small>
-                </button>
-                <span className="observation-row-badges">
-                  <span
-                    className={`status-pill ${statusClass(item)}`}
-                    title={
-                      item.syncStatus === 'conflict'
-                        ? 'Conflict — review before push'
-                        : item.dirty
-                          ? 'Pending push'
-                          : undefined
-                    }>
-                    {item.syncStatus === 'conflict'
-                      ? 'Conflict'
-                      : item.dirty || item.syncStatus === 'dirty'
-                        ? 'Dirty'
-                        : item.syncStatus === 'clean'
-                          ? 'Clean'
-                          : item.syncStatus}
+              {filteredObservations.map(item => (
+                <li key={item.id} className="observation-row">
+                  <button
+                    type="button"
+                    className="linkish"
+                    onClick={() => setSelectedObservationId(item.id)}>
+                    <span>{item.id}</span>
+                    <small>{item.formType ?? 'no-form-type'}</small>
+                  </button>
+                  <span className="observation-row-badges">
+                    <span
+                      className={`status-pill ${statusClass(item)}`}
+                      title={
+                        item.syncStatus === 'conflict'
+                          ? 'Conflict — review before push'
+                          : item.dirty
+                            ? 'Pending push'
+                            : undefined
+                      }>
+                      {item.syncStatus === 'conflict'
+                        ? 'Conflict'
+                        : item.dirty || item.syncStatus === 'dirty'
+                          ? 'Dirty'
+                          : item.syncStatus === 'clean'
+                            ? 'Clean'
+                            : item.syncStatus}
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
+                </li>
+              ))}
             </ul>
           </div>
           <div className="observations-pager">
@@ -436,7 +434,9 @@ export function ObservationsPage() {
                       ) : (
                         selected.syncStatus
                       )}
-                      {selected.hasConflictCopy ? ' · conflict copy stored' : null}
+                      {selected.hasConflictCopy
+                        ? ' · conflict copy stored'
+                        : null}
                     </dd>
                     <dt>Last pushed</dt>
                     <dd>{formatDate(selected.lastPushedAt)}</dd>
