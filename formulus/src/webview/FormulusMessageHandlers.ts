@@ -43,6 +43,12 @@ type AudioSet = {
 };
 import { FormService } from '../services/FormService';
 import { Observation, ObservationData } from '../database/models/Observation';
+import {
+  getAttachmentsDirectoryFileUrl,
+  getCustomAppDirectoryFileUrl,
+  getFormSpecsDirectoryFileUrl,
+  resolveAttachmentFileUrl,
+} from '../services/WebViewFileUrlResolver';
 
 export type HandlerArgs = {
   data: unknown;
@@ -1075,6 +1081,28 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         );
         return 'system';
       }
+    },
+    onGetAttachmentUri: async (data: {
+      fileName?: string;
+      filename?: string;
+    }): Promise<string | null> => {
+      const name = data?.fileName ?? data?.filename;
+      if (name == null || typeof name !== 'string') {
+        console.warn(
+          'FormulusMessageHandlers: onGetAttachmentUri missing fileName',
+        );
+        return null;
+      }
+      return resolveAttachmentFileUrl(name);
+    },
+    onGetAttachmentsUri: async (): Promise<string> => {
+      return getAttachmentsDirectoryFileUrl();
+    },
+    onGetCustomAppUri: async (): Promise<string> => {
+      return getCustomAppDirectoryFileUrl();
+    },
+    onGetFormSpecsUri: async (): Promise<string> => {
+      return getFormSpecsDirectoryFileUrl();
     },
     onGetObservations: async (
       formType: string | { formType: string },

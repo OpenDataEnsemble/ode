@@ -2,6 +2,20 @@
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+/** True when this file is the Node entrypoint (ESM package + ts-node). */
+function isRunAsCli(): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+  try {
+    return path.resolve(entry) === path.resolve(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
 // Types are only used in JSDoc comments, not imported
 
 // Core type definitions
@@ -537,12 +551,13 @@ function extractMethods(sourceFile: ts.SourceFile): MethodInfo[] {
 }
 
 // Main execution
-if (require.main === module) {
+if (isRunAsCli()) {
   try {
     console.log('Running as main module');
 
     // Get the project root directory (one level up from scripts directory)
-    const projectRoot = path.resolve(__dirname, '..');
+    const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+    const projectRoot = path.resolve(scriptDir, '..');
     const interfacePath = path.join(
       projectRoot,
       'src',

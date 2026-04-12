@@ -7,6 +7,7 @@ import {
   DataExportApi,
   DefaultApi,
   HealthApi,
+  type UserListItem,
 } from '../api/synkronus/generated';
 import type { LoginRequest, LoginResponse } from '../types/auth';
 import { ODE_VERSION } from '../version';
@@ -231,16 +232,10 @@ export const api = {
     }
   },
 
-  async listUsers(): Promise<
-    Array<{ username: string; role: string; createdAt: string }>
-  > {
+  async listUsers(): Promise<UserListItem[]> {
     try {
       const res = await defaultApi.listUsers({ xOdeVersion: ODE_VERSION });
-      return res.data as Array<{
-        username: string;
-        role: string;
-        createdAt: string;
-      }>;
+      return res.data;
     } catch (error) {
       throw toApiError(error);
     }

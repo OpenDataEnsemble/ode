@@ -10,6 +10,7 @@ Synkronus is a robust synchronization API for offline-first applications, built 
 - Form specifications for dynamic UI generation
 - API versioning support
 - ETag support for caching and efficiency
+- Optional per-user last-seen presence for operators (see [documentation/user-presence.md](documentation/user-presence.md))
 
 ## Project Structure
 

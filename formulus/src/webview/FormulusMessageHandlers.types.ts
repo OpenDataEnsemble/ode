@@ -67,6 +67,13 @@ export interface FormulusMessageHandlers {
     role?: 'read-only' | 'read-write' | 'admin';
   }>;
   onGetThemeMode?: () => Promise<'light' | 'dark' | 'system'>;
+  onGetAttachmentUri?: (data: {
+    fileName?: string;
+    filename?: string;
+  }) => Promise<string | null>;
+  onGetAttachmentsUri?: () => Promise<string>;
+  onGetCustomAppUri?: () => Promise<string>;
+  onGetFormSpecsUri?: () => Promise<string>;
   // Called when the Formplayer WebView signals that it has completed initialization
   // via a `formplayerInitialized` message. Primarily used for logging/diagnostics.
   onFormplayerInitialized?: (data: {

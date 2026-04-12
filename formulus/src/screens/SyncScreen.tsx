@@ -23,7 +23,9 @@ import {
   getUserInfo,
   getUserFacingSyncErrorMessage,
 } from '../api/synkronus/Auth';
-import colors, { withAlpha } from '../theme/colors';
+import { isRepositoryResetRequiredError } from '../errors/RepositoryResetRequiredError';
+import { repositoryRecoveryService } from '../services/RepositoryRecoveryService';
+import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
@@ -175,8 +177,41 @@ const SyncScreen = () => {
       await Promise.race([syncPromise, timeoutPromise]);
       await refreshAfterOperation();
     } catch (error) {
-      syncError = getUserFacingSyncErrorMessage(error);
-      Alert.alert('Sync Failed', syncError);
+      if (isRepositoryResetRequiredError(error)) {
+        syncError = getUserFacingSyncErrorMessage(error);
+        Alert.alert(
+          'Server repository reset',
+          'Your local data no longer matches this server. Clear local observations and attachments, then sync again?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Clear and sync',
+              style: 'destructive',
+              onPress: () => {
+                void (async () => {
+                  try {
+                    startSync(true);
+                    setActiveOperation('sync');
+                    await repositoryRecoveryService.wipeLocalSyncState();
+                    await syncService.syncObservations(true);
+                    await refreshAfterOperation();
+                    finishSync();
+                  } catch (e) {
+                    const msg = getUserFacingSyncErrorMessage(e);
+                    finishSync(msg);
+                    Alert.alert('Sync failed', msg);
+                  } finally {
+                    setActiveOperation(null);
+                  }
+                })();
+              },
+            },
+          ],
+        );
+      } else {
+        syncError = getUserFacingSyncErrorMessage(error);
+        Alert.alert('Sync Failed', syncError);
+      }
     } finally {
       finishSync(syncError);
       setActiveOperation(null);
@@ -227,9 +262,48 @@ const SyncScreen = () => {
       const fs = await formService.FormService.getInstance();
       await fs.invalidateCache();
     } catch (error) {
-      const errorMessage = getUserFacingSyncErrorMessage(error);
-      finishSync(errorMessage);
-      Alert.alert('Operation Failed', errorMessage);
+      if (isRepositoryResetRequiredError(error)) {
+        const errorMessage = getUserFacingSyncErrorMessage(error);
+        finishSync(errorMessage);
+        Alert.alert(
+          'Server repository reset',
+          'Your local data no longer matches this server. Clear local observations and attachments, then sync again?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Clear and sync',
+              style: 'destructive',
+              onPress: () => {
+                void (async () => {
+                  try {
+                    startSync(true);
+                    setActiveOperation('sync_then_update');
+                    await repositoryRecoveryService.wipeLocalSyncState();
+                    await syncService.syncObservations(true);
+                    await syncService.updateAppBundle();
+                    setUpdateAvailable(false);
+                    await refreshAfterOperation();
+                    finishSync();
+                    const formService = await import('../services/FormService');
+                    const fs = await formService.FormService.getInstance();
+                    await fs.invalidateCache();
+                  } catch (e) {
+                    const msg = getUserFacingSyncErrorMessage(e);
+                    finishSync(msg);
+                    Alert.alert('Operation failed', msg);
+                  } finally {
+                    setActiveOperation(null);
+                  }
+                })();
+              },
+            },
+          ],
+        );
+      } else {
+        const errorMessage = getUserFacingSyncErrorMessage(error);
+        finishSync(errorMessage);
+        Alert.alert('Operation Failed', errorMessage);
+      }
     } finally {
       setActiveOperation(null);
     }

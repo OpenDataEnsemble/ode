@@ -7,6 +7,8 @@ import (
 	"io"
 	"mime/multipart"
 	"os"
+
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/client/generated"
 )
 
 // UploadAttachment uploads a file to the server with the specified attachment ID
@@ -46,6 +48,7 @@ func (c *Client) UploadAttachment(attachmentID string, filePath string) (map[str
 	resp, err := c.api.UploadAttachmentWithBodyWithResponse(
 		context.Background(),
 		attachmentID,
+		&generated.UploadAttachmentParams{},
 		writer.FormDataContentType(),
 		body,
 	)

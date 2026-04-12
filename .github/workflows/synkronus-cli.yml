@@ -43,17 +43,26 @@ jobs:
         working-directory: synkronus-cli
         run: |
           mkdir -p dist
+          FILENAME=synkronus-cli-${{ matrix.goos }}-${{ matrix.goarch }}
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
+
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -o dist/synkronus-cli-${{ matrix.goos }}-${{ matrix.goarch }}${EXT} ./cmd/synkronus
-          ls -R dist
+            go build -o dist/${FILENAME}${EXT} ./cmd/synkronus
+
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            (cd dist && zip -r ${FILENAME}.zip ${FILENAME}${EXT})
+          else
+            tar -C dist -czf dist/${FILENAME}.tar.gz ${FILENAME}
+          fi
+          rm dist/${FILENAME}${EXT}
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: synkronus-cli-${{ matrix.goos }}-${{ matrix.goarch }}
           path: synkronus-cli/dist/synkronus-cli-${{ matrix.goos }}-${{ matrix.goarch }}*
+          archive: false
 
   release-cli:
     name: Build & attach release assets

@@ -4,6 +4,7 @@ All URIs are relative to *http://localhost*
 
 |Method | HTTP request | Description|
 |------------- | ------------- | -------------|
+|[**adminRepositoryReset**](#adminrepositoryreset) | **POST** /api/admin/repository/reset | Irreversibly wipe server observation and attachment sync data (admin only)|
 |[**changePassword**](#changepassword) | **POST** /api/users/change-password | Change user password (authenticated user)\&#39;s password|
 |[**checkAttachmentExists**](#checkattachmentexists) | **HEAD** /api/attachments/{attachment_id} | Check if an attachment exists|
 |[**createUser**](#createuser) | **POST** /api/users/create | Create a new user (admin only)|
@@ -24,6 +25,62 @@ All URIs are relative to *http://localhost*
 |[**syncPull**](#syncpull) | **POST** /api/sync/pull | Pull updated records since last sync|
 |[**syncPush**](#syncpush) | **POST** /api/sync/push | Push new or updated records to the server|
 |[**uploadAttachment**](#uploadattachment) | **PUT** /api/attachments/{attachment_id} | Upload a new attachment with specified ID|
+
+# **adminRepositoryReset**
+> RepositoryResetResponse adminRepositoryReset(repositoryResetRequest)
+
+Destructive operation: deletes all observations and attachment manifest rows, resets the observation stream cursor, increments repository_generation, and clears attachment files on disk. App bundles are not removed. Requires body `{ \"confirm\": \"RESET_REPOSITORY\" }`. 
+
+### Example
+
+```typescript
+import {
+    DefaultApi,
+    Configuration,
+    RepositoryResetRequest
+} from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let repositoryResetRequest: RepositoryResetRequest; //
+
+const { status, data } = await apiInstance.adminRepositoryReset(
+    repositoryResetRequest
+);
+```
+
+### Parameters
+
+|Name | Type | Description  | Notes|
+|------------- | ------------- | ------------- | -------------|
+| **repositoryResetRequest** | **RepositoryResetRequest**|  | |
+
+
+### Return type
+
+**RepositoryResetResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+ - **Content-Type**: application/json
+ - **Accept**: application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+|**200** | Reset completed |  -  |
+|**400** | Invalid confirmation body |  -  |
+|**401** | Unauthorized |  -  |
+|**403** | Forbidden (non-admin) |  -  |
+|**500** | Internal server error |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **changePassword**
 > ChangePassword200Response changePassword(changePasswordRequest)
@@ -447,9 +504,11 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
+let xOdeClientId: string; //Optional client instance id for correlating app bundle checks with presence. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.getAppBundleManifest(
-    xOdeVersion
+    xOdeVersion,
+    xOdeClientId
 );
 ```
 
@@ -458,6 +517,7 @@ const { status, data } = await apiInstance.getAppBundleManifest(
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
+| **xOdeClientId** | [**string**] | Optional client instance id for correlating app bundle checks with presence. | (optional) defaults to undefined|
 
 
 ### Return type
@@ -550,10 +610,12 @@ const apiInstance = new DefaultApi(configuration);
 
 let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let attachmentManifestRequest: AttachmentManifestRequest; //
+let xRepositoryGeneration: number; //Client repository epoch; must match the server. Omitted or invalid values are treated as 1. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.getAttachmentManifest(
     xOdeVersion,
-    attachmentManifestRequest
+    attachmentManifestRequest,
+    xRepositoryGeneration
 );
 ```
 
@@ -563,6 +625,7 @@ const { status, data } = await apiInstance.getAttachmentManifest(
 |------------- | ------------- | ------------- | -------------|
 | **attachmentManifestRequest** | **AttachmentManifestRequest**|  | |
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
+| **xRepositoryGeneration** | [**number**] | Client repository epoch; must match the server. Omitted or invalid values are treated as 1. | (optional) defaults to undefined|
 
 
 ### Return type
@@ -583,6 +646,7 @@ const { status, data } = await apiInstance.getAttachmentManifest(
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Attachment manifest with changes since specified version |  -  |
+|**409** | Repository epoch mismatch |  * x-repository-generation -  <br>  |
 |**400** | Invalid request parameters |  -  |
 |**401** | Unauthorized |  -  |
 |**500** | Internal server error |  -  |
@@ -635,9 +699,9 @@ No authorization required
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listUsers**
-> Array<UserResponse> listUsers()
+> Array<UserListItem> listUsers()
 
-Retrieve a list of all users in the system. Admin access required.
+Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity. 
 
 ### Example
 
@@ -651,9 +715,11 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
+let xOdeClientId: string; //Optional client instance id (browser/CLI); used for presence when sent with authenticated requests. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.listUsers(
-    xOdeVersion
+    xOdeVersion,
+    xOdeClientId
 );
 ```
 
@@ -662,11 +728,12 @@ const { status, data } = await apiInstance.listUsers(
 |Name | Type | Description  | Notes|
 |------------- | ------------- | ------------- | -------------|
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
+| **xOdeClientId** | [**string**] | Optional client instance id (browser/CLI); used for presence when sent with authenticated requests. | (optional) defaults to undefined|
 
 
 ### Return type
 
-**Array<UserResponse>**
+**Array<UserListItem>**
 
 ### Authorization
 
@@ -995,12 +1062,16 @@ let xOdeVersion: string; //Required client version header using semantic version
 let syncPullRequest: SyncPullRequest; //
 let schemaType: string; //Filter by schemaType (optional) (default to undefined)
 let limit: number; //Maximum number of records to return (optional) (default to 50)
+let xOdeClientId: string; //Optional client instance id; improves per-device presence when combined with sync body `client_id`. (optional) (default to undefined)
+let xRepositoryGeneration: number; //Client\'s repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.syncPull(
     xOdeVersion,
     syncPullRequest,
     schemaType,
-    limit
+    limit,
+    xOdeClientId,
+    xRepositoryGeneration
 );
 ```
 
@@ -1012,6 +1083,8 @@ const { status, data } = await apiInstance.syncPull(
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
 | **schemaType** | [**string**] | Filter by schemaType | (optional) defaults to undefined|
 | **limit** | [**number**] | Maximum number of records to return | (optional) defaults to 50|
+| **xOdeClientId** | [**string**] | Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;. | (optional) defaults to undefined|
+| **xRepositoryGeneration** | [**number**] | Client\&#39;s repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header. | (optional) defaults to undefined|
 
 
 ### Return type
@@ -1053,10 +1126,14 @@ const apiInstance = new DefaultApi(configuration);
 
 let xOdeVersion: string; //Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. (default to undefined)
 let syncPushRequest: SyncPushRequest; //
+let xOdeClientId: string; //Optional client instance id; improves per-device presence when combined with sync body `client_id`. (optional) (default to undefined)
+let xRepositoryGeneration: number; //Client repository epoch; must match the server. Omitted or invalid values are treated as 1. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.syncPush(
     xOdeVersion,
-    syncPushRequest
+    syncPushRequest,
+    xOdeClientId,
+    xRepositoryGeneration
 );
 ```
 
@@ -1066,6 +1143,8 @@ const { status, data } = await apiInstance.syncPush(
 |------------- | ------------- | ------------- | -------------|
 | **syncPushRequest** | **SyncPushRequest**|  | |
 | **xOdeVersion** | [**string**] | Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server. | defaults to undefined|
+| **xOdeClientId** | [**string**] | Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;. | (optional) defaults to undefined|
+| **xRepositoryGeneration** | [**number**] | Client repository epoch; must match the server. Omitted or invalid values are treated as 1. | (optional) defaults to undefined|
 
 
 ### Return type
@@ -1086,6 +1165,7 @@ const { status, data } = await apiInstance.syncPush(
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 |**200** | Sync result |  -  |
+|**409** | Repository epoch mismatch (e.g. after admin hard reset). Client must pull current state and align repository_generation before pushing. |  * x-repository-generation -  <br>  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -1106,10 +1186,12 @@ const apiInstance = new DefaultApi(configuration);
 
 let attachmentId: string; // (default to undefined)
 let file: File; //The binary file to upload (default to undefined)
+let xRepositoryGeneration: number; //Client repository epoch; must match the server. Omitted or invalid values are treated as 1. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.uploadAttachment(
     attachmentId,
-    file
+    file,
+    xRepositoryGeneration
 );
 ```
 
@@ -1119,6 +1201,7 @@ const { status, data } = await apiInstance.uploadAttachment(
 |------------- | ------------- | ------------- | -------------|
 | **attachmentId** | [**string**] |  | defaults to undefined|
 | **file** | [**File**] | The binary file to upload | defaults to undefined|
+| **xRepositoryGeneration** | [**number**] | Client repository epoch; must match the server. Omitted or invalid values are treated as 1. | (optional) defaults to undefined|
 
 
 ### Return type
@@ -1141,7 +1224,7 @@ const { status, data } = await apiInstance.uploadAttachment(
 |**200** | Successful upload |  -  |
 |**400** | Bad request (missing or invalid file) |  -  |
 |**401** | Unauthorized |  -  |
-|**409** | Conflict (attachment already exists and cannot be overwritten) |  -  |
+|**409** | Conflict — attachment already exists, or repository_generation mismatch (epoch; align before upload) |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 

@@ -21,6 +21,9 @@ import { clientIdService } from '../../services/ClientIdService';
 import { unzip } from 'react-native-zip-archive';
 import { synkronusDownload } from './download';
 import { ODE_VERSION } from '../../version';
+import { parseRepositoryResetFromAxios } from '../../errors/RepositoryResetRequiredError';
+
+const REPOSITORY_GENERATION_STORAGE_KEY = '@repository_generation';
 
 interface DownloadResult {
   success: boolean;
@@ -72,6 +75,24 @@ class SynkronusApi {
       throw new Error('Configuration not initialized');
     }
     return this.config;
+  }
+
+  private async getRepositoryGenerationForRequest(): Promise<number> {
+    const raw = await AsyncStorage.getItem(REPOSITORY_GENERATION_STORAGE_KEY);
+    const n = raw ? Number(raw) : Number.NaN;
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  }
+
+  private async persistRepositoryGenerationFromResponse(
+    gen: number | undefined,
+  ): Promise<void> {
+    if (gen == null || !Number.isFinite(gen)) return;
+    await AsyncStorage.setItem(REPOSITORY_GENERATION_STORAGE_KEY, String(gen));
+  }
+
+  private rethrowIfRepositoryResetConflict(error: unknown): void {
+    const parsed = parseRepositoryResetFromAxios(error);
+    if (parsed) throw parsed;
   }
 
   /**
@@ -276,9 +297,13 @@ class SynkronusApi {
           client_id: clientId,
           since_version: lastAttachmentVersion,
         },
+        xRepositoryGeneration: await this.getRepositoryGenerationForRequest(),
       });
 
       const manifest = manifestResponse.data;
+      await this.persistRepositoryGenerationFromResponse(
+        manifest.repository_generation,
+      );
 
       // Handle null operations array (server returns null when no operations)
       const operations = manifest.operations || [];
@@ -317,7 +342,8 @@ class SynkronusApi {
       console.debug(
         `Attachment sync completed at version ${manifest.current_version}`,
       );
-    } catch (error) {
+    } catch (error: unknown) {
+      this.rethrowIfRepositoryResetConflict(error);
       console.error('Failed to process attachment manifest:', error);
       throw error; // Let the error bubble up so we can fix the root cause
     }
@@ -683,7 +709,11 @@ class SynkronusApi {
         console.debug(
           `Uploading attachment: ${attachmentId} (${fileStats.size} bytes)`,
         );
-        await api.uploadAttachment({ attachmentId, file });
+        await api.uploadAttachment({
+          attachmentId,
+          file,
+          xRepositoryGeneration: await this.getRepositoryGenerationForRequest(),
+        });
 
         // Remove file from pending_upload directory (upload complete)
         // Note: File already exists in main attachments directory from when it was first saved
@@ -698,6 +728,7 @@ class SynkronusApi {
 
         console.debug(`Successfully uploaded attachment: ${attachmentId}`);
       } catch (error: unknown) {
+        this.rethrowIfRepositoryResetConflict(error);
         console.error(`Failed to upload attachment ${attachmentId}:`, error);
         results.push({
           success: false,
@@ -818,9 +849,14 @@ class SynkronusApi {
           },
           schema_types: schemaTypes,
         },
+        xRepositoryGeneration: await this.getRepositoryGenerationForRequest(),
       });
 
       console.debug('Pull response: ', res.data);
+
+      await this.persistRepositoryGenerationFromResponse(
+        res.data.repository_generation,
+      );
 
       // 1. Pull and map changes from the API
       const domainObservations = res.data.records
@@ -930,12 +966,16 @@ class SynkronusApi {
       const request: DefaultApiSyncPushRequest = {
         xOdeVersion: ODE_VERSION,
         syncPushRequest,
+        xRepositoryGeneration: await this.getRepositoryGenerationForRequest(),
       };
 
       console.debug(
         `Pushing ${localChanges.length} observations with transmission ID: ${transmissionId}`,
       );
       const res = await api.syncPush(request);
+      await this.persistRepositoryGenerationFromResponse(
+        res.data.repository_generation,
+      );
       console.debug(
         `Successfully pushed ${localChanges.length} observations. Server version: ${res.data.current_version}`,
       );
@@ -969,6 +1009,7 @@ class SynkronusApi {
 
       return res.data.current_version;
     } catch (error: unknown) {
+      this.rethrowIfRepositoryResetConflict(error);
       console.error('Failed to push observations:', error);
       if (isForbiddenError(error)) {
         throw new Error(SYNC_WRITE_FORBIDDEN_MESSAGE);
