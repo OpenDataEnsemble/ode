@@ -23,7 +23,10 @@ import {
   getUserInfo,
   getUserFacingSyncErrorMessage,
 } from '../api/synkronus/Auth';
-import { isRepositoryResetRequiredError } from '../errors/RepositoryResetRequiredError';
+import {
+  isRepositoryResetRequiredError,
+  type RepositoryResetRequiredError,
+} from '../errors/RepositoryResetRequiredError';
 import { repositoryRecoveryService } from '../services/RepositoryRecoveryService';
 import colors from '../theme/colors';
 import { Button } from '../components/common';
@@ -43,6 +46,11 @@ import {
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
+const REPOSITORY_RESET_ALERT_TITLE = 'Server data was reset';
+
+const REPOSITORY_RESET_ALERT_MESSAGE =
+  'The server replaced its observation dataset (a new data generation). To sync again, this device must delete all local observations and all attachment files, including items that have not been uploaded yet.\n\nThis cannot be undone. Erase everything on this device and sync again?';
+
 const SyncScreen = () => {
   const { themeColors, resolvedMode } = useAppTheme();
   const shellStyle = useScreenShellStyle();
@@ -51,6 +59,21 @@ const SyncScreen = () => {
     ? (themeColors.onSurface as string)
     : (colors.neutral[900] as string);
   const cardBg = themeColors.surface as string;
+  const mutedForeground = (
+    isDark ? colors.neutral[400] : colors.neutral[600]
+  ) as string;
+  const bundleSuccessGreen = colors.brand.primary['500'] as string;
+  const bundleStatusOkBg = isDark
+    ? withAlpha(colors.semantic.success[500] as unknown as string, 0.16)
+    : (colors.semantic.success[50] as unknown as string);
+  const bundleStatusOkText = (isDark
+    ? colors.semantic.success[500]
+    : colors.semantic.success[600]) as unknown as string;
+  const bundleStatusUpdateBg = isDark
+    ? withAlpha(colors.semantic.warning[500] as unknown as string, 0.2)
+    : (colors.semantic.warning[50] as unknown as string);
+  const bundleStatusUpdateText = colors.semantic
+    .warning[600] as unknown as string;
   const _headerBg = isDark
     ? (colors.neutral[900] as string)
     : (colors.neutral[50] as string);
@@ -139,6 +162,47 @@ const SyncScreen = () => {
     }
   }, []);
 
+  const runRepositoryResetRecovery = useCallback(
+    (
+      error: RepositoryResetRequiredError,
+      activeOp: ActiveOperation,
+      afterWipe: () => Promise<void>,
+      failureTitle: string,
+    ) => {
+      Alert.alert(
+        REPOSITORY_RESET_ALERT_TITLE,
+        REPOSITORY_RESET_ALERT_MESSAGE,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Erase and sync',
+            style: 'destructive',
+            onPress: () => {
+              void (async () => {
+                try {
+                  startSync(true);
+                  setActiveOperation(activeOp);
+                  await repositoryRecoveryService.wipeLocalSyncState(
+                    error.serverRepositoryGeneration,
+                  );
+                  await afterWipe();
+                  finishSync();
+                } catch (e) {
+                  const msg = getUserFacingSyncErrorMessage(e);
+                  finishSync(msg);
+                  Alert.alert(failureTitle, msg);
+                } finally {
+                  setActiveOperation(null);
+                }
+              })();
+            },
+          },
+        ],
+      );
+    },
+    [startSync, finishSync],
+  );
+
   const handleSync = useCallback(async () => {
     if (syncState.isActive) return;
 
@@ -161,34 +225,14 @@ const SyncScreen = () => {
     } catch (error) {
       if (isRepositoryResetRequiredError(error)) {
         syncError = getUserFacingSyncErrorMessage(error);
-        Alert.alert(
-          'Server repository reset',
-          'Your local data no longer matches this server. Clear local observations and attachments, then sync again?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Clear and sync',
-              style: 'destructive',
-              onPress: () => {
-                void (async () => {
-                  try {
-                    startSync(true);
-                    setActiveOperation('sync');
-                    await repositoryRecoveryService.wipeLocalSyncState();
-                    await syncService.syncObservations(true);
-                    await refreshAfterOperation();
-                    finishSync();
-                  } catch (e) {
-                    const msg = getUserFacingSyncErrorMessage(e);
-                    finishSync(msg);
-                    Alert.alert('Sync failed', msg);
-                  } finally {
-                    setActiveOperation(null);
-                  }
-                })();
-              },
-            },
-          ],
+        runRepositoryResetRecovery(
+          error,
+          'sync',
+          async () => {
+            await syncService.syncObservations(true);
+            await refreshAfterOperation();
+          },
+          'Sync failed',
         );
       } else {
         syncError = getUserFacingSyncErrorMessage(error);
@@ -198,7 +242,13 @@ const SyncScreen = () => {
       finishSync(syncError);
       setActiveOperation(null);
     }
-  }, [syncState.isActive, startSync, finishSync, refreshAfterOperation]);
+  }, [
+    syncState.isActive,
+    startSync,
+    finishSync,
+    refreshAfterOperation,
+    runRepositoryResetRecovery,
+  ]);
 
   const performAppBundleUpdate = useCallback(async () => {
     try {
@@ -247,39 +297,19 @@ const SyncScreen = () => {
       if (isRepositoryResetRequiredError(error)) {
         const errorMessage = getUserFacingSyncErrorMessage(error);
         finishSync(errorMessage);
-        Alert.alert(
-          'Server repository reset',
-          'Your local data no longer matches this server. Clear local observations and attachments, then sync again?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Clear and sync',
-              style: 'destructive',
-              onPress: () => {
-                void (async () => {
-                  try {
-                    startSync(true);
-                    setActiveOperation('sync_then_update');
-                    await repositoryRecoveryService.wipeLocalSyncState();
-                    await syncService.syncObservations(true);
-                    await syncService.updateAppBundle();
-                    setUpdateAvailable(false);
-                    await refreshAfterOperation();
-                    finishSync();
-                    const formService = await import('../services/FormService');
-                    const fs = await formService.FormService.getInstance();
-                    await fs.invalidateCache();
-                  } catch (e) {
-                    const msg = getUserFacingSyncErrorMessage(e);
-                    finishSync(msg);
-                    Alert.alert('Operation failed', msg);
-                  } finally {
-                    setActiveOperation(null);
-                  }
-                })();
-              },
-            },
-          ],
+        runRepositoryResetRecovery(
+          error,
+          'sync_then_update',
+          async () => {
+            await syncService.syncObservations(true);
+            await syncService.updateAppBundle();
+            setUpdateAvailable(false);
+            await refreshAfterOperation();
+            const formService = await import('../services/FormService');
+            const fs = await formService.FormService.getInstance();
+            await fs.invalidateCache();
+          },
+          'Operation failed',
         );
       } else {
         const errorMessage = getUserFacingSyncErrorMessage(error);
@@ -289,7 +319,12 @@ const SyncScreen = () => {
     } finally {
       setActiveOperation(null);
     }
-  }, [startSync, finishSync, refreshAfterOperation]);
+  }, [
+    startSync,
+    finishSync,
+    refreshAfterOperation,
+    runRepositoryResetRecovery,
+  ]);
 
   const handleCustomAppUpdate = useCallback(async () => {
     if (syncState.isActive) return;
@@ -366,6 +401,8 @@ const SyncScreen = () => {
   };
 
   const observationStatus = getObservationStatusText();
+  /** Check icon on idle success uses ODE brand green; status text still follows app theme primary. */
+  const odeStatusIconGreen = colors.brand.primary['500'] as string;
   const observationStatusColor = isObservationSyncActive
     ? themeColors.primary
     : syncState.error
@@ -373,6 +410,13 @@ const SyncScreen = () => {
       : pendingObservations > 0 || pendingUploads.count > 0
         ? colors.semantic.warning[500]
         : (themeColors.primary as string);
+  const observationStatusIconColor = isObservationSyncActive
+    ? themeColors.primary
+    : syncState.error
+      ? colors.semantic.error[500]
+      : pendingObservations > 0 || pendingUploads.count > 0
+        ? colors.semantic.warning[500]
+        : odeStatusIconGreen;
 
   useEffect(() => {
     const unsubscribeStatus = syncService.subscribeToStatusUpdates(() => {});
@@ -475,6 +519,39 @@ const SyncScreen = () => {
   const isUpdateButtonActive =
     activeOperation === 'update' || activeOperation === 'sync_then_update';
 
+  const bundleVersionsKnown =
+    appBundleVersion !== 'Unknown' && serverBundleVersion !== 'Unknown';
+
+  const bundleStatusPill = (() => {
+    if (updateAvailable) {
+      return {
+        bg: bundleStatusUpdateBg,
+        icon: 'arrow-down-circle' as const,
+        iconColor: bundleStatusUpdateText,
+        label: 'Update available',
+        textColor: bundleStatusUpdateText,
+      };
+    }
+    if (!bundleVersionsKnown) {
+      return {
+        bg: isDark
+          ? withAlpha(colors.neutral[500] as string, 0.22)
+          : (colors.neutral[100] as string),
+        icon: 'information-outline' as const,
+        iconColor: mutedForeground,
+        label: 'Could not verify versions',
+        textColor: themeColors.onSurface as string,
+      };
+    }
+    return {
+      bg: bundleStatusOkBg,
+      icon: 'check-circle' as const,
+      iconColor: bundleSuccessGreen,
+      label: 'Up-to-date',
+      textColor: bundleStatusOkText,
+    };
+  })();
+
   const hasPendingLocalObservationChanges =
     pendingObservations > 0 || pendingUploads.count > 0;
   const syncObservationsButtonLabel = syncState.isActive
@@ -560,7 +637,10 @@ const SyncScreen = () => {
   return (
     <View style={shellStyle}>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}
+        style={[
+          styles.container,
+          { backgroundColor: colors.neutral.transparent },
+        ]}
         edges={['top']}>
         <View
           style={[
@@ -629,14 +709,14 @@ const SyncScreen = () => {
                           : 'check-circle'
                   }
                   size={20}
-                  color={observationStatusColor as string}
+                  color={observationStatusIconColor as string}
                 />
                 <Text
                   style={[
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Observation status
+                  Status
                 </Text>
               </View>
               <Text
@@ -679,7 +759,7 @@ const SyncScreen = () => {
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Last observation sync
+                  Last Sync
                 </Text>
               </View>
               <Text
@@ -858,55 +938,98 @@ const SyncScreen = () => {
           <View
             style={[
               styles.card,
-              styles.versionCard,
+              styles.appBundleCard,
               {
-                borderWidth: 1,
+                borderWidth: odeBorderWidth.hairline,
                 borderColor: themeColors.divider as string,
                 backgroundColor: cardBg,
               },
             ]}>
             <Text
-              style={[
-                styles.versionSectionSubtitle,
-                { color: themeColors.onSurface as string },
-              ]}>
-              Form definitions and custom app assets from the server
+              style={[styles.appBundleSubtitle, { color: mutedForeground }]}>
+              Form definitions and custom app assets
             </Text>
-            <View style={styles.versionRow}>
-              <View style={styles.versionValues}>
-                <View style={styles.versionItem}>
+
+            <View style={styles.bundlePillActionsRow}>
+              <View
+                style={[
+                  styles.bundleStatusPill,
+                  { backgroundColor: bundleStatusPill.bg },
+                ]}>
+                <Icon
+                  name={bundleStatusPill.icon}
+                  size={18}
+                  color={bundleStatusPill.iconColor}
+                />
+                <Text
+                  style={[
+                    styles.bundleStatusPillText,
+                    { color: bundleStatusPill.textColor },
+                  ]}>
+                  {bundleStatusPill.label}
+                </Text>
+              </View>
+              {updateAvailable && (
+                <View style={styles.bundleUpdateButtonWrap}>
+                  <Button
+                    variant="primary"
+                    size="small"
+                    title={isUpdateButtonActive ? 'Updating...' : 'Update'}
+                    onPress={handleCustomAppUpdate}
+                    disabled={syncState.isActive || !updateAvailable}
+                    loading={isUpdateButtonActive}
+                    active={
+                      updateAvailable &&
+                      !syncState.isActive &&
+                      !isUpdateButtonActive
+                    }
+                  />
+                </View>
+              )}
+            </View>
+
+            <View
+              style={[
+                styles.bundleVersionSection,
+                { borderTopColor: themeColors.divider as string },
+              ]}>
+              <Text
+                style={[
+                  styles.bundleVersionHeading,
+                  { color: mutedForeground },
+                ]}>
+                Version
+              </Text>
+              <View style={styles.bundleVersionRows}>
+                <View style={styles.bundleVersionRow}>
                   <Text
                     style={[
-                      styles.versionItemLabel,
+                      styles.bundleVersionRole,
                       { color: themeColors.onSurface as string },
                     ]}>
                     Local
                   </Text>
                   <Text
+                    selectable
                     style={[
-                      styles.versionItemValue,
+                      styles.bundleVersionValue,
                       { color: themeColors.onSurface as string },
                     ]}>
                     {appBundleVersion}
                   </Text>
                 </View>
-                <View
-                  style={[
-                    styles.versionDivider,
-                    { backgroundColor: themeColors.divider as string },
-                  ]}
-                />
-                <View style={styles.versionItem}>
+                <View style={styles.bundleVersionRow}>
                   <Text
                     style={[
-                      styles.versionItemLabel,
+                      styles.bundleVersionRole,
                       { color: themeColors.onSurface as string },
                     ]}>
                     Server
                   </Text>
                   <Text
+                    selectable
                     style={[
-                      styles.versionItemValue,
+                      styles.bundleVersionValue,
                       { color: themeColors.onSurface as string },
                     ]}>
                     {serverBundleVersion}
@@ -914,68 +1037,21 @@ const SyncScreen = () => {
                 </View>
               </View>
             </View>
-            {updateAvailable && (
-              <View
-                style={[
-                  styles.updateBadge,
-                  { borderTopColor: themeColors.divider as string },
-                ]}>
-                <Icon
-                  name="arrow-down-circle"
-                  size={16}
-                  color={colors.semantic.success[500] as unknown as string}
-                />
-                <Text style={styles.updateBadgeText}>Update available</Text>
-              </View>
+
+            {!bundleVersionsKnown && (
+              <Text
+                style={[styles.appBundleFootnote, { color: mutedForeground }]}>
+                {serverBundleVersion === 'Unknown' &&
+                appBundleVersion === 'Unknown'
+                  ? 'Could not load bundle version information.'
+                  : serverBundleVersion === 'Unknown'
+                    ? 'Could not load server bundle version.'
+                    : 'Could not read local bundle version.'}
+              </Text>
             )}
           </View>
 
           {showBundleProgress && progressCard}
-
-          <View style={styles.actionsSection}>
-            <Button
-              title={syncState.isActive ? 'Updating...' : 'Update App Bundle'}
-              onPress={handleCustomAppUpdate}
-              disabled={syncState.isActive || !updateAvailable}>
-              {isUpdateButtonActive ? (
-                <ActivityIndicator size="small" color={themeColors.primary} />
-              ) : (
-                <Icon name="download" size={20} color={themeColors.primary} />
-              )}
-              <Text
-                style={[
-                  styles.actionButtonText,
-                  styles.secondaryButtonText,
-                  { color: themeColors.primary as string },
-                ]}>
-                {isUpdateButtonActive ? 'Updating...' : 'Update App Bundle'}
-              </Text>
-            </Button>
-
-            {!syncState.isActive && updateAvailable && (
-              <Text
-                style={[
-                  styles.updateNotification,
-                  { color: themeColors.onSurface as string },
-                ]}>
-                Update available
-              </Text>
-            )}
-
-            {!syncState.isActive && !updateAvailable && (
-              <Text
-                style={[
-                  styles.hintText,
-                  { color: themeColors.onSurface as string },
-                ]}>
-                {serverBundleVersion === 'Unknown'
-                  ? 'Could not load server bundle version.'
-                  : appBundleVersion === 'Unknown'
-                    ? 'Could not read local bundle version.'
-                    : 'App bundle is up to date'}
-              </Text>
-            )}
-          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -1009,7 +1085,7 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   scrollTransparent: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   scrollContent: {
     padding: odeSpacing.md,
@@ -1090,51 +1166,78 @@ const styles = StyleSheet.create({
     fontSize: odeTypography.bodySm,
     fontWeight: '600',
   },
-  versionCard: {
+  appBundleCard: {
     marginBottom: odeSpacing.md,
-  },
-  versionSectionSubtitle: {
-    fontSize: odeTypography.caption,
-    marginBottom: odeSpacing.sm,
-    opacity: 0.85,
-  },
-  versionRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  versionValues: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: odeSpacing.sm,
   },
-  versionItem: {
-    alignItems: 'flex-end',
-  },
-  versionItemLabel: {
-    fontSize: odeTypography.caption,
-    marginBottom: odeSpacing.xxs,
-  },
-  versionItemValue: {
+  appBundleSubtitle: {
     fontSize: odeTypography.bodySm,
-    fontWeight: '600',
+    lineHeight: 20,
   },
-  versionDivider: {
-    width: 1,
-    height: 20,
-  },
-  updateBadge: {
+  bundlePillActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
+    justifyContent: 'space-between',
+    gap: odeSpacing.sm,
+    flexWrap: 'wrap',
   },
-  updateBadgeText: {
-    fontSize: 12,
-    color: colors.semantic.success[500] as unknown as string,
+  bundleStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: '100%',
+    gap: odeSpacing.xs,
+    paddingVertical: odeSpacing.xs,
+    paddingHorizontal: odeSpacing.md,
+    borderRadius: 9999,
+  },
+  bundleStatusPillText: {
+    fontSize: odeTypography.bodySm,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  bundleVersionSection: {
+    marginTop: odeSpacing.md,
+    paddingTop: odeSpacing.md,
+    borderTopWidth: odeBorderWidth.hairline,
+  },
+  bundleVersionHeading: {
+    fontSize: odeTypography.caption,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: odeSpacing.xs,
+  },
+  bundleVersionRows: {
+    gap: odeSpacing.xs,
+  },
+  bundleVersionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: odeSpacing.sm,
+  },
+  bundleVersionRole: {
+    fontSize: odeTypography.bodySm,
+    fontWeight: '700',
+    minWidth: 56,
+    lineHeight: 22,
+  },
+  bundleVersionValue: {
+    flex: 1,
+    fontSize: odeTypography.bodySm,
     fontWeight: '500',
+    fontFamily: 'monospace',
+    lineHeight: 22,
+  },
+  bundleUpdateButtonWrap: {
+    flexShrink: 0,
+    marginLeft: 'auto',
+  },
+  appBundleFootnote: {
+    fontSize: odeTypography.caption,
+    lineHeight: 18,
+    marginTop: odeSpacing.xs,
   },
   progressCard: {
     marginBottom: odeSpacing.md,
@@ -1196,17 +1299,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   secondaryButtonText: {},
-  hintText: {
-    fontSize: 12,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginTop: 4,
-  },
-  updateNotification: {
-    fontSize: 12,
-    textAlign: 'center',
-    marginTop: 4,
-  },
 });
 
 export default SyncScreen;

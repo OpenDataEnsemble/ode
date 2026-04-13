@@ -453,8 +453,9 @@ export interface FormulusInterface {
 
   /**
    * Resolve a synced or camera-saved attachment to a WebView-loadable `file://` URL.
-   * Checks `{DocumentDirectory}/attachments/` and `pending_upload/`. Pass the basename only
-   * (e.g. `photo.filename` from observation data); path segments and ".." are rejected.
+   * Checks `{DocumentDirectory}/attachments/draft/` (unsaved capture), then `attachments/`,
+   * then `pending_upload/`. Pass the basename only (e.g. `photo.filename` from observation
+   * data); path segments and ".." are rejected.
    * @param fileName - Attachment file basename
    * @returns `file://` URL if the file exists, otherwise `null`
    */
@@ -496,7 +497,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = '1.2.0';
+export const FORMULUS_INTERFACE_VERSION = '1.2.1';
 
 /** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
 function semverSegments(version: string): [number, number, number] {

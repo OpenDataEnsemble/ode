@@ -8,7 +8,7 @@ import (
 
 const (
 	// HeaderRepositoryGeneration is the HTTP header for the repository epoch (synkronus ↔ clients).
-	HeaderRepositoryGeneration = "X-Repository-Generation"
+	HeaderRepositoryGeneration = "x-repository-generation"
 	// DefaultRepositoryGeneration is the effective generation when the client omits header/body (backwards compatibility).
 	DefaultRepositoryGeneration int64 = 1
 )

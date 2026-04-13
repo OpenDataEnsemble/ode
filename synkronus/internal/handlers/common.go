@@ -70,9 +70,6 @@ func sendErrorPayload(w http.ResponseWriter, status int, err error, message, cod
 func odeVersionFromRequest(r *http.Request) *string {
 	v := strings.TrimSpace(r.Header.Get("x-ode-version"))
 	if v == "" {
-		v = strings.TrimSpace(r.Header.Get("x-formulus-version"))
-	}
-	if v == "" {
 		return nil
 	}
 	return &v

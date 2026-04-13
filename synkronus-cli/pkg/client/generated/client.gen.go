@@ -118,6 +118,20 @@ func (e CreateUserJSONBodyRole) Valid() bool {
 	}
 }
 
+// APIVersionInfo defines model for APIVersionInfo.
+type APIVersionInfo struct {
+	Deprecated  bool               `json:"deprecated"`
+	ReleaseDate openapi_types.Date `json:"releaseDate"`
+	Version     string             `json:"version"`
+}
+
+// APIVersionsResponse defines model for APIVersionsResponse.
+type APIVersionsResponse struct {
+	// Current Identifier of the current API contract version
+	Current  string           `json:"current"`
+	Versions []APIVersionInfo `json:"versions"`
+}
+
 // AppBundleChangeLog defines model for AppBundleChangeLog.
 type AppBundleChangeLog struct {
 	CompareVersionA string              `json:"compare_version_a"`
@@ -359,7 +373,7 @@ type ServerInfo struct {
 type SyncPullRequest struct {
 	ClientId string `json:"client_id"`
 
-	// RepositoryGeneration Optional body copy of epoch; header x-repository-generation wins when both are sent.
+	// RepositoryGeneration Optional body copy of epoch; header x-repository-generation wins when both are sent. Must match the server or the request returns 409.
 	RepositoryGeneration *int64    `json:"repository_generation,omitempty"`
 	SchemaTypes          *[]string `json:"schema_types,omitempty"`
 
@@ -474,6 +488,9 @@ type UserResponse struct {
 // UserResponseRole defines model for UserResponse.Role.
 type UserResponseRole string
 
+// XOdeVersion defines model for XOdeVersion.
+type XOdeVersion = string
+
 // Forbidden defines model for Forbidden.
 type Forbidden = ErrorResponse
 
@@ -483,6 +500,12 @@ type InternalServerError = ErrorResponse
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ErrorResponse
 
+// AdminRepositoryResetParams defines parameters for AdminRepositoryReset.
+type AdminRepositoryResetParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+}
+
 // GetAppBundleChangesParams defines parameters for GetAppBundleChanges.
 type GetAppBundleChangesParams struct {
 	// Current The current version (defaults to latest)
@@ -491,8 +514,14 @@ type GetAppBundleChangesParams struct {
 	// Target The target version to compare against (defaults to previous version)
 	Target *string `form:"target,omitempty" json:"target,omitempty"`
 
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+}
+
+// DownloadAppBundleZipParams defines parameters for DownloadAppBundleZip.
+type DownloadAppBundleZipParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // DownloadAppBundleFileParams defines parameters for DownloadAppBundleFile.
@@ -501,14 +530,14 @@ type DownloadAppBundleFileParams struct {
 	Preview     *bool   `form:"preview,omitempty" json:"preview,omitempty"`
 	IfNoneMatch *string `json:"if-none-match,omitempty"`
 
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // GetAppBundleManifestParams defines parameters for GetAppBundleManifest.
 type GetAppBundleManifestParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 
 	// XOdeClientId Optional client instance id for correlating app bundle checks with presence.
 	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
@@ -522,26 +551,32 @@ type PushAppBundleMultipartBody struct {
 
 // PushAppBundleParams defines parameters for PushAppBundle.
 type PushAppBundleParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // SwitchAppBundleVersionParams defines parameters for SwitchAppBundleVersion.
 type SwitchAppBundleVersionParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // GetAppBundleVersionsParams defines parameters for GetAppBundleVersions.
 type GetAppBundleVersionsParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+}
+
+// GetAttachmentsExportZipParams defines parameters for GetAttachmentsExportZip.
+type GetAttachmentsExportZipParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // GetAttachmentManifestParams defines parameters for GetAttachmentManifest.
 type GetAttachmentManifestParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 
 	// XRepositoryGeneration Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
 	XRepositoryGeneration *int64 `json:"x-repository-generation,omitempty"`
@@ -551,12 +586,18 @@ type GetAttachmentManifestParams struct {
 type DownloadAttachmentParams struct {
 	// Original Prefer the original (uncompressed) attachment when available. Truthy values: `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no original exists.
 	Original *string `form:"original,omitempty" json:"original,omitempty"`
+
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // CheckAttachmentExistsParams defines parameters for CheckAttachmentExists.
 type CheckAttachmentExistsParams struct {
 	// Original Prefer the original (uncompressed) attachment when available. Truthy values: `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no original exists.
 	Original *string `form:"original,omitempty" json:"original,omitempty"`
+
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // UploadAttachmentMultipartBody defines parameters for UploadAttachment.
@@ -567,6 +608,9 @@ type UploadAttachmentMultipartBody struct {
 
 // UploadAttachmentParams defines parameters for UploadAttachment.
 type UploadAttachmentParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+
 	// XRepositoryGeneration Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
 	XRepositoryGeneration *int64 `json:"x-repository-generation,omitempty"`
 }
@@ -582,8 +626,8 @@ type LoginJSONBody struct {
 
 // LoginParams defines parameters for Login.
 type LoginParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // RefreshTokenJSONBody defines parameters for RefreshToken.
@@ -594,8 +638,20 @@ type RefreshTokenJSONBody struct {
 
 // RefreshTokenParams defines parameters for RefreshToken.
 type RefreshTokenParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+}
+
+// GetParquetExportZipParams defines parameters for GetParquetExportZip.
+type GetParquetExportZipParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+}
+
+// GetRawJsonExportZipParams defines parameters for GetRawJsonExportZip.
+type GetRawJsonExportZipParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // SyncPullParams defines parameters for SyncPull.
@@ -606,20 +662,20 @@ type SyncPullParams struct {
 	// Limit Maximum number of records to return
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 
 	// XOdeClientId Optional client instance id; improves per-device presence when combined with sync body `client_id`.
 	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
 
-	// XRepositoryGeneration Client's repository epoch. Omitted or invalid values are treated as 1. Responses include the current epoch in JSON and may expose it in this header.
+	// XRepositoryGeneration Client repository epoch; must match the server. Omitted or invalid values are treated as 1. Successful responses include the current epoch in JSON and in this header.
 	XRepositoryGeneration *int64 `json:"x-repository-generation,omitempty"`
 }
 
 // SyncPushParams defines parameters for SyncPush.
 type SyncPushParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 
 	// XOdeClientId Optional client instance id; improves per-device presence when combined with sync body `client_id`.
 	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
@@ -630,8 +686,8 @@ type SyncPushParams struct {
 
 // ListUsersParams defines parameters for ListUsers.
 type ListUsersParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 
 	// XOdeClientId Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
 	XOdeClientId *string `json:"x-ode-client-id,omitempty"`
@@ -648,8 +704,8 @@ type ChangePasswordJSONBody struct {
 
 // ChangePasswordParams defines parameters for ChangePassword.
 type ChangePasswordParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // CreateUserJSONBody defines parameters for CreateUser.
@@ -666,8 +722,8 @@ type CreateUserJSONBody struct {
 
 // CreateUserParams defines parameters for CreateUser.
 type CreateUserParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // CreateUserJSONBodyRole defines parameters for CreateUser.
@@ -684,14 +740,26 @@ type ResetUserPasswordJSONBody struct {
 
 // ResetUserPasswordParams defines parameters for ResetUserPassword.
 type ResetUserPasswordParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // DeleteUserParams defines parameters for DeleteUser.
 type DeleteUserParams struct {
-	// XOdeVersion Required client version header using semantic versioning (MAJOR.MINOR.PATCH). Major version must be compatible with the server.
-	XOdeVersion string `json:"x-ode-version"`
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+}
+
+// GetVersionParams defines parameters for GetVersion.
+type GetVersionParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+}
+
+// GetAPIVersionsParams defines parameters for GetAPIVersions.
+type GetAPIVersionsParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
 // AdminRepositoryResetJSONRequestBody defines body for AdminRepositoryReset for application/json ContentType.
@@ -801,12 +869,15 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 // The interface specification for the client above.
 type ClientInterface interface {
 	// AdminRepositoryResetWithBody request with any body
-	AdminRepositoryResetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AdminRepositoryResetWithBody(ctx context.Context, params *AdminRepositoryResetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	AdminRepositoryReset(ctx context.Context, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	AdminRepositoryReset(ctx context.Context, params *AdminRepositoryResetParams, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAppBundleChanges request
 	GetAppBundleChanges(ctx context.Context, params *GetAppBundleChangesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DownloadAppBundleZip request
+	DownloadAppBundleZip(ctx context.Context, params *DownloadAppBundleZipParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DownloadAppBundleFile request
 	DownloadAppBundleFile(ctx context.Context, path string, params *DownloadAppBundleFileParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -824,7 +895,7 @@ type ClientInterface interface {
 	GetAppBundleVersions(ctx context.Context, params *GetAppBundleVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAttachmentsExportZip request
-	GetAttachmentsExportZip(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetAttachmentsExportZip(ctx context.Context, params *GetAttachmentsExportZipParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAttachmentManifestWithBody request with any body
 	GetAttachmentManifestWithBody(ctx context.Context, params *GetAttachmentManifestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -851,10 +922,10 @@ type ClientInterface interface {
 	RefreshToken(ctx context.Context, params *RefreshTokenParams, body RefreshTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetParquetExportZip request
-	GetParquetExportZip(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetParquetExportZip(ctx context.Context, params *GetParquetExportZipParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRawJsonExportZip request
-	GetRawJsonExportZip(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRawJsonExportZip(ctx context.Context, params *GetRawJsonExportZipParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SyncPullWithBody request with any body
 	SyncPullWithBody(ctx context.Context, params *SyncPullParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -888,14 +959,17 @@ type ClientInterface interface {
 	DeleteUser(ctx context.Context, username string, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetVersion request
-	GetVersion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetVersion(ctx context.Context, params *GetVersionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAPIVersions request
+	GetAPIVersions(ctx context.Context, params *GetAPIVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetHealth request
 	GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) AdminRepositoryResetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAdminRepositoryResetRequestWithBody(c.Server, contentType, body)
+func (c *Client) AdminRepositoryResetWithBody(ctx context.Context, params *AdminRepositoryResetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRepositoryResetRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -906,8 +980,8 @@ func (c *Client) AdminRepositoryResetWithBody(ctx context.Context, contentType s
 	return c.Client.Do(req)
 }
 
-func (c *Client) AdminRepositoryReset(ctx context.Context, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewAdminRepositoryResetRequest(c.Server, body)
+func (c *Client) AdminRepositoryReset(ctx context.Context, params *AdminRepositoryResetParams, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdminRepositoryResetRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -920,6 +994,18 @@ func (c *Client) AdminRepositoryReset(ctx context.Context, body AdminRepositoryR
 
 func (c *Client) GetAppBundleChanges(ctx context.Context, params *GetAppBundleChangesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAppBundleChangesRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DownloadAppBundleZip(ctx context.Context, params *DownloadAppBundleZipParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDownloadAppBundleZipRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -990,8 +1076,8 @@ func (c *Client) GetAppBundleVersions(ctx context.Context, params *GetAppBundleV
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetAttachmentsExportZip(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAttachmentsExportZipRequest(c.Server)
+func (c *Client) GetAttachmentsExportZip(ctx context.Context, params *GetAttachmentsExportZipParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAttachmentsExportZipRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1110,8 +1196,8 @@ func (c *Client) RefreshToken(ctx context.Context, params *RefreshTokenParams, b
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetParquetExportZip(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetParquetExportZipRequest(c.Server)
+func (c *Client) GetParquetExportZip(ctx context.Context, params *GetParquetExportZipParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetParquetExportZipRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1122,8 +1208,8 @@ func (c *Client) GetParquetExportZip(ctx context.Context, reqEditors ...RequestE
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRawJsonExportZip(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRawJsonExportZipRequest(c.Server)
+func (c *Client) GetRawJsonExportZip(ctx context.Context, params *GetRawJsonExportZipParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRawJsonExportZipRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1278,8 +1364,20 @@ func (c *Client) DeleteUser(ctx context.Context, username string, params *Delete
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetVersion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetVersionRequest(c.Server)
+func (c *Client) GetVersion(ctx context.Context, params *GetVersionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetVersionRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetAPIVersions(ctx context.Context, params *GetAPIVersionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAPIVersionsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -1303,18 +1401,18 @@ func (c *Client) GetHealth(ctx context.Context, reqEditors ...RequestEditorFn) (
 }
 
 // NewAdminRepositoryResetRequest calls the generic AdminRepositoryReset builder with application/json body
-func NewAdminRepositoryResetRequest(server string, body AdminRepositoryResetJSONRequestBody) (*http.Request, error) {
+func NewAdminRepositoryResetRequest(server string, params *AdminRepositoryResetParams, body AdminRepositoryResetJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewAdminRepositoryResetRequestWithBody(server, "application/json", bodyReader)
+	return NewAdminRepositoryResetRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewAdminRepositoryResetRequestWithBody generates requests for AdminRepositoryReset with any type of body
-func NewAdminRepositoryResetRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewAdminRepositoryResetRequestWithBody(server string, params *AdminRepositoryResetParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1338,6 +1436,19 @@ func NewAdminRepositoryResetRequestWithBody(server string, contentType string, b
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
+	}
 
 	return req, nil
 }
@@ -1397,6 +1508,46 @@ func NewGetAppBundleChangesRequest(server string, params *GetAppBundleChangesPar
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewDownloadAppBundleZipRequest generates requests for DownloadAppBundleZip
+func NewDownloadAppBundleZipRequest(server string, params *DownloadAppBundleZipParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/app-bundle/download-zip")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -1681,7 +1832,7 @@ func NewGetAppBundleVersionsRequest(server string, params *GetAppBundleVersionsP
 }
 
 // NewGetAttachmentsExportZipRequest generates requests for GetAttachmentsExportZip
-func NewGetAttachmentsExportZipRequest(server string) (*http.Request, error) {
+func NewGetAttachmentsExportZipRequest(server string, params *GetAttachmentsExportZipParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -1702,6 +1853,19 @@ func NewGetAttachmentsExportZipRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
 	}
 
 	return req, nil
@@ -1824,6 +1988,19 @@ func NewDownloadAttachmentRequest(server string, attachmentId string, params *Do
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
@@ -1880,6 +2057,19 @@ func NewCheckAttachmentExistsRequest(server string, attachmentId string, params 
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
@@ -1918,15 +2108,24 @@ func NewUploadAttachmentRequestWithBody(server string, attachmentId string, para
 
 	if params != nil {
 
-		if params.XRepositoryGeneration != nil {
-			var headerParam0 string
+		var headerParam0 string
 
-			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-repository-generation", *params.XRepositoryGeneration, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "integer", Format: "int64"})
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
+		if params.XRepositoryGeneration != nil {
+			var headerParam1 string
+
+			headerParam1, err = runtime.StyleParamWithOptions("simple", false, "x-repository-generation", *params.XRepositoryGeneration, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "integer", Format: "int64"})
 			if err != nil {
 				return nil, err
 			}
 
-			req.Header.Set("x-repository-generation", headerParam0)
+			req.Header.Set("x-repository-generation", headerParam1)
 		}
 
 	}
@@ -2041,7 +2240,7 @@ func NewRefreshTokenRequestWithBody(server string, params *RefreshTokenParams, c
 }
 
 // NewGetParquetExportZipRequest generates requests for GetParquetExportZip
-func NewGetParquetExportZipRequest(server string) (*http.Request, error) {
+func NewGetParquetExportZipRequest(server string, params *GetParquetExportZipParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2064,11 +2263,24 @@ func NewGetParquetExportZipRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
+	}
+
 	return req, nil
 }
 
 // NewGetRawJsonExportZipRequest generates requests for GetRawJsonExportZip
-func NewGetRawJsonExportZipRequest(server string) (*http.Request, error) {
+func NewGetRawJsonExportZipRequest(server string, params *GetRawJsonExportZipParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2089,6 +2301,19 @@ func NewGetRawJsonExportZipRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
 	}
 
 	return req, nil
@@ -2540,7 +2765,7 @@ func NewDeleteUserRequest(server string, username string, params *DeleteUserPara
 }
 
 // NewGetVersionRequest generates requests for GetVersion
-func NewGetVersionRequest(server string) (*http.Request, error) {
+func NewGetVersionRequest(server string, params *GetVersionParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -2561,6 +2786,59 @@ func NewGetVersionRequest(server string) (*http.Request, error) {
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewGetAPIVersionsRequest generates requests for GetAPIVersions
+func NewGetAPIVersionsRequest(server string, params *GetAPIVersionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/versions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
 	}
 
 	return req, nil
@@ -2637,12 +2915,15 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// AdminRepositoryResetWithBodyWithResponse request with any body
-	AdminRepositoryResetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error)
+	AdminRepositoryResetWithBodyWithResponse(ctx context.Context, params *AdminRepositoryResetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error)
 
-	AdminRepositoryResetWithResponse(ctx context.Context, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error)
+	AdminRepositoryResetWithResponse(ctx context.Context, params *AdminRepositoryResetParams, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error)
 
 	// GetAppBundleChangesWithResponse request
 	GetAppBundleChangesWithResponse(ctx context.Context, params *GetAppBundleChangesParams, reqEditors ...RequestEditorFn) (*GetAppBundleChangesHTTPResponse, error)
+
+	// DownloadAppBundleZipWithResponse request
+	DownloadAppBundleZipWithResponse(ctx context.Context, params *DownloadAppBundleZipParams, reqEditors ...RequestEditorFn) (*DownloadAppBundleZipHTTPResponse, error)
 
 	// DownloadAppBundleFileWithResponse request
 	DownloadAppBundleFileWithResponse(ctx context.Context, path string, params *DownloadAppBundleFileParams, reqEditors ...RequestEditorFn) (*DownloadAppBundleFileHTTPResponse, error)
@@ -2660,7 +2941,7 @@ type ClientWithResponsesInterface interface {
 	GetAppBundleVersionsWithResponse(ctx context.Context, params *GetAppBundleVersionsParams, reqEditors ...RequestEditorFn) (*GetAppBundleVersionsHTTPResponse, error)
 
 	// GetAttachmentsExportZipWithResponse request
-	GetAttachmentsExportZipWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAttachmentsExportZipHTTPResponse, error)
+	GetAttachmentsExportZipWithResponse(ctx context.Context, params *GetAttachmentsExportZipParams, reqEditors ...RequestEditorFn) (*GetAttachmentsExportZipHTTPResponse, error)
 
 	// GetAttachmentManifestWithBodyWithResponse request with any body
 	GetAttachmentManifestWithBodyWithResponse(ctx context.Context, params *GetAttachmentManifestParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*GetAttachmentManifestHTTPResponse, error)
@@ -2687,10 +2968,10 @@ type ClientWithResponsesInterface interface {
 	RefreshTokenWithResponse(ctx context.Context, params *RefreshTokenParams, body RefreshTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*RefreshTokenHTTPResponse, error)
 
 	// GetParquetExportZipWithResponse request
-	GetParquetExportZipWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetParquetExportZipHTTPResponse, error)
+	GetParquetExportZipWithResponse(ctx context.Context, params *GetParquetExportZipParams, reqEditors ...RequestEditorFn) (*GetParquetExportZipHTTPResponse, error)
 
 	// GetRawJsonExportZipWithResponse request
-	GetRawJsonExportZipWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetRawJsonExportZipHTTPResponse, error)
+	GetRawJsonExportZipWithResponse(ctx context.Context, params *GetRawJsonExportZipParams, reqEditors ...RequestEditorFn) (*GetRawJsonExportZipHTTPResponse, error)
 
 	// SyncPullWithBodyWithResponse request with any body
 	SyncPullWithBodyWithResponse(ctx context.Context, params *SyncPullParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SyncPullHTTPResponse, error)
@@ -2724,7 +3005,10 @@ type ClientWithResponsesInterface interface {
 	DeleteUserWithResponse(ctx context.Context, username string, params *DeleteUserParams, reqEditors ...RequestEditorFn) (*DeleteUserHTTPResponse, error)
 
 	// GetVersionWithResponse request
-	GetVersionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVersionHTTPResponse, error)
+	GetVersionWithResponse(ctx context.Context, params *GetVersionParams, reqEditors ...RequestEditorFn) (*GetVersionHTTPResponse, error)
+
+	// GetAPIVersionsWithResponse request
+	GetAPIVersionsWithResponse(ctx context.Context, params *GetAPIVersionsParams, reqEditors ...RequestEditorFn) (*GetAPIVersionsHTTPResponse, error)
 
 	// GetHealthWithResponse request
 	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthHTTPResponse, error)
@@ -2775,6 +3059,30 @@ func (r GetAppBundleChangesHTTPResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAppBundleChangesHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DownloadAppBundleZipHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *Unauthorized
+	JSON404      *ErrorResponse
+	JSON500      *InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r DownloadAppBundleZipHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DownloadAppBundleZipHTTPResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3118,6 +3426,7 @@ type SyncPullHTTPResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *SyncPullResponse
+	JSON409      *ErrorResponse
 }
 
 // Status returns HTTPResponse.Status
@@ -3295,6 +3604,7 @@ type GetVersionHTTPResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *SystemVersionInfo
+	JSON401      *Unauthorized
 	JSON500      *ErrorResponse
 }
 
@@ -3308,6 +3618,29 @@ func (r GetVersionHTTPResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetVersionHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetAPIVersionsHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *APIVersionsResponse
+	JSON401      *Unauthorized
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAPIVersionsHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAPIVersionsHTTPResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3355,16 +3688,16 @@ func (r GetHealthHTTPResponse) StatusCode() int {
 }
 
 // AdminRepositoryResetWithBodyWithResponse request with arbitrary body returning *AdminRepositoryResetHTTPResponse
-func (c *ClientWithResponses) AdminRepositoryResetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error) {
-	rsp, err := c.AdminRepositoryResetWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) AdminRepositoryResetWithBodyWithResponse(ctx context.Context, params *AdminRepositoryResetParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error) {
+	rsp, err := c.AdminRepositoryResetWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseAdminRepositoryResetHTTPResponse(rsp)
 }
 
-func (c *ClientWithResponses) AdminRepositoryResetWithResponse(ctx context.Context, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error) {
-	rsp, err := c.AdminRepositoryReset(ctx, body, reqEditors...)
+func (c *ClientWithResponses) AdminRepositoryResetWithResponse(ctx context.Context, params *AdminRepositoryResetParams, body AdminRepositoryResetJSONRequestBody, reqEditors ...RequestEditorFn) (*AdminRepositoryResetHTTPResponse, error) {
+	rsp, err := c.AdminRepositoryReset(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3378,6 +3711,15 @@ func (c *ClientWithResponses) GetAppBundleChangesWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetAppBundleChangesHTTPResponse(rsp)
+}
+
+// DownloadAppBundleZipWithResponse request returning *DownloadAppBundleZipHTTPResponse
+func (c *ClientWithResponses) DownloadAppBundleZipWithResponse(ctx context.Context, params *DownloadAppBundleZipParams, reqEditors ...RequestEditorFn) (*DownloadAppBundleZipHTTPResponse, error) {
+	rsp, err := c.DownloadAppBundleZip(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDownloadAppBundleZipHTTPResponse(rsp)
 }
 
 // DownloadAppBundleFileWithResponse request returning *DownloadAppBundleFileHTTPResponse
@@ -3426,8 +3768,8 @@ func (c *ClientWithResponses) GetAppBundleVersionsWithResponse(ctx context.Conte
 }
 
 // GetAttachmentsExportZipWithResponse request returning *GetAttachmentsExportZipHTTPResponse
-func (c *ClientWithResponses) GetAttachmentsExportZipWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetAttachmentsExportZipHTTPResponse, error) {
-	rsp, err := c.GetAttachmentsExportZip(ctx, reqEditors...)
+func (c *ClientWithResponses) GetAttachmentsExportZipWithResponse(ctx context.Context, params *GetAttachmentsExportZipParams, reqEditors ...RequestEditorFn) (*GetAttachmentsExportZipHTTPResponse, error) {
+	rsp, err := c.GetAttachmentsExportZip(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3513,8 +3855,8 @@ func (c *ClientWithResponses) RefreshTokenWithResponse(ctx context.Context, para
 }
 
 // GetParquetExportZipWithResponse request returning *GetParquetExportZipHTTPResponse
-func (c *ClientWithResponses) GetParquetExportZipWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetParquetExportZipHTTPResponse, error) {
-	rsp, err := c.GetParquetExportZip(ctx, reqEditors...)
+func (c *ClientWithResponses) GetParquetExportZipWithResponse(ctx context.Context, params *GetParquetExportZipParams, reqEditors ...RequestEditorFn) (*GetParquetExportZipHTTPResponse, error) {
+	rsp, err := c.GetParquetExportZip(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3522,8 +3864,8 @@ func (c *ClientWithResponses) GetParquetExportZipWithResponse(ctx context.Contex
 }
 
 // GetRawJsonExportZipWithResponse request returning *GetRawJsonExportZipHTTPResponse
-func (c *ClientWithResponses) GetRawJsonExportZipWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetRawJsonExportZipHTTPResponse, error) {
-	rsp, err := c.GetRawJsonExportZip(ctx, reqEditors...)
+func (c *ClientWithResponses) GetRawJsonExportZipWithResponse(ctx context.Context, params *GetRawJsonExportZipParams, reqEditors ...RequestEditorFn) (*GetRawJsonExportZipHTTPResponse, error) {
+	rsp, err := c.GetRawJsonExportZip(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -3634,12 +3976,21 @@ func (c *ClientWithResponses) DeleteUserWithResponse(ctx context.Context, userna
 }
 
 // GetVersionWithResponse request returning *GetVersionHTTPResponse
-func (c *ClientWithResponses) GetVersionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetVersionHTTPResponse, error) {
-	rsp, err := c.GetVersion(ctx, reqEditors...)
+func (c *ClientWithResponses) GetVersionWithResponse(ctx context.Context, params *GetVersionParams, reqEditors ...RequestEditorFn) (*GetVersionHTTPResponse, error) {
+	rsp, err := c.GetVersion(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseGetVersionHTTPResponse(rsp)
+}
+
+// GetAPIVersionsWithResponse request returning *GetAPIVersionsHTTPResponse
+func (c *ClientWithResponses) GetAPIVersionsWithResponse(ctx context.Context, params *GetAPIVersionsParams, reqEditors ...RequestEditorFn) (*GetAPIVersionsHTTPResponse, error) {
+	rsp, err := c.GetAPIVersions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAPIVersionsHTTPResponse(rsp)
 }
 
 // GetHealthWithResponse request returning *GetHealthHTTPResponse
@@ -3742,6 +4093,46 @@ func ParseGetAppBundleChangesHTTPResponse(rsp *http.Response) (*GetAppBundleChan
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDownloadAppBundleZipHTTPResponse parses an HTTP response from a DownloadAppBundleZipWithResponse call
+func ParseDownloadAppBundleZipHTTPResponse(rsp *http.Response) (*DownloadAppBundleZipHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DownloadAppBundleZipHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalServerError
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -4279,6 +4670,13 @@ func ParseSyncPullHTTPResponse(rsp *http.Response) (*SyncPullHTTPResponse, error
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
 	}
 
 	return response, nil
@@ -4586,12 +4984,52 @@ func ParseGetVersionHTTPResponse(rsp *http.Response) (*GetVersionHTTPResponse, e
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest ErrorResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAPIVersionsHTTPResponse parses an HTTP response from a GetAPIVersionsWithResponse call
+func ParseGetAPIVersionsHTTPResponse(rsp *http.Response) (*GetAPIVersionsHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAPIVersionsHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest APIVersionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	}
 

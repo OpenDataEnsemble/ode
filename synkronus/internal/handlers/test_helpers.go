@@ -50,3 +50,32 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 
 	return h, mockAppBundleService
 }
+
+// createTestHandlerWithSync is like createTestHandler but exposes the mock sync service
+// so tests can set repository_generation and other sync state.
+func createTestHandlerWithSync() (*Handler, *mocks.MockSyncService, *mocks.MockAppBundleService) {
+	log := logger.NewLogger()
+	testConfig := mocks.NewTestConfig()
+	mockAuthService := mocks.NewMockAuthService()
+	mockAppBundleService := mocks.NewMockAppBundleService()
+	mockSyncService := mocks.NewMockSyncService()
+	if err := mockSyncService.Initialize(context.Background()); err != nil {
+		panic("Failed to initialize mock sync service: " + err.Error())
+	}
+	mockVersionService := mocks.NewMockVersionService()
+	mockAttachmentManifestService := &mocks.MockAttachmentManifestService{}
+	mockDataExportService := mocks.NewMockDataExportService()
+	h := NewHandler(
+		log,
+		testConfig,
+		mockAuthService,
+		mockAppBundleService,
+		mockSyncService,
+		mocks.NewMockUserService(),
+		mockVersionService,
+		mockAttachmentManifestService,
+		mockDataExportService,
+		nil,
+	)
+	return h, mockSyncService, mockAppBundleService
+}

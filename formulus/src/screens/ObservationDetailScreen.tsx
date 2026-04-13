@@ -340,7 +340,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
                   size={16}
                   color={
                     isSynced
-                      ? (themeColors.primary as string)
+                      ? (colors.brand.primary['500'] as string)
                       : (colors.semantic.warning[500] as unknown as string)
                   }
                 />

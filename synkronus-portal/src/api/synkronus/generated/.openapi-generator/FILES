@@ -4,6 +4,8 @@ api.ts
 base.ts
 common.ts
 configuration.ts
+docs/APIVersionInfo.md
+docs/APIVersionsResponse.md
 docs/AppBundleChangeLog.md
 docs/AppBundleFile.md
 docs/AppBundleManifest.md

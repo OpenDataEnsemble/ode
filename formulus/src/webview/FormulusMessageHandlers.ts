@@ -49,6 +49,7 @@ import {
   getFormSpecsDirectoryFileUrl,
   resolveAttachmentFileUrl,
 } from '../services/WebViewFileUrlResolver';
+import { commitDraftAttachmentsAfterSave } from '../services/attachmentStorage';
 
 export type HandlerArgs = {
   data: unknown;
@@ -251,6 +252,13 @@ const saveFormData = async (
         ? await formService.updateObservation(observationId, data)
         : await formService.addNewObservation(formType, data);
 
+    if (id != null) {
+      const fixedData = await commitDraftAttachmentsAfterSave(
+        data as Record<string, unknown>,
+      );
+      await formService.updateObservation(id, fixedData);
+    }
+
     return id;
   } catch (error) {
     console.error('Error saving form data:', error);
@@ -412,36 +420,26 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               );
 
               const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-              const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+              const draftDirectory = `${attachmentsDirectory}/draft`;
+              const draftFilePath = `${draftDirectory}/${guidFilename}`;
 
-              const mainFilePath = `${attachmentsDirectory}/${guidFilename}`;
-              const pendingFilePath = `${pendingUploadDirectory}/${guidFilename}`;
-
-              console.log('Copying camera image to attachment sync system:', {
+              console.log('Copying camera image to draft attachment storage:', {
                 source: asset.uri,
-                mainPath: mainFilePath,
-                pendingPath: pendingFilePath,
+                draftPath: draftFilePath,
               });
 
-              // Ensure both directories exist and copy file to both locations
               Promise.all([
                 RNFS.mkdir(attachmentsDirectory),
-                RNFS.mkdir(pendingUploadDirectory),
+                RNFS.mkdir(draftDirectory),
               ])
-                .then(() => {
-                  // Copy to both locations simultaneously
-                  return Promise.all([
-                    RNFS.copyFile(asset.uri, mainFilePath),
-                    RNFS.copyFile(asset.uri, pendingFilePath),
-                  ]);
-                })
+                .then(() => RNFS.copyFile(asset.uri, draftFilePath))
                 .then(() => {
                   console.log(
-                    'Image saved to attachment sync system:',
-                    mainFilePath,
+                    'Image saved to draft attachments:',
+                    draftFilePath,
                   );
 
-                  const webViewUrl = `file://${mainFilePath}`;
+                  const webViewUrl = `file://${draftFilePath}`;
 
                   resolve({
                     fieldId,
@@ -450,8 +448,8 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                       type: 'image',
                       id: imageGuid,
                       filename: guidFilename,
-                      uri: mainFilePath, // Main attachment path for sync protocol
-                      url: webViewUrl, // WebView-accessible URL for display
+                      uri: draftFilePath,
+                      url: webViewUrl,
                       timestamp: new Date().toISOString(),
                       metadata: {
                         width: asset.width || 1920,
@@ -462,8 +460,8 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                         quality: 0.8,
                         originalFileName: asset.fileName || guidFilename,
                         persistentStorage: true,
-                        storageLocation: 'attachments_with_upload_queue',
-                        syncReady: true,
+                        storageLocation: 'draft_attachments',
+                        syncReady: false,
                       },
                     },
                   });

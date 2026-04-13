@@ -139,8 +139,15 @@ func (c *Client) GetVersion() (*SystemVersionInfo, error) {
 	if err := c.ensureReady(); err != nil {
 		return nil, err
 	}
+	apiVer, err := c.requiredVersion()
+	if err != nil {
+		return nil, err
+	}
 
-	resp, err := c.api.GetVersionWithResponse(context.Background())
+	resp, err := c.api.GetVersionWithResponse(
+		context.Background(),
+		&generated.GetVersionParams{XOdeVersion: apiVer},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("version request failed: %w", err)
 	}
@@ -148,44 +155,44 @@ func (c *Client) GetVersion() (*SystemVersionInfo, error) {
 	if resp.JSON200 == nil {
 		return nil, apiError(resp.StatusCode(), resp.Body)
 	}
-	version := &SystemVersionInfo{}
+	out := &SystemVersionInfo{}
 	if resp.JSON200.Server != nil && resp.JSON200.Server.Version != nil {
-		version.Server.Version = *resp.JSON200.Server.Version
+		out.Server.Version = *resp.JSON200.Server.Version
 	}
 	if resp.JSON200.Database != nil {
 		if resp.JSON200.Database.Type != nil {
-			version.Database.Type = *resp.JSON200.Database.Type
+			out.Database.Type = *resp.JSON200.Database.Type
 		}
 		if resp.JSON200.Database.Version != nil {
-			version.Database.Version = *resp.JSON200.Database.Version
+			out.Database.Version = *resp.JSON200.Database.Version
 		}
 		if resp.JSON200.Database.DatabaseName != nil {
-			version.Database.DatabaseName = *resp.JSON200.Database.DatabaseName
+			out.Database.DatabaseName = *resp.JSON200.Database.DatabaseName
 		}
 	}
 	if resp.JSON200.System != nil {
 		if resp.JSON200.System.Os != nil {
-			version.System.OS = *resp.JSON200.System.Os
+			out.System.OS = *resp.JSON200.System.Os
 		}
 		if resp.JSON200.System.Architecture != nil {
-			version.System.Architecture = *resp.JSON200.System.Architecture
+			out.System.Architecture = *resp.JSON200.System.Architecture
 		}
 		if resp.JSON200.System.Cpus != nil {
-			version.System.CPUs = *resp.JSON200.System.Cpus
+			out.System.CPUs = *resp.JSON200.System.Cpus
 		}
 	}
 	if resp.JSON200.Build != nil {
 		if resp.JSON200.Build.Commit != nil {
-			version.Build.Commit = *resp.JSON200.Build.Commit
+			out.Build.Commit = *resp.JSON200.Build.Commit
 		}
 		if resp.JSON200.Build.BuildTime != nil {
-			version.Build.BuildTime = *resp.JSON200.Build.BuildTime
+			out.Build.BuildTime = *resp.JSON200.Build.BuildTime
 		}
 		if resp.JSON200.Build.GoVersion != nil {
-			version.Build.GoVersion = *resp.JSON200.Build.GoVersion
+			out.Build.GoVersion = *resp.JSON200.Build.GoVersion
 		}
 	}
-	return version, nil
+	return out, nil
 }
 
 // GetAppBundleManifest retrieves the app bundle manifest
@@ -286,29 +293,41 @@ func (c *Client) downloadBinaryToFile(path string, destPath string) error {
 	if err := c.ensureReady(); err != nil {
 		return err
 	}
+	apiVer, err := c.requiredVersion()
+	if err != nil {
+		return err
+	}
 
 	var body []byte
 	var status int
-	var err error
 
 	switch path {
 	case "/dataexport/parquet":
 		var resp *generated.GetParquetExportZipHTTPResponse
-		resp, err = c.api.GetParquetExportZipWithResponse(context.Background())
+		resp, err = c.api.GetParquetExportZipWithResponse(
+			context.Background(),
+			&generated.GetParquetExportZipParams{XOdeVersion: apiVer},
+		)
 		if err == nil {
 			body = resp.Body
 			status = resp.StatusCode()
 		}
 	case "/dataexport/raw-json":
 		var resp *generated.GetRawJsonExportZipHTTPResponse
-		resp, err = c.api.GetRawJsonExportZipWithResponse(context.Background())
+		resp, err = c.api.GetRawJsonExportZipWithResponse(
+			context.Background(),
+			&generated.GetRawJsonExportZipParams{XOdeVersion: apiVer},
+		)
 		if err == nil {
 			body = resp.Body
 			status = resp.StatusCode()
 		}
 	case "/attachments/export-zip":
 		var resp *generated.GetAttachmentsExportZipHTTPResponse
-		resp, err = c.api.GetAttachmentsExportZipWithResponse(context.Background())
+		resp, err = c.api.GetAttachmentsExportZipWithResponse(
+			context.Background(),
+			&generated.GetAttachmentsExportZipParams{XOdeVersion: apiVer},
+		)
 		if err == nil {
 			body = resp.Body
 			status = resp.StatusCode()
@@ -441,8 +460,13 @@ func (c *Client) AdminRepositoryReset() (*generated.RepositoryResetResponse, err
 	if err := c.ensureReady(); err != nil {
 		return nil, err
 	}
+	apiVer, err := c.requiredVersion()
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.api.AdminRepositoryResetWithResponse(
 		context.Background(),
+		&generated.AdminRepositoryResetParams{XOdeVersion: apiVer},
 		generated.RepositoryResetRequest{Confirm: generated.RESETREPOSITORY},
 	)
 	if err != nil {

@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  *
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2026-01-23T01:15:01.676Z
+ * Last generated: 2026-04-09T07:22:42.291Z
  *
  * @example
  * // In your JavaScript file:
@@ -59,6 +59,15 @@ const FormulusAPI = {
    * @returns {Promise<FormObservation[]>} Array of form observations
    */
   getObservations: function (formType, isDraft, includeDeleted) {},
+
+  /**
+   * Get observations with optional WHERE clause filtering (for dynamic choice lists).
+   * Supports format: data.field = 'value' AND data.other = 'value'
+   * Age filtering via age_from_dob(data.dob) is handled client-side in formplayer.
+   * /
+   * @returns {Promise<FormObservation[]>} Array of filtered observations
+   */
+  getObservationsByQuery: function (options) {},
 
   /**
    * Submit a completed form
@@ -131,14 +140,6 @@ const FormulusAPI = {
   requestAudio: function (fieldId) {},
 
   /**
-   * Request signature for a field
-   * /
-   * @param {string} fieldId - The ID of the field
-   * @returns {Promise<SignatureResult>} Promise that resolves with signature result or rejects on error/cancellation
-   */
-  requestSignature: function (fieldId) {},
-
-  /**
    * Request QR code scanning for a field
    * /
    * @param {string} fieldId - The ID of the field
@@ -179,17 +180,50 @@ const FormulusAPI = {
   runLocalModel: function (fieldId, modelId, input) {},
 
   /**
-   * Get information about the currently authenticated user
+   * Get information about the currently authenticated user.
+   * When no one is logged in, resolves with `{ username: '' }` (does not reject).
    * /
-   * @returns {Promise<{username: string, displayName?: string}
+   * @returns {Promise<{username: string, displayName?: string, role?: 'read-only' | 'read-write' | 'admin'}
    */
   getCurrentUser: function () {},
 
   /**
    * Get the current theme mode (System / Light / Dark) so custom apps can match the host app.
+   * /
    * @returns {Promise<'light' | 'dark' | 'system'>} Current theme mode; 'system' means follow device preference.
    */
   getThemeMode: function () {},
+
+  /**
+   * Resolve a synced or camera-saved attachment to a WebView-loadable `file://` URL.
+   * Checks `{DocumentDirectory}/attachments/` and `pending_upload/`. Pass the basename only
+   * (e.g. `photo.filename` from observation data); path segments and ".." are rejected.
+   * /
+   * @returns {Promise<string | null>} `file://` URL if the file exists, otherwise `null`
+   */
+  getAttachmentUri: function (fileName) {},
+
+  /**
+   * Base `file://` URL for the attachments directory (trailing slash).
+   * /
+   * @returns {Promise<string>} e.g. `file:///.../attachments/`
+   */
+  getAttachmentsUri: function () {},
+
+  /**
+   * Base `file://` URL for the custom app bundle root (`DocumentDirectory/app/`, trailing slash).
+   * /
+   * @returns {Promise<string>} App directory URL for extensions, question_types, etc.
+   */
+  getCustomAppUri: function () {},
+
+  /**
+   * Primary `file://` URL for downloaded form specs (`DocumentDirectory/forms/`, trailing slash).
+   * Some bundles also use files under the custom app `forms/` subdirectory.
+   * /
+   * @returns {Promise<string>} Forms directory URL
+   */
+  getFormSpecsUri: function () {},
 };
 
 // Make the API available globally in browser environments

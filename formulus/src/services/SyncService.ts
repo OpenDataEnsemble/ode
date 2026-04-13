@@ -281,6 +281,16 @@ export class SyncService {
         'sync observations',
       );
 
+      const repoGenStorage =
+        (await AsyncStorage.getItem('@repository_generation')) ?? '(missing)';
+      console.log(
+        '[RepositoryGeneration] SyncService: observations sync done',
+        {
+          finalObservationDataVersion: finalVersion,
+          repositoryGenerationStorage: repoGenStorage,
+        },
+      );
+
       this.updateProgress({
         current: 4,
         total: 4,
