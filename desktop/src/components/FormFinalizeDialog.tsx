@@ -18,6 +18,7 @@ export function FormFinalizeDialog({
   onComplete,
 }: FormFinalizeDialogProps) {
   const titleId = useId();
+  const testdataCheckboxId = useId();
   const [tagTestdata, setTagTestdata] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,24 +164,31 @@ export function FormFinalizeDialog({
           Observations saved to the database will be synced to the server endpoint next time you sync.
         </p>
         <label
+          htmlFor={testdataCheckboxId}
           style={{
             display: 'flex',
             gap: '0.5rem',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             margin: '0.5rem 0 0.75rem',
             cursor: busy ? 'default' : 'pointer',
           }}>
           <input
+            id={testdataCheckboxId}
             type="checkbox"
             checked={tagTestdata}
             disabled={busy}
             onChange={e => setTagTestdata(e.target.checked)}
           />
-          <p
-          className="notice warn"
-          style={{ fontSize: '0.85rem', margin: '1rem 0 0.5rem' }}>
+          <span
+            className="notice warn"
+            style={{
+              fontSize: '0.85rem',
+              margin: 0,
+              flex: 1,
+              lineHeight: 1.45,
+            }}>
             Add &quot;{TESTDATA_TAG}&quot; tag to this observation
-          </p>
+          </span>
         </label>
         {error ? (
           <p className="notice error" style={{ margin: '0.5rem 0' }}>

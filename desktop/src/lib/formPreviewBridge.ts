@@ -155,6 +155,7 @@ export function mapObservationToFormObservation(
   const created = r.extras?.createdAt ?? r.lastSavedAt;
   const updated = r.updatedAt ?? r.lastSavedAt;
   const synced = r.extras?.syncedAt ?? r.updatedAt ?? r.lastSavedAt;
+  const tags = r.extras?.tags;
   return {
     observationId: r.id,
     createdAt: new Date(created ?? r.lastSavedAt),
@@ -165,6 +166,7 @@ export function mapObservationToFormObservation(
     formType: r.formType ?? '',
     formVersion: r.extras?.formVersion ?? '',
     data,
+    ...(tags != null && tags.length > 0 ? { tags } : {}),
   };
 }
 
