@@ -25,6 +25,7 @@ import {
   resolveFormOperation,
   resolveFormOperationByType,
   setActiveFormplayerModal,
+  clearActiveFormplayerModalIfMatches,
 } from '../webview/FormulusMessageHandlers';
 import {
   FormCompletionResult,
@@ -605,19 +606,19 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       [currentObservationId, currentOperationId, onClose, showConfirm],
     );
 
-    // Register/unregister modal with message handlers and reset form state
+    // Register/unregister modal with message handlers and reset form state.
+    // Stacked modals (e.g. linked-table child): parent stays visible but inactive — it must NOT
+    // clear the global ref, or the child's submit would miss the active modal and fail or persist wrongly.
     useEffect(() => {
       if (visible && isActive) {
-        // Register this modal as the active one for handling submissions
         setActiveFormplayerModal({ handleSubmission });
-      } else {
-        // Inactive/hidden modals must not handle submissions.
-        setActiveFormplayerModal(null);
+        return () => {
+          clearActiveFormplayerModalIfMatches(handleSubmission);
+        };
       }
 
       if (!visible) {
-        // Reset form state only when the modal actually closes.
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           setCurrentFormType(null);
           setCurrentFormDisplayName(null);
           setCurrentObservationId(null);
@@ -627,7 +628,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           setWebViewReady(false); // Reset WebView ready state
           returnOnlyRef.current = false;
         }, 300); // Small delay to ensure modal is fully closed
+        return () => clearTimeout(timeoutId);
       }
+
+      return undefined;
     }, [visible, isActive, handleSubmission]);
 
     useEffect(() => {

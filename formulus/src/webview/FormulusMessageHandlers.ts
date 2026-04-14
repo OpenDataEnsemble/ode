@@ -42,14 +42,12 @@ type AudioSet = {
   AudioChannels: number;
 };
 import { FormService } from '../services/FormService';
-import { Observation, ObservationData } from '../database/models/Observation';
 import {
   getAttachmentsDirectoryFileUrl,
   getCustomAppDirectoryFileUrl,
   getFormSpecsDirectoryFileUrl,
   resolveAttachmentFileUrl,
 } from '../services/WebViewFileUrlResolver';
-import { commitDraftAttachmentsAfterSave } from '../services/attachmentStorage';
 
 export type HandlerArgs = {
   data: unknown;
@@ -161,24 +159,32 @@ export const openFormplayerFromNative = (
   return startFormplayerOperation(formType, params, savedData, observationId);
 };
 
-let activeFormplayerModalRef: {
+export type ActiveFormplayerModalHandle = {
   handleSubmission: (data: {
     formType: string;
     finalData: Record<string, unknown>;
     observationId?: string | null;
   }) => Promise<string>;
-} | null = null;
+};
+
+let activeFormplayerModalRef: ActiveFormplayerModalHandle | null = null;
 
 export const setActiveFormplayerModal = (
-  modalRef: {
-    handleSubmission: (data: {
-      formType: string;
-      finalData: Record<string, unknown>;
-      observationId?: string | null;
-    }) => Promise<string>;
-  } | null,
+  modalRef: ActiveFormplayerModalHandle | null,
 ) => {
   activeFormplayerModalRef = modalRef;
+};
+
+/** Clears the global active modal only if it still points to this submission handler (stacked modals). */
+export const clearActiveFormplayerModalIfMatches = (
+  handleSubmission: ActiveFormplayerModalHandle['handleSubmission'],
+) => {
+  if (
+    activeFormplayerModalRef &&
+    activeFormplayerModalRef.handleSubmission === handleSubmission
+  ) {
+    activeFormplayerModalRef = null;
+  }
 };
 
 export const resolveFormOperation = (
@@ -226,46 +232,6 @@ export const rejectFormOperation = (operationId: string, error: Error) => {
   }
 };
 
-const saveFormData = async (
-  formType: string,
-  data: ObservationData,
-  observationId: string | null,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isPartial = true,
-) => {
-  try {
-    const observation: Partial<Observation> = {
-      formType,
-      data,
-    };
-
-    if (observationId !== null) {
-      observation.observationId = observationId;
-      observation.updatedAt = new Date();
-    } else {
-      observation.createdAt = new Date();
-    }
-
-    const formService = await FormService.getInstance();
-    const id =
-      observationId !== null
-        ? await formService.updateObservation(observationId, data)
-        : await formService.addNewObservation(formType, data);
-
-    if (id != null) {
-      const fixedData = await commitDraftAttachmentsAfterSave(
-        data as Record<string, unknown>,
-      );
-      await formService.updateObservation(id, fixedData);
-    }
-
-    return id;
-  } catch (error) {
-    console.error('Error saving form data:', error);
-    return null;
-  }
-};
-
 export function createFormulusMessageHandlers(): FormulusMessageHandlers {
   return {
     onInitForm: (payload: unknown) => {
@@ -297,13 +263,15 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           formType,
           finalData,
         });
-      } else {
-        // Fallback to the old method if no modal is active
-        console.warn(
-          'FormulusMessageHandlers: No active FormplayerModal, using fallback saveFormData',
-        );
-        return await saveFormData(formType, finalData, null, false);
       }
+
+      console.error(
+        'FormulusMessageHandlers: No active FormplayerModal for submitObservation; refusing to persist.',
+        { formType },
+      );
+      throw new Error(
+        'Form submission failed: no active form session. Close and reopen the form.',
+      );
     },
     onUpdateObservation: async (data: {
       observationId: string;
@@ -322,11 +290,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           observationId: data.observationId,
         });
       }
-      return await saveFormData(
-        data.formType,
-        data.finalData,
-        data.observationId,
-        false,
+
+      console.error(
+        'FormulusMessageHandlers: No active FormplayerModal for updateObservation; refusing to persist.',
+        { observationId: data.observationId, formType: data.formType },
+      );
+      throw new Error(
+        'Form update failed: no active form session. Close and reopen the form.',
       );
     },
     onRequestCamera: async (fieldId: string): Promise<unknown> => {
