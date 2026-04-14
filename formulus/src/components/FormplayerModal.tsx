@@ -60,7 +60,7 @@ export interface FormplayerModalHandle {
     observationId: string | null,
     existingObservationData: Record<string, unknown> | null,
     operationId: string | null,
-    returnOnly?: boolean,
+    subObservationMode?: boolean,
   ) => void;
   handleSubmission: (data: {
     formType: string;
@@ -97,9 +97,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     // Track if form has been successfully submitted to avoid double resolution
     const [formSubmitted, setFormSubmitted] = useState(false);
 
-    // Child / linked-table forms: return JSON only, do not persist as observations.
+    // Sub-observation (embedded child) forms: return JSON only; do not persist as top-level observations.
     // Ref updates synchronously in initializeForm so submit cannot run before flag is set.
-    const returnOnlyRef = useRef(false);
+    const subObservationModeRef = useRef(false);
 
     // Author-configurable display name shown in the native header bar
     const [currentFormDisplayName, setCurrentFormDisplayName] = useState<
@@ -214,7 +214,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       observationId: string | null,
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
-      returnOnlyMode: boolean = false,
+      subObservationMode: boolean = false,
     ) => {
       // Check if WebView is ready, if not log a warning (retry logic will handle it)
       if (!webViewReady) {
@@ -223,7 +223,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         );
       }
 
-      returnOnlyRef.current = returnOnlyMode;
+      subObservationModeRef.current = subObservationMode;
 
       // GPS session: fresh fix + light watch while the user fills the form
       geolocationService.beginObservationSession();
@@ -457,7 +457,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         uiSchema: formType.uiSchema ?? {},
         extensions,
         customQuestionTypes,
-        returnOnly: returnOnlyMode,
+        subObservationMode,
       } as FormInitData;
 
       if (!webViewRef.current) {
@@ -499,10 +499,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         setIsSubmitting(true);
 
         try {
-          // Save the observation (optional - skip if returnOnly flag is set)
+          // Save the observation (optional - skip in sub-observation mode)
           let resultObservationId: string;
 
-          if (!returnOnlyRef.current) {
+          if (!subObservationModeRef.current) {
             // Normal mode: save to database
             const localRepo = databaseService.getLocalRepo();
             if (!localRepo) {
@@ -529,13 +529,8 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               resultObservationId = newId;
             }
           } else {
-            // returnOnly mode: just generate ID, don't save to database
-            // This is used for embedded child forms in linked-table scenarios
+            // Sub-observation: return JSON to parent only; do not persist here.
             resultObservationId = '';
-            console.log(
-              '[FormplayerModal] Form returned without DB save (returnOnly mode):',
-              resultObservationId,
-            );
           }
 
           // Mark form as successfully submitted
@@ -607,7 +602,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     );
 
     // Register/unregister modal with message handlers and reset form state.
-    // Stacked modals (e.g. linked-table child): parent stays visible but inactive — it must NOT
+    // Stacked modals (e.g. sub-observation child): parent stays visible but inactive — it must NOT
     // clear the global ref, or the child's submit would miss the active modal and fail or persist wrongly.
     useEffect(() => {
       if (visible && isActive) {
@@ -626,7 +621,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           setIsClosing(false); // Reset closing state when modal is fully closed
           setFormSubmitted(false); // Reset submission flag
           setWebViewReady(false); // Reset WebView ready state
-          returnOnlyRef.current = false;
+          subObservationModeRef.current = false;
         }, 300); // Small delay to ensure modal is fully closed
         return () => clearTimeout(timeoutId);
       }

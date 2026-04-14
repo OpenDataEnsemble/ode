@@ -115,7 +115,7 @@ const startFormplayerOperation = (
   params: Record<string, unknown> = {},
   savedData: Record<string, unknown> = {},
   observationId: string | null = null,
-  returnOnly: boolean = false,
+  subObservationMode: boolean = false,
 ): Promise<FormCompletionResult> => {
   const operationId = `${formType}_${Date.now()}_${Math.random()
     .toString(36)
@@ -135,7 +135,7 @@ const startFormplayerOperation = (
       savedData,
       observationId,
       operationId,
-      returnOnly,
+      subObservationMode,
     });
 
     setTimeout(
@@ -1139,14 +1139,24 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       return await service.getObservationsByQuery(options);
     },
     onOpenFormplayer: async (
-      data: FormInitData & { options?: { returnOnly?: boolean } },
+      data: FormInitData & {
+        options?: { subObservationMode?: boolean; returnOnly?: boolean };
+        /** @deprecated Legacy key; prefer subObservationMode */
+        returnOnly?: boolean;
+      },
     ) => {
+      const subObservationMode = Boolean(
+        data.options?.subObservationMode ||
+        data.subObservationMode ||
+        data.options?.returnOnly ||
+        data.returnOnly,
+      );
       return startFormplayerOperation(
         data.formType,
         data.params,
         data.savedData,
         data.observationId ?? null,
-        data.options?.returnOnly || data.returnOnly || false,
+        subObservationMode,
       );
     },
     onFormplayerInitialized: (_data: {

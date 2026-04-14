@@ -91,6 +91,12 @@ import { customValidatorRegistry } from './services/CustomValidatorRegistry';
 import { executeAllCustomValidators } from './services/CustomValidatorExecutor';
 import { newDraftSessionKey } from './utils/draftSessionKey';
 
+/** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
+function isSubObservationSession(init: FormInitData): boolean {
+  const i = init as FormInitData & { returnOnly?: boolean };
+  return Boolean(i.subObservationMode || i.returnOnly);
+}
+
 // Mock and DevTestbed are loaded only in development via dynamic import (see index.tsx).
 // This keeps ~2000+ lines of mock code out of production bundles.
 function isMockActive(): boolean {
@@ -329,10 +335,11 @@ function App() {
       newObservationDraftSessionKey?: string | null,
     ) => {
       try {
-        if (initData.returnOnly) {
-          // Embedded child form: data lives only in memory until returned to parent; no local drafts.
-          setDraftSessionKey(null);
-        } else if (initData.observationId != null) {
+        if (
+          isSubObservationSession(initData) ||
+          initData.observationId != null
+        ) {
+          // Sub-observation or editing an existing observation: no new-observation draft session key.
           setDraftSessionKey(null);
         } else if (newObservationDraftSessionKey !== undefined) {
           setDraftSessionKey(newObservationDraftSessionKey);
@@ -593,7 +600,7 @@ function App() {
         // Check if this is a new form (no savedData) and if drafts exist
         const hasExistingSavedData =
           savedData && Object.keys(savedData).length > 0;
-        if (!initData.returnOnly && !hasExistingSavedData) {
+        if (!isSubObservationSession(initData) && !hasExistingSavedData) {
           const availableDrafts = draftService.getDraftsForForm(
             receivedFormType,
             (formSchema as any)?.version,
@@ -951,8 +958,8 @@ function App() {
     ({ data: newData }: { data: FormData }) => {
       setData(newData);
 
-      // Save draft data whenever form data changes (skip embedded return-only child forms)
-      if (formInitData && !formInitData.returnOnly) {
+      // Save draft data whenever form data changes (skip embedded sub-observation sessions)
+      if (formInitData && !isSubObservationSession(formInitData)) {
         draftService.saveDraft(
           formInitData.formType,
           newData,
