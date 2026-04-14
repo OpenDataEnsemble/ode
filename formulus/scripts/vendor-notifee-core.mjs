@@ -52,7 +52,9 @@ function patchNotifeeAndroidReleaseMinify() {
     `$1// [formulus] notifee_core release: keep minify off (R8 made InitProvider.onCreate final → LinkageError in NotifeeInitProvider)\n      minifyEnabled false`,
   );
   fs.writeFileSync(gradle, s);
-  console.log('Patched notifee android/build.gradle (release minifyEnabled false).');
+  console.log(
+    'Patched notifee android/build.gradle (release minifyEnabled false).',
+  );
 }
 
 if (!fs.existsSync(path.join(dest, 'android', 'build.gradle'))) {

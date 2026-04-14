@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-04-09T07:22:39.750Z
+// Last generated: 2026-01-23T01:14:57.364Z
 
 (function () {
   // Enhanced API availability detection and recovery
@@ -107,6 +107,60 @@
   // Set up message listener
   document.addEventListener('message', handleMessage);
   window.addEventListener('message', handleMessage);
+
+  // Helper to filter observations using a limited subset of the SQL-like whereClause
+  // produced by queryHelpers.buildWhereClause (json_extract(data, '$.field') = 'value' AND ...)
+  function filterObservationsByWhereClause(observations, whereClause) {
+    if (!whereClause || whereClause === '1=1') {
+      return observations;
+    }
+
+    try {
+      const conditionStrings = whereClause.split(/\s+AND\s+/i);
+      const conditions = [];
+
+      const regex =
+        /json_extract\(data,\s*'\$\.(.+?)'\)\s*=\s*'(.*)'/;
+
+      for (const cond of conditionStrings) {
+        const match = cond.match(regex);
+        if (match) {
+          const path = match[1];
+          const rawValue = match[2];
+          const value = rawValue.replace(/''/g, "'");
+          conditions.push({ path, value });
+        }
+      }
+
+      if (conditions.length === 0) {
+        return observations;
+      }
+
+      const getNested = (obj, path) => {
+        const parts = path.split('.');
+        let cur = obj;
+        for (const p of parts) {
+          if (!cur || typeof cur !== 'object') return undefined;
+          cur = cur[p];
+        }
+        return cur;
+      };
+
+      return observations.filter(obs =>
+        conditions.every(({ path, value }) => {
+          const actual = getNested(obs.data || {}, path);
+          return actual !== undefined && String(actual) === String(value);
+        }),
+      );
+    } catch (e) {
+      console.warn(
+        'filterObservationsByWhereClause: Failed to apply whereClause filter, returning unfiltered observations.',
+        whereClause,
+        e,
+      );
+      return observations;
+    }
+  }
 
   // Initialize the formulus interface
   globalThis.formulus = {
@@ -230,8 +284,8 @@
       });
     },
 
-    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown> => Promise<FormCompletionResult>
-    openFormplayer: function (formType, params, savedData) {
+    // openFormplayer: formType: string, params: Record<string, any>, savedData: Record<string, any> => Promise<FormCompletionResult>
+    openFormplayer: function (formType, params, savedData, options) {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -288,6 +342,7 @@
             formType: formType,
             params: params,
             savedData: savedData,
+            options: options,
           }),
         );
       });
@@ -356,68 +411,36 @@
       });
     },
 
-    // getObservationsByQuery: options: { formType: string; isDraft?: boolean; includeDeleted?: boolean; whereClause?: string; } => Promise<FormObservation[]>
+    // getObservationsByQuery: options: { formType: string; whereClause?: string; isDraft?: boolean; includeDeleted?: boolean } => Promise<FormObservation[]>
+    // NOTE: This is implemented entirely in the WebView layer by calling getObservations
+    // and then applying a lightweight filter based on the generated whereClause string.
+    // This avoids additional native bridge work while still supporting dynamic choice lists.
     getObservationsByQuery: function (options) {
-      return new Promise((resolve, reject) => {
-        const messageId =
-          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      try {
+        const formType = options?.formType;
+        const whereClause = options?.whereClause || '1=1';
+        const isDraft =
+          typeof options?.isDraft === 'boolean' ? options.isDraft : false;
+        const includeDeleted =
+          typeof options?.includeDeleted === 'boolean'
+            ? options.includeDeleted
+            : false;
 
-        // Add response handler for methods that return values
-
-        const callback = event => {
-          try {
-            let data;
-            if (typeof event.data === 'string') {
-              data = JSON.parse(event.data);
-            } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data; // Already an object
-            } else {
-              // console.warn('getObservationsByQuery callback: Received response with unexpected data type:', typeof event.data, event.data);
-              window.removeEventListener('message', callback); // Clean up listener
-              reject(
-                new Error(
-                  'getObservationsByQuery callback: Received response with unexpected data type. Raw: ' +
-                    String(event.data),
-                ),
-              );
-              return;
-            }
-            if (
-              data.type === 'getObservationsByQuery_response' &&
-              data.messageId === messageId
-            ) {
-              window.removeEventListener('message', callback);
-              if (data.error) {
-                reject(new Error(data.error));
-              } else {
-                resolve(data.result);
-              }
-            }
-          } catch (e) {
-            console.error(
-              "'getObservationsByQuery' callback: Error processing response:",
-              e,
-              'Raw event.data:',
-              event.data,
-            );
-            window.removeEventListener('message', callback); // Ensure listener is removed on error too
-            reject(e);
-          }
-        };
-        window.addEventListener('message', callback);
-
-        // Send the message to React Native
-        globalThis.ReactNativeWebView.postMessage(
-          JSON.stringify({
-            type: 'getObservationsByQuery',
-            messageId,
-            options: options,
-          }),
+        return globalThis.formulus
+          .getObservations(formType, isDraft, includeDeleted)
+          .then(observations =>
+            filterObservationsByWhereClause(observations, whereClause),
+          );
+      } catch (e) {
+        console.error(
+          'getObservationsByQuery: Failed to execute query, returning empty list.',
+          e,
         );
-      });
+        return Promise.resolve([]);
+      }
     },
 
-    // submitObservation: formType: string, finalData: Record<string, unknown> => Promise<string>
+    // submitObservation: formType: string, finalData: Record<string, any> => Promise<string>
     submitObservation: function (formType, finalData) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -479,7 +502,7 @@
       });
     },
 
-    // updateObservation: observationId: string, formType: string, finalData: Record<string, unknown> => Promise<string>
+    // updateObservation: observationId: string, formType: string, finalData: Record<string, any> => Promise<string>
     updateObservation: function (observationId, formType, finalData) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -725,7 +748,7 @@
       });
     },
 
-    // launchIntent: fieldId: string, intentSpec: Record<string, unknown> => Promise<void>
+    // launchIntent: fieldId: string, intentSpec: Record<string, any> => Promise<void>
     launchIntent: function (fieldId, intentSpec) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -787,7 +810,7 @@
       });
     },
 
-    // callSubform: fieldId: string, formType: string, options: Record<string, unknown> => Promise<void>
+    // callSubform: fieldId: string, formType: string, options: Record<string, any> => Promise<void>
     callSubform: function (fieldId, formType, options) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -904,6 +927,67 @@
         globalThis.ReactNativeWebView.postMessage(
           JSON.stringify({
             type: 'requestAudio',
+            messageId,
+            fieldId: fieldId,
+          }),
+        );
+      });
+    },
+
+    // requestSignature: fieldId: string => Promise<SignatureResult>
+    requestSignature: function (fieldId) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        // Add response handler for methods that return values
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data; // Already an object
+            } else {
+              // console.warn('requestSignature callback: Received response with unexpected data type:', typeof event.data, event.data);
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'requestSignature callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
+              return;
+            }
+            if (
+              data.type === 'requestSignature_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            console.error(
+              "'requestSignature' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        // Send the message to React Native
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'requestSignature',
             messageId,
             fieldId: fieldId,
           }),
@@ -1153,7 +1237,7 @@
       });
     },
 
-    // runLocalModel: fieldId: string, modelId: string, input: Record<string, unknown> => Promise<void>
+    // runLocalModel: fieldId: string, modelId: string, input: Record<string, any> => Promise<void>
     runLocalModel: function (fieldId, modelId, input) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -1216,7 +1300,7 @@
       });
     },
 
-    // getCurrentUser:  => Promise<{ username: string; displayName?: string; role?: "read-only" | "read-write" | "admin"; }>
+    // getCurrentUser:  => Promise<{ username: string; displayName?: string; }>
     getCurrentUser: function () {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -1276,13 +1360,11 @@
       });
     },
 
-    // getThemeMode:  => Promise<"light" | "dark" | "system">
+    // getThemeMode: () => Promise<'light' | 'dark' | 'system'>
     getThemeMode: function () {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-
-        // Add response handler for methods that return values
 
         const callback = event => {
           try {
@@ -1290,10 +1372,9 @@
             if (typeof event.data === 'string') {
               data = JSON.parse(event.data);
             } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data; // Already an object
+              data = event.data;
             } else {
-              // console.warn('getThemeMode callback: Received response with unexpected data type:', typeof event.data, event.data);
-              window.removeEventListener('message', callback); // Clean up listener
+              window.removeEventListener('message', callback);
               reject(
                 new Error(
                   'getThemeMode callback: Received response with unexpected data type. Raw: ' +
@@ -1320,257 +1401,15 @@
               'Raw event.data:',
               event.data,
             );
-            window.removeEventListener('message', callback); // Ensure listener is removed on error too
+            window.removeEventListener('message', callback);
             reject(e);
           }
         };
         window.addEventListener('message', callback);
 
-        // Send the message to React Native
         globalThis.ReactNativeWebView.postMessage(
           JSON.stringify({
             type: 'getThemeMode',
-            messageId,
-          }),
-        );
-      });
-    },
-
-    // getAttachmentUri: fileName: string => Promise<string>
-    getAttachmentUri: function (fileName) {
-      return new Promise((resolve, reject) => {
-        const messageId =
-          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-
-        // Add response handler for methods that return values
-
-        const callback = event => {
-          try {
-            let data;
-            if (typeof event.data === 'string') {
-              data = JSON.parse(event.data);
-            } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data; // Already an object
-            } else {
-              // console.warn('getAttachmentUri callback: Received response with unexpected data type:', typeof event.data, event.data);
-              window.removeEventListener('message', callback); // Clean up listener
-              reject(
-                new Error(
-                  'getAttachmentUri callback: Received response with unexpected data type. Raw: ' +
-                    String(event.data),
-                ),
-              );
-              return;
-            }
-            if (
-              data.type === 'getAttachmentUri_response' &&
-              data.messageId === messageId
-            ) {
-              window.removeEventListener('message', callback);
-              if (data.error) {
-                reject(new Error(data.error));
-              } else {
-                resolve(data.result);
-              }
-            }
-          } catch (e) {
-            console.error(
-              "'getAttachmentUri' callback: Error processing response:",
-              e,
-              'Raw event.data:',
-              event.data,
-            );
-            window.removeEventListener('message', callback); // Ensure listener is removed on error too
-            reject(e);
-          }
-        };
-        window.addEventListener('message', callback);
-
-        // Send the message to React Native
-        globalThis.ReactNativeWebView.postMessage(
-          JSON.stringify({
-            type: 'getAttachmentUri',
-            messageId,
-            fileName: fileName,
-          }),
-        );
-      });
-    },
-
-    // getAttachmentsUri:  => Promise<string>
-    getAttachmentsUri: function () {
-      return new Promise((resolve, reject) => {
-        const messageId =
-          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-
-        // Add response handler for methods that return values
-
-        const callback = event => {
-          try {
-            let data;
-            if (typeof event.data === 'string') {
-              data = JSON.parse(event.data);
-            } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data; // Already an object
-            } else {
-              // console.warn('getAttachmentsUri callback: Received response with unexpected data type:', typeof event.data, event.data);
-              window.removeEventListener('message', callback); // Clean up listener
-              reject(
-                new Error(
-                  'getAttachmentsUri callback: Received response with unexpected data type. Raw: ' +
-                    String(event.data),
-                ),
-              );
-              return;
-            }
-            if (
-              data.type === 'getAttachmentsUri_response' &&
-              data.messageId === messageId
-            ) {
-              window.removeEventListener('message', callback);
-              if (data.error) {
-                reject(new Error(data.error));
-              } else {
-                resolve(data.result);
-              }
-            }
-          } catch (e) {
-            console.error(
-              "'getAttachmentsUri' callback: Error processing response:",
-              e,
-              'Raw event.data:',
-              event.data,
-            );
-            window.removeEventListener('message', callback); // Ensure listener is removed on error too
-            reject(e);
-          }
-        };
-        window.addEventListener('message', callback);
-
-        // Send the message to React Native
-        globalThis.ReactNativeWebView.postMessage(
-          JSON.stringify({
-            type: 'getAttachmentsUri',
-            messageId,
-          }),
-        );
-      });
-    },
-
-    // getCustomAppUri:  => Promise<string>
-    getCustomAppUri: function () {
-      return new Promise((resolve, reject) => {
-        const messageId =
-          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-
-        // Add response handler for methods that return values
-
-        const callback = event => {
-          try {
-            let data;
-            if (typeof event.data === 'string') {
-              data = JSON.parse(event.data);
-            } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data; // Already an object
-            } else {
-              // console.warn('getCustomAppUri callback: Received response with unexpected data type:', typeof event.data, event.data);
-              window.removeEventListener('message', callback); // Clean up listener
-              reject(
-                new Error(
-                  'getCustomAppUri callback: Received response with unexpected data type. Raw: ' +
-                    String(event.data),
-                ),
-              );
-              return;
-            }
-            if (
-              data.type === 'getCustomAppUri_response' &&
-              data.messageId === messageId
-            ) {
-              window.removeEventListener('message', callback);
-              if (data.error) {
-                reject(new Error(data.error));
-              } else {
-                resolve(data.result);
-              }
-            }
-          } catch (e) {
-            console.error(
-              "'getCustomAppUri' callback: Error processing response:",
-              e,
-              'Raw event.data:',
-              event.data,
-            );
-            window.removeEventListener('message', callback); // Ensure listener is removed on error too
-            reject(e);
-          }
-        };
-        window.addEventListener('message', callback);
-
-        // Send the message to React Native
-        globalThis.ReactNativeWebView.postMessage(
-          JSON.stringify({
-            type: 'getCustomAppUri',
-            messageId,
-          }),
-        );
-      });
-    },
-
-    // getFormSpecsUri:  => Promise<string>
-    getFormSpecsUri: function () {
-      return new Promise((resolve, reject) => {
-        const messageId =
-          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-
-        // Add response handler for methods that return values
-
-        const callback = event => {
-          try {
-            let data;
-            if (typeof event.data === 'string') {
-              data = JSON.parse(event.data);
-            } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data; // Already an object
-            } else {
-              // console.warn('getFormSpecsUri callback: Received response with unexpected data type:', typeof event.data, event.data);
-              window.removeEventListener('message', callback); // Clean up listener
-              reject(
-                new Error(
-                  'getFormSpecsUri callback: Received response with unexpected data type. Raw: ' +
-                    String(event.data),
-                ),
-              );
-              return;
-            }
-            if (
-              data.type === 'getFormSpecsUri_response' &&
-              data.messageId === messageId
-            ) {
-              window.removeEventListener('message', callback);
-              if (data.error) {
-                reject(new Error(data.error));
-              } else {
-                resolve(data.result);
-              }
-            }
-          } catch (e) {
-            console.error(
-              "'getFormSpecsUri' callback: Error processing response:",
-              e,
-              'Raw event.data:',
-              event.data,
-            );
-            window.removeEventListener('message', callback); // Ensure listener is removed on error too
-            reject(e);
-          }
-        };
-        window.addEventListener('message', callback);
-
-        // Send the message to React Native
-        globalThis.ReactNativeWebView.postMessage(
-          JSON.stringify({
-            type: 'getFormSpecsUri',
             messageId,
           }),
         );
