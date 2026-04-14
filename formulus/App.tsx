@@ -66,7 +66,7 @@ function AppInner(): React.JSX.Element {
     observationId: string | null;
     savedData: Record<string, unknown> | null;
     operationId: string | null;
-    returnOnly?: boolean; // For child forms opened from linkedtable
+    subObservationMode?: boolean; // Embedded sub-observation (e.g. sub-observation custom type)
   };
 
   const [formplayerStack, setFormplayerStack] = useState<
@@ -97,7 +97,7 @@ function AppInner(): React.JSX.Element {
             entry.observationId,
             entry.savedData,
             entry.operationId,
-            entry.returnOnly, // ← Pass returnOnly flag
+            entry.subObservationMode,
           );
         }, 200);
       };
@@ -146,8 +146,11 @@ function AppInner(): React.JSX.Element {
         params,
         savedData,
         operationId,
-        returnOnly,
+        subObservationMode: subObservationModeField,
       } = config;
+      const legacy = config as FormInitData & { returnOnly?: boolean };
+      const subObservationMode =
+        Boolean(subObservationModeField) || Boolean(legacy.returnOnly);
 
       try {
         const formService = await FormService.getInstance();
@@ -180,7 +183,7 @@ function AppInner(): React.JSX.Element {
           observationId: observationId || null,
           savedData: savedData || null,
           operationId: operationId || null,
-          returnOnly: returnOnly || false, // Include returnOnly flag
+          subObservationMode,
         };
 
         setFormplayerStack(current => [...current, entry]);
