@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:formplayer": "npm --prefix ../formulus-formplayer run build && pnpm copy:formplayer",
+    "build:tauri": "pnpm build:formplayer && pnpm build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "tauri": "tauri",

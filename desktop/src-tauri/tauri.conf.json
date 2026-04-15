@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build:tauri",
     "frontendDist": "../dist"
   },
   "app": {
@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:* https://* http://ipc.localhost https://ipc.localhost http://asset.localhost https://asset.localhost; img-src 'self' data: blob: https://* http://asset.localhost https://asset.localhost asset:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com http://asset.localhost https://asset.localhost asset:; font-src 'self' https://fonts.gstatic.com http://asset.localhost https://asset.localhost asset:; script-src 'self' 'unsafe-inline' blob: http://asset.localhost https://asset.localhost asset:; media-src 'self' blob: http://asset.localhost https://asset.localhost asset:; worker-src 'self' blob: http://asset.localhost https://asset.localhost asset:; frame-src 'self' blob: http://asset.localhost https://asset.localhost asset:; child-src 'self' blob: http://asset.localhost https://asset.localhost asset:;",
+      "csp": "default-src 'self' http://tauri.localhost https://tauri.localhost; connect-src 'self' http://localhost:* https://* http://ipc.localhost https://ipc.localhost http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost; img-src 'self' data: blob: https://* http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; font-src 'self' https://fonts.gstatic.com http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; media-src 'self' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; worker-src 'self' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; frame-src 'self' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; child-src 'self' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:;",
       "assetProtocol": {
         "enable": true,
         "scope": [

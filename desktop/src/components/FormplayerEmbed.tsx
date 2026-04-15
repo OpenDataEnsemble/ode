@@ -10,6 +10,7 @@ import type { FormInitData } from '../lib/formplayerHost';
 
 const FORMSPLAYER_INDEX = `${import.meta.env.BASE_URL}formplayer_dist/index.html`;
 const INJECTION_SCRIPT = `${import.meta.env.BASE_URL}formulus-injection.js`;
+const HOST_STUB_SCRIPT = `${import.meta.env.BASE_URL}formplayer-host-stub.js`;
 
 /**
  * When `public/formplayer_dist/index.html` is missing, the Vite dev server can fall
@@ -17,12 +18,24 @@ const INJECTION_SCRIPT = `${import.meta.env.BASE_URL}formulus-injection.js`;
  * iframe — looks like “main navigation inside Form preview”.
  */
 function assertFormplayerIndexHtml(html: string): void {
-  if (
+  const looksLikeDesktopShell =
+    /<title>\s*ODE Desktop\s*<\/title>/i.test(html) ||
+    html.includes('href="/custodian.png"') ||
+    /<script[^>]+src="\/assets\/[^"]+"/i.test(html);
+  const looksLikeDevShell =
     /<title>\s*Custodian\s*<\/title>/i.test(html) ||
-    html.includes('/src/main.tsx')
+    html.includes('/src/main.tsx');
+  const looksLikeFormplayer =
+    /<title>\s*Formulus Form Player\s*<\/title>/i.test(html) ||
+    html.includes('formulus-load.js');
+
+  if (
+    looksLikeDesktopShell ||
+    looksLikeDevShell ||
+    !looksLikeFormplayer
   ) {
     throw new Error(
-      'formplayer_dist/index.html is missing or the dev server returned the desktop app HTML instead of the Formplayer bundle. Run pnpm copy:formplayer from desktop/ or npm run build:ode-desktop from formulus-formplayer.',
+      'formplayer_dist/index.html is missing or the app shell HTML was returned instead of the Formplayer bundle. Run pnpm copy:formplayer from desktop/ or npm run build:ode-desktop from formulus-formplayer.',
     );
   }
 }
@@ -49,6 +62,7 @@ export const FormplayerEmbed = forwardRef<
   ref,
 ) {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const setRefs = useCallback(
     (el: HTMLIFrameElement | null) => {
       (innerRef as MutableRefObject<HTMLIFrameElement | null>).current = el;
@@ -63,6 +77,11 @@ export const FormplayerEmbed = forwardRef<
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState('idle');
+  const [diagWarning, setDiagWarning] = useState<string | null>(null);
+  const [lastBridgeType, setLastBridgeType] = useState<string | null>(null);
+  const [resolvedFormplayerUrl, setResolvedFormplayerUrl] = useState('');
+  const [resolvedBaseHref, setResolvedBaseHref] = useState('');
 
   const mountBlob = useCallback(async () => {
     const el = innerRef.current;
@@ -72,12 +91,28 @@ export const FormplayerEmbed = forwardRef<
     if (formInitData === null) {
       setLoading(false);
       setError(null);
+      setPhase('idle');
+      setDiagWarning(null);
+      setLastBridgeType(null);
+      el.removeAttribute('srcdoc');
       el.removeAttribute('src');
       return;
     }
     setLoading(true);
     setError(null);
+    setDiagWarning(null);
+    setLastBridgeType(null);
+    setPhase('preparing iframe');
     try {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = window.setTimeout(() => {
+        setDiagWarning(
+          'Iframe did not finish loading within 8s. This often means a script/module path failed inside formplayer_dist.',
+        );
+      }, 8000);
+      setPhase('fetching formplayer_dist/index.html');
       const res = await fetch(FORMSPLAYER_INDEX);
       if (!res.ok) {
         throw new Error(
@@ -85,56 +120,121 @@ export const FormplayerEmbed = forwardRef<
         );
       }
       let html = await res.text();
+      setPhase('validating fetched html');
       assertFormplayerIndexHtml(html);
-      const baseHref = new URL(
-        'formplayer_dist/',
-        window.location.href,
-      ).toString();
-      const initJson = JSON.stringify(formInitData);
-      const stub = `<script>
-(function(){
-  var MIN = ${initJson};
-  window.ReactNativeWebView = {
-    postMessage: function(m) {
-      var raw = typeof m === 'string' ? m : JSON.stringify(m);
-      try {
-        var p = typeof m === 'string' ? JSON.parse(m) : m;
-        if (p && p.type === 'formplayerReadyToReceiveInit') {
-          queueMicrotask(function() {
-            if (typeof window.onFormInit === 'function') {
-              window.onFormInit(MIN);
-            }
-          });
-        }
-      } catch (e) {}
-      if (window.parent && window.parent !== window) {
-        window.parent.postMessage(raw, '*');
-      }
-    }
-  };
-})();
-</script>
+      const formplayerIndexUrl = new URL(FORMSPLAYER_INDEX, window.location.href);
+      setResolvedFormplayerUrl(formplayerIndexUrl.toString());
+      const baseHref = new URL('./', formplayerIndexUrl).toString();
+      setResolvedBaseHref(baseHref);
+      const initJson = JSON.stringify(formInitData).replace(/</g, '\\u003c');
+      const stub = `<!--ode-formplayer-host-stub-->
+<script id="ode-formplayer-init-data" type="application/json">${initJson}</script>
+<script src="${HOST_STUB_SCRIPT}"></script>
 <script src="${INJECTION_SCRIPT}"></script>`;
+      setPhase('injecting host bridge');
       html = html.replace(
         /<head[^>]*>/i,
         match => `${match}<base href="${baseHref}">${stub}`,
       );
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
+      if (!html.includes('ode-formplayer-host-stub')) {
+        throw new Error('Failed to inject host bridge into formplayer HTML.');
+      }
+      setPhase('assigning iframe srcdoc');
       el.onload = () => {
-        URL.revokeObjectURL(url);
+        if (timeoutRef.current !== null) {
+          window.clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        try {
+          const doc = el.contentDocument;
+          const hasMarker = !!doc?.documentElement?.innerHTML.includes(
+            'ode-formplayer-host-stub',
+          );
+          const title = doc?.title ?? '';
+          setDiagWarning(prev => {
+            const prefix = prev ? `${prev} | ` : '';
+            return `${prefix}iframe-onload title="${title}" marker=${hasMarker}`;
+          });
+        } catch (err) {
+          setDiagWarning(prev => {
+            const prefix = prev ? `${prev} | ` : '';
+            return `${prefix}iframe DOM probe failed: ${
+              err instanceof Error ? err.message : String(err)
+            }`;
+          });
+        }
+        setPhase('iframe loaded');
         setLoading(false);
       };
-      el.src = url;
+      // WebView2 can behave inconsistently with blob: + module scripts in packaged apps.
+      // srcdoc avoids blob navigation while preserving our injected bridge + base href.
+      el.srcdoc = html;
     } catch (e) {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       setError(e instanceof Error ? e.message : String(e));
+      setPhase('failed');
       setLoading(false);
     }
   }, [formInitData]);
 
   useEffect(() => {
     void mountBlob();
+    return () => {
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
   }, [mountBlob]);
+
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      let payload: unknown = e.data;
+      if (typeof payload === 'string') {
+        try {
+          payload = JSON.parse(payload) as unknown;
+        } catch {
+          // Keep raw string payload for diagnostics.
+        }
+      }
+      const type =
+        typeof payload === 'object' &&
+        payload !== null &&
+        'type' in payload &&
+        typeof (payload as { type?: unknown }).type === 'string'
+          ? (payload as { type: string }).type
+          : typeof e.data === 'string'
+            ? 'raw-string-message'
+            : 'unknown-message';
+      if (
+        type === 'odeFormplayerHostDiagnostics' &&
+        typeof payload === 'object' &&
+        payload !== null
+      ) {
+        const event = (
+          payload as { event?: unknown; details?: unknown }
+        ).event;
+        const details = (
+          payload as { event?: unknown; details?: unknown }
+        ).details;
+        setDiagWarning(
+          `iframe diagnostic: ${typeof event === 'string' ? event : 'unknown'}${
+            details ? ` ${JSON.stringify(details)}` : ''
+          }`,
+        );
+      }
+      if (e.source !== innerRef.current?.contentWindow) {
+        return;
+      }
+      setLastBridgeType(type);
+      setPhase('bridge message received');
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   if (formInitData === null) {
     return (
@@ -148,6 +248,20 @@ export const FormplayerEmbed = forwardRef<
     <div className="formplayer-embed-wrap">
       {error ? <p className="notice warn">{error}</p> : null}
       {loading && !error ? <p className="muted">Loading formplayer…</p> : null}
+      <details className="formplayer-embed-diagnostics">
+        <summary>Formplayer diagnostics</summary>
+        <pre className="muted">
+{`phase: ${phase}
+warning: ${diagWarning ?? 'none'}
+lastBridgeMessageType: ${lastBridgeType ?? 'none yet'}
+formplayerIndexUrl: ${resolvedFormplayerUrl || '(not resolved yet)'}
+baseHref: ${resolvedBaseHref || '(not resolved yet)'}
+injectionScript: ${INJECTION_SCRIPT}
+hostStubScript: ${HOST_STUB_SCRIPT}
+documentUrl: ${window.location.href}
+baseUrl: ${import.meta.env.BASE_URL}`}
+        </pre>
+      </details>
       <iframe
         ref={setRefs}
         title="Formplayer preview"

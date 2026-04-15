@@ -51,7 +51,9 @@ pnpm tauri dev
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pnpm dev`                          | Vite dev server (frontend).                                                                                                                                    |
 | `pnpm build`                        | Typecheck + Vite production build.                                                                                                                             |
-| `pnpm tauri build`                  | Full desktop bundle (runs `pnpm build` first per `tauri.conf.json`).                                                                                           |
+| `pnpm build:formplayer`             | Build `../formulus-formplayer` and copy output into `public/formplayer_dist/`.                                                                                |
+| `pnpm build:tauri`                  | Prepare Formplayer assets (`build:formplayer`) and then run the desktop frontend build.                                                                        |
+| `pnpm tauri build`                  | Full desktop bundle; automatically runs `pnpm build:tauri` first, so the packaged app includes `formplayer_dist`.                                             |
 | `pnpm lint` / `pnpm lint:fix`       | ESLint.                                                                                                                                                        |
 | `pnpm format` / `pnpm format:check` | Prettier.                                                                                                                                                      |
 | `pnpm test`                         | Vitest (unit / component tests).                                                                                                                               |
