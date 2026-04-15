@@ -122,7 +122,7 @@ export function Login() {
         {serverVersion && (
           <div className="server-version">
             <span className="version-text">
-              Server v{serverVersion.replace(/^v+/i, '')}
+              Server {serverVersion}
             </span>
           </div>
         )}
