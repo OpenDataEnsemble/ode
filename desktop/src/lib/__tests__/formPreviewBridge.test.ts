@@ -18,9 +18,7 @@ vi.mock('@tauri-apps/api/path', () => ({
 vi.mock('../tauriClient', () => ({
   tauriClient: {
     getWorkspace: vi.fn().mockResolvedValue('/mock/ws'),
-    listActiveBundleForms: vi.fn().mockResolvedValue([
-      { formType: 'demo' },
-    ]),
+    listActiveBundleForms: vi.fn().mockResolvedValue([{ formType: 'demo' }]),
     listObservationsPage: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
     getActiveBundleFormsFileBaseUrl: vi
       .fn()

@@ -178,8 +178,9 @@ export function WorkbenchBundlesPage() {
           <h2>Bundles</h2>
           <p className="page-lead">
             Per profile, Synkronus app bundles are stored under that profile’s
-            workspace: versioned ZIPs in <code>{WORKSPACE_BUNDLE_ARCHIVES_DIR}</code>
-            , and the currently active bundle extracted to{' '}
+            workspace: versioned ZIPs in{' '}
+            <code>{WORKSPACE_BUNDLE_ARCHIVES_DIR}</code>, and the currently
+            active bundle extracted to{' '}
             <code>{WORKSPACE_BUNDLE_ACTIVE_DIR}</code> (previous extraction is
             removed before unpacking a new download). Switching profiles uses
             each profile’s own workspace paths.
@@ -271,7 +272,9 @@ export function WorkbenchBundlesPage() {
             </p>
           </div>
         ) : (
-          <p className="muted">No bundle state on disk for this workspace yet.</p>
+          <p className="muted">
+            No bundle state on disk for this workspace yet.
+          </p>
         )}
       </section>
 
@@ -289,7 +292,10 @@ export function WorkbenchBundlesPage() {
                   {have ? (
                     <span className="muted"> — archived locally</span>
                   ) : (
-                    <span className="muted"> — not downloaded in this workspace</span>
+                    <span className="muted">
+                      {' '}
+                      — not downloaded in this workspace
+                    </span>
                   )}
                 </li>
               );

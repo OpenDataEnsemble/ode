@@ -47,9 +47,7 @@ export function FormFinalizeDialog({
         return;
       }
       const id =
-        request.kind === 'update'
-          ? request.observationId
-          : crypto.randomUUID();
+        request.kind === 'update' ? request.observationId : crypto.randomUUID();
       const envelope = {
         observationId: id,
         formType: request.formType,
@@ -102,7 +100,9 @@ export function FormFinalizeDialog({
         });
         onComplete({ result: id });
       } else {
-        const existing = await tauriClient.getObservation(request.observationId);
+        const existing = await tauriClient.getObservation(
+          request.observationId,
+        );
         const extras = await buildExtrasWithTags(existing.extras);
         await tauriClient.saveObservation({
           id: request.observationId,
@@ -151,17 +151,22 @@ export function FormFinalizeDialog({
           Save observation
         </h3>
         <p className="muted" style={{ fontSize: '0.9rem' }}>
-          Choose how to save this finalized form. You can export JSON for offline
-          use, or store it in the local database for this profile.
+          Choose how to save this finalized form. You can export JSON for
+          offline use, or store it in the local database for this profile.
         </p>
         <div className="button-row" style={{ marginTop: '1rem' }}>
-          <button type="button" disabled={busy} onClick={() => void handleSaveJson()}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleSaveJson()}>
             Save as .json file
           </button>
         </div>
         <p
-          className="notice warn" style={{ fontSize: '0.85rem', margin: '1rem 0 0.5rem' }}>
-          Observations saved to the database will be synced to the server endpoint next time you sync.
+          className="notice warn"
+          style={{ fontSize: '0.85rem', margin: '1rem 0 0.5rem' }}>
+          Observations saved to the database will be synced to the server
+          endpoint next time you sync.
         </p>
         <label
           htmlFor={testdataCheckboxId}
@@ -196,7 +201,10 @@ export function FormFinalizeDialog({
           </p>
         ) : null}
         <div className="button-row" style={{ marginTop: '0.25rem' }}>
-          <button type="button" disabled={busy} onClick={() => void handleSaveDb()}>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleSaveDb()}>
             Save to database
           </button>
           <button

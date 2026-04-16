@@ -14,7 +14,7 @@ export function rewriteEmbeddedBundleHtml(html: string): string {
   let s = html;
   // href="/foo" and src="/foo" but not href="//" (protocol-relative CDNs)
   s = s.replace(/(href|src)="\/([^/"][^"]*)"/g, '$1="./$2"');
-  s = s.replace(/(href|src)='\/([^/'][^']*)'/g, '$1=\'./$2\'');
+  s = s.replace(/(href|src)='\/([^/'][^']*)'/g, "$1='./$2'");
   // Minified: href=/assets/x or src=/formulus-load.js (unquoted)
   s = s.replace(/\b(href|src)=(\/)(?!\/)([^\s>]+)/g, '$1=.$2$3');
   // Unquoted url() in CSS: url(/x) but not url(//x)
@@ -38,15 +38,24 @@ function rewriteFormulusLoadStringLiterals(
   relPath: './formulus-load.js' | '../formulus-load.js',
 ): string {
   let s = content;
-  s = s.replace(/"\/formulus-load\.js(\?[^"#]*)?(#[^"]*)?"/g, (_, q = '', h = '') => {
-    return `"${relPath}${q}${h}"`;
-  });
-  s = s.replace(/'\/formulus-load\.js(\?[^'#]*)?(#[^']*)?'/g, (_, q = '', h = '') => {
-    return `'${relPath}${q}${h}'`;
-  });
-  s = s.replace(/`\/formulus-load\.js(\?[^`#]*)?(#[^`]*)?`/g, (_, q = '', h = '') => {
-    return `\`${relPath}${q}${h}\``;
-  });
+  s = s.replace(
+    /"\/formulus-load\.js(\?[^"#]*)?(#[^"]*)?"/g,
+    (_, q = '', h = '') => {
+      return `"${relPath}${q}${h}"`;
+    },
+  );
+  s = s.replace(
+    /'\/formulus-load\.js(\?[^'#]*)?(#[^']*)?'/g,
+    (_, q = '', h = '') => {
+      return `'${relPath}${q}${h}'`;
+    },
+  );
+  s = s.replace(
+    /`\/formulus-load\.js(\?[^`#]*)?(#[^`]*)?`/g,
+    (_, q = '', h = '') => {
+      return `\`${relPath}${q}${h}\``;
+    },
+  );
   s = s.replace(
     /import\(\s*["']\/formulus-load\.js(\?[^"']*)?["']\s*\)/g,
     (_, q = '') => `import("${relPath}${q ?? ''}")`,

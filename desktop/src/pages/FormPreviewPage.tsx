@@ -39,9 +39,9 @@ export function FormPreviewPage() {
   const [parseError, setParseError] = useState<string | null>(null);
 
   /** When non-null, preview is editing an existing observation (Finalize → update). */
-  const [previewObservationId, setPreviewObservationId] = useState<string | null>(
-    null,
-  );
+  const [previewObservationId, setPreviewObservationId] = useState<
+    string | null
+  >(null);
 
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
 
@@ -49,9 +49,8 @@ export function FormPreviewPage() {
   const finalizeResolverRef = useRef<
     ((v: { result?: string; error?: string }) => void) | null
   >(null);
-  const [finalizeRequest, setFinalizeRequest] = useState<FinalizeRequest | null>(
-    null,
-  );
+  const [finalizeRequest, setFinalizeRequest] =
+    useState<FinalizeRequest | null>(null);
 
   const loadForms = useCallback(async () => {
     setListLoading(true);
@@ -248,17 +247,19 @@ export function FormPreviewPage() {
           <p className="page-lead">
             Load forms from the active app bundle under{' '}
             <code>{WORKSPACE_BUNDLE_ACTIVE_DIR}</code> (same layout as Formulus:
-            each form folder has <code>schema.json</code> and <code>ui.json</code>
+            each form folder has <code>schema.json</code> and{' '}
+            <code>ui.json</code>
             ). Optional <code>ext.json</code> at <code>forms/ext.json</code> and
             per-form <code>forms/&lt;type&gt;/ext.json</code>, plus{' '}
-            <code>question_types</code> / <code>validators</code> next to or under{' '}
-            <code>forms/</code>, match the Formulus bundle. Use <strong>params</strong>{' '}
-            for host / prefill data (e.g. <code>defaultData</code>) and{' '}
-            <strong>saved data</strong> for edit-style payloads — same shape as{' '}
-            <code>FormInitData</code> in <code>FormulusInterfaceDefinition</code>.
-            Build formplayer from <code>formulus-formplayer/</code> (
-            <code>npm run build:ode-desktop</code>
-            ) or <code>pnpm copy:formplayer</code> in <code>desktop/</code>.
+            <code>question_types</code> / <code>validators</code> next to or
+            under <code>forms/</code>, match the Formulus bundle. Use{' '}
+            <strong>params</strong> for host / prefill data (e.g.{' '}
+            <code>defaultData</code>) and <strong>saved data</strong> for
+            edit-style payloads — same shape as <code>FormInitData</code> in{' '}
+            <code>FormulusInterfaceDefinition</code>. Build formplayer from{' '}
+            <code>formulus-formplayer/</code> (
+            <code>npm run build:ode-desktop</code>) or{' '}
+            <code>pnpm copy:formplayer</code> in <code>desktop/</code>.
           </p>
 
           <div className="form-preview-controls">
@@ -295,7 +296,8 @@ export function FormPreviewPage() {
             ) : forms.length === 0 && !listLoading ? (
               <p className="muted">
                 No forms found. Download and apply an app bundle on the Bundles
-                page so <code>bundles/active/forms/</code> contains form folders.
+                page so <code>bundles/active/forms/</code> contains form
+                folders.
               </p>
             ) : null}
 
@@ -334,7 +336,9 @@ export function FormPreviewPage() {
                   <p className="notice error">{parseError}</p>
                 ) : null}
                 <div className="button-row">
-                  <button type="button" onClick={() => void applyJsonToPreview()}>
+                  <button
+                    type="button"
+                    onClick={() => void applyJsonToPreview()}>
                     Apply JSON to preview
                   </button>
                 </div>

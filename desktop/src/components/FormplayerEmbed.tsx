@@ -29,11 +29,7 @@ function assertFormplayerIndexHtml(html: string): void {
     /<title>\s*Formulus Form Player\s*<\/title>/i.test(html) ||
     html.includes('formulus-load.js');
 
-  if (
-    looksLikeDesktopShell ||
-    looksLikeDevShell ||
-    !looksLikeFormplayer
-  ) {
+  if (looksLikeDesktopShell || looksLikeDevShell || !looksLikeFormplayer) {
     throw new Error(
       'formplayer_dist/index.html is missing or the app shell HTML was returned instead of the Formplayer bundle. Run pnpm copy:formplayer from desktop/ or npm run build:ode-desktop from formulus-formplayer.',
     );
@@ -104,7 +100,10 @@ export const FormplayerEmbed = forwardRef<
       }
       let html = await res.text();
       assertFormplayerIndexHtml(html);
-      const formplayerIndexUrl = new URL(FORMSPLAYER_INDEX, window.location.href);
+      const formplayerIndexUrl = new URL(
+        FORMSPLAYER_INDEX,
+        window.location.href,
+      );
       const baseHref = new URL('./', formplayerIndexUrl).toString();
       const initJson = JSON.stringify(formInitData).replace(/</g, '\\u003c');
       const stub = `<!--ode-formplayer-host-stub-->

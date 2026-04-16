@@ -6,9 +6,9 @@ import {
 
 describe('appBundleStatus', () => {
   it('detects update when local is missing', () => {
-    expect(
-      appBundleUpdateAvailable({ version: '1', hash: 'a' }, null),
-    ).toBe(true);
+    expect(appBundleUpdateAvailable({ version: '1', hash: 'a' }, null)).toBe(
+      true,
+    );
   });
 
   it('detects update when version or hash differs', () => {
@@ -54,8 +54,9 @@ describe('appBundleStatus', () => {
   });
 
   it('lists server versions not in archive', () => {
-    expect(
-      serverVersionsNotDownloaded(['1', '2', '3'], ['2']),
-    ).toEqual(['1', '3']);
+    expect(serverVersionsNotDownloaded(['1', '2', '3'], ['2'])).toEqual([
+      '1',
+      '3',
+    ]);
   });
 });

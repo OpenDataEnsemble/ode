@@ -66,9 +66,7 @@ function normalizeJson(raw: Record<string, unknown>): {
         tester: (testerObj.export ?? rendererTester?.export) as
           | string
           | undefined,
-        renderer: String(
-          rendererObj.export ?? rendererTester?.export ?? key,
-        ),
+        renderer: String(rendererObj.export ?? rendererTester?.export ?? key),
       };
     }
   }
@@ -136,7 +134,9 @@ const emptyNorm = (): ReturnType<typeof normalizeJson> => ({
  * Loads merged `ext.json` (app-level + form-level) and custom question types / validators
  * from the same layout as Formulus `FormplayerModal` (see `ExtensionService` + CQT scan).
  */
-export async function loadBundleFormplayerExtensions(formType: string): Promise<{
+export async function loadBundleFormplayerExtensions(
+  formType: string,
+): Promise<{
   extensions: FormInitData['extensions'];
   customQuestionTypes: FormInitData['customQuestionTypes'];
 }> {

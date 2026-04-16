@@ -120,7 +120,10 @@ function filterRowsByWhereClause(
   if (!whereClause || !whereClause.trim()) {
     return rows;
   }
-  const parts = whereClause.split(/\s+AND\s+/i).map(s => s.trim()).filter(Boolean);
+  const parts = whereClause
+    .split(/\s+AND\s+/i)
+    .map(s => s.trim())
+    .filter(Boolean);
   return rows.filter(row => {
     const data =
       row.payload &&
@@ -129,9 +132,7 @@ function filterRowsByWhereClause(
         ? (row.payload as Record<string, unknown>)
         : {};
     return parts.every(part => {
-      const m = part.match(
-        /^data\.([\w.]+)\s*=\s*'((?:[^'\\]|\\.)*)'$/,
-      );
+      const m = part.match(/^data\.([\w.]+)\s*=\s*'((?:[^'\\]|\\.)*)'$/);
       if (!m) {
         return true;
       }
@@ -147,9 +148,7 @@ export function mapObservationToFormObservation(
   r: ObservationRecord,
 ): Record<string, unknown> {
   const data =
-    r.payload &&
-    typeof r.payload === 'object' &&
-    !Array.isArray(r.payload)
+    r.payload && typeof r.payload === 'object' && !Array.isArray(r.payload)
       ? (r.payload as Record<string, unknown>)
       : {};
   const created = r.extras?.createdAt ?? r.lastSavedAt;
@@ -210,13 +209,17 @@ export async function handleFormPreviewBridgeMessage(
     return;
   }
 
-  const reply = (requestType: string, payload: { result?: unknown; error?: string }) =>
-    postFormplayerBridgeReply(ctx.iframe, requestType, messageId, payload);
+  const reply = (
+    requestType: string,
+    payload: { result?: unknown; error?: string },
+  ) => postFormplayerBridgeReply(ctx.iframe, requestType, messageId, payload);
 
   try {
     switch (t) {
       case 'getVersion':
-        reply('getVersion', { result: FORM_PREVIEW_FORMULUS_INTERFACE_VERSION });
+        reply('getVersion', {
+          result: FORM_PREVIEW_FORMULUS_INTERFACE_VERSION,
+        });
         return;
 
       case 'getAvailableForms': {
@@ -298,7 +301,11 @@ export async function handleFormPreviewBridgeMessage(
       case 'submitObservation': {
         const formType = String(data.formType ?? '');
         const finalData = (data.finalData ?? {}) as Record<string, unknown>;
-        const res = await ctx.onFinalize({ kind: 'submit', formType, finalData });
+        const res = await ctx.onFinalize({
+          kind: 'submit',
+          formType,
+          finalData,
+        });
         reply('submitObservation', res);
         return;
       }
@@ -327,49 +334,63 @@ export async function handleFormPreviewBridgeMessage(
       case 'requestLocation':
         reply(
           'requestLocation',
-          stubReason('GPS / location is not available in ODE Desktop form preview.'),
+          stubReason(
+            'GPS / location is not available in ODE Desktop form preview.',
+          ),
         );
         return;
 
       case 'requestFile':
         reply(
           'requestFile',
-          stubReason('Native file picker is not wired in ODE Desktop form preview.'),
+          stubReason(
+            'Native file picker is not wired in ODE Desktop form preview.',
+          ),
         );
         return;
 
       case 'launchIntent':
         reply(
           'launchIntent',
-          stubReason('launchIntent is not supported in ODE Desktop form preview.'),
+          stubReason(
+            'launchIntent is not supported in ODE Desktop form preview.',
+          ),
         );
         return;
 
       case 'callSubform':
         reply(
           'callSubform',
-          stubReason('callSubform is not supported in ODE Desktop form preview.'),
+          stubReason(
+            'callSubform is not supported in ODE Desktop form preview.',
+          ),
         );
         return;
 
       case 'requestAudio':
         reply(
           'requestAudio',
-          stubReason('Audio recording is not available in ODE Desktop form preview.'),
+          stubReason(
+            'Audio recording is not available in ODE Desktop form preview.',
+          ),
         );
         return;
 
       case 'requestQrcode':
         reply(
           'requestQrcode',
-          stubReason('QR scanning is not available in ODE Desktop form preview.'),
+          stubReason(
+            'QR scanning is not available in ODE Desktop form preview.',
+          ),
         );
         return;
 
       case 'requestBiometric':
         reply(
           'requestBiometric',
-          stubReason('Biometric auth is not available in ODE Desktop form preview.'),
+          stubReason(
+            'Biometric auth is not available in ODE Desktop form preview.',
+          ),
         );
         return;
 
@@ -384,7 +405,9 @@ export async function handleFormPreviewBridgeMessage(
       case 'runLocalModel':
         reply(
           'runLocalModel',
-          stubReason('runLocalModel is not available in ODE Desktop form preview.'),
+          stubReason(
+            'runLocalModel is not available in ODE Desktop form preview.',
+          ),
         );
         return;
 
@@ -429,7 +452,8 @@ export async function handleFormPreviewBridgeMessage(
 
       case 'getAttachmentsUri': {
         try {
-          const url = await tauriClient.workspaceDirectoryFileUrl('attachments');
+          const url =
+            await tauriClient.workspaceDirectoryFileUrl('attachments');
           reply('getAttachmentsUri', { result: url });
         } catch (e) {
           reply('getAttachmentsUri', {

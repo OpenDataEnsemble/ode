@@ -14,9 +14,8 @@ export function WorkbenchCustomAppPage() {
   const finalizeResolverRef = useRef<
     ((v: { result?: string; error?: string }) => void) | null
   >(null);
-  const [finalizeRequest, setFinalizeRequest] = useState<FinalizeRequest | null>(
-    null,
-  );
+  const [finalizeRequest, setFinalizeRequest] =
+    useState<FinalizeRequest | null>(null);
   const [bundleState, setBundleState] = useState<AppBundleState | null>(null);
   const [bundleError, setBundleError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -100,7 +99,7 @@ export function WorkbenchCustomAppPage() {
       />
       <header className="page-header page-header-inline">
         <div>
-          <h2>Custom app</h2>          
+          <h2>Custom app</h2>
         </div>
         <div className="button-row">
           <button

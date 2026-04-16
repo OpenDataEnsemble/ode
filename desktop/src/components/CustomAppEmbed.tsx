@@ -46,17 +46,18 @@ function buildHostStub(): string {
   );
 }
 
-function injectIntoHead(html: string, inject: string, baseHref: string): string {
+function injectIntoHead(
+  html: string,
+  inject: string,
+  baseHref: string,
+): string {
   const baseTag = `<base href="${baseHref.replace(/"/g, '&quot;')}">`;
   const wrapped = `<!--ode-desktop-inject-start-->${baseTag}${inject}<!--ode-desktop-inject-end-->`;
   if (/<head[^>]*>/i.test(html)) {
     return html.replace(/<head[^>]*>/i, m => `${m}${wrapped}`);
   }
   if (/<html[^>]*>/i.test(html)) {
-    return html.replace(
-      /<html[^>]*>/i,
-      m => `${m}<head>${wrapped}</head>`,
-    );
+    return html.replace(/<html[^>]*>/i, m => `${m}<head>${wrapped}</head>`);
   }
   return `<!DOCTYPE html><html><head>${baseHref ? wrapped : ''}</head><body>${html}</body></html>`;
 }
@@ -75,88 +76,92 @@ export type CustomAppEmbedProps = {
  *
  * Patches: rewriteEmbeddedBundleHtml + patchWorkspaceAppBundleAbsolutePaths (idempotent).
  */
-export const CustomAppEmbed = forwardRef<HTMLIFrameElement, CustomAppEmbedProps>(
-  function CustomAppEmbed({ mountKey }, ref) {
-    const innerRef = useRef<HTMLIFrameElement | null>(null);
-    const setRefs = useCallback(
-      (el: HTMLIFrameElement | null) => {
-        (innerRef as MutableRefObject<HTMLIFrameElement | null>).current = el;
-        if (typeof ref === 'function') {
-          ref(el);
-        } else if (ref) {
-          (ref as MutableRefObject<HTMLIFrameElement | null>).current = el;
-        }
-      },
-      [ref],
-    );
-
-    const [error, setError] = useState<string | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    const mountBlob = useCallback(async () => {
-      const el = innerRef.current;
-      if (!el) {
-        return;
+export const CustomAppEmbed = forwardRef<
+  HTMLIFrameElement,
+  CustomAppEmbedProps
+>(function CustomAppEmbed({ mountKey }, ref) {
+  const innerRef = useRef<HTMLIFrameElement | null>(null);
+  const setRefs = useCallback(
+    (el: HTMLIFrameElement | null) => {
+      (innerRef as MutableRefObject<HTMLIFrameElement | null>).current = el;
+      if (typeof ref === 'function') {
+        ref(el);
+      } else if (ref) {
+        (ref as MutableRefObject<HTMLIFrameElement | null>).current = el;
       }
-      setLoading(true);
-      setError(null);
-      try {
-        const workspace = await tauriClient.getWorkspace();
-        if (!workspace) {
-          throw new Error('No workspace configured for the active profile.');
-        }
-        const indexPath = await join(
-          workspace,
-          'bundles',
-          'active',
-          'app',
-          'index.html',
-        );
-        const appDirPath = await dirname(indexPath);
-        await patchWorkspaceAppBundleAbsolutePaths();
-        let html = await tauriClient.readWorkspaceTextFile(CUSTOM_APP_INDEX_REL);
-        html = stripOdeDesktopInjection(html);
-        html = rewriteEmbeddedBundleHtml(html);
-        const indexAssetUrl = convertFileSrc(indexPath);
-        // `new URL('./', convertFileSrc(…/index.html))` resolves to `asset://localhost/`
-        // (WHATWG URL + encoded path); relative script URLs then hit the wrong origin path.
-        const appDirAssetUrl = convertFileSrc(appDirPath);
-        const baseHref = appDirAssetUrl.endsWith('/')
-          ? appDirAssetUrl
-          : `${appDirAssetUrl}/`;
-        const stub = buildHostStub();
-        const doc = injectIntoHead(html, stub, baseHref);
-        const enc = new TextEncoder();
-        await tauriClient.writeWorkspaceFile(CUSTOM_APP_INDEX_REL, enc.encode(doc));
-        // Query busts document cache. Do not use a `#fragment` here: many SPAs use the
-        // hash for routing (HashRouter or path), so `#ode-…` would break the initial route.
-        const url = `${indexAssetUrl}?ode=${Date.now()}`;
-        el.onload = () => {
-          setLoading(false);
-        };
-        el.src = url;
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+    },
+    [ref],
+  );
+
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const mountBlob = useCallback(async () => {
+    const el = innerRef.current;
+    if (!el) {
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const workspace = await tauriClient.getWorkspace();
+      if (!workspace) {
+        throw new Error('No workspace configured for the active profile.');
+      }
+      const indexPath = await join(
+        workspace,
+        'bundles',
+        'active',
+        'app',
+        'index.html',
+      );
+      const appDirPath = await dirname(indexPath);
+      await patchWorkspaceAppBundleAbsolutePaths();
+      let html = await tauriClient.readWorkspaceTextFile(CUSTOM_APP_INDEX_REL);
+      html = stripOdeDesktopInjection(html);
+      html = rewriteEmbeddedBundleHtml(html);
+      const indexAssetUrl = convertFileSrc(indexPath);
+      // `new URL('./', convertFileSrc(…/index.html))` resolves to `asset://localhost/`
+      // (WHATWG URL + encoded path); relative script URLs then hit the wrong origin path.
+      const appDirAssetUrl = convertFileSrc(appDirPath);
+      const baseHref = appDirAssetUrl.endsWith('/')
+        ? appDirAssetUrl
+        : `${appDirAssetUrl}/`;
+      const stub = buildHostStub();
+      const doc = injectIntoHead(html, stub, baseHref);
+      const enc = new TextEncoder();
+      await tauriClient.writeWorkspaceFile(
+        CUSTOM_APP_INDEX_REL,
+        enc.encode(doc),
+      );
+      // Query busts document cache. Do not use a `#fragment` here: many SPAs use the
+      // hash for routing (HashRouter or path), so `#ode-…` would break the initial route.
+      const url = `${indexAssetUrl}?ode=${Date.now()}`;
+      el.onload = () => {
         setLoading(false);
-      }
-    }, []);
+      };
+      el.src = url;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setLoading(false);
+    }
+  }, []);
 
-    useEffect(() => {
-      void mountBlob();
-    }, [mountKey, mountBlob]);
+  useEffect(() => {
+    void mountBlob();
+  }, [mountKey, mountBlob]);
 
-    return (
-      <div className="formplayer-embed-wrap custom-app-embed-wrap">
-        {error ? <p className="notice warn">{error}</p> : null}
-        {loading && !error ? (
-          <p className="muted">Loading custom app from active bundle…</p>
-        ) : null}
-        <iframe
-          ref={setRefs}
-          title="Custom app"
-          className="formplayer-embed-frame custom-app-embed-frame"
-        />
-      </div>
-    );
-  },
-);
+  return (
+    <div className="formplayer-embed-wrap custom-app-embed-wrap">
+      {error ? <p className="notice warn">{error}</p> : null}
+      {loading && !error ? (
+        <p className="muted">Loading custom app from active bundle…</p>
+      ) : null}
+      <iframe
+        ref={setRefs}
+        title="Custom app"
+        className="formplayer-embed-frame custom-app-embed-frame"
+      />
+    </div>
+  );
+});
