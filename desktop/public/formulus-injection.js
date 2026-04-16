@@ -2,6 +2,7 @@
 // Do not edit directly - this file will be overwritten
 // Last generated: 2026-04-09T07:22:39.750Z
 
+/* global formulus */
 (function () {
   // Enhanced API availability detection and recovery
   function getFormulus() {
@@ -1586,6 +1587,7 @@
   globalThis.__formulusBridgeInitialized = true;
 
   // Simple API availability check for internal use
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function requestApiReinjection() {
     console.log('Formulus: Requesting re-injection from host...');
     if (globalThis.ReactNativeWebView) {

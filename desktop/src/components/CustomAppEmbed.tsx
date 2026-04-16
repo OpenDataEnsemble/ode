@@ -41,8 +41,8 @@ function buildHostStub(): string {
     'var raw=typeof m==="string"?m:JSON.stringify(m);' +
     'if(window.parent&&window.parent!==window){window.parent.postMessage(raw,"*");}' +
     '}};})();' +
-    '<\/script>' +
-    `<script src="${esc}"><\/script>`
+    '</script>' +
+    `<script src="${esc}"></script>`
   );
 }
 
