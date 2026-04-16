@@ -10,7 +10,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use keyring::Entry;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::Manager;
@@ -782,7 +782,9 @@ fn extract_zip_to_dir(zip_bytes: &[u8], dest: &Path) -> Result<(), CustodianErro
     Ok(())
 }
 
-fn read_app_bundle_state_unlocked(bundles_root: &Path) -> Result<Option<AppBundleState>, CustodianError> {
+fn read_app_bundle_state_unlocked(
+    bundles_root: &Path,
+) -> Result<Option<AppBundleState>, CustodianError> {
     let path = bundles_root.join("state.json");
     if !path.exists() {
         return Ok(None);
@@ -1898,14 +1900,12 @@ fn read_bundle_form_spec(
         let schema_path = dir.join("schema.json");
         let ui_path = dir.join("ui.json");
         if schema_path.is_file() && ui_path.is_file() {
-            let form_schema: Value = serde_json::from_str(
-                &fs::read_to_string(&schema_path).map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?;
-            let ui_schema: Value = serde_json::from_str(
-                &fs::read_to_string(&ui_path).map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?;
+            let form_schema: Value =
+                serde_json::from_str(&fs::read_to_string(&schema_path).map_err(|e| e.to_string())?)
+                    .map_err(|e| e.to_string())?;
+            let ui_schema: Value =
+                serde_json::from_str(&fs::read_to_string(&ui_path).map_err(|e| e.to_string())?)
+                    .map_err(|e| e.to_string())?;
             return Ok(BundleFormSpec {
                 form_type: ft,
                 form_schema,
@@ -2005,9 +2005,7 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_active_bundle_forms_file_base_url(
-    ctx: tauri::State<'_, AppCtx>,
-) -> Result<String, String> {
+fn get_active_bundle_forms_file_base_url(ctx: tauri::State<'_, AppCtx>) -> Result<String, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let forms = ws.join("bundles/active/forms");
     Url::from_directory_path(&forms)
