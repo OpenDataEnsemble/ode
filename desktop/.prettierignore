@@ -1,0 +1,7 @@
+node_modules
+dist
+.vscode
+package-lock.json
+src/generated
+src-tauri/target
+src-tauri/gen
