@@ -6,7 +6,7 @@
   // Enhanced API availability detection and recovery
   function getFormulus() {
     // Check multiple locations where the API might exist
-    return globalThis.formulus || window.formulus || (typeof formulus !== 'undefined' ? formulus : undefined);
+    return globalThis.formulus || (typeof window !== 'undefined' ? window.formulus : undefined);
   }
 
   function isFormulusAvailable() {
@@ -1244,6 +1244,7 @@
       }));
     }
   }
+  globalThis.__formulusRequestApiReinjection = requestApiReinjection;
 
   // Notify React Native that the interface is ready
   if (globalThis.ReactNativeWebView) {
