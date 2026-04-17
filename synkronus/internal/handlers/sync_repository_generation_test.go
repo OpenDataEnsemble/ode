@@ -156,3 +156,57 @@ func TestPush_repositoryGenerationMismatch_returns409(t *testing.T) {
 func int64Ptr(v int64) *int64 {
 	return &v
 }
+
+// TestPull_missingRepositoryGeneration_adoptsServer verifies the fresh-install
+// contract: when a client omits both the header AND the request body epoch,
+// the server must NOT treat the request as "client sent 1" (which would 409 a
+// fresh install against any previously-reset server). Instead it adopts the
+// current server generation silently.
+func TestPull_missingRepositoryGeneration_adoptsServer(t *testing.T) {
+	h, mockSync, _ := createTestHandlerWithSync()
+	mockSync.SetRepositoryGeneration(5)
+
+	body, err := json.Marshal(SyncPullRequest{
+		ClientID: "fresh-install",
+		Since: &SyncPullRequestSince{
+			Version: 0,
+		},
+		// Intentionally: no RepositoryGeneration, no header.
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync/pull", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.Pull(w, req)
+
+	resp := w.Result()
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected HTTP 200 for fresh install without epoch, got %d", resp.StatusCode)
+	}
+}
+
+// TestAttachmentManifest_missingRepositoryGeneration_adoptsServer is the
+// attachment-manifest counterpart of the fresh-install contract.
+func TestAttachmentManifest_missingRepositoryGeneration_adoptsServer(t *testing.T) {
+	h, mockSync, _ := createTestHandlerWithSync()
+	mockSync.SetRepositoryGeneration(5)
+
+	body := []byte(`{"client_id":"fresh-install","since_version":0}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/attachments/manifest", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.AttachmentManifestHandler(w, req)
+
+	resp := w.Result()
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	if resp.StatusCode == http.StatusConflict {
+		t.Fatalf("expected non-409 for fresh install without epoch, got 409")
+	}
+}

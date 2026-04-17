@@ -46,6 +46,7 @@ import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { geolocationService } from '../services/GeolocationService';
+import { persistObservationWithAttachments } from '../services/attachmentStorage';
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -499,39 +500,35 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         setIsSubmitting(true);
 
         try {
-          // Save the observation (optional - skip in sub-observation mode)
-          let resultObservationId: string;
-
-          if (!subObservationModeRef.current) {
-            // Normal mode: save to database
-            const localRepo = databaseService.getLocalRepo();
-            if (!localRepo) {
-              throw new Error('Database repository not available');
-            }
-
-            if (effectiveObservationId) {
-              const updateSuccess = await localRepo.updateObservation({
-                observationId: effectiveObservationId,
-                data: finalData,
-              });
-              if (!updateSuccess) {
-                throw new Error('Failed to update observation');
-              }
-              resultObservationId = effectiveObservationId;
-            } else {
-              const newId = await localRepo.saveObservation({
-                formType,
-                data: finalData,
-              });
-              if (!newId) {
-                throw new Error('Failed to save new observation');
-              }
-              resultObservationId = newId;
-            }
-          } else {
-            // Sub-observation: return JSON to parent only; do not persist here.
-            resultObservationId = '';
+          const subObservationMode = subObservationModeRef.current;
+          const localRepo = subObservationMode
+            ? null
+            : databaseService.getLocalRepo();
+          if (!subObservationMode && !localRepo) {
+            throw new Error('Database repository not available');
           }
+
+          const persistResult = await persistObservationWithAttachments(
+            {
+              formType,
+              finalData,
+              observationId: effectiveObservationId,
+              subObservationMode,
+            },
+            {
+              saveObservation: args =>
+                localRepo
+                  ? localRepo.saveObservation(args)
+                  : Promise.resolve(null),
+              updateObservation: args =>
+                localRepo
+                  ? localRepo.updateObservation(args)
+                  : Promise.resolve(false),
+            },
+          );
+
+          const resultObservationId = persistResult.observationId;
+          const resultFormData = persistResult.formData;
 
           // Mark form as successfully submitted
           setFormSubmitted(true);
@@ -540,7 +537,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           const completionResult: FormCompletionResult = {
             status: effectiveObservationId ? 'form_updated' : 'form_submitted',
             observationId: resultObservationId,
-            formData: finalData,
+            formData: resultFormData,
             formType: formType,
           };
 

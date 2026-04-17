@@ -8,6 +8,10 @@ import { StatusBar, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
+import {
+  runAttachmentLayoutMigrationV2,
+  sweepStaleDraftAttachments,
+} from './src/services/attachmentStorage';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { AppThemeProvider, useAppTheme } from './src/contexts/AppThemeContext';
 import { ConfirmModalProvider } from './src/contexts/ConfirmModalContext';
@@ -116,6 +120,14 @@ function AppInner(): React.JSX.Element {
 
   useEffect(() => {
     FormService.getInstance();
+
+    // Run the v2 attachment folder-layout migration first (idempotent; guarded by
+    // AsyncStorage flag), then the best-effort stale-draft sweep. Both failure
+    // paths are logged inside the helpers; neither is allowed to throw on boot.
+    void (async () => {
+      await runAttachmentLayoutMigrationV2();
+      await sweepStaleDraftAttachments();
+    })().catch(() => undefined);
 
     const handleOpenQRScanner = (data: {
       fieldId: string;

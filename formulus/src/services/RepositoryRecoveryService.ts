@@ -26,7 +26,8 @@ class RepositoryRecoveryService {
       throw new Error(`Failed to delete attachments directory: ${error}`);
     }
     await RNFS.mkdir(attachmentsDirectory);
-    await RNFS.mkdir(`${attachmentsDirectory}/pending_upload`);
+    await RNFS.mkdir(`${attachmentsDirectory}/synced`);
+    await RNFS.mkdir(`${attachmentsDirectory}/pending`);
     await RNFS.mkdir(`${attachmentsDirectory}/draft`);
 
     await database.write(async () => {

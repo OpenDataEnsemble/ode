@@ -105,14 +105,15 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	clientGen := sync.ParseClientRepositoryGeneration(r, nil)
+	clientGen, clientGenSent := sync.ParseClientRepositoryGenerationSent(r, nil)
 	serverGen, err := h.syncService.GetRepositoryGeneration(r.Context())
 	if err != nil {
 		h.log.Error("Failed to read repository generation", "error", err)
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to verify repository generation")
 		return
 	}
-	if clientGen != serverGen {
+	// Fresh install (no header): adopt server generation — see Pull handler.
+	if clientGenSent && clientGen != serverGen {
 		w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(serverGen, 10))
 		SendErrorResponseWithCode(w, http.StatusConflict, sync.ErrRepositoryGenerationMismatch,
 			"Client repository_generation does not match the server; align generation before uploading attachments.",

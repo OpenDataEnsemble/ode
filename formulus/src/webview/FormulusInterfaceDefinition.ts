@@ -454,17 +454,34 @@ export interface FormulusInterface {
 
   /**
    * Resolve a synced or camera-saved attachment to a WebView-loadable `file://` URL.
-   * Checks `{DocumentDirectory}/attachments/draft/` (unsaved capture), then `attachments/`,
-   * then `pending_upload/`. Pass the basename only (e.g. `photo.filename` from observation
-   * data); path segments and ".." are rejected.
+   *
+   * Lookup order, first hit wins:
+   *   1. `attachments/draft/<name>`   — unsaved capture (formplayer preview)
+   *   2. `attachments/synced/<name>`  — canonical committed / downloaded copy
+   *   3. `attachments/pending/<name>` — queued for upload (fallback only)
+   *
+   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`)
+   * are also checked as a fallback until the v2 folder-layout migration has
+   * finished on upgraded devices. Pass the basename only (e.g. `photo.filename`
+   * from observation data); path segments and ".." are rejected.
+   *
    * @param fileName - Attachment file basename
    * @returns `file://` URL if the file exists, otherwise `null`
    */
   getAttachmentUri(fileName: string): Promise<string | null>;
 
   /**
-   * Base `file://` URL for the attachments directory (trailing slash).
-   * @returns e.g. `file:///.../attachments/`
+   * Base `file://` URL for the canonical attachments directory (trailing slash).
+   * Returns the `synced/` subfolder — only committed/downloaded files are
+   * iterable from here. Drafts and the upload queue are excluded by design so
+   * custom apps can safely list this directory.
+   *
+   * **Breaking change (v2 layout):** this used to return the `attachments/`
+   * parent directory, which mixed committed files with `draft/` and
+   * `pending_upload/` subfolders. Custom apps that iterate this URL will now
+   * see only fully-committed attachments.
+   *
+   * @returns e.g. `file:///.../attachments/synced/`
    */
   getAttachmentsUri(): Promise<string>;
 
