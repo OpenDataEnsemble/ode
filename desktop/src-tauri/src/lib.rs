@@ -179,12 +179,7 @@ fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> 
         root.join(basename),
         root.join(ATTACH_LEGACY_PENDING_UPLOAD).join(basename),
     ];
-    for p in candidates {
-        if p.is_file() {
-            return Some(p);
-        }
-    }
-    None
+    candidates.into_iter().find(|p| p.is_file())
 }
 
 fn attachment_path_synced(workspace: &Path, basename: &str) -> PathBuf {
@@ -1359,7 +1354,7 @@ fn list_workspace_items(
             is_dir: ty.is_dir(),
         });
     }
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    items.sort_by_key(|a| a.name.to_lowercase());
     Ok(items)
 }
 
@@ -1895,7 +1890,7 @@ fn write_workspace_file(
     if rel.is_empty() {
         return Err("relative path is required".to_string());
     }
-    for part in rel.split(|c| c == '/' || c == '\\') {
+    for part in rel.split(['/', '\\']) {
         if part.is_empty() || part == "." || part == ".." {
             return Err("invalid relative path".to_string());
         }
