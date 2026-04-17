@@ -30,7 +30,7 @@ Before the first Android build (and after cloning the repo), vendor the **Notife
 npm run vendor:notifee
 ```
 
-The checkout under `third_party/notifee/` is **not committed** (it is gitignored). A fresh clone has no `:notifee_core` sources, so Gradle fails dependency resolution for that project—often with a message like *No matching variant of project `:notifee_core`* or *No variants exist*. Running `npm run vendor:notifee` (or `npm run android`, which runs it via the `preandroid` script) creates that tree. If you build with `./gradlew` or `npx react-native run-android` directly, run `npm run vendor:notifee` first when `third_party/notifee/` is missing.
+The checkout under `third_party/notifee/` is **not committed** (it is gitignored). A fresh clone has no `:notifee_core` sources, so Gradle fails dependency resolution for that project—often with a message like _No matching variant of project `:notifee_core`_ or _No variants exist_. Running `npm run vendor:notifee` (or `npm run android`, which runs it via the `preandroid` script) creates that tree. If you build with `./gradlew` or `npx react-native run-android` directly, run `npm run vendor:notifee` first when `third_party/notifee/` is missing.
 
 Then:
 

@@ -984,9 +984,7 @@ class SynkronusApi {
           xOdeVersion: ODE_VERSION,
           syncPullRequest: {
             client_id: clientId,
-            ...(clientGen != null
-              ? { repository_generation: clientGen }
-              : {}),
+            ...(clientGen != null ? { repository_generation: clientGen } : {}),
             since: {
               version: currentSince,
             },

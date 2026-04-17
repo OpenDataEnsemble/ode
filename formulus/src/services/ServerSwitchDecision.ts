@@ -65,9 +65,7 @@ export function classifyServerChange(
   }
 
   const prevNorm = normalizeServerUrl(trimmedPrev);
-  const comparable = prevNorm.ok
-    ? prevNorm.href
-    : trimmedPrev.toLowerCase();
+  const comparable = prevNorm.ok ? prevNorm.href : trimmedPrev.toLowerCase();
 
   if (normalizedUrl === comparable) {
     return { kind: 'same', normalizedUrl };

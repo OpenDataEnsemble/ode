@@ -211,9 +211,9 @@ describe('persistObservationWithAttachments (FormplayerModal submit contract)', 
     })) as jest.MockedFunction<
       (d: Record<string, unknown>) => Promise<Record<string, unknown>>
     >;
-    saveObservation = jest.fn(async () => 'new-observation-id') as jest.MockedFunction<
-      (args: SaveArgs) => Promise<string | null>
-    >;
+    saveObservation = jest.fn(
+      async () => 'new-observation-id',
+    ) as jest.MockedFunction<(args: SaveArgs) => Promise<string | null>>;
     updateObservation = jest.fn(async () => true) as jest.MockedFunction<
       (args: UpdateArgs) => Promise<boolean>
     >;
@@ -365,10 +365,7 @@ describe('sweepStaleDraftAttachments', () => {
     ]);
     mockRNFS.unlink.mockResolvedValue(undefined);
 
-    const removed = await sweepStaleDraftAttachments(
-      DEFAULT_DRAFT_TTL_MS,
-      now,
-    );
+    const removed = await sweepStaleDraftAttachments(DEFAULT_DRAFT_TTL_MS, now);
     expect(removed).toBe(1);
     expect(mockRNFS.unlink).toHaveBeenCalledTimes(1);
     expect(mockRNFS.unlink).toHaveBeenCalledWith(
@@ -455,15 +452,11 @@ describe('runAttachmentLayoutMigrationV2', () => {
     const migrated = await runAttachmentLayoutMigrationV2();
 
     expect(migrated).toBe(true);
-    expect(mockRNFS.mkdir).toHaveBeenCalledWith(
-      '/mock/doc/attachments/synced',
-    );
+    expect(mockRNFS.mkdir).toHaveBeenCalledWith('/mock/doc/attachments/synced');
     expect(mockRNFS.mkdir).toHaveBeenCalledWith(
       '/mock/doc/attachments/pending',
     );
-    expect(mockRNFS.mkdir).toHaveBeenCalledWith(
-      '/mock/doc/attachments/draft',
-    );
+    expect(mockRNFS.mkdir).toHaveBeenCalledWith('/mock/doc/attachments/draft');
 
     expect(mockRNFS.moveFile).toHaveBeenCalledWith(
       `/mock/doc/attachments/${GUID_A}.jpg`,

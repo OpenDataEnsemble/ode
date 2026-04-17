@@ -71,15 +71,11 @@ describe('ServerSwitchService', () => {
     expect(mockRNFS.exists).toHaveBeenCalledWith('/mock/doc/attachments');
     expect(mockRNFS.unlink).toHaveBeenCalledWith('/mock/doc/attachments');
     expect(mockRNFS.mkdir).toHaveBeenCalledWith('/mock/doc/attachments');
-    expect(mockRNFS.mkdir).toHaveBeenCalledWith(
-      '/mock/doc/attachments/synced',
-    );
+    expect(mockRNFS.mkdir).toHaveBeenCalledWith('/mock/doc/attachments/synced');
     expect(mockRNFS.mkdir).toHaveBeenCalledWith(
       '/mock/doc/attachments/pending',
     );
-    expect(mockRNFS.mkdir).toHaveBeenCalledWith(
-      '/mock/doc/attachments/draft',
-    );
+    expect(mockRNFS.mkdir).toHaveBeenCalledWith('/mock/doc/attachments/draft');
 
     expect(mockSynkronusApi.removeAppBundleFiles).toHaveBeenCalled();
 
