@@ -547,11 +547,8 @@ fn migrate_repository_generation_fresh_install_defaults(
     if repo != 1 || obs_ver != 0 || att_ver != 0 {
         return Ok(());
     }
-    let obs_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM observations",
-        [],
-        |row| row.get(0),
-    )?;
+    let obs_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM observations", [], |row| row.get(0))?;
     if obs_count > 0 {
         return Ok(());
     }
@@ -1866,10 +1863,7 @@ async fn download_workspace_attachment_from_url(
         .await
         .map_err(|e| format!("attachment request failed: {e}"))?;
     if !res.status().is_success() {
-        return Err(format!(
-            "attachment download failed: HTTP {}",
-            res.status()
-        ));
+        return Err(format!("attachment download failed: HTTP {}", res.status()));
     }
     let bytes = res
         .bytes()
@@ -2658,10 +2652,8 @@ mod tests {
 
     #[test]
     fn resolve_attachment_prefers_draft_over_synced() {
-        let base = std::env::temp_dir().join(format!(
-            "ode_attach_test_draft_{}",
-            std::process::id()
-        ));
+        let base =
+            std::env::temp_dir().join(format!("ode_attach_test_draft_{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("attachments/draft")).unwrap();
         fs::create_dir_all(base.join("attachments/synced")).unwrap();
@@ -2674,10 +2666,8 @@ mod tests {
 
     #[test]
     fn resolve_attachment_falls_back_to_legacy_flat_root() {
-        let base = std::env::temp_dir().join(format!(
-            "ode_attach_test_legacy_{}",
-            std::process::id()
-        ));
+        let base =
+            std::env::temp_dir().join(format!("ode_attach_test_legacy_{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("attachments")).unwrap();
         fs::write(base.join("attachments/b.jpg"), b"x").unwrap();

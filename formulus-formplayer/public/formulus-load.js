@@ -88,7 +88,7 @@
                 isDraft: options.isDraft,
                 includeDeleted: options.includeDeleted,
                 whereClause: options.whereClause,
-              })
+              }),
             );
           });
         };

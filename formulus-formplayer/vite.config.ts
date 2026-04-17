@@ -11,9 +11,7 @@ function removeCrossOriginForWebView() {
   return {
     name: 'remove-crossorigin-for-webview',
     transformIndexHtml(html: string) {
-      return html
-        .replace(/\s+crossorigin/g, '')
-        .replace(/crossorigin\s+/g, '');
+      return html.replace(/\s+crossorigin/g, '').replace(/crossorigin\s+/g, '');
     },
   };
 }
@@ -43,7 +41,8 @@ export default defineConfig({
         if (
           warning.code === 'EVAL' ||
           (warning.message && warning.message.includes('ExtensionsLoader')) ||
-          (warning.code === 'UNUSED_EXTERNAL_IMPORT' && warning.source?.includes('formulus-load.js'))
+          (warning.code === 'UNUSED_EXTERNAL_IMPORT' &&
+            warning.source?.includes('formulus-load.js'))
         ) {
           return;
         }

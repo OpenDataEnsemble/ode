@@ -68,6 +68,7 @@ Centralized HTTP client for all API requests:
 ### Protected Routes
 
 `ProtectedRoute` component:
+
 - Checks `isAuthenticated` from `AuthContext`.
 - Automatically refreshes tokens if they expire soon (< 5 minutes).
 - Redirects to login if not authenticated.
@@ -78,18 +79,20 @@ Centralized HTTP client for all API requests:
 When adding a new feature that calls the Synkronus API:
 
 1. **Add TypeScript types** (if needed) in `src/types/`:
+
    ```typescript
    // src/types/feature.ts
    export interface FeatureRequest {
-     field: string
+     field: string;
    }
-   
+
    export interface FeatureResponse {
-     result: string
+     result: string;
    }
    ```
 
 2. **Add API method** in `src/services/api.ts`:
+
    ```typescript
    async getFeature(id: string): Promise<FeatureResponse> {
      return this.get<FeatureResponse>(`/feature/${id}`)
@@ -97,20 +100,22 @@ When adding a new feature that calls the Synkronus API:
    ```
 
 3. **Use in component**:
+
    ```typescript
-   import { api } from '../services/api'
-   
-   const data = await api.getFeature('123')
+   import { api } from '../services/api';
+
+   const data = await api.getFeature('123');
    ```
 
 ## Pattern: Adding a New Page/Component
 
 1. **Create component file** in `src/pages/` or `src/components/`:
+
    ```typescript
    // src/pages/NewPage.tsx
    import { useAuth } from '../contexts/AuthContext'
    import './NewPage.css'
-   
+
    export function NewPage() {
      const { user } = useAuth()
      return <div>New Page Content</div>
@@ -118,6 +123,7 @@ When adding a new feature that calls the Synkronus API:
    ```
 
 2. **Create CSS file** (if needed):
+
    ```css
    /* src/pages/NewPage.css */
    .new-page {
@@ -126,9 +132,10 @@ When adding a new feature that calls the Synkronus API:
    ```
 
 3. **Add to App.tsx** (if it's a protected route):
+
    ```typescript
    import { NewPage } from './pages/NewPage'
-   
+
    <ProtectedRoute>
      <NewPage />
    </ProtectedRoute>
@@ -143,11 +150,11 @@ import { useAuth } from '../contexts/AuthContext'
 
 function MyComponent() {
   const { user, isAuthenticated, logout } = useAuth()
-  
+
   if (!isAuthenticated) {
     return <div>Not logged in</div>
   }
-  
+
   return (
     <div>
       <p>Welcome, {user?.username}</p>
@@ -166,6 +173,7 @@ The `vite.config.ts` proxies `/api/*` and `/health` to the backend without rewri
 ### Production (Nginx)
 
 The `Dockerfile` includes nginx configuration that:
+
 - Serves the built React app from `/usr/share/nginx/html`
 - Proxies `/api/*` to the demo backend with the same URI (e.g. `/api/auth/login` → backend `/api/auth/login`)
 - Proxies `GET /health` to the backend for the apex health check
@@ -193,6 +201,7 @@ The `Dockerfile` includes nginx configuration that:
 ### Database Initialization
 
 The `init-db.sh` script:
+
 - Creates `synkronus_user` with password `dev_password_change_in_production`
 - Grants all privileges on the `synkronus` database
 - Runs automatically on first database initialization
@@ -210,9 +219,9 @@ Components should catch errors and display them to users:
 
 ```typescript
 try {
-  await api.someMethod()
+  await api.someMethod();
 } catch (error) {
-  setError(error instanceof Error ? error.message : 'An error occurred')
+  setError(error instanceof Error ? error.message : 'An error occurred');
 }
 ```
 
@@ -256,4 +265,3 @@ When extending the portal, LLM agents should:
    - Document new features or endpoints
 
 Following this guide should allow LLM agents to add new features that are consistent with the existing synkronus-portal architecture and patterns.
-
