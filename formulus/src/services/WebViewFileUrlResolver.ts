@@ -87,6 +87,24 @@ export async function resolveAttachmentFileUrl(
 }
 
 /**
+ * Resolve a basename or `{ filename }` descriptor to a WebView-loadable URL.
+ * Callers must not pass stored `uri` values — only attachment basenames.
+ */
+export async function resolveAttachmentDisplayUri(
+  fileRef: string | { filename?: string },
+): Promise<string | null> {
+  if (typeof fileRef === 'string') {
+    return resolveAttachmentFileUrl(fileRef);
+  }
+  const fname =
+    typeof fileRef.filename === 'string' ? fileRef.filename.trim() : '';
+  if (fname) {
+    return resolveAttachmentFileUrl(fname);
+  }
+  return null;
+}
+
+/**
  * Base `file://` URL for the canonical attachment directory that custom apps
  * should iterate. Returns the `synced/` subdirectory — drafts and the upload
  * queue are intentionally excluded from the directory listing contract.

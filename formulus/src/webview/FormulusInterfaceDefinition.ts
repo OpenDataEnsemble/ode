@@ -107,6 +107,14 @@ export interface CameraResultData {
 }
 
 /**
+ * Attachment reference for {@link FormulusInterface.getAttachmentUri} when not passing a basename string.
+ * Use `filename` only (observation JSON must not store file paths or `uri` — resolve display URLs via this API).
+ */
+export interface AttachmentDisplayDescriptor {
+  filename?: string;
+}
+
+/**
  * Audio-specific result data
  * @property {'audio'} type - Always 'audio' for audio results
  * @property {string} filename - Generated filename for the audio
@@ -453,22 +461,23 @@ export interface FormulusInterface {
   getThemeMode(): Promise<'light' | 'dark' | 'system'>;
 
   /**
-   * Resolve a synced or camera-saved attachment to a WebView-loadable `file://` URL.
+   * Resolve an attachment to a WebView-loadable URL (`file://`, `http(s):`, or host-specific).
    *
-   * Lookup order, first hit wins:
+   * **String `fileName`:** basename only (e.g. `photo.filename`). Lookup order, first hit wins:
    *   1. `attachments/draft/<name>`   — unsaved capture (formplayer preview)
    *   2. `attachments/synced/<name>`  — canonical committed / downloaded copy
    *   3. `attachments/pending/<name>` — queued for upload (fallback only)
+   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`) are also checked.
+   * Path segments and ".." are rejected.
    *
-   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`)
-   * are also checked as a fallback until the v2 folder-layout migration has
-   * finished on upgraded devices. Pass the basename only (e.g. `photo.filename`
-   * from observation data); path segments and ".." are rejected.
+   * **`AttachmentDisplayDescriptor`:** `{ filename }` basename only (same lookup as a string argument).
    *
-   * @param fileName - Attachment file basename
-   * @returns `file://` URL if the file exists, otherwise `null`
+   * @param fileName - Basename string, or `{ filename? }` (never a stored `uri` — use this method to resolve URLs)
+   * @returns Display URL, or `null` if none
    */
-  getAttachmentUri(fileName: string): Promise<string | null>;
+  getAttachmentUri(
+    fileName: string | AttachmentDisplayDescriptor,
+  ): Promise<string | null>;
 
   /**
    * Base `file://` URL for the canonical attachments directory (trailing slash).

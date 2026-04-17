@@ -112,6 +112,91 @@ describe('handleFormPreviewBridgeMessage', () => {
     expect(payload.result).toBe('asset:/home/u/ws/attachments/synced/a.jpg');
   });
 
+  it('getAttachmentUri resolves basename from filename descriptor', async () => {
+    vi.mocked(tauriClient.workspaceAttachmentFileUrl).mockResolvedValueOnce(
+      'file:///home/u/ws/attachments/synced/b.jpg',
+    );
+    const postMessage = vi.fn();
+    const iframe = {
+      contentWindow: { postMessage } as unknown as Window,
+    } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      JSON.stringify({
+        type: 'getAttachmentUri',
+        messageId: 'ga2',
+        fileName: { filename: 'b.jpg' },
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    expect(tauriClient.workspaceAttachmentFileUrl).toHaveBeenCalledWith(
+      'b.jpg',
+    );
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.type).toBe('getAttachmentUri_response');
+    expect(payload.result).toBe('asset:/home/u/ws/attachments/synced/b.jpg');
+  });
+
+  it('getAttachmentUri returns null when workspace resolves to a foreign file URL', async () => {
+    vi.mocked(tauriClient.workspaceAttachmentFileUrl).mockClear();
+    vi.mocked(tauriClient.workspaceAttachmentFileUrl).mockResolvedValueOnce(
+      'file:///data/user/0/org.opendataensemble.formulus/files/x.jpg',
+    );
+    const postMessage = vi.fn();
+    const iframe = {
+      contentWindow: { postMessage } as unknown as Window,
+    } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      JSON.stringify({
+        type: 'getAttachmentUri',
+        messageId: 'gaForeign',
+        fileName: 'x.jpg',
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.type).toBe('getAttachmentUri_response');
+    expect(payload.result).toBeNull();
+  });
+
+  it('getAttachmentUri returns null for descriptor without filename', async () => {
+    vi.mocked(tauriClient.workspaceAttachmentFileUrl).mockClear();
+    const postMessage = vi.fn();
+    const iframe = {
+      contentWindow: { postMessage } as unknown as Window,
+    } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      JSON.stringify({
+        type: 'getAttachmentUri',
+        messageId: 'ga3',
+        fileName: {
+          uri: 'file:///ignored/stale.jpg',
+        },
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    expect(tauriClient.workspaceAttachmentFileUrl).not.toHaveBeenCalled();
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.type).toBe('getAttachmentUri_response');
+    expect(payload.result).toBeNull();
+  });
+
   it('ignores messages without messageId', async () => {
     const postMessage = vi.fn();
     const iframe = {
