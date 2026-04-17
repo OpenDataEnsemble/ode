@@ -1,4 +1,5 @@
 import type { FormInitData } from './formplayerHost';
+import { sanitizePortableAttachmentsInFormData } from './sanitizeFormSavedData';
 
 export function buildFormPreviewInit(args: {
   formType: string;
@@ -15,7 +16,7 @@ export function buildFormPreviewInit(args: {
     formType: args.formType,
     observationId: args.observationId ?? null,
     params: args.params,
-    savedData: args.savedData,
+    savedData: sanitizePortableAttachmentsInFormData(args.savedData),
     formSchema: args.formSchema,
     uiSchema: args.uiSchema,
     extensions: args.extensions,

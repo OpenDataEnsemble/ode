@@ -63,9 +63,12 @@ export interface ImportResult {
   conflicts: number;
   /** Local attachment files written during pull (when attachment sync runs). */
   attachmentsDownloaded?: number;
+  /** Download attempts that failed after a manifest op (e.g. HTTP error). */
+  attachmentsFailed?: number;
 }
 
 export interface SyncStateInfo {
+  /** `0` means not aligned with Synkronus yet (omit epoch on API calls; fresh profile). */
   repositoryGeneration: number;
   observationSyncVersion: number;
   lastAttachmentVersion: number;

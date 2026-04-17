@@ -14,6 +14,8 @@ export default defineConfig([
     'src/generated/**',
     'src-tauri/target/**',
     'scripts/**',
+    // Copied formplayer build (large minified bundles); linting it can crash ESLint formatters.
+    'public/formplayer_dist/**',
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,

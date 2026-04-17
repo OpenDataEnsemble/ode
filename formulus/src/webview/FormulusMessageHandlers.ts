@@ -23,6 +23,7 @@ import {
   errorCodes,
 } from '@react-native-documents/picker';
 import {
+  AttachmentDisplayDescriptor,
   FormInitData,
   FormCompletionResult,
   FormInfo,
@@ -46,7 +47,7 @@ import {
   getAttachmentsDirectoryFileUrl,
   getCustomAppDirectoryFileUrl,
   getFormSpecsDirectoryFileUrl,
-  resolveAttachmentFileUrl,
+  resolveAttachmentDisplayUri,
 } from '../services/WebViewFileUrlResolver';
 
 export type HandlerArgs = {
@@ -1053,17 +1054,27 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       }
     },
     onGetAttachmentUri: async (data: {
-      fileName?: string;
-      filename?: string;
+      fileName?: string | AttachmentDisplayDescriptor;
+      filename?: string | AttachmentDisplayDescriptor;
     }): Promise<string | null> => {
-      const name = data?.fileName ?? data?.filename;
-      if (name == null || typeof name !== 'string') {
+      const ref = data?.fileName ?? data?.filename;
+      if (ref == null) {
         console.warn(
           'FormulusMessageHandlers: onGetAttachmentUri missing fileName',
         );
         return null;
       }
-      return resolveAttachmentFileUrl(name);
+      if (typeof ref === 'string' && !ref.trim()) {
+        return null;
+      }
+      if (typeof ref === 'object' && ref !== null && !Array.isArray(ref)) {
+        const hasFn =
+          typeof ref.filename === 'string' && ref.filename.trim() !== '';
+        if (!hasFn) {
+          return null;
+        }
+      }
+      return resolveAttachmentDisplayUri(ref);
     },
     onGetAttachmentsUri: async (): Promise<string> => {
       return getAttachmentsDirectoryFileUrl();

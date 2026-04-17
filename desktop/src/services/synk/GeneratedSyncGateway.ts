@@ -245,20 +245,24 @@ export class GeneratedSyncGateway implements SyncGateway {
   async pull(request: PullRequest): Promise<PullResult> {
     try {
       const api = this.createApi(request.baseUrl, request.token);
+      const gen =
+        request.repositoryGeneration != null && request.repositoryGeneration > 0
+          ? request.repositoryGeneration
+          : undefined;
       const syncPullRequest: SyncPullRequest = {
         client_id: request.clientId,
         schema_types: request.schemaTypes,
         since: request.sinceVersion
           ? { version: request.sinceVersion }
           : undefined,
-        repository_generation: request.repositoryGeneration,
+        ...(gen != null ? { repository_generation: gen } : {}),
       };
 
       const response = await api.syncPull({
         xOdeVersion: SYNKRONUS_CLIENT_VERSION,
         syncPullRequest,
         limit: request.limit,
-        xRepositoryGeneration: request.repositoryGeneration,
+        ...(gen != null ? { xRepositoryGeneration: gen } : {}),
       });
 
       return {
@@ -285,17 +289,21 @@ export class GeneratedSyncGateway implements SyncGateway {
       const payloadObservations = request.observations.map(
         mapObservationToOpenApi,
       );
+      const gen =
+        request.repositoryGeneration != null && request.repositoryGeneration > 0
+          ? request.repositoryGeneration
+          : undefined;
       const syncPushRequest: SyncPushRequest = {
         transmission_id: crypto.randomUUID(),
         client_id: request.clientId,
         records: payloadObservations,
-        repository_generation: request.repositoryGeneration,
+        ...(gen != null ? { repository_generation: gen } : {}),
       };
 
       const response = await api.syncPush({
         xOdeVersion: SYNKRONUS_CLIENT_VERSION,
         syncPushRequest,
-        xRepositoryGeneration: request.repositoryGeneration,
+        ...(gen != null ? { xRepositoryGeneration: gen } : {}),
       });
       const failedIds = (response.failed_records ?? [])
         .map(entry => {

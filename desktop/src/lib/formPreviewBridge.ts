@@ -17,8 +17,8 @@
  * | `runLocalModel` | **Stub** — no on-device ML in preview. |
  * | `getCurrentUser` | Active profile `username` + `label` as `displayName` (from `get_settings`). |
  * | `getThemeMode` | `'system'`. |
- * | `getAttachmentUri` | `workspace/attachments/<basename>` → `file://` if file exists, else `null`. |
- * | `getAttachmentsUri` | `file://` for `attachments/` directory if it exists. |
+ * | `getAttachmentUri` | Basename string or `{ filename }` only; workspace lookup → `convertFileSrc` (or `null`). |
+ * | `getAttachmentsUri` | `file://` for `attachments/synced/` (canonical listing; matches Formulus `getAttachmentsDirectoryFileUrl`). |
  * | `getCustomAppUri` | Tauri asset URL for `bundles/active/` (directory of `app/`), not `file://`. |
  * | `getFormSpecsUri` | `getActiveBundleFormsFileBaseUrl()` (`bundles/active/forms`). |
  *
@@ -95,6 +95,65 @@ function stubReason(detail: string): { error: string } {
   return {
     error: `${DESKTOP_FORM_PREVIEW_PREFIX}: ${detail}`,
   };
+}
+
+/** Map `file:///…` to a filesystem path suitable for {@link convertFileSrc} (Linux + Windows). */
+function fileUrlToLocalPath(fileUrl: string): string {
+  const url = new URL(fileUrl);
+  let pathname = decodeURIComponent(url.pathname.replace(/\+/g, ' '));
+  if (/^\/[A-Za-z]:\//.test(pathname)) {
+    pathname = pathname.slice(1);
+  }
+  return pathname;
+}
+
+/** Paths that cannot be loaded inside the desktop WebView (other host / mobile app dirs). */
+function isForeignDeviceFileUrl(url: string): boolean {
+  const u = url.toLowerCase();
+  return (
+    u.includes('/data/user/') ||
+    u.includes('org.opendataensemble.formulus') ||
+    u.includes('/var/mobile/') ||
+    u.includes('/application/')
+  );
+}
+
+/** Raw `file://` URLs are blocked for `<img src>` inside the formplayer iframe; use asset protocol. */
+function attachmentFileUrlForWebview(raw: string | null): string | null {
+  if (raw == null) {
+    return null;
+  }
+  if (!raw.startsWith('file://')) {
+    return raw;
+  }
+  if (isForeignDeviceFileUrl(raw)) {
+    return null;
+  }
+  try {
+    return convertFileSrc(fileUrlToLocalPath(raw));
+  } catch {
+    return null;
+  }
+}
+
+async function resolveAttachmentUriForFormPreview(
+  fileRef: string | { filename?: string },
+): Promise<string | null> {
+  if (typeof fileRef === 'string') {
+    const raw = await tauriClient.workspaceAttachmentFileUrl(fileRef);
+    return attachmentFileUrlForWebview(raw);
+  }
+  const fname =
+    typeof fileRef.filename === 'string' ? fileRef.filename.trim() : '';
+  if (!fname) {
+    return null;
+  }
+  try {
+    const raw = await tauriClient.workspaceAttachmentFileUrl(fname);
+    return attachmentFileUrlForWebview(raw);
+  } catch {
+    return null;
+  }
 }
 
 function getByPath(obj: unknown, path: string): unknown {
@@ -438,10 +497,27 @@ export async function handleFormPreviewBridgeMessage(
         return;
 
       case 'getAttachmentUri': {
-        const fileName = String(data.fileName ?? '');
         try {
-          const url = await tauriClient.workspaceAttachmentFileUrl(fileName);
-          reply('getAttachmentUri', { result: url });
+          const ref = data.fileName ?? data.filename;
+          if (ref == null) {
+            reply('getAttachmentUri', { result: null });
+            return;
+          }
+          if (typeof ref === 'string' && !ref.trim()) {
+            reply('getAttachmentUri', { result: null });
+            return;
+          }
+          if (typeof ref === 'object' && ref !== null && !Array.isArray(ref)) {
+            const o = ref as Record<string, unknown>;
+            const hasFn =
+              typeof o.filename === 'string' && o.filename.trim() !== '';
+            if (!hasFn) {
+              reply('getAttachmentUri', { result: null });
+              return;
+            }
+          }
+          const result = await resolveAttachmentUriForFormPreview(ref);
+          reply('getAttachmentUri', { result });
         } catch (e) {
           reply('getAttachmentUri', {
             error: e instanceof Error ? e.message : String(e),
@@ -453,7 +529,7 @@ export async function handleFormPreviewBridgeMessage(
       case 'getAttachmentsUri': {
         try {
           const url =
-            await tauriClient.workspaceDirectoryFileUrl('attachments');
+            await tauriClient.workspaceDirectoryFileUrl('attachments/synced');
           reply('getAttachmentsUri', { result: url });
         } catch (e) {
           reply('getAttachmentsUri', {

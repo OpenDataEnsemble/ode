@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-04-09T07:22:39.750Z
+// Last generated: 2026-04-17T14:59:47.429Z
 
 (function () {
   // Enhanced API availability detection and recovery
@@ -8,8 +8,7 @@
     // Check multiple locations where the API might exist
     return (
       globalThis.formulus ||
-      window.formulus ||
-      (typeof formulus !== 'undefined' ? formulus : undefined)
+      (typeof window !== 'undefined' ? window.formulus : undefined)
     );
   }
 
@@ -230,7 +229,7 @@
       });
     },
 
-    // openFormplayer: formType, params, savedData, options? => Promise<FormCompletionResult>
+    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown>, options: { subObservationMode?: boolean; } => Promise<FormCompletionResult>
     openFormplayer: function (formType, params, savedData, options) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -1337,7 +1336,7 @@
       });
     },
 
-    // getAttachmentUri: fileName: string => Promise<string>
+    // getAttachmentUri: fileName: string | AttachmentDisplayDescriptor => Promise<string>
     getAttachmentUri: function (fileName) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -1598,6 +1597,7 @@
       );
     }
   }
+  globalThis.__formulusRequestApiReinjection = requestApiReinjection;
 
   // Notify React Native that the interface is ready
   if (globalThis.ReactNativeWebView) {

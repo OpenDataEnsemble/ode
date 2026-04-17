@@ -15,8 +15,8 @@
     "copy:formplayer": "node ./scripts/copy-formplayer-to-desktop.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier \"**/*.{js,jsx,ts,tsx,json,md}\" --write",
-    "format:check": "prettier \"**/*.{js,jsx,ts,tsx,json,md}\" --check",
+    "format": "prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
+    "format:check": "prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui"

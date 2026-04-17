@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  *
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2026-04-17
+ * Last generated: 2026-04-17T14:59:47.704Z
  *
  * @example
  * // In your JavaScript file:
@@ -195,20 +195,16 @@ const FormulusAPI = {
   getThemeMode: function () {},
 
   /**
-   * Resolve a synced or camera-saved attachment to a WebView-loadable `file://` URL.
-   *
-   * Lookup order, first hit wins:
-   *   1. `attachments/draft/<name>`   — unsaved capture (formplayer preview)
-   *   2. `attachments/synced/<name>`  — canonical committed / downloaded copy
-   *   3. `attachments/pending/<name>` — queued for upload (fallback only)
-   *
-   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`)
-   * are also checked as a fallback until the v2 folder-layout migration has
-   * finished on upgraded devices. Pass the basename only (e.g. `photo.filename`
-   * from observation data); path segments and ".." are rejected.
-   *
+   * Resolve an attachment to a WebView-loadable URL (`file://`, `http(s):`, or host-specific).
+   * **String `fileName`:** basename only (e.g. `photo.filename`). Lookup order, first hit wins:
+   * 1. `attachments/draft/<name>`   — unsaved capture (formplayer preview)
+   * 2. `attachments/synced/<name>`  — canonical committed / downloaded copy
+   * 3. `attachments/pending/<name>` — queued for upload (fallback only)
+   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`) are also checked.
+   * Path segments and ".." are rejected.
+   * **`AttachmentDisplayDescriptor`:** `{ filename }` basename only (same lookup as a string argument).
    * /
-   * @returns {Promise<string | null>} `file://` URL if the file exists, otherwise `null`
+   * @returns {Promise<string | null>} Display URL, or `null` if none
    */
   getAttachmentUri: function (fileName) {},
 
@@ -217,12 +213,10 @@ const FormulusAPI = {
    * Returns the `synced/` subfolder — only committed/downloaded files are
    * iterable from here. Drafts and the upload queue are excluded by design so
    * custom apps can safely list this directory.
-   *
    * **Breaking change (v2 layout):** this used to return the `attachments/`
    * parent directory, which mixed committed files with `draft/` and
    * `pending_upload/` subfolders. Custom apps that iterate this URL will now
    * see only fully-committed attachments.
-   *
    * /
    * @returns {Promise<string>} e.g. `file:///.../attachments/synced/`
    */

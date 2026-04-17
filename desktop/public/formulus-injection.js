@@ -1,16 +1,14 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-04-09T07:22:39.750Z
+// Last generated: 2026-04-17T14:59:47.429Z
 
-/* global formulus */
 (function () {
   // Enhanced API availability detection and recovery
   function getFormulus() {
     // Check multiple locations where the API might exist
     return (
       globalThis.formulus ||
-      window.formulus ||
-      (typeof formulus !== 'undefined' ? formulus : undefined)
+      (typeof window !== 'undefined' ? window.formulus : undefined)
     );
   }
 
@@ -231,8 +229,8 @@
       });
     },
 
-    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown> => Promise<FormCompletionResult>
-    openFormplayer: function (formType, params, savedData) {
+    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown>, options: { subObservationMode?: boolean; } => Promise<FormCompletionResult>
+    openFormplayer: function (formType, params, savedData, options) {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -289,6 +287,7 @@
             formType: formType,
             params: params,
             savedData: savedData,
+            options: options,
           }),
         );
       });
@@ -1337,7 +1336,7 @@
       });
     },
 
-    // getAttachmentUri: fileName: string => Promise<string>
+    // getAttachmentUri: fileName: string | AttachmentDisplayDescriptor => Promise<string>
     getAttachmentUri: function (fileName) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -1587,7 +1586,6 @@
   globalThis.__formulusBridgeInitialized = true;
 
   // Simple API availability check for internal use
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   function requestApiReinjection() {
     console.log('Formulus: Requesting re-injection from host...');
     if (globalThis.ReactNativeWebView) {
@@ -1599,6 +1597,7 @@
       );
     }
   }
+  globalThis.__formulusRequestApiReinjection = requestApiReinjection;
 
   // Notify React Native that the interface is ready
   if (globalThis.ReactNativeWebView) {

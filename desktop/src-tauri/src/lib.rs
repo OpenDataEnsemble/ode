@@ -125,10 +125,67 @@ fn sqlite_path_for_workspace(workspace: &Path) -> PathBuf {
     workspace.join("sqlite").join("custodian.sqlite3")
 }
 
+/// V2 attachment layout (matches Formulus `attachmentStorage` / `WebViewFileUrlResolver`).
+/// `pending/` is the upload queue; `pending_upload/` is legacy v1 (still checked when resolving).
+const ATTACH_SUBDIR_DRAFT: &str = "draft";
+const ATTACH_SUBDIR_PENDING: &str = "pending";
+const ATTACH_SUBDIR_SYNCED: &str = "synced";
+const ATTACH_LEGACY_PENDING_UPLOAD: &str = "pending_upload";
+
+fn attachments_root(workspace: &Path) -> PathBuf {
+    workspace.join("attachments")
+}
+
 fn ensure_workspace_layout(workspace: &Path) -> Result<(), CustodianError> {
     fs::create_dir_all(workspace.join("sqlite"))?;
-    fs::create_dir_all(workspace.join("attachments"))?;
+    let root = attachments_root(workspace);
+    fs::create_dir_all(&root)?;
+    fs::create_dir_all(root.join(ATTACH_SUBDIR_DRAFT))?;
+    fs::create_dir_all(root.join(ATTACH_SUBDIR_PENDING))?;
+    fs::create_dir_all(root.join(ATTACH_SUBDIR_SYNCED))?;
+    migrate_attachments_flat_to_synced_layout(workspace)?;
     Ok(())
+}
+
+/// One-shot: move loose files from `attachments/<name>` into `attachments/synced/<name>`.
+fn migrate_attachments_flat_to_synced_layout(workspace: &Path) -> Result<(), CustodianError> {
+    let root = attachments_root(workspace);
+    if !root.is_dir() {
+        return Ok(());
+    }
+    let synced = root.join(ATTACH_SUBDIR_SYNCED);
+    fs::create_dir_all(&synced)?;
+    for entry in fs::read_dir(&root)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_file() {
+            continue;
+        }
+        let path = entry.path();
+        let dest = synced.join(entry.file_name());
+        if !dest.exists() {
+            fs::rename(&path, &dest)?;
+        }
+    }
+    Ok(())
+}
+
+/// Lookup order matches Formulus `resolveAttachmentFileUrl` (draft → synced → pending → legacy).
+fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> {
+    let root = attachments_root(workspace);
+    let candidates = [
+        root.join(ATTACH_SUBDIR_DRAFT).join(basename),
+        root.join(ATTACH_SUBDIR_SYNCED).join(basename),
+        root.join(ATTACH_SUBDIR_PENDING).join(basename),
+        root.join(basename),
+        root.join(ATTACH_LEGACY_PENDING_UPLOAD).join(basename),
+    ];
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+fn attachment_path_synced(workspace: &Path, basename: &str) -> PathBuf {
+    attachments_root(workspace)
+        .join(ATTACH_SUBDIR_SYNCED)
+        .join(basename)
 }
 
 fn derived_database_path_for_profile(profile: &ServerProfile) -> Result<PathBuf, CustodianError> {
@@ -458,7 +515,40 @@ fn init_db(conn: &Connection) -> Result<(), CustodianError> {
     )?;
     migrate_sync_state_columns(conn)?;
     conn.execute(
-        "INSERT OR IGNORE INTO sync_state(id, last_pull_at, last_push_at, last_error, repository_generation, observation_sync_version, last_attachment_version) VALUES (1, NULL, NULL, NULL, 1, 0, 0)",
+        "INSERT OR IGNORE INTO sync_state(id, last_pull_at, last_push_at, last_error, repository_generation, observation_sync_version, last_attachment_version) VALUES (1, NULL, NULL, NULL, 0, 0, 0)",
+        [],
+    )?;
+    migrate_repository_generation_fresh_install_defaults(conn)?;
+    Ok(())
+}
+
+/// Older builds defaulted `repository_generation` to 1, which Synkronus treats as an explicit
+/// epoch — fresh profiles then got HTTP 409 against servers at generation > 1. Generation `0`
+/// means "not yet aligned" (omit epoch on pull/push like Formulus). Reset rows that still look
+/// like the old default and have no synced data to `0`.
+fn migrate_repository_generation_fresh_install_defaults(
+    conn: &Connection,
+) -> Result<(), rusqlite::Error> {
+    let row = conn
+        .query_row(
+            "SELECT repository_generation, observation_sync_version, last_attachment_version FROM sync_state WHERE id = 1",
+            [],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?, row.get::<_, i64>(2)?)),
+        )
+        .optional()?;
+    let Some((repo, obs_ver, att_ver)) = row else {
+        return Ok(());
+    };
+    if repo != 1 || obs_ver != 0 || att_ver != 0 {
+        return Ok(());
+    }
+    let obs_count: i64 =
+        conn.query_row("SELECT COUNT(*) FROM observations", [], |row| row.get(0))?;
+    if obs_count > 0 {
+        return Ok(());
+    }
+    conn.execute(
+        "UPDATE sync_state SET repository_generation = 0 WHERE id = 1",
         [],
     )?;
     Ok(())
@@ -471,7 +561,7 @@ fn migrate_sync_state_columns(conn: &Connection) -> Result<(), rusqlite::Error> 
         .collect::<Result<_, _>>()?;
     if !cols.iter().any(|c| c == "repository_generation") {
         conn.execute(
-            "ALTER TABLE sync_state ADD COLUMN repository_generation INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE sync_state ADD COLUMN repository_generation INTEGER NOT NULL DEFAULT 0",
             [],
         )?;
     }
@@ -1264,7 +1354,7 @@ fn list_workspace_items(
             is_dir: ty.is_dir(),
         });
     }
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    items.sort_by_key(|a| a.name.to_lowercase());
     Ok(items)
 }
 
@@ -1718,11 +1808,70 @@ fn write_workspace_attachment(
     ctx: tauri::State<'_, AppCtx>,
 ) -> Result<(), String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
-    let path = ws.join("attachments").join(&attachment_id);
+    let path = attachment_path_synced(&ws, attachment_id.trim());
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     fs::write(&path, data).map_err(|e| e.to_string())
+}
+
+/// GET `GET {base}/api/attachments/{id}` with Bearer auth and write bytes under `attachments/synced/`.
+/// Used during sync so downloads do not rely on the WebView `fetch` implementation (CORS / TLS quirks).
+/// `x_ode_version` is required: Synkronus [`formulusversion.Middleware`] rejects requests without `x-ode-version`.
+#[tauri::command]
+async fn download_workspace_attachment_from_url(
+    base_url: String,
+    bearer_token: String,
+    attachment_id: String,
+    x_ode_version: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<(), String> {
+    let base = base_url.trim();
+    if base.is_empty() {
+        return Err("base_url is required".to_string());
+    }
+    let token = bearer_token.trim();
+    if token.is_empty() {
+        return Err("bearer token is required".to_string());
+    }
+    let ode_ver = x_ode_version.trim();
+    if ode_ver.is_empty() {
+        return Err("x_ode_version is required".to_string());
+    }
+    let t = attachment_id.trim();
+    if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+        return Err("invalid attachment_id".to_string());
+    }
+    let url = format!(
+        "{}/api/attachments/{}",
+        base.trim_end_matches('/'),
+        urlencoding::encode(t)
+    );
+    let parsed = Url::parse(&url).map_err(|e| format!("invalid attachment URL: {e}"))?;
+
+    let client = reqwest::Client::new();
+    let res = client
+        .get(parsed)
+        .header(AUTHORIZATION, format!("Bearer {token}"))
+        .header("x-ode-version", ode_ver)
+        .send()
+        .await
+        .map_err(|e| format!("attachment request failed: {e}"))?;
+    if !res.status().is_success() {
+        return Err(format!("attachment download failed: HTTP {}", res.status()));
+    }
+    let bytes = res
+        .bytes()
+        .await
+        .map_err(|e| format!("attachment read failed: {e}"))?;
+
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let path = attachment_path_synced(&ws, t);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Write arbitrary bytes under the active profile workspace (e.g. `bundles/app-bundle.zip`).
@@ -1741,7 +1890,7 @@ fn write_workspace_file(
     if rel.is_empty() {
         return Err("relative path is required".to_string());
     }
-    for part in rel.split(|c| c == '/' || c == '\\') {
+    for part in rel.split(['/', '\\']) {
         if part.is_empty() || part == "." || part == ".." {
             return Err("invalid relative path".to_string());
         }
@@ -2031,24 +2180,41 @@ fn workspace_directory_file_url(
         .map_err(|()| "invalid directory for file URL".to_string())
 }
 
-/// Resolve `attachments/<file_name>` to a `file://` URL if the file exists (basename only; no path segments).
-#[tauri::command]
-fn workspace_attachment_file_url(
+/// Resolve an attachment basename to a `file://` URL (draft → synced → pending → legacy roots).
+/// Same lookup order as Formulus `resolveAttachmentFileUrl`.
+fn resolve_workspace_attachment_file_url(
     file_name: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: &AppCtx,
 ) -> Result<Option<String>, String> {
     let t = file_name.trim();
     if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
         return Err("invalid attachment file name".to_string());
     }
-    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
-    let path = ws.join("attachments").join(t);
-    if !path.is_file() {
+    let ws = get_workspace_path(ctx).map_err(|e| e.to_string())?;
+    let Some(path) = resolve_attachment_path(&ws, t) else {
         return Ok(None);
-    }
+    };
     Url::from_file_path(&path)
         .map(|u| Some(u.to_string()))
         .map_err(|()| "invalid file URL".to_string())
+}
+
+/// Resolve `attachments/.../<file_name>` to a `file://` URL if the file exists (basename only).
+#[tauri::command]
+fn workspace_attachment_file_url(
+    file_name: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Option<String>, String> {
+    resolve_workspace_attachment_file_url(file_name, &ctx)
+}
+
+/// Alias for [`workspace_attachment_file_url`] — basename-only resolution across draft/synced/pending.
+#[tauri::command]
+fn resolve_attachment_file_url(
+    file_name: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Option<String>, String> {
+    resolve_workspace_attachment_file_url(file_name, &ctx)
 }
 
 #[tauri::command]
@@ -2078,9 +2244,22 @@ fn remove_workspace_attachment(
     ctx: tauri::State<'_, AppCtx>,
 ) -> Result<(), String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
-    let path = ws.join("attachments").join(&attachment_id);
-    if path.exists() {
-        fs::remove_file(&path).map_err(|e| e.to_string())?;
+    let t = attachment_id.trim();
+    if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+        return Err("invalid attachment id".to_string());
+    }
+    let root = attachments_root(&ws);
+    let paths = [
+        root.join(ATTACH_SUBDIR_DRAFT).join(t),
+        root.join(ATTACH_SUBDIR_SYNCED).join(t),
+        root.join(ATTACH_SUBDIR_PENDING).join(t),
+        root.join(t),
+        root.join(ATTACH_LEGACY_PENDING_UPLOAD).join(t),
+    ];
+    for path in paths {
+        if path.is_file() {
+            fs::remove_file(&path).map_err(|e| e.to_string())?;
+        }
     }
     Ok(())
 }
@@ -2398,6 +2577,7 @@ pub fn run() {
             move_workspace,
             backup_workspace,
             write_workspace_attachment,
+            download_workspace_attachment_from_url,
             write_workspace_file,
             get_app_bundle_state,
             apply_app_bundle_download,
@@ -2408,6 +2588,7 @@ pub fn run() {
             get_active_bundle_forms_file_base_url,
             workspace_directory_file_url,
             workspace_attachment_file_url,
+            resolve_attachment_file_url,
             scan_bundle_custom_question_types,
             remove_workspace_attachment,
             get_observation,
@@ -2427,7 +2608,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_time, should_mark_conflict};
+    use std::fs;
+    use std::path::Path;
+
+    use super::{parse_time, resolve_attachment_path, should_mark_conflict};
 
     #[test]
     fn parse_time_handles_valid_timestamp() {
@@ -2459,5 +2643,32 @@ mod tests {
             super::sanitize_version_for_filename("weird/name"),
             "weird_name"
         );
+    }
+
+    #[test]
+    fn resolve_attachment_prefers_draft_over_synced() {
+        let base =
+            std::env::temp_dir().join(format!("ode_attach_test_draft_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("attachments/draft")).unwrap();
+        fs::create_dir_all(base.join("attachments/synced")).unwrap();
+        fs::write(base.join("attachments/synced/a.jpg"), b"1").unwrap();
+        fs::write(base.join("attachments/draft/a.jpg"), b"2").unwrap();
+        let p = resolve_attachment_path(Path::new(&base), "a.jpg").unwrap();
+        assert!(p.to_string_lossy().contains("draft"));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn resolve_attachment_falls_back_to_legacy_flat_root() {
+        let base =
+            std::env::temp_dir().join(format!("ode_attach_test_legacy_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("attachments")).unwrap();
+        fs::write(base.join("attachments/b.jpg"), b"x").unwrap();
+        let p = resolve_attachment_path(Path::new(&base), "b.jpg").unwrap();
+        assert_eq!(p.file_name().unwrap(), "b.jpg");
+        assert!(!p.to_string_lossy().contains("synced"));
+        let _ = fs::remove_dir_all(&base);
     }
 }

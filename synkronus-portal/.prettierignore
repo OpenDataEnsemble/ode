@@ -1,0 +1,4 @@
+node_modules
+dist
+coverage
+src/api/synkronus/generated

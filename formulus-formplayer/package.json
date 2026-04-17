@@ -46,8 +46,8 @@
     "test": "vitest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
-    "format:check": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
+    "format": "prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
+    "format:check": "prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
