@@ -5,8 +5,7 @@
  * `getAttachmentUri(basename)`.
  */
 
-const ATTACHMENT_NAME_LIKE =
-  /\.(jpe?g|png|gif|bmp|webp|pdf|docx?)$/i;
+const ATTACHMENT_NAME_LIKE = /\.(jpe?g|png|gif|bmp|webp|pdf|docx?)$/i;
 
 function attachmentBasenameOnly(raw: string): string {
   const t = raw.trim().replace(/\\/g, '/');

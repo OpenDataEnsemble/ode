@@ -141,10 +141,7 @@ async function pullSyncWithAttachments(
           attachmentsDownloaded += 1;
         } catch (e) {
           attachmentsFailed += 1;
-          console.error(
-            `Attachment download failed (${op.attachment_id}):`,
-            e,
-          );
+          console.error(`Attachment download failed (${op.attachment_id}):`, e);
         }
       } else if (op.operation === 'delete') {
         await tauriClient.removeWorkspaceAttachment(op.attachment_id);
