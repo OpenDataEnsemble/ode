@@ -28,7 +28,7 @@ import {
   type RepositoryResetRequiredError,
 } from '../errors/RepositoryResetRequiredError';
 import { repositoryRecoveryService } from '../services/RepositoryRecoveryService';
-import colors from '../theme/colors';
+import colors, { withAlpha } from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
