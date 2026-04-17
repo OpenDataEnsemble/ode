@@ -1,5 +1,23 @@
 # Open Data Ensemble (ODE) 🎼
 
+<!-- Build & CI status -->
+[![CI](https://github.com/OpenDataEnsemble/ode/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/ci.yml)
+[![Synkronus Docker](https://github.com/OpenDataEnsemble/ode/actions/workflows/synkronus-docker.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/synkronus-docker.yml)
+[![Synkronus CLI](https://github.com/OpenDataEnsemble/ode/actions/workflows/synkronus-cli.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/synkronus-cli.yml)
+[![Formulus Android](https://github.com/OpenDataEnsemble/ode/actions/workflows/formulus-android.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/formulus-android.yml)
+[![ODE Desktop](https://github.com/OpenDataEnsemble/ode/actions/workflows/ode-desktop.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/ode-desktop.yml)
+[![E2E attachments](https://github.com/OpenDataEnsemble/ode/actions/workflows/e2e-attachments.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/e2e-attachments.yml)
+
+<!-- Release & distribution -->
+[![Latest release](https://img.shields.io/github/v/release/OpenDataEnsemble/ode?include_prereleases&sort=semver)](https://github.com/OpenDataEnsemble/ode/releases)
+[![Synkronus image](https://img.shields.io/badge/ghcr.io-synkronus-blue?logo=docker)](https://github.com/OpenDataEnsemble/ode/pkgs/container/synkronus)
+<!-- F-Droid badge: enable once Formulus is published to F-Droid -->
+<!-- [![F-Droid](https://img.shields.io/f-droid/v/org.opendataensemble.formulus.svg)](https://f-droid.org/packages/org.opendataensemble.formulus) -->
+
+<!-- Project meta -->
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
+
 Welcome to the **Open Data Ensemble** - a comprehensive platform for mobile data collection and synchronization! 
 
 ## About ODE

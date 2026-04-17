@@ -38,12 +38,21 @@ Image tags are computed by `docker/metadata-action`. The highest-priority tag pe
 
 | Event | Tags produced | Published? |
 |-------|--------------|------------|
-| Release | `v{X.Y.Z}`, `v{X.Y}` | Yes |
-| Push → `main` | `latest`, `sha-{short}` | Yes |
-| Push → `dev` | `dev`, `latest`, `sha-{short}` | Yes |
+| Release published, **not** prerelease | `v{X.Y.Z}`, `v{X.Y}`, `v{X}`, `latest` | Yes |
+| Release published, **is** prerelease | `v{X.Y.Z}-{pre}`, `latest-pre-release` | Yes |
+| Push → `main` | `main`, `sha-{short}` | Yes |
+| Push → `dev` | `dev`, `sha-{short}` | Yes |
 | Push → other branch | `{branch-name}`, `sha-{short}` | Yes |
-| `workflow_dispatch` | `{branch-name}`, `sha-{short}` | Yes |
+| `workflow_dispatch` | `sha-{short}` | Yes |
 | Pull request | `pr-{number}` | No (build only) |
+
+Moving pointer tags:
+
+- **`latest`** — always points to the most recent **non-prerelease** GitHub Release. Never moved by branch pushes.
+- **`latest-pre-release`** — always points to the most recent **prerelease** GitHub Release (e.g. `-alpha.N`, `-rc.N`).
+- **`main`** / **`dev`** — track the tip of the respective branch.
+
+`workflow_dispatch` intentionally produces only `sha-{short}` so that manual runs cannot accidentally reassign `latest`, `main`, `dev`, or any other pointer tag.
 
 #### Build Features
 
@@ -144,10 +153,20 @@ node scripts/sbom/generate-sboms.mjs --out sbom-dist
 
 ## Using Published Images
 
-### Pull Latest Release
+### Pull Latest Stable Release
+
+Points to the most recent non-prerelease GitHub Release.
 
 ```bash
 docker pull ghcr.io/opendataensemble/synkronus:latest
+```
+
+### Pull Latest Pre-release
+
+Points to the most recent prerelease GitHub Release (e.g. `-alpha.N`, `-rc.N`).
+
+```bash
+docker pull ghcr.io/opendataensemble/synkronus:latest-pre-release
 ```
 
 ### Pull Specific Version
@@ -158,8 +177,18 @@ docker pull ghcr.io/opendataensemble/synkronus:v1.0.0
 
 ### Pull Development Build
 
+Tracks the tip of the `dev` branch (rebuilt on every push to `dev`).
+
 ```bash
 docker pull ghcr.io/opendataensemble/synkronus:dev
+```
+
+### Pull Main Branch Build
+
+Tracks the tip of the `main` branch between releases.
+
+```bash
+docker pull ghcr.io/opendataensemble/synkronus:main
 ```
 
 ### Pull Feature Branch Build
@@ -168,20 +197,26 @@ docker pull ghcr.io/opendataensemble/synkronus:dev
 docker pull ghcr.io/opendataensemble/synkronus:feature-xyz
 ```
 
-## Manual Release Process
+## Release Process
 
-To create a versioned release:
+Versioned images are produced by publishing a **GitHub Release** (the workflow listens for `release: [published]`).
 
-1. Go to **Actions** → **Synkronus Docker Build & Publish**
-2. Click **Run workflow**
-3. Select the `main` branch
-4. Enter version (e.g., `v1.0.0`)
-5. Click **Run workflow**
+1. Go to **Releases** → **Draft a new release**
+2. Create a new tag following semver, prefixed with `v`:
+   - Stable release: `v1.0.0`
+   - Pre-release: `v1.0.0-rc.1`, `v1.0.1-alpha.7`, etc.
+3. Select the target commit (typically tip of `main` for stable, tip of `dev` for pre-release)
+4. Tick **Set as a pre-release** for alpha/beta/rc tags
+5. Click **Publish release**
 
 This will create:
-- `ghcr.io/opendataensemble/synkronus:latest`
-- `ghcr.io/opendataensemble/synkronus:v1.0.0`
-- `ghcr.io/opendataensemble/synkronus:v1.0`
+
+| Release kind | Tags produced |
+|-------|--------------|
+| Stable (`v1.0.0`) | `v1.0.0`, `v1.0`, `v1`, `latest` |
+| Pre-release (`v1.0.0-rc.1`) | `v1.0.0-rc.1`, `latest-pre-release` |
+
+> Note: `workflow_dispatch` is available for manual runs but intentionally **does not** create any pointer tags (only `sha-{short}`) — it is for debugging the build pipeline, not for publishing releases.
 
 ## Image Visibility
 
@@ -245,10 +280,11 @@ echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 
 ### For Deployments
 
-1. **Pin versions in production**: Use specific version tags, not `latest`
-2. **Test pre-releases**: Use `dev` tag for staging environments
-3. **Monitor image sizes**: Keep images lean for faster deployments
-4. **Use health checks**: Always configure health checks in deployments
+1. **Pin versions in production**: Use specific version tags (`v{X.Y.Z}`), not `latest`
+2. **Staging/QA upcoming releases**: Use `latest-pre-release` to track the most recent prerelease (alpha/rc)
+3. **Bleeding-edge integration**: Use `dev` for builds from the tip of the `dev` branch
+4. **Monitor image sizes**: Keep images lean for faster deployments
+5. **Use health checks**: Always configure health checks in deployments
 
 ## Formplayer Asset Synchronization
 
