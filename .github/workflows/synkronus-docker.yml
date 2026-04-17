@@ -264,14 +264,18 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
           tags: |
-            type=semver,pattern=v{{version}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }},priority=1000
-            type=semver,pattern=v{{major}}.{{minor}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }},priority=900
+            type=semver,pattern=v{{version}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }},priority=1100
+            type=semver,pattern=v{{major}}.{{minor}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' && github.event.release.prerelease == false }},priority=900
+            type=semver,pattern=v{{major}},value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' && github.event.release.prerelease == false }},priority=800
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && github.event.release.prerelease == false }},priority=700
+            type=raw,value=latest-pre-release,enable=${{ github.event_name == 'release' && github.event.release.prerelease == true }},priority=700
+            type=raw,value=main,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }},priority=1000
+            type=raw,value=dev,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }},priority=1000
+            type=ref,event=branch,enable=${{ github.event_name == 'push' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }},priority=900
             type=ref,event=pr,priority=1000
-            type=raw,value=latest,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }},priority=1000
-            type=raw,value=dev,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/dev' }},priority=1000
-            type=raw,value=latest,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/dev' }},priority=900
-            type=ref,event=branch,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }},priority=1000
             type=sha,enable=${{ github.event_name != 'release' && github.event_name != 'pull_request' }},priority=100
 
       - name: Create and push multi-arch manifest
