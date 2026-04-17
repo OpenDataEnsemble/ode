@@ -27,7 +27,7 @@ export interface PullRequest {
   schemaTypes?: string[];
   sinceVersion?: number;
   limit?: number;
-  /** Monotonic repository epoch; omit for first sync (server treats as 1). */
+  /** Monotonic repository epoch; omit when 0 / unknown so the server adopts its current generation (fresh profile). */
   repositoryGeneration?: number;
 }
 
@@ -36,6 +36,7 @@ export interface PushRequest {
   token: string;
   clientId: string;
   observations: ObservationRecord[];
+  /** Omit when 0 / unknown (fresh profile) so Synkronus accepts the push like a first-time client. */
   repositoryGeneration?: number;
 }
 

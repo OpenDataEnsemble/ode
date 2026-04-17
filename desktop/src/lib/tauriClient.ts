@@ -84,6 +84,20 @@ export const tauriClient = {
       attachmentId,
       data: Array.from(data),
     }),
+  /** GET `{base}/api/attachments/{id}` with Bearer token via native HTTP (avoids WebView fetch issues). */
+  downloadWorkspaceAttachmentFromUrl: (args: {
+    baseUrl: string;
+    bearerToken: string;
+    attachmentId: string;
+    /** Must match OpenAPI `x-ode-version` (Synkronus rejects protected routes without it). */
+    xOdeVersion: string;
+  }) =>
+    invokeSafe<void>('download_workspace_attachment_from_url', {
+      baseUrl: args.baseUrl,
+      bearerToken: args.bearerToken,
+      attachmentId: args.attachmentId,
+      xOdeVersion: args.xOdeVersion,
+    }),
   /** Relative to active profile workspace root (e.g. `bundles/app-bundle.zip`). */
   writeWorkspaceFile: (relativePath: string, data: Uint8Array) =>
     invokeSafe<string>('write_workspace_file', {
@@ -115,8 +129,16 @@ export const tauriClient = {
     invokeSafe<string>('get_active_bundle_forms_file_base_url'),
   workspaceDirectoryFileUrl: (relativePath: string) =>
     invokeSafe<string>('workspace_directory_file_url', { relativePath }),
+  /**
+   * Basename-only resolution across `attachments/draft`, `attachments/synced`,
+   * `attachments/pending`, and legacy flat / `pending_upload` (matches Formulus
+   * `resolveAttachmentFileUrl`).
+   */
   workspaceAttachmentFileUrl: (fileName: string) =>
     invokeSafe<string | null>('workspace_attachment_file_url', { fileName }),
+  /** Same behavior as {@link workspaceAttachmentFileUrl} (Tauri alias). */
+  resolveAttachmentFileUrl: (fileName: string) =>
+    invokeSafe<string | null>('resolve_attachment_file_url', { fileName }),
   scanBundleCustomQuestionTypes: () =>
     invokeSafe<Record<string, unknown>>('scan_bundle_custom_question_types'),
   removeWorkspaceAttachment: (attachmentId: string) =>

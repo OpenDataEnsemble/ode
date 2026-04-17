@@ -16,3 +16,10 @@ export function workspaceAttachmentsDir(workspaceRoot: string): string {
   const base = workspaceRoot.replace(/[/\\]+$/, '');
   return `${base}${sep}attachments`;
 }
+
+/** Canonical committed/downloaded copies (Formulus `synced/`). */
+export function workspaceAttachmentsSyncedDir(workspaceRoot: string): string {
+  const sep = workspaceRoot.includes('\\') ? '\\' : '/';
+  const base = workspaceRoot.replace(/[/\\]+$/, '');
+  return `${base}${sep}attachments${sep}synced`;
+}

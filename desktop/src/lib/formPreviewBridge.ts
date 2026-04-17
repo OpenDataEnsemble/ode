@@ -17,8 +17,8 @@
  * | `runLocalModel` | **Stub** — no on-device ML in preview. |
  * | `getCurrentUser` | Active profile `username` + `label` as `displayName` (from `get_settings`). |
  * | `getThemeMode` | `'system'`. |
- * | `getAttachmentUri` | `workspace/attachments/<basename>` → `file://` if file exists, else `null`. |
- * | `getAttachmentsUri` | `file://` for `attachments/` directory if it exists. |
+ * | `getAttachmentUri` | Basename lookup in `attachments/{draft,synced,pending,...}` → Tauri `convertFileSrc` URL (or `null`). |
+ * | `getAttachmentsUri` | `file://` for `attachments/synced/` (canonical listing; matches Formulus `getAttachmentsDirectoryFileUrl`). |
  * | `getCustomAppUri` | Tauri asset URL for `bundles/active/` (directory of `app/`), not `file://`. |
  * | `getFormSpecsUri` | `getActiveBundleFormsFileBaseUrl()` (`bundles/active/forms`). |
  *
@@ -95,6 +95,31 @@ function stubReason(detail: string): { error: string } {
   return {
     error: `${DESKTOP_FORM_PREVIEW_PREFIX}: ${detail}`,
   };
+}
+
+/** Map `file:///…` to a filesystem path suitable for {@link convertFileSrc} (Linux + Windows). */
+function fileUrlToLocalPath(fileUrl: string): string {
+  const url = new URL(fileUrl);
+  let pathname = decodeURIComponent(url.pathname.replace(/\+/g, ' '));
+  if (/^\/[A-Za-z]:\//.test(pathname)) {
+    pathname = pathname.slice(1);
+  }
+  return pathname;
+}
+
+/** Raw `file://` URLs are blocked for `<img src>` inside the formplayer iframe; use asset protocol. */
+function attachmentFileUrlForWebview(raw: string | null): string | null {
+  if (raw == null) {
+    return null;
+  }
+  if (!raw.startsWith('file://')) {
+    return raw;
+  }
+  try {
+    return convertFileSrc(fileUrlToLocalPath(raw));
+  } catch {
+    return raw;
+  }
 }
 
 function getByPath(obj: unknown, path: string): unknown {
@@ -440,8 +465,10 @@ export async function handleFormPreviewBridgeMessage(
       case 'getAttachmentUri': {
         const fileName = String(data.fileName ?? '');
         try {
-          const url = await tauriClient.workspaceAttachmentFileUrl(fileName);
-          reply('getAttachmentUri', { result: url });
+          const raw = await tauriClient.workspaceAttachmentFileUrl(fileName);
+          reply('getAttachmentUri', {
+            result: attachmentFileUrlForWebview(raw),
+          });
         } catch (e) {
           reply('getAttachmentUri', {
             error: e instanceof Error ? e.message : String(e),
@@ -453,7 +480,7 @@ export async function handleFormPreviewBridgeMessage(
       case 'getAttachmentsUri': {
         try {
           const url =
-            await tauriClient.workspaceDirectoryFileUrl('attachments');
+            await tauriClient.workspaceDirectoryFileUrl('attachments/synced');
           reply('getAttachmentsUri', { result: url });
         } catch (e) {
           reply('getAttachmentsUri', {

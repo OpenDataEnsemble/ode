@@ -26,6 +26,25 @@ const parsePx = (value: string): number => {
   return parseInt(value.replace('px', ''), 10);
 };
 
+/**
+ * True when `uri` points at another device's filesystem (e.g. Formulus Android
+ * after Synk pull). Those paths must not be used in img/src — resolve via
+ * `filename` + {@link FormulusClient.getAttachmentUri} instead.
+ */
+function isForeignDeviceFileUri(uri: string): boolean {
+  const u = uri.trim();
+  if (!u) {
+    return false;
+  }
+  if (u.includes('/data/user/') || u.includes('org.opendataensemble.formulus')) {
+    return true;
+  }
+  if (u.includes('/var/mobile/') || u.includes('/Application/')) {
+    return true;
+  }
+  return false;
+}
+
 // Tester function to identify photo question types
 export const photoQuestionTester = rankWith(
   5, // High priority for photo questions
@@ -77,13 +96,20 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   // Get the current photo data from the form data (now JSON format)
   const currentPhotoData = data || null;
 
-  // Prefer uri; else resolve basename via bridge (draft → committed → pending upload)
+  // Prefer local uri (this device); else resolve basename via bridge (draft → committed → synced copy)
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       console.log('Photo data changed:', currentPhotoData);
-      if (currentPhotoData?.uri) {
-        const u = currentPhotoData.uri;
+      const rawUri =
+        typeof currentPhotoData?.uri === 'string'
+          ? currentPhotoData.uri
+          : null;
+      if (
+        rawUri &&
+        !isForeignDeviceFileUri(rawUri)
+      ) {
+        const u = rawUri;
         const display =
           u.startsWith('file://') || u.startsWith('http') ? u : `file://${u}`;
         console.log('Setting photo URL from stored data:', display);

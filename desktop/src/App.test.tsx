@@ -38,7 +38,7 @@ vi.mock('./lib/tauriClient', () => ({
     listObservationsPage: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
     listFormTypes: vi.fn().mockResolvedValue([]),
     getSyncState: vi.fn().mockResolvedValue({
-      repositoryGeneration: 1,
+      repositoryGeneration: 0,
       observationSyncVersion: 0,
       lastAttachmentVersion: 0,
     }),

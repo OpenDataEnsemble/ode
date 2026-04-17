@@ -72,7 +72,9 @@ async function pullSyncWithAttachments(
 
   let page = await pullPage(obsVer > 0 ? obsVer : undefined, repoGen);
 
-  if (page.repositoryGeneration > repoGen) {
+  // Fresh workspace uses generation 0 until the first successful pull; do not treat
+  // "server > 0" as a server-side reset (that would archive an empty profile).
+  if (repoGen > 0 && page.repositoryGeneration > repoGen) {
     await tauriClient.archiveWorkspaceForRepositoryGeneration();
     await tauriClient.setSyncState({
       repositoryGeneration: page.repositoryGeneration,
@@ -110,27 +112,40 @@ async function pullSyncWithAttachments(
   );
 
   let attachmentsDownloaded = 0;
+  let attachmentsFailed = 0;
   try {
     const manifest = await api.getAttachmentManifest({
       xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-      xRepositoryGeneration: attState.repositoryGeneration,
+      ...(attState.repositoryGeneration > 0
+        ? { xRepositoryGeneration: attState.repositoryGeneration }
+        : {}),
       attachmentManifestRequest: {
         client_id: clientId,
         since_version: attState.lastAttachmentVersion,
+        ...(attState.repositoryGeneration > 0
+          ? { repository_generation: attState.repositoryGeneration }
+          : {}),
       },
     });
 
-    for (const op of manifest.operations) {
-      if (op.operation === 'download' && op.download_url) {
-        const res = await fetch(op.download_url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) {
-          continue;
+    const ops = manifest.operations ?? [];
+    for (const op of ops) {
+      if (op.operation === 'download' && op.attachment_id) {
+        try {
+          await tauriClient.downloadWorkspaceAttachmentFromUrl({
+            baseUrl,
+            bearerToken: token,
+            attachmentId: op.attachment_id,
+            xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+          });
+          attachmentsDownloaded += 1;
+        } catch (e) {
+          attachmentsFailed += 1;
+          console.error(
+            `Attachment download failed (${op.attachment_id}):`,
+            e,
+          );
         }
-        const buf = new Uint8Array(await res.arrayBuffer());
-        await tauriClient.writeWorkspaceAttachment(op.attachment_id, buf);
-        attachmentsDownloaded += 1;
       } else if (op.operation === 'delete') {
         await tauriClient.removeWorkspaceAttachment(op.attachment_id);
       }
@@ -141,11 +156,12 @@ async function pullSyncWithAttachments(
       repositoryGeneration:
         manifest.repository_generation ?? last.repositoryGeneration,
     });
-  } catch {
+  } catch (err) {
     // Attachment endpoints may be unavailable; observation import still succeeded.
+    console.error('Attachment manifest download failed:', err);
   }
 
-  return { imported, conflicts, attachmentsDownloaded };
+  return { imported, conflicts, attachmentsDownloaded, attachmentsFailed };
 }
 
 async function callAdminRepositoryReset(baseUrl: string, token: string) {
@@ -560,8 +576,13 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         await get().loadObservations();
         await get().loadHealth();
         const att = result.attachmentsDownloaded ?? 0;
+        const af = result.attachmentsFailed ?? 0;
+        const attSuffix =
+          af > 0
+            ? `${att} attachment file(s), ${af} failed`
+            : `${att} attachment file(s)`;
         set({
-          syncMessage: `Pulled ${result.imported} observations (${result.conflicts} conflicts), ${att} attachment file(s).`,
+          syncMessage: `Pulled ${result.imported} observations (${result.conflicts} conflicts), ${attSuffix}.`,
         });
         return result;
       };
@@ -648,10 +669,15 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         await get().loadObservations();
         await get().loadHealth();
         const att = result.attachmentsDownloaded ?? 0;
+        const af = result.attachmentsFailed ?? 0;
+        const attSuffix =
+          af > 0
+            ? `${att} attachment file(s), ${af} failed`
+            : `${att} attachment file(s)`;
         set({
           syncMessage:
             `Server repository reset (generation ${reset.repository_generation}). ` +
-            `Pulled ${result.imported} observations (${result.conflicts} conflicts), ${att} attachment file(s).`,
+            `Pulled ${result.imported} observations (${result.conflicts} conflicts), ${attSuffix}.`,
         });
         return result;
       };

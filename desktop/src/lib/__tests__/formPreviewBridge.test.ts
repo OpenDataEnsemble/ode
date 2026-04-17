@@ -6,6 +6,7 @@ import {
   handleFormPreviewBridgeMessage,
   postFormplayerBridgeReply,
 } from '../formPreviewBridge';
+import { tauriClient } from '../tauriClient';
 
 vi.mock('@tauri-apps/api/core', () => ({
   convertFileSrc: (path: string) => `asset:${path}`,
@@ -25,7 +26,7 @@ vi.mock('../tauriClient', () => ({
       .mockResolvedValue('file:///tmp/ws/bundles/active/forms'),
     workspaceDirectoryFileUrl: vi
       .fn()
-      .mockResolvedValue('file:///tmp/ws/attachments/'),
+      .mockResolvedValue('file:///tmp/ws/attachments/synced/'),
     workspaceAttachmentFileUrl: vi.fn().mockResolvedValue(null),
   },
 }));
@@ -82,6 +83,33 @@ describe('handleFormPreviewBridgeMessage', () => {
     const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
     expect(payload.type).toBe('requestCamera_response');
     expect(payload.error).toContain(DESKTOP_FORM_PREVIEW_PREFIX);
+  });
+
+  it('getAttachmentUri maps file:// through convertFileSrc for iframe img', async () => {
+    vi.mocked(tauriClient.workspaceAttachmentFileUrl).mockResolvedValueOnce(
+      'file:///home/u/ws/attachments/synced/a.jpg',
+    );
+    const postMessage = vi.fn();
+    const iframe = {
+      contentWindow: { postMessage } as unknown as Window,
+    } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      JSON.stringify({
+        type: 'getAttachmentUri',
+        messageId: 'ga1',
+        fileName: 'a.jpg',
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.type).toBe('getAttachmentUri_response');
+    expect(payload.result).toBe('asset:/home/u/ws/attachments/synced/a.jpg');
   });
 
   it('ignores messages without messageId', async () => {

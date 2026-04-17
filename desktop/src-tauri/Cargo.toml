@@ -32,4 +32,5 @@ keyring = { version = "3", features = ["windows-native", "apple-native", "sync-s
 zip = { version = "2", default-features = false, features = ["deflate"] }
 walkdir = "2"
 url = "2"
+urlencoding = "2"
 
