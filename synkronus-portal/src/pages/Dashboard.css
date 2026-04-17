@@ -162,13 +162,21 @@ html::-webkit-scrollbar-thumb:hover {
 .logo-icon {
   width: var(--icon-size-2xl);
   height: var(--icon-size-2xl);
-  object-fit: contain;
+  object-fit: cover;
+  border-radius: 50%;
+  border: var(--border-width-thin) solid var(--color-brand-primary-alpha-40);
+  background: var(--color-background-card);
   filter: drop-shadow(var(--filter-drop-shadow-glow-sm));
-  transition: filter var(--duration-normal) var(--easing-ease-out);
+  transition: filter var(--duration-normal) var(--easing-ease-out),
+    border-color var(--duration-normal) var(--easing-ease-out);
 }
 
 .logo-icon:hover {
   filter: drop-shadow(var(--filter-drop-shadow-glow-md));
+}
+
+[data-theme="light"] .logo-icon {
+  border-color: var(--color-brand-primary-500);
 }
 
 .dashboard-header h1 {
@@ -1436,17 +1444,6 @@ html::-webkit-scrollbar-thumb:hover {
   accent-color: var(--color-brand-primary-500);
 }
 
-.auto-activate-hint {
-  font-size: 11px;
-  color: var(--color-neutral-white-alpha-60);
-  margin-top: 2px;
-  line-height: 1.2;
-}
-
-[data-theme="light"] .auto-activate-hint {
-  color: var(--color-text-tertiary) !important;
-}
-
 /* Upload Progress */
 .upload-progress {
   margin-bottom: var(--spacing-6);
@@ -2424,7 +2421,7 @@ html::-webkit-scrollbar-thumb:hover {
   background: transparent !important;
   border: none !important;
   color: var(--color-neutral-white);
-  padding: var(--spacing-2) var(--spacing-3) !important;
+  padding: var(--spacing-2) !important;
   border-radius: var(--border-radius-md) !important;
   cursor: pointer;
   transition: all var(--duration-normal) var(--easing-ease-out);
@@ -2434,7 +2431,7 @@ html::-webkit-scrollbar-thumb:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-2);
+  gap: 0;
   margin: 0 !important;
   min-height: auto !important;
   box-shadow: none !important;

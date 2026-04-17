@@ -5,7 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
 import { Button, Input } from '@ode/components/react-web';
 
-import odeLogo from '../assets/ode-logo-round.png';
+import portalLogo from '../assets/portal.png';
 import dashboardBackgroundDark from '../assets/dashboard-background.png';
 import dashboardBackgroundLight from '../assets/dashboard-background-light.png';
 import './Login.css';
@@ -77,7 +77,11 @@ export function Login() {
       }>
       <div className="login-card">
         <div className="login-logo-section">
-          <img src={odeLogo} alt="ODE Logo" className="login-logo" />
+          <img
+            src={portalLogo}
+            alt="Synkronus Portal Logo"
+            className="login-logo"
+          />
           <h1>Synkronus Portal</h1>
         </div>
         <h2>Sign In</h2>

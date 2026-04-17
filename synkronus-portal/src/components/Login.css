@@ -110,13 +110,21 @@
 .login-logo {
   width: var(--logo-sm);
   height: var(--logo-sm);
-  object-fit: contain;
+  object-fit: cover;
+  border-radius: 50%;
+  border: var(--border-width-thin) solid var(--color-brand-primary-alpha-40);
+  background: var(--color-background-card);
   filter: drop-shadow(0 4px 12px var(--color-brand-primary-alpha-30));
-  transition: filter var(--duration-normal) var(--easing-ease-out);
+  transition: filter var(--duration-normal) var(--easing-ease-out),
+    border-color var(--duration-normal) var(--easing-ease-out);
 }
 
 .login-logo:hover {
   filter: drop-shadow(0 0 16px var(--color-brand-primary-alpha-60));
+}
+
+[data-theme="light"] .login-logo {
+  border-color: var(--color-brand-primary-500);
 }
 
 .login-card h1 {
