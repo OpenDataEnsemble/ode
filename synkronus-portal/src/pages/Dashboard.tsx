@@ -25,7 +25,7 @@ import {
   HiChartBar,
 } from 'react-icons/hi2';
 import { ColorBrandPrimary500 } from '@ode/tokens';
-import odeLogo from '../assets/ode-logo-round.png';
+import portalLogo from '../assets/portal.png';
 import dashboardBackgroundDark from '../assets/dashboard-background.png';
 import dashboardBackgroundLight from '../assets/dashboard-background-light.png';
 import './Dashboard.css';
@@ -585,7 +585,11 @@ export function Dashboard() {
       <header className={`dashboard-header ${isScrolled ? 'scrolled' : ''}`}>
         <div className="header-content">
           <div className="logo-section">
-            <img src={odeLogo} alt="ODE Logo" className="logo-icon" />
+            <img
+              src={portalLogo}
+              alt="Synkronus Portal Logo"
+              className="logo-icon"
+            />
             <h1>Synkronus Portal</h1>
           </div>
           <div className="user-info">
@@ -864,9 +868,6 @@ export function Dashboard() {
                           disabled={loading}
                         />
                         <span>Auto-activate</span>
-                        <small className="auto-activate-hint">
-                          Check BEFORE uploading to auto-activate the bundle
-                        </small>
                       </label>
                     </>
                   )}
@@ -1169,7 +1170,7 @@ export function Dashboard() {
                                       position="left"
                                       className="table-action-btn reset-password-btn"
                                       accessibilityLabel="Reset Password">
-                                      <HiKey /> Reset Password
+                                      <HiKey />
                                     </Button>
                                     <Button
                                       variant="neutral"
@@ -1179,7 +1180,7 @@ export function Dashboard() {
                                       position="right"
                                       className="table-action-btn delete-btn"
                                       accessibilityLabel="Delete User">
-                                      <HiTrash /> Delete
+                                      <HiTrash />
                                     </Button>
                                   </div>
                                 </td>
