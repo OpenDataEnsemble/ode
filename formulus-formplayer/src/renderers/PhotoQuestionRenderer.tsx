@@ -208,7 +208,10 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           photoData.filename,
         );
         setPhotoUrl(webviewSafeImageSrc(resolved));
-        console.log('Setting photo URL for display via getAttachmentUri:', resolved);
+        console.log(
+          'Setting photo URL for display via getAttachmentUri:',
+          resolved,
+        );
 
         // Clear any previous errors on successful photo capture
         console.log('Clearing error state after successful photo capture');

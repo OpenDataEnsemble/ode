@@ -135,8 +135,7 @@ class FormulusClient {
       }
     } else {
       const hasFn =
-        typeof fileRef.filename === 'string' &&
-        fileRef.filename.trim() !== '';
+        typeof fileRef.filename === 'string' && fileRef.filename.trim() !== '';
       if (!hasFn) {
         return null;
       }
