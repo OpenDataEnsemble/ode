@@ -870,6 +870,7 @@ class SynkronusApi {
           await api.uploadAttachment({
             attachmentId,
             file,
+            xOdeVersion: ODE_VERSION,
             xRepositoryGeneration:
               (await this.getRepositoryGenerationForRequestOrNull()) ??
               undefined,
