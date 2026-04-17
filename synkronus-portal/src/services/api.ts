@@ -175,7 +175,7 @@ export const api = {
 
   async getVersion(): Promise<VersionInfo> {
     try {
-      const res = await defaultApi.getVersion();
+      const res = await defaultApi.getVersion({ xOdeVersion: ODE_VERSION });
       return res.data as VersionInfo;
     } catch (error) {
       throw toApiError(error, { redirectOnUnauthorized: false });
@@ -380,21 +380,24 @@ export const api = {
   async downloadBlob(endpoint: string): Promise<Blob> {
     try {
       if (endpoint === '/dataexport/parquet') {
-        const res = await dataExportApi.getParquetExportZip({
-          responseType: 'blob',
-        });
+        const res = await dataExportApi.getParquetExportZip(
+          { xOdeVersion: ODE_VERSION },
+          { responseType: 'blob' },
+        );
         return res.data as unknown as Blob;
       }
       if (endpoint === '/dataexport/raw-json') {
-        const res = await dataExportApi.getRawJsonExportZip({
-          responseType: 'blob',
-        });
+        const res = await dataExportApi.getRawJsonExportZip(
+          { xOdeVersion: ODE_VERSION },
+          { responseType: 'blob' },
+        );
         return res.data as unknown as Blob;
       }
       if (endpoint === '/attachments/export-zip') {
-        const res = await attachmentsApi.getAttachmentsExportZip({
-          responseType: 'blob',
-        });
+        const res = await attachmentsApi.getAttachmentsExportZip(
+          { xOdeVersion: ODE_VERSION },
+          { responseType: 'blob' },
+        );
         return res.data as unknown as Blob;
       }
     } catch (error) {
