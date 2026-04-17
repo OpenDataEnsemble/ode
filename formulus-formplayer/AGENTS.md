@@ -27,6 +27,7 @@ This file gives AI assistants and developers enough context to work effectively 
   - `npm run build:rn` — build then **copy** `build/` into the Formulus app:
     - Android: `../formulus/android/app/src/main/assets/formplayer_dist/`
     - iOS: `../formulus/ios/formplayer_dist/`
+  - `npm run build:ode-desktop` — **one command**: same as `build:rn`, then copies `build/` into **`../desktop/public/formplayer_dist/`** for ODE Desktop (Tauri). Use this when you need both React Native assets and the desktop embed refreshed. Alternatively, from `desktop/` only: `pnpm copy:formplayer` (requires an existing `formulus-formplayer/build/`).
 - **Interface sync**: `scripts/sync-interface.js` copies **one** shared TypeScript file from the Formulus app into the formplayer:  
   `formulus/src/webview/FormulusInterfaceDefinition.ts` → `formulus-formplayer/src/types/FormulusInterfaceDefinition.ts`.  
   So the **single source of truth** for the bridge contract is in **formulus**; formplayer consumes a copy. Run `npm run sync-interface` (or `npm run build`) when that file changes.

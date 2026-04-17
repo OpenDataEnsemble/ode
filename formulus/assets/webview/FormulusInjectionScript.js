@@ -230,8 +230,8 @@
       });
     },
 
-    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown> => Promise<FormCompletionResult>
-    openFormplayer: function (formType, params, savedData) {
+    // openFormplayer: formType, params, savedData, options? => Promise<FormCompletionResult>
+    openFormplayer: function (formType, params, savedData, options) {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -288,6 +288,7 @@
             formType: formType,
             params: params,
             savedData: savedData,
+            options: options,
           }),
         );
       });

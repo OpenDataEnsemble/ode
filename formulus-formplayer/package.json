@@ -40,6 +40,7 @@
     "preview": "vite preview",
     "upload:android": "npm run build:rn",
     "build:rn": "npm run build && npm run copy-to-rn",
+    "build:ode-desktop": "npm run build && npm run copy-to-rn && node ../desktop/scripts/copy-formplayer-to-desktop.mjs",
     "clean-rn-assets": "node scripts/clean-rn-assets.js",
     "copy-to-rn": "node scripts/copy-to-rn.js",
     "test": "vitest",

@@ -56,6 +56,8 @@ export interface FormInitData {
   formSchema?: unknown;
   uiSchema?: unknown;
   operationId?: string;
+  /** Sub-observation session: embedded child form returns JSON to parent; do not persist as a top-level observation. */
+  subObservationMode?: boolean;
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
     custom_types: Record<string, { source: string }>;
@@ -284,6 +286,7 @@ export interface FormulusInterface {
     formType: string,
     params: Record<string, unknown>,
     savedData: Record<string, unknown>,
+    options?: { subObservationMode?: boolean },
   ): Promise<FormCompletionResult>;
 
   /**
