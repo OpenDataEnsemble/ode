@@ -22,17 +22,37 @@
 }
 
 /* Light theme: override with theme-light tokens */
-[data-theme="light"] {
-  --color-semantic-theme-background-base: var(--color-semantic-theme-light-background-base);
-  --color-semantic-theme-background-elevated: var(--color-semantic-theme-light-background-elevated);
-  --color-semantic-theme-background-overlay: var(--color-semantic-theme-light-background-overlay);
-  --color-semantic-theme-background-card: var(--color-semantic-theme-light-background-card);
-  --color-semantic-theme-text-primary: var(--color-semantic-theme-light-text-primary);
-  --color-semantic-theme-text-secondary: var(--color-semantic-theme-light-text-secondary);
-  --color-semantic-theme-text-tertiary: var(--color-semantic-theme-light-text-tertiary);
-  --color-semantic-theme-text-disabled: var(--color-semantic-theme-light-text-disabled);
-  --color-semantic-theme-border-default: var(--color-semantic-theme-light-border-default);
-  --color-semantic-theme-border-hover: var(--color-semantic-theme-light-border-hover);
+[data-theme='light'] {
+  --color-semantic-theme-background-base: var(
+    --color-semantic-theme-light-background-base
+  );
+  --color-semantic-theme-background-elevated: var(
+    --color-semantic-theme-light-background-elevated
+  );
+  --color-semantic-theme-background-overlay: var(
+    --color-semantic-theme-light-background-overlay
+  );
+  --color-semantic-theme-background-card: var(
+    --color-semantic-theme-light-background-card
+  );
+  --color-semantic-theme-text-primary: var(
+    --color-semantic-theme-light-text-primary
+  );
+  --color-semantic-theme-text-secondary: var(
+    --color-semantic-theme-light-text-secondary
+  );
+  --color-semantic-theme-text-tertiary: var(
+    --color-semantic-theme-light-text-tertiary
+  );
+  --color-semantic-theme-text-disabled: var(
+    --color-semantic-theme-light-text-disabled
+  );
+  --color-semantic-theme-border-default: var(
+    --color-semantic-theme-light-border-default
+  );
+  --color-semantic-theme-border-hover: var(
+    --color-semantic-theme-light-border-hover
+  );
 }
 
 body {
@@ -44,7 +64,8 @@ body {
   padding: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color var(--duration-normal) var(--easing-ease-out),
+  transition:
+    background-color var(--duration-normal) var(--easing-ease-out),
     color var(--duration-normal) var(--easing-ease-out);
 }
 

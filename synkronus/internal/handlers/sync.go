@@ -50,14 +50,17 @@ func (h *Handler) Pull(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientGen := sync.ParseClientRepositoryGeneration(r, req.RepositoryGeneration)
+	clientGen, clientGenSent := sync.ParseClientRepositoryGenerationSent(r, req.RepositoryGeneration)
 	serverGen, genErr := h.syncService.GetRepositoryGeneration(r.Context())
 	if genErr != nil {
 		h.log.Error("Failed to read repository generation", "error", genErr)
 		SendErrorResponse(w, http.StatusInternalServerError, genErr, "Failed to verify repository generation")
 		return
 	}
-	if clientGen != serverGen {
+	// If the client did not send any generation (fresh install), adopt the server's —
+	// this lets a device with no local state sync against a previously-reset server
+	// without a spurious `repository_reset_required` conflict.
+	if clientGenSent && clientGen != serverGen {
 		w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(serverGen, 10))
 		SendErrorResponseWithCode(w, http.StatusConflict, sync.ErrRepositoryGenerationMismatch,
 			"Client repository_generation does not match the server; pull sync state and align generation before pulling.",

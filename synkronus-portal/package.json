@@ -11,8 +11,8 @@
     "generate:api": "npx --yes @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated \"--additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && npm run format",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "npx prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
-    "format:check": "npx prettier \"**/*.{js,jsx,ts,tsx,json}\" --check",
+    "format": "npx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
+    "format:check": "npx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
     "preview": "vite preview"
   },
   "dependencies": {

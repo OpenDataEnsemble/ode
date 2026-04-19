@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <title>Custom App Placeholder</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       /* ODE_TOKENS_START */
-/*
+      /*
        * ODE design tokens — generated from packages/tokens. Do not edit; run npm run generate:placeholder-tokens to update.
        */
       :root {
@@ -39,7 +39,8 @@
         --font-weight-regular: 400;
         --font-weight-bold: 700;
         /* font.family.sans */
-        --font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        --font-family-sans:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
         /* font.lineHeight */
         --line-height-tight: 1.25;
         --line-height-normal: 1.5;
@@ -54,8 +55,11 @@
       }
       /* ODE_TOKENS_END */
 
-      * { box-sizing: border-box; }
-      html, body {
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
         margin: 0;
         padding: 0;
         min-height: 100%;
@@ -70,12 +74,14 @@
         justify-content: center;
         padding: var(--spacing-8);
         background: transparent;
-        transition: color 0.2s ease, background-color 0.2s ease;
+        transition:
+          color 0.2s ease,
+          background-color 0.2s ease;
       }
-      [data-theme="light"] body {
+      [data-theme='light'] body {
         color: var(--color-neutral-600);
       }
-      [data-theme="dark"] body {
+      [data-theme='dark'] body {
         color: var(--color-neutral-white);
       }
       html:not([data-theme]) body {
@@ -105,10 +111,10 @@
         line-height: var(--line-height-normal);
         margin: 0 0 var(--spacing-8);
       }
-      [data-theme="dark"] .placeholder-subtitle {
+      [data-theme='dark'] .placeholder-subtitle {
         color: var(--color-neutral-400);
       }
-      [data-theme="light"] .placeholder-subtitle {
+      [data-theme='light'] .placeholder-subtitle {
         color: var(--color-neutral-600);
       }
 
@@ -127,7 +133,9 @@
         border: var(--border-width-thin) solid var(--color-brand-primary-500);
         border-radius: var(--border-radius-md);
         cursor: pointer;
-        transition: background-color 0.15s ease, color 0.15s ease;
+        transition:
+          background-color 0.15s ease,
+          color 0.15s ease;
         margin-bottom: var(--spacing-8);
       }
       .placeholder-btn:hover,
@@ -140,29 +148,30 @@
         font-size: var(--font-size-sm);
         margin: 0 0 var(--spacing-2);
       }
-      [data-theme="dark"] .placeholder-tagline {
+      [data-theme='dark'] .placeholder-tagline {
         color: var(--color-neutral-white);
       }
-      [data-theme="light"] .placeholder-tagline {
+      [data-theme='light'] .placeholder-tagline {
         color: var(--color-neutral-600);
       }
       .placeholder-version {
         font-size: var(--font-size-xs);
         margin: 0;
       }
-      [data-theme="dark"] .placeholder-version {
+      [data-theme='dark'] .placeholder-version {
         color: var(--color-neutral-400);
       }
-      [data-theme="light"] .placeholder-version {
+      [data-theme='light'] .placeholder-version {
         color: var(--color-neutral-600);
       }
     </style>
   </head>
   <body>
     <div class="placeholder-card">
-      <h1 class="placeholder-title">Your Custom<br>App</h1>
+      <h1 class="placeholder-title">Your Custom<br />App</h1>
       <p class="placeholder-subtitle" id="subtitle-text">
-        <strong>Login</strong> and <strong>Update App Bundle</strong> to load your forms
+        <strong>Login</strong> and <strong>Update App Bundle</strong> to load
+        your forms
       </p>
       <button
         type="button"
@@ -175,129 +184,156 @@
       <p class="placeholder-version" id="version-el">v0.1.0-native</p>
     </div>
     <script>
-    (function() {
-      function setTheme(mode) {
-        document.documentElement.setAttribute('data-theme', mode === 'dark' ? 'dark' : 'light');
-      }
-      window.__formulusSetTheme = setTheme;
-
-      function navigateToLogin() {
-        try {
-          if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formulusNavigateToSettings' }));
-          }
-        } catch (e) {
-          console.error('Placeholder: failed to post formulusNavigateToSettings', e);
+      (function () {
+        function setTheme(mode) {
+          document.documentElement.setAttribute(
+            'data-theme',
+            mode === 'dark' ? 'dark' : 'light',
+          );
         }
-      }
+        window.__formulusSetTheme = setTheme;
 
-      function navigateToSync() {
-        try {
-          if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'formulusNavigateToSync' }));
-          }
-        } catch (e) {
-          console.error('Placeholder: failed to post formulusNavigateToSync', e);
-        }
-      }
-
-      var loginBtn = document.getElementById('login-btn');
-      var subtitleEl = document.getElementById('subtitle-text');
-
-      /** Logged-out copy: bold Login + Update App Bundle. Logged-in copy: bold Update App Bundle only. */
-      var SUBTITLE_LOGIN =
-        '<strong>Login</strong> and <strong>Update App Bundle</strong> to load your forms';
-      var SUBTITLE_UPDATE =
-        '<strong>Update App Bundle</strong> to load your forms';
-
-      function setButtonMode(mode) {
-        if (!loginBtn) return;
-        if (mode === 'sync') {
-          // Logged in: button goes to Sync screen to update app bundle
-          loginBtn.textContent = 'Update Now';
-          loginBtn.setAttribute('aria-label', 'Update App Bundle to load forms');
-          loginBtn.onclick = navigateToSync;
-          if (subtitleEl) subtitleEl.innerHTML = SUBTITLE_UPDATE;
-        } else {
-          loginBtn.textContent = 'Login Now';
-          loginBtn.setAttribute('aria-label', 'Login to load forms');
-          loginBtn.onclick = navigateToLogin;
-          if (subtitleEl) subtitleEl.innerHTML = SUBTITLE_LOGIN;
-        }
-      }
-
-      function refreshLoginState() {
-        try {
-          var api = window.formulus || globalThis.formulus;
-          if (!api || typeof api.getCurrentUser !== 'function') {
-            setButtonMode('login');
-            return;
-          }
-          api
-            .getCurrentUser()
-            .then(function(user) {
-              if (user && user.username) {
-                setButtonMode('sync');
-              } else {
-                setButtonMode('login');
-              }
-            })
-            .catch(function() {
-              setButtonMode('login');
-            });
-        } catch (e) {
-          console.error('Placeholder: failed to refresh login state', e);
-          setButtonMode('login');
-        }
-      }
-
-      // Expose a hook so the native app can force-refresh the button state
-      window.__formulusPlaceholderRefreshLoginState = refreshLoginState;
-
-      // Default state before we know anything about login
-      setButtonMode('login');
-
-      function waitForFormulus(cb, tries) {
-        tries = tries !== undefined ? tries : 50;
-        var api = window.formulus || globalThis.formulus;
-        if (api && typeof api.getVersion === 'function') {
+        function navigateToLogin() {
           try {
-            var versionPromise = api.getVersion();
-            if (versionPromise && typeof versionPromise.then === 'function') {
-              versionPromise.then(function(v) {
-                var el = document.getElementById('version-el');
-                if (el && typeof v === 'string') el.textContent = 'v' + v;
-                if (typeof cb === 'function') cb();
-              }).catch(function() {
-                if (typeof cb === 'function') cb();
+            if (
+              window.ReactNativeWebView &&
+              typeof window.ReactNativeWebView.postMessage === 'function'
+            ) {
+              window.ReactNativeWebView.postMessage(
+                JSON.stringify({ type: 'formulusNavigateToSettings' }),
+              );
+            }
+          } catch (e) {
+            console.error(
+              'Placeholder: failed to post formulusNavigateToSettings',
+              e,
+            );
+          }
+        }
+
+        function navigateToSync() {
+          try {
+            if (
+              window.ReactNativeWebView &&
+              typeof window.ReactNativeWebView.postMessage === 'function'
+            ) {
+              window.ReactNativeWebView.postMessage(
+                JSON.stringify({ type: 'formulusNavigateToSync' }),
+              );
+            }
+          } catch (e) {
+            console.error(
+              'Placeholder: failed to post formulusNavigateToSync',
+              e,
+            );
+          }
+        }
+
+        var loginBtn = document.getElementById('login-btn');
+        var subtitleEl = document.getElementById('subtitle-text');
+
+        /** Logged-out copy: bold Login + Update App Bundle. Logged-in copy: bold Update App Bundle only. */
+        var SUBTITLE_LOGIN =
+          '<strong>Login</strong> and <strong>Update App Bundle</strong> to load your forms';
+        var SUBTITLE_UPDATE =
+          '<strong>Update App Bundle</strong> to load your forms';
+
+        function setButtonMode(mode) {
+          if (!loginBtn) return;
+          if (mode === 'sync') {
+            // Logged in: button goes to Sync screen to update app bundle
+            loginBtn.textContent = 'Update Now';
+            loginBtn.setAttribute(
+              'aria-label',
+              'Update App Bundle to load forms',
+            );
+            loginBtn.onclick = navigateToSync;
+            if (subtitleEl) subtitleEl.innerHTML = SUBTITLE_UPDATE;
+          } else {
+            loginBtn.textContent = 'Login Now';
+            loginBtn.setAttribute('aria-label', 'Login to load forms');
+            loginBtn.onclick = navigateToLogin;
+            if (subtitleEl) subtitleEl.innerHTML = SUBTITLE_LOGIN;
+          }
+        }
+
+        function refreshLoginState() {
+          try {
+            var api = window.formulus || globalThis.formulus;
+            if (!api || typeof api.getCurrentUser !== 'function') {
+              setButtonMode('login');
+              return;
+            }
+            api
+              .getCurrentUser()
+              .then(function (user) {
+                if (user && user.username) {
+                  setButtonMode('sync');
+                } else {
+                  setButtonMode('login');
+                }
+              })
+              .catch(function () {
+                setButtonMode('login');
               });
-            } else {
-              var el = document.getElementById('version-el');
-              if (el && typeof versionPromise === 'string') el.textContent = 'v' + versionPromise;
+          } catch (e) {
+            console.error('Placeholder: failed to refresh login state', e);
+            setButtonMode('login');
+          }
+        }
+
+        // Expose a hook so the native app can force-refresh the button state
+        window.__formulusPlaceholderRefreshLoginState = refreshLoginState;
+
+        // Default state before we know anything about login
+        setButtonMode('login');
+
+        function waitForFormulus(cb, tries) {
+          tries = tries !== undefined ? tries : 50;
+          var api = window.formulus || globalThis.formulus;
+          if (api && typeof api.getVersion === 'function') {
+            try {
+              var versionPromise = api.getVersion();
+              if (versionPromise && typeof versionPromise.then === 'function') {
+                versionPromise
+                  .then(function (v) {
+                    var el = document.getElementById('version-el');
+                    if (el && typeof v === 'string') el.textContent = 'v' + v;
+                    if (typeof cb === 'function') cb();
+                  })
+                  .catch(function () {
+                    if (typeof cb === 'function') cb();
+                  });
+              } else {
+                var el = document.getElementById('version-el');
+                if (el && typeof versionPromise === 'string')
+                  el.textContent = 'v' + versionPromise;
+                if (typeof cb === 'function') cb();
+              }
+            } catch (err) {
               if (typeof cb === 'function') cb();
             }
-          } catch (err) {
+          } else if (tries > 0) {
+            setTimeout(function () {
+              waitForFormulus(cb, tries - 1);
+            }, 100);
+          } else {
             if (typeof cb === 'function') cb();
           }
-        } else if (tries > 0) {
-          setTimeout(function() { waitForFormulus(cb, tries - 1); }, 100);
-        } else {
-          if (typeof cb === 'function') cb();
         }
-      }
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-          waitForFormulus(function() {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function () {
+            waitForFormulus(function () {
+              refreshLoginState();
+            });
+          });
+        } else {
+          waitForFormulus(function () {
             refreshLoginState();
           });
-        });
-      } else {
-        waitForFormulus(function() {
-          refreshLoginState();
-        });
-      }
-    })();
+        }
+      })();
     </script>
   </body>
 </html>

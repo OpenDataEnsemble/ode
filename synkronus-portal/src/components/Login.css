@@ -20,8 +20,16 @@
   width: 200%;
   height: 200%;
   background:
-    radial-gradient(circle at 25% 35%, var(--color-brand-primary-500) 0%, transparent 35%),
-    radial-gradient(circle at 75% 65%, var(--color-brand-secondary-500) 0%, transparent 35%);
+    radial-gradient(
+      circle at 25% 35%,
+      var(--color-brand-primary-500) 0%,
+      transparent 35%
+    ),
+    radial-gradient(
+      circle at 75% 65%,
+      var(--color-brand-secondary-500) 0%,
+      transparent 35%
+    );
   opacity: var(--opacity-6);
   animation: backgroundPulse 25s ease-in-out infinite;
   pointer-events: none;
@@ -30,7 +38,7 @@
   background-blend-mode: overlay;
 }
 
-[data-theme="light"] .login-container::before {
+[data-theme='light'] .login-container::before {
   background-color: var(--color-semantic-ui-overlay-light);
 }
 
@@ -43,7 +51,10 @@
   bottom: -10%;
   width: 120%;
   height: 120%;
-  background-image: var(--login-bg-image, url('../assets/dashboard-background.png'));
+  background-image: var(
+    --login-bg-image,
+    url('../assets/dashboard-background.png')
+  );
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -52,17 +63,19 @@
   opacity: var(--opacity-70);
   z-index: 0;
   pointer-events: none;
-  transition: filter var(--duration-normal) var(--easing-ease-out),
+  transition:
+    filter var(--duration-normal) var(--easing-ease-out),
     opacity var(--duration-normal) var(--easing-ease-out);
 }
 
-[data-theme="light"] .login-container::after {
+[data-theme='light'] .login-container::after {
   filter: blur(var(--filter-blur-16)) brightness(1) saturate(1);
   opacity: var(--opacity-70);
 }
 
 @keyframes backgroundPulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: translate(0, 0) scale(1);
     opacity: var(--opacity-6);
   }
@@ -80,7 +93,9 @@
   padding: var(--spacing-8);
   width: 100%;
   max-width: 420px;
-  box-shadow: var(--shadow-portal-lg), inset 0 1px 0 var(--color-neutral-white-alpha-5);
+  box-shadow:
+    var(--shadow-portal-lg),
+    inset 0 1px 0 var(--color-neutral-white-alpha-5);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-20);
   position: relative;
   z-index: 1;
@@ -110,13 +125,22 @@
 .login-logo {
   width: var(--logo-sm);
   height: var(--logo-sm);
-  object-fit: contain;
+  object-fit: cover;
+  border-radius: 50%;
+  border: var(--border-width-thin) solid var(--color-brand-primary-alpha-40);
+  background: var(--color-background-card);
   filter: drop-shadow(0 4px 12px var(--color-brand-primary-alpha-30));
-  transition: filter var(--duration-normal) var(--easing-ease-out);
+  transition:
+    filter var(--duration-normal) var(--easing-ease-out),
+    border-color var(--duration-normal) var(--easing-ease-out);
 }
 
 .login-logo:hover {
   filter: drop-shadow(0 0 16px var(--color-brand-primary-alpha-60));
+}
+
+[data-theme='light'] .login-logo {
+  border-color: var(--color-brand-primary-500);
 }
 
 .login-card h1 {
@@ -229,7 +253,7 @@
   animation: slideDown var(--duration-normal) var(--easing-ease-out);
 }
 
-[data-theme="light"] .error-message {
+[data-theme='light'] .error-message {
   background: var(--color-semantic-error-50);
   color: var(--color-semantic-error-600);
 }
@@ -266,6 +290,6 @@
   text-transform: uppercase;
 }
 
-[data-theme="light"] .version-text {
+[data-theme='light'] .version-text {
   color: var(--color-text-tertiary-light);
 }

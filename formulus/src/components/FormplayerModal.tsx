@@ -25,6 +25,7 @@ import {
   resolveFormOperation,
   resolveFormOperationByType,
   setActiveFormplayerModal,
+  clearActiveFormplayerModalIfMatches,
 } from '../webview/FormulusMessageHandlers';
 import {
   FormCompletionResult,
@@ -45,9 +46,11 @@ import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { geolocationService } from '../services/GeolocationService';
+import { persistObservationWithAttachments } from '../services/attachmentStorage';
 
 interface FormplayerModalProps {
   visible: boolean;
+  isActive?: boolean;
   onClose: () => void;
 }
 
@@ -58,6 +61,7 @@ export interface FormplayerModalHandle {
     observationId: string | null,
     existingObservationData: Record<string, unknown> | null,
     operationId: string | null,
+    subObservationMode?: boolean,
   ) => void;
   handleSubmission: (data: {
     formType: string;
@@ -67,7 +71,7 @@ export interface FormplayerModalHandle {
 }
 
 const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
-  ({ visible, onClose }, ref) => {
+  ({ visible, isActive = true, onClose }, ref) => {
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showConfirm } = useConfirmModal();
@@ -93,6 +97,10 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Track if form has been successfully submitted to avoid double resolution
     const [formSubmitted, setFormSubmitted] = useState(false);
+
+    // Sub-observation (embedded child) forms: return JSON only; do not persist as top-level observations.
+    // Ref updates synchronously in initializeForm so submit cannot run before flag is set.
+    const subObservationModeRef = useRef(false);
 
     // Author-configurable display name shown in the native header bar
     const [currentFormDisplayName, setCurrentFormDisplayName] = useState<
@@ -191,6 +199,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Track WebView ready state
     const [webViewReady, setWebViewReady] = useState(false);
+    const previousIsActiveRef = useRef(isActive);
 
     // Handle WebView load complete
     const handleWebViewLoad = () => {
@@ -206,6 +215,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       observationId: string | null,
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
+      subObservationMode: boolean = false,
     ) => {
       // Check if WebView is ready, if not log a warning (retry logic will handle it)
       if (!webViewReady) {
@@ -213,6 +223,8 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           '[FormplayerModal] WebView not ready yet, form init will be queued by message handler',
         );
       }
+
+      subObservationModeRef.current = subObservationMode;
 
       // GPS session: fresh fix + light watch while the user fills the form
       geolocationService.beginObservationSession();
@@ -446,6 +458,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         uiSchema: formType.uiSchema ?? {},
         extensions,
         customQuestionTypes,
+        subObservationMode,
       } as FormInitData;
 
       if (!webViewRef.current) {
@@ -487,33 +500,35 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         setIsSubmitting(true);
 
         try {
-          // Get the local repository from the database service
-          const localRepo = databaseService.getLocalRepo();
-          if (!localRepo) {
+          const subObservationMode = subObservationModeRef.current;
+          const localRepo = subObservationMode
+            ? null
+            : databaseService.getLocalRepo();
+          if (!subObservationMode && !localRepo) {
             throw new Error('Database repository not available');
           }
 
-          // Save the observation
-          let resultObservationId: string;
-          if (effectiveObservationId) {
-            const updateSuccess = await localRepo.updateObservation({
-              observationId: effectiveObservationId,
-              data: finalData,
-            });
-            if (!updateSuccess) {
-              throw new Error('Failed to update observation');
-            }
-            resultObservationId = effectiveObservationId;
-          } else {
-            const newId = await localRepo.saveObservation({
+          const persistResult = await persistObservationWithAttachments(
+            {
               formType,
-              data: finalData,
-            });
-            if (!newId) {
-              throw new Error('Failed to save new observation');
-            }
-            resultObservationId = newId;
-          }
+              finalData,
+              observationId: effectiveObservationId,
+              subObservationMode,
+            },
+            {
+              saveObservation: args =>
+                localRepo
+                  ? localRepo.saveObservation(args)
+                  : Promise.resolve(null),
+              updateObservation: args =>
+                localRepo
+                  ? localRepo.updateObservation(args)
+                  : Promise.resolve(false),
+            },
+          );
+
+          const resultObservationId = persistResult.observationId;
+          const resultFormData = persistResult.formData;
 
           // Mark form as successfully submitted
           setFormSubmitted(true);
@@ -522,7 +537,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           const completionResult: FormCompletionResult = {
             status: effectiveObservationId ? 'form_updated' : 'form_submitted',
             observationId: resultObservationId,
-            formData: finalData,
+            formData: resultFormData,
             formType: formType,
           };
 
@@ -583,17 +598,19 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       [currentObservationId, currentOperationId, onClose, showConfirm],
     );
 
-    // Register/unregister modal with message handlers and reset form state
+    // Register/unregister modal with message handlers and reset form state.
+    // Stacked modals (e.g. sub-observation child): parent stays visible but inactive — it must NOT
+    // clear the global ref, or the child's submit would miss the active modal and fail or persist wrongly.
     useEffect(() => {
-      if (visible) {
-        // Register this modal as the active one for handling submissions
+      if (visible && isActive) {
         setActiveFormplayerModal({ handleSubmission });
-      } else {
-        // Unregister when modal is closed
-        setActiveFormplayerModal(null);
+        return () => {
+          clearActiveFormplayerModalIfMatches(handleSubmission);
+        };
+      }
 
-        // Reset form state when modal is closed
-        setTimeout(() => {
+      if (!visible) {
+        const timeoutId = setTimeout(() => {
           setCurrentFormType(null);
           setCurrentFormDisplayName(null);
           setCurrentObservationId(null);
@@ -601,9 +618,26 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           setIsClosing(false); // Reset closing state when modal is fully closed
           setFormSubmitted(false); // Reset submission flag
           setWebViewReady(false); // Reset WebView ready state
+          subObservationModeRef.current = false;
         }, 300); // Small delay to ensure modal is fully closed
+        return () => clearTimeout(timeoutId);
       }
-    }, [visible, handleSubmission]);
+
+      return undefined;
+    }, [visible, isActive, handleSubmission]);
+
+    useEffect(() => {
+      if (
+        visible &&
+        isActive &&
+        webViewReady &&
+        currentFormType &&
+        previousIsActiveRef.current === false
+      ) {
+        webViewRef.current?.notifyReceiveFocus();
+      }
+      previousIsActiveRef.current = isActive;
+    }, [visible, isActive, webViewReady, currentFormType]);
 
     useImperativeHandle(ref, () => ({ initializeForm, handleSubmission }));
 

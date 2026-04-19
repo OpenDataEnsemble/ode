@@ -28,7 +28,7 @@ import {
   type RepositoryResetRequiredError,
 } from '../errors/RepositoryResetRequiredError';
 import { repositoryRecoveryService } from '../services/RepositoryRecoveryService';
-import colors from '../theme/colors';
+import colors, { withAlpha } from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
@@ -103,9 +103,9 @@ const SyncScreen = () => {
 
   const updatePendingUploads = useCallback(async () => {
     try {
-      const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
-      await RNFS.mkdir(pendingUploadDirectory);
-      const files = await RNFS.readDir(pendingUploadDirectory);
+      const pendingDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending`;
+      await RNFS.mkdir(pendingDirectory);
+      const files = await RNFS.readDir(pendingDirectory);
       const attachmentFiles = files.filter(file => file.isFile());
 
       const count = attachmentFiles.length;
@@ -162,6 +162,30 @@ const SyncScreen = () => {
     }
   }, []);
 
+  /**
+   * Returns true when this device effectively has no local sync state to lose:
+   * no observations persisted locally and no observation cursor in AsyncStorage.
+   * Used to silently auto-recover on 409 `repository_reset_required` instead of
+   * prompting the user to "erase and sync" for data that doesn't exist.
+   */
+  const localSyncStateIsEmpty = useCallback(async (): Promise<boolean> => {
+    try {
+      const lastSeen = await AsyncStorage.getItem('@last_seen_version');
+      if (lastSeen != null && lastSeen !== '' && lastSeen !== '0') {
+        return false;
+      }
+      const repo = databaseService.getLocalRepo();
+      if (!repo) {
+        return true;
+      }
+      const pending = await repo.getPendingChanges();
+      return pending.length === 0;
+    } catch (e) {
+      console.warn('localSyncStateIsEmpty probe failed', e);
+      return false;
+    }
+  }, []);
+
   const runRepositoryResetRecovery = useCallback(
     (
       error: RepositoryResetRequiredError,
@@ -169,38 +193,62 @@ const SyncScreen = () => {
       afterWipe: () => Promise<void>,
       failureTitle: string,
     ) => {
-      Alert.alert(
-        REPOSITORY_RESET_ALERT_TITLE,
-        REPOSITORY_RESET_ALERT_MESSAGE,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Erase and sync',
-            style: 'destructive',
-            onPress: () => {
-              void (async () => {
-                try {
-                  startSync(true);
-                  setActiveOperation(activeOp);
-                  await repositoryRecoveryService.wipeLocalSyncState(
-                    error.serverRepositoryGeneration,
-                  );
-                  await afterWipe();
-                  finishSync();
-                } catch (e) {
-                  const msg = getUserFacingSyncErrorMessage(e);
-                  finishSync(msg);
-                  Alert.alert(failureTitle, msg);
-                } finally {
-                  setActiveOperation(null);
-                }
-              })();
+      void (async () => {
+        // Belt-and-suspenders: if there is no local state worth warning about
+        // (fresh install that somehow still received a 409), silently wipe
+        // and retry without disturbing the user.
+        if (await localSyncStateIsEmpty()) {
+          try {
+            startSync(true);
+            setActiveOperation(activeOp);
+            await repositoryRecoveryService.wipeLocalSyncState(
+              error.serverRepositoryGeneration,
+            );
+            await afterWipe();
+            finishSync();
+          } catch (e) {
+            const msg = getUserFacingSyncErrorMessage(e);
+            finishSync(msg);
+            Alert.alert(failureTitle, msg);
+          } finally {
+            setActiveOperation(null);
+          }
+          return;
+        }
+
+        Alert.alert(
+          REPOSITORY_RESET_ALERT_TITLE,
+          REPOSITORY_RESET_ALERT_MESSAGE,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Erase and sync',
+              style: 'destructive',
+              onPress: () => {
+                void (async () => {
+                  try {
+                    startSync(true);
+                    setActiveOperation(activeOp);
+                    await repositoryRecoveryService.wipeLocalSyncState(
+                      error.serverRepositoryGeneration,
+                    );
+                    await afterWipe();
+                    finishSync();
+                  } catch (e) {
+                    const msg = getUserFacingSyncErrorMessage(e);
+                    finishSync(msg);
+                    Alert.alert(failureTitle, msg);
+                  } finally {
+                    setActiveOperation(null);
+                  }
+                })();
+              },
             },
-          },
-        ],
-      );
+          ],
+        );
+      })();
     },
-    [startSync, finishSync],
+    [startSync, finishSync, localSyncStateIsEmpty],
   );
 
   const handleSync = useCallback(async () => {

@@ -2,6 +2,7 @@
 // Must match the injected interface in FormulusInterfaceDefinition.ts
 import { Observation } from '../database/models/Observation';
 import {
+  AttachmentDisplayDescriptor,
   FormInitData,
   FormCompletionResult,
   FormInfo,
@@ -68,8 +69,8 @@ export interface FormulusMessageHandlers {
   }>;
   onGetThemeMode?: () => Promise<'light' | 'dark' | 'system'>;
   onGetAttachmentUri?: (data: {
-    fileName?: string;
-    filename?: string;
+    fileName?: string | AttachmentDisplayDescriptor;
+    filename?: string | AttachmentDisplayDescriptor;
   }) => Promise<string | null>;
   onGetAttachmentsUri?: () => Promise<string>;
   onGetCustomAppUri?: () => Promise<string>;

@@ -14,7 +14,7 @@ const preview: Preview = {
     layout: 'centered',
   },
   decorators: [
-    (Story) => (
+    Story => (
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <div style={{ padding: 24, maxWidth: 640 }}>

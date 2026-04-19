@@ -10,8 +10,8 @@
 .dashboard kbd,
 .dashboard samp,
 .dashboard .mono,
-.dashboard [class*="mono"],
-.dashboard [class*="code"] {
+.dashboard [class*='mono'],
+.dashboard [class*='code'] {
   font-family: var(--font-family-mono) !important;
 }
 
@@ -22,7 +22,8 @@
   overflow-x: hidden;
   color: var(--color-text-primary);
   background-color: var(--color-background-base);
-  transition: background-color var(--duration-normal) var(--easing-ease-out),
+  transition:
+    background-color var(--duration-normal) var(--easing-ease-out),
     color var(--duration-normal) var(--easing-ease-out);
 }
 
@@ -32,7 +33,8 @@
 body,
 html {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb) var(--color-semantic-ui-scrollbar-track);
+  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb)
+    var(--color-semantic-ui-scrollbar-track);
 }
 
 .dashboard::-webkit-scrollbar,
@@ -80,7 +82,7 @@ html::-webkit-scrollbar-thumb:hover {
   z-index: 1;
 }
 
-[data-theme="light"] .dashboard::before {
+[data-theme='light'] .dashboard::before {
   background-color: var(--color-semantic-ui-overlay-light);
 }
 
@@ -94,7 +96,10 @@ html::-webkit-scrollbar-thumb:hover {
   bottom: -10%;
   width: 120%;
   height: 120%;
-  background-image: var(--dashboard-bg-image, url('../assets/dashboard-background.png'));
+  background-image: var(
+    --dashboard-bg-image,
+    url('../assets/dashboard-background.png')
+  );
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -103,11 +108,12 @@ html::-webkit-scrollbar-thumb:hover {
   opacity: var(--opacity-70);
   z-index: 0;
   pointer-events: none;
-  transition: filter var(--duration-normal) var(--easing-ease-out),
+  transition:
+    filter var(--duration-normal) var(--easing-ease-out),
     opacity var(--duration-normal) var(--easing-ease-out);
 }
 
-[data-theme="light"] .dashboard::after {
+[data-theme='light'] .dashboard::after {
   filter: blur(var(--filter-blur-18)) brightness(1) saturate(1);
   opacity: var(--opacity-70);
 }
@@ -123,7 +129,9 @@ html::-webkit-scrollbar-thumb:hover {
   backdrop-filter: blur(var(--filter-blur-40)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--filter-blur-40)) saturate(180%);
   border-bottom: var(--border-width-thin) solid var(--color-border-default);
-  box-shadow: var(--shadow-portal-md), inset 0 1px 0 var(--color-neutral-white-alpha-5);
+  box-shadow:
+    var(--shadow-portal-md),
+    inset 0 1px 0 var(--color-neutral-white-alpha-5);
   padding: 0;
   transition: all var(--duration-normal) var(--easing-ease-out);
   opacity: 1;
@@ -131,11 +139,13 @@ html::-webkit-scrollbar-thumb:hover {
   will-change: transform;
 }
 
-[data-theme="light"] .dashboard-header {
-  box-shadow: var(--shadow-portal-sm), inset 0 1px 0 var(--color-neutral-black-alpha-3);
+[data-theme='light'] .dashboard-header {
+  box-shadow:
+    var(--shadow-portal-sm),
+    inset 0 1px 0 var(--color-neutral-black-alpha-3);
 }
 
-[data-theme="light"] .dashboard-header.scrolled {
+[data-theme='light'] .dashboard-header.scrolled {
   opacity: 1;
   background: var(--color-background-elevated);
   backdrop-filter: blur(var(--filter-blur-50)) saturate(200%);
@@ -162,13 +172,22 @@ html::-webkit-scrollbar-thumb:hover {
 .logo-icon {
   width: var(--icon-size-2xl);
   height: var(--icon-size-2xl);
-  object-fit: contain;
+  object-fit: cover;
+  border-radius: 50%;
+  border: var(--border-width-thin) solid var(--color-brand-primary-alpha-40);
+  background: var(--color-background-card);
   filter: drop-shadow(var(--filter-drop-shadow-glow-sm));
-  transition: filter var(--duration-normal) var(--easing-ease-out);
+  transition:
+    filter var(--duration-normal) var(--easing-ease-out),
+    border-color var(--duration-normal) var(--easing-ease-out);
 }
 
 .logo-icon:hover {
   filter: drop-shadow(var(--filter-drop-shadow-glow-md));
+}
+
+[data-theme='light'] .logo-icon {
+  border-color: var(--color-brand-primary-500);
 }
 
 .dashboard-header h1 {
@@ -181,8 +200,10 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* Use darker green shade for "Synkronus Portal" text in light mode */
-[data-theme="light"] .dashboard-header h1 {
-  color: var(--color-brand-primary-600) !important; /* Darker green for light mode */
+[data-theme='light'] .dashboard-header h1 {
+  color: var(
+    --color-brand-primary-600
+  ) !important; /* Darker green for light mode */
 }
 
 .user-info {
@@ -217,7 +238,8 @@ html::-webkit-scrollbar-thumb:hover {
   position: absolute;
   inset: -1px;
   border-radius: 8px;
-  background: linear-gradient(90deg, 
+  background: linear-gradient(
+    90deg,
     transparent 0%,
     var(--color-brand-primary-alpha-5) 15%,
     var(--color-brand-primary-alpha-10) 30%,
@@ -227,11 +249,11 @@ html::-webkit-scrollbar-thumb:hover {
     var(--color-brand-primary-alpha-30) 90%,
     var(--color-brand-primary-alpha-30) 100%
   );
-  mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
-  -webkit-mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  -webkit-mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
   mask-composite: exclude;
   -webkit-mask-composite: destination-out;
@@ -252,7 +274,9 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .mobile-menu-toggle:hover {
-  background: var(--color-brand-primary-500) !important; /* Keep current hover */
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Keep current hover */
   border: var(--border-width-thin) solid var(--color-brand-primary-500) !important;
   transform: scale(1.05);
 }
@@ -283,13 +307,14 @@ html::-webkit-scrollbar-thumb:hover {
   transform: translateY(-7px) rotate(-45deg);
 }
 
-[data-theme="light"] .mobile-menu-toggle {
+[data-theme='light'] .mobile-menu-toggle {
   background: transparent !important;
   border: none !important;
 }
 
-[data-theme="light"] .mobile-menu-toggle::after {
-  background: linear-gradient(90deg, 
+[data-theme='light'] .mobile-menu-toggle::after {
+  background: linear-gradient(
+    90deg,
     transparent 0%,
     var(--color-brand-primary-alpha-3) 15%,
     var(--color-brand-primary-alpha-6) 30%,
@@ -301,16 +326,16 @@ html::-webkit-scrollbar-thumb:hover {
   );
 }
 
-[data-theme="light"] .mobile-menu-toggle:hover {
+[data-theme='light'] .mobile-menu-toggle:hover {
   background: var(--color-brand-primary-500) !important;
   border: var(--border-width-thin) solid var(--color-brand-primary-500) !important;
 }
 
-[data-theme="light"] .mobile-menu-toggle:hover::after {
+[data-theme='light'] .mobile-menu-toggle:hover::after {
   display: none;
 }
 
-[data-theme="light"] .mobile-menu-toggle:hover .hamburger-line {
+[data-theme='light'] .mobile-menu-toggle:hover .hamburger-line {
   background: var(--color-neutral-white) !important;
 }
 
@@ -366,7 +391,10 @@ html::-webkit-scrollbar-thumb:hover {
   z-index: 10000;
   max-height: 0;
   overflow: visible;
-  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease,
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0;
   transform: translateX(100%);
 }
@@ -377,7 +405,8 @@ html::-webkit-scrollbar-thumb:hover {
   position: absolute;
   inset: -1px;
   border-radius: 0 0 0 16px; /* Straight top-left, more curved bottom-left */
-  background: linear-gradient(90deg, 
+  background: linear-gradient(
+    90deg,
     var(--color-neutral-white-alpha-30) 0%,
     var(--color-neutral-white-alpha-30) 10%,
     var(--color-neutral-white-alpha-25) 25%,
@@ -387,11 +416,11 @@ html::-webkit-scrollbar-thumb:hover {
     var(--color-neutral-white-alpha-5) 85%,
     transparent 100%
   );
-  mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
-  -webkit-mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  -webkit-mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
   mask-composite: exclude;
   -webkit-mask-composite: destination-out;
@@ -404,7 +433,10 @@ html::-webkit-scrollbar-thumb:hover {
   max-height: 500px;
   opacity: 1;
   transform: translateX(0);
-  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease,
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Expand mobile menu when themes dropdown is open */
@@ -465,7 +497,7 @@ html::-webkit-scrollbar-thumb:hover {
   font-weight: var(--font-weight-medium);
 }
 
-[data-theme="light"] .mobile-menu-welcome-text {
+[data-theme='light'] .mobile-menu-welcome-text {
   color: var(--color-text-secondary);
 }
 
@@ -529,7 +561,8 @@ html::-webkit-scrollbar-thumb:hover {
   position: absolute;
   inset: -1px;
   border-radius: 8px;
-  background: linear-gradient(90deg, 
+  background: linear-gradient(
+    90deg,
     transparent 0%,
     var(--color-brand-primary-alpha-5) 15%,
     var(--color-brand-primary-alpha-10) 30%,
@@ -539,11 +572,11 @@ html::-webkit-scrollbar-thumb:hover {
     var(--color-brand-primary-alpha-30) 90%,
     var(--color-brand-primary-alpha-30) 100%
   );
-  mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
-  -webkit-mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  -webkit-mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
   mask-composite: exclude;
   -webkit-mask-composite: destination-out;
@@ -552,7 +585,6 @@ html::-webkit-scrollbar-thumb:hover {
   z-index: 0;
   border-width: 1px;
 }
-
 
 .mobile-menu .theme-switcher-button:hover {
   background: var(--color-brand-primary-500) !important;
@@ -573,14 +605,15 @@ html::-webkit-scrollbar-thumb:hover {
   color: var(--color-neutral-white) !important;
 }
 
-[data-theme="light"] .mobile-menu .theme-switcher-button {
+[data-theme='light'] .mobile-menu .theme-switcher-button {
   background: transparent !important;
   border: none !important;
   color: var(--color-brand-primary-600) !important;
 }
 
-[data-theme="light"] .mobile-menu .theme-switcher-button::after {
-  background: linear-gradient(90deg, 
+[data-theme='light'] .mobile-menu .theme-switcher-button::after {
+  background: linear-gradient(
+    90deg,
     transparent 0%,
     var(--color-brand-primary-alpha-3) 15%,
     var(--color-brand-primary-alpha-6) 30%,
@@ -592,21 +625,24 @@ html::-webkit-scrollbar-thumb:hover {
   );
 }
 
-[data-theme="light"] .mobile-menu .theme-switcher-button:hover {
+[data-theme='light'] .mobile-menu .theme-switcher-button:hover {
   background: var(--color-brand-primary-500) !important;
   border: var(--border-width-thin) solid var(--color-brand-primary-500) !important;
 }
 
-[data-theme="light"] .mobile-menu .theme-switcher-button:hover::after {
+[data-theme='light'] .mobile-menu .theme-switcher-button:hover::after {
   opacity: 0;
 }
 
 /* Keep border visible when dropdown is open in mobile menu (light theme) */
-[data-theme="light"] .mobile-menu .theme-switcher-button.open::after {
+[data-theme='light'] .mobile-menu .theme-switcher-button.open::after {
   opacity: 1 !important;
 }
 
-[data-theme="light"] .mobile-menu .theme-switcher-button:hover .theme-switcher-icon {
+[data-theme='light']
+  .mobile-menu
+  .theme-switcher-button:hover
+  .theme-switcher-icon {
   color: var(--color-neutral-white) !important;
 }
 
@@ -640,7 +676,8 @@ html::-webkit-scrollbar-thumb:hover {
   position: absolute;
   inset: -1px;
   border-radius: 8px;
-  background: linear-gradient(90deg, 
+  background: linear-gradient(
+    90deg,
     var(--color-neutral-white-alpha-30) 0%,
     var(--color-neutral-white-alpha-30) 10%,
     var(--color-neutral-white-alpha-25) 25%,
@@ -650,11 +687,11 @@ html::-webkit-scrollbar-thumb:hover {
     var(--color-neutral-white-alpha-5) 85%,
     transparent 100%
   );
-  mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
-  -webkit-mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  -webkit-mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
   mask-composite: exclude;
   -webkit-mask-composite: destination-out;
@@ -681,14 +718,15 @@ html::-webkit-scrollbar-thumb:hover {
   opacity: 0;
 }
 
-[data-theme="light"] .mobile-menu-logout-button {
+[data-theme='light'] .mobile-menu-logout-button {
   background: transparent !important;
   border: none !important;
   color: var(--color-semantic-theme-light-text-secondary) !important;
 }
 
-[data-theme="light"] .mobile-menu-logout-button::after {
-  background: linear-gradient(90deg, 
+[data-theme='light'] .mobile-menu-logout-button::after {
+  background: linear-gradient(
+    90deg,
     var(--color-neutral-black-alpha-20) 0%,
     var(--color-neutral-black-alpha-20) 10%,
     var(--color-neutral-black-alpha-18) 25%,
@@ -700,12 +738,12 @@ html::-webkit-scrollbar-thumb:hover {
   );
 }
 
-[data-theme="light"] .mobile-menu-logout-button:hover {
+[data-theme='light'] .mobile-menu-logout-button:hover {
   background: var(--color-semantic-error-alpha-15) !important;
   border: var(--border-width-thin) solid var(--color-semantic-error-500) !important;
 }
 
-[data-theme="light"] .mobile-menu-logout-button:hover::after {
+[data-theme='light'] .mobile-menu-logout-button:hover::after {
   opacity: 0;
 }
 
@@ -727,15 +765,16 @@ html::-webkit-scrollbar-thumb:hover {
   animation: slideDownFade 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-[data-theme="light"] .mobile-menu {
+[data-theme='light'] .mobile-menu {
   background: var(--color-background-elevated);
   border: none;
   box-shadow: var(--shadow-portal-lg-light);
 }
 
-[data-theme="light"] .mobile-menu::after {
+[data-theme='light'] .mobile-menu::after {
   border-radius: 0 0 0 16px; /* Straight top-left, more curved bottom-left */
-  background: linear-gradient(90deg, 
+  background: linear-gradient(
+    90deg,
     var(--color-neutral-black-alpha-20) 0%,
     var(--color-neutral-black-alpha-20) 10%,
     var(--color-neutral-black-alpha-18) 25%,
@@ -747,12 +786,12 @@ html::-webkit-scrollbar-thumb:hover {
   );
 }
 
-[data-theme="light"] .mobile-menu-action-item {
+[data-theme='light'] .mobile-menu-action-item {
   background: transparent;
   border: none;
 }
 
-[data-theme="light"] .mobile-menu-action-item:hover {
+[data-theme='light'] .mobile-menu-action-item:hover {
   background: transparent;
   border: none;
 }
@@ -762,19 +801,19 @@ html::-webkit-scrollbar-thumb:hover {
   .mobile-menu-toggle {
     display: flex;
   }
-  
+
   .mobile-menu {
     display: block;
   }
-  
+
   .dashboard-tabs {
     display: none;
   }
-  
+
   .user-info {
     gap: 12px;
   }
-  
+
   /* Hide welcome text, badge, theme switcher, and logout button on small screens */
   .welcome-text,
   .user-details,
@@ -783,11 +822,11 @@ html::-webkit-scrollbar-thumb:hover {
   .user-info .ode-badge {
     display: none !important;
   }
-  
+
   .user-info {
     gap: 0;
   }
-  
+
   .mobile-menu-toggle {
     display: flex !important;
   }
@@ -802,7 +841,7 @@ html::-webkit-scrollbar-thumb:hover {
     justify-content: center; /* Center content horizontally */
     position: relative; /* For absolute positioning of logo and button */
   }
-  
+
   .logo-section {
     margin-left: 12px; /* Push logo away from left edge (same distance as hamburger from right) */
     position: absolute;
@@ -810,7 +849,7 @@ html::-webkit-scrollbar-thumb:hover {
     display: flex;
     align-items: center;
   }
-  
+
   /* Center the h1 text in the navbar */
   .logo-section h1 {
     font-size: var(--font-size-xl);
@@ -822,28 +861,28 @@ html::-webkit-scrollbar-thumb:hover {
     margin: 0;
     z-index: 1;
   }
-  
+
   /* Keep logo icon visible but position it on the left */
   .logo-section .logo-icon {
     display: block;
   }
-  
+
   .user-info {
     gap: 8px;
     position: absolute;
     right: 0;
   }
-  
+
   /* Push hamburger button away from right edge */
   .mobile-menu-toggle {
     margin-right: 12px;
   }
-  
+
   /* Adjust mobile menu position - lower it with space so top border is visible */
   .mobile-menu {
     top: 70px !important; /* Lower than navbar height (60px) with 8px gap to show top border */
   }
-  
+
   /* Adjust backdrop position */
   .mobile-menu-backdrop::after {
     top: 60px; /* Match the new navbar height */
@@ -853,9 +892,11 @@ html::-webkit-scrollbar-thumb:hover {
 /* Also increase navbar thickness on medium screens */
 @media (max-width: 1024px) {
   .dashboard-content {
-    padding-top: calc(60px + var(--spacing-8)) !important; /* Mobile navbar height (60px) + spacing matching gap between tabs and content */
+    padding-top: calc(
+      60px + var(--spacing-8)
+    ) !important; /* Mobile navbar height (60px) + spacing matching gap between tabs and content */
   }
-  
+
   .header-content {
     padding: 8px 24px; /* Padding to make navbar ~60px total (button 44px + 8px top + 8px bottom = 60px) */
     min-height: 60px; /* Ensure minimum height */
@@ -864,7 +905,7 @@ html::-webkit-scrollbar-thumb:hover {
     justify-content: center; /* Center content horizontally */
     position: relative; /* For absolute positioning of logo and button */
   }
-  
+
   .logo-section {
     margin-left: 12px; /* Push logo away from left edge (same distance as hamburger from right) */
     position: absolute;
@@ -872,7 +913,7 @@ html::-webkit-scrollbar-thumb:hover {
     display: flex;
     align-items: center;
   }
-  
+
   /* Center the h1 text in the navbar */
   .logo-section h1 {
     position: fixed;
@@ -884,27 +925,27 @@ html::-webkit-scrollbar-thumb:hover {
     z-index: 1;
     font-size: var(--font-size-xl);
   }
-  
+
   /* Keep logo icon visible but position it on the left */
   .logo-section .logo-icon {
     display: block;
   }
-  
+
   .user-info {
     position: absolute;
     right: 0;
   }
-  
+
   /* Push hamburger button away from right edge */
   .mobile-menu-toggle {
     margin-right: 12px;
   }
-  
+
   /* Adjust mobile menu position - lower it with space so top border is visible */
   .mobile-menu {
     top: 68px !important; /* Lower than navbar height (60px) with 8px gap to show top border */
   }
-  
+
   /* Adjust backdrop position */
   .mobile-menu-backdrop::after {
     top: 60px; /* Match the new navbar height */
@@ -924,7 +965,6 @@ html::-webkit-scrollbar-thumb:hover {
   text-transform: uppercase;
   letter-spacing: var(--font-letter-spacing-wider);
   font-weight: var(--font-weight-medium);
-  
 }
 
 .username {
@@ -948,19 +988,31 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .role-badge.role-admin {
-  background: linear-gradient(135deg, var(--color-semantic-error-500) 0%, var(--color-semantic-error-600) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-semantic-error-500) 0%,
+    var(--color-semantic-error-600) 100%
+  );
   color: var(--color-neutral-white);
   box-shadow: var(--shadow-portal-role-error);
 }
 
 .role-badge.role-read-write {
-  background: linear-gradient(135deg, var(--color-semantic-success-500) 0%, var(--color-semantic-success-600) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-semantic-success-500) 0%,
+    var(--color-semantic-success-600) 100%
+  );
   color: var(--color-neutral-white);
   box-shadow: 0 2px 12px var(--color-semantic-success-alpha-30);
 }
 
 .role-badge.role-read-only {
-  background: linear-gradient(135deg, var(--color-semantic-info-500) 0%, var(--color-semantic-info-600) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-semantic-info-500) 0%,
+    var(--color-semantic-info-600) 100%
+  );
   color: var(--color-neutral-white);
   box-shadow: var(--shadow-portal-role-info);
 }
@@ -986,7 +1038,8 @@ html::-webkit-scrollbar-thumb:hover {
   position: absolute;
   inset: -1px;
   border-radius: 8px;
-  background: linear-gradient(90deg, 
+  background: linear-gradient(
+    90deg,
     var(--color-neutral-white-alpha-30) 0%,
     var(--color-neutral-white-alpha-30) 10%,
     var(--color-neutral-white-alpha-25) 25%,
@@ -996,11 +1049,11 @@ html::-webkit-scrollbar-thumb:hover {
     var(--color-neutral-white-alpha-5) 85%,
     transparent 100%
   );
-  mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
-  -webkit-mask: 
-    linear-gradient(var(--color-neutral-white) 0 0) content-box, 
+  -webkit-mask:
+    linear-gradient(var(--color-neutral-white) 0 0) content-box,
     linear-gradient(var(--color-neutral-white) 0 0);
   mask-composite: exclude;
   -webkit-mask-composite: destination-out;
@@ -1017,7 +1070,12 @@ html::-webkit-scrollbar-thumb:hover {
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, var(--color-semantic-error-alpha-20), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-semantic-error-alpha-20),
+    transparent
+  );
   transition: left 0.5s ease;
 }
 
@@ -1041,7 +1099,9 @@ html::-webkit-scrollbar-thumb:hover {
   max-width: 1600px;
   margin: 0 auto;
   padding: var(--spacing-10);
-  padding-top: calc(80px + var(--spacing-8)); /* Navbar height + spacing matching gap between tabs and content */
+  padding-top: calc(
+    80px + var(--spacing-8)
+  ); /* Navbar height + spacing matching gap between tabs and content */
   position: relative;
   z-index: 1;
 }
@@ -1058,7 +1118,7 @@ html::-webkit-scrollbar-thumb:hover {
   padding: var(--spacing-2);
   border-radius: var(--border-radius-xl);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-15);
-  box-shadow: 
+  box-shadow:
     0 4px 24px var(--color-neutral-black-alpha-30),
     inset 0 1px 0 var(--color-neutral-white-alpha-5);
   position: relative;
@@ -1249,10 +1309,12 @@ html::-webkit-scrollbar-thumb:hover {
   backdrop-filter: blur(var(--filter-blur-40)) saturate(180%);
   -webkit-backdrop-filter: blur(var(--filter-blur-40)) saturate(180%);
   padding: var(--spacing-10);
-  padding-bottom: calc(var(--spacing-10) + var(--spacing-8)); /* Extra bottom spacing */
+  padding-bottom: calc(
+    var(--spacing-10) + var(--spacing-8)
+  ); /* Extra bottom spacing */
   border-radius: var(--border-radius-2xl);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-20);
-  box-shadow: 
+  box-shadow:
     0 8px 32px var(--color-neutral-black-alpha-40),
     inset 0 1px 0 var(--color-neutral-white-alpha-5);
   min-height: 500px;
@@ -1288,7 +1350,6 @@ html::-webkit-scrollbar-thumb:hover {
   position: relative;
   display: inline-block;
   text-align: center;
-  
 }
 
 .section-title h2::after {
@@ -1314,7 +1375,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .section-subtitle {
+[data-theme='light'] .section-subtitle {
   color: var(--color-text-secondary);
 }
 
@@ -1361,7 +1422,7 @@ html::-webkit-scrollbar-thumb:hover {
   cursor: pointer;
   font-size: var(--font-size-sm) !important;
   font-weight: var(--font-weight-semibold);
-  
+
   transition: all var(--duration-normal) var(--easing-ease-out);
   display: flex;
   align-items: center;
@@ -1427,24 +1488,13 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* Auto-activate text - darker color in light mode */
-[data-theme="light"] .auto-activate-toggle {
+[data-theme='light'] .auto-activate-toggle {
   color: var(--color-text-primary) !important; /* Darker color, not white */
 }
 
-.auto-activate-toggle input[type="checkbox"] {
+.auto-activate-toggle input[type='checkbox'] {
   cursor: pointer;
   accent-color: var(--color-brand-primary-500);
-}
-
-.auto-activate-hint {
-  font-size: 11px;
-  color: var(--color-neutral-white-alpha-60);
-  margin-top: 2px;
-  line-height: 1.2;
-}
-
-[data-theme="light"] .auto-activate-hint {
-  color: var(--color-text-tertiary) !important;
 }
 
 /* Upload Progress */
@@ -1477,7 +1527,6 @@ html::-webkit-scrollbar-thumb:hover {
   color: var(--color-brand-primary-300);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  
 }
 
 /* Stats Grid - Minimal Futuristic - Centered */
@@ -1500,7 +1549,7 @@ html::-webkit-scrollbar-thumb:hover {
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .stats-grid .stat-card:nth-child(3) {
     grid-column: 1 / -1;
     justify-self: center;
@@ -1515,7 +1564,7 @@ html::-webkit-scrollbar-thumb:hover {
   padding: var(--spacing-6);
   border-radius: var(--border-radius-2xl);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-20);
-  box-shadow: 
+  box-shadow:
     0 8px 32px var(--color-neutral-black-alpha-40),
     inset 0 1px 0 var(--color-neutral-white-alpha-5);
   transition: all var(--duration-slow) var(--easing-ease-out);
@@ -1538,7 +1587,7 @@ html::-webkit-scrollbar-thumb:hover {
 .stat-card:hover {
   transform: translateY(-4px);
   border-color: var(--color-brand-primary-alpha-40);
-  box-shadow: 
+  box-shadow:
     0 12px 40px var(--color-neutral-black-alpha-40),
     0 0 0 1px var(--color-brand-primary-alpha-30),
     inset 0 1px 0 var(--color-neutral-white-alpha-10);
@@ -1595,7 +1644,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .stat-content h3 {
+[data-theme='light'] .stat-content h3 {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-light);
 }
@@ -1610,7 +1659,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .stat-value {
+[data-theme='light'] .stat-value {
   color: var(--color-text-primary);
 }
 
@@ -1630,7 +1679,7 @@ html::-webkit-scrollbar-thumb:hover {
   position: relative;
   z-index: 2;
   color: var(--color-neutral-white);
-  box-shadow: 
+  box-shadow:
     0 4px 16px var(--color-neutral-black-alpha-20),
     inset 0 1px 0 var(--color-neutral-white-alpha-5);
   transition: all var(--duration-slow) var(--easing-ease-out);
@@ -1650,11 +1699,10 @@ html::-webkit-scrollbar-thumb:hover {
   text-align: center;
 }
 
-
 .welcome-card:hover {
   transform: translateY(-4px);
   border-color: var(--color-brand-primary-alpha-40);
-  box-shadow: 
+  box-shadow:
     0 12px 40px var(--color-neutral-black-alpha-40),
     0 0 0 1px var(--color-brand-primary-alpha-30),
     inset 0 1px 0 var(--color-neutral-white-alpha-10);
@@ -1672,12 +1720,12 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* Keep rocket icon green in light mode */
-[data-theme="light"] .welcome-icon {
+[data-theme='light'] .welcome-icon {
   color: var(--color-brand-primary-400) !important;
 }
 
 /* Ensure rocket icon SVG stays green in light mode */
-[data-theme="light"] .welcome-icon svg {
+[data-theme='light'] .welcome-icon svg {
   color: var(--color-brand-primary-400) !important;
 }
 
@@ -1724,7 +1772,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .welcome-card h3 {
+[data-theme='light'] .welcome-card h3 {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-regular);
 }
@@ -1738,7 +1786,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .welcome-card p {
+[data-theme='light'] .welcome-card p {
   color: var(--color-text-primary);
 }
 
@@ -1861,7 +1909,7 @@ html::-webkit-scrollbar-thumb:hover {
   color: var(--color-text-tertiary);
 }
 
-[data-theme="light"] .last-activity-card {
+[data-theme='light'] .last-activity-card {
   border-color: var(--color-brand-primary-alpha-30);
 }
 
@@ -1881,7 +1929,7 @@ html::-webkit-scrollbar-thumb:hover {
   padding: var(--spacing-8);
   border-radius: var(--border-radius-2xl);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-20);
-  box-shadow: 
+  box-shadow:
     0 4px 16px var(--color-neutral-black-alpha-20),
     inset 0 1px 0 var(--color-neutral-white-alpha-5);
   transition: all var(--duration-slow) var(--easing-ease-out);
@@ -1909,7 +1957,7 @@ html::-webkit-scrollbar-thumb:hover {
 .bundle-card:hover {
   transform: translateY(-4px);
   border-color: var(--color-brand-primary-alpha-40);
-  box-shadow: 
+  box-shadow:
     0 12px 40px var(--color-neutral-black-alpha-40),
     0 0 0 1px var(--color-brand-primary-alpha-30),
     inset 0 1px 0 var(--color-neutral-white-alpha-10);
@@ -1960,7 +2008,6 @@ html::-webkit-scrollbar-thumb:hover {
   font-weight: var(--font-weight-medium);
   letter-spacing: -0.3px;
   text-align: center;
-  
 }
 
 .bundle-meta {
@@ -1990,7 +2037,6 @@ html::-webkit-scrollbar-thumb:hover {
   border-radius: var(--border-radius-md) !important;
   border: none !important;
   box-shadow: none !important;
-  
 }
 
 .bundle-action-btn:hover:not(:disabled) {
@@ -2024,7 +2070,6 @@ html::-webkit-scrollbar-thumb:hover {
   border: none !important;
   color: var(--color-neutral-white);
   border-radius: var(--border-radius-md) !important;
-  
 }
 
 .view-manifest-btn:hover:not(:disabled) {
@@ -2034,20 +2079,24 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* View Current Manifest button - same color as border, green hover in light mode */
-[data-theme="light"] .view-manifest-btn {
+[data-theme='light'] .view-manifest-btn {
   color: var(--color-neutral-600) !important; /* Same color as border */
   background: transparent !important;
 }
 
-[data-theme="light"] .view-manifest-btn:hover:not(:disabled) {
-  background: var(--color-brand-primary-500) !important; /* Green background on hover */
-  color: var(--color-neutral-white) !important; /* White text and icon on hover */
+[data-theme='light'] .view-manifest-btn:hover:not(:disabled) {
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background on hover */
+  color: var(
+    --color-neutral-white
+  ) !important; /* White text and icon on hover */
   transform: translateY(-1px);
 }
 
 /* View Current Manifest button icon - white on hover */
-[data-theme="light"] .view-manifest-btn:hover:not(:disabled) svg,
-[data-theme="light"] .view-manifest-btn:hover:not(:disabled) svg * {
+[data-theme='light'] .view-manifest-btn:hover:not(:disabled) svg,
+[data-theme='light'] .view-manifest-btn:hover:not(:disabled) svg * {
   color: var(--color-neutral-white) !important;
 }
 
@@ -2131,7 +2180,7 @@ html::-webkit-scrollbar-thumb:hover {
   -webkit-backdrop-filter: blur(var(--filter-blur-40)) saturate(180%);
   border-radius: var(--border-radius-2xl);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-20);
-  box-shadow: 
+  box-shadow:
     0 4px 16px var(--color-neutral-black-alpha-15),
     inset 0 1px 0 var(--color-neutral-white-alpha-5);
   overflow: hidden;
@@ -2153,7 +2202,8 @@ html::-webkit-scrollbar-thumb:hover {
   width: 100%;
   max-width: 100% !important;
   border-radius: var(--border-radius-2xl) var(--border-radius-2xl) 0 0;
-  border-bottom: var(--border-width-thin) solid var(--color-brand-primary-alpha-20);
+  border-bottom: var(--border-width-thin) solid
+    var(--color-brand-primary-alpha-20);
   background: transparent;
   box-sizing: border-box;
 }
@@ -2214,20 +2264,20 @@ html::-webkit-scrollbar-thumb:hover {
   background: var(--color-semantic-ui-input-fill-dark) !important;
 }
 
-.users-table-container .search-input input[style*="border"],
-.users-table-container .ode-input input[style*="border"] {
+.users-table-container .search-input input[style*='border'],
+.users-table-container .ode-input input[style*='border'] {
   border-color: var(--color-brand-primary-alpha-20) !important;
   border-width: var(--border-width-thin) !important;
   border-bottom: none !important;
   border-radius: var(--border-radius-2xl) var(--border-radius-2xl) 0 0 !important;
 }
 
-.users-table-container .search-input input[style*="border"]:focus,
-.users-table-container .ode-input input[style*="border"]:focus,
-.users-table-container .search-input input[style*="border"]:focus-visible,
-.users-table-container .ode-input input[style*="border"]:focus-visible,
-.users-table-container .search-input:focus-within input[style*="border"],
-.users-table-container .ode-input:focus-within input[style*="border"] {
+.users-table-container .search-input input[style*='border']:focus,
+.users-table-container .ode-input input[style*='border']:focus,
+.users-table-container .search-input input[style*='border']:focus-visible,
+.users-table-container .ode-input input[style*='border']:focus-visible,
+.users-table-container .search-input:focus-within input[style*='border'],
+.users-table-container .ode-input:focus-within input[style*='border'] {
   border: var(--border-width-medium) solid var(--color-brand-primary-500) !important;
   border-bottom: none !important;
   border-radius: var(--border-radius-2xl) var(--border-radius-2xl) 0 0 !important;
@@ -2316,7 +2366,8 @@ html::-webkit-scrollbar-thumb:hover {
 /* Firefox scrollbar */
 .users-table-container {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb) var(--color-semantic-ui-scrollbar-track);
+  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb)
+    var(--color-semantic-ui-scrollbar-track);
 }
 
 .users-table {
@@ -2338,7 +2389,6 @@ html::-webkit-scrollbar-thumb:hover {
   font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  
 }
 
 .users-table th.actions-column {
@@ -2399,7 +2449,7 @@ html::-webkit-scrollbar-thumb:hover {
   font-size: 14px;
 }
 
-[data-theme="light"] .user-name {
+[data-theme='light'] .user-name {
   color: var(--color-neutral-900) !important;
 }
 
@@ -2408,7 +2458,7 @@ html::-webkit-scrollbar-thumb:hover {
   font-size: var(--font-size-xs);
 }
 
-[data-theme="light"] .created-date {
+[data-theme='light'] .created-date {
   color: var(--color-neutral-600) !important;
 }
 
@@ -2424,17 +2474,17 @@ html::-webkit-scrollbar-thumb:hover {
   background: transparent !important;
   border: none !important;
   color: var(--color-neutral-white);
-  padding: var(--spacing-2) var(--spacing-3) !important;
+  padding: var(--spacing-2) !important;
   border-radius: var(--border-radius-md) !important;
   cursor: pointer;
   transition: all var(--duration-normal) var(--easing-ease-out);
   font-size: var(--font-size-xs);
-  
+
   font-weight: var(--font-weight-medium);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-2);
+  gap: 0;
   margin: 0 !important;
   min-height: auto !important;
   box-shadow: none !important;
@@ -2476,9 +2526,7 @@ html::-webkit-scrollbar-thumb:hover {
   transform: translateY(-1px);
 }
 
-.view-btn 
-
-.view-btn:hover:not(:disabled) {
+.view-btn .view-btn:hover:not(:disabled) {
   background: var(--color-semantic-info-alpha-20);
   border-color: var(--color-semantic-info-500);
 }
@@ -2538,7 +2586,8 @@ html::-webkit-scrollbar-thumb:hover {
 /* Firefox scrollbar */
 .table-container {
   scrollbar-width: thin;
-  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb) var(--color-semantic-ui-scrollbar-track);
+  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb)
+    var(--color-semantic-ui-scrollbar-track);
 }
 
 /* System Info - inherits styles from tab-content */
@@ -2567,7 +2616,7 @@ html::-webkit-scrollbar-thumb:hover {
   padding: var(--spacing-8);
   border-radius: var(--border-radius-2xl);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-20);
-  box-shadow: 
+  box-shadow:
     0 8px 32px var(--color-neutral-black-alpha-40),
     inset 0 1px 0 var(--color-neutral-white-alpha-5);
   display: flex;
@@ -2588,20 +2637,23 @@ html::-webkit-scrollbar-thumb:hover {
 .info-card:hover {
   transform: translateY(-4px);
   border-color: var(--color-brand-primary-alpha-40);
-  box-shadow: 
+  box-shadow:
     0 12px 40px var(--color-neutral-black-alpha-40),
     0 0 0 1px var(--color-brand-primary-alpha-30),
     inset 0 1px 0 var(--color-neutral-white-alpha-10);
 }
 
 /* Info card hover - same as stat card hover in light mode */
-[data-theme="light"] .info-card:hover {
+[data-theme='light'] .info-card:hover {
   transform: translateY(-4px);
-  border-color: var(--color-brand-primary-alpha-60); /* Darker border for light mode */
-  box-shadow: 
+  border-color: var(
+    --color-brand-primary-alpha-60
+  ); /* Darker border for light mode */
+  box-shadow:
     0 12px 40px var(--color-neutral-black-alpha-20),
-    0 0 0 1px var(--color-brand-primary-alpha-50), /* Darker border highlight */
-    inset 0 1px 0 var(--color-neutral-black-alpha-5);
+    0 0 0 1px var(--color-brand-primary-alpha-50),
+    /* Darker border highlight */ inset 0 1px 0
+      var(--color-neutral-black-alpha-5);
 }
 
 .info-icon {
@@ -2623,12 +2675,12 @@ html::-webkit-scrollbar-thumb:hover {
   transform: scale(1.1) rotate(5deg);
 }
 
-[data-theme="light"] .info-icon {
+[data-theme='light'] .info-icon {
   color: var(--color-brand-primary-500);
   filter: drop-shadow(var(--filter-drop-shadow-brand-sm));
 }
 
-[data-theme="light"] .info-card:hover .info-icon {
+[data-theme='light'] .info-card:hover .info-icon {
   filter: drop-shadow(var(--filter-drop-shadow-brand-md));
 }
 
@@ -2651,7 +2703,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .info-content h3 {
+[data-theme='light'] .info-content h3 {
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-regular);
 }
@@ -2690,8 +2742,12 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-content {
@@ -2707,7 +2763,8 @@ html::-webkit-scrollbar-thumb:hover {
   overflow-y: auto;
   animation: slideUpModal var(--duration-normal) var(--easing-ease-out);
   scrollbar-width: thin;
-  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb) var(--color-semantic-ui-scrollbar-track);
+  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb)
+    var(--color-semantic-ui-scrollbar-track);
 }
 
 .modal-content::-webkit-scrollbar {
@@ -2798,17 +2855,37 @@ html::-webkit-scrollbar-thumb:hover {
   transform: none;
 }
 
-[data-theme="light"] .modal-create-user .modal-actions button:hover:not(:disabled) {
+[data-theme='light']
+  .modal-create-user
+  .modal-actions
+  button:hover:not(:disabled) {
   background: var(--color-brand-primary-500) !important;
   color: var(--color-neutral-white) !important;
   border-color: var(--color-brand-primary-500) !important;
   transform: translateY(-1px);
 }
 
-[data-theme="light"] .modal-create-user .modal-actions button:hover:not(:disabled) span,
-[data-theme="light"] .modal-create-user .modal-actions button:hover:not(:disabled) *,
-[data-theme="light"] .modal-create-user .modal-actions button:hover:not(:disabled) svg,
-[data-theme="light"] .modal-create-user .modal-actions button:hover:not(:disabled) svg * {
+[data-theme='light']
+  .modal-create-user
+  .modal-actions
+  button:hover:not(:disabled)
+  span,
+[data-theme='light']
+  .modal-create-user
+  .modal-actions
+  button:hover:not(:disabled)
+  *,
+[data-theme='light']
+  .modal-create-user
+  .modal-actions
+  button:hover:not(:disabled)
+  svg,
+[data-theme='light']
+  .modal-create-user
+  .modal-actions
+  button:hover:not(:disabled)
+  svg
+  * {
   color: var(--color-neutral-white) !important;
 }
 
@@ -2824,7 +2901,8 @@ html::-webkit-scrollbar-thumb:hover {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
-  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb) var(--color-semantic-ui-scrollbar-track);
+  scrollbar-color: var(--color-semantic-ui-scrollbar-thumb)
+    var(--color-semantic-ui-scrollbar-track);
   animation: slideUpRoleMenu var(--duration-normal) var(--easing-ease-out);
 }
 
@@ -2885,7 +2963,8 @@ html::-webkit-scrollbar-thumb:hover {
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-6);
-  border-bottom: var(--border-width-thin) solid var(--color-neutral-white-alpha-10);
+  border-bottom: var(--border-width-thin) solid
+    var(--color-neutral-white-alpha-10);
 }
 
 .modal-header h2 {
@@ -2917,11 +2996,11 @@ html::-webkit-scrollbar-thumb:hover {
   transform: rotate(90deg);
 }
 
-[data-theme="light"] .modal-close {
+[data-theme='light'] .modal-close {
   color: var(--color-text-primary);
 }
 
-[data-theme="light"] .modal-close:hover {
+[data-theme='light'] .modal-close:hover {
   color: var(--color-neutral-900);
   background: var(--color-neutral-black-alpha-10);
   transform: rotate(90deg);
@@ -2939,7 +3018,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .modal-body p {
+[data-theme='light'] .modal-body p {
   color: var(--color-text-primary);
 }
 
@@ -2953,7 +3032,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .modal-body strong {
+[data-theme='light'] .modal-body strong {
   color: var(--color-text-primary);
 }
 
@@ -2998,7 +3077,10 @@ html::-webkit-scrollbar-thumb:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease,
+    border-color 0.3s ease;
   transition: all var(--duration-normal) var(--easing-ease-out);
   min-height: var(--touch-target-comfortable);
   box-shadow: var(--shadow-portal-xs);
@@ -3014,7 +3096,7 @@ html::-webkit-scrollbar-thumb:hover {
   outline: none;
   border-color: var(--color-brand-primary-500);
   background: var(--color-semantic-ui-surface-dropdown-dark);
-  box-shadow: 
+  box-shadow:
     0 0 0 3px var(--color-brand-primary-alpha-20),
     0 4px 12px var(--color-neutral-black-alpha-30);
 }
@@ -3045,7 +3127,7 @@ html::-webkit-scrollbar-thumb:hover {
   -webkit-backdrop-filter: blur(var(--filter-blur-20));
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-30);
   border-radius: var(--border-radius-md);
-  box-shadow: 
+  box-shadow:
     0 8px 32px var(--color-neutral-black-alpha-50),
     0 4px 16px var(--color-neutral-black-alpha-30);
   z-index: 1000;
@@ -3069,7 +3151,8 @@ html::-webkit-scrollbar-thumb:hover {
   padding: var(--spacing-4) var(--spacing-5);
   background: transparent;
   border: none;
-  border-bottom: var(--border-width-thin) solid var(--color-neutral-white-alpha-5);
+  border-bottom: var(--border-width-thin) solid
+    var(--color-neutral-white-alpha-5);
   color: var(--color-neutral-white);
   cursor: pointer;
   display: flex;
@@ -3112,11 +3195,11 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .role-name {
+[data-theme='light'] .role-name {
   color: var(--color-text-primary) !important;
 }
 
-[data-theme="light"] .role-description {
+[data-theme='light'] .role-description {
   color: var(--color-text-secondary) !important;
 }
 
@@ -3134,17 +3217,17 @@ html::-webkit-scrollbar-thumb:hover {
   font-size: var(--font-size-base) !important;
 }
 
-[data-theme="light"] .modal-input input {
+[data-theme='light'] .modal-input input {
   background: var(--color-background-card) !important;
   border-color: var(--color-border-default) !important;
   color: var(--color-text-primary) !important;
 }
 
-[data-theme="light"] .modal-input input::placeholder {
+[data-theme='light'] .modal-input input::placeholder {
   color: var(--color-text-tertiary) !important;
 }
 
-[data-theme="light"] .modal-input input:focus {
+[data-theme='light'] .modal-input input:focus {
   background: var(--color-background-elevated) !important;
   border-color: var(--color-brand-primary-500) !important;
 }
@@ -3156,7 +3239,7 @@ html::-webkit-scrollbar-thumb:hover {
 .modal-input input:focus {
   border-color: var(--color-brand-primary-500) !important;
   background: var(--color-semantic-ui-surface-dropdown-dark) !important;
-  box-shadow: 
+  box-shadow:
     0 0 0 3px var(--color-brand-primary-alpha-20),
     0 4px 12px var(--color-neutral-black-alpha-30) !important;
   outline: none !important;
@@ -3174,7 +3257,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .modal-input label {
+[data-theme='light'] .modal-input label {
   color: var(--color-text-primary) !important;
 }
 
@@ -3194,12 +3277,20 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .delete-confirm-btn {
-  background: linear-gradient(135deg, var(--color-semantic-error-500) 0%, var(--color-semantic-error-600) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-semantic-error-500) 0%,
+    var(--color-semantic-error-600) 100%
+  );
   color: var(--color-neutral-white);
 }
 
 .activate-confirm-btn {
-  background: linear-gradient(135deg, var(--color-semantic-success-500) 0%, var(--color-semantic-success-600) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-semantic-success-500) 0%,
+    var(--color-semantic-success-600) 100%
+  );
   color: var(--color-neutral-white);
 }
 
@@ -3214,7 +3305,8 @@ html::-webkit-scrollbar-thumb:hover {
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-3) 0;
-  border-bottom: var(--border-width-thin) solid var(--color-neutral-white-alpha-5);
+  border-bottom: var(--border-width-thin) solid
+    var(--color-neutral-white-alpha-5);
 }
 
 .info-row:last-child {
@@ -3261,7 +3353,8 @@ html::-webkit-scrollbar-thumb:hover {
 
 .files-table thead {
   background: var(--color-brand-primary-alpha-10);
-  border-bottom: var(--border-width-thin) solid var(--color-neutral-white-alpha-10);
+  border-bottom: var(--border-width-thin) solid
+    var(--color-neutral-white-alpha-10);
 }
 
 .files-table th {
@@ -3279,7 +3372,8 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .files-table tbody tr {
-  border-bottom: var(--border-width-thin) solid var(--color-neutral-white-alpha-5);
+  border-bottom: var(--border-width-thin) solid
+    var(--color-neutral-white-alpha-5);
 }
 
 .files-table tbody tr:last-child {
@@ -3343,7 +3437,8 @@ html::-webkit-scrollbar-thumb:hover {
   color: rgba(255, 255, 255, var(--opacity-80));
   font-size: var(--font-size-sm);
   font-family: var(--font-family-mono);
-  border-bottom: var(--border-width-thin) solid var(--color-neutral-white-alpha-5);
+  border-bottom: var(--border-width-thin) solid
+    var(--color-neutral-white-alpha-5);
 }
 
 .changes-list li:last-child {
@@ -3386,7 +3481,9 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .empty-icon {
@@ -3487,7 +3584,6 @@ html::-webkit-scrollbar-thumb:hover {
   min-height: auto !important;
   border-radius: var(--border-radius-md) !important;
   border: none !important;
-  
 }
 
 /* Responsive adjustments */
@@ -3500,13 +3596,19 @@ html::-webkit-scrollbar-thumb:hover {
 
   .dashboard-content {
     padding: var(--spacing-6);
-    padding-top: calc(60px + var(--spacing-8)); /* Mobile navbar height (60px) + spacing matching gap between tabs and content */
+    padding-top: calc(
+      60px + var(--spacing-8)
+    ); /* Mobile navbar height (60px) + spacing matching gap between tabs and content */
   }
 
   .tab-content {
     padding: var(--spacing-6);
-    padding-bottom: calc(var(--spacing-6) + var(--spacing-8)); /* Extra bottom spacing on mobile */
-    margin-bottom: var(--spacing-8); /* Additional margin from bottom edge on mobile */
+    padding-bottom: calc(
+      var(--spacing-6) + var(--spacing-8)
+    ); /* Extra bottom spacing on mobile */
+    margin-bottom: var(
+      --spacing-8
+    ); /* Additional margin from bottom edge on mobile */
   }
 
   .dashboard-tabs {
@@ -3578,7 +3680,7 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* User search empty heading - darker color in light mode */
-[data-theme="light"] .user-search-empty h3 {
+[data-theme='light'] .user-search-empty h3 {
   color: var(--color-text-primary) !important; /* Darker color in light mode */
 }
 
@@ -3589,7 +3691,7 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* User search empty text - darker color in light mode */
-[data-theme="light"] .user-search-empty p {
+[data-theme='light'] .user-search-empty p {
   color: var(--color-text-primary) !important; /* Darker color in light mode */
 }
 
@@ -3610,7 +3712,7 @@ html::-webkit-scrollbar-thumb:hover {
   transition: color 0.3s ease;
 }
 
-[data-theme="light"] .system-info-title {
+[data-theme='light'] .system-info-title {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
 }
@@ -3623,7 +3725,7 @@ html::-webkit-scrollbar-thumb:hover {
   font-weight: var(--font-weight-semibold);
 }
 
-[data-theme="light"] .health-status-title {
+[data-theme='light'] .health-status-title {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
 }
@@ -3649,7 +3751,7 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* Cancel / Close buttons in modals (except Create User) – match modal close (X): same color and hover */
-.modal-content:not(.modal-create-user) .modal-actions button[type="button"],
+.modal-content:not(.modal-create-user) .modal-actions button[type='button'],
 .modal-content:not(.modal-create-user) .modal-actions .ode-button--neutral {
   padding: var(--spacing-3) var(--spacing-6) !important;
   background: transparent !important;
@@ -3661,35 +3763,67 @@ html::-webkit-scrollbar-thumb:hover {
   transition: all var(--duration-fast) var(--easing-ease-out) !important;
 }
 
-.modal-content:not(.modal-create-user) .modal-actions button[type="button"]:hover:not(:disabled),
-.modal-content:not(.modal-create-user) .modal-actions .ode-button--neutral:hover:not(:disabled) {
+.modal-content:not(.modal-create-user)
+  .modal-actions
+  button[type='button']:hover:not(:disabled),
+.modal-content:not(.modal-create-user)
+  .modal-actions
+  .ode-button--neutral:hover:not(:disabled) {
   color: var(--color-neutral-white) !important;
   background: var(--color-brand-primary-500) !important;
   border-color: var(--color-brand-primary-500) !important;
   transform: translateY(-1px) !important;
 }
 
-[data-theme="light"] .modal-content:not(.modal-create-user) .modal-actions button[type="button"],
-[data-theme="light"] .modal-content:not(.modal-create-user) .modal-actions .ode-button--neutral {
+[data-theme='light']
+  .modal-content:not(.modal-create-user)
+  .modal-actions
+  button[type='button'],
+[data-theme='light']
+  .modal-content:not(.modal-create-user)
+  .modal-actions
+  .ode-button--neutral {
   color: var(--color-text-primary) !important;
 }
 
-[data-theme="light"] .modal-content:not(.modal-create-user) .modal-actions button[type="button"]:hover:not(:disabled),
-[data-theme="light"] .modal-content:not(.modal-create-user) .modal-actions .ode-button--neutral:hover:not(:disabled) {
+[data-theme='light']
+  .modal-content:not(.modal-create-user)
+  .modal-actions
+  button[type='button']:hover:not(:disabled),
+[data-theme='light']
+  .modal-content:not(.modal-create-user)
+  .modal-actions
+  .ode-button--neutral:hover:not(:disabled) {
   color: var(--color-neutral-white) !important;
   background: var(--color-brand-primary-500) !important;
   border-color: var(--color-brand-primary-500) !important;
 }
 
-[data-theme="light"] .modal-content:not(.modal-create-user) .modal-actions button[type="button"]:hover:not(:disabled) span,
-[data-theme="light"] .modal-content:not(.modal-create-user) .modal-actions button[type="button"]:hover:not(:disabled) *,
-[data-theme="light"] .modal-content:not(.modal-create-user) .modal-actions .ode-button--neutral:hover:not(:disabled) span,
-[data-theme="light"] .modal-content:not(.modal-create-user) .modal-actions .ode-button--neutral:hover:not(:disabled) * {
+[data-theme='light']
+  .modal-content:not(.modal-create-user)
+  .modal-actions
+  button[type='button']:hover:not(:disabled)
+  span,
+[data-theme='light']
+  .modal-content:not(.modal-create-user)
+  .modal-actions
+  button[type='button']:hover:not(:disabled)
+  *,
+[data-theme='light']
+  .modal-content:not(.modal-create-user)
+  .modal-actions
+  .ode-button--neutral:hover:not(:disabled)
+  span,
+[data-theme='light']
+  .modal-content:not(.modal-create-user)
+  .modal-actions
+  .ode-button--neutral:hover:not(:disabled)
+  * {
   color: var(--color-neutral-white) !important;
 }
 
 /* Create User modal – restore original button styles (visible background and border); hover stays green for both via rules below */
-.modal-create-user .modal-actions button[type="button"],
+.modal-create-user .modal-actions button[type='button'],
 .modal-create-user .modal-actions .ode-button--neutral {
   padding: var(--spacing-2) var(--spacing-4) !important;
   background: var(--color-neutral-white-alpha-5) !important;
@@ -3701,8 +3835,8 @@ html::-webkit-scrollbar-thumb:hover {
   transition: all var(--duration-normal) var(--easing-ease-out) !important;
 }
 
-[data-theme="light"] .modal-create-user .modal-actions button[type="button"],
-[data-theme="light"] .modal-create-user .modal-actions .ode-button--neutral {
+[data-theme='light'] .modal-create-user .modal-actions button[type='button'],
+[data-theme='light'] .modal-create-user .modal-actions .ode-button--neutral {
   background: var(--color-neutral-black-alpha-5) !important;
   border-color: var(--color-border-default) !important;
   color: var(--color-text-primary) !important;
@@ -3736,164 +3870,166 @@ html::-webkit-scrollbar-thumb:hover {
    LIGHT THEME OVERRIDES
    ============================================ */
 
-[data-theme="light"] .dashboard {
+[data-theme='light'] .dashboard {
   background-color: var(--color-background-base);
 }
 
-[data-theme="light"] .dashboard-header {
+[data-theme='light'] .dashboard-header {
   background: var(--color-background-elevated);
   border-bottom-color: var(--color-border-default);
 }
 
-[data-theme="light"] .welcome-text,
-[data-theme="light"] .section-subtitle,
-[data-theme="light"] .empty-state p,
-[data-theme="light"] .loading-state p,
-[data-theme="light"] .info-content p,
-[data-theme="light"] .stat-label,
-[data-theme="light"] .bundle-info p,
-[data-theme="light"] .user-info p,
-[data-theme="light"] .geolocation-info,
-[data-theme="light"] .system-info-text,
-[data-theme="light"] .health-status-text,
-[data-theme="light"] .modal-body p,
-[data-theme="light"] .form-group label,
-[data-theme="light"] .search-input::placeholder,
-[data-theme="light"] td,
-[data-theme="light"] .bundle-version,
-[data-theme="light"] .bundle-date {
+[data-theme='light'] .welcome-text,
+[data-theme='light'] .section-subtitle,
+[data-theme='light'] .empty-state p,
+[data-theme='light'] .loading-state p,
+[data-theme='light'] .info-content p,
+[data-theme='light'] .stat-label,
+[data-theme='light'] .bundle-info p,
+[data-theme='light'] .user-info p,
+[data-theme='light'] .geolocation-info,
+[data-theme='light'] .system-info-text,
+[data-theme='light'] .health-status-text,
+[data-theme='light'] .modal-body p,
+[data-theme='light'] .form-group label,
+[data-theme='light'] .search-input::placeholder,
+[data-theme='light'] td,
+[data-theme='light'] .bundle-version,
+[data-theme='light'] .bundle-date {
   color: var(--color-text-secondary);
 }
 
 /* Keep table action buttons (Delete, Reset Password) with dark mode colors in light mode */
-[data-theme="light"] .table-action-btn {
+[data-theme='light'] .table-action-btn {
   color: var(--color-neutral-white) !important;
 }
 
-[data-theme="light"] .delete-btn {
+[data-theme='light'] .delete-btn {
   color: var(--color-neutral-white) !important;
 }
 
-[data-theme="light"] .reset-password-btn {
+[data-theme='light'] .reset-password-btn {
   color: var(--color-neutral-white) !important;
 }
 
-[data-theme="light"] .section-title h2,
-[data-theme="light"] .welcome-card h3,
-[data-theme="light"] .stat-content h3,
-[data-theme="light"] .bundle-info h3,
-[data-theme="light"] .empty-state h3,
-[data-theme="light"] .info-content h3,
-[data-theme="light"] .user-info h3,
-[data-theme="light"] .health-status-section h3,
-[data-theme="light"] .user-search-empty h3,
-[data-theme="light"] .modal-header h2,
-[data-theme="light"] .files-list h3,
-[data-theme="light"] .files-table th,
-[data-theme="light"] .changes-section h3,
-[data-theme="light"] .users-table th,
-[data-theme="light"] .bundle-version-label,
-[data-theme="light"] .bundle-date-label {
+[data-theme='light'] .section-title h2,
+[data-theme='light'] .welcome-card h3,
+[data-theme='light'] .stat-content h3,
+[data-theme='light'] .bundle-info h3,
+[data-theme='light'] .empty-state h3,
+[data-theme='light'] .info-content h3,
+[data-theme='light'] .user-info h3,
+[data-theme='light'] .health-status-section h3,
+[data-theme='light'] .user-search-empty h3,
+[data-theme='light'] .modal-header h2,
+[data-theme='light'] .files-list h3,
+[data-theme='light'] .files-table th,
+[data-theme='light'] .changes-section h3,
+[data-theme='light'] .users-table th,
+[data-theme='light'] .bundle-version-label,
+[data-theme='light'] .bundle-date-label {
   color: var(--color-text-primary);
 }
 
-[data-theme="light"] .section-card,
-[data-theme="light"] .tab-content,
-[data-theme="light"] .search-bar,
-[data-theme="light"] .role-dropdown-menu {
+[data-theme='light'] .section-card,
+[data-theme='light'] .tab-content,
+[data-theme='light'] .search-bar,
+[data-theme='light'] .role-dropdown-menu {
   background: var(--color-background-card);
   border-color: var(--color-border-default);
 }
 
 /* Modal content – solid background and green border in light mode */
-[data-theme="light"] .modal-content {
+[data-theme='light'] .modal-content {
   background: var(--color-neutral-white);
   border: var(--border-width-medium) solid var(--color-brand-primary-500);
 }
 
 /* Different shades for containers in light mode - similar to dark mode hierarchy */
-[data-theme="light"] .welcome-card {
+[data-theme='light'] .welcome-card {
   background: var(--color-brand-primary-alpha-8);
   border-color: var(--color-brand-primary-alpha-20);
 }
 
-[data-theme="light"] .stat-card {
+[data-theme='light'] .stat-card {
   background: var(--color-neutral-black-alpha-5);
   border-color: var(--color-border-default);
 }
 
 /* First three stat cards (System Status, User Role, Username) - white but slightly transparent in light mode (like dark mode transparency) */
-[data-theme="light"] .stat-card:nth-child(1) {
+[data-theme='light'] .stat-card:nth-child(1) {
   background: var(--color-semantic-ui-surface-dropdown-light);
 }
 
-[data-theme="light"] .stat-card:nth-child(2) {
+[data-theme='light'] .stat-card:nth-child(2) {
   background: var(--color-semantic-ui-surface-dropdown-light);
 }
 
-[data-theme="light"] .stat-card:nth-child(3) {
+[data-theme='light'] .stat-card:nth-child(3) {
   background: var(--color-semantic-ui-surface-dropdown-light);
 }
 
 /* All four cards (three stat cards + welcome card) - same hover effect with darker border highlight in light mode */
-[data-theme="light"] .stat-card:hover,
-[data-theme="light"] .welcome-card:hover {
+[data-theme='light'] .stat-card:hover,
+[data-theme='light'] .welcome-card:hover {
   transform: translateY(-4px);
-  border-color: var(--color-brand-primary-alpha-60); /* Darker border for light mode */
-  box-shadow: 
+  border-color: var(
+    --color-brand-primary-alpha-60
+  ); /* Darker border for light mode */
+  box-shadow:
     0 12px 40px var(--color-neutral-black-alpha-20),
-    0 0 0 1px var(--color-brand-primary-alpha-50), /* Darker border highlight */
-    inset 0 1px 0 var(--color-neutral-black-alpha-5);
+    0 0 0 1px var(--color-brand-primary-alpha-50),
+    /* Darker border highlight */ inset 0 1px 0
+      var(--color-neutral-black-alpha-5);
 }
 
-[data-theme="light"] .bundle-card {
+[data-theme='light'] .bundle-card {
   background: var(--color-neutral-black-alpha-5);
   border-color: var(--color-border-default);
 }
 
-[data-theme="light"] .bundle-card:nth-child(odd) {
+[data-theme='light'] .bundle-card:nth-child(odd) {
   background: var(--color-brand-primary-alpha-5);
 }
 
-
 /* Section container backgrounds - different shades in light mode to create depth */
-[data-theme="light"] .app-bundles-section {
+[data-theme='light'] .app-bundles-section {
   background: var(--color-brand-primary-alpha-3);
   border-radius: var(--border-radius-2xl);
   padding: var(--spacing-6);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-10);
 }
 
-[data-theme="light"] .app-bundles-section .bundles-grid {
+[data-theme='light'] .app-bundles-section .bundles-grid {
   background: var(--color-neutral-black-alpha-5);
   padding: var(--spacing-6);
   border-radius: var(--border-radius-lg);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-8);
 }
 
-[data-theme="light"] .users-section {
+[data-theme='light'] .users-section {
   background: var(--color-brand-primary-alpha-3);
   border-radius: var(--border-radius-2xl);
   padding: var(--spacing-6);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-10);
 }
 
-[data-theme="light"] .users-table-container {
+[data-theme='light'] .users-table-container {
   background: var(--color-neutral-black-alpha-5);
   border-color: var(--color-brand-primary-alpha-15);
   border: var(--border-width-thin) solid var(--color-brand-primary-alpha-15);
   box-shadow: var(--shadow-portal-dropdown) !important;
 }
 
-[data-theme="light"] .users-table-container .search-bar {
+[data-theme='light'] .users-table-container .search-bar {
   border-bottom-color: var(--color-border-default);
 }
 
-[data-theme="light"] .users-table-section {
+[data-theme='light'] .users-table-section {
   border-top-color: var(--color-border-default);
 }
 
-[data-theme="light"] .users-table-container .table-container {
+[data-theme='light'] .users-table-container .table-container {
   border-color: var(--color-border-default);
   background: var(--color-background-card);
 }
@@ -3904,7 +4040,7 @@ html::-webkit-scrollbar-thumb:hover {
   display: none;
 }
 
-[data-theme="light"] .system-section {
+[data-theme='light'] .system-section {
   background: var(--color-brand-primary-alpha-3);
   border-radius: var(--border-radius-2xl);
   padding: var(--spacing-6);
@@ -3912,458 +4048,518 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 /* Info cards - same white/light grey background as stat cards in light mode */
-[data-theme="light"] .info-card {
-  background: var(--color-semantic-ui-surface-dropdown-light); /* White but slightly transparent, matching stat cards */
+[data-theme='light'] .info-card {
+  background: var(
+    --color-semantic-ui-surface-dropdown-light
+  ); /* White but slightly transparent, matching stat cards */
   border-color: var(--color-border-default);
 }
 
-[data-theme="light"] .section-card,
-[data-theme="light"] .welcome-card,
-[data-theme="light"] .stat-card,
-[data-theme="light"] .bundle-card,
-[data-theme="light"] .info-card,
-[data-theme="light"] .modal-content {
-  box-shadow: 
+[data-theme='light'] .section-card,
+[data-theme='light'] .welcome-card,
+[data-theme='light'] .stat-card,
+[data-theme='light'] .bundle-card,
+[data-theme='light'] .info-card,
+[data-theme='light'] .modal-content {
+  box-shadow:
     0 2px 8px var(--color-neutral-black-alpha-8),
     inset 0 1px 0 var(--color-neutral-black-alpha-3);
 }
 
-[data-theme="light"] input[type="text"],
-[data-theme="light"] input[type="password"],
-[data-theme="light"] input[type="email"],
-[data-theme="light"] textarea,
-[data-theme="light"] select,
-[data-theme="light"] .search-input input,
-[data-theme="light"] .form-group input,
-[data-theme="light"] .form-group textarea,
-[data-theme="light"] .form-group select,
-[data-theme="light"] .role-select-button {
+[data-theme='light'] input[type='text'],
+[data-theme='light'] input[type='password'],
+[data-theme='light'] input[type='email'],
+[data-theme='light'] textarea,
+[data-theme='light'] select,
+[data-theme='light'] .search-input input,
+[data-theme='light'] .form-group input,
+[data-theme='light'] .form-group textarea,
+[data-theme='light'] .form-group select,
+[data-theme='light'] .role-select-button {
   background: var(--color-background-card);
   border-color: var(--color-border-default);
   color: var(--color-text-primary);
 }
 
-[data-theme="light"] input:focus,
-[data-theme="light"] textarea:focus,
-[data-theme="light"] select:focus,
-[data-theme="light"] .search-input input:focus,
-[data-theme="light"] .form-group input:focus {
+[data-theme='light'] input:focus,
+[data-theme='light'] textarea:focus,
+[data-theme='light'] select:focus,
+[data-theme='light'] .search-input input:focus,
+[data-theme='light'] .form-group input:focus {
   border-color: var(--color-brand-primary-500);
   background: var(--color-background-elevated);
 }
 
-[data-theme="light"] .users-table {
+[data-theme='light'] .users-table {
   background: var(--color-background-elevated);
 }
 
-[data-theme="light"] .users-table th {
+[data-theme='light'] .users-table th {
   background: var(--color-background-overlay);
   border-bottom-color: var(--color-border-default);
   color: var(--color-neutral-900) !important;
 }
 
-[data-theme="light"] .users-table td {
+[data-theme='light'] .users-table td {
   border-bottom-color: var(--color-border-default);
   color: var(--color-neutral-800) !important;
 }
 
-[data-theme="light"] .users-table tr:hover {
+[data-theme='light'] .users-table tr:hover {
   background: var(--color-background-card);
 }
 
-[data-theme="light"] .modal-overlay {
+[data-theme='light'] .modal-overlay {
   background: var(--color-neutral-black-alpha-50);
 }
 
-[data-theme="light"] .logout-button {
+[data-theme='light'] .logout-button {
   background: var(--color-semantic-error-alpha-15);
   border-color: var(--color-semantic-error-alpha-30);
-  color: var(--color-semantic-error-600, #DC2626);
+  color: var(--color-semantic-error-600, #dc2626);
 }
 
-[data-theme="light"] .logout-button:hover {
+[data-theme='light'] .logout-button:hover {
   background: var(--color-semantic-error-alpha-15) !important;
   border: var(--border-width-thin) solid var(--color-semantic-error-500) !important;
 }
 
-[data-theme="light"] .logout-button:hover::after {
+[data-theme='light'] .logout-button:hover::after {
   opacity: 0;
 }
 
 /* Tab buttons keep dark mode styles in light mode - exact same colors */
 /* Navigation links container - slightly transparent white background in light mode only */
-[data-theme="light"] .dashboard-tabs {
+[data-theme='light'] .dashboard-tabs {
   background: var(--color-neutral-white-alpha-90) !important;
 }
 
-[data-theme="light"] .dashboard-tabs button.tab-button {
-  color: var(--color-brand-primary-500) !important; /* Green text - same as dark mode */
+[data-theme='light'] .dashboard-tabs button.tab-button {
+  color: var(
+    --color-brand-primary-500
+  ) !important; /* Green text - same as dark mode */
   background: transparent !important; /* Same as dark mode */
 }
 
 /* Icons - green color in inactive state (same as dark mode) */
-[data-theme="light"] .dashboard-tabs button.tab-button .tab-icon {
-  color: var(--color-brand-primary-500) !important; /* Green icon - same as dark mode */
+[data-theme='light'] .dashboard-tabs button.tab-button .tab-icon {
+  color: var(
+    --color-brand-primary-500
+  ) !important; /* Green icon - same as dark mode */
 }
 
 /* Hover styles - white text and white icon (same as dark mode) */
-[data-theme="light"] .dashboard-tabs button.tab-button:hover {
-  color: var(--color-neutral-white) !important; /* White text on hover - same as dark mode */
-  background: var(--color-brand-primary-500) !important; /* Green background on hover - same as dark mode */
+[data-theme='light'] .dashboard-tabs button.tab-button:hover {
+  color: var(
+    --color-neutral-white
+  ) !important; /* White text on hover - same as dark mode */
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background on hover - same as dark mode */
   /* Removed transform: translateY(-1px) - buttons stay in position */
 }
 
-[data-theme="light"] .dashboard-tabs button.tab-button:hover .tab-icon {
-  color: var(--color-neutral-white) !important; /* White icon on hover - same as dark mode */
+[data-theme='light'] .dashboard-tabs button.tab-button:hover .tab-icon {
+  color: var(
+    --color-neutral-white
+  ) !important; /* White icon on hover - same as dark mode */
 }
 
-[data-theme="light"] .dashboard-tabs button.tab-button:hover svg.border-fade {
+[data-theme='light'] .dashboard-tabs button.tab-button:hover svg.border-fade {
   opacity: 0 !important; /* Hide border on hover - same as dark mode */
 }
 
 /* Active styles - white text and white icon (same as dark mode) */
-[data-theme="light"] .dashboard-tabs button.tab-button.active {
-  color: var(--color-neutral-white) !important; /* White text when active - same as dark mode */
-  background: var(--color-brand-primary-500) !important; /* Green background when active - same as dark mode */
+[data-theme='light'] .dashboard-tabs button.tab-button.active {
+  color: var(
+    --color-neutral-white
+  ) !important; /* White text when active - same as dark mode */
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background when active - same as dark mode */
   /* Removed transform: translateY(-1px) - buttons stay in position */
-  font-weight: var(--font-weight-bold) !important; /* Same font weight as dark mode */
+  font-weight: var(
+    --font-weight-bold
+  ) !important; /* Same font weight as dark mode */
 }
 
-[data-theme="light"] .dashboard-tabs button.tab-button.active .tab-icon {
-  color: var(--color-neutral-white) !important; /* White icon when active - same as dark mode */
+[data-theme='light'] .dashboard-tabs button.tab-button.active .tab-icon {
+  color: var(
+    --color-neutral-white
+  ) !important; /* White icon when active - same as dark mode */
 }
 
-[data-theme="light"] .dashboard-tabs button.tab-button.active svg.border-fade {
+[data-theme='light'] .dashboard-tabs button.tab-button.active svg.border-fade {
   opacity: 0 !important; /* Hide border when active - same as dark mode */
 }
 
 /* Border styles - keep exact same as dark mode (SVG border fade) */
-[data-theme="light"] .dashboard-tabs button.tab-button svg.border-fade {
+[data-theme='light'] .dashboard-tabs button.tab-button svg.border-fade {
   opacity: 1 !important; /* Same opacity as dark mode */
 }
 
 /* Border colors and styles remain the same as dark mode - no changes needed for svg.border-fade rect */
 
 /* Buttons keep dark mode styles in light mode - explicit overrides to preserve dark mode */
-[data-theme="light"] .upload-button,
-[data-theme="light"] .create-button,
-[data-theme="light"] .export-button {
+[data-theme='light'] .upload-button,
+[data-theme='light'] .create-button,
+[data-theme='light'] .export-button {
   color: var(--color-brand-primary-500) !important;
   background: transparent !important;
 }
 
 /* Upload Bundle button - green icon in inactive state */
-[data-theme="light"] .upload-button svg,
-[data-theme="light"] .upload-button svg * {
-  color: var(--color-brand-primary-500) !important; /* Green icon when inactive */
+[data-theme='light'] .upload-button svg,
+[data-theme='light'] .upload-button svg * {
+  color: var(
+    --color-brand-primary-500
+  ) !important; /* Green icon when inactive */
 }
 
-[data-theme="light"] .upload-button:hover:not(:disabled):not(.uploading),
-[data-theme="light"] .create-button:hover:not(:disabled),
-[data-theme="light"] .export-button:hover:not(:disabled) {
-  background: var(--color-brand-primary-500) !important; /* Green background on hover */
+[data-theme='light'] .upload-button:hover:not(:disabled):not(.uploading),
+[data-theme='light'] .create-button:hover:not(:disabled),
+[data-theme='light'] .export-button:hover:not(:disabled) {
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background on hover */
   color: var(--color-neutral-white) !important; /* White text on hover */
 }
 
 /* Upload Bundle button - white icon on hover */
-[data-theme="light"] .upload-button:hover:not(:disabled):not(.uploading) svg,
-[data-theme="light"] .upload-button:hover:not(:disabled):not(.uploading) svg * {
+[data-theme='light'] .upload-button:hover:not(:disabled):not(.uploading) svg,
+[data-theme='light'] .upload-button:hover:not(:disabled):not(.uploading) svg * {
   color: var(--color-neutral-white) !important; /* White icon on hover */
 }
 
 /* App Bundles page - light mode only */
-[data-theme="light"] .app-bundles-section .refresh-button {
-  color: var(--color-neutral-600) !important; /* Keep current inactive state - grey text */
+[data-theme='light'] .app-bundles-section .refresh-button {
+  color: var(
+    --color-neutral-600
+  ) !important; /* Keep current inactive state - grey text */
   background: transparent !important;
 }
 
 /* Refresh button icon - grey in inactive state */
-[data-theme="light"] .app-bundles-section .refresh-button svg,
-[data-theme="light"] .app-bundles-section .refresh-button svg * {
+[data-theme='light'] .app-bundles-section .refresh-button svg,
+[data-theme='light'] .app-bundles-section .refresh-button svg * {
   color: var(--color-neutral-600) !important; /* Grey icon when inactive */
 }
 
-[data-theme="light"] .app-bundles-section .refresh-button:hover:not(:disabled) {
-  background: var(--color-brand-primary-500) !important; /* Green background on hover */
+[data-theme='light'] .app-bundles-section .refresh-button:hover:not(:disabled) {
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background on hover */
   color: var(--color-neutral-white) !important; /* White text on hover */
 }
 
 /* Refresh button icon - white on hover */
-[data-theme="light"] .app-bundles-section .refresh-button:hover:not(:disabled) svg,
-[data-theme="light"] .app-bundles-section .refresh-button:hover:not(:disabled) svg * {
+[data-theme='light']
+  .app-bundles-section
+  .refresh-button:hover:not(:disabled)
+  svg,
+[data-theme='light']
+  .app-bundles-section
+  .refresh-button:hover:not(:disabled)
+  svg
+  * {
   color: var(--color-neutral-white) !important; /* White icon on hover */
 }
 
 /* Other pages refresh button - keep existing style (more specific selector) */
 /* Users page - light mode only */
-[data-theme="light"] .users-section .refresh-button {
+[data-theme='light'] .users-section .refresh-button {
   color: var(--color-neutral-600) !important; /* Same color as border */
   background: transparent !important;
 }
 
 /* Refresh button icon - keep as is (don't change icon color) */
-[data-theme="light"] .users-section .refresh-button:hover:not(:disabled) {
-  background: var(--color-brand-primary-500) !important; /* Green background on hover */
+[data-theme='light'] .users-section .refresh-button:hover:not(:disabled) {
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background on hover */
   color: var(--color-neutral-white) !important; /* White text on hover */
 }
 
 /* Refresh button icon - white on hover */
-[data-theme="light"] .users-section .refresh-button:hover:not(:disabled) svg,
-[data-theme="light"] .users-section .refresh-button:hover:not(:disabled) svg * {
+[data-theme='light'] .users-section .refresh-button:hover:not(:disabled) svg,
+[data-theme='light'] .users-section .refresh-button:hover:not(:disabled) svg * {
   color: var(--color-neutral-white) !important; /* White icon on hover */
 }
 
 /* Create User button - Users page only, light mode */
-[data-theme="light"] .users-section .create-button {
+[data-theme='light'] .users-section .create-button {
   color: var(--color-brand-primary-500) !important; /* Green text */
   background: transparent !important;
 }
 
 /* Create User button icon - border color (green) in non-hover state */
-[data-theme="light"] .users-section .create-button svg,
-[data-theme="light"] .users-section .create-button svg * {
+[data-theme='light'] .users-section .create-button svg,
+[data-theme='light'] .users-section .create-button svg * {
   color: var(--color-brand-primary-500) !important; /* Green, same as border */
 }
 
-[data-theme="light"] .users-section .create-button:hover:not(:disabled) {
-  background: var(--color-brand-primary-500) !important; /* Green background on hover */
+[data-theme='light'] .users-section .create-button:hover:not(:disabled) {
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background on hover */
   color: var(--color-neutral-white) !important; /* White text on hover */
 }
 
 /* Create User button icon - white on hover */
-[data-theme="light"] .users-section .create-button:hover:not(:disabled) svg,
-[data-theme="light"] .users-section .create-button:hover:not(:disabled) svg * {
+[data-theme='light'] .users-section .create-button:hover:not(:disabled) svg,
+[data-theme='light'] .users-section .create-button:hover:not(:disabled) svg * {
   color: var(--color-neutral-white) !important; /* White icon on hover */
 }
 
 /* System page - light mode only */
-[data-theme="light"] .system-section .refresh-button {
+[data-theme='light'] .system-section .refresh-button {
   color: var(--color-neutral-600) !important; /* Same color as border */
   background: transparent !important;
 }
 
 /* Refresh button icon - keep as is (don't change icon color) */
-[data-theme="light"] .system-section .refresh-button:hover:not(:disabled) {
-  background: var(--color-brand-primary-500) !important; /* Green background on hover */
+[data-theme='light'] .system-section .refresh-button:hover:not(:disabled) {
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background on hover */
   color: var(--color-neutral-white) !important; /* White text on hover */
 }
 
 /* Refresh button icon - white on hover */
-[data-theme="light"] .system-section .refresh-button:hover:not(:disabled) svg,
-[data-theme="light"] .system-section .refresh-button:hover:not(:disabled) svg * {
+[data-theme='light'] .system-section .refresh-button:hover:not(:disabled) svg,
+[data-theme='light']
+  .system-section
+  .refresh-button:hover:not(:disabled)
+  svg
+  * {
   color: var(--color-neutral-white) !important; /* White icon on hover */
 }
 
 /* Delete button - Users page only, light mode */
-[data-theme="light"] .users-section .delete-btn {
+[data-theme='light'] .users-section .delete-btn {
   color: var(--color-neutral-600) !important; /* Same color as border */
 }
 
 /* User Management Delete – same hover as navbar Logout (light) */
-[data-theme="light"] .users-section .delete-btn:hover:not(:disabled) {
+[data-theme='light'] .users-section .delete-btn:hover:not(:disabled) {
   background: var(--color-semantic-error-alpha-15) !important;
   border: var(--border-width-thin) solid var(--color-semantic-error-500) !important;
   color: var(--color-semantic-error-600) !important;
   transform: translateY(-1px);
 }
 
-[data-theme="light"] .users-section .delete-btn:hover:not(:disabled) svg,
-[data-theme="light"] .users-section .delete-btn:hover:not(:disabled) svg * {
+[data-theme='light'] .users-section .delete-btn:hover:not(:disabled) svg,
+[data-theme='light'] .users-section .delete-btn:hover:not(:disabled) svg * {
   color: var(--color-semantic-error-600) !important;
 }
 
 /* Other pages delete button - keep existing style */
-[data-theme="light"] .delete-btn:not(.users-section .delete-btn) {
+[data-theme='light'] .delete-btn:not(.users-section .delete-btn) {
   color: var(--color-neutral-white) !important;
 }
 
-[data-theme="light"] .delete-btn:not(.users-section .delete-btn):hover:not(:disabled) {
+[data-theme='light']
+  .delete-btn:not(.users-section .delete-btn):hover:not(:disabled) {
   background: var(--color-semantic-error-alpha-30) !important;
   border-color: var(--color-semantic-error-500) !important;
   color: var(--color-semantic-error-500) !important;
 }
 
 /* Reset Password button - Users page only, light mode */
-[data-theme="light"] .users-section .reset-password-btn {
+[data-theme='light'] .users-section .reset-password-btn {
   color: var(--color-neutral-600) !important;
   border-color: var(--color-brand-primary-alpha-20) !important;
 }
 
 /* Reset Password button icon - keep as is (don't change icon color) */
-[data-theme="light"] .users-section .reset-password-btn:hover:not(:disabled) {
-  background: var(--color-brand-primary-500) !important; /* Green background on hover */
+[data-theme='light'] .users-section .reset-password-btn:hover:not(:disabled) {
+  background: var(
+    --color-brand-primary-500
+  ) !important; /* Green background on hover */
   color: var(--color-neutral-white) !important; /* White text on hover */
   border-color: var(--color-brand-primary-500) !important;
 }
 
 /* Reset Password button icon - white on hover */
-[data-theme="light"] .users-section .reset-password-btn:hover:not(:disabled) svg,
-[data-theme="light"] .users-section .reset-password-btn:hover:not(:disabled) svg * {
+[data-theme='light']
+  .users-section
+  .reset-password-btn:hover:not(:disabled)
+  svg,
+[data-theme='light']
+  .users-section
+  .reset-password-btn:hover:not(:disabled)
+  svg
+  * {
   color: var(--color-neutral-white) !important; /* White icon on hover */
 }
 
 /* Other pages reset password button - keep existing style */
-[data-theme="light"] .reset-password-btn:not(.users-section .reset-password-btn) {
+[data-theme='light']
+  .reset-password-btn:not(.users-section .reset-password-btn) {
   color: var(--color-neutral-white) !important;
   border-color: var(--color-brand-primary-alpha-20) !important;
 }
 
-[data-theme="light"] .reset-password-btn:not(.users-section .reset-password-btn):hover:not(:disabled) {
+[data-theme='light']
+  .reset-password-btn:not(.users-section .reset-password-btn):hover:not(
+    :disabled
+  ) {
   background: var(--color-brand-primary-alpha-20) !important;
   border-color: var(--color-brand-primary-500) !important;
   color: var(--color-brand-primary-300) !important;
   box-shadow: 0 0 8px var(--color-brand-primary-alpha-30) !important;
 }
 
-[data-theme="light"] .empty-state,
-[data-theme="light"] .loading-state {
+[data-theme='light'] .empty-state,
+[data-theme='light'] .loading-state {
   color: var(--color-text-secondary);
 }
 
-[data-theme="light"] .empty-icon {
+[data-theme='light'] .empty-icon {
   color: var(--color-text-tertiary);
 }
 
-[data-theme="light"] .error-message {
-  background: var(--color-semantic-error-50, #FEF2F2);
+[data-theme='light'] .error-message {
+  background: var(--color-semantic-error-50, #fef2f2);
   border-color: var(--color-semantic-error-alpha-30);
-  color: var(--color-semantic-error-600, #DC2626);
+  color: var(--color-semantic-error-600, #dc2626);
 }
 
-[data-theme="light"] .success-message {
-  background: var(--color-semantic-success-50, #F0F9F0);
+[data-theme='light'] .success-message {
+  background: var(--color-semantic-success-50, #f0f9f0);
   border-color: var(--color-semantic-success-alpha-30);
-  color: var(--color-semantic-success-600, #2E7D32);
+  color: var(--color-semantic-success-600, #2e7d32);
 }
 
-[data-theme="light"] .role-dropdown-menu {
+[data-theme='light'] .role-dropdown-menu {
   background: var(--color-background-elevated);
   border-color: var(--color-border-default);
-  box-shadow: 
+  box-shadow:
     0 8px 32px var(--color-neutral-black-alpha-10),
     inset 0 1px 0 var(--color-neutral-black-alpha-3);
 }
 
-[data-theme="light"] .role-option {
+[data-theme='light'] .role-option {
   color: var(--color-text-primary) !important;
 }
 
-[data-theme="light"] .role-option:hover {
+[data-theme='light'] .role-option:hover {
   background: var(--color-background-card) !important;
 }
 
-[data-theme="light"] .role-option.selected {
+[data-theme='light'] .role-option.selected {
   background: var(--color-brand-primary-alpha-8) !important;
   border-color: var(--color-brand-primary-alpha-20) !important;
 }
 
-[data-theme="light"] .role-option .role-name {
+[data-theme='light'] .role-option .role-name {
   color: var(--color-text-primary) !important;
 }
 
-[data-theme="light"] .role-option .role-description {
+[data-theme='light'] .role-option .role-description {
   color: var(--color-text-secondary) !important;
 }
 
-[data-theme="light"] .role-select-button {
+[data-theme='light'] .role-select-button {
   background: var(--color-background-card);
   border-color: var(--color-border-default);
   color: var(--color-text-primary);
 }
 
-[data-theme="light"] .role-select-button:hover {
+[data-theme='light'] .role-select-button:hover {
   background: var(--color-background-elevated);
   border-color: var(--color-border-hover);
 }
 
-[data-theme="light"] .users-table-container .search-input input,
-[data-theme="light"] .users-table-container .ode-input input {
+[data-theme='light'] .users-table-container .search-input input,
+[data-theme='light'] .users-table-container .ode-input input {
   background: var(--color-neutral-white) !important;
   border-color: var(--color-border-default) !important;
   color: var(--color-text-primary) !important;
 }
 
-[data-theme="light"] .users-table-container .search-input input:focus,
-[data-theme="light"] .users-table-container .ode-input input:focus {
+[data-theme='light'] .users-table-container .search-input input:focus,
+[data-theme='light'] .users-table-container .ode-input input:focus {
   background: var(--color-neutral-white) !important;
   border-color: var(--color-brand-primary-500) !important;
 }
 
-[data-theme="light"] .users-table-container .search-input input::placeholder,
-[data-theme="light"] .users-table-container .ode-input input::placeholder {
+[data-theme='light'] .users-table-container .search-input input::placeholder,
+[data-theme='light'] .users-table-container .ode-input input::placeholder {
   color: var(--color-text-tertiary) !important;
 }
 
-[data-theme="light"] .search-clear-icon,
-[data-theme="light"] .search-icon-button,
-[data-theme="light"] .users-table-container .search-clear-icon,
-[data-theme="light"] .users-table-container .search-icon-button {
+[data-theme='light'] .search-clear-icon,
+[data-theme='light'] .search-icon-button,
+[data-theme='light'] .users-table-container .search-clear-icon,
+[data-theme='light'] .users-table-container .search-icon-button {
   color: var(--color-text-secondary);
 }
 
-[data-theme="light"] .search-clear-icon:hover,
-[data-theme="light"] .search-icon-button:hover,
-[data-theme="light"] .users-table-container .search-clear-icon:hover,
-[data-theme="light"] .users-table-container .search-icon-button:hover {
+[data-theme='light'] .search-clear-icon:hover,
+[data-theme='light'] .search-icon-button:hover,
+[data-theme='light'] .users-table-container .search-clear-icon:hover,
+[data-theme='light'] .users-table-container .search-icon-button:hover {
   color: var(--color-text-primary);
 }
 
 /* Ensure all icons are dark in light mode */
 /* Tab icons keep dark mode styles - no light mode overrides */
-[data-theme="light"] .info-icon,
-[data-theme="light"] .empty-icon,
-[data-theme="light"] .stat-icon {
+[data-theme='light'] .info-icon,
+[data-theme='light'] .empty-icon,
+[data-theme='light'] .stat-icon {
   color: var(--color-text-secondary);
 }
 
 /* Tab buttons keep dark mode styles - no light mode overrides for colors/hover */
 
-[data-theme="light"] .info-icon {
+[data-theme='light'] .info-icon {
   color: var(--color-brand-primary-500);
 }
 
 /* Additional light mode text and icon overrides */
-[data-theme="light"] .modal-input label,
-[data-theme="light"] .form-group label,
-[data-theme="light"] .ode-input label {
+[data-theme='light'] .modal-input label,
+[data-theme='light'] .form-group label,
+[data-theme='light'] .ode-input label {
   color: var(--color-text-primary) !important;
 }
 
-[data-theme="light"] .modal-body,
-[data-theme="light"] .modal-content p,
-[data-theme="light"] .modal-content span:not(.role-name):not(.role-description) {
+[data-theme='light'] .modal-body,
+[data-theme='light'] .modal-content p,
+[data-theme='light']
+  .modal-content
+  span:not(.role-name):not(.role-description) {
   color: var(--color-text-primary);
 }
 
-[data-theme="light"] .role-option {
+[data-theme='light'] .role-option {
   border-bottom-color: var(--color-border-default) !important;
 }
 
-[data-theme="light"] .role-option:hover {
+[data-theme='light'] .role-option:hover {
   background: var(--color-background-card) !important;
 }
 
-[data-theme="light"] .role-option.selected {
+[data-theme='light'] .role-option.selected {
   background: var(--color-brand-primary-alpha-8) !important;
   border-left-color: var(--color-brand-primary-500) !important;
 }
 
 /* Ensure all SVG icons inherit proper colors in light mode */
 /* Exclude tab icons from general SVG color override */
-[data-theme="light"] svg:not(.theme-switcher-icon):not(.theme-option-icon):not(.tab-icon):not(.dashboard-tabs svg):not(.welcome-icon svg) {
+[data-theme='light']
+  svg:not(.theme-switcher-icon):not(.theme-option-icon):not(.tab-icon):not(
+    .dashboard-tabs svg
+  ):not(.welcome-icon svg) {
   color: var(--color-text-secondary);
 }
 
 /* Tab buttons keep dark mode styles - icons stay as dark mode */
 
-[data-theme="light"] .info-icon svg {
+[data-theme='light'] .info-icon svg {
   color: var(--color-brand-primary-500);
 }
 
-[data-theme="light"] .info-card:nth-child(even) .info-icon svg {
+[data-theme='light'] .info-card:nth-child(even) .info-icon svg {
   color: var(--color-brand-primary-500);
 }
-
-
-
-

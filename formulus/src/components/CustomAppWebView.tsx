@@ -26,6 +26,7 @@ export interface CustomAppWebViewHandle {
   injectJavaScript: (script: string) => void;
   sendFormInit: (formData: FormInitData) => Promise<void>;
   sendAttachmentData: (attachmentData: File) => Promise<void>;
+  notifyReceiveFocus: () => void;
 }
 
 interface CustomAppWebViewProps {
@@ -340,6 +341,7 @@ const CustomAppWebView = forwardRef<
           messageManager.sendFormInit(formData),
         sendAttachmentData: (attachmentData: File) =>
           messageManager.sendAttachmentData(attachmentData),
+        notifyReceiveFocus: () => messageManager.notifyReceiveFocus(),
       }),
       [messageManager],
     );

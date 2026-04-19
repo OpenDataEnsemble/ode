@@ -23,6 +23,7 @@ import {
   errorCodes,
 } from '@react-native-documents/picker';
 import {
+  AttachmentDisplayDescriptor,
   FormInitData,
   FormCompletionResult,
   FormInfo,
@@ -42,14 +43,12 @@ type AudioSet = {
   AudioChannels: number;
 };
 import { FormService } from '../services/FormService';
-import { Observation, ObservationData } from '../database/models/Observation';
 import {
   getAttachmentsDirectoryFileUrl,
   getCustomAppDirectoryFileUrl,
   getFormSpecsDirectoryFileUrl,
-  resolveAttachmentFileUrl,
+  resolveAttachmentDisplayUri,
 } from '../services/WebViewFileUrlResolver';
-import { commitDraftAttachmentsAfterSave } from '../services/attachmentStorage';
 
 export type HandlerArgs = {
   data: unknown;
@@ -117,6 +116,7 @@ const startFormplayerOperation = (
   params: Record<string, unknown> = {},
   savedData: Record<string, unknown> = {},
   observationId: string | null = null,
+  subObservationMode: boolean = false,
 ): Promise<FormCompletionResult> => {
   const operationId = `${formType}_${Date.now()}_${Math.random()
     .toString(36)
@@ -136,6 +136,7 @@ const startFormplayerOperation = (
       savedData,
       observationId,
       operationId,
+      subObservationMode,
     });
 
     setTimeout(
@@ -159,24 +160,32 @@ export const openFormplayerFromNative = (
   return startFormplayerOperation(formType, params, savedData, observationId);
 };
 
-let activeFormplayerModalRef: {
+export type ActiveFormplayerModalHandle = {
   handleSubmission: (data: {
     formType: string;
     finalData: Record<string, unknown>;
     observationId?: string | null;
   }) => Promise<string>;
-} | null = null;
+};
+
+let activeFormplayerModalRef: ActiveFormplayerModalHandle | null = null;
 
 export const setActiveFormplayerModal = (
-  modalRef: {
-    handleSubmission: (data: {
-      formType: string;
-      finalData: Record<string, unknown>;
-      observationId?: string | null;
-    }) => Promise<string>;
-  } | null,
+  modalRef: ActiveFormplayerModalHandle | null,
 ) => {
   activeFormplayerModalRef = modalRef;
+};
+
+/** Clears the global active modal only if it still points to this submission handler (stacked modals). */
+export const clearActiveFormplayerModalIfMatches = (
+  handleSubmission: ActiveFormplayerModalHandle['handleSubmission'],
+) => {
+  if (
+    activeFormplayerModalRef &&
+    activeFormplayerModalRef.handleSubmission === handleSubmission
+  ) {
+    activeFormplayerModalRef = null;
+  }
 };
 
 export const resolveFormOperation = (
@@ -224,46 +233,6 @@ export const rejectFormOperation = (operationId: string, error: Error) => {
   }
 };
 
-const saveFormData = async (
-  formType: string,
-  data: ObservationData,
-  observationId: string | null,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isPartial = true,
-) => {
-  try {
-    const observation: Partial<Observation> = {
-      formType,
-      data,
-    };
-
-    if (observationId !== null) {
-      observation.observationId = observationId;
-      observation.updatedAt = new Date();
-    } else {
-      observation.createdAt = new Date();
-    }
-
-    const formService = await FormService.getInstance();
-    const id =
-      observationId !== null
-        ? await formService.updateObservation(observationId, data)
-        : await formService.addNewObservation(formType, data);
-
-    if (id != null) {
-      const fixedData = await commitDraftAttachmentsAfterSave(
-        data as Record<string, unknown>,
-      );
-      await formService.updateObservation(id, fixedData);
-    }
-
-    return id;
-  } catch (error) {
-    console.error('Error saving form data:', error);
-    return null;
-  }
-};
-
 export function createFormulusMessageHandlers(): FormulusMessageHandlers {
   return {
     onInitForm: (payload: unknown) => {
@@ -295,13 +264,15 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           formType,
           finalData,
         });
-      } else {
-        // Fallback to the old method if no modal is active
-        console.warn(
-          'FormulusMessageHandlers: No active FormplayerModal, using fallback saveFormData',
-        );
-        return await saveFormData(formType, finalData, null, false);
       }
+
+      console.error(
+        'FormulusMessageHandlers: No active FormplayerModal for submitObservation; refusing to persist.',
+        { formType },
+      );
+      throw new Error(
+        'Form submission failed: no active form session. Close and reopen the form.',
+      );
     },
     onUpdateObservation: async (data: {
       observationId: string;
@@ -320,11 +291,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           observationId: data.observationId,
         });
       }
-      return await saveFormData(
-        data.formType,
-        data.finalData,
-        data.observationId,
-        false,
+
+      console.error(
+        'FormulusMessageHandlers: No active FormplayerModal for updateObservation; refusing to persist.',
+        { observationId: data.observationId, formType: data.formType },
+      );
+      throw new Error(
+        'Form update failed: no active form session. Close and reopen the form.',
       );
     },
     onRequestCamera: async (fieldId: string): Promise<unknown> => {
@@ -1081,17 +1054,27 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       }
     },
     onGetAttachmentUri: async (data: {
-      fileName?: string;
-      filename?: string;
+      fileName?: string | AttachmentDisplayDescriptor;
+      filename?: string | AttachmentDisplayDescriptor;
     }): Promise<string | null> => {
-      const name = data?.fileName ?? data?.filename;
-      if (name == null || typeof name !== 'string') {
+      const ref = data?.fileName ?? data?.filename;
+      if (ref == null) {
         console.warn(
           'FormulusMessageHandlers: onGetAttachmentUri missing fileName',
         );
         return null;
       }
-      return resolveAttachmentFileUrl(name);
+      if (typeof ref === 'string' && !ref.trim()) {
+        return null;
+      }
+      if (typeof ref === 'object' && ref !== null && !Array.isArray(ref)) {
+        const hasFn =
+          typeof ref.filename === 'string' && ref.filename.trim() !== '';
+        if (!hasFn) {
+          return null;
+        }
+      }
+      return resolveAttachmentDisplayUri(ref);
     },
     onGetAttachmentsUri: async (): Promise<string> => {
       return getAttachmentsDirectoryFileUrl();
@@ -1166,12 +1149,25 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const service = await FormService.getInstance();
       return await service.getObservationsByQuery(options);
     },
-    onOpenFormplayer: async (data: FormInitData) => {
+    onOpenFormplayer: async (
+      data: FormInitData & {
+        options?: { subObservationMode?: boolean; returnOnly?: boolean };
+        /** @deprecated Legacy key; prefer subObservationMode */
+        returnOnly?: boolean;
+      },
+    ) => {
+      const subObservationMode = Boolean(
+        data.options?.subObservationMode ||
+        data.subObservationMode ||
+        data.options?.returnOnly ||
+        data.returnOnly,
+      );
       return startFormplayerOperation(
         data.formType,
         data.params,
         data.savedData,
         data.observationId ?? null,
+        subObservationMode,
       );
     },
     onFormplayerInitialized: (_data: {

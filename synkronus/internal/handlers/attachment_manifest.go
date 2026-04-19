@@ -28,14 +28,15 @@ func (h *Handler) AttachmentManifestHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	clientGen := sync.ParseClientRepositoryGeneration(r, req.RepositoryGeneration)
+	clientGen, clientGenSent := sync.ParseClientRepositoryGenerationSent(r, req.RepositoryGeneration)
 	serverGen, err := h.syncService.GetRepositoryGeneration(r.Context())
 	if err != nil {
 		h.log.Error("Failed to read repository generation", "error", err)
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to verify repository generation")
 		return
 	}
-	if clientGen != serverGen {
+	// Fresh install (no header/body): adopt server generation — see Pull handler.
+	if clientGenSent && clientGen != serverGen {
 		w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(serverGen, 10))
 		SendErrorResponseWithCode(w, http.StatusConflict, sync.ErrRepositoryGenerationMismatch,
 			"Client repository_generation does not match the server; pull sync state and align generation before requesting the attachment manifest.",

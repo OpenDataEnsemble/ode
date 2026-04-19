@@ -34,16 +34,31 @@ export function safeAttachmentBasename(raw: unknown): string | null {
 
 const attachmentsRoot = (): string =>
   `${RNFS.DocumentDirectoryPath}/attachments`;
-const draftRoot = (): string =>
-  `${RNFS.DocumentDirectoryPath}/attachments/draft`;
-const pendingRoot = (): string =>
-  `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+const draftRoot = (): string => `${attachmentsRoot()}/draft`;
+const syncedRoot = (): string => `${attachmentsRoot()}/synced`;
+const pendingRoot = (): string => `${attachmentsRoot()}/pending`;
+// Legacy roots — consulted as a last resort for data written before the v2
+// folder-layout migration (`runAttachmentLayoutMigrationV2`) has run. Harmless
+// if they never exist.
+const legacyCommittedRoot = (): string => attachmentsRoot();
+const legacyPendingRoot = (): string => `${attachmentsRoot()}/pending_upload`;
 const customAppRoot = (): string => `${RNFS.DocumentDirectoryPath}/app`;
 const formsRoot = (): string => `${RNFS.DocumentDirectoryPath}/forms`;
 
 /**
- * Return file:// URL for an attachment file if it exists in draft (unsaved capture),
- * committed folder, or pending_upload.
+ * Return `file://` URL for an attachment file.
+ *
+ * Lookup order:
+ *   1. `attachments/draft/<name>`  — freshest user-captured copy (formplayer
+ *      preview reflects what was just taken).
+ *   2. `attachments/synced/<name>` — canonical committed/downloaded copy.
+ *   3. `attachments/pending/<name>` — only reachable if `synced/` was wiped
+ *      but the upload queue was not (defensive).
+ *   4. legacy fallbacks: bare `attachments/<name>` and
+ *      `attachments/pending_upload/<name>`, for the short window between app
+ *      update and {@link runAttachmentLayoutMigrationV2} completing.
+ *
+ * `fileName` is reduced to a basename; path segments and ".." are rejected.
  */
 export async function resolveAttachmentFileUrl(
   fileName: string,
@@ -52,18 +67,18 @@ export async function resolveAttachmentFileUrl(
   if (!base) {
     return null;
   }
-  const draftPath = `${draftRoot()}/${base}`;
-  const mainPath = `${attachmentsRoot()}/${base}`;
-  const pendingPath = `${pendingRoot()}/${base}`;
+  const candidates = [
+    `${draftRoot()}/${base}`,
+    `${syncedRoot()}/${base}`,
+    `${pendingRoot()}/${base}`,
+    `${legacyCommittedRoot()}/${base}`,
+    `${legacyPendingRoot()}/${base}`,
+  ];
   try {
-    if (await RNFS.exists(draftPath)) {
-      return pathToFileUrl(draftPath);
-    }
-    if (await RNFS.exists(mainPath)) {
-      return pathToFileUrl(mainPath);
-    }
-    if (await RNFS.exists(pendingPath)) {
-      return pathToFileUrl(pendingPath);
+    for (const p of candidates) {
+      if (await RNFS.exists(p)) {
+        return pathToFileUrl(p);
+      }
     }
   } catch {
     return null;
@@ -71,8 +86,31 @@ export async function resolveAttachmentFileUrl(
   return null;
 }
 
+/**
+ * Resolve a basename or `{ filename }` descriptor to a WebView-loadable URL.
+ * Callers must not pass stored `uri` values — only attachment basenames.
+ */
+export async function resolveAttachmentDisplayUri(
+  fileRef: string | { filename?: string },
+): Promise<string | null> {
+  if (typeof fileRef === 'string') {
+    return resolveAttachmentFileUrl(fileRef);
+  }
+  const fname =
+    typeof fileRef.filename === 'string' ? fileRef.filename.trim() : '';
+  if (fname) {
+    return resolveAttachmentFileUrl(fname);
+  }
+  return null;
+}
+
+/**
+ * Base `file://` URL for the canonical attachment directory that custom apps
+ * should iterate. Returns the `synced/` subdirectory — drafts and the upload
+ * queue are intentionally excluded from the directory listing contract.
+ */
 export function getAttachmentsDirectoryFileUrl(): string {
-  return pathToFileUrl(`${attachmentsRoot()}/`);
+  return pathToFileUrl(`${syncedRoot()}/`);
 }
 
 export function getCustomAppDirectoryFileUrl(): string {

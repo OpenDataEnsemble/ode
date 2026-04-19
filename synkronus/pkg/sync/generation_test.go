@@ -73,3 +73,70 @@ func TestParseClientRepositoryGeneration(t *testing.T) {
 		})
 	}
 }
+
+// TestParseClientRepositoryGenerationSent exercises the "did the client send
+// an epoch at all?" flag. This is the server-side half of the fresh-install
+// fix: a brand-new Formulus install omits the header and body entirely, and
+// the server must treat that as "adopt current", not as `1` that could
+// mismatch a previously-reset server.
+func TestParseClientRepositoryGenerationSent(t *testing.T) {
+	body5 := int64(5)
+
+	tests := []struct {
+		name        string
+		headerValue string
+		body        *int64
+		wantGen     int64
+		wantSent    bool
+	}{
+		{
+			name:        "omitted header and body => not sent, returns default",
+			headerValue: "",
+			body:        nil,
+			wantGen:     DefaultRepositoryGeneration,
+			wantSent:    false,
+		},
+		{
+			name:        "valid header => sent",
+			headerValue: "4",
+			body:        nil,
+			wantGen:     4,
+			wantSent:    true,
+		},
+		{
+			name:        "body only => sent",
+			headerValue: "",
+			body:        &body5,
+			wantGen:     5,
+			wantSent:    true,
+		},
+		{
+			name:        "malformed header => treated as not sent, default gen",
+			headerValue: "nope",
+			body:        nil,
+			wantGen:     DefaultRepositoryGeneration,
+			wantSent:    false,
+		},
+		{
+			name:        "header zero => treated as not sent, default gen",
+			headerValue: "0",
+			body:        nil,
+			wantGen:     DefaultRepositoryGeneration,
+			wantSent:    false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/", nil)
+			if tc.headerValue != "" {
+				req.Header.Set(HeaderRepositoryGeneration, tc.headerValue)
+			}
+			gotGen, gotSent := ParseClientRepositoryGenerationSent(req, tc.body)
+			if gotGen != tc.wantGen || gotSent != tc.wantSent {
+				t.Fatalf("ParseClientRepositoryGenerationSent() = (%d, %v), want (%d, %v)",
+					gotGen, gotSent, tc.wantGen, tc.wantSent)
+			}
+		})
+	}
+}

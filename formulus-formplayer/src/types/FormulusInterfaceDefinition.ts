@@ -56,6 +56,8 @@ export interface FormInitData {
   formSchema?: unknown;
   uiSchema?: unknown;
   operationId?: string;
+  /** Sub-observation session: embedded child form returns JSON to parent; do not persist as a top-level observation. */
+  subObservationMode?: boolean;
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
     custom_types: Record<string, { source: string }>;
@@ -102,6 +104,14 @@ export interface CameraResultData {
     persistentStorage: boolean;
     storageLocation: string;
   };
+}
+
+/**
+ * Attachment reference for {@link FormulusInterface.getAttachmentUri} when not passing a basename string.
+ * Use `filename` only (observation JSON must not store file paths or `uri` — resolve display URLs via this API).
+ */
+export interface AttachmentDisplayDescriptor {
+  filename?: string;
 }
 
 /**
@@ -284,6 +294,7 @@ export interface FormulusInterface {
     formType: string,
     params: Record<string, unknown>,
     savedData: Record<string, unknown>,
+    options?: { subObservationMode?: boolean },
   ): Promise<FormCompletionResult>;
 
   /**
@@ -450,18 +461,36 @@ export interface FormulusInterface {
   getThemeMode(): Promise<'light' | 'dark' | 'system'>;
 
   /**
-   * Resolve a synced or camera-saved attachment to a WebView-loadable `file://` URL.
-   * Checks `{DocumentDirectory}/attachments/draft/` (unsaved capture), then `attachments/`,
-   * then `pending_upload/`. Pass the basename only (e.g. `photo.filename` from observation
-   * data); path segments and ".." are rejected.
-   * @param fileName - Attachment file basename
-   * @returns `file://` URL if the file exists, otherwise `null`
+   * Resolve an attachment to a WebView-loadable URL (`file://`, `http(s):`, or host-specific).
+   *
+   * **String `fileName`:** basename only (e.g. `photo.filename`). Lookup order, first hit wins:
+   *   1. `attachments/draft/<name>`   — unsaved capture (formplayer preview)
+   *   2. `attachments/synced/<name>`  — canonical committed / downloaded copy
+   *   3. `attachments/pending/<name>` — queued for upload (fallback only)
+   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`) are also checked.
+   * Path segments and ".." are rejected.
+   *
+   * **`AttachmentDisplayDescriptor`:** `{ filename }` basename only (same lookup as a string argument).
+   *
+   * @param fileName - Basename string, or `{ filename? }` (never a stored `uri` — use this method to resolve URLs)
+   * @returns Display URL, or `null` if none
    */
-  getAttachmentUri(fileName: string): Promise<string | null>;
+  getAttachmentUri(
+    fileName: string | AttachmentDisplayDescriptor,
+  ): Promise<string | null>;
 
   /**
-   * Base `file://` URL for the attachments directory (trailing slash).
-   * @returns e.g. `file:///.../attachments/`
+   * Base `file://` URL for the canonical attachments directory (trailing slash).
+   * Returns the `synced/` subfolder — only committed/downloaded files are
+   * iterable from here. Drafts and the upload queue are excluded by design so
+   * custom apps can safely list this directory.
+   *
+   * **Breaking change (v2 layout):** this used to return the `attachments/`
+   * parent directory, which mixed committed files with `draft/` and
+   * `pending_upload/` subfolders. Custom apps that iterate this URL will now
+   * see only fully-committed attachments.
+   *
+   * @returns e.g. `file:///.../attachments/synced/`
    */
   getAttachmentsUri(): Promise<string>;
 

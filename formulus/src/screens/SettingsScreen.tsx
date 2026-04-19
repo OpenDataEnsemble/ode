@@ -44,6 +44,10 @@ import {
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import { serverSwitchService } from '../services/ServerSwitchService';
+import {
+  classifyServerChange,
+  resolvePreviousServerUrl,
+} from '../services/ServerSwitchDecision';
 import { syncService } from '../services/SyncService';
 import {
   getSettingsHydrationCredentialPair,
@@ -131,15 +135,23 @@ const SettingsScreen = () => {
 
   const handleServerSwitchIfNeeded = useCallback(
     async (url: string): Promise<boolean> => {
-      const norm = normalizeServerUrl(url);
-      if (!norm.ok) {
-        ToastService.showLong(norm.message);
+      // Authoritative source of truth for "what server were we connected to?"
+      // Component state (`initialServerUrl`) can be empty during hydration or
+      // when the screen is entered directly from the Welcome flow (PR #601),
+      // which previously caused the wipe warning to be silently skipped.
+      const trimmedInitial = await resolvePreviousServerUrl(
+        initialServerUrl,
+        () => serverConfigService.getServerUrl(),
+      );
+
+      const decision = classifyServerChange(url, trimmedInitial);
+      if (decision.kind === 'invalid') {
+        ToastService.showLong(decision.message);
         return false;
       }
-      const normalizedUrl = norm.href;
+      const normalizedUrl = decision.normalizedUrl;
 
-      const trimmedInitial = initialServerUrl.trim();
-      if (!trimmedInitial) {
+      if (decision.kind === 'first-time') {
         // First server URL — nothing to "wipe"; avoid the switch-server dialog.
         await serverConfigService.saveServerUrl(normalizedUrl);
         setInitialServerUrl(normalizedUrl);
@@ -147,12 +159,7 @@ const SettingsScreen = () => {
         return true;
       }
 
-      const initialNorm = normalizeServerUrl(trimmedInitial);
-      const initialComparable = initialNorm.ok
-        ? initialNorm.href
-        : trimmedInitial.toLowerCase();
-
-      if (normalizedUrl === initialComparable) {
+      if (decision.kind === 'same') {
         await serverConfigService.saveServerUrl(normalizedUrl);
         return true;
       }
@@ -196,7 +203,7 @@ const SettingsScreen = () => {
                   text: 'Cancel',
                   variant: 'tertiary' as const,
                   onPress: () => {
-                    setServerUrl(initialServerUrl);
+                    setServerUrl(trimmedInitial);
                     resolve(false);
                   },
                 },
@@ -239,7 +246,7 @@ const SettingsScreen = () => {
                   text: 'Cancel',
                   variant: 'tertiary' as const,
                   onPress: () => {
-                    setServerUrl(initialServerUrl);
+                    setServerUrl(trimmedInitial);
                     resolve(false);
                   },
                 },

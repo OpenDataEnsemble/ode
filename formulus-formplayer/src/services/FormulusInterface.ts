@@ -8,6 +8,7 @@
  */
 
 import {
+  AttachmentDisplayDescriptor,
   FormulusInterface,
   CameraResult,
   QrcodeResult,
@@ -120,12 +121,28 @@ class FormulusClient {
   }
 
   /**
-   * Resolve an attachment basename to a WebView-loadable URL (draft, committed, or pending upload).
+   * Resolve an attachment basename or photo descriptor to a WebView-loadable URL.
    */
-  public async getAttachmentUri(fileName: string): Promise<string | null> {
+  public async getAttachmentUri(
+    fileRef: string | AttachmentDisplayDescriptor | null | undefined,
+  ): Promise<string | null> {
+    if (fileRef == null) {
+      return null;
+    }
+    if (typeof fileRef === 'string') {
+      if (!fileRef.trim()) {
+        return null;
+      }
+    } else {
+      const hasFn =
+        typeof fileRef.filename === 'string' && fileRef.filename.trim() !== '';
+      if (!hasFn) {
+        return null;
+      }
+    }
     await this.tryEnsureFormulus();
     if (this.formulus) {
-      return this.formulus.getAttachmentUri(fileName);
+      return this.formulus.getAttachmentUri(fileRef);
     }
     console.warn('Formulus interface not available for getAttachmentUri');
     return null;

@@ -23,6 +23,7 @@ import { clientIdService } from '../../services/ClientIdService';
 import { unzip } from 'react-native-zip-archive';
 import { synkronusDownload } from './download';
 import { ODE_VERSION } from '../../version';
+import { pendingRoot, syncedRoot } from '../../services/attachmentStorage';
 import {
   isRepositoryResetRequiredError,
   parseRepositoryResetFromAxios,
@@ -134,10 +135,23 @@ class SynkronusApi {
     return this.config;
   }
 
-  private async getRepositoryGenerationForRequest(): Promise<number> {
+  /**
+   * Returns the persisted client repository epoch, or `null` when this device
+   * has never seen a generation yet (fresh install — the AsyncStorage key is
+   * missing). Callers should pass `undefined` to the generated API when this is
+   * `null` so the `x-repository-generation` header and body field are omitted;
+   * the server then treats the call as "new client, adopt current generation"
+   * rather than as a reset conflict.
+   */
+  private async getRepositoryGenerationForRequestOrNull(): Promise<
+    number | null
+  > {
     const raw = await AsyncStorage.getItem(REPOSITORY_GENERATION_STORAGE_KEY);
-    const n = raw ? Number(raw) : Number.NaN;
-    return Number.isFinite(n) && n > 0 ? n : 1;
+    if (raw == null) {
+      return null;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
   }
 
   private async persistRepositoryGenerationFromResponse(
@@ -171,12 +185,19 @@ class SynkronusApi {
   /**
    * Synkronus should return 409 when epochs mismatch; if we ever get HTTP 200 with a
    * different repository_generation than we sent, treat it as reset required and do not persist.
+   *
+   * When the client did not send a generation at all (fresh install, `clientGenSent === null`),
+   * this check is a no-op — there is nothing to mismatch and we should simply adopt the
+   * server value via {@link persistRepositoryGenerationFromResponse}.
    */
   private ensureRepoGenResponseMatchesSent(
     operation: string,
-    clientGenSent: number,
+    clientGenSent: number | null,
     responseGen: number | undefined,
   ): void {
+    if (clientGenSent == null) {
+      return;
+    }
     if (responseGen == null || !Number.isFinite(Number(responseGen))) {
       return;
     }
@@ -391,9 +412,10 @@ class SynkronusApi {
       );
 
       const api = await this.getApi();
-      const manifestClientGen = await this.getRepositoryGenerationForRequest();
+      const manifestClientGen =
+        await this.getRepositoryGenerationForRequestOrNull();
       logRepositoryGenerationSync('getAttachmentManifest request', {
-        clientXRepositoryGeneration: manifestClientGen,
+        clientXRepositoryGeneration: manifestClientGen ?? '(omitted)',
         sinceVersion: lastAttachmentVersion,
       });
       const manifestResponse = await api.getAttachmentManifest({
@@ -401,9 +423,11 @@ class SynkronusApi {
         attachmentManifestRequest: {
           client_id: clientId,
           since_version: lastAttachmentVersion,
-          repository_generation: manifestClientGen,
+          ...(manifestClientGen != null
+            ? { repository_generation: manifestClientGen }
+            : {}),
         },
-        xRepositoryGeneration: manifestClientGen,
+        xRepositoryGeneration: manifestClientGen ?? undefined,
       });
 
       const manifest = manifestResponse.data;
@@ -469,15 +493,26 @@ class SynkronusApi {
   private async processAttachmentDeletions(
     deleteOps: AttachmentOperation[],
   ): Promise<void> {
-    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+    // Delete from synced/ (the canonical store). Also best-effort delete from
+    // pending/ in case a file was queued for upload and then deleted upstream
+    // before we drained the queue.
+    const syncedDirectory = syncedRoot();
+    const pendingDirectory = pendingRoot();
 
     for (const op of deleteOps) {
       try {
-        const filePath = `${attachmentsDirectory}/${op.attachment_id}`;
-        const exists = await RNFS.exists(filePath);
-
-        if (exists) {
-          await RNFS.unlink(filePath);
+        const syncedPath = `${syncedDirectory}/${op.attachment_id}`;
+        const pendingPath = `${pendingDirectory}/${op.attachment_id}`;
+        let deleted = false;
+        if (await RNFS.exists(syncedPath)) {
+          await RNFS.unlink(syncedPath);
+          deleted = true;
+        }
+        if (await RNFS.exists(pendingPath)) {
+          await RNFS.unlink(pendingPath);
+          deleted = true;
+        }
+        if (deleted) {
           console.debug(`Deleted attachment: ${op.attachment_id}`);
         } else {
           console.debug(`Attachment already deleted: ${op.attachment_id}`);
@@ -497,21 +532,28 @@ class SynkronusApi {
   private async processAttachmentDownloads(
     downloadOps: AttachmentOperation[],
   ): Promise<void> {
-    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-    await RNFS.mkdir(attachmentsDirectory);
+    const syncedDirectory = syncedRoot();
+    await RNFS.mkdir(syncedDirectory);
 
-    // Build URLs from the app's configured server base path. The manifest's download_url is
-    // generated server-side and may point at localhost, which fails on real devices.
+    // Build URLs from the app's configured server base path. The manifest's
+    // download_url is generated server-side and may point at localhost, which
+    // fails on real devices.
     const config = await this.getConfig();
     const base = config.basePath.replace(/\/$/, '');
     const urls = downloadOps.map(
       op => `${base}/api/attachments/${encodeURIComponent(op.attachment_id)}`,
     );
     const localPaths = downloadOps.map(
-      op => `${attachmentsDirectory}/${op.attachment_id}`,
+      op => `${syncedDirectory}/${op.attachment_id}`,
     );
 
-    const results = await this.downloadRawFiles(urls, localPaths);
+    // Force overwrite any existing local copy: the manifest only returns ops
+    // with `version > cursor`, so being told to download at all means either
+    // (a) we don't have the file yet or (b) our local copy is stale or
+    // corrupt — re-fetching is always the correct action.
+    const results = await this.downloadRawFiles(urls, localPaths, undefined, {
+      overwrite: true,
+    });
 
     results.forEach((result, index) => {
       const op = downloadOps[index];
@@ -528,15 +570,13 @@ class SynkronusApi {
   }
 
   private async getAttachmentsUploadManifest(): Promise<string[]> {
-    // Simple approach: scan the pending_upload folder for files to upload
-    const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+    // Scan the pending/ folder (v2 layout) for files to upload.
+    const pendingDirectory = pendingRoot();
 
     try {
-      // Ensure directory exists
-      await RNFS.mkdir(pendingUploadDirectory);
+      await RNFS.mkdir(pendingDirectory);
 
-      // Get all files in pending_upload directory
-      const files = await RNFS.readDir(pendingUploadDirectory);
+      const files = await RNFS.readDir(pendingDirectory);
       const attachmentIds = files
         .filter(file => file.isFile())
         .map(file => file.name)
@@ -544,10 +584,7 @@ class SynkronusApi {
 
       return attachmentIds;
     } catch (error) {
-      console.error(
-        'Failed to read pending_upload attachments directory:',
-        error,
-      );
+      console.error('Failed to read pending attachments directory:', error);
       return [];
     }
   }
@@ -620,6 +657,7 @@ class SynkronusApi {
     urls: string[],
     localFilePaths: string[],
     progressCallback?: (progressPercent: number) => void,
+    options?: { overwrite?: boolean },
   ): Promise<DownloadResult[]> {
     const results: DownloadResult[] = [];
     if (urls.length !== localFilePaths.length) {
@@ -656,6 +694,7 @@ class SynkronusApi {
           localFilePath,
           (progress: RNFS.DownloadProgressCallbackResult) =>
             singleFileCallback(i, progress),
+          options,
         );
         console.debug(
           `Downloaded file: ${localFilePath} (size: ${result.bytesWritten})`,
@@ -682,16 +721,32 @@ class SynkronusApi {
     progressCallback?: (
       progressPercent: RNFS.DownloadProgressCallbackResult,
     ) => void,
+    options?: { overwrite?: boolean },
   ): Promise<DownloadResult> {
     if (await RNFS.exists(localFilePath)) {
-      return {
-        success: true,
-        message: `File ${localFilePath} already exists, skipping download.`,
-        filePath: localFilePath,
-        bytesWritten: 0,
-      };
-    } else {
-      // Ensure parent folder exists
+      if (options?.overwrite) {
+        // Caller is re-fetching from authoritative source (e.g. attachment
+        // manifest cursor advanced past this file). Any existing local copy
+        // may be stale or corrupt — unlink so RNFS.downloadFile writes from
+        // a clean state.
+        try {
+          await RNFS.unlink(localFilePath);
+        } catch (err) {
+          console.warn(
+            `downloadRawFile: failed to unlink stale local file ${localFilePath}`,
+            err,
+          );
+        }
+      } else {
+        return {
+          success: true,
+          message: `File ${localFilePath} already exists, skipping download.`,
+          filePath: localFilePath,
+          bytesWritten: 0,
+        };
+      }
+    }
+    {
       const parentDir = localFilePath.substring(
         0,
         localFilePath.lastIndexOf('/'),
@@ -700,6 +755,7 @@ class SynkronusApi {
         await RNFS.mkdir(parentDir);
       }
     }
+
     const authToken =
       this.fastGetToken_cachedToken ?? (await this.fastGetToken());
 
@@ -741,30 +797,6 @@ class SynkronusApi {
     };
   }
 
-  private async downloadAttachments(attachments: string[]) {
-    if (attachments.length === 0) {
-      console.debug('No attachments to download');
-      return [];
-    }
-
-    console.debug('Starting attachments download...', attachments);
-    const downloadDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-    await RNFS.mkdir(downloadDirectory);
-
-    const config = await this.getConfig();
-    const urls = attachments.map(
-      attachment =>
-        `${config.basePath}/api/attachments/${encodeURIComponent(attachment)}`,
-    );
-    const localFilePaths = attachments.map(
-      attachment => `${downloadDirectory}/${attachment}`,
-    );
-
-    const results = await this.downloadRawFiles(urls, localFilePaths);
-    console.debug('Attachments downloaded', results);
-    return results;
-  }
-
   private async uploadAttachments(
     attachments: string[],
   ): Promise<DownloadResult[]> {
@@ -774,24 +806,23 @@ class SynkronusApi {
     }
 
     console.debug('Starting attachments upload...', attachments);
-    const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
-    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+    const pendingDirectory = pendingRoot();
+    const syncedDirectory = syncedRoot();
     const api = await this.getApi();
     const results: DownloadResult[] = [];
 
-    // Ensure directories exist
-    await RNFS.mkdir(attachmentsDirectory);
+    await RNFS.mkdir(syncedDirectory);
+    await RNFS.mkdir(pendingDirectory);
 
     for (const attachmentId of attachments) {
-      const pendingFilePath = `${pendingUploadDirectory}/${attachmentId}`;
-      const mainFilePath = `${attachmentsDirectory}/${attachmentId}`;
+      const pendingFilePath = `${pendingDirectory}/${attachmentId}`;
+      const syncedFilePath = `${syncedDirectory}/${attachmentId}`;
 
       try {
-        // Check if file exists in pending_upload directory
         const fileExists = await RNFS.exists(pendingFilePath);
         if (!fileExists) {
           console.warn(
-            `Attachment file not found in pending_upload directory: ${pendingFilePath}`,
+            `Attachment file not found in pending directory: ${pendingFilePath}`,
           );
           results.push({
             success: false,
@@ -802,45 +833,68 @@ class SynkronusApi {
           continue;
         }
 
-        // TODO: Check if attachment already exists on server
-        // This functionality needs to be implemented when the correct API method is available
-        console.debug(`Uploading attachment ${attachmentId}`);
-
-        // Get file stats for logging
         const fileStats = await RNFS.stat(pendingFilePath);
 
-        // Determine MIME type based on file extension
-        const mimeType = this.getMimeTypeFromFilename(attachmentId);
+        // Idempotency: HEAD /api/attachments/{id} first. If the server already
+        // has this attachment (200), treat as uploaded — this handles the
+        // crash-before-unlink case where a previous run uploaded the bytes but
+        // never cleaned up `pending/`.
+        let alreadyOnServer = false;
+        try {
+          const head = await api.checkAttachmentExists({
+            attachmentId,
+            xOdeVersion: ODE_VERSION,
+          });
+          alreadyOnServer = head.status >= 200 && head.status < 300;
+        } catch (err: unknown) {
+          // 404 (or any non-2xx) just means we need to upload. Repository
+          // reset conflicts must still bubble up, though.
+          this.rethrowIfRepositoryResetConflict(err);
+        }
 
-        // For React Native, create a file object with the file URI
-        const file = {
-          uri: `file://${pendingFilePath}`,
-          type: mimeType,
-          name: attachmentId,
-        } as unknown as File;
+        if (alreadyOnServer) {
+          console.debug(
+            `Attachment ${attachmentId} already on server; skipping PUT`,
+          );
+        } else {
+          const mimeType = this.getMimeTypeFromFilename(attachmentId);
+          const file = {
+            uri: `file://${pendingFilePath}`,
+            type: mimeType,
+            name: attachmentId,
+          } as unknown as File;
 
-        // Upload the file
-        console.debug(
-          `Uploading attachment: ${attachmentId} (${fileStats.size} bytes)`,
-        );
-        await api.uploadAttachment({
-          attachmentId,
-          file,
-          xRepositoryGeneration: await this.getRepositoryGenerationForRequest(),
-        });
+          console.debug(
+            `Uploading attachment: ${attachmentId} (${fileStats.size} bytes)`,
+          );
+          await api.uploadAttachment({
+            attachmentId,
+            file,
+            xOdeVersion: ODE_VERSION,
+            xRepositoryGeneration:
+              (await this.getRepositoryGenerationForRequestOrNull()) ??
+              undefined,
+          });
+        }
 
-        // Remove file from pending_upload directory (upload complete)
-        // Note: File already exists in main attachments directory from when it was first saved
+        // Remove file from pending/ directory (upload complete).
+        // File already exists in synced/ from `commitDraftAttachmentsAfterSave`.
         await RNFS.unlink(pendingFilePath);
 
         results.push({
           success: true,
-          message: `Successfully uploaded attachment: ${attachmentId}`,
-          filePath: mainFilePath,
+          message: alreadyOnServer
+            ? `Attachment already on server: ${attachmentId}`
+            : `Successfully uploaded attachment: ${attachmentId}`,
+          filePath: syncedFilePath,
           bytesWritten: fileStats.size,
         });
 
-        console.debug(`Successfully uploaded attachment: ${attachmentId}`);
+        console.debug(
+          alreadyOnServer
+            ? `Confirmed existing attachment: ${attachmentId}`
+            : `Successfully uploaded attachment: ${attachmentId}`,
+        );
       } catch (error: unknown) {
         this.rethrowIfRepositoryResetConflict(error);
         console.error(`Failed to upload attachment ${attachmentId}:`, error);
@@ -875,31 +929,6 @@ class SynkronusApi {
   }
 
   /**
-   * Save a new attachment under draft storage until the observation is saved; promotion
-   * to main + pending_upload runs when the observation is persisted (see attachmentStorage).
-   */
-  async saveNewAttachment(
-    attachmentId: string,
-    fileData: string,
-    isBase64: boolean = true,
-  ): Promise<string> {
-    const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-    const draftDirectory = `${attachmentsDirectory}/draft`;
-
-    await RNFS.mkdir(attachmentsDirectory);
-    await RNFS.mkdir(draftDirectory);
-
-    const draftFilePath = `${draftDirectory}/${attachmentId}`;
-    const encoding = isBase64 ? 'base64' : 'utf8';
-
-    await RNFS.writeFile(draftFilePath, fileData, encoding);
-
-    console.debug(`Saved new draft attachment: ${attachmentId}`);
-
-    return draftFilePath;
-  }
-
-  /**
    * Get the count of unsynced attachments pending upload
    */
   async getUnsyncedAttachmentCount(): Promise<number> {
@@ -908,17 +937,18 @@ class SynkronusApi {
   }
 
   /**
-   * Check if a specific attachment exists in the main attachments folder and/or upload queue
+   * Check whether an attachment is available locally (in `synced/`) and/or
+   * still queued for upload (in `pending/`).
    */
   async attachmentExists(
     attachmentId: string,
   ): Promise<{ available: boolean; pendingUpload: boolean }> {
-    const mainPath = `${RNFS.DocumentDirectoryPath}/attachments/${attachmentId}`;
-    const pendingUploadPath = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload/${attachmentId}`;
+    const syncedPath = `${syncedRoot()}/${attachmentId}`;
+    const pendingPath = `${pendingRoot()}/${attachmentId}`;
 
     const [available, pendingUpload] = await Promise.all([
-      RNFS.exists(mainPath),
-      RNFS.exists(pendingUploadPath),
+      RNFS.exists(syncedPath),
+      RNFS.exists(pendingPath),
     ]);
 
     return { available, pendingUpload };
@@ -944,9 +974,9 @@ class SynkronusApi {
     let totalServerRecordsThisPull = 0;
 
     do {
-      const clientGen = await this.getRepositoryGenerationForRequest();
+      const clientGen = await this.getRepositoryGenerationForRequestOrNull();
       logRepositoryGenerationSync('syncPull request', {
-        clientXRepositoryGeneration: clientGen,
+        clientXRepositoryGeneration: clientGen ?? '(omitted)',
         sinceVersion: currentSince,
       });
 
@@ -955,13 +985,13 @@ class SynkronusApi {
           xOdeVersion: ODE_VERSION,
           syncPullRequest: {
             client_id: clientId,
-            repository_generation: clientGen,
+            ...(clientGen != null ? { repository_generation: clientGen } : {}),
             since: {
               version: currentSince,
             },
             schema_types: schemaTypes,
           },
-          xRepositoryGeneration: clientGen,
+          xRepositoryGeneration: clientGen ?? undefined,
         });
       } catch (err: unknown) {
         logAxiosErrorForRepoGen('syncPull', err);
@@ -971,7 +1001,7 @@ class SynkronusApi {
 
       const pullRes = res as AxiosResponse<SyncPullResponse>;
       logRepositoryGenerationSync('syncPull response OK', {
-        clientSent: clientGen,
+        clientSent: clientGen ?? '(omitted)',
         sinceVersion: currentSince,
         bodyRepositoryGeneration: res.data.repository_generation,
         bodyCurrentVersion: res.data.current_version,
@@ -1100,13 +1130,13 @@ class SynkronusApi {
       // 3. Check if we have observations to push
       if (localChanges.length === 0) {
         console.debug('No local changes to push');
-        const skipGen = await this.getRepositoryGenerationForRequest();
+        const skipGen = await this.getRepositoryGenerationForRequestOrNull();
         const lastSeen =
           (await AsyncStorage.getItem('@last_seen_version')) ?? '(missing)';
         logRepositoryGenerationSync(
           'syncPush skipped (no local observation rows to push)',
           {
-            effectiveClientGen: skipGen,
+            effectiveClientGen: skipGen ?? '(omitted)',
             lastSeenVersion: lastSeen,
           },
         );
@@ -1125,22 +1155,25 @@ class SynkronusApi {
       }
 
       // 3. Push observations to server
-      const pushClientGen = await this.getRepositoryGenerationForRequest();
+      const pushClientGen =
+        await this.getRepositoryGenerationForRequestOrNull();
       const syncPushRequest: SyncPushRequest = {
         client_id: await clientIdService.getClientId(),
         records: localChanges.map(ObservationMapper.toApi),
         transmission_id: transmissionId,
-        repository_generation: pushClientGen,
+        ...(pushClientGen != null
+          ? { repository_generation: pushClientGen }
+          : {}),
       };
 
       const request: DefaultApiSyncPushRequest = {
         xOdeVersion: ODE_VERSION,
         syncPushRequest,
-        xRepositoryGeneration: pushClientGen,
+        xRepositoryGeneration: pushClientGen ?? undefined,
       };
 
       logRepositoryGenerationSync('syncPush request', {
-        clientXRepositoryGeneration: pushClientGen,
+        clientXRepositoryGeneration: pushClientGen ?? '(omitted)',
         observationCount: localChanges.length,
       });
 
@@ -1150,7 +1183,7 @@ class SynkronusApi {
       const res = await api.syncPush(request);
 
       logRepositoryGenerationSync('syncPush response OK', {
-        clientSent: pushClientGen,
+        clientSent: pushClientGen ?? '(omitted)',
         bodyRepositoryGeneration: res.data.repository_generation,
         bodyCurrentVersion: res.data.current_version,
         headerXRepositoryGeneration: headerRepositoryGeneration(
@@ -1224,10 +1257,10 @@ class SynkronusApi {
     const rawStored = await AsyncStorage.getItem(
       REPOSITORY_GENERATION_STORAGE_KEY,
     );
-    const effectiveGen = await this.getRepositoryGenerationForRequest();
+    const effectiveGen = await this.getRepositoryGenerationForRequestOrNull();
     logRepositoryGenerationSync('syncObservations start', {
       storageRaw: rawStored ?? '(missing)',
-      effectiveClientGen: effectiveGen,
+      effectiveClientGen: effectiveGen ?? '(omitted)',
       includeAttachments,
     });
     const version = await this.pullObservations(includeAttachments);
