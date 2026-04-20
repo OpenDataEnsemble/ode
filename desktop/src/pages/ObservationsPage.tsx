@@ -42,7 +42,35 @@ function formatDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-type FilterMode = 'all' | 'dirty' | 'conflicts' | 'recent';
+function syncPillLabel(item: ObservationRecord): string {
+  if (item.syncStatus === 'conflict') {
+    return 'Conflict';
+  }
+  if (item.dirty || item.syncStatus === 'dirty') {
+    return 'Pending';
+  }
+  if (item.syncStatus === 'clean') {
+    return 'Synced';
+  }
+  return item.syncStatus;
+}
+
+function syncStatusDetail(
+  status: ObservationRecord['syncStatus'],
+): string {
+  if (status === 'conflict') {
+    return 'Conflict';
+  }
+  if (status === 'dirty') {
+    return 'Pending';
+  }
+  if (status === 'clean') {
+    return 'Synced';
+  }
+  return status;
+}
+
+type FilterMode = 'all' | 'pending' | 'conflicts' | 'recent';
 
 export function ObservationsPage() {
   const navigate = useNavigate();
@@ -65,7 +93,7 @@ export function ObservationsPage() {
   const [filter, setFilter] = useState<FilterMode>('all');
   const [detailObservation, setDetailObservation] =
     useState<ObservationRecord | null>(null);
-  const [draftDirty, setDraftDirty] = useState(false);
+  const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
 
   const [draftData, setDraftData] = useState('');
   const [draftFormType, setDraftFormType] = useState('');
@@ -130,7 +158,7 @@ export function ObservationsPage() {
 
   const filteredObservations = useMemo(() => {
     let list = observations;
-    if (filter === 'dirty') {
+    if (filter === 'pending') {
       list = list.filter(o => o.dirty);
     } else if (filter === 'conflicts') {
       list = list.filter(o => o.syncStatus === 'conflict');
@@ -163,7 +191,7 @@ export function ObservationsPage() {
       setDraftAuthor('');
       setDraftDeviceId('');
       setDraftTagsText('');
-      setDraftDirty(false);
+      setHasUnsavedDraft(false);
       return;
     }
     const x = selected.extras;
@@ -182,7 +210,7 @@ export function ObservationsPage() {
     setDraftAuthor(x?.author ?? '');
     setDraftDeviceId(x?.deviceId ?? '');
     setDraftTagsText(tagsToCommaSeparated(x?.tags));
-    setDraftDirty(false);
+    setHasUnsavedDraft(false);
   }, [selected]);
 
   async function searchNow() {
@@ -255,7 +283,7 @@ export function ObservationsPage() {
       extras,
     };
     await saveObservation(req);
-    setDraftDirty(false);
+    setHasUnsavedDraft(false);
   }
 
   async function addNewObservation() {
@@ -296,7 +324,7 @@ export function ObservationsPage() {
   }
 
   function touchDraft() {
-    setDraftDirty(true);
+    setHasUnsavedDraft(true);
   }
 
   return (
@@ -325,7 +353,7 @@ export function ObservationsPage() {
             {(
               [
                 ['all', 'All'],
-                ['dirty', 'Dirty'],
+                ['pending', 'Pending'],
                 ['conflicts', 'Conflicts'],
                 ['recent', `Recent (${RECENT_DAYS}d)`],
               ] as const
@@ -391,15 +419,11 @@ export function ObservationsPage() {
                           ? 'Conflict — review before push'
                           : item.dirty
                             ? 'Pending push'
-                            : undefined
+                            : item.syncStatus === 'clean'
+                              ? 'Synced with server'
+                              : undefined
                       }>
-                      {item.syncStatus === 'conflict'
-                        ? 'Conflict'
-                        : item.dirty || item.syncStatus === 'dirty'
-                          ? 'Dirty'
-                          : item.syncStatus === 'clean'
-                            ? 'Clean'
-                            : item.syncStatus}
+                      {syncPillLabel(item)}
                     </span>
                   </span>
                 </li>
@@ -472,7 +496,7 @@ export function ObservationsPage() {
                       {selected.syncStatus === 'conflict' ? (
                         <strong className="text-danger">Conflict</strong>
                       ) : (
-                        selected.syncStatus
+                        syncStatusDetail(selected.syncStatus)
                       )}
                       {selected.hasConflictCopy
                         ? ' · conflict copy stored'
@@ -630,11 +654,11 @@ export function ObservationsPage() {
               </div>
 
               <p className="muted">
-                {draftDirty
+                {hasUnsavedDraft
                   ? 'Unsaved changes in editor.'
                   : selected.dirty
                     ? 'Saved locally but not pushed.'
-                    : 'Saved and clean.'}
+                    : 'Saved and synced.'}
               </p>
             </>
           )}

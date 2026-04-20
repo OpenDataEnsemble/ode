@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { confirmDestructiveAction } from '../lib/destructivePolicy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
@@ -20,7 +21,7 @@ export function OverviewPage() {
     loadHealth,
     loadWorkspace,
     loadObservations,
-    repairRepository,
+    resetLocalWorkspaceData,
   } = useCustodianStore();
 
   const serverUrl = activeProfile?.serverUrl ?? '';
@@ -36,6 +37,21 @@ export function OverviewPage() {
     void loadObservations();
   }, [loadHealth, loadObservations, loadWorkspace]);
 
+  async function resetLocalData() {
+    if (
+      !confirmDestructiveAction(
+        activeProfile?.environment ?? 'production',
+        'local_reset',
+        'Remove all observations and attachment files from this device, clear local backup history, ' +
+          'and reset sync offsets (as if this profile were recreated). ' +
+          'The app bundle under this workspace and your sign-in are not changed.',
+      )
+    ) {
+      return;
+    }
+    await resetLocalWorkspaceData();
+  }
+
   return (
     <section className="page">
       <header className="page-header page-header-inline">
@@ -46,8 +62,8 @@ export function OverviewPage() {
             profile.
           </p>
         </div>
-        <button type="button" onClick={() => void repairRepository()}>
-          Repair / Reindex
+        <button type="button" onClick={() => void resetLocalData()}>
+          Reset local data
         </button>
       </header>
 
@@ -93,11 +109,19 @@ export function OverviewPage() {
           <h3>Observations</h3>
           <p className="metric">{health?.totalObservations ?? 0}</p>
           <span>Total observations in local repository</span>
+          <p className="metric metric-secondary">
+            {health?.totalAttachmentCount ?? 0}
+          </p>
+          <span>Local attachment files</span>
         </article>
         <article className="card">
           <h3>Pending changes</h3>
           <p className="metric warn">{health?.dirtyCount ?? 0}</p>
-          <span>Saved locally, not yet pushed</span>
+          <span>Observations saved locally, not yet pushed</span>
+          <p className="metric metric-secondary warn">
+            {health?.pendingAttachmentCount ?? 0}
+          </p>
+          <span>Attachments awaiting upload</span>
         </article>
         <article className="card">
           <h3>Conflicts</h3>

@@ -8,6 +8,10 @@ import {
 import { tauriClient } from '../lib/tauriClient';
 import { SYNKRONUS_CLIENT_VERSION } from '../lib/synkConstants';
 import {
+  normalizeBasename,
+  referencedNamesForObservation,
+} from '../lib/importValidation';
+import {
   getOrCreateClientId,
   isSyncHttpUnauthorized,
   syncGateway,
@@ -15,6 +19,7 @@ import {
 import type {
   AppHealth,
   AuthSession,
+  BundleFormSpec,
   ImportResult,
   ObservationRecord,
   SaveObservationRequest,
@@ -22,6 +27,7 @@ import type {
   SyncLoginRequest,
   SyncPullRequest,
   SyncPushRequest,
+  WorkspaceAttachmentPresenceEntry,
   WorkspaceItem,
 } from '../types/domain';
 
@@ -49,6 +55,39 @@ function persistAuthMap(map: Record<string, AuthSession>) {
     return;
   }
   localStorage.setItem(AUTH_MAP_KEY, JSON.stringify(map));
+}
+
+function refsMissingAfterPresence(
+  refs: string[],
+  presenceRows: WorkspaceAttachmentPresenceEntry[],
+): string[] {
+  const normPresent = new Set<string>();
+  for (const row of presenceRows) {
+    if (row.present) {
+      normPresent.add(normalizeBasename(row.fileName));
+    }
+  }
+  return refs.filter(r => !normPresent.has(normalizeBasename(r)));
+}
+
+async function attachmentRefsForPushObservation(
+  o: ObservationRecord,
+  specCache: Map<string, BundleFormSpec | undefined>,
+): Promise<string[]> {
+  const ft = o.formType?.trim();
+  let spec: BundleFormSpec | undefined;
+  if (ft) {
+    if (!specCache.has(ft)) {
+      try {
+        const s = await tauriClient.readBundleFormSpec(ft);
+        specCache.set(ft, s);
+      } catch {
+        specCache.set(ft, undefined);
+      }
+    }
+    spec = specCache.get(ft);
+  }
+  return [...referencedNamesForObservation(spec?.formSchema, o.payload)];
 }
 
 async function pullSyncWithAttachments(
@@ -280,7 +319,7 @@ interface CustodianState {
   synkResetServerRepository: (request?: {
     baseUrl?: string;
   }) => Promise<ImportResult>;
-  repairRepository: () => Promise<void>;
+  resetLocalWorkspaceData: () => Promise<void>;
 }
 
 /** Tauri invoke often rejects with a string; preserve the real message for the UI. */
@@ -602,18 +641,83 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         if (!authSession) {
           throw new Error('Authenticate first before push.');
         }
-        const dirtyObservations = get().observations.filter(o => o.dirty);
-        if (dirtyObservations.length === 0) {
-          set({ syncMessage: 'No dirty observations to push.' });
+        const pendingPushObservations =
+          await tauriClient.listDirtyObservations();
+        if (pendingPushObservations.length === 0) {
+          set({ syncMessage: 'No pending observations to push.' });
+          return 0;
+        }
+
+        const specCache = new Map<string, BundleFormSpec | undefined>();
+        const skippedForAttachments: { id: string; missing: string[] }[] = [];
+        const readyToPush: ObservationRecord[] = [];
+        const refsByObservationId = new Map<string, string[]>();
+
+        for (const o of pendingPushObservations) {
+          const refs = [
+            ...new Set(await attachmentRefsForPushObservation(o, specCache)),
+          ];
+          refsByObservationId.set(o.id, refs);
+          if (refs.length === 0) {
+            readyToPush.push(o);
+            continue;
+          }
+          const presenceRows =
+            await tauriClient.checkWorkspaceAttachmentPresence(refs);
+          const missing = refsMissingAfterPresence(refs, presenceRows);
+          if (missing.length > 0) {
+            skippedForAttachments.push({ id: o.id, missing });
+          } else {
+            readyToPush.push(o);
+          }
+        }
+
+        const skipSummary =
+          skippedForAttachments.length > 0
+            ? ` Skipped ${skippedForAttachments.length} observation(s) with missing attachment file(s): ${skippedForAttachments
+                .map(
+                  s =>
+                    `${s.id} (${s.missing.map(n => `"${n}"`).join(', ')})`,
+                )
+                .join('; ')}.`
+            : '';
+
+        if (readyToPush.length === 0) {
+          set({
+            syncMessage:
+              `Nothing pushed.${skipSummary}`.trim(),
+          });
           return 0;
         }
 
         const syncState = await tauriClient.getSyncState();
+        const extraAttachmentIds = [
+          ...new Set(
+            readyToPush.flatMap(o => refsByObservationId.get(o.id) ?? []),
+          ),
+        ];
+        const uploadResult = await tauriClient.uploadOutboundAttachments({
+          baseUrl: request.baseUrl ?? authSession.baseUrl,
+          bearerToken: request.token ?? authSession.token,
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+          repositoryGeneration:
+            syncState.repositoryGeneration > 0
+              ? syncState.repositoryGeneration
+              : undefined,
+          extraAttachmentIds,
+        });
+        if (uploadResult.failed > 0 || uploadResult.errorSummary) {
+          throw new Error(
+            uploadResult.errorSummary ??
+              `Attachment upload failed (${uploadResult.failed} file(s)).`,
+          );
+        }
+
         const pushResult = await syncGateway.push({
           baseUrl: request.baseUrl ?? authSession.baseUrl,
           token: request.token ?? authSession.token,
           clientId: getOrCreateClientId(id),
-          observations: dirtyObservations,
+          observations: readyToPush,
           repositoryGeneration: syncState.repositoryGeneration,
         });
 
@@ -625,11 +729,27 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         });
         await get().loadObservations();
         await get().loadHealth();
+        const attParts: string[] = [];
+        if (uploadResult.uploaded > 0 || uploadResult.skippedConflicts > 0) {
+          attParts.push(
+            `${uploadResult.uploaded} attachment file(s) uploaded${
+              uploadResult.skippedConflicts > 0
+                ? ` (${uploadResult.skippedConflicts} already on server)`
+                : ''
+            }`,
+          );
+        }
+        if (uploadResult.skippedMissing > 0) {
+          attParts.push(
+            `${uploadResult.skippedMissing} attachment id(s) had no local file during upload (skipped)`,
+          );
+        }
+        const attNudge = attParts.length > 0 ? ` ${attParts.join('; ')}.` : '';
         set({
           syncMessage:
             pushResult.failedIds.length > 0
-              ? `Pushed ${pushResult.acceptedIds.length} observations, ${pushResult.failedIds.length} failed (${pushResult.warningCount} warnings).`
-              : `Pushed ${pushResult.acceptedIds.length} dirty observations.`,
+              ? `Pushed ${pushResult.acceptedIds.length} observations, ${pushResult.failedIds.length} failed (${pushResult.warningCount} warnings).${attNudge}${skipSummary}`
+              : `Pushed ${pushResult.acceptedIds.length} pending observations.${attNudge}${skipSummary}`,
         });
         return pushResult.acceptedIds.length;
       };
@@ -689,10 +809,15 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
       }
     }),
 
-  repairRepository: async () =>
+  resetLocalWorkspaceData: async () =>
     withErrorHandling(set, async () => {
-      const health = await tauriClient.repairRepository();
-      set({ health, syncMessage: 'Repository maintenance completed.' });
+      await tauriClient.resetLocalWorkspaceData();
+      await reloadProfileScopedData(set, get);
+      set({
+        selectedObservationId: null,
+        syncMessage:
+          'Local data reset: observations cleared, attachments removed, sync offsets reset.',
+      });
     }),
 }));
 

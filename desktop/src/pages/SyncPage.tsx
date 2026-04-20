@@ -157,6 +157,11 @@ export function SyncPage() {
             <strong>{health?.dirtyCount ?? 0}</strong> observation(s) with local
             changes
           </dd>
+          <dt>Attachments pending upload</dt>
+          <dd>
+            <strong>{health?.pendingAttachmentCount ?? 0}</strong> file(s) in
+            the outbound queue
+          </dd>
           <dt>Conflicts</dt>
           <dd>
             <strong>{health?.conflictCount ?? 0}</strong>
