@@ -22,6 +22,7 @@ interface ImportStagingState {
   lastValidatedStagingKey: string | null;
   message: string | null;
   error: string | null;
+  importActivity: { statusText: string } | null;
   addFiles: (fileList: FileList | File[]) => void;
   removeJson: (id: string) => void;
   removeAttachment: (id: string) => void;
@@ -35,6 +36,7 @@ interface ImportStagingState {
   setValidationFailed: (err: string) => void;
   setMessage: (m: string | null) => void;
   setError: (e: string | null) => void;
+  setImportActivity: (activity: { statusText: string } | null) => void;
 }
 
 function emptyStagingState(): Pick<
@@ -45,6 +47,7 @@ function emptyStagingState(): Pick<
   | 'lastValidatedStagingKey'
   | 'message'
   | 'error'
+  | 'importActivity'
 > {
   return {
     stagedJson: [],
@@ -53,6 +56,7 @@ function emptyStagingState(): Pick<
     lastValidatedStagingKey: null,
     message: null,
     error: null,
+    importActivity: null,
   };
 }
 
@@ -63,6 +67,7 @@ export const useImportStagingStore = create<ImportStagingState>(set => ({
   lastValidatedStagingKey: null,
   message: null,
   error: null,
+  importActivity: null,
 
   addFiles: fileList => {
     const files = Array.from(fileList);
@@ -132,8 +137,13 @@ export const useImportStagingStore = create<ImportStagingState>(set => ({
 
   setMessage: m => set({ message: m }),
   setError: e => set({ error: e }),
+  setImportActivity: activity => set({ importActivity: activity }),
 }));
 
 export function selectCurrentStagingKey(state: ImportStagingState): string {
   return computeStagingKey(state.stagedJson, state.stagedAttachments);
+}
+
+export function selectImportActivity(state: ImportStagingState) {
+  return state.importActivity;
 }

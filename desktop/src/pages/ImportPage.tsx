@@ -10,6 +10,7 @@ import {
 } from '../lib/importSummary';
 import {
   selectCurrentStagingKey,
+  selectImportActivity,
   useImportStagingStore,
 } from '../store/useImportStagingStore';
 import { useCustodianStore } from '../store/useCustodianStore';
@@ -26,7 +27,6 @@ function formatBytes(n: number) {
 
 export function ImportPage() {
   const { loadObservations, loadHealth } = useCustodianStore();
-  const [busy, setBusy] = useState(false);
   const [validating, setValidating] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const folderPickerRef = useRef<HTMLInputElement>(null);
@@ -39,6 +39,8 @@ export function ImportPage() {
   );
   const message = useImportStagingStore(s => s.message);
   const error = useImportStagingStore(s => s.error);
+  const importActivity = useImportStagingStore(selectImportActivity);
+  const busy = importActivity !== null;
 
   const addFiles = useImportStagingStore(s => s.addFiles);
   const removeJson = useImportStagingStore(s => s.removeJson);
@@ -48,6 +50,7 @@ export function ImportPage() {
   const setValidationFailed = useImportStagingStore(s => s.setValidationFailed);
   const setMessage = useImportStagingStore(s => s.setMessage);
   const setError = useImportStagingStore(s => s.setError);
+  const setImportActivity = useImportStagingStore(s => s.setImportActivity);
 
   const currentStagingKey = useImportStagingStore(selectCurrentStagingKey);
 
@@ -175,11 +178,12 @@ export function ImportPage() {
         return;
       }
     }
-    setBusy(true);
+    setImportActivity({ statusText: 'Preparing import…' });
     setError(null);
     setMessage(null);
     try {
       const observations = flattenObservations(validationReport.parsedFiles);
+      setImportActivity({ statusText: 'Importing observations into local store…' });
       const result = await tauriClient.importObservations(observations, {
         markPending: true,
       });
@@ -193,6 +197,11 @@ export function ImportPage() {
       }
       let attachmentsWritten = 0;
       const writeErrors: string[] = [];
+      if (stagedAttachments.length > 0) {
+        setImportActivity({
+          statusText: `Copying attachments (0/${stagedAttachments.length})…`,
+        });
+      }
       for (const s of stagedAttachments) {
         const k = normalizeBasename(s.file.name);
         const attachmentId = stagedNorm.get(k) ?? s.file.name;
@@ -200,6 +209,9 @@ export function ImportPage() {
           const bytes = new Uint8Array(await s.file.arrayBuffer());
           await tauriClient.writeWorkspaceAttachment(attachmentId, bytes);
           attachmentsWritten += 1;
+          setImportActivity({
+            statusText: `Copying attachments (${attachmentsWritten}/${stagedAttachments.length})…`,
+          });
         } catch (e) {
           writeErrors.push(
             `${s.file.name}: ${e instanceof Error ? e.message : String(e)}`,
@@ -207,6 +219,7 @@ export function ImportPage() {
         }
       }
 
+      setImportActivity({ statusText: 'Refreshing local repository state…' });
       await loadObservations();
       await loadHealth();
       const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).`;
@@ -218,7 +231,7 @@ export function ImportPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
     } finally {
-      setBusy(false);
+      setImportActivity(null);
     }
   }
 
