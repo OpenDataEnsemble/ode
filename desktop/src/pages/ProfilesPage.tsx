@@ -81,7 +81,6 @@ export function ProfilesPage() {
     upsertProfileRemote,
     deleteProfileRemote,
     synkLogin,
-    syncMessage,
     error,
   } = useCustodianStore();
   const active = useCustodianStore(selectActiveProfileState);
@@ -399,9 +398,6 @@ export function ProfilesPage() {
               Authenticate
             </button>
           </div>
-          {syncMessage ? (
-            <p className="notice success profiles-auth-notice">{syncMessage}</p>
-          ) : null}
           {error ? (
             <p className="notice error profiles-auth-notice">{error}</p>
           ) : null}

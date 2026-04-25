@@ -5,7 +5,8 @@ export type DestructiveActionKind =
   | 'bundle_push'
   | 'bulk_delete'
   | 'profile_delete'
-  | 'server_reset';
+  | 'server_reset'
+  | 'local_reset';
 
 /**
  * Returns true if the user confirmed (via browser confirm). Stricter copy on production.
@@ -40,6 +41,8 @@ function describeAction(kind: DestructiveActionKind): string {
       return 'Delete profile';
     case 'server_reset':
       return 'Reset server repository';
+    case 'local_reset':
+      return 'Reset local data';
     default:
       return 'Destructive action';
   }

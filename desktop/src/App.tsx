@@ -20,8 +20,13 @@ import { WorkbenchCustomAppPage } from './pages/WorkbenchCustomAppPage';
 import { useSynkServerStatus } from './hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
+  selectSyncActivity,
   useCustodianStore,
 } from './store/useCustodianStore';
+import {
+  selectImportActivity,
+  useImportStagingStore,
+} from './store/useImportStagingStore';
 import './App.css';
 
 const DATA_NAV = [
@@ -170,6 +175,11 @@ function Shell() {
   const location = useLocation();
   const isWorkbench = location.pathname.startsWith('/workbench');
   const navItems = isWorkbench ? WORKBENCH_NAV : DATA_NAV;
+  const syncMessage = useCustodianStore(s => s.syncMessage);
+  const syncActivity = useCustodianStore(selectSyncActivity);
+  const importActivity = useImportStagingStore(selectImportActivity);
+  const activityText =
+    syncActivity?.statusText ?? importActivity?.statusText ?? null;
 
   return (
     <div className="app">
@@ -216,6 +226,18 @@ function Shell() {
       </aside>
 
       <main className="content">
+        {activityText ? (
+          <p
+            className="notice info app-sync-banner"
+            role="status"
+            aria-live="polite">
+            <span className="btn-spinner" aria-hidden />
+            {activityText}
+          </p>
+        ) : null}
+        {syncMessage ? (
+          <p className="notice success app-sync-banner">{syncMessage}</p>
+        ) : null}
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route

@@ -8,6 +8,10 @@ import {
 import { tauriClient } from '../lib/tauriClient';
 import { SYNKRONUS_CLIENT_VERSION } from '../lib/synkConstants';
 import {
+  normalizeBasename,
+  referencedNamesForObservation,
+} from '../lib/importValidation';
+import {
   getOrCreateClientId,
   isSyncHttpUnauthorized,
   syncGateway,
@@ -15,6 +19,7 @@ import {
 import type {
   AppHealth,
   AuthSession,
+  BundleFormSpec,
   ImportResult,
   ObservationRecord,
   SaveObservationRequest,
@@ -22,6 +27,7 @@ import type {
   SyncLoginRequest,
   SyncPullRequest,
   SyncPushRequest,
+  WorkspaceAttachmentPresenceEntry,
   WorkspaceItem,
 } from '../types/domain';
 
@@ -51,6 +57,57 @@ function persistAuthMap(map: Record<string, AuthSession>) {
   localStorage.setItem(AUTH_MAP_KEY, JSON.stringify(map));
 }
 
+function refsMissingAfterPresence(
+  refs: string[],
+  presenceRows: WorkspaceAttachmentPresenceEntry[],
+): string[] {
+  const normPresent = new Set<string>();
+  for (const row of presenceRows) {
+    if (row.present) {
+      normPresent.add(normalizeBasename(row.fileName));
+    }
+  }
+  return refs.filter(r => !normPresent.has(normalizeBasename(r)));
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s.`));
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  });
+}
+
+async function attachmentRefsForPushObservation(
+  o: ObservationRecord,
+  specCache: Map<string, BundleFormSpec | undefined>,
+): Promise<string[]> {
+  const ft = o.formType?.trim();
+  let spec: BundleFormSpec | undefined;
+  if (ft) {
+    if (!specCache.has(ft)) {
+      try {
+        const s = await tauriClient.readBundleFormSpec(ft);
+        specCache.set(ft, s);
+      } catch {
+        specCache.set(ft, undefined);
+      }
+    }
+    spec = specCache.get(ft);
+  }
+  return [...referencedNamesForObservation(spec?.formSchema, o.payload)];
+}
+
 async function pullSyncWithAttachments(
   baseUrl: string,
   token: string,
@@ -61,14 +118,18 @@ async function pullSyncWithAttachments(
   const obsVer = syncState.observationSyncVersion;
 
   const pullPage = (since: number | undefined, repo: number) =>
-    syncGateway.pull({
-      baseUrl,
-      token,
-      clientId,
-      sinceVersion: since,
-      repositoryGeneration: repo,
-      limit: 500,
-    });
+    withTimeout(
+      syncGateway.pull({
+        baseUrl,
+        token,
+        clientId,
+        sinceVersion: since,
+        repositoryGeneration: repo,
+        limit: 500,
+      }),
+      60_000,
+      'Pull request',
+    );
 
   let page = await pullPage(obsVer > 0 ? obsVer : undefined, repoGen);
 
@@ -114,30 +175,38 @@ async function pullSyncWithAttachments(
   let attachmentsDownloaded = 0;
   let attachmentsFailed = 0;
   try {
-    const manifest = await api.getAttachmentManifest({
-      xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-      ...(attState.repositoryGeneration > 0
-        ? { xRepositoryGeneration: attState.repositoryGeneration }
-        : {}),
-      attachmentManifestRequest: {
-        client_id: clientId,
-        since_version: attState.lastAttachmentVersion,
+    const manifest = await withTimeout(
+      api.getAttachmentManifest({
+        xOdeVersion: SYNKRONUS_CLIENT_VERSION,
         ...(attState.repositoryGeneration > 0
-          ? { repository_generation: attState.repositoryGeneration }
+          ? { xRepositoryGeneration: attState.repositoryGeneration }
           : {}),
-      },
-    });
+        attachmentManifestRequest: {
+          client_id: clientId,
+          since_version: attState.lastAttachmentVersion,
+          ...(attState.repositoryGeneration > 0
+            ? { repository_generation: attState.repositoryGeneration }
+            : {}),
+        },
+      }),
+      45_000,
+      'Attachment manifest fetch',
+    );
 
     const ops = manifest.operations ?? [];
     for (const op of ops) {
       if (op.operation === 'download' && op.attachment_id) {
         try {
-          await tauriClient.downloadWorkspaceAttachmentFromUrl({
-            baseUrl,
-            bearerToken: token,
-            attachmentId: op.attachment_id,
-            xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-          });
+          await withTimeout(
+            tauriClient.downloadWorkspaceAttachmentFromUrl({
+              baseUrl,
+              bearerToken: token,
+              attachmentId: op.attachment_id,
+              xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+            }),
+            30_000,
+            `Attachment download ${op.attachment_id}`,
+          );
           attachmentsDownloaded += 1;
         } catch (e) {
           attachmentsFailed += 1;
@@ -253,6 +322,10 @@ interface CustodianState {
   loading: boolean;
   error: string | null;
   syncMessage: string | null;
+  syncActivity: {
+    op: 'pull' | 'push' | 'reset';
+    statusText: string;
+  } | null;
   refreshSettings: () => Promise<void>;
   selectActiveProfile: (profileId: string) => Promise<void>;
   upsertProfileRemote: (profile: ServerProfile) => Promise<void>;
@@ -280,7 +353,7 @@ interface CustodianState {
   synkResetServerRepository: (request?: {
     baseUrl?: string;
   }) => Promise<ImportResult>;
-  repairRepository: () => Promise<void>;
+  resetLocalWorkspaceData: () => Promise<void>;
 }
 
 /** Tauri invoke often rejects with a string; preserve the real message for the UI. */
@@ -377,6 +450,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   loading: false,
   error: null,
   syncMessage: null,
+  syncActivity: null,
 
   refreshSettings: async () => {
     try {
@@ -557,6 +631,9 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
 
   synkPull: async request =>
     withErrorHandling(set, async () => {
+      set({
+        syncActivity: { op: 'pull', statusText: 'Pulling from server…' },
+      });
       const runPull = async () => {
         const id = get().activeProfileId;
         const authSession = get().authSessionsByProfileId[id];
@@ -591,31 +668,116 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           return await runPull();
         }
         throw error;
+      } finally {
+        set({ syncActivity: null });
       }
     }),
 
   synkPush: async request =>
     withErrorHandling(set, async () => {
+      set({
+        syncActivity: { op: 'push', statusText: 'Pushing to server…' },
+      });
       const runPush = async () => {
         const id = get().activeProfileId;
         const authSession = get().authSessionsByProfileId[id];
         if (!authSession) {
           throw new Error('Authenticate first before push.');
         }
-        const dirtyObservations = get().observations.filter(o => o.dirty);
-        if (dirtyObservations.length === 0) {
-          set({ syncMessage: 'No dirty observations to push.' });
+        const pendingPushObservations =
+          await tauriClient.listDirtyObservations();
+        if (pendingPushObservations.length === 0) {
+          set({ syncMessage: 'No pending observations to push.' });
+          return 0;
+        }
+
+        const specCache = new Map<string, BundleFormSpec | undefined>();
+        const skippedForAttachments: { id: string; missing: string[] }[] = [];
+        const readyToPush: ObservationRecord[] = [];
+        const refsByObservationId = new Map<string, string[]>();
+
+        for (const o of pendingPushObservations) {
+          const refs = [
+            ...new Set(await attachmentRefsForPushObservation(o, specCache)),
+          ];
+          refsByObservationId.set(o.id, refs);
+          if (refs.length === 0) {
+            readyToPush.push(o);
+            continue;
+          }
+          const presenceRows =
+            await tauriClient.checkWorkspaceAttachmentPresence(refs);
+          const missing = refsMissingAfterPresence(refs, presenceRows);
+          if (missing.length > 0) {
+            skippedForAttachments.push({ id: o.id, missing });
+          } else {
+            readyToPush.push(o);
+          }
+        }
+
+        const skipSummary =
+          skippedForAttachments.length > 0
+            ? ` Skipped ${skippedForAttachments.length} observation(s) with missing attachment file(s): ${skippedForAttachments
+                .map(
+                  s => `${s.id} (${s.missing.map(n => `"${n}"`).join(', ')})`,
+                )
+                .join('; ')}.`
+            : '';
+
+        if (readyToPush.length === 0) {
+          set({
+            syncMessage: `Nothing pushed.${skipSummary}`.trim(),
+          });
           return 0;
         }
 
         const syncState = await tauriClient.getSyncState();
-        const pushResult = await syncGateway.push({
-          baseUrl: request.baseUrl ?? authSession.baseUrl,
-          token: request.token ?? authSession.token,
-          clientId: getOrCreateClientId(id),
-          observations: dirtyObservations,
-          repositoryGeneration: syncState.repositoryGeneration,
+        const extraAttachmentIds = [
+          ...new Set(
+            readyToPush.flatMap(o => refsByObservationId.get(o.id) ?? []),
+          ),
+        ];
+        set({
+          syncActivity: {
+            op: 'push',
+            statusText: 'Uploading attachments before push…',
+          },
         });
+        const uploadResult = await withTimeout(
+          tauriClient.uploadOutboundAttachments({
+            baseUrl: request.baseUrl ?? authSession.baseUrl,
+            bearerToken: request.token ?? authSession.token,
+            xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+            repositoryGeneration:
+              syncState.repositoryGeneration > 0
+                ? syncState.repositoryGeneration
+                : undefined,
+            extraAttachmentIds,
+          }),
+          90_000,
+          'Attachment upload',
+        );
+        if (uploadResult.failed > 0 || uploadResult.errorSummary) {
+          throw new Error(
+            uploadResult.errorSummary ??
+              `Attachment upload failed (${uploadResult.failed} file(s)).`,
+          );
+        }
+
+        set({
+          syncActivity: { op: 'push', statusText: 'Pushing observations…' },
+        });
+        const pushResult = await withTimeout(
+          syncGateway.push({
+            baseUrl: request.baseUrl ?? authSession.baseUrl,
+            token: request.token ?? authSession.token,
+            clientId: getOrCreateClientId(id),
+            observations: readyToPush,
+            repositoryGeneration: syncState.repositoryGeneration,
+          }),
+          60_000,
+          'Push request',
+        );
 
         if (pushResult.acceptedIds.length > 0) {
           await tauriClient.markObservationsPushed(pushResult.acceptedIds);
@@ -625,11 +787,27 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         });
         await get().loadObservations();
         await get().loadHealth();
+        const attParts: string[] = [];
+        if (uploadResult.uploaded > 0 || uploadResult.skippedConflicts > 0) {
+          attParts.push(
+            `${uploadResult.uploaded} attachment file(s) uploaded${
+              uploadResult.skippedConflicts > 0
+                ? ` (${uploadResult.skippedConflicts} already on server)`
+                : ''
+            }`,
+          );
+        }
+        if (uploadResult.skippedMissing > 0) {
+          attParts.push(
+            `${uploadResult.skippedMissing} attachment id(s) had no local file during upload (skipped)`,
+          );
+        }
+        const attNudge = attParts.length > 0 ? ` ${attParts.join('; ')}.` : '';
         set({
           syncMessage:
             pushResult.failedIds.length > 0
-              ? `Pushed ${pushResult.acceptedIds.length} observations, ${pushResult.failedIds.length} failed (${pushResult.warningCount} warnings).`
-              : `Pushed ${pushResult.acceptedIds.length} dirty observations.`,
+              ? `Pushed ${pushResult.acceptedIds.length} observations, ${pushResult.failedIds.length} failed (${pushResult.warningCount} warnings).${attNudge}${skipSummary}`
+              : `Pushed ${pushResult.acceptedIds.length} pending observations.${attNudge}${skipSummary}`,
         });
         return pushResult.acceptedIds.length;
       };
@@ -641,11 +819,19 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           return await runPush();
         }
         throw error;
+      } finally {
+        set({ syncActivity: null });
       }
     }),
 
   synkResetServerRepository: async request =>
     withErrorHandling(set, async () => {
+      set({
+        syncActivity: {
+          op: 'reset',
+          statusText: 'Resetting server repository and pulling…',
+        },
+      });
       const run = async () => {
         const id = get().activeProfileId;
         const authSession = get().authSessionsByProfileId[id];
@@ -656,7 +842,23 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         }
         const baseUrl = (request?.baseUrl ?? authSession.baseUrl).trim();
         const token = authSession.token;
-        const reset = await callAdminRepositoryReset(baseUrl, token);
+        set({
+          syncActivity: {
+            op: 'reset',
+            statusText: 'Resetting server repository…',
+          },
+        });
+        const reset = await withTimeout(
+          callAdminRepositoryReset(baseUrl, token),
+          60_000,
+          'Server repository reset',
+        );
+        set({
+          syncActivity: {
+            op: 'reset',
+            statusText: 'Pulling after server reset…',
+          },
+        });
         const result = await pullSyncWithAttachments(
           baseUrl,
           token,
@@ -686,13 +888,20 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           return await run();
         }
         throw error;
+      } finally {
+        set({ syncActivity: null });
       }
     }),
 
-  repairRepository: async () =>
+  resetLocalWorkspaceData: async () =>
     withErrorHandling(set, async () => {
-      const health = await tauriClient.repairRepository();
-      set({ health, syncMessage: 'Repository maintenance completed.' });
+      await tauriClient.resetLocalWorkspaceData();
+      await reloadProfileScopedData(set, get);
+      set({
+        selectedObservationId: null,
+        syncMessage:
+          'Local data reset: observations cleared, attachments removed, sync offsets reset.',
+      });
     }),
 }));
 
@@ -702,4 +911,8 @@ export function selectActiveProfileState(state: CustodianState) {
 
 export function selectAuthSessionForActiveProfile(state: CustodianState) {
   return state.authSessionsByProfileId[state.activeProfileId] ?? null;
+}
+
+export function selectSyncActivity(state: CustodianState) {
+  return state.syncActivity;
 }
