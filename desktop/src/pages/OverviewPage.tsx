@@ -17,7 +17,6 @@ export function OverviewPage() {
   const {
     health,
     error,
-    syncMessage,
     loadHealth,
     loadWorkspace,
     loadObservations,
@@ -146,7 +145,6 @@ export function OverviewPage() {
         </dl>
       </div>
 
-      {syncMessage ? <p className="notice success">{syncMessage}</p> : null}
       {error ? <p className="notice error">{error}</p> : null}
     </section>
   );

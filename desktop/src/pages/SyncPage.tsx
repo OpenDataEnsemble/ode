@@ -5,6 +5,7 @@ import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
   selectAuthSessionForActiveProfile,
+  selectSyncActivity,
   useCustodianStore,
 } from '../store/useCustodianStore';
 
@@ -14,15 +15,34 @@ function formatDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+type SyncOp = 'pull' | 'push' | 'reset';
+
+const OP_LABELS: Record<
+  SyncOp,
+  { idle: string; busy: string; progress: string }
+> = {
+  pull: { idle: 'Pull', busy: 'Pulling…', progress: 'Pulling from server…' },
+  push: { idle: 'Push', busy: 'Pushing…', progress: 'Pushing to server…' },
+  reset: {
+    idle: 'Reset server repository and pull',
+    busy: 'Resetting…',
+    progress: 'Resetting server repository and pulling…',
+  },
+};
+
+function BtnSpinner() {
+  return <span className="btn-spinner" aria-hidden />;
+}
+
 export function SyncPage() {
   const activeProfile = useCustodianStore(selectActiveProfileState);
   const authSession = useCustodianStore(selectAuthSessionForActiveProfile);
+  const syncActivity = useCustodianStore(selectSyncActivity);
   const {
     synkPull,
     synkPush,
     synkResetServerRepository,
     error,
-    syncMessage,
     health,
     loadHealth,
   } = useCustodianStore();
@@ -35,6 +55,8 @@ export function SyncPage() {
   );
 
   const [opLog, setOpLog] = useState<string[]>([]);
+  const activeOp = syncActivity?.op ?? null;
+  const isBusy = activeOp !== null;
 
   const appendLog = useCallback((line: string) => {
     const stamp = new Date().toLocaleString();
@@ -46,6 +68,7 @@ export function SyncPage() {
   }, [loadHealth]);
 
   async function pull() {
+    if (isBusy) return;
     try {
       const result = await synkPull({ baseUrl: serverUrl });
       appendLog(
@@ -58,6 +81,7 @@ export function SyncPage() {
   }
 
   async function push() {
+    if (isBusy) return;
     if (
       !confirmDestructiveAction(
         activeProfile?.environment ?? 'production',
@@ -81,6 +105,7 @@ export function SyncPage() {
   }
 
   async function resetServerAndPull() {
+    if (isBusy) return;
     if (
       !confirmDestructiveAction(
         activeProfile?.environment ?? 'production',
@@ -110,6 +135,9 @@ export function SyncPage() {
       : status === 'unconfigured'
         ? 'Not configured'
         : 'Unreachable';
+  const inFlightStatusText =
+    syncActivity?.statusText ??
+    (activeOp ? OP_LABELS[activeOp].progress : null);
 
   return (
     <section className="page">
@@ -182,17 +210,32 @@ export function SyncPage() {
         </dl>
       </div>
 
+      {isBusy ? (
+        <div className="sync-status-bar" role="status" aria-live="polite">
+          <span className="btn-spinner btn-spinner--lg" aria-hidden />
+          <span>{inFlightStatusText}</span>
+        </div>
+      ) : null}
+
       <div className="panel">
         <h3>Pull and push</h3>
         <div className="button-row">
           <button
             type="button"
             className="secondary"
+            disabled={isBusy}
+            aria-busy={activeOp === 'pull'}
             onClick={() => void pull()}>
-            Pull
+            {activeOp === 'pull' ? <BtnSpinner /> : null}
+            {activeOp === 'pull' ? OP_LABELS.pull.busy : OP_LABELS.pull.idle}
           </button>
-          <button type="button" onClick={() => void push()}>
-            Push
+          <button
+            type="button"
+            disabled={isBusy}
+            aria-busy={activeOp === 'push'}
+            onClick={() => void push()}>
+            {activeOp === 'push' ? <BtnSpinner /> : null}
+            {activeOp === 'push' ? OP_LABELS.push.busy : OP_LABELS.push.idle}
           </button>
         </div>
       </div>
@@ -208,8 +251,11 @@ export function SyncPage() {
           <button
             type="button"
             className="secondary danger"
+            disabled={isBusy}
+            aria-busy={activeOp === 'reset'}
             onClick={() => void resetServerAndPull()}>
-            Reset server repository and pull
+            {activeOp === 'reset' ? <BtnSpinner /> : null}
+            {activeOp === 'reset' ? OP_LABELS.reset.busy : OP_LABELS.reset.idle}
           </button>
         </div>
       </div>
@@ -227,7 +273,6 @@ export function SyncPage() {
         </div>
       ) : null}
 
-      {syncMessage ? <p className="notice success">{syncMessage}</p> : null}
       {error ? <p className="notice error">{error}</p> : null}
     </section>
   );

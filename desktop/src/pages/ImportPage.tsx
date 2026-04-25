@@ -1,7 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { tauriClient } from '../lib/tauriClient';
 import { collectFilesFromDataTransfer } from '../lib/collectDroppedFiles';
-import { normalizeBasename, runImportValidation } from '../lib/importValidation';
+import {
+  normalizeBasename,
+  runImportValidation,
+} from '../lib/importValidation';
 import type { BundleFormSpec } from '../types/domain';
 import {
   flattenObservations,
@@ -10,6 +13,7 @@ import {
 } from '../lib/importSummary';
 import {
   selectCurrentStagingKey,
+  selectImportActivity,
   useImportStagingStore,
 } from '../store/useImportStagingStore';
 import { useCustodianStore } from '../store/useCustodianStore';
@@ -26,7 +30,6 @@ function formatBytes(n: number) {
 
 export function ImportPage() {
   const { loadObservations, loadHealth } = useCustodianStore();
-  const [busy, setBusy] = useState(false);
   const [validating, setValidating] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const folderPickerRef = useRef<HTMLInputElement>(null);
@@ -39,6 +42,8 @@ export function ImportPage() {
   );
   const message = useImportStagingStore(s => s.message);
   const error = useImportStagingStore(s => s.error);
+  const importActivity = useImportStagingStore(selectImportActivity);
+  const busy = importActivity !== null;
 
   const addFiles = useImportStagingStore(s => s.addFiles);
   const removeJson = useImportStagingStore(s => s.removeJson);
@@ -48,6 +53,7 @@ export function ImportPage() {
   const setValidationFailed = useImportStagingStore(s => s.setValidationFailed);
   const setMessage = useImportStagingStore(s => s.setMessage);
   const setError = useImportStagingStore(s => s.setError);
+  const setImportActivity = useImportStagingStore(s => s.setImportActivity);
 
   const currentStagingKey = useImportStagingStore(selectCurrentStagingKey);
 
@@ -144,9 +150,7 @@ export function ImportPage() {
       });
       setValidationResult(report, stagedJson, stagedAttachments);
     } catch (e) {
-      setValidationFailed(
-        e instanceof Error ? e.message : 'Validation failed',
-      );
+      setValidationFailed(e instanceof Error ? e.message : 'Validation failed');
     } finally {
       setValidating(false);
     }
@@ -175,11 +179,14 @@ export function ImportPage() {
         return;
       }
     }
-    setBusy(true);
+    setImportActivity({ statusText: 'Preparing import…' });
     setError(null);
     setMessage(null);
     try {
       const observations = flattenObservations(validationReport.parsedFiles);
+      setImportActivity({
+        statusText: 'Importing observations into local store…',
+      });
       const result = await tauriClient.importObservations(observations, {
         markPending: true,
       });
@@ -193,6 +200,11 @@ export function ImportPage() {
       }
       let attachmentsWritten = 0;
       const writeErrors: string[] = [];
+      if (stagedAttachments.length > 0) {
+        setImportActivity({
+          statusText: `Copying attachments (0/${stagedAttachments.length})…`,
+        });
+      }
       for (const s of stagedAttachments) {
         const k = normalizeBasename(s.file.name);
         const attachmentId = stagedNorm.get(k) ?? s.file.name;
@@ -200,6 +212,9 @@ export function ImportPage() {
           const bytes = new Uint8Array(await s.file.arrayBuffer());
           await tauriClient.writeWorkspaceAttachment(attachmentId, bytes);
           attachmentsWritten += 1;
+          setImportActivity({
+            statusText: `Copying attachments (${attachmentsWritten}/${stagedAttachments.length})…`,
+          });
         } catch (e) {
           writeErrors.push(
             `${s.file.name}: ${e instanceof Error ? e.message : String(e)}`,
@@ -207,6 +222,7 @@ export function ImportPage() {
         }
       }
 
+      setImportActivity({ statusText: 'Refreshing local repository state…' });
       await loadObservations();
       await loadHealth();
       const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).`;
@@ -218,7 +234,7 @@ export function ImportPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
     } finally {
-      setBusy(false);
+      setImportActivity(null);
     }
   }
 
@@ -421,11 +437,15 @@ export function ImportPage() {
               types
             </li>
             <li>
-              <strong>{validationReport.stagedAttachmentBasenames.length}</strong>{' '}
+              <strong>
+                {validationReport.stagedAttachmentBasenames.length}
+              </strong>{' '}
               staged attachments
             </li>
             <li>
-              <strong>{validationReport.referencedAttachmentNames.length}</strong>{' '}
+              <strong>
+                {validationReport.referencedAttachmentNames.length}
+              </strong>{' '}
               referenced attachment names (from payloads)
             </li>
           </ul>
@@ -438,9 +458,13 @@ export function ImportPage() {
                   <li
                     key={`${issue.code}-${issue.message}-${issue.observationId ?? ''}-${i}`}
                     data-severity={issue.severity}>
-                    <span className="import-issue-severity">{issue.severity}</span>
+                    <span className="import-issue-severity">
+                      {issue.severity}
+                    </span>
                     {issue.fileName ? (
-                      <span className="import-issue-file">{issue.fileName}: </span>
+                      <span className="import-issue-file">
+                        {issue.fileName}:{' '}
+                      </span>
                     ) : null}
                     {issue.message}
                   </li>

@@ -55,9 +55,7 @@ function syncPillLabel(item: ObservationRecord): string {
   return item.syncStatus;
 }
 
-function syncStatusDetail(
-  status: ObservationRecord['syncStatus'],
-): string {
+function syncStatusDetail(status: ObservationRecord['syncStatus']): string {
   if (status === 'conflict') {
     return 'Conflict';
   }

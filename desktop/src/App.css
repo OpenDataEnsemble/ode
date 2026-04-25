@@ -460,11 +460,62 @@ button {
   border-radius: 0.5rem;
   padding: 0.5rem 0.85rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 button.secondary {
   background: #1f2941;
   border-color: #455070;
+}
+
+.btn-spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  animation: btn-spinner-spin 0.7s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.btn-spinner--lg {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-width: 2px;
+  border-color: rgba(141, 168, 234, 0.3);
+  border-top-color: #8da8ea;
+}
+
+@keyframes btn-spinner-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-spinner {
+    animation-duration: 1.6s;
+  }
+}
+
+.sync-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.55rem;
+  background: #14213d;
+  border: 1px solid #2d4268;
+  color: #d4e0fa;
+  font-size: 0.9rem;
 }
 
 input,
@@ -603,10 +654,20 @@ textarea {
   border: 1px solid rgba(255, 96, 96, 0.45);
 }
 
+.notice.info {
+  background: rgba(107, 138, 232, 0.18);
+  border: 1px solid rgba(107, 138, 232, 0.45);
+  color: #dbe6ff;
+}
+
 .notice.warn {
   background: rgba(242, 195, 111, 0.12);
   border: 1px solid rgba(242, 195, 111, 0.45);
   color: #f2e6c8;
+}
+
+.app-sync-banner {
+  margin-bottom: 0.75rem;
 }
 
 .settings-cred-hint {

@@ -54,7 +54,11 @@ export function collectAttachmentPathsFromSchema(
   const out: SchemaAttachmentPath[] = [];
   const seen = new Set<string>();
 
-  function visit(schema: unknown, pathPrefix: SchemaPathSegment[], stack: Set<unknown>) {
+  function visit(
+    schema: unknown,
+    pathPrefix: SchemaPathSegment[],
+    stack: Set<unknown>,
+  ) {
     if (schema === null || schema === undefined) {
       return;
     }
@@ -66,7 +70,7 @@ export function collectAttachmentPathsFromSchema(
     }
     stack.add(schema);
 
-    let s = schema as Record<string, unknown>;
+    const s = schema as Record<string, unknown>;
     if (typeof s.$ref === 'string') {
       const resolved = resolveJsonPointer(schemaRoot, s.$ref);
       if (resolved !== undefined) {
@@ -174,7 +178,7 @@ export function stringLooksLikeAttachmentRef(raw: string): boolean {
     return false;
   }
   // MIME types like image/jpeg → basename "jpeg" / "jpg" false positives
-  if (/^[a-z][a-z0-9.+-]*\/[a-z0-9.+\/-]+$/i.test(t)) {
+  if (/^[a-z][a-z0-9.+-]*\/[a-z0-9.+/-]+$/i.test(t)) {
     return false;
   }
   const b = basenameOnly(t);
@@ -185,11 +189,17 @@ export function stringLooksLikeAttachmentRef(raw: string): boolean {
     return true;
   }
   // UUID-style ids used as attachment identifiers (no extension)
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b)) {
+  if (
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b)
+  ) {
     return true;
   }
   // Long opaque ids with separators (avoid matching short noise like "jpg")
-  if (b.length >= 12 && /[/_-]/.test(b) && /^[a-z0-9._/-]+$/i.test(t.replace(/\\/g, '/'))) {
+  if (
+    b.length >= 12 &&
+    /[/_-]/.test(b) &&
+    /^[a-z0-9._/-]+$/i.test(t.replace(/\\/g, '/'))
+  ) {
     return true;
   }
   return false;
@@ -263,7 +273,11 @@ export function valuesAtSchemaPaths(
 ): unknown[] {
   const values: unknown[] = [];
 
-  function follow(current: unknown, segments: SchemaPathSegment[], idx: number) {
+  function follow(
+    current: unknown,
+    segments: SchemaPathSegment[],
+    idx: number,
+  ) {
     if (idx >= segments.length) {
       values.push(current);
       return;

@@ -78,7 +78,10 @@ export function referencedNamesForObservation(
 ): Set<string> {
   const refs = new Set<string>();
   if (formSchema !== undefined) {
-    for (const n of referencedAttachmentNamesFromSchemaAndData(formSchema, data)) {
+    for (const n of referencedAttachmentNamesFromSchemaAndData(
+      formSchema,
+      data,
+    )) {
       refs.add(n);
     }
   }
@@ -106,8 +109,14 @@ export function computeStagingKey(
   jsonFiles: { file: File }[],
   attachmentFiles: { file: File }[],
 ): string {
-  const j = jsonFiles.map(s => fileKeyForStaging(s.file)).sort().join('\0');
-  const a = attachmentFiles.map(s => fileKeyForStaging(s.file)).sort().join('\0');
+  const j = jsonFiles
+    .map(s => fileKeyForStaging(s.file))
+    .sort()
+    .join('\0');
+  const a = attachmentFiles
+    .map(s => fileKeyForStaging(s.file))
+    .sort()
+    .join('\0');
   return `j:${j}|a:${a}`;
 }
 
@@ -245,7 +254,9 @@ export function runImportValidation(
     stagedAttachmentBasenames: [...stagedAttachmentBasenames].sort((a, b) =>
       a.localeCompare(b),
     ),
-    referencedAttachmentNames: referencedList.sort((a, b) => a.localeCompare(b)),
+    referencedAttachmentNames: referencedList.sort((a, b) =>
+      a.localeCompare(b),
+    ),
     missingAttachmentNames: missing,
     orphanAttachmentNames: orphan,
   };
