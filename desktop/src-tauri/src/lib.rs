@@ -287,7 +287,11 @@ fn should_promote_upload_source_to_synced(workspace: &Path, src: &Path) -> bool 
     src.starts_with(&pending) || src.starts_with(&legacy)
 }
 
-fn promote_uploaded_queue_file_to_synced(workspace: &Path, basename: &str, src: &Path) -> Result<(), CustodianError> {
+fn promote_uploaded_queue_file_to_synced(
+    workspace: &Path,
+    basename: &str,
+    src: &Path,
+) -> Result<(), CustodianError> {
     let dest = attachment_path_synced(workspace, basename);
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
@@ -1846,7 +1850,9 @@ fn map_observation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ObservationR
 const MAX_DIRTY_OBSERVATIONS_FOR_PUSH: i64 = 10_000;
 
 #[tauri::command]
-fn list_dirty_observations(ctx: tauri::State<'_, AppCtx>) -> Result<Vec<ObservationRecord>, String> {
+fn list_dirty_observations(
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Vec<ObservationRecord>, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let mut stmt = conn
         .prepare(
@@ -1858,7 +1864,10 @@ fn list_dirty_observations(ctx: tauri::State<'_, AppCtx>) -> Result<Vec<Observat
         )
         .map_err(|err| err.to_string())?;
     let rows = stmt
-        .query_map(params![MAX_DIRTY_OBSERVATIONS_FOR_PUSH], map_observation_row)
+        .query_map(
+            params![MAX_DIRTY_OBSERVATIONS_FOR_PUSH],
+            map_observation_row,
+        )
         .map_err(|err| err.to_string())?;
     let mut out = Vec::new();
     for row in rows {
@@ -2184,13 +2193,8 @@ async fn upload_outbound_attachments(
             continue;
         };
 
-        let bytes = fs::read(&src).map_err(|e| {
-            format!(
-                "failed to read attachment {} at {}: {e}",
-                id,
-                src.display()
-            )
-        })?;
+        let bytes = fs::read(&src)
+            .map_err(|e| format!("failed to read attachment {} at {}: {e}", id, src.display()))?;
 
         let part = multipart::Part::bytes(bytes)
             .file_name(id.clone())
@@ -2226,7 +2230,8 @@ async fn upload_outbound_attachments(
             if should_promote_upload_source_to_synced(&ws, &src) {
                 if let Err(e) = promote_uploaded_queue_file_to_synced(&ws, &id, &src) {
                     if first_err.is_none() {
-                        first_err = Some(format!("uploaded {id} but could not move to synced: {e}"));
+                        first_err =
+                            Some(format!("uploaded {id} but could not move to synced: {e}"));
                     }
                 }
             }
@@ -2724,11 +2729,7 @@ fn import_observations(
     mark_pending: Option<bool>,
     ctx: tauri::State<'_, AppCtx>,
 ) -> Result<ImportResult, String> {
-    import_observations_run(
-        observations,
-        mark_pending.unwrap_or(false),
-        &ctx,
-    )
+    import_observations_run(observations, mark_pending.unwrap_or(false), &ctx)
 }
 
 #[tauri::command]
@@ -2795,17 +2796,16 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
         )
         .map_err(|err| err.to_string())?;
     let db_resolved = resolve_db_path(&ctx).map_err(|e: CustodianError| e.to_string())?;
-    let (total_attachment_count, pending_attachment_count) = workspace_root_from_resolved_db_path(
-        &db_resolved,
-    )
-    .as_ref()
-    .map(|ws| {
-        (
-            count_all_attachment_files(ws),
-            count_pending_outbound_attachments(ws),
-        )
-    })
-    .unwrap_or((0, 0));
+    let (total_attachment_count, pending_attachment_count) =
+        workspace_root_from_resolved_db_path(&db_resolved)
+            .as_ref()
+            .map(|ws| {
+                (
+                    count_all_attachment_files(ws),
+                    count_pending_outbound_attachments(ws),
+                )
+            })
+            .unwrap_or((0, 0));
 
     let (workspace_path, db_path_str) = {
         let cfg = ctx
