@@ -10,6 +10,7 @@ use std::{
 use chrono::{DateTime, Utc};
 use keyring::Entry;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
+use reqwest::multipart;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -136,6 +137,78 @@ fn attachments_root(workspace: &Path) -> PathBuf {
     workspace.join("attachments")
 }
 
+fn count_regular_files_in_dir(dir: &Path) -> i64 {
+    if !dir.is_dir() {
+        return 0;
+    }
+    let Ok(read) = fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut n = 0i64;
+    for entry in read.flatten() {
+        if let Ok(ft) = entry.file_type()
+            && ft.is_file()
+        {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// Basenames queued for upload (`pending/`) plus legacy `pending_upload/` (not yet on server).
+fn count_pending_outbound_attachments(workspace: &Path) -> i64 {
+    let root = attachments_root(workspace);
+    let mut total = count_regular_files_in_dir(&root.join(ATTACH_SUBDIR_PENDING));
+    total += count_regular_files_in_dir(&root.join(ATTACH_LEGACY_PENDING_UPLOAD));
+    total
+}
+
+/// All regular files under `attachments/` (recursive), including subfolders.
+fn count_all_attachment_files(workspace: &Path) -> i64 {
+    let root = attachments_root(workspace);
+    if !root.is_dir() {
+        return 0;
+    }
+    let mut n = 0i64;
+    for entry in WalkDir::new(&root).into_iter().filter_map(|e| e.ok()) {
+        if entry.file_type().is_file() {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// Prefer configured `workspace_path` when it exists; otherwise infer from `database_path` (`…/sqlite/custodian.sqlite3` → workspace root).
+fn resolve_workspace_root_for_profile(profile: &ServerProfile) -> Option<PathBuf> {
+    if let Some(ws) = profile
+        .workspace_path
+        .as_ref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        let p = PathBuf::from(ws);
+        if p.is_dir() {
+            return Some(p);
+        }
+    }
+    infer_workspace_from_legacy_database_path(profile.database_path.trim())
+}
+
+fn resolve_active_workspace_dir(ctx: &AppCtx) -> Result<PathBuf, CustodianError> {
+    let db_path = resolve_db_path(ctx)?;
+    if let Some(ws) = workspace_root_from_resolved_db_path(&db_path)
+        && ws.is_dir()
+    {
+        return Ok(ws);
+    }
+    let cfg = ctx
+        .config
+        .lock()
+        .map_err(|_| CustodianError::Message("failed to lock config".to_string()))?;
+    let profile = active_profile_ref(&cfg)?;
+    resolve_workspace_root_for_profile(profile).ok_or(CustodianError::WorkspaceMissing)
+}
+
 fn ensure_workspace_layout(workspace: &Path) -> Result<(), CustodianError> {
     fs::create_dir_all(workspace.join("sqlite"))?;
     let root = attachments_root(workspace);
@@ -169,13 +242,13 @@ fn migrate_attachments_flat_to_synced_layout(workspace: &Path) -> Result<(), Cus
     Ok(())
 }
 
-/// Lookup order matches Formulus `resolveAttachmentFileUrl` (draft → synced → pending → legacy).
+/// Local resolution: draft → outbound queue (`pending` before `synced` so queued uploads override stale server copies) → legacy roots.
 fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> {
     let root = attachments_root(workspace);
     let candidates = [
         root.join(ATTACH_SUBDIR_DRAFT).join(basename),
-        root.join(ATTACH_SUBDIR_SYNCED).join(basename),
         root.join(ATTACH_SUBDIR_PENDING).join(basename),
+        root.join(ATTACH_SUBDIR_SYNCED).join(basename),
         root.join(basename),
         root.join(ATTACH_LEGACY_PENDING_UPLOAD).join(basename),
     ];
@@ -186,6 +259,52 @@ fn attachment_path_synced(workspace: &Path, basename: &str) -> PathBuf {
     attachments_root(workspace)
         .join(ATTACH_SUBDIR_SYNCED)
         .join(basename)
+}
+
+fn attachment_path_pending(workspace: &Path, basename: &str) -> PathBuf {
+    attachments_root(workspace)
+        .join(ATTACH_SUBDIR_PENDING)
+        .join(basename)
+}
+
+/// Read source for uploading to Synkronus: prefer outbound queue, then draft, then synced (e.g. legacy writes), then loose.
+fn first_path_for_attachment_upload(workspace: &Path, basename: &str) -> Option<PathBuf> {
+    let root = attachments_root(workspace);
+    let candidates = [
+        root.join(ATTACH_SUBDIR_PENDING).join(basename),
+        root.join(ATTACH_LEGACY_PENDING_UPLOAD).join(basename),
+        root.join(ATTACH_SUBDIR_DRAFT).join(basename),
+        root.join(ATTACH_SUBDIR_SYNCED).join(basename),
+        root.join(basename),
+    ];
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+fn should_promote_upload_source_to_synced(workspace: &Path, src: &Path) -> bool {
+    let root = attachments_root(workspace);
+    let pending = root.join(ATTACH_SUBDIR_PENDING);
+    let legacy = root.join(ATTACH_LEGACY_PENDING_UPLOAD);
+    src.starts_with(&pending) || src.starts_with(&legacy)
+}
+
+fn promote_uploaded_queue_file_to_synced(
+    workspace: &Path,
+    basename: &str,
+    src: &Path,
+) -> Result<(), CustodianError> {
+    let dest = attachment_path_synced(workspace, basename);
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    if dest.exists() {
+        fs::remove_file(&dest).map_err(CustodianError::Io)?;
+    }
+    if fs::rename(src, &dest).is_ok() {
+        return Ok(());
+    }
+    fs::copy(src, &dest).map_err(CustodianError::Io)?;
+    fs::remove_file(src).map_err(CustodianError::Io)?;
+    Ok(())
 }
 
 fn derived_database_path_for_profile(profile: &ServerProfile) -> Result<PathBuf, CustodianError> {
@@ -224,6 +343,23 @@ fn infer_workspace_from_legacy_database_path(database_path: &str) -> Option<Path
         return parent.parent().map(|p| p.to_path_buf());
     }
     Some(parent.to_path_buf())
+}
+
+/// Workspace root for attachment file counting — aligned with [`resolve_db_path`] / [`open_db`],
+/// not only `profile.workspace_path` (which may be stale).
+fn workspace_root_from_resolved_db_path(db_path: &Path) -> Option<PathBuf> {
+    let s = db_path.to_string_lossy();
+    if let Some(ws) = infer_workspace_from_legacy_database_path(s.trim()) {
+        return Some(ws);
+    }
+    let mut cur = db_path.parent()?.to_path_buf();
+    for _ in 0..12 {
+        if cur.join("attachments").is_dir() {
+            return Some(cur);
+        }
+        cur = cur.parent()?.to_path_buf();
+    }
+    None
 }
 
 /// Set `workspace_path` when missing by inferring from `database_path`, then derive DB path under `sqlite/`.
@@ -411,10 +547,25 @@ struct AppHealth {
     db_path: String,
     total_observations: i64,
     dirty_count: i64,
+    /// Regular files across the local attachment layout (draft, synced, queues, loose under `attachments/`).
+    total_attachment_count: i64,
+    /// Files in the outbound attachment queue (`attachments/pending`, legacy `pending_upload`).
+    pending_attachment_count: i64,
     conflict_count: i64,
     last_save_at: Option<String>,
     last_pull_at: Option<String>,
     last_push_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct OutboundAttachmentUploadResult {
+    uploaded: usize,
+    skipped_conflicts: usize,
+    /// Required extras (or queue entries) with no file on disk — skipped, no whole-run abort.
+    skipped_missing: usize,
+    failed: usize,
+    error_summary: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1080,6 +1231,64 @@ fn upsert_observation_from_api(
     Ok(false)
 }
 
+/// Inserts or updates from a user file import: rows must be pending push (dirty), not server-clean.
+fn upsert_observation_from_local_import(
+    conn: &Connection,
+    incoming: &ApiObservation,
+) -> Result<(), CustodianError> {
+    let existing: Option<()> = conn
+        .query_row(
+            "SELECT 1 FROM observations WHERE id = ?1",
+            params![incoming.observation_id],
+            |_| Ok(()),
+        )
+        .optional()?;
+
+    let payload = serde_json::to_string(&incoming.data)?;
+    let timestamp = now_iso();
+    let updated = incoming
+        .updated_at
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| timestamp.clone());
+
+    if existing.is_some() {
+        conn.execute(
+            "UPDATE observations SET
+                payload = ?1,
+                form_type = ?2,
+                updated_at = ?3,
+                dirty = 1,
+                sync_status = 'dirty',
+                conflict_payload = NULL,
+                last_saved_at = ?4
+             WHERE id = ?5",
+            params![
+                payload,
+                incoming.form_type,
+                updated,
+                timestamp,
+                incoming.observation_id
+            ],
+        )?;
+    } else {
+        conn.execute(
+            "INSERT INTO observations (
+                id, payload, form_type, updated_at, remote_updated_at,
+                dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at
+             ) VALUES (?1, ?2, ?3, ?4, NULL, 1, 'dirty', NULL, ?5, NULL)",
+            params![
+                incoming.observation_id,
+                payload,
+                incoming.form_type,
+                updated,
+                timestamp
+            ],
+        )?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn get_settings(ctx: tauri::State<'_, AppCtx>) -> Result<SettingsResponse, String> {
     let cfg = ctx
@@ -1637,6 +1846,36 @@ fn map_observation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ObservationR
     })
 }
 
+/// All locally dirty observations for sync push (not the paged UI list). Cap matches `list_observations_page` max.
+const MAX_DIRTY_OBSERVATIONS_FOR_PUSH: i64 = 10_000;
+
+#[tauri::command]
+fn list_dirty_observations(
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Vec<ObservationRecord>, String> {
+    let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+             FROM observations
+             WHERE dirty = 1
+             ORDER BY last_saved_at ASC
+             LIMIT ?1",
+        )
+        .map_err(|err| err.to_string())?;
+    let rows = stmt
+        .query_map(
+            params![MAX_DIRTY_OBSERVATIONS_FOR_PUSH],
+            map_observation_row,
+        )
+        .map_err(|err| err.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|err| err.to_string())?);
+    }
+    Ok(out)
+}
+
 #[tauri::command]
 fn list_form_types(ctx: tauri::State<'_, AppCtx>) -> Result<Vec<String>, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
@@ -1808,7 +2047,12 @@ fn write_workspace_attachment(
     ctx: tauri::State<'_, AppCtx>,
 ) -> Result<(), String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
-    let path = attachment_path_synced(&ws, attachment_id.trim());
+    let t = attachment_id.trim();
+    if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+        return Err("invalid attachment id".to_string());
+    }
+    // Outbound queue (upload on sync); pulls still land in `synced/` via download.
+    let path = attachment_path_pending(&ws, t);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -1872,6 +2116,181 @@ async fn download_workspace_attachment_from_url(
     }
     fs::write(&path, bytes).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+fn collect_outbound_queue_basenames(ws: &Path) -> Result<HashSet<String>, String> {
+    let mut s = HashSet::new();
+    let root = attachments_root(ws);
+    for sub in [ATTACH_SUBDIR_PENDING, ATTACH_LEGACY_PENDING_UPLOAD] {
+        let dir = root.join(sub);
+        if !dir.is_dir() {
+            continue;
+        }
+        for e in fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
+            let ft = e.file_type().map_err(|e| e.to_string())?;
+            if ft.is_file() {
+                s.insert(e.file_name().to_string_lossy().to_string());
+            }
+        }
+    }
+    Ok(s)
+}
+
+/// `PUT /api/attachments/{id}` for each outbound file (queue + extras), then move queue copies into `synced/` on success or 409.
+#[tauri::command]
+async fn upload_outbound_attachments(
+    base_url: String,
+    bearer_token: String,
+    x_ode_version: String,
+    repository_generation: Option<i64>,
+    extra_attachment_ids: Vec<String>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<OutboundAttachmentUploadResult, String> {
+    let base = base_url.trim();
+    if base.is_empty() {
+        return Err("base_url is required".to_string());
+    }
+    let token = bearer_token.trim();
+    if token.is_empty() {
+        return Err("bearer token is required".to_string());
+    }
+    let ode_ver = x_ode_version.trim();
+    if ode_ver.is_empty() {
+        return Err("x_ode_version is required".to_string());
+    }
+
+    let ws = resolve_active_workspace_dir(&ctx).map_err(|e| e.to_string())?;
+
+    let mut required = HashSet::new();
+    for raw in extra_attachment_ids {
+        let t = raw.trim();
+        if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+            continue;
+        }
+        required.insert(t.to_string());
+    }
+
+    let mut ids = collect_outbound_queue_basenames(&ws)?;
+    for r in required.iter() {
+        ids.insert(r.clone());
+    }
+
+    let mut id_list: Vec<String> = ids.into_iter().collect();
+    id_list.sort();
+
+    let client = reqwest::Client::new();
+    let mut uploaded = 0usize;
+    let mut skipped_conflicts = 0usize;
+    let mut skipped_missing = 0usize;
+    let mut failed = 0usize;
+    let mut first_err: Option<String> = None;
+
+    for id in id_list {
+        let Some(src) = first_path_for_attachment_upload(&ws, &id) else {
+            if required.contains(&id) {
+                skipped_missing += 1;
+            }
+            continue;
+        };
+
+        let bytes = fs::read(&src)
+            .map_err(|e| format!("failed to read attachment {} at {}: {e}", id, src.display()))?;
+
+        let part = multipart::Part::bytes(bytes)
+            .file_name(id.clone())
+            .mime_str("application/octet-stream")
+            .map_err(|e| e.to_string())?;
+        let form = multipart::Form::new().part("file", part);
+        let url = format!(
+            "{}/api/attachments/{}",
+            base.trim_end_matches('/'),
+            urlencoding::encode(&id)
+        );
+        let parsed = Url::parse(&url).map_err(|e| format!("invalid attachment URL: {e}"))?;
+
+        let mut req = client
+            .put(parsed)
+            .multipart(form)
+            .header(AUTHORIZATION, format!("Bearer {token}"))
+            .header("x-ode-version", ode_ver);
+        if let Some(g) = repository_generation
+            && g > 0
+        {
+            req = req.header("x-repository-generation", g.to_string());
+        }
+
+        let res = req
+            .send()
+            .await
+            .map_err(|e| format!("attachment upload request failed ({id}): {e}"))?;
+        let status = res.status();
+
+        if status.is_success() {
+            uploaded += 1;
+            if should_promote_upload_source_to_synced(&ws, &src)
+                && let Err(e) = promote_uploaded_queue_file_to_synced(&ws, &id, &src)
+                && first_err.is_none()
+            {
+                first_err = Some(format!("uploaded {id} but could not move to synced: {e}"));
+            }
+        } else if status.as_u16() == 409 {
+            skipped_conflicts += 1;
+            if should_promote_upload_source_to_synced(&ws, &src) {
+                let _ = promote_uploaded_queue_file_to_synced(&ws, &id, &src);
+            }
+        } else {
+            failed += 1;
+            if first_err.is_none() {
+                let body = res.text().await.unwrap_or_default();
+                first_err = Some(format!(
+                    "attachment upload failed ({id}): HTTP {} {}",
+                    status.as_u16(),
+                    body.trim()
+                ));
+            }
+        }
+    }
+
+    Ok(OutboundAttachmentUploadResult {
+        uploaded,
+        skipped_conflicts,
+        skipped_missing,
+        failed,
+        error_summary: first_err,
+    })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WorkspaceAttachmentPresenceEntry {
+    file_name: String,
+    present: bool,
+}
+
+/// Whether each basename resolves to an existing file under the attachment layout (same lookup as upload).
+#[tauri::command]
+fn check_workspace_attachment_presence(
+    file_names: Vec<String>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<Vec<WorkspaceAttachmentPresenceEntry>, String> {
+    let ws = resolve_active_workspace_dir(&ctx).map_err(|e| e.to_string())?;
+    let mut seen = HashSet::<String>::new();
+    let mut out = Vec::new();
+    for raw in file_names {
+        let t = raw.trim();
+        if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+            continue;
+        }
+        if !seen.insert(t.to_string()) {
+            continue;
+        }
+        let present = first_path_for_attachment_upload(&ws, t).is_some();
+        out.push(WorkspaceAttachmentPresenceEntry {
+            file_name: t.to_string(),
+            present,
+        });
+    }
+    Ok(out)
 }
 
 /// Write arbitrary bytes under the active profile workspace (e.g. `bundles/app-bundle.zip`).
@@ -2264,35 +2683,51 @@ fn remove_workspace_attachment(
     Ok(())
 }
 
-#[tauri::command]
-fn import_observations(
+fn import_observations_run(
     observations: Vec<ApiObservation>,
-    ctx: tauri::State<'_, AppCtx>,
+    mark_pending: bool,
+    ctx: &AppCtx,
 ) -> Result<ImportResult, String> {
-    let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let mut conn = open_db(ctx).map_err(|err| err.to_string())?;
     let tx = conn.transaction().map_err(|err| err.to_string())?;
     let mut imported = 0usize;
     let mut conflicts = 0usize;
 
     for observation in observations {
-        let conflict =
-            upsert_observation_from_api(&tx, &observation).map_err(|err| err.to_string())?;
-        imported += 1;
-        if conflict {
-            conflicts += 1;
+        if mark_pending {
+            upsert_observation_from_local_import(&tx, &observation)
+                .map_err(|err| err.to_string())?;
+        } else {
+            let conflict =
+                upsert_observation_from_api(&tx, &observation).map_err(|err| err.to_string())?;
+            if conflict {
+                conflicts += 1;
+            }
         }
+        imported += 1;
     }
-    tx.execute(
-        "UPDATE sync_state SET last_pull_at = ?1, last_error = NULL WHERE id = 1",
-        params![now_iso()],
-    )
-    .map_err(|err| err.to_string())?;
+    if !mark_pending {
+        tx.execute(
+            "UPDATE sync_state SET last_pull_at = ?1, last_error = NULL WHERE id = 1",
+            params![now_iso()],
+        )
+        .map_err(|err| err.to_string())?;
+    }
     tx.commit().map_err(|err| err.to_string())?;
 
     Ok(ImportResult {
         imported,
         conflicts,
     })
+}
+
+#[tauri::command]
+fn import_observations(
+    observations: Vec<ApiObservation>,
+    mark_pending: Option<bool>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<ImportResult, String> {
+    import_observations_run(observations, mark_pending.unwrap_or(false), &ctx)
 }
 
 #[tauri::command]
@@ -2358,6 +2793,18 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|err| err.to_string())?;
+    let db_resolved = resolve_db_path(&ctx).map_err(|e: CustodianError| e.to_string())?;
+    let (total_attachment_count, pending_attachment_count) =
+        workspace_root_from_resolved_db_path(&db_resolved)
+            .as_ref()
+            .map(|ws| {
+                (
+                    count_all_attachment_files(ws),
+                    count_pending_outbound_attachments(ws),
+                )
+            })
+            .unwrap_or((0, 0));
+
     let (workspace_path, db_path_str) = {
         let cfg = ctx
             .config
@@ -2375,6 +2822,8 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
         db_path: db_path_str,
         total_observations,
         dirty_count,
+        total_attachment_count,
+        pending_attachment_count,
         conflict_count,
         last_save_at,
         last_pull_at,
@@ -2382,13 +2831,38 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
     })
 }
 
+/// Clears local observations, backup history, attachment files, and generation archives; resets
+/// `sync_state` to fresh-install values. Does not modify `bundles/` or app auth.
 #[tauri::command]
-fn repair_repository(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
-    {
-        let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        conn.execute_batch("VACUUM; REINDEX;")
-            .map_err(|err| err.to_string())?;
-    }
+fn reset_local_workspace_data(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
+    with_workspace_fs_exclusive(&ctx, |ctx| {
+        let db_path = resolve_db_path(ctx)?;
+        let conn = Connection::open(&db_path)?;
+        init_db(&conn)?;
+        conn.execute("DELETE FROM observation_history", [])?;
+        conn.execute("DELETE FROM observations", [])?;
+        conn.execute(
+            "UPDATE sync_state SET repository_generation = 0, observation_sync_version = 0, \
+             last_attachment_version = 0, last_pull_at = NULL, last_push_at = NULL, last_error = NULL \
+             WHERE id = 1",
+            [],
+        )?;
+        conn.execute_batch("PRAGMA wal_checkpoint(FULL);")?;
+        drop(conn);
+
+        let ws = resolve_active_workspace_dir(ctx)?;
+        let att = attachments_root(&ws);
+        if att.exists() {
+            fs::remove_dir_all(&att)?;
+        }
+        let prev_gen = ws.join("previous_generations");
+        if prev_gen.exists() {
+            fs::remove_dir_all(&prev_gen)?;
+        }
+        ensure_workspace_layout(&ws)?;
+        Ok(())
+    })
+    .map_err(|e: CustodianError| e.to_string())?;
     get_app_health(ctx)
 }
 
@@ -2468,7 +2942,7 @@ async fn synk_pull(
     } else {
         return Err("pull response does not contain an observations array".to_string());
     };
-    import_observations(observations, ctx)
+    import_observations_run(observations, false, &ctx)
 }
 
 #[tauri::command]
@@ -2570,6 +3044,7 @@ pub fn run() {
             list_workspace_items,
             list_observations,
             list_observations_page,
+            list_dirty_observations,
             list_form_types,
             get_sync_state,
             set_sync_state,
@@ -2578,6 +3053,8 @@ pub fn run() {
             backup_workspace,
             write_workspace_attachment,
             download_workspace_attachment_from_url,
+            upload_outbound_attachments,
+            check_workspace_attachment_presence,
             write_workspace_file,
             get_app_bundle_state,
             apply_app_bundle_download,
@@ -2597,7 +3074,7 @@ pub fn run() {
             import_observations,
             mark_observations_pushed,
             get_app_health,
-            repair_repository,
+            reset_local_workspace_data,
             synk_login,
             synk_pull,
             synk_push

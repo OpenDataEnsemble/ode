@@ -9,7 +9,9 @@ import type {
   CredentialSetResult,
   ImportResult,
   ListObservationsPageResult,
+  OutboundAttachmentUploadResult,
   ObservationRecord,
+  WorkspaceAttachmentPresenceEntry,
   SaveObservationRequest,
   ServerProfile,
   ActiveBundleFormEntry,
@@ -69,6 +71,9 @@ export const tauriClient = {
       limit: options?.limit,
       offset: options?.offset,
     }),
+  /** All `dirty` observations for push (not limited to the Observations table page). */
+  listDirtyObservations: () =>
+    invokeSafe<ObservationRecord[]>('list_dirty_observations'),
   listFormTypes: () => invokeSafe<string[]>('list_form_types'),
   getSyncState: () => invokeSafe<SyncStateInfo>('get_sync_state'),
   setSyncState: (req: SetSyncStateRequest) =>
@@ -98,6 +103,27 @@ export const tauriClient = {
       attachmentId: args.attachmentId,
       xOdeVersion: args.xOdeVersion,
     }),
+  /** Upload pending/legacy-queue + extras via `PUT /api/attachments/{id}` before observation sync. */
+  uploadOutboundAttachments: (args: {
+    baseUrl: string;
+    bearerToken: string;
+    xOdeVersion: string;
+    repositoryGeneration?: number;
+    extraAttachmentIds: string[];
+  }) =>
+    invokeSafe<OutboundAttachmentUploadResult>('upload_outbound_attachments', {
+      baseUrl: args.baseUrl,
+      bearerToken: args.bearerToken,
+      xOdeVersion: args.xOdeVersion,
+      repositoryGeneration: args.repositoryGeneration,
+      extraAttachmentIds: args.extraAttachmentIds,
+    }),
+  /** Batch-resolve whether each attachment basename exists locally (same rules as push/upload). */
+  checkWorkspaceAttachmentPresence: (fileNames: string[]) =>
+    invokeSafe<WorkspaceAttachmentPresenceEntry[]>(
+      'check_workspace_attachment_presence',
+      { fileNames },
+    ),
   /** Relative to active profile workspace root (e.g. `bundles/app-bundle.zip`). */
   writeWorkspaceFile: (relativePath: string, data: Uint8Array) =>
     invokeSafe<string>('write_workspace_file', {
@@ -149,12 +175,23 @@ export const tauriClient = {
     invokeSafe<ObservationRecord>('save_observation', { req }),
   restoreLastBackup: (observationId: string) =>
     invokeSafe<ObservationRecord>('restore_last_backup', { observationId }),
-  importObservations: (observations: ApiObservation[]) =>
-    invokeSafe<ImportResult>('import_observations', { observations }),
+  /**
+   * @param markPending When true (file import), observations are stored as pending push.
+   *   When false/omitted, rows match server pull semantics (synced / conflict rules).
+   */
+  importObservations: (
+    observations: ApiObservation[],
+    options?: { markPending?: boolean },
+  ) =>
+    invokeSafe<ImportResult>('import_observations', {
+      observations,
+      markPending: options?.markPending ?? false,
+    }),
   markObservationsPushed: (ids: string[]) =>
     invokeSafe<void>('mark_observations_pushed', { ids }),
   getAppHealth: () => invokeSafe<AppHealth>('get_app_health'),
-  repairRepository: () => invokeSafe<AppHealth>('repair_repository'),
+  resetLocalWorkspaceData: () =>
+    invokeSafe<AppHealth>('reset_local_workspace_data'),
   synkLogin: (req: SyncLoginRequest) =>
     invokeSafe<AuthSession>('synk_login', { req }),
   synkPull: (req: SyncPullRequest) =>

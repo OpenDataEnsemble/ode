@@ -31,6 +31,7 @@ export interface ObservationRecord {
   /** Synkronus `updated_at` (ISO 8601). */
   updatedAt?: string | null;
   remoteUpdatedAt?: string | null;
+  /** Local row not yet successfully pushed (pending push). */
   dirty: boolean;
   syncStatus: SyncStatus;
   hasConflictCopy: boolean;
@@ -67,6 +68,21 @@ export interface ImportResult {
   attachmentsFailed?: number;
 }
 
+/** Result of uploading outbound attachment files before `syncPush`. */
+export interface OutboundAttachmentUploadResult {
+  uploaded: number;
+  skippedConflicts: number;
+  /** Extras/queue entries with no local file (skipped without failing the run). */
+  skippedMissing: number;
+  failed: number;
+  errorSummary?: string | null;
+}
+
+export interface WorkspaceAttachmentPresenceEntry {
+  fileName: string;
+  present: boolean;
+}
+
 export interface SyncStateInfo {
   /** `0` means not aligned with Synkronus yet (omit epoch on API calls; fresh profile). */
   repositoryGeneration: number;
@@ -89,7 +105,12 @@ export interface AppHealth {
   workspacePath?: string | null;
   dbPath: string;
   totalObservations: number;
+  /** Count of observations pending push (see {@link ObservationRecord.dirty}). */
   dirtyCount: number;
+  /** Regular files across the local attachment layout (draft, synced, queues, loose). */
+  totalAttachmentCount: number;
+  /** Files in `attachments/pending` (and legacy `pending_upload`) awaiting upload. */
+  pendingAttachmentCount: number;
   conflictCount: number;
   lastSaveAt?: string | null;
   lastPullAt?: string | null;

@@ -36,6 +36,7 @@ vi.mock('./lib/tauriClient', () => ({
     listWorkspaceItems: vi.fn().mockResolvedValue([]),
     listObservations: vi.fn().mockResolvedValue([]),
     listObservationsPage: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
+    listDirtyObservations: vi.fn().mockResolvedValue([]),
     listFormTypes: vi.fn().mockResolvedValue([]),
     getSyncState: vi.fn().mockResolvedValue({
       repositoryGeneration: 0,
@@ -45,6 +46,14 @@ vi.mock('./lib/tauriClient', () => ({
     setSyncState: vi.fn(),
     archiveWorkspaceForRepositoryGeneration: vi.fn(),
     writeWorkspaceAttachment: vi.fn(),
+    uploadOutboundAttachments: vi.fn().mockResolvedValue({
+      uploaded: 0,
+      skippedConflicts: 0,
+      skippedMissing: 0,
+      failed: 0,
+      errorSummary: null,
+    }),
+    checkWorkspaceAttachmentPresence: vi.fn().mockResolvedValue([]),
     writeWorkspaceFile: vi
       .fn()
       .mockResolvedValue('/tmp/custodian-ws/bundles/app-bundle.zip'),
@@ -63,12 +72,14 @@ vi.mock('./lib/tauriClient', () => ({
       dbPath: 'test-db',
       totalObservations: 0,
       dirtyCount: 0,
+      totalAttachmentCount: 0,
+      pendingAttachmentCount: 0,
       conflictCount: 0,
       lastSaveAt: null,
       lastPullAt: null,
       lastPushAt: null,
     }),
-    repairRepository: vi.fn(),
+    resetLocalWorkspaceData: vi.fn().mockResolvedValue({}),
     synkLogin: vi.fn(),
     synkPull: vi.fn(),
     synkPush: vi.fn(),
