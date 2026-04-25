@@ -146,10 +146,10 @@ fn count_regular_files_in_dir(dir: &Path) -> i64 {
     };
     let mut n = 0i64;
     for entry in read.flatten() {
-        if let Ok(ft) = entry.file_type() {
-            if ft.is_file() {
-                n += 1;
-            }
+        if let Ok(ft) = entry.file_type()
+            && ft.is_file()
+        {
+            n += 1;
         }
     }
     n
@@ -196,10 +196,10 @@ fn resolve_workspace_root_for_profile(profile: &ServerProfile) -> Option<PathBuf
 
 fn resolve_active_workspace_dir(ctx: &AppCtx) -> Result<PathBuf, CustodianError> {
     let db_path = resolve_db_path(ctx)?;
-    if let Some(ws) = workspace_root_from_resolved_db_path(&db_path) {
-        if ws.is_dir() {
-            return Ok(ws);
-        }
+    if let Some(ws) = workspace_root_from_resolved_db_path(&db_path)
+        && ws.is_dir()
+    {
+        return Ok(ws);
     }
     let cfg = ctx
         .config
@@ -2213,10 +2213,10 @@ async fn upload_outbound_attachments(
             .multipart(form)
             .header(AUTHORIZATION, format!("Bearer {token}"))
             .header("x-ode-version", ode_ver);
-        if let Some(g) = repository_generation {
-            if g > 0 {
-                req = req.header("x-repository-generation", g.to_string());
-            }
+        if let Some(g) = repository_generation
+            && g > 0
+        {
+            req = req.header("x-repository-generation", g.to_string());
         }
 
         let res = req
@@ -2227,13 +2227,11 @@ async fn upload_outbound_attachments(
 
         if status.is_success() {
             uploaded += 1;
-            if should_promote_upload_source_to_synced(&ws, &src) {
-                if let Err(e) = promote_uploaded_queue_file_to_synced(&ws, &id, &src) {
-                    if first_err.is_none() {
-                        first_err =
-                            Some(format!("uploaded {id} but could not move to synced: {e}"));
-                    }
-                }
+            if should_promote_upload_source_to_synced(&ws, &src)
+                && let Err(e) = promote_uploaded_queue_file_to_synced(&ws, &id, &src)
+                && first_err.is_none()
+            {
+                first_err = Some(format!("uploaded {id} but could not move to synced: {e}"));
             }
         } else if status.as_u16() == 409 {
             skipped_conflicts += 1;
@@ -2286,7 +2284,7 @@ fn check_workspace_attachment_presence(
         if !seen.insert(t.to_string()) {
             continue;
         }
-        let present = first_path_for_attachment_upload(&ws, &t).is_some();
+        let present = first_path_for_attachment_upload(&ws, t).is_some();
         out.push(WorkspaceAttachmentPresenceEntry {
             file_name: t.to_string(),
             present,
