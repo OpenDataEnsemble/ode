@@ -72,7 +72,9 @@ export const useImportStagingStore = create<ImportStagingState>(set => ({
   addFiles: fileList => {
     const files = Array.from(fileList);
     set(s => {
-      const jsonKeys = new Set(s.stagedJson.map(x => fileKeyForStaging(x.file)));
+      const jsonKeys = new Set(
+        s.stagedJson.map(x => fileKeyForStaging(x.file)),
+      );
       const attKeys = new Set(
         s.stagedAttachments.map(x => fileKeyForStaging(x.file)),
       );

@@ -719,16 +719,14 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           skippedForAttachments.length > 0
             ? ` Skipped ${skippedForAttachments.length} observation(s) with missing attachment file(s): ${skippedForAttachments
                 .map(
-                  s =>
-                    `${s.id} (${s.missing.map(n => `"${n}"`).join(', ')})`,
+                  s => `${s.id} (${s.missing.map(n => `"${n}"`).join(', ')})`,
                 )
                 .join('; ')}.`
             : '';
 
         if (readyToPush.length === 0) {
           set({
-            syncMessage:
-              `Nothing pushed.${skipSummary}`.trim(),
+            syncMessage: `Nothing pushed.${skipSummary}`.trim(),
           });
           return 0;
         }

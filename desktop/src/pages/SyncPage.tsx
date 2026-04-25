@@ -17,7 +17,10 @@ function formatDate(value?: string | null) {
 
 type SyncOp = 'pull' | 'push' | 'reset';
 
-const OP_LABELS: Record<SyncOp, { idle: string; busy: string; progress: string }> = {
+const OP_LABELS: Record<
+  SyncOp,
+  { idle: string; busy: string; progress: string }
+> = {
   pull: { idle: 'Pull', busy: 'Pulling…', progress: 'Pulling from server…' },
   push: { idle: 'Push', busy: 'Pushing…', progress: 'Pushing to server…' },
   reset: {

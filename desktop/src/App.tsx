@@ -23,7 +23,10 @@ import {
   selectSyncActivity,
   useCustodianStore,
 } from './store/useCustodianStore';
-import { selectImportActivity, useImportStagingStore } from './store/useImportStagingStore';
+import {
+  selectImportActivity,
+  useImportStagingStore,
+} from './store/useImportStagingStore';
 import './App.css';
 
 const DATA_NAV = [
@@ -175,7 +178,8 @@ function Shell() {
   const syncMessage = useCustodianStore(s => s.syncMessage);
   const syncActivity = useCustodianStore(selectSyncActivity);
   const importActivity = useImportStagingStore(selectImportActivity);
-  const activityText = syncActivity?.statusText ?? importActivity?.statusText ?? null;
+  const activityText =
+    syncActivity?.statusText ?? importActivity?.statusText ?? null;
 
   return (
     <div className="app">
@@ -223,12 +227,17 @@ function Shell() {
 
       <main className="content">
         {activityText ? (
-          <p className="notice info app-sync-banner" role="status" aria-live="polite">
+          <p
+            className="notice info app-sync-banner"
+            role="status"
+            aria-live="polite">
             <span className="btn-spinner" aria-hidden />
             {activityText}
           </p>
         ) : null}
-        {syncMessage ? <p className="notice success app-sync-banner">{syncMessage}</p> : null}
+        {syncMessage ? (
+          <p className="notice success app-sync-banner">{syncMessage}</p>
+        ) : null}
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route

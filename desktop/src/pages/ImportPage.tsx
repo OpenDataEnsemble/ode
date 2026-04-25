@@ -1,7 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 import { tauriClient } from '../lib/tauriClient';
 import { collectFilesFromDataTransfer } from '../lib/collectDroppedFiles';
-import { normalizeBasename, runImportValidation } from '../lib/importValidation';
+import {
+  normalizeBasename,
+  runImportValidation,
+} from '../lib/importValidation';
 import type { BundleFormSpec } from '../types/domain';
 import {
   flattenObservations,
@@ -147,9 +150,7 @@ export function ImportPage() {
       });
       setValidationResult(report, stagedJson, stagedAttachments);
     } catch (e) {
-      setValidationFailed(
-        e instanceof Error ? e.message : 'Validation failed',
-      );
+      setValidationFailed(e instanceof Error ? e.message : 'Validation failed');
     } finally {
       setValidating(false);
     }
@@ -183,7 +184,9 @@ export function ImportPage() {
     setMessage(null);
     try {
       const observations = flattenObservations(validationReport.parsedFiles);
-      setImportActivity({ statusText: 'Importing observations into local store…' });
+      setImportActivity({
+        statusText: 'Importing observations into local store…',
+      });
       const result = await tauriClient.importObservations(observations, {
         markPending: true,
       });
@@ -434,11 +437,15 @@ export function ImportPage() {
               types
             </li>
             <li>
-              <strong>{validationReport.stagedAttachmentBasenames.length}</strong>{' '}
+              <strong>
+                {validationReport.stagedAttachmentBasenames.length}
+              </strong>{' '}
               staged attachments
             </li>
             <li>
-              <strong>{validationReport.referencedAttachmentNames.length}</strong>{' '}
+              <strong>
+                {validationReport.referencedAttachmentNames.length}
+              </strong>{' '}
               referenced attachment names (from payloads)
             </li>
           </ul>
@@ -451,9 +458,13 @@ export function ImportPage() {
                   <li
                     key={`${issue.code}-${issue.message}-${issue.observationId ?? ''}-${i}`}
                     data-severity={issue.severity}>
-                    <span className="import-issue-severity">{issue.severity}</span>
+                    <span className="import-issue-severity">
+                      {issue.severity}
+                    </span>
                     {issue.fileName ? (
-                      <span className="import-issue-file">{issue.fileName}: </span>
+                      <span className="import-issue-file">
+                        {issue.fileName}:{' '}
+                      </span>
                     ) : null}
                     {issue.message}
                   </li>

@@ -38,9 +38,7 @@ async function readDirectoryRecursive(
   return out;
 }
 
-function getEntryFromItem(
-  item: DataTransferItem,
-): FileSystemEntry | null {
+function getEntryFromItem(item: DataTransferItem): FileSystemEntry | null {
   const w = item as DataTransferItem & {
     webkitGetAsEntry?: () => FileSystemEntry | null;
   };

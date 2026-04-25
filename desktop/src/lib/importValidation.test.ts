@@ -38,9 +38,7 @@ describe('runImportValidation', () => {
       formSpecsByType: new Map([['PhotoForm', simplePhotoForm]]),
       stagedAttachmentBasenames: [],
     });
-    expect(
-      report.issues.some(i => i.code === 'schema_validation'),
-    ).toBe(true);
+    expect(report.issues.some(i => i.code === 'schema_validation')).toBe(true);
   });
 
   it('reports missing staged attachment referenced from payload', () => {
@@ -63,9 +61,7 @@ describe('runImportValidation', () => {
       stagedAttachmentBasenames: [],
     });
     expect(report.missingAttachmentNames).toContain('missing.jpg');
-    expect(report.issues.some(i => i.code === 'missing_attachment')).toBe(
-      true,
-    );
+    expect(report.issues.some(i => i.code === 'missing_attachment')).toBe(true);
   });
 
   it('reports orphan staged attachment', () => {
