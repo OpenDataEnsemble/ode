@@ -66,7 +66,7 @@ export function collectAttachmentPathsFromSchema(
     }
     stack.add(schema);
 
-    let s = schema as Record<string, unknown>;
+    const s = schema as Record<string, unknown>;
     if (typeof s.$ref === 'string') {
       const resolved = resolveJsonPointer(schemaRoot, s.$ref);
       if (resolved !== undefined) {
@@ -174,7 +174,7 @@ export function stringLooksLikeAttachmentRef(raw: string): boolean {
     return false;
   }
   // MIME types like image/jpeg → basename "jpeg" / "jpg" false positives
-  if (/^[a-z][a-z0-9.+-]*\/[a-z0-9.+\/-]+$/i.test(t)) {
+  if (/^[a-z][a-z0-9.+-]*\/[a-z0-9.+/-]+$/i.test(t)) {
     return false;
   }
   const b = basenameOnly(t);
