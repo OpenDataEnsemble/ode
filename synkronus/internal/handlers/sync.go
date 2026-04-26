@@ -175,7 +175,42 @@ func (h *Handler) Push(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientGen := sync.ParseClientRepositoryGeneration(r, req.RepositoryGeneration)
+	clientGen, clientGenSent := sync.ParseClientRepositoryGenerationSent(r, req.RepositoryGeneration)
+
+	// No-op push with no epoch asserted (fresh install / client omitting header and body):
+	// must not fail with repository_generation mismatch — same contract as Pull and
+	// attachment manifest (see TestPull_missingRepositoryGeneration_adoptsServer).
+	if len(req.Records) == 0 && !clientGenSent {
+		currentVersion, err := h.syncService.GetCurrentVersion(r.Context())
+		if err != nil {
+			h.log.Error("Failed to get current version for empty push", "error", err)
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to read sync state")
+			return
+		}
+		serverGen, err := h.syncService.GetRepositoryGeneration(r.Context())
+		if err != nil {
+			h.log.Error("Failed to read repository generation for empty push", "error", err)
+			SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to verify repository generation")
+			return
+		}
+		response := SyncPushResponse{
+			CurrentVersion:       currentVersion,
+			RepositoryGeneration: serverGen,
+			SuccessCount:         0,
+			FailedRecords:        nil,
+			Warnings:             nil,
+		}
+		h.log.Info("Sync push (no records, client omitted repository_generation)",
+			"transmissionId", req.TransmissionID,
+			"clientId", req.ClientID,
+			"currentVersion", currentVersion,
+			"repositoryGeneration", serverGen)
+		h.recordPresenceAfterSyncPush(r, req.ClientID, currentVersion)
+		w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(serverGen, 10))
+		SendJSONResponse(w, http.StatusOK, response)
+		return
+	}
+
 	result, err := h.syncService.ProcessPushedRecords(r.Context(), req.Records, req.ClientID, req.TransmissionID, clientGen)
 	if err != nil {
 		if errors.Is(err, sync.ErrRepositoryGenerationMismatch) {

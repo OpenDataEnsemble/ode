@@ -104,6 +104,43 @@ func TestPull_repositoryGenerationMismatch_header_returns409(t *testing.T) {
 	}
 }
 
+func TestPush_emptyRecords_missingRepositoryGeneration_ok(t *testing.T) {
+	h, mockSync, _ := createTestHandlerWithSync()
+	mockSync.SetRepositoryGeneration(5)
+
+	body, err := json.Marshal(SyncPushRequest{
+		TransmissionID: "tx-empty",
+		ClientID:       "fresh-install",
+		Records:        []sync.Observation{},
+		// No RepositoryGeneration, no header — same fresh-install contract as Pull.
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/sync/push", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	h.Push(w, req)
+
+	resp := w.Result()
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected HTTP 200 for empty push without epoch, got %d", resp.StatusCode)
+	}
+	var out SyncPushResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode body: %v", err)
+	}
+	if out.RepositoryGeneration != 5 {
+		t.Fatalf("expected repository_generation 5, got %d", out.RepositoryGeneration)
+	}
+	if out.SuccessCount != 0 {
+		t.Fatalf("expected success_count 0, got %d", out.SuccessCount)
+	}
+}
+
 func TestPush_repositoryGenerationMismatch_returns409(t *testing.T) {
 	h, mockSync, _ := createTestHandlerWithSync()
 	mockSync.SetRepositoryGeneration(5)

@@ -30,6 +30,7 @@ import {
   RepositoryResetRequiredError,
 } from '../../errors/RepositoryResetRequiredError';
 import type { AxiosError, AxiosResponse } from 'axios';
+import { effectiveRepositoryGenerationForRequest } from './repositoryGenerationRequest';
 
 const REPOSITORY_GENERATION_STORAGE_KEY = '@repository_generation';
 
@@ -147,11 +148,8 @@ class SynkronusApi {
     number | null
   > {
     const raw = await AsyncStorage.getItem(REPOSITORY_GENERATION_STORAGE_KEY);
-    if (raw == null) {
-      return null;
-    }
-    const n = Number(raw);
-    return Number.isFinite(n) && n > 0 ? n : null;
+    const lastSeen = await AsyncStorage.getItem('@last_seen_version');
+    return effectiveRepositoryGenerationForRequest(raw, lastSeen);
   }
 
   private async persistRepositoryGenerationFromResponse(
