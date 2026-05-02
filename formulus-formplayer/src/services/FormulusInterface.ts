@@ -14,6 +14,7 @@ import {
   QrcodeResult,
   FileResult,
   AudioResult,
+  LocationResult,
   FormCompletionResult,
 } from '../types/FormulusInterfaceDefinition';
 
@@ -150,11 +151,9 @@ class FormulusClient {
   }
 
   /**
-   * Request location from the Formulus RN app.
-   * The shared interface no longer returns a typed LocationResult; this
-   * simply forwards the request and returns the underlying Promise<void>.
+   * Request location from the Formulus RN app (native GPS for this field).
    */
-  public async requestLocation(fieldId: string): Promise<void> {
+  public async requestLocation(fieldId: string): Promise<LocationResult> {
     console.log('Requesting location for field', fieldId);
     await this.tryEnsureFormulus();
     if (this.formulus) {
