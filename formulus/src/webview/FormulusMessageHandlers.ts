@@ -622,7 +622,15 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       });
     },
 
-    onRequestLocation: async (fieldId: string): Promise<unknown> => {
+    onRequestLocation: async (
+      payload: string | { fieldId?: string },
+    ): Promise<unknown> => {
+      const fieldId =
+        typeof payload === 'string'
+          ? payload
+          : typeof payload?.fieldId === 'string'
+            ? payload.fieldId
+            : '';
       console.log('Request location handler called', fieldId);
 
       // eslint-disable-next-line no-async-promise-executor
@@ -657,13 +665,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         } catch (error) {
           console.error('Location capture failed:', error);
 
-          const errorResult = {
-            fieldId,
-            status: 'error' as const,
-            message: 'Location capture failed',
-          };
-
-          reject(errorResult);
+          const message =
+            error instanceof Error ? error.message : 'Location capture failed';
+          reject(
+            new Error(
+              fieldId ? `${message} (field: ${fieldId})` : message,
+            ),
+          );
         }
       });
     },
