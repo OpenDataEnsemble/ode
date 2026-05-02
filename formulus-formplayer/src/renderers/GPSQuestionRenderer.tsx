@@ -52,8 +52,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
   const [error, setError] = useState<string | null>(null);
   const formulusClient = useRef(FormulusClient.getInstance());
 
-  const fieldId =
-    path.replace(/\//g, '_').replace(/^_/, '') || 'gps_field';
+  const fieldId = path.replace(/\//g, '_').replace(/^_/, '') || 'gps_field';
 
   // Parse existing location data if present
   useEffect(() => {
@@ -65,7 +64,6 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
           typeof parsed.latitude === 'number' &&
           typeof parsed.longitude === 'number'
         ) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setLocationData(parsed);
           return;
         }

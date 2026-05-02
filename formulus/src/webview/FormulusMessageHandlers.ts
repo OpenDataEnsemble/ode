@@ -668,9 +668,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           const message =
             error instanceof Error ? error.message : 'Location capture failed';
           reject(
-            new Error(
-              fieldId ? `${message} (field: ${fieldId})` : message,
-            ),
+            new Error(fieldId ? `${message} (field: ${fieldId})` : message),
           );
         }
       });
