@@ -22,6 +22,28 @@ import type { ActiveBundleFormEntry, BundleFormSpec } from '../types/domain';
 
 const DEFAULT_JSON = '{}';
 
+/**
+ * WebKit / WCO (Tauri): `MessageEvent.source` may not be strictly `===` to
+ * `iframe.contentWindow`, and `instanceof Window` can be false for iframe globals.
+ * `window.frameElement === iframe` identifies the embedding element reliably for same-origin frames.
+ */
+function messageSourceMatchesIframe(
+  source: Window,
+  iframe: HTMLIFrameElement | null | undefined,
+): boolean {
+  if (!iframe) {
+    return false;
+  }
+  try {
+    if (iframe.contentWindow === source) {
+      return true;
+    }
+    return source.frameElement === iframe;
+  } catch {
+    return false;
+  }
+}
+
 type LocationState = {
   formPreviewEdit?: FormPreviewEditState;
 };
@@ -319,7 +341,7 @@ export function FormPreviewPage() {
         return null;
       }
       const topEl = nestedIframeByMessageIdRef.current.get(top.parentMessageId);
-      if (topEl?.contentWindow !== eventSource) {
+      if (!messageSourceMatchesIframe(eventSource, topEl)) {
         return null;
       }
 
@@ -358,13 +380,13 @@ export function FormPreviewPage() {
   );
 
   const resolveReplyIframe = useCallback((source: Window) => {
-    if (iframeRef.current?.contentWindow === source) {
+    if (messageSourceMatchesIframe(source, iframeRef.current)) {
       return iframeRef.current;
     }
     for (const s of nestedSessionsRef.current) {
       const el = nestedIframeByMessageIdRef.current.get(s.parentMessageId);
-      if (el?.contentWindow === source) {
-        return el;
+      if (messageSourceMatchesIframe(source, el)) {
+        return el ?? null;
       }
     }
     return null;
@@ -373,10 +395,11 @@ export function FormPreviewPage() {
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       const src = e.source;
-      if (!(src instanceof Window)) {
+      if (src == null || typeof src !== 'object') {
         return;
       }
-      if (!resolveReplyIframe(src)) {
+      const winSrc = src as Window;
+      if (!resolveReplyIframe(winSrc)) {
         return;
       }
       void handleFormPreviewBridgeMessage(e, {
