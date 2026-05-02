@@ -292,6 +292,54 @@ body {
   min-height: 0;
 }
 
+.form-preview-nested-overlay-root {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+}
+
+.form-preview-nested-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 1rem;
+  box-sizing: border-box;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.form-preview-nested-layer-inner {
+  flex: 1;
+  max-width: min(960px, 100%);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.form-preview-nested-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  margin-bottom: 0.5rem;
+}
+
+.form-preview-nested-layer-inner .formplayer-embed-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.form-preview-nested-layer-inner .formplayer-embed-frame {
+  min-height: 280px;
+}
+
+.form-preview-nested-loading {
+  padding: 1rem 0;
+}
+
 .split.split-observations {
   flex: 1;
   min-height: 0;

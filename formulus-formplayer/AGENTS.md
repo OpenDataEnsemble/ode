@@ -39,18 +39,18 @@ This file gives AI assistants and developers enough context to work effectively 
 
 ## Source layout (high level)
 
-| Area                       | Purpose                                                                                                                                       |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/App.tsx`              | Main app: JsonForms setup, renderer/cell registration, theme, init from `FormInitData`.                                                       |
-| `src/index.tsx`            | Entry: mounts React app; exposes `React` and `MaterialUI` on `window` for custom question type renderers.                                     |
-| `src/renderers/*`          | JSON Forms **renderers** (e.g. signature, photo, file, GPS, swipe layout, finalize). Each has a **tester** (when to use) and a **component**. |
-| `src/theme/`               | MUI theme from `@ode/tokens` via `tokens-adapter.ts`; material wrappers for consistent look.                                                  |
-| `src/services/`            | `FormulusInterface.ts` (bridge client), `DraftService`, `ExtensionsLoader`, custom question type/validator loaders and registries.            |
-| `src/types/`               | `FormulusInterfaceDefinition.ts` (synced from formulus), `CustomQuestionTypeContract.ts`, etc.                                                |
-| `src/components/`          | Shared UI (e.g. `QuestionShell`, `FormLayout`, `DraftSelector`).                                                                              |
-| `src/builtinExtensions.ts` | Built-in extension functions (e.g. `getDynamicChoiceList`) used in forms.                                                                     |
-| `src/mocks/`               | `webview-mock.ts` and `DevTestbed` for local dev without RN.                                                                                  |
-| `scripts/`                 | `sync-interface.js`, `copy-to-rn.js`, `clean-rn-assets.js`.                                                                                   |
+| Area                       | Purpose                                                                                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/App.tsx`              | Main app: JsonForms setup, renderer/cell registration, theme, init from `FormInitData`.                                                                        |
+| `src/index.tsx`            | Entry: mounts React app; exposes `React` and `MaterialUI` on `window` for custom question type renderers.                                                      |
+| `src/renderers/*`          | JSON Forms **renderers** (e.g. signature, photo, sub-observation, file, GPS, swipe layout, finalize). Each has a **tester** (when to use) and a **component**. |
+| `src/theme/`               | MUI theme from `@ode/tokens` via `tokens-adapter.ts`; material wrappers for consistent look.                                                                   |
+| `src/services/`            | `FormulusInterface.ts` (bridge client), `DraftService`, `ExtensionsLoader`, custom question type/validator loaders and registries.                             |
+| `src/types/`               | `FormulusInterfaceDefinition.ts` (synced from formulus), `CustomQuestionTypeContract.ts`, etc.                                                                 |
+| `src/components/`          | Shared UI (e.g. `QuestionShell`, `FormLayout`, `DraftSelector`).                                                                                               |
+| `src/builtinExtensions.ts` | Built-in extension functions (e.g. `getDynamicChoiceList`) used in forms.                                                                                      |
+| `src/mocks/`               | `webview-mock.ts` and `DevTestbed` for local dev without RN.                                                                                                   |
+| `scripts/`                 | `sync-interface.js`, `copy-to-rn.js`, `clean-rn-assets.js`.                                                                                                    |
 
 ## Key technical constraints
 
@@ -62,7 +62,7 @@ This file gives AI assistants and developers enough context to work effectively 
 ## Adding or changing behavior
 
 - **New question type (built-in)**  
-  Add a renderer in `src/renderers/` with a **tester** (e.g. `formatIs('myFormat')`) and component; register it in `App.tsx` (renderers array). If it needs a new AJV format, register it where other formats are registered in `App.tsx`.
+  Add a renderer in `src/renderers/` with a **tester** (e.g. `schemaMatches` / `rankWith` on `format`) and component; register it in `App.tsx` (`customRenderers`). Register a matching AJV `addFormat` when the schema uses a non-standard `format` string (see **`sub-observation`** in `SubObservationQuestionRenderer.tsx` + `App.tsx`). Sub-observation schema uses **`linkedForm`**, **`subObservationInitValues`** (optional add prefill), and **`subObservationEditInitValues`** (optional merge-on-edit). Use **`FormulusClient`** in `FormulusInterface.ts` for bridge calls (e.g. `openFormplayer` for nested sessions).
 - **New question type (custom / from Synkronus)**  
   Custom types are loaded by `CustomQuestionTypeLoader` from the manifest; they must comply with `CustomQuestionTypeContract.ts` and export a default component. No change in formplayer code needed for new custom types that follow the contract.
 - **New native capability (e.g. new “requestX” from RN)**

@@ -32,7 +32,7 @@ This repository houses four main components:
 A React Native project containing the code for Android and iOS apps. This is your mobile data collection companion, designed for field work and offline-first data gathering.
 
 ### **formulus-formplayer**
-A React web application responsible for rendering JSON forms and communicating with the Formulus mobile app. It provides the dynamic form interface that powers your data collection workflows.
+A React web application responsible for rendering JSON forms and communicating with the Formulus mobile app. It provides the dynamic form interface that powers your data collection workflows, including built-in controls such as **`format: sub-observation`** (embedded child rows). Author-facing documentation: [Custom extensions](https://opendataensemble.org/docs/guides/custom-extensions) on opendataensemble.org.
 
 ### **synkronus**
 The server component written in Go. This handles data synchronization, storage, and provides the backbone for all data operations across the platform.

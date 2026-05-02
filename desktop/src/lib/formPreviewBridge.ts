@@ -7,7 +7,7 @@
  * |----------------|----------|
  * | `getVersion` | Returns `FORM_PREVIEW_FORMULUS_INTERFACE_VERSION`. |
  * | `getAvailableForms` | Lists form types from the active bundle (`listActiveBundleForms`). |
- * | `openFormplayer` | **Stub** — nested formplayer not supported in preview. |
+ * | `openFormplayer` | With `options.subObservationMode`, defers response and opens nested preview (when host provides hooks). Otherwise Workbench navigates or stubs. |
  * | `getObservations` | Local SQLite via `listObservationsPage`. |
  * | `getObservationsByQuery` | Same + best-effort `whereClause` filter (`formulus-load.js` flattens options). |
  * | `submitObservation` / `updateObservation` | Finalize dialog (JSON export or DB). |
@@ -77,6 +77,77 @@ export type FinalizeRequest =
       formType: string;
       finalData: Record<string, unknown>;
     };
+
+/** Payload when formplayer requests a nested sub-observation session (`openFormplayer` + `subObservationMode`). */
+export type FormPreviewDeferOpenSubObservationPayload = {
+  parentIframe: HTMLIFrameElement;
+  messageId: string;
+  formType: string;
+  params: Record<string, unknown>;
+  savedData: Record<string, unknown>;
+};
+
+export type FormPreviewBridgeContext = {
+  iframe: HTMLIFrameElement | null;
+  /**
+   * Maps `postMessage` event source to the iframe that should receive `*_response`.
+   * When omitted, replies go to {@link iframe} (legacy single-embed hosts).
+   */
+  resolveReplyIframe?: (eventSource: Window) => HTMLIFrameElement | null;
+  onFinalize: (
+    request: FinalizeRequest,
+  ) => Promise<{ result?: string; error?: string }>;
+  /**
+   * When set (Workbench custom app), `openFormplayer` navigates to Form preview instead
+   * of stubbing. Ignored when `options.subObservationMode` and {@link onDeferOpenSubObservation} are used.
+   */
+  onOpenFormplayerNavigate?: (payload: {
+    formType: string;
+    params: Record<string, unknown>;
+    savedData: Record<string, unknown>;
+  }) => void;
+  /**
+   * Form preview: defer `openFormplayer_response` until nested finalize/cancel.
+   * Host must not reply synchronously for this message id.
+   */
+  onDeferOpenSubObservation?: (
+    payload: FormPreviewDeferOpenSubObservationPayload,
+  ) => void;
+  /**
+   * When finalize originates from the nested sub-observation iframe, return the bridge
+   * reply payload for `submitObservation` / `updateObservation` without showing the finalize dialog,
+   * and complete the parent's deferred `openFormplayer` promise separately.
+   */
+  tryCompleteNestedSubObservationFinalize?: (
+    eventSource: Window,
+    request: FinalizeRequest,
+  ) => Promise<{ result?: string; error?: string } | null>;
+};
+
+function resolveBridgeReplyIframe(
+  eventSource: Window | null | undefined,
+  ctx: FormPreviewBridgeContext,
+): HTMLIFrameElement | null {
+  const primary = ctx.iframe;
+  if (eventSource != null && typeof ctx.resolveReplyIframe === 'function') {
+    const resolved = ctx.resolveReplyIframe(eventSource);
+    if (resolved) {
+      return resolved;
+    }
+    if (primary?.contentWindow === eventSource) {
+      return primary;
+    }
+    return null;
+  }
+  if (
+    eventSource != null &&
+    primary?.contentWindow != null &&
+    primary.contentWindow === eventSource
+  ) {
+    return primary;
+  }
+  return primary;
+}
 
 export function postFormplayerBridgeReply(
   iframe: HTMLIFrameElement | null,
@@ -228,28 +299,24 @@ export function mapObservationToFormObservation(
   };
 }
 
-export type FormPreviewBridgeContext = {
-  iframe: HTMLIFrameElement | null;
-  onFinalize: (
-    request: FinalizeRequest,
-  ) => Promise<{ result?: string; error?: string }>;
-  /**
-   * When set (Workbench custom app), `openFormplayer` navigates to Form preview instead
-   * of stubbing. The Promise still resolves immediately with `cancelled` — full
-   * `submitObservation`/`updateObservation` completion in Form preview is not yet wired
-   * back to this Promise.
-   */
-  onOpenFormplayerNavigate?: (payload: {
-    formType: string;
-    params: Record<string, unknown>;
-    savedData: Record<string, unknown>;
-  }) => void;
-};
-
 export async function handleFormPreviewBridgeMessage(
-  raw: unknown,
+  rawOrEvent: MessageEvent | unknown,
   ctx: FormPreviewBridgeContext,
 ): Promise<void> {
+  let raw: unknown;
+  let eventSource: Window | null | undefined;
+
+  if (
+    typeof globalThis.MessageEvent !== 'undefined' &&
+    rawOrEvent instanceof globalThis.MessageEvent
+  ) {
+    raw = rawOrEvent.data;
+    eventSource = rawOrEvent.source as Window | null;
+  } else {
+    raw = rawOrEvent;
+    eventSource = ctx.iframe?.contentWindow ?? undefined;
+  }
+
   let data: Record<string, unknown>;
   try {
     data =
@@ -268,10 +335,11 @@ export async function handleFormPreviewBridgeMessage(
     return;
   }
 
+  const replyIframe = resolveBridgeReplyIframe(eventSource, ctx);
   const reply = (
     requestType: string,
     payload: { result?: unknown; error?: string },
-  ) => postFormplayerBridgeReply(ctx.iframe, requestType, messageId, payload);
+  ) => postFormplayerBridgeReply(replyIframe, requestType, messageId, payload);
 
   try {
     switch (t) {
@@ -298,6 +366,26 @@ export async function handleFormPreviewBridgeMessage(
         const formType = String(data.formType ?? '');
         const params = (data.params ?? {}) as Record<string, unknown>;
         const savedData = (data.savedData ?? {}) as Record<string, unknown>;
+        const options = data.options as
+          | { subObservationMode?: boolean }
+          | undefined;
+        const subObservationMode = Boolean(options?.subObservationMode);
+
+        if (subObservationMode && ctx.onDeferOpenSubObservation) {
+          const parentIframe =
+            resolveBridgeReplyIframe(eventSource, ctx) ?? ctx.iframe;
+          if (parentIframe) {
+            ctx.onDeferOpenSubObservation({
+              parentIframe,
+              messageId,
+              formType,
+              params,
+              savedData,
+            });
+            return;
+          }
+        }
+
         if (ctx.onOpenFormplayerNavigate) {
           ctx.onOpenFormplayerNavigate({ formType, params, savedData });
           reply('openFormplayer', {
@@ -360,11 +448,25 @@ export async function handleFormPreviewBridgeMessage(
       case 'submitObservation': {
         const formType = String(data.formType ?? '');
         const finalData = (data.finalData ?? {}) as Record<string, unknown>;
-        const res = await ctx.onFinalize({
+        const req: FinalizeRequest = {
           kind: 'submit',
           formType,
           finalData,
-        });
+        };
+        if (
+          eventSource != null &&
+          typeof ctx.tryCompleteNestedSubObservationFinalize === 'function'
+        ) {
+          const nested = await ctx.tryCompleteNestedSubObservationFinalize(
+            eventSource,
+            req,
+          );
+          if (nested != null) {
+            reply('submitObservation', nested);
+            return;
+          }
+        }
+        const res = await ctx.onFinalize(req);
         reply('submitObservation', res);
         return;
       }
@@ -373,12 +475,26 @@ export async function handleFormPreviewBridgeMessage(
         const observationId = String(data.observationId ?? '');
         const formType = String(data.formType ?? '');
         const finalData = (data.finalData ?? {}) as Record<string, unknown>;
-        const res = await ctx.onFinalize({
+        const req: FinalizeRequest = {
           kind: 'update',
           observationId,
           formType,
           finalData,
-        });
+        };
+        if (
+          eventSource != null &&
+          typeof ctx.tryCompleteNestedSubObservationFinalize === 'function'
+        ) {
+          const nested = await ctx.tryCompleteNestedSubObservationFinalize(
+            eventSource,
+            req,
+          );
+          if (nested != null) {
+            reply('updateObservation', nested);
+            return;
+          }
+        }
+        const res = await ctx.onFinalize(req);
         reply('updateObservation', res);
         return;
       }

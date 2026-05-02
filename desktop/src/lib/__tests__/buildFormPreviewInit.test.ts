@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildFormPreviewInit, parseJsonObject } from '../buildFormPreviewInit';
+import {
+  buildFormPreviewInit,
+  inferObservationIdFromSavedData,
+  parseJsonObject,
+} from '../buildFormPreviewInit';
 
 describe('buildFormPreviewInit', () => {
   it('builds new-observation init', () => {
@@ -14,17 +18,26 @@ describe('buildFormPreviewInit', () => {
     expect(init.observationId).toBeNull();
   });
 
-  it('passes observationId for edit mode', () => {
+  it('sets subObservationMode when requested', () => {
     const init = buildFormPreviewInit({
-      formType: 'MyForm',
+      formType: 'Child',
       params: {},
-      savedData: { x: 1 },
+      savedData: {},
       formSchema: {},
       uiSchema: {},
-      observationId: 'obs-123',
+      subObservationMode: true,
     });
-    expect(init.observationId).toBe('obs-123');
-    expect(init.savedData).toEqual({ x: 1 });
+    expect(init.subObservationMode).toBe(true);
+  });
+});
+
+describe('inferObservationIdFromSavedData', () => {
+  it('reads observationId then id', () => {
+    expect(inferObservationIdFromSavedData({ observationId: '  abc  ' })).toBe(
+      'abc',
+    );
+    expect(inferObservationIdFromSavedData({ id: 'x' })).toBe('x');
+    expect(inferObservationIdFromSavedData({})).toBeNull();
   });
 });
 

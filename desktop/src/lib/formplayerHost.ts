@@ -12,6 +12,8 @@ export interface FormInitData {
   formSchema?: unknown;
   uiSchema?: unknown;
   operationId?: string;
+  /** Embedded child form returns JSON to parent; host skips persisting as a top-level observation. */
+  subObservationMode?: boolean;
   extensions?: unknown;
   customQuestionTypes?: unknown;
 }

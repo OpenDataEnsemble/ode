@@ -31,6 +31,19 @@ vi.mock('../tauriClient', () => ({
   },
 }));
 
+/** Mimics iframe → parent messages so reply routing matches `event.source`. */
+function bridgeMessageFromIframe(
+  iframe: HTMLIFrameElement,
+  payload: Record<string, unknown>,
+): MessageEvent {
+  const cw = iframe.contentWindow as Window;
+  return new MessageEvent('message', {
+    data: JSON.stringify(payload),
+    source: cw,
+    origin: 'http://localhost',
+  });
+}
+
 describe('FORMULUS_INJECTION_REQUEST_TYPES', () => {
   it('lists known injection request types', () => {
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('getVersion');
@@ -41,12 +54,13 @@ describe('FORMULUS_INJECTION_REQUEST_TYPES', () => {
 describe('handleFormPreviewBridgeMessage', () => {
   it('replies to getVersion', async () => {
     const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
     const iframe = {
-      contentWindow: { postMessage } as unknown as Window,
+      contentWindow: cw,
     } as HTMLIFrameElement;
 
     await handleFormPreviewBridgeMessage(
-      JSON.stringify({
+      bridgeMessageFromIframe(iframe, {
         type: 'getVersion',
         messageId: 'm1',
       }),
@@ -63,14 +77,121 @@ describe('handleFormPreviewBridgeMessage', () => {
     expect(payload.result).toBe(FORM_PREVIEW_FORMULUS_INTERFACE_VERSION);
   });
 
-  it('stubs requestCamera with prefixed error', async () => {
-    const postMessage = vi.fn();
-    const iframe = {
-      contentWindow: { postMessage } as unknown as Window,
+  it('routes replies to iframe matched by resolveReplyIframe when source is nested', async () => {
+    const postPrimary = vi.fn();
+    const postNested = vi.fn();
+    const nestedCw = { postMessage: postNested } as unknown as Window;
+    const nestedIframe = {
+      contentWindow: nestedCw,
+    } as HTMLIFrameElement;
+    const primaryCw = { postMessage: postPrimary } as unknown as Window;
+    const primaryIframe = {
+      contentWindow: primaryCw,
     } as HTMLIFrameElement;
 
     await handleFormPreviewBridgeMessage(
-      JSON.stringify({
+      new MessageEvent('message', {
+        data: JSON.stringify({ type: 'getVersion', messageId: 'mv2' }),
+        source: nestedCw,
+        origin: 'http://localhost',
+      }),
+      {
+        iframe: primaryIframe,
+        resolveReplyIframe: src =>
+          src === nestedCw
+            ? nestedIframe
+            : src === primaryCw
+              ? primaryIframe
+              : null,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    expect(postNested).toHaveBeenCalledTimes(1);
+    expect(postPrimary).not.toHaveBeenCalled();
+  });
+
+  it('defers openFormplayer_response when subObservationMode and hook provided', async () => {
+    const postPrimary = vi.fn();
+    const primaryCw = { postMessage: postPrimary } as unknown as Window;
+    const primaryIframe = {
+      contentWindow: primaryCw,
+    } as HTMLIFrameElement;
+    const defer = vi.fn();
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(primaryIframe, {
+        type: 'openFormplayer',
+        messageId: 'op-def',
+        formType: 'child_form',
+        params: { a: 1 },
+        savedData: {},
+        options: { subObservationMode: true },
+      }),
+      {
+        iframe: primaryIframe,
+        resolveReplyIframe: src => (src === primaryCw ? primaryIframe : null),
+        onFinalize: async () => ({ error: 'no' }),
+        onDeferOpenSubObservation: defer,
+      },
+    );
+
+    expect(postPrimary).not.toHaveBeenCalled();
+    expect(defer).toHaveBeenCalledWith({
+      parentIframe: primaryIframe,
+      messageId: 'op-def',
+      formType: 'child_form',
+      params: { a: 1 },
+      savedData: {},
+    });
+  });
+
+  it('completes nested finalize without calling onFinalize when hook returns payload', async () => {
+    const postNested = vi.fn();
+    const nestedCw = { postMessage: postNested } as unknown as Window;
+    const nestedIframe = {
+      contentWindow: nestedCw,
+    } as HTMLIFrameElement;
+
+    const onFinalize = vi.fn(async () => ({ result: 'should-not-run' }));
+    const tryNested = vi.fn(
+      async (): Promise<{ result: string } | null> => ({
+        result: 'nested-synthetic-id',
+      }),
+    );
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(nestedIframe, {
+        type: 'submitObservation',
+        messageId: 'sub-n',
+        formType: 'x',
+        finalData: { k: 'v' },
+      }),
+      {
+        iframe: null,
+        resolveReplyIframe: src => (src === nestedCw ? nestedIframe : null),
+        onFinalize,
+        tryCompleteNestedSubObservationFinalize: tryNested,
+      },
+    );
+
+    expect(tryNested).toHaveBeenCalled();
+    expect(onFinalize).not.toHaveBeenCalled();
+    expect(postNested).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(postNested.mock.calls[0][0] as string);
+    expect(payload.type).toBe('submitObservation_response');
+    expect(payload.result).toBe('nested-synthetic-id');
+  });
+
+  it('stubs requestCamera with prefixed error', async () => {
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = {
+      contentWindow: cw,
+    } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
         type: 'requestCamera',
         messageId: 'm2',
       }),
@@ -90,12 +211,13 @@ describe('handleFormPreviewBridgeMessage', () => {
       'file:///home/u/ws/attachments/synced/a.jpg',
     );
     const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
     const iframe = {
-      contentWindow: { postMessage } as unknown as Window,
+      contentWindow: cw,
     } as HTMLIFrameElement;
 
     await handleFormPreviewBridgeMessage(
-      JSON.stringify({
+      bridgeMessageFromIframe(iframe, {
         type: 'getAttachmentUri',
         messageId: 'ga1',
         fileName: 'a.jpg',
@@ -117,12 +239,13 @@ describe('handleFormPreviewBridgeMessage', () => {
       'file:///home/u/ws/attachments/synced/b.jpg',
     );
     const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
     const iframe = {
-      contentWindow: { postMessage } as unknown as Window,
+      contentWindow: cw,
     } as HTMLIFrameElement;
 
     await handleFormPreviewBridgeMessage(
-      JSON.stringify({
+      bridgeMessageFromIframe(iframe, {
         type: 'getAttachmentUri',
         messageId: 'ga2',
         fileName: { filename: 'b.jpg' },
@@ -148,12 +271,13 @@ describe('handleFormPreviewBridgeMessage', () => {
       'file:///data/user/0/org.opendataensemble.formulus/files/x.jpg',
     );
     const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
     const iframe = {
-      contentWindow: { postMessage } as unknown as Window,
+      contentWindow: cw,
     } as HTMLIFrameElement;
 
     await handleFormPreviewBridgeMessage(
-      JSON.stringify({
+      bridgeMessageFromIframe(iframe, {
         type: 'getAttachmentUri',
         messageId: 'gaForeign',
         fileName: 'x.jpg',
@@ -172,12 +296,13 @@ describe('handleFormPreviewBridgeMessage', () => {
   it('getAttachmentUri returns null for descriptor without filename', async () => {
     vi.mocked(tauriClient.workspaceAttachmentFileUrl).mockClear();
     const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
     const iframe = {
-      contentWindow: { postMessage } as unknown as Window,
+      contentWindow: cw,
     } as HTMLIFrameElement;
 
     await handleFormPreviewBridgeMessage(
-      JSON.stringify({
+      bridgeMessageFromIframe(iframe, {
         type: 'getAttachmentUri',
         messageId: 'ga3',
         fileName: {
@@ -199,12 +324,15 @@ describe('handleFormPreviewBridgeMessage', () => {
 
   it('ignores messages without messageId', async () => {
     const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
     const iframe = {
-      contentWindow: { postMessage } as unknown as Window,
+      contentWindow: cw,
     } as HTMLIFrameElement;
 
     await handleFormPreviewBridgeMessage(
-      JSON.stringify({ type: 'formplayerReadyToReceiveInit' }),
+      bridgeMessageFromIframe(iframe, {
+        type: 'formplayerReadyToReceiveInit',
+      }),
       {
         iframe,
         onFinalize: async () => ({ error: 'no' }),
@@ -212,6 +340,24 @@ describe('handleFormPreviewBridgeMessage', () => {
     );
 
     expect(postMessage).not.toHaveBeenCalled();
+  });
+
+  it('legacy raw-only callers still reply using iframe.contentWindow fallback', async () => {
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = {
+      contentWindow: cw,
+    } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      JSON.stringify({ type: 'getVersion', messageId: 'legacy1' }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    expect(postMessage).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -4,7 +4,7 @@ This app implements the core functionality to render and submit forms to Formulu
 
 # Usage in custom apps
 
-Primarily the formplayer exposes a javascript interface, that is injected into the custom app and can be used to render forms based on the jsonform spec's provided by formulus (formulus downloads the jsonform spec's and question_types from synkronus). Likewise, all of the question_types provided are loaded into the formplayer at initialization (by the formulus app) and can thus be used in the forms.
+Primarily the formplayer exposes a javascript interface, that is injected into the custom app and can be used to render forms based on the jsonform spec's provided by formulus (formulus downloads the jsonform spec's and optional bundle-local **question_types** from Synkronus). Built-in controls — including **`format: sub-observation`** for embedded repeats on the parent observation — ship inside Formplayer; additional formats can still be supplied via **`question_types/*/renderer.js`** in the app bundle and are merged at initialization.
 
 ## Responsibility of the Formulus Formplayer
 

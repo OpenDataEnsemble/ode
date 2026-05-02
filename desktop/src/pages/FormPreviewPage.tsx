@@ -4,11 +4,16 @@ import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
 import { FormplayerEmbed } from '../components/FormplayerEmbed';
 import {
   buildFormPreviewInit,
+  inferObservationIdFromSavedData,
   parseJsonObject,
 } from '../lib/buildFormPreviewInit';
 import { loadBundleFormplayerExtensions } from '../lib/bundleExtensionLoader';
 import type { FinalizeRequest } from '../lib/formPreviewBridge';
-import { handleFormPreviewBridgeMessage } from '../lib/formPreviewBridge';
+import {
+  handleFormPreviewBridgeMessage,
+  postFormplayerBridgeReply,
+  type FormPreviewDeferOpenSubObservationPayload,
+} from '../lib/formPreviewBridge';
 import type { FormPreviewEditState } from '../lib/formPreviewNavigation';
 import { tauriClient } from '../lib/tauriClient';
 import { WORKSPACE_BUNDLE_ACTIVE_DIR } from '../lib/workspacePaths';
@@ -17,8 +22,38 @@ import type { ActiveBundleFormEntry, BundleFormSpec } from '../types/domain';
 
 const DEFAULT_JSON = '{}';
 
+/**
+ * WebKit / WCO (Tauri): `MessageEvent.source` may not be strictly `===` to
+ * `iframe.contentWindow`, and `instanceof Window` can be false for iframe globals.
+ * `window.frameElement === iframe` identifies the embedding element reliably for same-origin frames.
+ */
+function messageSourceMatchesIframe(
+  source: Window,
+  iframe: HTMLIFrameElement | null | undefined,
+): boolean {
+  if (!iframe) {
+    return false;
+  }
+  try {
+    if (iframe.contentWindow === source) {
+      return true;
+    }
+    return source.frameElement === iframe;
+  } catch {
+    return false;
+  }
+}
+
 type LocationState = {
   formPreviewEdit?: FormPreviewEditState;
+};
+
+type NestedSubObservationSession = {
+  parentIframe: HTMLIFrameElement;
+  parentMessageId: string;
+  formType: string;
+  /** Null while bundle init is loading */
+  initData: FormInitData | null;
 };
 
 export function FormPreviewPage() {
@@ -51,6 +86,18 @@ export function FormPreviewPage() {
   >(null);
   const [finalizeRequest, setFinalizeRequest] =
     useState<FinalizeRequest | null>(null);
+
+  const [nestedSessions, setNestedSessions] = useState<
+    NestedSubObservationSession[]
+  >([]);
+  const nestedSessionsRef = useRef<NestedSubObservationSession[]>([]);
+  const nestedIframeByMessageIdRef = useRef<
+    Map<string, HTMLIFrameElement | null>
+  >(new Map());
+
+  useEffect(() => {
+    nestedSessionsRef.current = nestedSessions;
+  }, [nestedSessions]);
 
   const loadForms = useCallback(async () => {
     setListLoading(true);
@@ -210,19 +257,165 @@ export function FormPreviewPage() {
     });
   }, []);
 
+  const dismissTopNestedSession = useCallback(() => {
+    setNestedSessions(prev => {
+      const top = prev[prev.length - 1];
+      if (!top) {
+        return prev;
+      }
+      postFormplayerBridgeReply(
+        top.parentIframe,
+        'openFormplayer',
+        top.parentMessageId,
+        {
+          result: {
+            status: 'cancelled',
+            formType: top.formType,
+          },
+        },
+      );
+      nestedIframeByMessageIdRef.current.delete(top.parentMessageId);
+      return prev.slice(0, -1);
+    });
+  }, []);
+
+  const beginDeferredNestedOpen = useCallback(
+    (payload: FormPreviewDeferOpenSubObservationPayload) => {
+      const { parentIframe, messageId, formType, params, savedData } = payload;
+      setNestedSessions(prev => [
+        ...prev,
+        {
+          parentIframe,
+          parentMessageId: messageId,
+          formType,
+          initData: null,
+        },
+      ]);
+      void (async () => {
+        try {
+          const s = await tauriClient.readBundleFormSpec(formType);
+          const ext = await loadBundleFormplayerExtensions(formType);
+          const observationId = inferObservationIdFromSavedData(savedData);
+          const initData = buildFormPreviewInit({
+            formType,
+            observationId,
+            params,
+            savedData,
+            formSchema: s.formSchema,
+            uiSchema: s.uiSchema,
+            extensions: ext.extensions,
+            customQuestionTypes: ext.customQuestionTypes,
+            subObservationMode: true,
+          });
+          setNestedSessions(prev =>
+            prev.map(sess =>
+              sess.parentMessageId === messageId ? { ...sess, initData } : sess,
+            ),
+          );
+        } catch (e) {
+          postFormplayerBridgeReply(parentIframe, 'openFormplayer', messageId, {
+            result: {
+              status: 'error',
+              formType,
+              message: e instanceof Error ? e.message : String(e),
+            },
+          });
+          nestedIframeByMessageIdRef.current.delete(messageId);
+          setNestedSessions(prev =>
+            prev.filter(sess => sess.parentMessageId !== messageId),
+          );
+        }
+      })();
+    },
+    [],
+  );
+
+  const tryCompleteNestedSubObservationFinalize = useCallback(
+    async (
+      eventSource: Window,
+      request: FinalizeRequest,
+    ): Promise<{ result?: string; error?: string } | null> => {
+      const stack = nestedSessionsRef.current;
+      const top = stack[stack.length - 1];
+      if (!top?.initData) {
+        return null;
+      }
+      const topEl = nestedIframeByMessageIdRef.current.get(top.parentMessageId);
+      if (!messageSourceMatchesIframe(eventSource, topEl)) {
+        return null;
+      }
+
+      const syntheticResult =
+        request.kind === 'update' ? request.observationId : crypto.randomUUID();
+
+      const completion =
+        request.kind === 'update'
+          ? {
+              status: 'form_updated' as const,
+              formType: top.formType,
+              observationId: request.observationId,
+              formData: request.finalData,
+            }
+          : {
+              status: 'form_submitted' as const,
+              formType: top.formType,
+              formData: request.finalData,
+            };
+
+      postFormplayerBridgeReply(
+        top.parentIframe,
+        'openFormplayer',
+        top.parentMessageId,
+        { result: completion },
+      );
+
+      nestedIframeByMessageIdRef.current.delete(top.parentMessageId);
+      setNestedSessions(prev => prev.slice(0, -1));
+
+      return { result: syntheticResult };
+    },
+    [],
+  );
+
+  const resolveReplyIframe = useCallback((source: Window) => {
+    if (messageSourceMatchesIframe(source, iframeRef.current)) {
+      return iframeRef.current;
+    }
+    for (const s of nestedSessionsRef.current) {
+      const el = nestedIframeByMessageIdRef.current.get(s.parentMessageId);
+      if (messageSourceMatchesIframe(source, el)) {
+        return el ?? null;
+      }
+    }
+    return null;
+  }, []);
+
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (e.source !== iframeRef.current?.contentWindow) {
+      const src = e.source;
+      if (src == null || typeof src !== 'object') {
         return;
       }
-      void handleFormPreviewBridgeMessage(e.data, {
+      const winSrc = src as Window;
+      if (!resolveReplyIframe(winSrc)) {
+        return;
+      }
+      void handleFormPreviewBridgeMessage(e, {
         iframe: iframeRef.current,
+        resolveReplyIframe,
         onFinalize,
+        onDeferOpenSubObservation: beginDeferredNestedOpen,
+        tryCompleteNestedSubObservationFinalize,
       });
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, [onFinalize]);
+  }, [
+    beginDeferredNestedOpen,
+    onFinalize,
+    resolveReplyIframe,
+    tryCompleteNestedSubObservationFinalize,
+  ]);
 
   const formOptions = forms.map(f => (
     <option key={f.formType} value={f.formType}>
@@ -241,6 +434,50 @@ export function FormPreviewPage() {
           setFinalizeRequest(null);
         }}
       />
+
+      {nestedSessions.length > 0 ? (
+        <div className="form-preview-nested-overlay-root">
+          {nestedSessions.map((session, idx) => (
+            <div
+              key={session.parentMessageId}
+              className="form-preview-nested-layer"
+              style={{ zIndex: 200 + idx }}>
+              <div className="form-preview-nested-layer-inner card">
+                <div className="form-preview-nested-toolbar">
+                  <span className="muted">
+                    Sub-observation ({session.formType})
+                  </span>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={dismissTopNestedSession}>
+                    Cancel
+                  </button>
+                </div>
+                {session.initData ? (
+                  <FormplayerEmbed
+                    ref={el => {
+                      const map = nestedIframeByMessageIdRef.current;
+                      if (el) {
+                        map.set(session.parentMessageId, el);
+                      } else {
+                        map.delete(session.parentMessageId);
+                      }
+                    }}
+                    formInitData={session.initData}
+                    emptyMessage=""
+                  />
+                ) : (
+                  <p className="muted form-preview-nested-loading">
+                    Loading nested form…
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="split split-form-preview">
         <aside className="panel panel-form-preview-sidebar card">
           <h2>Form preview</h2>
