@@ -14,6 +14,7 @@ import {
   QrcodeResult,
   FileResult,
   AudioResult,
+  FormCompletionResult,
 } from '../types/FormulusInterfaceDefinition';
 
 import {
@@ -325,6 +326,26 @@ class FormulusClient {
     console.warn('Formulus interface not available for runLocalModel');
     return Promise.reject(
       new Error('Formulus interface not available for runLocalModel'),
+    );
+  }
+
+  /**
+   * Open Formplayer from within the formplayer WebView (e.g. sub-observation rows).
+   * Forwards to the injected Formulus API.
+   */
+  public async openFormplayer(
+    formType: string,
+    params: Record<string, unknown>,
+    savedData: Record<string, unknown>,
+    options?: { subObservationMode?: boolean },
+  ): Promise<FormCompletionResult> {
+    await this.tryEnsureFormulus();
+    if (this.formulus) {
+      return this.formulus.openFormplayer(formType, params, savedData, options);
+    }
+    console.warn('Formulus interface not available for openFormplayer');
+    return Promise.reject(
+      new Error('Formulus interface not available for openFormplayer'),
     );
   }
 

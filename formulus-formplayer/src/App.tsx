@@ -71,6 +71,9 @@ import HtmlLabelRenderer, {
 import AdateQuestionRenderer, {
   adateQuestionTester,
 } from './renderers/AdateQuestionRenderer';
+import SubObservationQuestionRenderer, {
+  subObservationQuestionTester,
+} from './renderers/SubObservationQuestionRenderer';
 import { shellMaterialRenderers } from './theme/material-wrappers';
 import { numberStepperRenderer } from './renderers/NumberStepperRenderer';
 import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
@@ -263,6 +266,10 @@ export const customRenderers = [
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
   { tester: htmlLabelTester, renderer: HtmlLabelRenderer },
   { tester: adateQuestionTester, renderer: AdateQuestionRenderer },
+  {
+    tester: subObservationQuestionTester,
+    renderer: SubObservationQuestionRenderer,
+  },
   // Dynamic choice list renderer for x-dynamicEnum fields
   { tester: dynamicEnumTester, renderer: DynamicEnumControl },
   // Number/integer fields with simple +/- buttons via InputAdornment
@@ -929,6 +936,7 @@ function App() {
       const dateRegex = /^(\d{4}|\?\?\?\?)-(\d{2}|\?\?)-(\d{2}|\?\?)$/;
       return typeof data === 'string' && dateRegex.test(data);
     });
+    instance.addFormat('sub-observation', () => true);
 
     // Register custom question type formats with AJV
     // Custom question types use "format": "formatName" in schemas (not "type")
