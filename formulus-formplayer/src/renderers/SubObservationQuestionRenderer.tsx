@@ -131,8 +131,6 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     return d && typeof d === 'object' ? (d as Record<string, unknown>) : {};
   }, [jsonForms.core?.data]);
 
-  const parentValue = resolveParentValue(formData, parentValuePath);
-
   const valueRows = useMemo(() => coerceSubObservationRows(data), [data]);
 
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
@@ -415,9 +413,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
                       verticalAlign: 'middle',
                       fontSize: '0.875rem',
                     }}>
-                    {parentValue == null || parentValue === ''
-                      ? 'Waiting for parent value…'
-                      : 'No sub-observations for this record.'}
+                    No observations
                   </Box>
                 </Box>
               ) : (
