@@ -74,7 +74,7 @@ export function WorkbenchCustomAppPage() {
       if (e.source !== iframeRef.current?.contentWindow) {
         return;
       }
-      void handleFormPreviewBridgeMessage(e.data, {
+      void handleFormPreviewBridgeMessage(e, {
         iframe: iframeRef.current,
         onFinalize,
         onOpenFormplayerNavigate,

@@ -87,7 +87,7 @@ CI regenerates the client and **fails** if the repo does not match (`ode-desktop
 ## Architecture pointers
 
 - **Bridge contract**: [`formulus/src/webview/FormulusInterfaceDefinition.ts`](../formulus/src/webview/FormulusInterfaceDefinition.ts) — source of truth for `formulusAPI` / postMessage. After changes, run **`sync-interface`** in `formulus-formplayer` and mirror behavior in the desktop WebView host.
-- **Form preview host** (Workbench → Form preview): `public/formulus-injection.js` + iframe shim; parent handles `postMessage` in **`src/lib/formPreviewBridge.ts`** (explicit matrix per `FormulusInjectionScript` request `type`; device APIs stubbed, observations + URIs use Tauri where applicable).
+- **Form preview host** (Workbench → Form preview): `public/formulus-injection.js` + iframe shim; parent handles `postMessage` in **`src/lib/formPreviewBridge.ts`** (explicit matrix per `FormulusInjectionScript` request `type`; device APIs stubbed, observations + URIs use Tauri where applicable). Nested **sub-observation** flows (`openFormplayer` + `options.subObservationMode`) open a stacked Form preview iframe and resolve the parent promise with `FormCompletionResult` without persisting the child as a top-level observation.
 - **Bundle extensions**: merge rules for `forms/ext.json` and `forms/{form}/ext.json` follow Formulus `ExtensionService`; see `src/lib/bundleResolution.ts`.
 - **Embedded formplayer**: production build copied into `public/formplayer_dist/`; load in a WebView with the same **`FormInitData`** expectations as mobile (see `src/lib/formplayerHost.ts` for placeholder types).
 

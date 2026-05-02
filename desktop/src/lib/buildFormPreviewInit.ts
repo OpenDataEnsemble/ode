@@ -1,6 +1,21 @@
 import type { FormInitData } from './formplayerHost';
 import { sanitizePortableAttachmentsInFormData } from './sanitizeFormSavedData';
 
+/** Infer SQLite observation id from embedded saved row data (matches Workbench navigate-from-custom-app). */
+export function inferObservationIdFromSavedData(
+  savedData: Record<string, unknown>,
+): string | null {
+  const oid = savedData.observationId;
+  if (typeof oid === 'string' && oid.trim()) {
+    return oid.trim();
+  }
+  const id = savedData.id;
+  if (typeof id === 'string' && id.trim()) {
+    return id.trim();
+  }
+  return null;
+}
+
 export function buildFormPreviewInit(args: {
   formType: string;
   params: Record<string, unknown>;
@@ -9,10 +24,12 @@ export function buildFormPreviewInit(args: {
   uiSchema: unknown;
   /** When set, formplayer treats this as edit mode (`updateObservation` on finalize). */
   observationId?: string | null;
+  /** Nested sub-observation session opened via `openFormplayer`. */
+  subObservationMode?: boolean;
   extensions?: FormInitData['extensions'];
   customQuestionTypes?: FormInitData['customQuestionTypes'];
 }): FormInitData {
-  return {
+  const init: FormInitData = {
     formType: args.formType,
     observationId: args.observationId ?? null,
     params: args.params,
@@ -22,6 +39,10 @@ export function buildFormPreviewInit(args: {
     extensions: args.extensions,
     customQuestionTypes: args.customQuestionTypes,
   };
+  if (args.subObservationMode) {
+    init.subObservationMode = true;
+  }
+  return init;
 }
 
 export function parseJsonObject(
