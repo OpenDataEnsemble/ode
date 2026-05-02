@@ -457,8 +457,10 @@ export async function handleFormPreviewBridgeMessage(
           eventSource != null &&
           typeof ctx.tryCompleteNestedSubObservationFinalize === 'function'
         ) {
-          const nested =
-            await ctx.tryCompleteNestedSubObservationFinalize(eventSource, req);
+          const nested = await ctx.tryCompleteNestedSubObservationFinalize(
+            eventSource,
+            req,
+          );
           if (nested != null) {
             reply('submitObservation', nested);
             return;
@@ -483,8 +485,10 @@ export async function handleFormPreviewBridgeMessage(
           eventSource != null &&
           typeof ctx.tryCompleteNestedSubObservationFinalize === 'function'
         ) {
-          const nested =
-            await ctx.tryCompleteNestedSubObservationFinalize(eventSource, req);
+          const nested = await ctx.tryCompleteNestedSubObservationFinalize(
+            eventSource,
+            req,
+          );
           if (nested != null) {
             reply('updateObservation', nested);
             return;

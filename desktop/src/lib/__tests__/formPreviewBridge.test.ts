@@ -130,8 +130,7 @@ describe('handleFormPreviewBridgeMessage', () => {
       }),
       {
         iframe: primaryIframe,
-        resolveReplyIframe: src =>
-          src === primaryCw ? primaryIframe : null,
+        resolveReplyIframe: src => (src === primaryCw ? primaryIframe : null),
         onFinalize: async () => ({ error: 'no' }),
         onDeferOpenSubObservation: defer,
       },
@@ -170,8 +169,7 @@ describe('handleFormPreviewBridgeMessage', () => {
       }),
       {
         iframe: null,
-        resolveReplyIframe: src =>
-          src === nestedCw ? nestedIframe : null,
+        resolveReplyIframe: src => (src === nestedCw ? nestedIframe : null),
         onFinalize,
         tryCompleteNestedSubObservationFinalize: tryNested,
       },

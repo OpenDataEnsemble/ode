@@ -33,9 +33,9 @@ describe('buildFormPreviewInit', () => {
 
 describe('inferObservationIdFromSavedData', () => {
   it('reads observationId then id', () => {
-    expect(
-      inferObservationIdFromSavedData({ observationId: '  abc  ' }),
-    ).toBe('abc');
+    expect(inferObservationIdFromSavedData({ observationId: '  abc  ' })).toBe(
+      'abc',
+    );
     expect(inferObservationIdFromSavedData({ id: 'x' })).toBe('x');
     expect(inferObservationIdFromSavedData({})).toBeNull();
   });

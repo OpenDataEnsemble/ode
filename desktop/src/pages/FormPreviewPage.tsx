@@ -346,9 +346,7 @@ export function FormPreviewPage() {
       }
 
       const syntheticResult =
-        request.kind === 'update'
-          ? request.observationId
-          : crypto.randomUUID();
+        request.kind === 'update' ? request.observationId : crypto.randomUUID();
 
       const completion =
         request.kind === 'update'
