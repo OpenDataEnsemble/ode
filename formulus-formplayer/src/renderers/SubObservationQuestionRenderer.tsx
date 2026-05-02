@@ -351,7 +351,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
               missingKeys.length > 0
             }
             onClick={() => void handleAdd()}>
-            {busyId === 'add' ? 'Adding…' : '+ Add Instance'}
+            {busyId === 'add' ? 'Adding…' : '+ Add observation'}
           </Button>
         </Box>
 
