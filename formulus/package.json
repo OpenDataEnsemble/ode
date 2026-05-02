@@ -14,9 +14,9 @@
     "format:check": "npx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
     "start": "react-native start",
     "test": "jest",
-    "generate": "ts-node --project scripts/tsconfig.json scripts/generateInjectionScript.ts",
+    "generate": "tsx scripts/generateInjectionScript.ts",
     "generate:api": "npx --yes @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated \"--additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && npm run format",
-    "generate_qr": "ts-node --project scripts/tsconfig.json scripts/generateQR.ts",
+    "generate_qr": "tsx scripts/generateQR.ts",
     "sync:version": "node scripts/syncNativeVersion.js",
     "vendor:notifee": "node scripts/vendor-notifee-core.mjs",
     "prebuild": "npm run sync:version && npm run generate"
@@ -89,7 +89,7 @@
     "jest": "^30.2.0",
     "prettier": "3.8.1",
     "react-test-renderer": "19.2.4",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.51.0"
   },
