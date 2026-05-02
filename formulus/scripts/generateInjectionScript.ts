@@ -1,10 +1,10 @@
-// Run with: npx ts-node generateInjectionScript.ts
+// Run with: npm run generate (tsx; package is "type": "module")
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
-/** True when this file is the Node entrypoint (ESM package + ts-node). */
+/** True when this file is the Node entrypoint (ESM package; run via tsx). */
 function isRunAsCli(): boolean {
   const entry = process.argv[1];
   if (!entry) {
