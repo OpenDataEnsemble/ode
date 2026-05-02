@@ -1,6 +1,6 @@
-#!/usr/bin/env ts-node
-
 import { Buffer } from 'buffer';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 // Polyfill Buffer for Node.js environment
 if (typeof global !== 'undefined' && !global.Buffer) {
@@ -69,6 +69,10 @@ function main() {
   }
 }
 
-if (require.main === module) {
+const entry = process.argv[1];
+if (
+  entry &&
+  path.resolve(entry) === path.resolve(fileURLToPath(import.meta.url))
+) {
   main();
 }
