@@ -5,17 +5,10 @@ import {
   QrcodeResult,
   FileResult,
   AudioResult,
+  LocationResult,
 } from '../types/FormulusInterfaceDefinition';
 
-// Local lightweight types for location/video results used only in the
-// development mock. The shared Formulus interface no longer exposes
-// these, but the mock helpers still refer to them.
-type LocationResult = {
-  fieldId: string;
-  status: 'success' | 'cancelled' | 'error';
-  message?: string;
-  data?: any;
-};
+// Local lightweight type for video results used only in the development mock.
 
 type VideoResult = {
   fieldId: string;

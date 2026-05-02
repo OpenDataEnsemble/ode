@@ -174,12 +174,26 @@ export interface FileResultData {
 }
 
 /**
+ * GPS / location capture result (in-form field), from native GeolocationService.
+ */
+export interface LocationResultData {
+  type: 'location';
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  altitude?: number | null;
+  altitudeAccuracy?: number | null;
+  timestamp: string;
+}
+
+/**
  * Type aliases for specific action results
  */
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
 export type QrcodeResult = ActionResult<QrcodeResultData>;
 export type FileResult = ActionResult<FileResultData>;
+export type LocationResult = ActionResult<LocationResultData>;
 
 /**
  * @deprecated Use ActionResult<CameraResultData> instead
@@ -360,11 +374,11 @@ export interface FormulusInterface {
   requestCamera(fieldId: string): Promise<CameraResult>;
 
   /**
-   * Request location for a field
+   * Request location for a field (captures into the form GPS field).
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<LocationResult>} Promise that resolves with location result or rejects on error
    */
-  requestLocation(fieldId: string): Promise<void>;
+  requestLocation(fieldId: string): Promise<LocationResult>;
 
   /**
    * Request file selection for a field
