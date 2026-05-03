@@ -33,7 +33,9 @@ describe('pageIsVisibleInSwipe', () => {
       ],
     };
     const data = { bar: 'no', foo: '' };
-    expect(pageIsVisibleInSwipe(page as any, data, '', ajv, config)).toBe(false);
+    expect(pageIsVisibleInSwipe(page as any, data, '', ajv, config)).toBe(
+      false,
+    );
   });
 
   it('returns true when nested Control is visible under Group', () => {
@@ -80,10 +82,22 @@ describe('pageIsVisibleInSwipe', () => {
       ],
     };
     expect(
-      pageIsVisibleInSwipe(page as any, { title: '', detail: '' }, '', ajv, config),
+      pageIsVisibleInSwipe(
+        page as any,
+        { title: '', detail: '' },
+        '',
+        ajv,
+        config,
+      ),
     ).toBe(false);
     expect(
-      pageIsVisibleInSwipe(page as any, { title: 'a', detail: '' }, '', ajv, config),
+      pageIsVisibleInSwipe(
+        page as any,
+        { title: 'a', detail: '' },
+        '',
+        ajv,
+        config,
+      ),
     ).toBe(true);
   });
 
@@ -112,10 +126,22 @@ describe('pageIsVisibleInSwipe', () => {
       ],
     };
     expect(
-      pageIsVisibleInSwipe(page as any, { flag: null, name: '' }, '', ajv, config),
+      pageIsVisibleInSwipe(
+        page as any,
+        { flag: null, name: '' },
+        '',
+        ajv,
+        config,
+      ),
     ).toBe(true);
     expect(
-      pageIsVisibleInSwipe(page as any, { flag: 'set', name: '' }, '', ajv, config),
+      pageIsVisibleInSwipe(
+        page as any,
+        { flag: 'set', name: '' },
+        '',
+        ajv,
+        config,
+      ),
     ).toBe(false);
   });
 
@@ -139,16 +165,14 @@ describe('pageIsVisibleInSwipe', () => {
           schema: { const: true },
         },
       },
-      elements: [
-        { type: 'Control', scope: '#/properties/foo' },
-      ],
+      elements: [{ type: 'Control', scope: '#/properties/foo' }],
     };
-    expect(pageIsVisibleInSwipe(page as any, { on: false, foo: 1 }, '', ajv, config)).toBe(
-      false,
-    );
-    expect(pageIsVisibleInSwipe(page as any, { on: true, foo: 1 }, '', ajv, config)).toBe(
-      true,
-    );
+    expect(
+      pageIsVisibleInSwipe(page as any, { on: false, foo: 1 }, '', ajv, config),
+    ).toBe(false);
+    expect(
+      pageIsVisibleInSwipe(page as any, { on: true, foo: 1 }, '', ajv, config),
+    ).toBe(true);
   });
 });
 
@@ -174,14 +198,14 @@ describe('visiblePageIndicesFromLayouts', () => {
       { type: 'Finalize' },
     ];
     const dataOne = { toggle: 'one', a: 1 };
-    expect(visiblePageIndicesFromLayouts(layouts as any, dataOne, '', ajv, config)).toEqual([
-      0, 1,
-    ]);
+    expect(
+      visiblePageIndicesFromLayouts(layouts as any, dataOne, '', ajv, config),
+    ).toEqual([0, 1]);
 
     const dataTwo = { toggle: 'two', a: 1 };
-    expect(visiblePageIndicesFromLayouts(layouts as any, dataTwo, '', ajv, config)).toEqual([
-      1,
-    ]);
+    expect(
+      visiblePageIndicesFromLayouts(layouts as any, dataTwo, '', ajv, config),
+    ).toEqual([1]);
   });
 });
 
@@ -208,7 +232,13 @@ describe('collectVisibleControlsInSubtree', () => {
       ],
     };
     const data = { always: 1, toggle: 'y', conditional: 2 };
-    const controls = collectVisibleControlsInSubtree(page as any, data, '', ajv, config);
+    const controls = collectVisibleControlsInSubtree(
+      page as any,
+      data,
+      '',
+      ajv,
+      config,
+    );
     expect(controls).toHaveLength(1);
     expect((controls[0] as any).scope).toBe('#/properties/always');
   });

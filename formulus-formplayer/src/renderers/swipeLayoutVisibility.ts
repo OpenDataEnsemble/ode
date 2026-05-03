@@ -1,9 +1,5 @@
 import type Ajv from 'ajv';
-import {
-  isControl,
-  isVisible,
-  type UISchemaElement,
-} from '@jsonforms/core';
+import { isControl, isVisible, type UISchemaElement } from '@jsonforms/core';
 
 /**
  * Same visibility semantics as JsonForms renderers (see mapStateToControlProps /
@@ -48,7 +44,15 @@ function subtreeHasVisibleInteractiveContent(
   }
   const childPath = dispatchPathForLayoutChild(dispatchPath);
   for (const child of children) {
-    if (subtreeHasVisibleInteractiveContent(child, rootData, childPath, ajv, config)) {
+    if (
+      subtreeHasVisibleInteractiveContent(
+        child,
+        rootData,
+        childPath,
+        ajv,
+        config,
+      )
+    ) {
       return true;
     }
   }
@@ -89,8 +93,14 @@ export function pageIsVisibleInSwipe(
   }
 
   const childPath = dispatchPathForLayoutChild(dispatchPath);
-  return typed.elements.some((child) =>
-    subtreeHasVisibleInteractiveContent(child, rootData, childPath, ajv, config),
+  return typed.elements.some(child =>
+    subtreeHasVisibleInteractiveContent(
+      child,
+      rootData,
+      childPath,
+      ajv,
+      config,
+    ),
   );
 }
 
@@ -103,7 +113,7 @@ export function visiblePageIndicesFromLayouts(
 ): number[] {
   return layouts
     .map((_, idx) => idx)
-    .filter((idx) =>
+    .filter(idx =>
       pageIsVisibleInSwipe(
         layouts[idx],
         rootData,

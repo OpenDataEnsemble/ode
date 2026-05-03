@@ -201,13 +201,7 @@ const SwipeLayoutRenderer = ({
   useEffect(() => {
     if (layouts.length === 0) return;
     if (
-      pageIsVisibleInSwipe(
-        layouts[currentPage],
-        data,
-        path ?? '',
-        ajv,
-        config,
-      )
+      pageIsVisibleInSwipe(layouts[currentPage], data, path ?? '', ajv, config)
     ) {
       return;
     }
@@ -222,7 +216,16 @@ const SwipeLayoutRenderer = ({
     if (prev !== undefined) {
       onPageChange(prev);
     }
-  }, [currentPage, data, layouts, visiblePageIndices, onPageChange, path, ajv, config]);
+  }, [
+    currentPage,
+    data,
+    layouts,
+    visiblePageIndices,
+    onPageChange,
+    path,
+    ajv,
+    config,
+  ]);
 
   // ----- Required-field validation -----
 
