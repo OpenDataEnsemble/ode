@@ -12,7 +12,9 @@ import {
   useJsonForms,
 } from '@jsonforms/react';
 import {
+  ControlElement,
   ControlProps,
+  createAjv,
   rankWith,
   uiTypeIs,
   RankedTester,
@@ -25,78 +27,11 @@ import { primaryKeyboardEnterKeyHint } from '../utils/keyboardEnterKeyHint';
 import { draftService } from '../services/DraftService';
 import FormProgressBar from '../components/FormProgressBar';
 import FormLayout from '../components/FormLayout';
-
-// ---------------------------------------------------------------------------
-// Page visibility helpers
-// ---------------------------------------------------------------------------
-
-/** Resolve a data value from a JSON Pointer scope (e.g. "#/properties/sexo"). */
-const resolveDataValue = (scope: string, data: any): any => {
-  if (!scope || !data) return undefined;
-  const parts = scope.replace(/^#\/properties\//, '').split('/');
-  let value = data;
-  for (const part of parts) {
-    if (value != null && typeof value === 'object') {
-      value = value[part];
-    } else {
-      return undefined;
-    }
-  }
-  return value;
-};
-
-/** Evaluate a JSON Schema condition object against a concrete value. */
-const evaluateConditionSchema = (schema: any, value: any): boolean => {
-  if (!schema) return true;
-
-  if ('const' in schema) return value === schema.const;
-  if ('enum' in schema)
-    return Array.isArray(schema.enum) && schema.enum.includes(value);
-  if ('not' in schema) return !evaluateConditionSchema(schema.not, value);
-  if ('pattern' in schema && typeof value === 'string')
-    return new RegExp(schema.pattern).test(value);
-  if ('minimum' in schema && typeof value === 'number')
-    return value >= schema.minimum;
-  if ('maximum' in schema && typeof value === 'number')
-    return value <= schema.maximum;
-
-  return true;
-};
-
-/** Check whether a single UI‑schema element is visible given current data. */
-const isElementVisible = (element: any, data: any): boolean => {
-  if (!element?.rule) return true;
-
-  const { effect, condition } = element.rule;
-  if (!condition?.scope || !condition?.schema) return true;
-
-  const value = resolveDataValue(condition.scope, data);
-  const conditionMet = evaluateConditionSchema(condition.schema, value);
-
-  if (effect === 'SHOW') return conditionMet;
-  if (effect === 'HIDE') return !conditionMet;
-  // ENABLE / DISABLE do not affect visibility
-  return true;
-};
-
-/**
- * Determine whether a page (typically a VerticalLayout) has any visible
- * content.  A page is hidden only when **every** child element is hidden by a
- * rule.  Finalize pages and pages without children are always visible.
- */
-const isPageVisible = (page: any, data: any): boolean => {
-  if (!page) return false;
-  if (page.type === 'Finalize') return true;
-
-  // The page itself may carry a rule
-  if (page.rule && !isElementVisible(page, data)) return false;
-
-  // Pages without child elements (e.g. a bare Control) are always visible
-  if (!page.elements || page.elements.length === 0) return true;
-
-  // Visible if at least one child is visible
-  return page.elements.some((el: any) => isElementVisible(el, data));
-};
+import {
+  collectVisibleControlsInSubtree,
+  pageIsVisibleInSwipe,
+  visiblePageIndicesFromLayouts,
+} from './swipeLayoutVisibility';
 
 // ---------------------------------------------------------------------------
 // Testers
@@ -163,9 +98,12 @@ const SwipeLayoutRenderer = ({
     null,
   );
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
-  const { core } = useJsonForms();
+  const { core, config } = useJsonForms();
   const parentFormContext = useFormContext();
   const { formInitData } = parentFormContext;
+
+  const fallbackAjv = useMemo(() => createAjv(), []);
+  const ajv = core?.ajv ?? fallbackAjv;
 
   const uiType = (uischema as any).type;
   const isExplicitSwipeLayout = uiType === 'SwipeLayout';
@@ -223,10 +161,14 @@ const SwipeLayoutRenderer = ({
 
   /** Indices of pages that are currently visible given the form data. */
   const visiblePageIndices = useMemo(() => {
-    return layouts
-      .map((_: any, idx: number) => idx)
-      .filter((idx: number) => isPageVisible(layouts[idx], data));
-  }, [layouts, data]);
+    return visiblePageIndicesFromLayouts(
+      layouts,
+      data,
+      path ?? '',
+      ajv,
+      config,
+    );
+  }, [layouts, data, path, ajv, config]);
 
   /** Next visible page after `currentPage`, or null. */
   const nextVisiblePage = useMemo((): number | null => {
@@ -258,7 +200,11 @@ const SwipeLayoutRenderer = ({
   // prior page), jump to the nearest visible page.
   useEffect(() => {
     if (layouts.length === 0) return;
-    if (isPageVisible(layouts[currentPage], data)) return;
+    if (
+      pageIsVisibleInSwipe(layouts[currentPage], data, path ?? '', ajv, config)
+    ) {
+      return;
+    }
 
     // Prefer advancing forward, fall back to going backward
     const next = visiblePageIndices.find((i: number) => i > currentPage);
@@ -270,7 +216,16 @@ const SwipeLayoutRenderer = ({
     if (prev !== undefined) {
       onPageChange(prev);
     }
-  }, [currentPage, data, layouts, visiblePageIndices, onPageChange]);
+  }, [
+    currentPage,
+    data,
+    layouts,
+    visiblePageIndices,
+    onPageChange,
+    path,
+    ajv,
+    config,
+  ]);
 
   // ----- Required-field validation -----
 
@@ -307,28 +262,19 @@ const SwipeLayoutRenderer = ({
       return false;
     };
 
-    const getPageControls = (element: any): any[] => {
-      const controls: any[] = [];
-      if (element.type === 'Control' && element.scope) {
-        controls.push(element);
-      }
-      if (element.elements && Array.isArray(element.elements)) {
-        element.elements.forEach((el: any) => {
-          controls.push(...getPageControls(el));
-        });
-      }
-      return controls;
-    };
-
-    // Only validate controls that are actually visible
-    const pageControls = getPageControls(currentPageElement).filter(control =>
-      isElementVisible(control, data),
+    const pageControls = collectVisibleControlsInSubtree(
+      currentPageElement,
+      data,
+      path ?? '',
+      ajv,
+      config,
     );
 
     pageControls.forEach(control => {
-      if (!control.scope) return;
+      const c = control as ControlElement;
+      if (!c.scope) return;
 
-      const fieldPath = control.scope;
+      const fieldPath = c.scope;
       const fieldSchema = getFieldSchema(fieldPath);
       if (!fieldSchema) return;
 
@@ -377,7 +323,7 @@ const SwipeLayoutRenderer = ({
     });
 
     return missingFields;
-  }, [core, data, layouts, currentPage]);
+  }, [core, data, layouts, currentPage, path, ajv, config]);
 
   // ----- Navigation -----
 
