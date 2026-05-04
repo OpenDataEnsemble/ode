@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-05-02T16:53:14.030Z
+// Last generated: 2026-05-04T10:47:58.554Z
 
 (function () {
   // Enhanced API availability detection and recovery
@@ -904,6 +904,67 @@
         globalThis.ReactNativeWebView.postMessage(
           JSON.stringify({
             type: 'requestAudio',
+            messageId,
+            fieldId: fieldId,
+          }),
+        );
+      });
+    },
+
+    // requestVideo: fieldId: string => Promise<VideoResult>
+    requestVideo: function (fieldId) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        // Add response handler for methods that return values
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data; // Already an object
+            } else {
+              // console.warn('requestVideo callback: Received response with unexpected data type:', typeof event.data, event.data);
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'requestVideo callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
+              return;
+            }
+            if (
+              data.type === 'requestVideo_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            console.error(
+              "'requestVideo' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        // Send the message to React Native
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'requestVideo',
             messageId,
             fieldId: fieldId,
           }),

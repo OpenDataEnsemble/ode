@@ -120,26 +120,51 @@ export interface AttachmentDisplayDescriptor {
 }
 
 /**
- * Audio-specific result data
- * @property {'audio'} type - Always 'audio' for audio results
- * @property {string} filename - Generated filename for the audio
- * @property {string} base64 - Base64 encoded audio data
- * @property {string} url - Data URL for the audio
- * @property {string} timestamp - ISO timestamp when audio was recorded
- * @property {object} metadata - Audio metadata (duration, format, etc.)
+ * Audio-specific bridge payload after recording.
+ *
+ * **Observation JSON:** persist only **`type`**, **`filename`** (basename),
+ * **`timestamp`**, and **`metadata`** (portable subset). Do **not** persist **`uri`**,
+ * **`url`**, or **`base64`**; resolve playback URLs with {@link FormulusInterface.getAttachmentUri}.
+ *
+ * @property {string} uri - Native path or `file://` URL — ephemeral.
+ * @property {string} [base64] - Optional (e.g. browser mocks).
+ * @property {string} [url] - Optional data/http URL — ephemeral.
  */
 export interface AudioResultData {
   type: 'audio';
   filename: string;
-  base64: string;
-  url: string;
+  uri?: string;
+  base64?: string;
+  url?: string;
   timestamp: string;
   metadata: {
     duration: number;
     format: string;
-    sampleRate: number;
-    channels: number;
     size: number;
+    sampleRate?: number;
+    channels?: number;
+  };
+}
+
+/**
+ * Video-specific bridge payload after recording.
+ *
+ * **Observation JSON:** persist only **`type`**, **`filename`** (basename),
+ * **`timestamp`**, and **`metadata`**. Do **not** persist **`uri`** / **`url`**;
+ * resolve playback URLs with {@link FormulusInterface.getAttachmentUri}.
+ */
+export interface VideoResultData {
+  type: 'video';
+  filename: string;
+  uri?: string;
+  url?: string;
+  timestamp: string;
+  metadata: {
+    duration: number;
+    format: string;
+    size: number;
+    width?: number;
+    height?: number;
   };
 }
 
@@ -156,24 +181,32 @@ export interface QrcodeResultData {
 }
 
 /**
- * File selection result data
- * @property {'file'} type - Always 'file' for file selection results
- * @property {string} filename - Original filename of the selected file
- * @property {string} uri - Local file URI (no base64 encoding)
- * @property {string} mimeType - MIME type of the selected file
- * @property {number} size - File size in bytes
- * @property {string} timestamp - ISO timestamp when file was selected
- * @property {object} metadata - File metadata (extension, original path, etc.)
+ * File selection result data from the native document picker (bridge payload).
+ *
+ * **Observation persistence:** store {@link FileResultData.filename} as **basename only**
+ * (draft/synced attachment key), plus portable {@link FileResultData.metadata} fields such as
+ * `mimeType`, `size`, `extension`, and optional **{@link FileResultData.metadata.originalFileName}**
+ * for display. Do **not** persist bridge-only paths: {@link FileResultData.uri},
+ * {@link FileResultData.url}, or {@link FileResultData.metadata.originalPath}.
+ *
+ * @property {'file'} type - Always `file` for file selection results
+ * @property {string} filename - Stable basename under attachments (e.g. uuid.pdf)
+ * @property {string} uri - Ephemeral absolute path of the draft copy (native → WebView)
+ * @property {string} [url] - Ephemeral `file://` URL for the draft copy
  */
 export interface FileResultData {
   type: 'file';
   filename: string;
-  uri: string; // Local file URI (no base64 encoding)
+  uri: string;
+  url?: string;
   mimeType: string;
   size: number;
   timestamp: string;
   metadata: {
     extension: string;
+    /** Original picker display name; safe to persist on observations. */
+    originalFileName?: string;
+    /** Ephemeral native path from the picker; do not persist. */
     originalPath?: string;
   };
 }
@@ -196,6 +229,7 @@ export interface LocationResultData {
  */
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
+export type VideoResult = ActionResult<VideoResultData>;
 export type QrcodeResult = ActionResult<QrcodeResultData>;
 export type FileResult = ActionResult<FileResultData>;
 export type LocationResult = ActionResult<LocationResultData>;
@@ -422,6 +456,13 @@ export interface FormulusInterface {
    * @returns {Promise<AudioResult>} Promise that resolves with audio result or rejects on error/cancellation
    */
   requestAudio(fieldId: string): Promise<AudioResult>;
+
+  /**
+   * Request video recording for a field (camera / picker — host-defined).
+   * @param {string} fieldId - The ID of the field
+   * @returns {Promise<VideoResult>} Promise that resolves with video result or rejects on error/cancellation
+   */
+  requestVideo(fieldId: string): Promise<VideoResult>;
 
   /**
    * Request QR code scanning for a field
