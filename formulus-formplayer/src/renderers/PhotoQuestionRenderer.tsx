@@ -23,33 +23,15 @@ import {
 } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
+import {
+  attachmentBasenameFromFilename,
+  attachmentBasenameFromObservation,
+} from '../utils/attachmentBasename';
 
 // Helper to parse pixel values from tokens
 const parsePx = (value: string): number => {
   return parseInt(value.replace('px', ''), 10);
 };
-
-/**
- * Basename for {@link FormulusClient.getAttachmentUri} from `photo.filename`
- * (handles values that mistakenly include path segments).
- */
-function photoAttachmentBasename(
-  data: Record<string, unknown> | null,
-): string | null {
-  if (!data || typeof data.filename !== 'string') {
-    return null;
-  }
-  const t = data.filename.trim();
-  if (!t) {
-    return null;
-  }
-  const normalized = t.replace(/\\/g, '/');
-  const last = normalized.split('/').pop()?.trim() ?? '';
-  if (!last || last === '.' || last === '..' || last.includes('..')) {
-    return null;
-  }
-  return last;
-}
 
 /**
  * Subset of camera metadata kept on the observation (portable, no host paths or picker noise).
@@ -127,7 +109,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     let cancelled = false;
     const run = async () => {
       console.log('Photo data changed:', currentPhotoData);
-      const base = photoAttachmentBasename(
+      const base = attachmentBasenameFromObservation(
         currentPhotoData as Record<string, unknown> | null,
       );
       const resolved = await formulusClient.current.getAttachmentUri(
@@ -164,9 +146,9 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
 
       // Check if the result was successful
       if (cameraResult.status === 'success' && cameraResult.data) {
-        const storedBasename = photoAttachmentBasename({
-          filename: cameraResult.data.filename,
-        });
+        const storedBasename = attachmentBasenameFromFilename(
+          cameraResult.data.filename,
+        );
         if (!storedBasename) {
           setSafeError('Invalid photo filename from camera.');
           return;
@@ -253,7 +235,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   const validationError =
     errors && errors.length > 0 ? String(errors[0]) : null;
 
-  const displayBasename = photoAttachmentBasename(
+  const displayBasename = attachmentBasenameFromObservation(
     currentPhotoData as Record<string, unknown> | null,
   );
 
