@@ -1,36 +1,37 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
 import { materialRenderers } from '@jsonforms/material-renderers';
-import PhotoQuestionRenderer, {
-  photoQuestionTester,
-} from '../renderers/PhotoQuestionRenderer';
+import VideoQuestionRenderer, {
+  videoQuestionTester,
+} from '../renderers/VideoQuestionRenderer';
 import type {
-  CameraResult,
   FormulusInterface,
+  VideoResult,
 } from '../types/FormulusInterfaceDefinition';
 import { JsonFormsControlWrapper } from './JsonFormsControlWrapper';
 
-import demoPhotoUrl from './assets/sig.png';
+const DEMO_VIDEO_URL =
+  'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
 
-const photoSchema = {
+const videoSchema = {
   type: 'object',
   properties: {
-    photoField: {
+    videoField: {
       type: 'object',
-      format: 'photo',
-      title: 'Site photo',
-      description: 'Capture a photo for this observation.',
+      format: 'video',
+      title: 'Video clip',
+      description: 'Record a short video.',
     },
   },
 };
 
-const photoUischema = {
+const videoUischema = {
   type: 'Control',
-  scope: '#/properties/photoField',
+  scope: '#/properties/videoField',
 };
 
 const renderers = [
-  { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
+  { tester: videoQuestionTester, renderer: VideoQuestionRenderer },
   ...materialRenderers,
 ];
 
@@ -46,7 +47,7 @@ function basenameFromAttachmentRef(
   return normalized.split('/').pop()?.trim() ?? '';
 }
 
-function storyCaptureBasename(fixed?: string): string {
+function storyVideoBasename(fixed?: string): string {
   if (fixed) {
     return fixed;
   }
@@ -54,51 +55,39 @@ function storyCaptureBasename(fixed?: string): string {
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : String(Date.now());
-  return `story-capture-${id}.jpg`;
+  return `story-video-${id}.mp4`;
 }
 
-/**
- * Storybook bridge aligned with RN: {@link requestCamera} registers a basename → display URL;
- * previews load only through {@link FormulusInterface.getAttachmentUri} (like
- * {@link resolveAttachmentDisplayUri} on device).
- */
-function createPhotoStoryFormulusMock(options: {
-  /** Pre-seed basenames (e.g. loaded observation) → browser-loadable preview URL */
+function createVideoStoryFormulusMock(options: {
   seedBasenames?: Record<string, string>;
-  /** Fixed basename for each simulated capture (default: random per tap) */
   captureBasename?: string;
-  /** URL returned by getAttachmentUri after capture */
   previewUrlAfterCapture?: string;
 }): FormulusInterface {
   const vault = new Map<string, string>(
     Object.entries(options.seedBasenames ?? {}),
   );
-  const previewUrl = options.previewUrlAfterCapture ?? demoPhotoUrl;
+  const previewUrl = options.previewUrlAfterCapture ?? DEMO_VIDEO_URL;
 
   const iface = {
-    requestCamera: async (_fieldId: string): Promise<CameraResult> => {
-      const basename = storyCaptureBasename(options.captureBasename);
+    requestVideo: async (_fieldId: string): Promise<VideoResult> => {
+      const basename = storyVideoBasename(options.captureBasename);
       vault.set(basename, previewUrl);
       const ts = new Date().toISOString();
       const draftPath = `/story_mock/attachments/draft/${basename}`;
       return {
         status: 'success',
         data: {
-          type: 'image',
-          id: basename.replace(/\.jpg$/i, ''),
+          type: 'video',
           filename: basename,
           uri: draftPath,
           url: `file://${draftPath}`,
           timestamp: ts,
           metadata: {
-            width: 1200,
-            height: 900,
-            size: 95000,
-            mimeType: 'image/jpeg',
-            source: 'storybook_mock',
-            quality: 85,
-            persistentStorage: true,
-            storageLocation: 'story_attachments_draft',
+            duration: 12,
+            format: 'mp4',
+            size: 500000,
+            width: 1280,
+            height: 720,
           },
         },
       };
@@ -122,15 +111,15 @@ function installGetFormulusMock(iface: FormulusInterface): void {
 
 type StoryProps = React.ComponentProps<typeof JsonFormsControlWrapper>;
 
-function PhotoStoryDecorator(
+function VideoStoryDecorator(
   Story: React.ComponentType,
   context: { parameters: { formulusMock?: FormulusInterface } },
 ) {
   const mock =
     context.parameters.formulusMock ??
-    createPhotoStoryFormulusMock({
+    createVideoStoryFormulusMock({
       seedBasenames: {
-        'existing-photo.jpg': demoPhotoUrl,
+        'existing-video.mp4': DEMO_VIDEO_URL,
       },
     });
   installGetFormulusMock(mock);
@@ -138,19 +127,13 @@ function PhotoStoryDecorator(
 }
 
 const meta: Meta<typeof JsonFormsControlWrapper> = {
-  title: 'Question Renderers/PhotoQuestionRenderer',
+  title: 'Question Renderers/VideoQuestionRenderer',
   component: JsonFormsControlWrapper,
-  decorators: [PhotoStoryDecorator],
+  decorators: [VideoStoryDecorator],
   parameters: {
     layout: 'centered',
   },
   tags: ['autodocs'],
-  argTypes: {
-    initialData: {
-      description:
-        'Initial form data under `photoField` (object with basename `filename` after capture)',
-    },
-  },
 };
 
 export default meta;
@@ -159,29 +142,28 @@ type Story = StoryObj<StoryProps>;
 
 export const Empty: Story = {
   args: {
-    schema: photoSchema,
-    uischema: photoUischema,
+    schema: videoSchema,
+    uischema: videoUischema,
     initialData: {},
     renderers,
   },
 };
 
-export const WithExistingPhoto: Story = {
+export const WithExistingVideo: Story = {
   args: {
-    schema: photoSchema,
-    uischema: photoUischema,
+    schema: videoSchema,
+    uischema: videoUischema,
     initialData: {
-      photoField: {
-        id: 'existing-id',
-        type: 'image',
-        filename: 'existing-photo.jpg',
+      videoField: {
+        type: 'video',
+        filename: 'existing-video.mp4',
         timestamp: new Date().toISOString(),
         metadata: {
-          width: 1200,
-          height: 900,
-          size: 95000,
-          mimeType: 'image/jpeg',
-          quality: 85,
+          duration: 10,
+          format: 'mp4',
+          size: 400000,
+          width: 1280,
+          height: 720,
         },
       },
     },
@@ -189,29 +171,27 @@ export const WithExistingPhoto: Story = {
   },
 };
 
-/** Same contract as RN when the file is missing from draft/synced folders — basename ok, no preview URL. */
 export const AttachmentUriUnavailable: Story = {
   parameters: {
-    formulusMock: createPhotoStoryFormulusMock({
+    formulusMock: createVideoStoryFormulusMock({
       seedBasenames: {},
-      captureBasename: 'missing-uri.jpg',
+      captureBasename: 'missing-uri.mp4',
     }),
   },
   args: {
-    schema: photoSchema,
-    uischema: photoUischema,
+    schema: videoSchema,
+    uischema: videoUischema,
     initialData: {
-      photoField: {
-        id: 'no-uri',
-        type: 'image',
-        filename: 'missing-uri.jpg',
+      videoField: {
+        type: 'video',
+        filename: 'missing-uri.mp4',
         timestamp: new Date().toISOString(),
         metadata: {
-          width: 800,
-          height: 600,
-          size: 1000,
-          mimeType: 'image/jpeg',
-          quality: 80,
+          duration: 5,
+          format: 'mp4',
+          size: 200000,
+          width: 640,
+          height: 480,
         },
       },
     },

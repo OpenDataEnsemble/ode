@@ -1,36 +1,38 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import React from 'react';
 import { materialRenderers } from '@jsonforms/material-renderers';
-import PhotoQuestionRenderer, {
-  photoQuestionTester,
-} from '../renderers/PhotoQuestionRenderer';
+import AudioQuestionRenderer, {
+  audioQuestionTester,
+} from '../renderers/AudioQuestionRenderer';
 import type {
-  CameraResult,
+  AudioResult,
   FormulusInterface,
 } from '../types/FormulusInterfaceDefinition';
 import { JsonFormsControlWrapper } from './JsonFormsControlWrapper';
 
-import demoPhotoUrl from './assets/sig.png';
+/** Short CC0 sample — playable in iframe without bundling binary assets. */
+const DEMO_AUDIO_URL =
+  'https://interactive-examples.mdn.mozilla.net/media/cc0-audio/t-rex-roar.mp3';
 
-const photoSchema = {
+const audioSchema = {
   type: 'object',
   properties: {
-    photoField: {
+    audioField: {
       type: 'object',
-      format: 'photo',
-      title: 'Site photo',
-      description: 'Capture a photo for this observation.',
+      format: 'audio',
+      title: 'Voice note',
+      description: 'Record a short audio clip.',
     },
   },
 };
 
-const photoUischema = {
+const audioUischema = {
   type: 'Control',
-  scope: '#/properties/photoField',
+  scope: '#/properties/audioField',
 };
 
 const renderers = [
-  { tester: photoQuestionTester, renderer: PhotoQuestionRenderer },
+  { tester: audioQuestionTester, renderer: AudioQuestionRenderer },
   ...materialRenderers,
 ];
 
@@ -46,7 +48,7 @@ function basenameFromAttachmentRef(
   return normalized.split('/').pop()?.trim() ?? '';
 }
 
-function storyCaptureBasename(fixed?: string): string {
+function storyAudioBasename(fixed?: string): string {
   if (fixed) {
     return fixed;
   }
@@ -54,51 +56,40 @@ function storyCaptureBasename(fixed?: string): string {
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
       : String(Date.now());
-  return `story-capture-${id}.jpg`;
+  return `story-audio-${id}.m4a`;
 }
 
-/**
- * Storybook bridge aligned with RN: {@link requestCamera} registers a basename → display URL;
- * previews load only through {@link FormulusInterface.getAttachmentUri} (like
- * {@link resolveAttachmentDisplayUri} on device).
- */
-function createPhotoStoryFormulusMock(options: {
-  /** Pre-seed basenames (e.g. loaded observation) → browser-loadable preview URL */
+function createAudioStoryFormulusMock(options: {
   seedBasenames?: Record<string, string>;
-  /** Fixed basename for each simulated capture (default: random per tap) */
   captureBasename?: string;
-  /** URL returned by getAttachmentUri after capture */
   previewUrlAfterCapture?: string;
 }): FormulusInterface {
   const vault = new Map<string, string>(
     Object.entries(options.seedBasenames ?? {}),
   );
-  const previewUrl = options.previewUrlAfterCapture ?? demoPhotoUrl;
+  const previewUrl = options.previewUrlAfterCapture ?? DEMO_AUDIO_URL;
 
   const iface = {
-    requestCamera: async (_fieldId: string): Promise<CameraResult> => {
-      const basename = storyCaptureBasename(options.captureBasename);
+    requestAudio: async (_fieldId: string): Promise<AudioResult> => {
+      const basename = storyAudioBasename(options.captureBasename);
       vault.set(basename, previewUrl);
       const ts = new Date().toISOString();
       const draftPath = `/story_mock/attachments/draft/${basename}`;
       return {
         status: 'success',
         data: {
-          type: 'image',
-          id: basename.replace(/\.jpg$/i, ''),
+          type: 'audio',
           filename: basename,
-          uri: draftPath,
-          url: `file://${draftPath}`,
+          uri: `file://${draftPath}`,
+          url: previewUrl,
+          base64: '',
           timestamp: ts,
           metadata: {
-            width: 1200,
-            height: 900,
-            size: 95000,
-            mimeType: 'image/jpeg',
-            source: 'storybook_mock',
-            quality: 85,
-            persistentStorage: true,
-            storageLocation: 'story_attachments_draft',
+            duration: 2.5,
+            format: 'm4a',
+            sampleRate: 44100,
+            channels: 1,
+            size: 120000,
           },
         },
       };
@@ -122,15 +113,15 @@ function installGetFormulusMock(iface: FormulusInterface): void {
 
 type StoryProps = React.ComponentProps<typeof JsonFormsControlWrapper>;
 
-function PhotoStoryDecorator(
+function AudioStoryDecorator(
   Story: React.ComponentType,
   context: { parameters: { formulusMock?: FormulusInterface } },
 ) {
   const mock =
     context.parameters.formulusMock ??
-    createPhotoStoryFormulusMock({
+    createAudioStoryFormulusMock({
       seedBasenames: {
-        'existing-photo.jpg': demoPhotoUrl,
+        'existing-audio.m4a': DEMO_AUDIO_URL,
       },
     });
   installGetFormulusMock(mock);
@@ -138,19 +129,13 @@ function PhotoStoryDecorator(
 }
 
 const meta: Meta<typeof JsonFormsControlWrapper> = {
-  title: 'Question Renderers/PhotoQuestionRenderer',
+  title: 'Question Renderers/AudioQuestionRenderer',
   component: JsonFormsControlWrapper,
-  decorators: [PhotoStoryDecorator],
+  decorators: [AudioStoryDecorator],
   parameters: {
     layout: 'centered',
   },
   tags: ['autodocs'],
-  argTypes: {
-    initialData: {
-      description:
-        'Initial form data under `photoField` (object with basename `filename` after capture)',
-    },
-  },
 };
 
 export default meta;
@@ -159,29 +144,28 @@ type Story = StoryObj<StoryProps>;
 
 export const Empty: Story = {
   args: {
-    schema: photoSchema,
-    uischema: photoUischema,
+    schema: audioSchema,
+    uischema: audioUischema,
     initialData: {},
     renderers,
   },
 };
 
-export const WithExistingPhoto: Story = {
+export const WithExistingAudio: Story = {
   args: {
-    schema: photoSchema,
-    uischema: photoUischema,
+    schema: audioSchema,
+    uischema: audioUischema,
     initialData: {
-      photoField: {
-        id: 'existing-id',
-        type: 'image',
-        filename: 'existing-photo.jpg',
+      audioField: {
+        type: 'audio',
+        filename: 'existing-audio.m4a',
         timestamp: new Date().toISOString(),
         metadata: {
-          width: 1200,
-          height: 900,
+          duration: 3,
+          format: 'm4a',
+          sampleRate: 44100,
+          channels: 1,
           size: 95000,
-          mimeType: 'image/jpeg',
-          quality: 85,
         },
       },
     },
@@ -189,29 +173,27 @@ export const WithExistingPhoto: Story = {
   },
 };
 
-/** Same contract as RN when the file is missing from draft/synced folders — basename ok, no preview URL. */
 export const AttachmentUriUnavailable: Story = {
   parameters: {
-    formulusMock: createPhotoStoryFormulusMock({
+    formulusMock: createAudioStoryFormulusMock({
       seedBasenames: {},
-      captureBasename: 'missing-uri.jpg',
+      captureBasename: 'missing-uri.m4a',
     }),
   },
   args: {
-    schema: photoSchema,
-    uischema: photoUischema,
+    schema: audioSchema,
+    uischema: audioUischema,
     initialData: {
-      photoField: {
-        id: 'no-uri',
-        type: 'image',
-        filename: 'missing-uri.jpg',
+      audioField: {
+        type: 'audio',
+        filename: 'missing-uri.m4a',
         timestamp: new Date().toISOString(),
         metadata: {
-          width: 800,
-          height: 600,
+          duration: 1,
+          format: 'm4a',
+          sampleRate: 44100,
+          channels: 1,
           size: 1000,
-          mimeType: 'image/jpeg',
-          quality: 80,
         },
       },
     },
