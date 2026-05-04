@@ -47,18 +47,18 @@ pnpm tauri dev
 
 ## Scripts
 
-| Script                              | Purpose                                                                                                                                                        |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                          | Vite dev server (frontend).                                                                                                                                    |
-| `pnpm build`                        | Typecheck + Vite production build.                                                                                                                             |
-| `pnpm build:formplayer`             | Build `../formulus-formplayer` and copy output into `public/formplayer_dist/`.                                                                                 |
-| `pnpm build:tauri`                  | Prepare Formplayer assets (`build:formplayer`) and then run the desktop frontend build.                                                                        |
-| `pnpm tauri build`                  | Full desktop bundle; automatically runs `pnpm build:tauri` first, so the packaged app includes `formplayer_dist`.                                              |
-| `pnpm lint` / `pnpm lint:fix`       | ESLint.                                                                                                                                                        |
-| `pnpm format` / `pnpm format:check` | Prettier.                                                                                                                                                      |
-| `pnpm test`                         | Vitest (unit / component tests).                                                                                                                               |
-| `pnpm typecheck`                    | `tsc --noEmit`.                                                                                                                                                |
-| `pnpm codegen:synk-client`          | Regenerate TypeScript client from Synkronus OpenAPI.                                                                                                           |
+| Script                              | Purpose                                                                                                                                                       |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                          | Vite dev server (frontend).                                                                                                                                   |
+| `pnpm build`                        | Typecheck + Vite production build.                                                                                                                            |
+| `pnpm build:formplayer`             | Build `../formulus-formplayer` and copy output into `public/formplayer_dist/`.                                                                                |
+| `pnpm build:tauri`                  | Prepare Formplayer assets (`build:formplayer`) and then run the desktop frontend build.                                                                       |
+| `pnpm tauri build`                  | Full desktop bundle; automatically runs `pnpm build:tauri` first, so the packaged app includes `formplayer_dist`.                                             |
+| `pnpm lint` / `pnpm lint:fix`       | ESLint.                                                                                                                                                       |
+| `pnpm format` / `pnpm format:check` | Prettier.                                                                                                                                                     |
+| `pnpm test`                         | Vitest (unit / component tests).                                                                                                                              |
+| `pnpm typecheck`                    | `tsc --noEmit`.                                                                                                                                               |
+| `pnpm codegen:synk-client`          | Regenerate TypeScript client from Synkronus OpenAPI.                                                                                                          |
 | `pnpm copy:formplayer`              | Copy `../formulus-formplayer/build/` → `public/formplayer_dist/`. Prefer from `formulus-formplayer/`: `npm run build:copy` (build + Formulus + desktop copy). |
 
 ### Rust (backend)
@@ -87,7 +87,7 @@ CI regenerates the client and **fails** if the repo does not match (`ode-desktop
 ## Architecture pointers
 
 - **Bridge contract**: [`formulus/src/webview/FormulusInterfaceDefinition.ts`](../formulus/src/webview/FormulusInterfaceDefinition.ts) — source of truth for `formulusAPI` / postMessage. After changes, run **`sync-interface`** in `formulus-formplayer` and mirror behavior in the desktop WebView host.
-- **Form preview host** (Workbench → Form preview): `public/formulus-injection.js` + iframe shim; parent handles `postMessage` in **`src/lib/formPreviewBridge.ts`** (explicit matrix per `FormulusInjectionScript` request `type`; device APIs stubbed, observations + URIs use Tauri where applicable). Nested **sub-observation** flows (`openFormplayer` + `options.subObservationMode`) open a stacked Form preview iframe and resolve the parent promise with `FormCompletionResult` without persisting the child as a top-level observation.
+- **Form preview host** (Workbench → Form preview): `public/formulus-injection.js` + iframe shim; parent handles `postMessage` in **`src/lib/formPreviewBridge.ts`** (explicit matrix per `FormulusInjectionScript` request `type`; device APIs including camera, audio, and video are stubbed in preview; observations + URIs use Tauri where applicable). Nested **sub-observation** flows (`openFormplayer` + `options.subObservationMode`) open a stacked Form preview iframe and resolve the parent promise with `FormCompletionResult` without persisting the child as a top-level observation.
 - **Bundle extensions**: merge rules for `forms/ext.json` and `forms/{form}/ext.json` follow Formulus `ExtensionService`; see `src/lib/bundleResolution.ts`.
 - **Embedded formplayer**: production build copied into `public/formplayer_dist/`; load in a WebView with the same **`FormInitData`** expectations as mobile (see `src/lib/formplayerHost.ts` for placeholder types).
 
