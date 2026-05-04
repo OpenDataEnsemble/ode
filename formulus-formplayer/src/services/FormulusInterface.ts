@@ -11,6 +11,7 @@ import {
   AttachmentDisplayDescriptor,
   FormulusInterface,
   CameraResult,
+  VideoResult,
   QrcodeResult,
   FileResult,
   AudioResult,
@@ -67,6 +68,19 @@ class FormulusClient {
       FormulusClient.instance = new FormulusClient();
     }
     return FormulusClient.instance;
+  }
+
+  /**
+   * Drop the cached injected API so the next bridge call re-runs `window.getFormulus()`.
+   * Storybook installs a different partial {@link FormulusInterface} per story; without this,
+   * navigating from e.g. Photo to File leaves a stale object missing `requestFile`.
+   */
+  public static clearCachedFormulusApi(): void {
+    FormulusClient.instance?.resetCachedFormulusApi();
+  }
+
+  private resetCachedFormulusApi(): void {
+    this.formulus = null;
   }
 
   /**
@@ -192,6 +206,23 @@ class FormulusClient {
       return this.formulus.requestAudio(fieldId);
     }
     console.warn('Formulus interface not available for requestAudio');
+    return Promise.reject({
+      fieldId,
+      status: 'error',
+      message: 'Formulus interface not available',
+    });
+  }
+
+  /**
+   * Request video recording from the Formulus RN app
+   */
+  public async requestVideo(fieldId: string): Promise<VideoResult> {
+    console.debug('Requesting video for field', fieldId);
+    await this.tryEnsureFormulus();
+    if (this.formulus) {
+      return this.formulus.requestVideo(fieldId);
+    }
+    console.warn('Formulus interface not available for requestVideo');
     return Promise.reject({
       fieldId,
       status: 'error',

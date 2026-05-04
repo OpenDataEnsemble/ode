@@ -20,14 +20,13 @@ This file gives AI assistants and developers enough context to work effectively 
   `cd packages/tokens && npm install` then `cd formulus-formplayer && npm install && npm start`.  
   Installing only in formulus-formplayer can break the tokens `prepare` script.
 
-## Build and deploy (RN)
+## Build and deploy (Formulus & Desktop)
 
 - **Scripts** (from `formulus-formplayer/`):
   - `npm run build` — `sync-interface` → `tsc` → `vite build` (output: `build/`).
-  - `npm run build:rn` — build then **copy** `build/` into the Formulus app:
+  - `npm run build:copy` — build then **copy** `build/` into **Formulus** (Android + iOS formplayer assets) and **ODE Desktop** (`../desktop/public/formplayer_dist/`). Alternatively, from `desktop/` only: `pnpm copy:formplayer` (requires an existing `formulus-formplayer/build/`).
     - Android: `../formulus/android/app/src/main/assets/formplayer_dist/`
     - iOS: `../formulus/ios/formplayer_dist/`
-  - `npm run build:ode-desktop` — **one command**: same as `build:rn`, then copies `build/` into **`../desktop/public/formplayer_dist/`** for ODE Desktop (Tauri). Use this when you need both React Native assets and the desktop embed refreshed. Alternatively, from `desktop/` only: `pnpm copy:formplayer` (requires an existing `formulus-formplayer/build/`).
 - **Interface sync**: `scripts/sync-interface.js` copies **one** shared TypeScript file from the Formulus app into the formplayer:  
   `formulus/src/webview/FormulusInterfaceDefinition.ts` → `formulus-formplayer/src/types/FormulusInterfaceDefinition.ts`.  
   So the **single source of truth** for the bridge contract is in **formulus**; formplayer consumes a copy. Run `npm run sync-interface` (or `npm run build`) when that file changes.
@@ -58,6 +57,7 @@ This file gives AI assistants and developers enough context to work effectively 
 2. **Bridge**: Communication with RN is via **postMessage** and the contract in `FormulusInterfaceDefinition.ts`. The formplayer uses `FormulusClient` (singleton) in `FormulusInterface.ts` to call native (camera, signature, submit, etc.).
 3. **Custom question types**: Loaded from a **manifest** (source strings) from the RN app, evaluated in a sandbox with `React` and `MaterialUI` on `window`. They use **format** in the schema (e.g. `"format": "signature"`), not only `type`. Contract: `src/types/CustomQuestionTypeContract.ts`.
 4. **Design tokens**: Use `@ode/tokens` via `src/theme/tokens-adapter.ts` and the theme in `src/theme/theme.ts`; avoid hardcoding colors/spacing that exist in tokens.
+5. **Attachment-backed builtins** (`photo`, `audio`, `video`, `select_file`): Observation JSON stores **basename-only** `filename` plus portable metadata; RN writes files under **`attachments/draft/`** (etc.). Resolve previews with **`getAttachmentUri`** where applicable. **`select_file`** shows the chosen **name** only—no file preview.
 
 ## Adding or changing behavior
 

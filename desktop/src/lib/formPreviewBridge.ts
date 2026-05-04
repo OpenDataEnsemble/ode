@@ -11,7 +11,7 @@
  * | `getObservations` | Local SQLite via `listObservationsPage`. |
  * | `getObservationsByQuery` | Same + best-effort `whereClause` filter (`formulus-load.js` flattens options). |
  * | `submitObservation` / `updateObservation` | Finalize dialog (JSON export or DB). |
- * | `requestCamera` / `requestLocation` / `requestFile` / `requestAudio` / `requestQrcode` / `requestBiometric` | **Stub** — no device bridge in preview. |
+ * | `requestCamera` / `requestLocation` / `requestFile` / `requestAudio` / `requestVideo` / `requestQrcode` / `requestBiometric` | **Stub** — no device bridge in preview. |
  * | `launchIntent` / `callSubform` | **Stub** — not supported in preview. |
  * | `requestConnectivityStatus` / `requestSyncStatus` | **No-op** success (`result` omitted) so callers resolve. |
  * | `runLocalModel` | **Stub** — no on-device ML in preview. |
@@ -56,6 +56,7 @@ export const FORMULUS_INJECTION_REQUEST_TYPES = [
   'launchIntent',
   'callSubform',
   'requestAudio',
+  'requestVideo',
   'requestQrcode',
   'requestBiometric',
   'requestConnectivityStatus',
@@ -547,6 +548,15 @@ export async function handleFormPreviewBridgeMessage(
           'requestAudio',
           stubReason(
             'Audio recording is not available in ODE Desktop form preview.',
+          ),
+        );
+        return;
+
+      case 'requestVideo':
+        reply(
+          'requestVideo',
+          stubReason(
+            'Video recording is not available in ODE Desktop form preview.',
           ),
         );
         return;

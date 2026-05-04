@@ -22,7 +22,7 @@
 | `src/webview/`                       | **Bridge contract** — [`FormulusInterfaceDefinition.ts`](src/webview/FormulusInterfaceDefinition.ts) (source of truth for `window.formulus` / injected API). [`FormulusMessageHandlers.ts`](src/webview/FormulusMessageHandlers.ts), [`FormulusWebViewHandler.ts`](src/webview/FormulusWebViewHandler.ts). |
 | `scripts/generateInjectionScript.ts` | Generates injection / loader script from the interface definition.                                                                                                                                                                                                                                         |
 | `src/screens/`, `src/navigation/`    | App screens and routing.                                                                                                                                                                                                                                                                                   |
-| Android / iOS                        | Native projects; **formplayer** static assets: `android/app/src/main/assets/formplayer_dist/`, `ios/formplayer_dist/` (see formplayer AGENTS for `build:rn`).                                                                                                                                              |
+| Android / iOS                        | Native projects; **formplayer** static assets: `android/app/src/main/assets/formplayer_dist/`, `ios/formplayer_dist/` (see formplayer AGENTS for `build:copy`).                                                                                                                                            |
 
 ---
 

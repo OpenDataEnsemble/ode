@@ -23,33 +23,15 @@ import {
 } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
+import {
+  attachmentBasenameFromFilename,
+  attachmentBasenameFromObservation,
+} from '../utils/attachmentBasename';
 
 // Helper to parse pixel values from tokens
 const parsePx = (value: string): number => {
   return parseInt(value.replace('px', ''), 10);
 };
-
-/**
- * Basename for {@link FormulusClient.getAttachmentUri} from `photo.filename`
- * (handles values that mistakenly include path segments).
- */
-function photoAttachmentBasename(
-  data: Record<string, unknown> | null,
-): string | null {
-  if (!data || typeof data.filename !== 'string') {
-    return null;
-  }
-  const t = data.filename.trim();
-  if (!t) {
-    return null;
-  }
-  const normalized = t.replace(/\\/g, '/');
-  const last = normalized.split('/').pop()?.trim() ?? '';
-  if (!last || last === '.' || last === '..' || last.includes('..')) {
-    return null;
-  }
-  return last;
-}
 
 /**
  * Subset of camera metadata kept on the observation (portable, no host paths or picker noise).
@@ -69,27 +51,6 @@ function observationPhotoMetadataFromCamera(
     mimeType: m.mimeType,
     quality: m.quality,
   };
-}
-
-/** Never pass another host's `file://` path to `<img src>` (e.g. stale bridge output or legacy data). */
-function webviewSafeImageSrc(url: string | null): string | null {
-  if (url == null || url === '') {
-    return null;
-  }
-  const u = url.trim();
-  if (!u.startsWith('file://')) {
-    return u;
-  }
-  const lower = u.toLowerCase();
-  if (
-    lower.includes('/data/user/') ||
-    lower.includes('org.opendataensemble.formulus') ||
-    lower.includes('/var/mobile/') ||
-    lower.includes('/application/')
-  ) {
-    return null;
-  }
-  return u;
 }
 
 // Tester function to identify photo question types
@@ -143,19 +104,21 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   // Get the current photo data from the form data (now JSON format)
   const currentPhotoData = data || null;
 
-  // Always resolve by basename so WebView never loads another device's file:// path.
+  // Previews always come from the bridge — same contract as production (`resolveAttachmentDisplayUri` on RN).
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       console.log('Photo data changed:', currentPhotoData);
-      const base = photoAttachmentBasename(
+      const base = attachmentBasenameFromObservation(
         currentPhotoData as Record<string, unknown> | null,
       );
       const resolved = await formulusClient.current.getAttachmentUri(
         base ?? null,
       );
       if (!cancelled) {
-        setPhotoUrl(webviewSafeImageSrc(resolved));
+        const trimmed =
+          resolved != null && resolved.trim() !== '' ? resolved.trim() : null;
+        setPhotoUrl(trimmed);
         console.log('Resolved photo display URL:', resolved);
       }
     };
@@ -183,12 +146,19 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
 
       // Check if the result was successful
       if (cameraResult.status === 'success' && cameraResult.data) {
-        // Persist portable fields only — basename is stable across devices; avoid
-        // storing host-specific file paths in observation JSON.
+        const storedBasename = attachmentBasenameFromFilename(
+          cameraResult.data.filename,
+        );
+        if (!storedBasename) {
+          setSafeError('Invalid photo filename from camera.');
+          return;
+        }
+
+        // Persist portable fields only — basename only; never persist bridge uri/url.
         const photoData = {
           id: cameraResult.data.id,
           type: cameraResult.data.type,
-          filename: cameraResult.data.filename,
+          filename: storedBasename,
           timestamp: cameraResult.data.timestamp,
           metadata: observationPhotoMetadataFromCamera(
             cameraResult.data.metadata,
@@ -200,20 +170,9 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           size: photoData.metadata.size,
         });
 
-        // Update the form data with the photo data
         console.log('Updating form data with photo data...');
         handleChange(path, photoData);
 
-        const resolved = await formulusClient.current.getAttachmentUri(
-          photoData.filename,
-        );
-        setPhotoUrl(webviewSafeImageSrc(resolved));
-        console.log(
-          'Setting photo URL for display via getAttachmentUri:',
-          resolved,
-        );
-
-        // Clear any previous errors on successful photo capture
         console.log('Clearing error state after successful photo capture');
         setSafeError(null);
 
@@ -276,6 +235,10 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   const validationError =
     errors && errors.length > 0 ? String(errors[0]) : null;
 
+  const displayBasename = attachmentBasenameFromObservation(
+    currentPhotoData as Record<string, unknown> | null,
+  );
+
   return (
     <QuestionShell
       title={label}
@@ -283,9 +246,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
       required={isRequired}
       error={error || validationError}
       helperText={
-        currentPhotoData?.filename
-          ? `File: ${currentPhotoData.filename}`
-          : 'Capture a clear photo.'
+        displayBasename ? `File: ${displayBasename}` : 'Capture a clear photo.'
       }
       metadata={
         process.env.NODE_ENV === 'development' ? (
@@ -313,14 +274,11 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
                   path,
                   currentPhotoData,
                   hasPhotoData: !!currentPhotoData,
-                  hasFilename: !!currentPhotoData?.filename,
+                  displayBasename,
+                  hasDisplayBasename: !!displayBasename,
                   photoUrl,
                   hasPhotoUrl: !!photoUrl,
-                  shouldShowThumbnail: !!(
-                    currentPhotoData &&
-                    currentPhotoData.filename &&
-                    photoUrl
-                  ),
+                  shouldShowThumbnail: !!(displayBasename && photoUrl),
                   isLoading,
                   error,
                 },
@@ -331,7 +289,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           </Box>
         ) : undefined
       }>
-      {currentPhotoData && currentPhotoData.filename && photoUrl ? (
+      {displayBasename && photoUrl ? (
         <Card sx={{ maxWidth: '100%' }}>
           <CardMedia
             component="img"
@@ -351,7 +309,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
                 variant="body2"
                 color="text.secondary"
                 sx={{ flex: 1, mr: 1 }}>
-                {currentPhotoData.filename}
+                {displayBasename}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 <IconButton

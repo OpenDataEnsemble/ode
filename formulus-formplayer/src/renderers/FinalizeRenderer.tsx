@@ -65,7 +65,13 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           return 'Signature provided';
         case 'select_file':
           if (typeof value === 'object' && value.filename) {
-            return `File: ${value.filename}`;
+            const original =
+              typeof value.metadata?.originalFileName === 'string'
+                ? value.metadata.originalFileName.trim()
+                : '';
+            const label =
+              original.length > 0 ? original : String(value.filename);
+            return `File: ${label}`;
           }
           return 'File selected';
         case 'audio':

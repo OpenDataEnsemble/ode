@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  *
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2026-05-02T16:53:14.307Z
+ * Last generated: 2026-05-04T10:47:58.847Z
  *
  * @example
  * // In your JavaScript file:
@@ -138,6 +138,14 @@ const FormulusAPI = {
    * @returns {Promise<AudioResult>} Promise that resolves with audio result or rejects on error/cancellation
    */
   requestAudio: function (fieldId) {},
+
+  /**
+   * Request video recording for a field (camera / picker — host-defined).
+   * /
+   * @param {string} fieldId - The ID of the field
+   * @returns {Promise<VideoResult>} Promise that resolves with video result or rejects on error/cancellation
+   */
+  requestVideo: function (fieldId) {},
 
   /**
    * Request QR code scanning for a field

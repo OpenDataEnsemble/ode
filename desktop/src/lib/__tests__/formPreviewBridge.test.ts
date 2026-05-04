@@ -48,6 +48,7 @@ describe('FORMULUS_INJECTION_REQUEST_TYPES', () => {
   it('lists known injection request types', () => {
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('getVersion');
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('submitObservation');
+    expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('requestVideo');
   });
 });
 
@@ -203,6 +204,29 @@ describe('handleFormPreviewBridgeMessage', () => {
 
     const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
     expect(payload.type).toBe('requestCamera_response');
+    expect(payload.error).toContain(DESKTOP_FORM_PREVIEW_PREFIX);
+  });
+
+  it('stubs requestVideo with prefixed error', async () => {
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = {
+      contentWindow: cw,
+    } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'requestVideo',
+        messageId: 'mv-prev',
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.type).toBe('requestVideo_response');
     expect(payload.error).toContain(DESKTOP_FORM_PREVIEW_PREFIX);
   });
 

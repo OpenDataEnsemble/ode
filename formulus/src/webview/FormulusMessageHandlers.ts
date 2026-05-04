@@ -710,24 +710,42 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               const asset = response.assets[0];
 
               try {
-                // Generate a unique filename
-                const timestamp = Date.now();
-                const filename = `video_${timestamp}.${
-                  asset.type?.split('/')[1] || 'mp4'
-                }`;
+                const generateGUID = () => {
+                  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+                    /[xy]/g,
+                    function (c) {
+                      const r = (Math.random() * 16) | 0;
+                      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                      return v.toString(16);
+                    },
+                  );
+                };
 
-                // Copy video to app storage directory
-                const destinationPath = `${RNFS.DocumentDirectoryPath}/videos/${filename}`;
+                const ext = asset.type?.split('/')[1] || 'mp4';
+                const videoGuid = generateGUID();
+                const filename = `${videoGuid}.${ext}`;
 
-                // Ensure videos directory exists
-                await RNFS.mkdir(`${RNFS.DocumentDirectoryPath}/videos`);
+                const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+                const draftDirectory = `${attachmentsDirectory}/draft`;
 
-                // Copy the video file
-                if (asset.uri) {
-                  await RNFS.copyFile(asset.uri, destinationPath);
-                } else {
+                await RNFS.mkdir(attachmentsDirectory);
+                await RNFS.mkdir(draftDirectory);
+
+                const draftFilePath = `${draftDirectory}/${filename}`;
+
+                if (!asset.uri) {
                   console.error('Asset uri not available', asset);
+                  reject({
+                    fieldId,
+                    status: 'error',
+                    message: 'Video asset URI not available',
+                  });
+                  return;
                 }
+
+                await RNFS.copyFile(asset.uri, draftFilePath);
+
+                const webViewUrl = `file://${draftFilePath}`;
 
                 const videoResult = {
                   fieldId,
@@ -735,11 +753,12 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                   data: {
                     type: 'video' as const,
                     filename,
-                    uri: `file://${destinationPath}`,
+                    uri: draftFilePath,
+                    url: webViewUrl,
                     timestamp: new Date().toISOString(),
                     metadata: {
                       duration: asset.duration || 0,
-                      format: asset.type?.split('/')[1] || 'mp4',
+                      format: ext,
                       size: asset.fileSize || 0,
                       width: asset.width,
                       height: asset.height,
@@ -789,16 +808,63 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
 
         console.log('File selected:', result);
 
+        const originalName =
+          typeof result.name === 'string' && result.name.trim().length > 0
+            ? result.name.trim()
+            : 'file';
+
+        const extFromName = /\.([^.\\/]{1,32})$/.exec(originalName);
+        const subtype =
+          result.type
+            ?.split('/')[1]
+            ?.split('+')[0]
+            ?.replace(/[^a-z0-9]/gi, '') ?? '';
+        const fromName = extFromName?.[1]?.toLowerCase().trim() ?? '';
+        const fromMime =
+          subtype.length > 0 && subtype.length <= 16
+            ? subtype.toLowerCase()
+            : '';
+        const ext = (fromName.length > 0 ? fromName : fromMime) || 'bin';
+
+        const generateGUID = () => {
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+            /[xy]/g,
+            function (c) {
+              const r = (Math.random() * 16) | 0;
+              const v = c === 'x' ? r : (r & 0x3) | 0x8;
+              return v.toString(16);
+            },
+          );
+        };
+
+        const basename = `${generateGUID()}.${ext}`;
+
+        const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+        const draftDirectory = `${attachmentsDirectory}/draft`;
+        const draftFilePath = `${draftDirectory}/${basename}`;
+
+        await RNFS.mkdir(attachmentsDirectory);
+        await RNFS.mkdir(draftDirectory);
+
+        await RNFS.copyFile(result.uri, draftFilePath);
+
+        const webViewUrl = `file://${draftFilePath}`;
+
         return {
           fieldId,
           status: 'success' as const,
           data: {
-            filename: result.name,
-            uri: result.uri,
-            size: result.size || 0,
-            mimeType: result.type || 'application/octet-stream',
             type: 'file' as const,
+            filename: basename,
+            uri: draftFilePath,
+            url: webViewUrl,
+            size: result.size ?? 0,
+            mimeType: result.type || 'application/octet-stream',
             timestamp: new Date().toISOString(),
+            metadata: {
+              extension: ext,
+              originalFileName: originalName,
+            },
           },
         };
       } catch (error) {
@@ -852,8 +918,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         };
       }
       try {
+        const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+        const draftDirectory = `${attachmentsDirectory}/draft`;
         const filename = `audio_${Date.now()}.m4a`;
-        const path = `${RNFS.DocumentDirectoryPath}/${filename}`;
+        const path = `${draftDirectory}/${filename}`;
+
+        await RNFS.mkdir(attachmentsDirectory);
+        await RNFS.mkdir(draftDirectory);
 
         const audioSet: AudioSet = {
           // Common settings automatically applied to the appropriate platform
@@ -875,12 +946,15 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           data: {
             type: 'audio' as const,
             filename: filename,
-            uri: `file://${path}`,
+            uri: path,
+            url: `file://${path}`,
             timestamp: new Date().toISOString(),
             metadata: {
               duration: 3.0,
               format: 'm4a',
               size: fileStats.size || 0,
+              sampleRate: 44100,
+              channels: 1,
             },
           },
         };

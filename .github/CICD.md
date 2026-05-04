@@ -101,7 +101,7 @@ The workflow intelligently handles formplayer assets using two jobs:
 
 1. **`build-formplayer-assets` job**:
    - Builds `@ode/tokens`
-   - Builds Formplayer assets using `npm run build:rn` in `formulus-formplayer`
+   - Builds Formplayer assets using `npm run build:copy` in `formulus-formplayer`
    - Uploads the built assets from `formulus/android/app/src/main/assets/formplayer_dist/` as a GitHub Actions artifact
 
 2. **`build-android` job** (depends on assets job):
@@ -310,15 +310,15 @@ For local development, you can manually build and copy assets:
 
 ```bash
 cd formulus-formplayer
-npm run build:rn
+npm run build:copy
 ```
 
 This will:
 1. Build the formplayer web app
-2. Clean existing assets in formulus
-3. Copy new assets to `formulus/android/app/src/main/assets/formplayer_dist/`
+2. Clean existing formplayer asset folders in Formulus and copy new assets to Android and iOS paths
+3. Copy the same bundle to `desktop/public/formplayer_dist/` for ODE Desktop
 
-The `build:rn` script automatically handles cleaning, so no need to run `clean-rn-assets` separately.
+The `copy-to-rn` step run inside `build:copy` handles cleaning targets before copy, so no need to run `clean-rn-assets` separately for a normal refresh.
 
 ## ODE Desktop (Tauri)
 
@@ -326,20 +326,44 @@ The `build:rn` script automatically handles cleaning, so no need to run `clean-r
 
 ### Triggers
 
-- **Pull requests** and **pushes** to `main` / `dev` when files under `desktop/**` change (or the workflow file itself)
-- **Manual dispatch**
+- **Pull requests** and **pushes** to `main` / `dev` when relevant paths change (see below), or **manual dispatch**.
+- **`release: published`**: packages installers and attaches them to the GitHub Release (same pattern as [`Synkronus CLI`](workflows/synkronus-cli.yml); no path filter).
 
 ### Path filters
 
-Runs only when `desktop/**` or `.github/workflows/ode-desktop.yml` changes.
+For pull requests / pushes (`main`, `dev`), the workflow runs when any of these change:
+
+- `desktop/**`
+- `formulus-formplayer/**`
+- `packages/tokens/**`, `packages/components/**` (formplayer build inputs)
+- `formulus/src/webview/FormulusInterfaceDefinition.ts` (formplayer `sync-interface` source)
+- `.github/workflows/ode-desktop.yml`
 
 ### What it runs
 
+**Job `desktop` (not on release)**
+
 From `desktop/`: `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm typecheck`, `pnpm codegen:synk-client`, then **fails** if `desktop/src/generated` drifts from the regenerated OpenAPI client. From `desktop/src-tauri/`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`.
+
+**Job `desktop-formplayer-dist`** (bundling and release flows)
+
+Ubuntu job: installs and builds `@ode/tokens`, runs `npm ci` / `npm run build` in `formulus-formplayer`, stages `build/` → `desktop/public/formplayer_dist/`, uploads artifact `desktop-formplayer-dist` (short retention for CI).
+
+**Jobs `build-desktop-bundles` (CI) and `release-desktop-bundles` (release)**
+
+Matrix build (mirrors CLI OS/arch coverage): **linux** amd64 + arm64, **windows** amd64 + arm64, **darwin** amd64 (`macos-15-intel`) + arm64 (`macos-latest`). Each runner installs Node + pnpm, restores formplayer artifact, installs Linux WebKitGTK packages where needed, runs `pnpm exec tauri build --target …` with a merged config so `beforeBuildCommand` runs **`pnpm build` only** (frontend + Vite output; embedded formplayer is already present). Builds use `Swatinem/rust-cache` scoped per platform.
+
+**CI artifacts**
+
+Each matrix cell uploads installers under artifact name `ode-desktop-<platform>` (files renamed with prefix `ode-desktop-<platform>-<original-name>`).
+
+**Release assets**
+
+On `release`, `softprops/action-gh-release` attaches those installers for each platform to the published release alongside other assets (CLI, APK, SBOMs, etc.).
 
 ### Formplayer embed
 
-After building formplayer (`npm run build` in `formulus-formplayer`), copy its `build/` into the desktop app with `pnpm copy:formplayer` from `desktop/` (see `desktop/README.md`). Copied assets are gitignored under `desktop/public/formplayer_dist/`.
+Production bundles must include embedded formplayer: locally, `pnpm tauri build` uses `pnpm build:tauri` (`beforeBuildCommand` in `tauri.conf.json`). In CI/Rust release jobs, formplayer is built once on Ubuntu and copied into `desktop/public/formplayer_dist/` before each OS build. Copied assets are gitignored locally (see `desktop/README.md`).
 
 ## Future Enhancements
 
