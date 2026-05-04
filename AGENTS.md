@@ -62,6 +62,7 @@ Do not assume custom app authors have local checkouts of **ODE** or internal exa
 ## Cross-cutting contracts
 
 - **Formulus ↔ WebView (custom apps + formplayer):** [`formulus/src/webview/FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts) is the **source of truth** for the injected JavaScript API. Formplayer copies a synced TypeScript snapshot via `npm run sync-interface` in `formulus-formplayer` (see [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md)).
+- **Built-in attachment fields:** `photo`, `audio`, `video`, and generic file (`select_file`) persist attachment **basenames** (and metadata) in observation JSON while binaries live under Formulus **`attachments/`** storage and sync via the attachment pipeline—see published docs ([form specifications](https://opendataensemble.org/docs/reference/form-specifications), [form design guide](https://opendataensemble.org/docs/guides/form-design)) and [`FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts).
 - **Shared UI tokens:** Install **tokens** before **components** / **formplayer** where the docs require it (see package READMEs and formplayer AGENTS).
 
 ---
