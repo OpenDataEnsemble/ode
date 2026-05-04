@@ -80,11 +80,16 @@ export interface ActionResult<T = unknown> {
 }
 
 /**
- * Camera-specific result data
- * @property {'image'} type - Always 'image' for camera results
- * @property {string} filename - Generated filename for the image
- * @property {string} timestamp - ISO timestamp when image was captured
- * @property {object} metadata - Image metadata (dimensions, size, etc.)
+ * Camera-specific result data (immediate bridge payload after capture).
+ *
+ * **Observation JSON:** persist only portable fields — {@link id}, {@link type},
+ * {@link filename} (basename only, e.g. `<guid>.jpg`), {@link timestamp}, and {@link metadata}.
+ * Do **not** persist {@link uri} or {@link url}; resolve thumbnails and playback URLs with
+ * {@link FormulusInterface.getAttachmentUri}.
+ *
+ * @property {string} filename - Stable attachment basename, not a directory path.
+ * @property {string} uri - Native absolute filesystem path on the host (debugging / RN use); ephemeral.
+ * @property {string} url - Transient `file://` (or similar) for the same file as {@link uri}; ephemeral.
  */
 export interface CameraResultData {
   type: 'image';

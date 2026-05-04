@@ -16,6 +16,7 @@ export default defineConfig([
     '**/coverage/**',
     '**/__tests__/**',
     '**/scripts/**',
+    '**/storybook-static/**',
   ]),
   js.configs.recommended,
   ...tseslint.configs.recommended,

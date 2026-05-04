@@ -98,6 +98,42 @@ class WebViewMock {
     }
   >();
 
+  /**
+   * basename → WebView-loadable URL (browser dev).
+   * Mirrors RN behaviour: capture registers the file, previews resolve via getAttachmentUri only.
+   */
+  private attachmentDisplayUrlsByBasename = new Map<string, string>();
+
+  private basenameFromAttachmentRef(
+    fileRef: string | { filename?: string },
+  ): string | null {
+    const raw =
+      typeof fileRef === 'string'
+        ? fileRef
+        : typeof fileRef.filename === 'string'
+          ? fileRef.filename
+          : '';
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const base = trimmed.replace(/\\/g, '/').split('/').pop()?.trim() ?? '';
+    if (!base || base === '.' || base === '..' || base.includes('..')) {
+      return null;
+    }
+    return base;
+  }
+
+  private resolveMockAttachmentDisplayUrl(
+    fileRef: string | { filename?: string },
+  ): string | null {
+    const base = this.basenameFromAttachmentRef(fileRef);
+    if (!base) {
+      return null;
+    }
+    return this.attachmentDisplayUrlsByBasename.get(base) ?? null;
+  }
+
   // Mock the postMessage function that the app uses to send messages to native
   private postMessage = (message: string) => {
     try {
@@ -322,12 +358,11 @@ class WebViewMock {
           });
         },
         getAttachmentUri: (
-          _fileRef: string | { filename?: string },
+          fileRef: string | { filename?: string },
         ): Promise<string | null> => {
-          console.log(
-            '[WebView Mock] getAttachmentUri (browser dev: no local files)',
-          );
-          return Promise.resolve(null);
+          const resolved = this.resolveMockAttachmentDisplayUrl(fileRef);
+          console.log('[WebView Mock] getAttachmentUri', fileRef, '→', resolved);
+          return Promise.resolve(resolved);
         },
         launchIntent: (
           fieldId: string,
@@ -635,8 +670,11 @@ class WebViewMock {
     };
 
     const imageGuid = generateGUID();
-    // Use the actual dummy photo from public folder for browser testing
+    const basename = `${imageGuid}.jpg`;
     const dummyPhotoUrl = `${window.location.origin}/dummyphoto.png`;
+    this.attachmentDisplayUrlsByBasename.set(basename, dummyPhotoUrl);
+
+    const draftFilePath = `/mock_document/attachments/draft/${basename}`;
 
     const mockCameraResult: CameraResult = {
       fieldId,
@@ -644,9 +682,9 @@ class WebViewMock {
       data: {
         type: 'image',
         id: imageGuid,
-        filename: `${imageGuid}.jpg`,
-        uri: dummyPhotoUrl, // Use the dummy photo URL as the URI for display
-        url: dummyPhotoUrl, // For compatibility with CameraResultData.url
+        filename: basename,
+        uri: draftFilePath,
+        url: `file://${draftFilePath}`,
         timestamp: new Date().toISOString(),
         metadata: {
           width: 1920,
