@@ -326,20 +326,44 @@ The `copy-to-rn` step run inside `build:copy` handles cleaning targets before co
 
 ### Triggers
 
-- **Pull requests** and **pushes** to `main` / `dev` when files under `desktop/**` change (or the workflow file itself)
-- **Manual dispatch**
+- **Pull requests** and **pushes** to `main` / `dev` when relevant paths change (see below), or **manual dispatch**.
+- **`release: published`**: packages installers and attaches them to the GitHub Release (same pattern as [`Synkronus CLI`](workflows/synkronus-cli.yml); no path filter).
 
 ### Path filters
 
-Runs only when `desktop/**` or `.github/workflows/ode-desktop.yml` changes.
+For pull requests / pushes (`main`, `dev`), the workflow runs when any of these change:
+
+- `desktop/**`
+- `formulus-formplayer/**`
+- `packages/tokens/**`, `packages/components/**` (formplayer build inputs)
+- `formulus/src/webview/FormulusInterfaceDefinition.ts` (formplayer `sync-interface` source)
+- `.github/workflows/ode-desktop.yml`
 
 ### What it runs
 
+**Job `desktop` (not on release)**
+
 From `desktop/`: `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm typecheck`, `pnpm codegen:synk-client`, then **fails** if `desktop/src/generated` drifts from the regenerated OpenAPI client. From `desktop/src-tauri/`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`.
+
+**Job `desktop-formplayer-dist`** (bundling and release flows)
+
+Ubuntu job: installs and builds `@ode/tokens`, runs `npm ci` / `npm run build` in `formulus-formplayer`, stages `build/` → `desktop/public/formplayer_dist/`, uploads artifact `desktop-formplayer-dist` (short retention for CI).
+
+**Jobs `build-desktop-bundles` (CI) and `release-desktop-bundles` (release)**
+
+Matrix build (mirrors CLI OS/arch coverage): **linux** amd64 + arm64, **windows** amd64 + arm64, **darwin** amd64 (`macos-15-intel`) + arm64 (`macos-latest`). Each runner installs Node + pnpm, restores formplayer artifact, installs Linux WebKitGTK packages where needed, runs `pnpm exec tauri build --target …` with a merged config so `beforeBuildCommand` runs **`pnpm build` only** (frontend + Vite output; embedded formplayer is already present). Builds use `Swatinem/rust-cache` scoped per platform.
+
+**CI artifacts**
+
+Each matrix cell uploads installers under artifact name `ode-desktop-<platform>` (files renamed with prefix `ode-desktop-<platform>-<original-name>`).
+
+**Release assets**
+
+On `release`, `softprops/action-gh-release` attaches those installers for each platform to the published release alongside other assets (CLI, APK, SBOMs, etc.).
 
 ### Formplayer embed
 
-After building formplayer (`npm run build` in `formulus-formplayer`), copy its `build/` into the desktop app with `pnpm copy:formplayer` from `desktop/` (see `desktop/README.md`). Copied assets are gitignored under `desktop/public/formplayer_dist/`.
+Production bundles must include embedded formplayer: locally, `pnpm tauri build` uses `pnpm build:tauri` (`beforeBuildCommand` in `tauri.conf.json`). In CI/Rust release jobs, formplayer is built once on Ubuntu and copied into `desktop/public/formplayer_dist/` before each OS build. Copied assets are gitignored locally (see `desktop/README.md`).
 
 ## Future Enhancements
 
