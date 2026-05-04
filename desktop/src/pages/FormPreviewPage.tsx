@@ -495,7 +495,7 @@ export function FormPreviewPage() {
             edit-style payloads — same shape as <code>FormInitData</code> in{' '}
             <code>FormulusInterfaceDefinition</code>. Build formplayer from{' '}
             <code>formulus-formplayer/</code> (
-            <code>npm run build:ode-desktop</code>) or{' '}
+            <code>npm run build:copy</code>) or{' '}
             <code>pnpm copy:formplayer</code> in <code>desktop/</code>.
           </p>
 

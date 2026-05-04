@@ -101,7 +101,7 @@ The workflow intelligently handles formplayer assets using two jobs:
 
 1. **`build-formplayer-assets` job**:
    - Builds `@ode/tokens`
-   - Builds Formplayer assets using `npm run build:rn` in `formulus-formplayer`
+   - Builds Formplayer assets using `npm run build:copy` in `formulus-formplayer`
    - Uploads the built assets from `formulus/android/app/src/main/assets/formplayer_dist/` as a GitHub Actions artifact
 
 2. **`build-android` job** (depends on assets job):
@@ -310,15 +310,15 @@ For local development, you can manually build and copy assets:
 
 ```bash
 cd formulus-formplayer
-npm run build:rn
+npm run build:copy
 ```
 
 This will:
 1. Build the formplayer web app
-2. Clean existing assets in formulus
-3. Copy new assets to `formulus/android/app/src/main/assets/formplayer_dist/`
+2. Clean existing formplayer asset folders in Formulus and copy new assets to Android and iOS paths
+3. Copy the same bundle to `desktop/public/formplayer_dist/` for ODE Desktop
 
-The `build:rn` script automatically handles cleaning, so no need to run `clean-rn-assets` separately.
+The `copy-to-rn` step run inside `build:copy` handles cleaning targets before copy, so no need to run `clean-rn-assets` separately for a normal refresh.
 
 ## ODE Desktop (Tauri)
 

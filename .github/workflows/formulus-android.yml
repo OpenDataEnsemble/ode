@@ -60,7 +60,7 @@ jobs:
 
       - name: Build and bundle formplayer
         working-directory: formulus-formplayer
-        run: npm run build:rn
+        run: npm run build:copy
 
       - name: Upload formplayer assets artifact
         uses: actions/upload-artifact@v6

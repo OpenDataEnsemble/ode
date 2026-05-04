@@ -59,7 +59,7 @@ pnpm tauri dev
 | `pnpm test`                         | Vitest (unit / component tests).                                                                                                                               |
 | `pnpm typecheck`                    | `tsc --noEmit`.                                                                                                                                                |
 | `pnpm codegen:synk-client`          | Regenerate TypeScript client from Synkronus OpenAPI.                                                                                                           |
-| `pnpm copy:formplayer`              | Copy `../formulus-formplayer/build/` → `public/formplayer_dist/`. Prefer from `formulus-formplayer/`: `npm run build:ode-desktop` (build + RN + desktop copy). |
+| `pnpm copy:formplayer`              | Copy `../formulus-formplayer/build/` → `public/formplayer_dist/`. Prefer from `formulus-formplayer/`: `npm run build:copy` (build + Formulus + desktop copy). |
 
 ### Rust (backend)
 

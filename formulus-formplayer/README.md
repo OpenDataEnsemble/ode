@@ -29,7 +29,7 @@ If you run `npm install` only in formulus-formplayer, the tokens package’s `pr
 
 ## Building this project
 
-Use 'npm run build:rn' to build the project. This will build the project and copy the build to the formulus app.
+Use `npm run build:copy` to build the project and copy the bundle into the Formulus app (Android + iOS) and ODE Desktop (`desktop/public/formplayer_dist/`).
 
 ## Javascript interface
 
