@@ -33,6 +33,78 @@ import type {
 
 const LEGACY_SERVER_URL_KEY = 'custodian.server_url';
 const AUTH_MAP_KEY = 'custodian.auth.byProfile.v1';
+const ATTACHMENT_UPLOAD_CACHE_KEY =
+  'custodian.sync.uploadedAttachmentIds.byProfile.v1';
+
+type UploadedAttachmentCacheEntry = {
+  repositoryGeneration: number;
+  ids: string[];
+};
+
+type UploadedAttachmentCacheMap = Record<string, UploadedAttachmentCacheEntry>;
+/**
+ * In-session cache of attachment IDs that were already uploaded (or confirmed as
+ * server-present) during push preflight for a profile. This avoids re-uploading
+ * the same files on retry when observation push fails afterwards.
+ */
+const uploadedAttachmentIdsByProfile = new Map<string, Set<string>>();
+
+function uploadedAttachmentCacheForProfile(profileId: string): Set<string> {
+  let cache = uploadedAttachmentIdsByProfile.get(profileId);
+  if (!cache) {
+    cache = new Set<string>();
+    uploadedAttachmentIdsByProfile.set(profileId, cache);
+  }
+  return cache;
+}
+
+function loadUploadedAttachmentCacheMap(): UploadedAttachmentCacheMap {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  try {
+    const raw = localStorage.getItem(ATTACHMENT_UPLOAD_CACHE_KEY);
+    if (!raw) {
+      return {};
+    }
+    const parsed = JSON.parse(raw) as UploadedAttachmentCacheMap;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistUploadedAttachmentCacheMap(map: UploadedAttachmentCacheMap) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  localStorage.setItem(ATTACHMENT_UPLOAD_CACHE_KEY, JSON.stringify(map));
+}
+
+function loadUploadedAttachmentCacheSet(
+  profileId: string,
+  repositoryGeneration: number,
+): Set<string> {
+  const map = loadUploadedAttachmentCacheMap();
+  const entry = map[profileId];
+  if (!entry || entry.repositoryGeneration !== repositoryGeneration) {
+    return new Set<string>();
+  }
+  return new Set(entry.ids ?? []);
+}
+
+function persistUploadedAttachmentCacheSet(
+  profileId: string,
+  repositoryGeneration: number,
+  ids: Set<string>,
+) {
+  const map = loadUploadedAttachmentCacheMap();
+  map[profileId] = {
+    repositoryGeneration,
+    ids: [...ids],
+  };
+  persistUploadedAttachmentCacheMap(map);
+}
 
 function loadAuthMap(): Record<string, AuthSession> {
   if (typeof window === 'undefined') {
@@ -737,47 +809,68 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
             readyToPush.flatMap(o => refsByObservationId.get(o.id) ?? []),
           ),
         ];
+        const uploadedAttachmentCache = uploadedAttachmentCacheForProfile(id);
+        const persistedUploadCache = loadUploadedAttachmentCacheSet(
+          id,
+          syncState.repositoryGeneration,
+        );
+        for (const cachedId of persistedUploadCache) {
+          uploadedAttachmentCache.add(cachedId);
+        }
+        const extraAttachmentIdsToUpload = extraAttachmentIds.filter(
+          attachmentId => !uploadedAttachmentCache.has(attachmentId),
+        );
         set({
           syncActivity: {
             op: 'push',
-            statusText: 'Uploading attachments before push…',
+            statusText:
+              extraAttachmentIdsToUpload.length > 0
+                ? `Uploading attachments before push (${extraAttachmentIdsToUpload.length} referenced)…`
+                : 'Preparing observation push…',
           },
         });
-        const uploadResult = await withTimeout(
-          tauriClient.uploadOutboundAttachments({
-            baseUrl: request.baseUrl ?? authSession.baseUrl,
-            bearerToken: request.token ?? authSession.token,
-            xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-            repositoryGeneration:
-              syncState.repositoryGeneration > 0
-                ? syncState.repositoryGeneration
-                : undefined,
-            extraAttachmentIds,
-          }),
-          90_000,
-          'Attachment upload',
-        );
-        if (uploadResult.failed > 0 || uploadResult.errorSummary) {
+        // Do not enforce a client-side timeout here; large attachment batches can
+        // legitimately take several minutes on slow or unstable networks.
+        const uploadResult = await tauriClient.uploadOutboundAttachments({
+          baseUrl: request.baseUrl ?? authSession.baseUrl,
+          bearerToken: request.token ?? authSession.token,
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+          repositoryGeneration:
+            syncState.repositoryGeneration > 0
+              ? syncState.repositoryGeneration
+              : undefined,
+          extraAttachmentIds: extraAttachmentIdsToUpload,
+        });
+        if (uploadResult.failed > 0) {
           throw new Error(
             uploadResult.errorSummary ??
               `Attachment upload failed (${uploadResult.failed} file(s)).`,
           );
         }
+        for (const attachmentId of extraAttachmentIdsToUpload) {
+          uploadedAttachmentCache.add(attachmentId);
+        }
+        persistUploadedAttachmentCacheSet(
+          id,
+          syncState.repositoryGeneration,
+          uploadedAttachmentCache,
+        );
 
         set({
-          syncActivity: { op: 'push', statusText: 'Pushing observations…' },
+          syncActivity: {
+            op: 'push',
+            statusText: `Pushing observations (${readyToPush.length})…`,
+          },
         });
-        const pushResult = await withTimeout(
-          syncGateway.push({
-            baseUrl: request.baseUrl ?? authSession.baseUrl,
-            token: request.token ?? authSession.token,
-            clientId: getOrCreateClientId(id),
-            observations: readyToPush,
-            repositoryGeneration: syncState.repositoryGeneration,
-          }),
-          60_000,
-          'Push request',
-        );
+        // Keep push open-ended as well because the request can take longer when
+        // attachments were just uploaded over slow links.
+        const pushResult = await syncGateway.push({
+          baseUrl: request.baseUrl ?? authSession.baseUrl,
+          token: request.token ?? authSession.token,
+          clientId: getOrCreateClientId(id),
+          observations: readyToPush,
+          repositoryGeneration: syncState.repositoryGeneration,
+        });
 
         if (pushResult.acceptedIds.length > 0) {
           await tauriClient.markObservationsPushed(pushResult.acceptedIds);
@@ -800,6 +893,11 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         if (uploadResult.skippedMissing > 0) {
           attParts.push(
             `${uploadResult.skippedMissing} attachment id(s) had no local file during upload (skipped)`,
+          );
+        }
+        if (uploadResult.errorSummary) {
+          attParts.push(
+            `attachment upload warning: ${uploadResult.errorSummary}`,
           );
         }
         const attNudge = attParts.length > 0 ? ` ${attParts.join('; ')}.` : '';
