@@ -8,7 +8,7 @@ import {
 import type { BundleFormSpec } from '../types/domain';
 import {
   flattenObservations,
-  parseObservationJsonFile,
+  parseObservationJsonFiles,
   summarizeImportFiles,
 } from '../lib/importSummary';
 import {
@@ -117,8 +117,8 @@ export function ImportPage() {
     setMessage(null);
     setError(null);
     try {
-      const parsed = await Promise.all(
-        stagedJson.map(s => parseObservationJsonFile(s.file)),
+      const parsed = await parseObservationJsonFiles(
+        stagedJson.map(s => s.file),
       );
       const formTypes = new Set<string>();
       for (const p of parsed) {
