@@ -4,13 +4,14 @@ use std::{
     io::{BufWriter, Cursor},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
-    sync::atomic::{AtomicUsize, Ordering},
     sync::Mutex,
+    sync::atomic::{AtomicUsize, Ordering},
     time::UNIX_EPOCH,
 };
 
 use chrono::{DateTime, Utc};
 use keyring::Entry;
+use rayon::prelude::*;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use reqwest::multipart;
 use rusqlite::{Connection, OptionalExtension, params};
@@ -18,7 +19,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{Emitter, Manager};
 use thiserror::Error;
-use rayon::prelude::*;
 use url::Url;
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -2106,8 +2106,7 @@ struct ImportStagingScanEntry {
 }
 
 fn import_scan_mtime_ms(meta: &fs::Metadata) -> i64 {
-    meta
-        .modified()
+    meta.modified()
         .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| {
@@ -2194,8 +2193,7 @@ fn expand_import_staging_paths(
             continue;
         }
         let p = PathBuf::from(t);
-        let meta = fs::metadata(&p)
-            .map_err(|e| format!("{}: {e}", p.to_string_lossy()))?;
+        let meta = fs::metadata(&p).map_err(|e| format!("{}: {e}", p.to_string_lossy()))?;
         if meta.is_dir() {
             dirs.push(p);
         } else if meta.is_file() {
@@ -2326,7 +2324,10 @@ fn observation_id_from_obj(obj: &serde_json::Map<String, Value>) -> Option<Strin
     None
 }
 
-fn extract_observations_from_json_value(root: &Value, _file_name: &str) -> Result<Vec<ApiObservation>, String> {
+fn extract_observations_from_json_value(
+    root: &Value,
+    _file_name: &str,
+) -> Result<Vec<ApiObservation>, String> {
     let rows: Vec<&Value> = match root {
         Value::Array(a) => a.iter().collect(),
         Value::Object(map) => {
@@ -2420,7 +2421,9 @@ fn parse_import_json_file(path: &Path) -> ParsedImportFileResult {
 
 /// Parse observation JSON files on the host (parallel) in import order.
 #[tauri::command]
-fn parse_import_observation_json_paths(paths: Vec<String>) -> Result<Vec<ParsedImportFileResult>, String> {
+fn parse_import_observation_json_paths(
+    paths: Vec<String>,
+) -> Result<Vec<ParsedImportFileResult>, String> {
     if paths.is_empty() {
         return Ok(Vec::new());
     }
@@ -2470,7 +2473,11 @@ struct AttachmentCopyBatchResult {
     errors: Vec<String>,
 }
 
-fn copy_one_attachment_to_pending(ws: &Path, source_path: &str, attachment_id: &str) -> Result<(), String> {
+fn copy_one_attachment_to_pending(
+    ws: &Path,
+    source_path: &str,
+    attachment_id: &str,
+) -> Result<(), String> {
     let t = attachment_id.trim();
     if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
         return Err("invalid attachment id".to_string());
