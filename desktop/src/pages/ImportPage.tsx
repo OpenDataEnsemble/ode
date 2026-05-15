@@ -69,12 +69,15 @@ function throttledImportStatus(
     }
     pending = text;
     if (!timer) {
-      timer = setTimeout(() => {
-        timer = null;
-        if (pending != null) {
-          fire(pending);
-        }
-      }, minIntervalMs - (now - lastFire));
+      timer = setTimeout(
+        () => {
+          timer = null;
+          if (pending != null) {
+            fire(pending);
+          }
+        },
+        minIntervalMs - (now - lastFire),
+      );
     }
   };
 }
@@ -179,10 +182,7 @@ export function ImportPage() {
       setImportActivity({
         statusText: 'Scanning folder for import files…',
       });
-      const expanded = await tauriClient.expandImportStagingPaths(
-        paths,
-        null,
-      );
+      const expanded = await tauriClient.expandImportStagingPaths(paths, null);
       if (expanded.length) {
         addScanEntries(expanded);
       }
@@ -400,8 +400,7 @@ export function ImportPage() {
     ? summarizeImportFiles(previewReport.parsedFiles, 0)
     : null;
 
-  const issuesToShow =
-    previewReport?.issues.slice(0, MAX_ISSUES_SHOWN) ?? [];
+  const issuesToShow = previewReport?.issues.slice(0, MAX_ISSUES_SHOWN) ?? [];
   const hiddenIssueCount =
     previewReport && previewReport.issues.length > MAX_ISSUES_SHOWN
       ? previewReport.issues.length - MAX_ISSUES_SHOWN
@@ -449,10 +448,7 @@ export function ImportPage() {
             <strong>{stagingSummary.attCount}</strong> attachment
             {stagingSummary.attCount !== 1 ? 's' : ''}
             {stagingSummary.jsonCount + stagingSummary.attCount > 0 ? (
-              <>
-                {' '}
-                ({formatBytes(stagingSummary.bytes)} total)
-              </>
+              <> ({formatBytes(stagingSummary.bytes)} total)</>
             ) : null}
           </p>
           <div className="import-file-picker-actions">
@@ -510,15 +506,11 @@ export function ImportPage() {
               types
             </li>
             <li>
-              <strong>
-                {previewReport.stagedAttachmentBasenames.length}
-              </strong>{' '}
+              <strong>{previewReport.stagedAttachmentBasenames.length}</strong>{' '}
               staged attachments
             </li>
             <li>
-              <strong>
-                {previewReport.referencedAttachmentNames.length}
-              </strong>{' '}
+              <strong>{previewReport.referencedAttachmentNames.length}</strong>{' '}
               referenced attachment names
             </li>
           </ul>

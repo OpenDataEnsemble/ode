@@ -1,9 +1,6 @@
 import { create } from 'zustand';
 import type { ImportStagingScanEntry } from '../types/domain';
-import {
-  computeStagingKey,
-  stagingFileKey,
-} from '../lib/importValidation';
+import { computeStagingKey, stagingFileKey } from '../lib/importValidation';
 
 export interface ImportStagedFile {
   id: string;
@@ -40,11 +37,7 @@ function scanEntryToStaged(e: ImportStagingScanEntry): ImportStagedFile {
 
 function emptyStagingState(): Pick<
   ImportStagingState,
-  | 'stagedJson'
-  | 'stagedAttachments'
-  | 'message'
-  | 'error'
-  | 'importActivity'
+  'stagedJson' | 'stagedAttachments' | 'message' | 'error' | 'importActivity'
 > {
   return {
     stagedJson: [],
