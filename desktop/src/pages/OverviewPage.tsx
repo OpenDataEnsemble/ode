@@ -116,11 +116,18 @@ export function OverviewPage() {
         <article className="card">
           <h3>Pending changes</h3>
           <p className="metric warn">{health?.dirtyCount ?? 0}</p>
-          <span>Observations saved locally, not yet pushed</span>
+          <span>
+            <code>dirty</code> + <code>sync_status: dirty</code> (conflicts
+            excluded — see Conflicts card). Skipped rows stay here until
+            resolved.
+          </span>
           <p className="metric metric-secondary warn">
             {health?.pendingAttachmentCount ?? 0}
           </p>
-          <span>Attachments awaiting upload</span>
+          <span>
+            Files in <code>attachments/pending</code> (disk queue only — not
+            derived from observations)
+          </span>
         </article>
         <article className="card">
           <h3>Conflicts</h3>

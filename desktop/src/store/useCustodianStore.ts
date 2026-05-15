@@ -1,110 +1,36 @@
 import { create } from 'zustand';
-import {
-  Configuration,
-  DefaultApi,
-  RepositoryResetRequestConfirmEnum,
-  ResponseError,
-} from '../generated/synkronus-client';
 import { tauriClient } from '../lib/tauriClient';
 import { SYNKRONUS_CLIENT_VERSION } from '../lib/synkConstants';
+import {
+  ensureCustodianSyncEventPipeline,
+  registerSyncJobWaiter,
+  setCustodianSyncProgressHandler,
+  SyncPausedError,
+} from '../lib/syncTauriEvents';
 import {
   normalizeBasename,
   referencedNamesForObservation,
 } from '../lib/importValidation';
-import {
-  getOrCreateClientId,
-  isSyncHttpUnauthorized,
-  syncGateway,
-} from '../services/synk';
+import { getOrCreateClientId, syncGateway } from '../services/synk';
 import type {
   AppHealth,
   AuthSession,
   BundleFormSpec,
-  ImportResult,
   ObservationRecord,
   SaveObservationRequest,
   ServerProfile,
+  SyncJobRowOut,
   SyncLoginRequest,
+  SyncProgressPayload,
   SyncPullRequest,
   SyncPushRequest,
+  SyncResumeJobRequest,
   WorkspaceAttachmentPresenceEntry,
   WorkspaceItem,
 } from '../types/domain';
 
 const LEGACY_SERVER_URL_KEY = 'custodian.server_url';
 const AUTH_MAP_KEY = 'custodian.auth.byProfile.v1';
-const ATTACHMENT_UPLOAD_CACHE_KEY =
-  'custodian.sync.uploadedAttachmentIds.byProfile.v1';
-
-type UploadedAttachmentCacheEntry = {
-  repositoryGeneration: number;
-  ids: string[];
-};
-
-type UploadedAttachmentCacheMap = Record<string, UploadedAttachmentCacheEntry>;
-/**
- * In-session cache of attachment IDs that were already uploaded (or confirmed as
- * server-present) during push preflight for a profile. This avoids re-uploading
- * the same files on retry when observation push fails afterwards.
- */
-const uploadedAttachmentIdsByProfile = new Map<string, Set<string>>();
-
-function uploadedAttachmentCacheForProfile(profileId: string): Set<string> {
-  let cache = uploadedAttachmentIdsByProfile.get(profileId);
-  if (!cache) {
-    cache = new Set<string>();
-    uploadedAttachmentIdsByProfile.set(profileId, cache);
-  }
-  return cache;
-}
-
-function loadUploadedAttachmentCacheMap(): UploadedAttachmentCacheMap {
-  if (typeof window === 'undefined') {
-    return {};
-  }
-  try {
-    const raw = localStorage.getItem(ATTACHMENT_UPLOAD_CACHE_KEY);
-    if (!raw) {
-      return {};
-    }
-    const parsed = JSON.parse(raw) as UploadedAttachmentCacheMap;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function persistUploadedAttachmentCacheMap(map: UploadedAttachmentCacheMap) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  localStorage.setItem(ATTACHMENT_UPLOAD_CACHE_KEY, JSON.stringify(map));
-}
-
-function loadUploadedAttachmentCacheSet(
-  profileId: string,
-  repositoryGeneration: number,
-): Set<string> {
-  const map = loadUploadedAttachmentCacheMap();
-  const entry = map[profileId];
-  if (!entry || entry.repositoryGeneration !== repositoryGeneration) {
-    return new Set<string>();
-  }
-  return new Set(entry.ids ?? []);
-}
-
-function persistUploadedAttachmentCacheSet(
-  profileId: string,
-  repositoryGeneration: number,
-  ids: Set<string>,
-) {
-  const map = loadUploadedAttachmentCacheMap();
-  map[profileId] = {
-    repositoryGeneration,
-    ids: [...ids],
-  };
-  persistUploadedAttachmentCacheMap(map);
-}
 
 function loadAuthMap(): Record<string, AuthSession> {
   if (typeof window === 'undefined') {
@@ -142,22 +68,39 @@ function refsMissingAfterPresence(
   return refs.filter(r => !normPresent.has(normalizeBasename(r)));
 }
 
-function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  label: string,
-): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s.`));
-    }, ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => {
-    if (timer) {
-      clearTimeout(timer);
+let lastHealthPollDuringSync = 0;
+
+/** Avoid banner text like `Working … (3/10) (3/10)` when the message already embeds a fraction. */
+const INLINE_FRACTION = /\(\s*\d+\s*\/\s*\d+\s*\)/;
+
+function syncBannerLineFromProgress(p: SyncProgressPayload): string {
+  const base = p.message.trimEnd();
+  if (p.total > 0 && !INLINE_FRACTION.test(base)) {
+    return `${base} (${p.done}/${p.total})`;
+  }
+  return base;
+}
+
+function attachSyncProgressToStore(
+  set: (partial: Partial<CustodianState>) => void,
+  get: () => CustodianState,
+  capture: { current: string },
+): (p: SyncProgressPayload) => void {
+  return (p: SyncProgressPayload) => {
+    const line = syncBannerLineFromProgress(p);
+    capture.current = line;
+    const now = Date.now();
+    if (now - lastHealthPollDuringSync > 2000) {
+      lastHealthPollDuringSync = now;
+      void get().loadHealth();
     }
-  });
+    set({
+      syncActivity: {
+        op: p.op,
+        statusText: line,
+      },
+    });
+  };
 }
 
 async function attachmentRefsForPushObservation(
@@ -178,143 +121,6 @@ async function attachmentRefsForPushObservation(
     spec = specCache.get(ft);
   }
   return [...referencedNamesForObservation(spec?.formSchema, o.payload)];
-}
-
-async function pullSyncWithAttachments(
-  baseUrl: string,
-  token: string,
-  clientId: string,
-): Promise<ImportResult> {
-  const syncState = await tauriClient.getSyncState();
-  let repoGen = syncState.repositoryGeneration;
-  const obsVer = syncState.observationSyncVersion;
-
-  const pullPage = (since: number | undefined, repo: number) =>
-    withTimeout(
-      syncGateway.pull({
-        baseUrl,
-        token,
-        clientId,
-        sinceVersion: since,
-        repositoryGeneration: repo,
-        limit: 500,
-      }),
-      60_000,
-      'Pull request',
-    );
-
-  let page = await pullPage(obsVer > 0 ? obsVer : undefined, repoGen);
-
-  // Fresh workspace uses generation 0 until the first successful pull; do not treat
-  // "server > 0" as a server-side reset (that would archive an empty profile).
-  if (repoGen > 0 && page.repositoryGeneration > repoGen) {
-    await tauriClient.archiveWorkspaceForRepositoryGeneration();
-    await tauriClient.setSyncState({
-      repositoryGeneration: page.repositoryGeneration,
-      observationSyncVersion: 0,
-      lastAttachmentVersion: 0,
-    });
-    repoGen = page.repositoryGeneration;
-    page = await pullPage(undefined, repoGen);
-  }
-
-  let imported = 0;
-  let conflicts = 0;
-  let last = page;
-  while (true) {
-    const imp = await tauriClient.importObservations(last.observations);
-    imported += imp.imported;
-    conflicts += imp.conflicts;
-    if (!last.hasMore) {
-      break;
-    }
-    last = await pullPage(last.changeCutoff, last.repositoryGeneration);
-  }
-
-  await tauriClient.setSyncState({
-    observationSyncVersion: last.changeCutoff,
-    repositoryGeneration: last.repositoryGeneration,
-  });
-
-  const attState = await tauriClient.getSyncState();
-  const api = new DefaultApi(
-    new Configuration({
-      basePath: baseUrl.replace(/\/+$/, ''),
-      accessToken: token,
-    }),
-  );
-
-  let attachmentsDownloaded = 0;
-  let attachmentsFailed = 0;
-  try {
-    const manifest = await withTimeout(
-      api.getAttachmentManifest({
-        xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-        ...(attState.repositoryGeneration > 0
-          ? { xRepositoryGeneration: attState.repositoryGeneration }
-          : {}),
-        attachmentManifestRequest: {
-          client_id: clientId,
-          since_version: attState.lastAttachmentVersion,
-          ...(attState.repositoryGeneration > 0
-            ? { repository_generation: attState.repositoryGeneration }
-            : {}),
-        },
-      }),
-      45_000,
-      'Attachment manifest fetch',
-    );
-
-    const ops = manifest.operations ?? [];
-    for (const op of ops) {
-      if (op.operation === 'download' && op.attachment_id) {
-        try {
-          await withTimeout(
-            tauriClient.downloadWorkspaceAttachmentFromUrl({
-              baseUrl,
-              bearerToken: token,
-              attachmentId: op.attachment_id,
-              xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-            }),
-            30_000,
-            `Attachment download ${op.attachment_id}`,
-          );
-          attachmentsDownloaded += 1;
-        } catch (e) {
-          attachmentsFailed += 1;
-          console.error(`Attachment download failed (${op.attachment_id}):`, e);
-        }
-      } else if (op.operation === 'delete') {
-        await tauriClient.removeWorkspaceAttachment(op.attachment_id);
-      }
-    }
-
-    await tauriClient.setSyncState({
-      lastAttachmentVersion: manifest.current_version,
-      repositoryGeneration:
-        manifest.repository_generation ?? last.repositoryGeneration,
-    });
-  } catch (err) {
-    // Attachment endpoints may be unavailable; observation import still succeeded.
-    console.error('Attachment manifest download failed:', err);
-  }
-
-  return { imported, conflicts, attachmentsDownloaded, attachmentsFailed };
-}
-
-async function callAdminRepositoryReset(baseUrl: string, token: string) {
-  const api = new DefaultApi(
-    new Configuration({
-      basePath: baseUrl.replace(/\/+$/, ''),
-      accessToken: token,
-    }),
-  );
-  return api.adminRepositoryReset({
-    xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-    repositoryResetRequest: {
-      confirm: RepositoryResetRequestConfirmEnum.ResetRepository,
-    },
-  });
 }
 
 async function reauthenticateActiveProfile(
@@ -370,6 +176,50 @@ async function reauthenticateActiveProfile(
   set({ authSessionsByProfileId: merged });
 }
 
+async function awaitSyncJobTerminal(
+  jobId: string,
+  set: (partial: Partial<CustodianState>) => void,
+  get: () => CustodianState,
+  buildResume: () => SyncResumeJobRequest,
+  initialWait: Promise<void>,
+): Promise<void> {
+  let wait = initialWait;
+  for (;;) {
+    try {
+      await wait;
+      return;
+    } catch (e) {
+      if (
+        e instanceof SyncPausedError &&
+        (e.code === 'needs_auth' || e.code === 'transient')
+      ) {
+        if (e.code === 'needs_auth') {
+          await reauthenticateActiveProfile(set, get);
+        }
+        wait = registerSyncJobWaiter(jobId);
+        await tauriClient.syncResumeJob(buildResume());
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
+async function awaitSyncCompletion(
+  jobId: string,
+  set: (partial: Partial<CustodianState>) => void,
+  get: () => CustodianState,
+  buildResume: () => SyncResumeJobRequest,
+): Promise<void> {
+  await awaitSyncJobTerminal(
+    jobId,
+    set,
+    get,
+    buildResume,
+    registerSyncJobWaiter(jobId),
+  );
+}
+
 interface CustodianState {
   settingsHydrated: boolean;
   dataDirectory: string;
@@ -398,6 +248,8 @@ interface CustodianState {
     op: 'pull' | 'push' | 'reset';
     statusText: string;
   } | null;
+  /** Persisted Rust sync job awaiting resume (transient stall, auth, or cold start). */
+  syncPausedJob: SyncJobRowOut | null;
   refreshSettings: () => Promise<void>;
   selectActiveProfile: (profileId: string) => Promise<void>;
   upsertProfileRemote: (profile: ServerProfile) => Promise<void>;
@@ -416,15 +268,18 @@ interface CustodianState {
   saveObservation: (request: SaveObservationRequest) => Promise<void>;
   restoreLastBackup: (observationId: string) => Promise<void>;
   synkLogin: (request: SyncLoginRequest) => Promise<void>;
-  synkPull: (request: SyncPullRequest) => Promise<ImportResult>;
-  synkPush: (request: SyncPushRequest) => Promise<number>;
+  synkPull: (request?: SyncPullRequest) => Promise<void>;
+  synkPush: (request?: SyncPushRequest) => Promise<number>;
   /**
    * Admin API: wipes server observations and attachment manifest, increments repository
    * generation, then pulls so the client archives the prior generation and aligns.
    */
-  synkResetServerRepository: (request?: {
-    baseUrl?: string;
-  }) => Promise<ImportResult>;
+  synkResetServerRepository: (request?: { baseUrl?: string }) => Promise<void>;
+  refreshPausedSyncJob: () => Promise<void>;
+  resumePausedSyncEngineJob: () => Promise<void>;
+  syncPauseInFlight: () => Promise<void>;
+  syncContinueInFlight: () => Promise<void>;
+  syncCancelJob: (jobId?: string | null) => Promise<void>;
   resetLocalWorkspaceData: () => Promise<void>;
 }
 
@@ -523,6 +378,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   error: null,
   syncMessage: null,
   syncActivity: null,
+  syncPausedJob: null,
 
   refreshSettings: async () => {
     try {
@@ -558,6 +414,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
       } else {
         set({ workspaceItems: [] });
       }
+      await get().refreshPausedSyncJob();
     } catch (error) {
       const message = formatUnknownError(error);
       set({ settingsHydrated: true, error: message });
@@ -574,6 +431,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         syncMessage: null,
       });
       await reloadProfileScopedData(set, get);
+      await get().refreshPausedSyncJob();
     });
   },
 
@@ -703,59 +561,70 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
 
   synkPull: async request =>
     withErrorHandling(set, async () => {
+      await ensureCustodianSyncEventPipeline();
+      const capture = { current: '' };
+      setCustodianSyncProgressHandler(
+        attachSyncProgressToStore(set, get, capture),
+      );
       set({
-        syncActivity: { op: 'pull', statusText: 'Pulling from server…' },
+        syncMessage: null,
+        syncActivity: { op: 'pull', statusText: 'Pulling…' },
       });
-      const runPull = async () => {
+      try {
         const id = get().activeProfileId;
         const authSession = get().authSessionsByProfileId[id];
         if (!authSession) {
           throw new Error('Authenticate first before pull.');
         }
-        const baseUrl = request.baseUrl ?? authSession.baseUrl;
-        const token = request.token ?? authSession.token;
-        const result = await pullSyncWithAttachments(
+        const baseUrl = (request?.baseUrl ?? authSession.baseUrl).trim();
+        const token = request?.token ?? authSession.token;
+        const clientId = getOrCreateClientId(id);
+        const { jobId } = await tauriClient.syncStart({
+          op: 'pull',
           baseUrl,
-          token,
-          getOrCreateClientId(id),
-        );
+          bearerToken: token,
+          clientId,
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+        });
+        const resumePayloadBound = (): SyncResumeJobRequest => ({
+          jobId,
+          baseUrl,
+          bearerToken: get().authSessionsByProfileId[id].token,
+          clientId: getOrCreateClientId(id),
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+        });
+        await awaitSyncCompletion(jobId, set, get, resumePayloadBound);
         await get().loadObservations();
         await get().loadHealth();
-        const att = result.attachmentsDownloaded ?? 0;
-        const af = result.attachmentsFailed ?? 0;
-        const attSuffix =
-          af > 0
-            ? `${att} attachment file(s), ${af} failed`
-            : `${att} attachment file(s)`;
         set({
-          syncMessage: `Pulled ${result.imported} observations (${result.conflicts} conflicts), ${attSuffix}.`,
+          syncMessage: capture.current.trim() || 'Pull finished.',
         });
-        return result;
-      };
-      try {
-        return await runPull();
-      } catch (error) {
-        if (isSyncHttpUnauthorized(error)) {
-          await reauthenticateActiveProfile(set, get);
-          return await runPull();
-        }
-        throw error;
       } finally {
+        setCustodianSyncProgressHandler(null);
         set({ syncActivity: null });
+        await get().refreshPausedSyncJob();
       }
     }),
 
   synkPush: async request =>
     withErrorHandling(set, async () => {
+      await ensureCustodianSyncEventPipeline();
+      const capture = { current: '' };
+      setCustodianSyncProgressHandler(
+        attachSyncProgressToStore(set, get, capture),
+      );
       set({
-        syncActivity: { op: 'push', statusText: 'Pushing to server…' },
+        syncMessage: null,
+        syncActivity: { op: 'push', statusText: 'Preparing push…' },
       });
-      const runPush = async () => {
+      try {
         const id = get().activeProfileId;
         const authSession = get().authSessionsByProfileId[id];
         if (!authSession) {
           throw new Error('Authenticate first before push.');
         }
+        const baseUrl = (request?.baseUrl ?? authSession.baseUrl).trim();
+        const token = request?.token ?? authSession.token;
         const pendingPushObservations =
           await tauriClient.listDirtyObservations();
         if (pendingPushObservations.length === 0) {
@@ -764,15 +633,19 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         }
 
         const specCache = new Map<string, BundleFormSpec | undefined>();
-        const skippedForAttachments: { id: string; missing: string[] }[] = [];
+        const missingAttachmentIssues: {
+          id: string;
+          formType: string;
+          missing: string[];
+        }[] = [];
         const readyToPush: ObservationRecord[] = [];
-        const refsByObservationId = new Map<string, string[]>();
+        const forceMissing = Boolean(request?.forcePushMissingAttachments);
 
         for (const o of pendingPushObservations) {
           const refs = [
             ...new Set(await attachmentRefsForPushObservation(o, specCache)),
           ];
-          refsByObservationId.set(o.id, refs);
+          const formType = (o.formType ?? '').trim() || '(unknown)';
           if (refs.length === 0) {
             readyToPush.push(o);
             continue;
@@ -780,21 +653,52 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           const presenceRows =
             await tauriClient.checkWorkspaceAttachmentPresence(refs);
           const missing = refsMissingAfterPresence(refs, presenceRows);
-          if (missing.length > 0) {
-            skippedForAttachments.push({ id: o.id, missing });
-          } else {
+          if (missing.length === 0) {
             readyToPush.push(o);
+          } else {
+            missingAttachmentIssues.push({
+              id: o.id,
+              formType,
+              missing,
+            });
+            if (forceMissing) {
+              readyToPush.push(o);
+            }
           }
         }
 
         const skipSummary =
-          skippedForAttachments.length > 0
-            ? ` Skipped ${skippedForAttachments.length} observation(s) with missing attachment file(s): ${skippedForAttachments
+          missingAttachmentIssues.length > 0 && !forceMissing
+            ? ` Skipped ${missingAttachmentIssues.length} observation(s) with missing attachment file(s): ${missingAttachmentIssues
                 .map(
-                  s => `${s.id} (${s.missing.map(n => `"${n}"`).join(', ')})`,
+                  s =>
+                    `${s.id} (form: ${s.formType}; missing: ${s.missing.map(n => `"${n}"`).join(', ')})`,
                 )
                 .join('; ')}.`
             : '';
+
+        const forceMissingSummary =
+          missingAttachmentIssues.length > 0 && forceMissing
+            ? ` Included ${missingAttachmentIssues.length} observation(s) with missing attachment(s) (forced): ${missingAttachmentIssues
+                .map(
+                  s =>
+                    `${s.id} (form: ${s.formType}; missing: ${s.missing.map(n => `"${n}"`).join(', ')})`,
+                )
+                .join('; ')}.`
+            : '';
+
+        if (
+          missingAttachmentIssues.length > 0 &&
+          forceMissing &&
+          request?.onMissingAttachmentReport
+        ) {
+          request.onMissingAttachmentReport(
+            missingAttachmentIssues.map(
+              s =>
+                `Force push — observation ${s.id}, form "${s.formType}", missing file(s): ${s.missing.join(', ')}`,
+            ),
+          );
+        }
 
         if (readyToPush.length === 0) {
           set({
@@ -803,134 +707,60 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           return 0;
         }
 
-        const syncState = await tauriClient.getSyncState();
-        const extraAttachmentIds = [
-          ...new Set(
-            readyToPush.flatMap(o => refsByObservationId.get(o.id) ?? []),
-          ),
-        ];
-        const uploadedAttachmentCache = uploadedAttachmentCacheForProfile(id);
-        const persistedUploadCache = loadUploadedAttachmentCacheSet(
-          id,
-          syncState.repositoryGeneration,
-        );
-        for (const cachedId of persistedUploadCache) {
-          uploadedAttachmentCache.add(cachedId);
-        }
-        const extraAttachmentIdsToUpload = extraAttachmentIds.filter(
-          attachmentId => !uploadedAttachmentCache.has(attachmentId),
-        );
-        set({
-          syncActivity: {
-            op: 'push',
-            statusText:
-              extraAttachmentIdsToUpload.length > 0
-                ? `Uploading attachments before push (${extraAttachmentIdsToUpload.length} referenced)…`
-                : 'Preparing observation push…',
-          },
-        });
-        // Do not enforce a client-side timeout here; large attachment batches can
-        // legitimately take several minutes on slow or unstable networks.
-        const uploadResult = await tauriClient.uploadOutboundAttachments({
-          baseUrl: request.baseUrl ?? authSession.baseUrl,
-          bearerToken: request.token ?? authSession.token,
+        const clientId = getOrCreateClientId(id);
+        const { jobId } = await tauriClient.syncStart({
+          op: 'push',
+          baseUrl,
+          bearerToken: token,
+          clientId,
           xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-          repositoryGeneration:
-            syncState.repositoryGeneration > 0
-              ? syncState.repositoryGeneration
-              : undefined,
-          extraAttachmentIds: extraAttachmentIdsToUpload,
-        });
-        if (uploadResult.failed > 0) {
-          throw new Error(
-            uploadResult.errorSummary ??
-              `Attachment upload failed (${uploadResult.failed} file(s)).`,
-          );
-        }
-        for (const attachmentId of extraAttachmentIdsToUpload) {
-          uploadedAttachmentCache.add(attachmentId);
-        }
-        persistUploadedAttachmentCacheSet(
-          id,
-          syncState.repositoryGeneration,
-          uploadedAttachmentCache,
-        );
-
-        set({
-          syncActivity: {
-            op: 'push',
-            statusText: `Pushing observations (${readyToPush.length})…`,
+          pushPrepare: {
+            readyObservationIds: readyToPush.map(o => o.id),
+            skipSummary: skipSummary.trim() ? skipSummary : undefined,
           },
         });
-        // Keep push open-ended as well because the request can take longer when
-        // attachments were just uploaded over slow links.
-        const pushResult = await syncGateway.push({
-          baseUrl: request.baseUrl ?? authSession.baseUrl,
-          token: request.token ?? authSession.token,
+        const resumePayloadBound = (): SyncResumeJobRequest => ({
+          jobId,
+          baseUrl,
+          bearerToken: get().authSessionsByProfileId[id].token,
           clientId: getOrCreateClientId(id),
-          observations: readyToPush,
-          repositoryGeneration: syncState.repositoryGeneration,
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
         });
-
-        if (pushResult.acceptedIds.length > 0) {
-          await tauriClient.markObservationsPushed(pushResult.acceptedIds);
-        }
-        await tauriClient.setSyncState({
-          repositoryGeneration: pushResult.repositoryGeneration,
-        });
+        await awaitSyncCompletion(jobId, set, get, resumePayloadBound);
         await get().loadObservations();
         await get().loadHealth();
-        const attParts: string[] = [];
-        if (uploadResult.uploaded > 0 || uploadResult.skippedConflicts > 0) {
-          attParts.push(
-            `${uploadResult.uploaded} attachment file(s) uploaded${
-              uploadResult.skippedConflicts > 0
-                ? ` (${uploadResult.skippedConflicts} already on server)`
-                : ''
-            }`,
-          );
-        }
-        if (uploadResult.skippedMissing > 0) {
-          attParts.push(
-            `${uploadResult.skippedMissing} attachment id(s) had no local file during upload (skipped)`,
-          );
-        }
-        if (uploadResult.errorSummary) {
-          attParts.push(
-            `attachment upload warning: ${uploadResult.errorSummary}`,
-          );
-        }
-        const attNudge = attParts.length > 0 ? ` ${attParts.join('; ')}.` : '';
+        const acceptedMatch = capture.current.match(/(\d+)\s+accepted/);
+        const accepted =
+          acceptedMatch !== null
+            ? Number(acceptedMatch[1])
+            : readyToPush.length;
         set({
           syncMessage:
-            pushResult.failedIds.length > 0
-              ? `Pushed ${pushResult.acceptedIds.length} observations, ${pushResult.failedIds.length} failed (${pushResult.warningCount} warnings).${attNudge}${skipSummary}`
-              : `Pushed ${pushResult.acceptedIds.length} pending observations.${attNudge}${skipSummary}`,
+            `${capture.current.trim()}${skipSummary}${forceMissingSummary}`.trim(),
         });
-        return pushResult.acceptedIds.length;
-      };
-      try {
-        return await runPush();
-      } catch (error) {
-        if (isSyncHttpUnauthorized(error)) {
-          await reauthenticateActiveProfile(set, get);
-          return await runPush();
-        }
-        throw error;
+        return accepted;
       } finally {
+        setCustodianSyncProgressHandler(null);
         set({ syncActivity: null });
+        await get().refreshPausedSyncJob();
       }
     }),
 
   synkResetServerRepository: async request =>
     withErrorHandling(set, async () => {
+      await ensureCustodianSyncEventPipeline();
+      const capture = { current: '' };
+      setCustodianSyncProgressHandler(
+        attachSyncProgressToStore(set, get, capture),
+      );
       set({
+        syncMessage: null,
         syncActivity: {
           op: 'reset',
-          statusText: 'Resetting server repository and pulling…',
+          statusText: 'Resetting server repository…',
         },
       });
-      const run = async () => {
+      try {
         const id = get().activeProfileId;
         const authSession = get().authSessionsByProfileId[id];
         if (!authSession) {
@@ -940,56 +770,117 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         }
         const baseUrl = (request?.baseUrl ?? authSession.baseUrl).trim();
         const token = authSession.token;
-        set({
-          syncActivity: {
-            op: 'reset',
-            statusText: 'Resetting server repository…',
-          },
-        });
-        const reset = await withTimeout(
-          callAdminRepositoryReset(baseUrl, token),
-          60_000,
-          'Server repository reset',
-        );
-        set({
-          syncActivity: {
-            op: 'reset',
-            statusText: 'Pulling after server reset…',
-          },
-        });
-        const result = await pullSyncWithAttachments(
+        const clientId = getOrCreateClientId(id);
+        const { jobId } = await tauriClient.syncStart({
+          op: 'reset',
           baseUrl,
-          token,
-          getOrCreateClientId(id),
+          bearerToken: token,
+          clientId,
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+        });
+        const resumePayloadBound = (): SyncResumeJobRequest => ({
+          jobId,
+          baseUrl,
+          bearerToken: get().authSessionsByProfileId[id].token,
+          clientId: getOrCreateClientId(id),
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+        });
+        await awaitSyncCompletion(jobId, set, get, resumePayloadBound);
+        await get().loadWorkspace();
+        await get().loadObservations();
+        await get().loadHealth();
+        set({
+          syncMessage:
+            capture.current.trim() ||
+            'Server repository reset and pull finished.',
+        });
+      } finally {
+        setCustodianSyncProgressHandler(null);
+        set({ syncActivity: null });
+        await get().refreshPausedSyncJob();
+      }
+    }),
+
+  refreshPausedSyncJob: async () => {
+    try {
+      const row = await tauriClient.syncGetStatus();
+      const paused =
+        row && (row.status === 'paused' || row.status === 'failed')
+          ? row
+          : null;
+      set({ syncPausedJob: paused });
+    } catch {
+      set({ syncPausedJob: null });
+    }
+  },
+
+  resumePausedSyncEngineJob: async () =>
+    withErrorHandling(set, async () => {
+      const row = get().syncPausedJob;
+      if (!row) {
+        throw new Error('No paused sync job to resume.');
+      }
+      await ensureCustodianSyncEventPipeline();
+      const capture = { current: '' };
+      setCustodianSyncProgressHandler(
+        attachSyncProgressToStore(set, get, capture),
+      );
+      set({
+        syncActivity: {
+          op: row.op as 'pull' | 'push' | 'reset',
+          statusText: row.progressMessage ?? 'Resuming sync…',
+        },
+      });
+      try {
+        const id = get().activeProfileId;
+        const authSession = get().authSessionsByProfileId[id];
+        if (!authSession) {
+          throw new Error('Authenticate first before resuming sync.');
+        }
+        const baseUrl = (authSession.baseUrl ?? '').trim();
+        const resumePayloadBound = (): SyncResumeJobRequest => ({
+          jobId: row.id,
+          baseUrl,
+          bearerToken: get().authSessionsByProfileId[id].token,
+          clientId: getOrCreateClientId(id),
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+        });
+        const initialWait = registerSyncJobWaiter(row.id);
+        await tauriClient.syncResumeJob(resumePayloadBound());
+        await awaitSyncJobTerminal(
+          row.id,
+          set,
+          get,
+          resumePayloadBound,
+          initialWait,
         );
         await get().loadWorkspace();
         await get().loadObservations();
         await get().loadHealth();
-        const att = result.attachmentsDownloaded ?? 0;
-        const af = result.attachmentsFailed ?? 0;
-        const attSuffix =
-          af > 0
-            ? `${att} attachment file(s), ${af} failed`
-            : `${att} attachment file(s)`;
-        set({
-          syncMessage:
-            `Server repository reset (generation ${reset.repository_generation}). ` +
-            `Pulled ${result.imported} observations (${result.conflicts} conflicts), ${attSuffix}.`,
-        });
-        return result;
-      };
-      try {
-        return await run();
-      } catch (error) {
-        if (error instanceof ResponseError && error.response.status === 401) {
-          await reauthenticateActiveProfile(set, get);
-          return await run();
+        if (capture.current.trim()) {
+          set({ syncMessage: capture.current.trim() });
         }
-        throw error;
       } finally {
+        setCustodianSyncProgressHandler(null);
         set({ syncActivity: null });
+        await get().refreshPausedSyncJob();
       }
     }),
+
+  syncPauseInFlight: async () => {
+    await tauriClient.syncPause();
+  },
+
+  syncContinueInFlight: async () => {
+    await tauriClient.syncContinue();
+  },
+
+  syncCancelJob: async jobId => {
+    await tauriClient.syncCancel(jobId ?? undefined);
+    set({ syncActivity: null });
+    await get().refreshPausedSyncJob();
+    await get().loadHealth();
+  },
 
   resetLocalWorkspaceData: async () =>
     withErrorHandling(set, async () => {
@@ -1013,4 +904,8 @@ export function selectAuthSessionForActiveProfile(state: CustodianState) {
 
 export function selectSyncActivity(state: CustodianState) {
   return state.syncActivity;
+}
+
+export function selectPausedSyncJob(state: CustodianState) {
+  return state.syncPausedJob;
 }
