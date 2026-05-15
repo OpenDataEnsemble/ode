@@ -8,6 +8,10 @@ import type {
   CredentialGetResult,
   CredentialSetResult,
   ImportResult,
+  ImportStagingScanEntry,
+  ParsedImportFileResult,
+  AttachmentCopyBatchResult,
+  HostTextReadResult,
   ListObservationsPageResult,
   OutboundAttachmentUploadResult,
   ObservationRecord,
@@ -84,10 +88,42 @@ export const tauriClient = {
     invokeSafe<string>('move_workspace', { destination }),
   backupWorkspace: (zipPath: string) =>
     invokeSafe<string>('backup_workspace', { zipPath }),
+  expandImportStagingPaths: (
+    paths: string[],
+    maxIndividualFiles?: number | null,
+  ) =>
+    invokeSafe<ImportStagingScanEntry[]>('expand_import_staging_paths', {
+      paths,
+      maxIndividualFiles: maxIndividualFiles ?? null,
+    }),
+  readHostTextFile: (path: string) =>
+    invokeSafe<string>('read_host_text_file', { path }),
+  readHostTextFilesBatch: (paths: string[]) =>
+    invokeSafe<HostTextReadResult[]>('read_host_text_files_batch', { paths }),
+  parseImportObservationJsonPaths: (paths: string[]) =>
+    invokeSafe<ParsedImportFileResult[]>(
+      'parse_import_observation_json_paths',
+      { paths },
+    ),
+  copyWorkspaceAttachmentsBatch: (
+    items: { sourcePath: string; attachmentId: string }[],
+  ) =>
+    invokeSafe<AttachmentCopyBatchResult>('copy_workspace_attachments_batch', {
+      items,
+    }),
+  /** Legacy: prefer {@link copyWorkspaceAttachmentsBatch} for imports. */
   writeWorkspaceAttachment: (attachmentId: string, data: Uint8Array) =>
     invokeSafe<void>('write_workspace_attachment', {
       attachmentId,
-      data: Array.from(data),
+      data,
+    }),
+  copyWorkspaceAttachmentFromPath: (args: {
+    attachmentId: string;
+    sourcePath: string;
+  }) =>
+    invokeSafe<void>('copy_workspace_attachment_from_path', {
+      sourcePath: args.sourcePath,
+      attachmentId: args.attachmentId,
     }),
   /** GET `{base}/api/attachments/{id}` with Bearer token via native HTTP (avoids WebView fetch issues). */
   downloadWorkspaceAttachmentFromUrl: (args: {

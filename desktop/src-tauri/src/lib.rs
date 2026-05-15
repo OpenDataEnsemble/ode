@@ -5,16 +5,19 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::Mutex,
+    sync::atomic::{AtomicUsize, Ordering},
+    time::UNIX_EPOCH,
 };
 
 use chrono::{DateTime, Utc};
 use keyring::Entry;
+use rayon::prelude::*;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use reqwest::multipart;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use thiserror::Error;
 use url::Url;
 use uuid::Uuid;
@@ -2059,6 +2062,487 @@ fn write_workspace_attachment(
     fs::write(&path, data).map_err(|e| e.to_string())
 }
 
+/// Copy an attachment from a host filesystem path into the workspace outbound queue (same destination as [`write_workspace_attachment`]).
+/// Prefer this over sending bytes through IPC when the WebView exposes `File.path` (Tauri / WebView2).
+#[tauri::command]
+fn copy_workspace_attachment_from_path(
+    source_path: String,
+    attachment_id: String,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<(), String> {
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let t = attachment_id.trim();
+    if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+        return Err("invalid attachment id".to_string());
+    }
+    let src = PathBuf::from(source_path.trim());
+    let meta = fs::metadata(&src).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("source path is not a regular file".to_string());
+    }
+    let path = attachment_path_pending(&ws, t);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::copy(&src, &path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+const MAX_IMPORT_SCAN_ENTRIES: usize = 100_000;
+const MAX_IMPORT_WALK_DEPTH: usize = 256;
+const MAX_HOST_TEXT_BYTES: u64 = 64 * 1024 * 1024;
+
+/// When the user selects only files (no directories), cap count so large imports use "folder" pick.
+const DEFAULT_MAX_INDIVIDUAL_IMPORT_FILES: usize = 20;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportStagingScanEntry {
+    path: String,
+    file_name: String,
+    size: u64,
+    last_modified_ms: i64,
+    is_json: bool,
+}
+
+fn import_scan_mtime_ms(meta: &fs::Metadata) -> i64 {
+    meta.modified()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map(|d| {
+            let ms = d.as_millis();
+            if ms > i64::MAX as u128 {
+                i64::MAX
+            } else {
+                ms as i64
+            }
+        })
+        .unwrap_or(0)
+}
+
+/// Skip dotfiles except `*.json` (e.g. `.DS_Store`, Thumbs.db).
+fn import_scan_skip_noise_file_name(file_name: &str) -> bool {
+    let lower = file_name.to_lowercase();
+    file_name.starts_with('.') && !lower.ends_with(".json")
+}
+
+fn import_scan_push_file(
+    path: &Path,
+    out: &mut Vec<ImportStagingScanEntry>,
+    seen: &mut HashSet<String>,
+) -> Result<(), String> {
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
+    if file_name.is_empty() {
+        return Ok(());
+    }
+    if import_scan_skip_noise_file_name(&file_name) {
+        return Ok(());
+    }
+    let meta = match fs::metadata(path) {
+        Ok(m) => m,
+        Err(_) => return Ok(()),
+    };
+    if !meta.is_file() {
+        return Ok(());
+    }
+
+    if out.len() >= MAX_IMPORT_SCAN_ENTRIES {
+        return Err(
+            "Too many files matched this import (100k file limit). Pick a smaller folder or selection."
+                .to_string(),
+        );
+    }
+
+    let dedupe_key = match fs::canonicalize(path) {
+        Ok(p) => p.to_string_lossy().to_string(),
+        Err(_) => path.to_string_lossy().to_string(),
+    };
+    if !seen.insert(dedupe_key) {
+        return Ok(());
+    }
+
+    let is_json = file_name.to_lowercase().ends_with(".json");
+    out.push(ImportStagingScanEntry {
+        path: path.to_string_lossy().to_string(),
+        file_name,
+        size: meta.len(),
+        last_modified_ms: import_scan_mtime_ms(&meta),
+        is_json,
+    });
+    Ok(())
+}
+
+/// Flatten `paths` (files or directories) into a bounded list of regular files with metadata for import staging.
+/// When **no** path is a directory, applies `max_individual_files` (default 20) so large selections must use a folder.
+#[tauri::command]
+fn expand_import_staging_paths(
+    paths: Vec<String>,
+    max_individual_files: Option<usize>,
+) -> Result<Vec<ImportStagingScanEntry>, String> {
+    let max_files = max_individual_files.unwrap_or(DEFAULT_MAX_INDIVIDUAL_IMPORT_FILES);
+    let mut dirs: Vec<PathBuf> = Vec::new();
+    let mut loose_files: Vec<PathBuf> = Vec::new();
+
+    for raw in paths {
+        let t = raw.trim();
+        if t.is_empty() {
+            continue;
+        }
+        let p = PathBuf::from(t);
+        let meta = fs::metadata(&p).map_err(|e| format!("{}: {e}", p.to_string_lossy()))?;
+        if meta.is_dir() {
+            dirs.push(p);
+        } else if meta.is_file() {
+            loose_files.push(p);
+        }
+    }
+
+    let mut out = Vec::new();
+    let mut seen = HashSet::<String>::new();
+
+    if dirs.is_empty() {
+        if loose_files.len() > max_files {
+            return Err(format!(
+                "Too many files at once ({} files). You can select up to {max_files} without a folder. Use “Add folder…” for larger imports.",
+                loose_files.len()
+            ));
+        }
+        for p in loose_files {
+            import_scan_push_file(&p, &mut out, &mut seen)?;
+        }
+        return Ok(out);
+    }
+
+    for p in loose_files {
+        import_scan_push_file(&p, &mut out, &mut seen)?;
+    }
+    for d in dirs {
+        for entry in WalkDir::new(&d)
+            .follow_links(false)
+            .max_depth(MAX_IMPORT_WALK_DEPTH)
+        {
+            let entry = entry.map_err(|e| e.to_string())?;
+            if !entry.file_type().is_file() {
+                continue;
+            }
+            import_scan_push_file(entry.path(), &mut out, &mut seen)?;
+        }
+    }
+
+    Ok(out)
+}
+
+/// Read a UTF-8 text file from an arbitrary absolute path (import JSON validation / parsing).
+fn read_host_text_file_inner(path: &Path) -> Result<String, String> {
+    let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("path is not a file".to_string());
+    }
+    if meta.len() > MAX_HOST_TEXT_BYTES {
+        return Err(format!(
+            "file is too large to read as text (max {} MiB)",
+            MAX_HOST_TEXT_BYTES / (1024 * 1024)
+        ));
+    }
+    fs::read_to_string(path).map_err(|e| e.to_string())
+}
+
+const MAX_HOST_TEXT_BATCH_PATHS: usize = 128;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HostTextReadResult {
+    path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+/// Read many UTF-8 text files in parallel (one IPC round-trip; reduces validation latency).
+#[tauri::command]
+fn read_host_text_files_batch(paths: Vec<String>) -> Result<Vec<HostTextReadResult>, String> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    if paths.len() > MAX_HOST_TEXT_BATCH_PATHS {
+        return Err(format!(
+            "batch too large (max {} paths per request)",
+            MAX_HOST_TEXT_BATCH_PATHS
+        ));
+    }
+    let out: Vec<HostTextReadResult> = paths
+        .par_iter()
+        .map(|raw| {
+            let trimmed = raw.trim().to_string();
+            let p = Path::new(&trimmed);
+            match read_host_text_file_inner(p) {
+                Ok(text) => HostTextReadResult {
+                    path: trimmed,
+                    text: Some(text),
+                    error: None,
+                },
+                Err(e) => HostTextReadResult {
+                    path: trimmed,
+                    text: None,
+                    error: Some(e),
+                },
+            }
+        })
+        .collect();
+    Ok(out)
+}
+
+#[tauri::command]
+fn read_host_text_file(path: String) -> Result<String, String> {
+    let p = Path::new(path.trim());
+    read_host_text_file_inner(p)
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ParsedImportFileResult {
+    file_name: String,
+    observations: Vec<ApiObservation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+fn observation_id_from_obj(obj: &serde_json::Map<String, Value>) -> Option<String> {
+    for key in ["observationId", "observation_id", "id"] {
+        if let Some(Value::String(s)) = obj.get(key) {
+            let t = s.trim();
+            if !t.is_empty() {
+                return Some(t.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn extract_observations_from_json_value(
+    root: &Value,
+    _file_name: &str,
+) -> Result<Vec<ApiObservation>, String> {
+    let rows: Vec<&Value> = match root {
+        Value::Array(a) => a.iter().collect(),
+        Value::Object(map) => {
+            if let Some(Value::Array(inner)) = map.get("observations") {
+                inner.iter().collect()
+            } else {
+                vec![root]
+            }
+        }
+        _ => vec![root],
+    };
+
+    let mut observations = Vec::new();
+    for item in rows {
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
+        let Some(id) = observation_id_from_obj(obj) else {
+            continue;
+        };
+        let data = obj
+            .get("data")
+            .cloned()
+            .or_else(|| obj.get("payload").cloned())
+            .unwrap_or(Value::Object(serde_json::Map::new()));
+
+        let form_type = obj
+            .get("formType")
+            .or_else(|| obj.get("form_type"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        let updated_at = obj
+            .get("updatedAt")
+            .or_else(|| obj.get("updated_at"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .or_else(|| Some(Utc::now().to_rfc3339()));
+
+        observations.push(ApiObservation {
+            observation_id: id,
+            data,
+            form_type,
+            updated_at,
+        });
+    }
+
+    if observations.is_empty() {
+        return Err(
+            "No observation objects with an id (observationId / observation_id / id)".to_string(),
+        );
+    }
+    Ok(observations)
+}
+
+fn parse_import_json_file(path: &Path) -> ParsedImportFileResult {
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
+    match read_host_text_file_inner(path) {
+        Err(e) => ParsedImportFileResult {
+            file_name: file_name.clone(),
+            observations: vec![],
+            error: Some(e),
+        },
+        Ok(text) => match serde_json::from_str::<Value>(&text) {
+            Err(_) => ParsedImportFileResult {
+                file_name: file_name.clone(),
+                observations: vec![],
+                error: Some("Invalid JSON".to_string()),
+            },
+            Ok(root) => match extract_observations_from_json_value(&root, &file_name) {
+                Err(e) => ParsedImportFileResult {
+                    file_name: file_name.clone(),
+                    observations: vec![],
+                    error: Some(e),
+                },
+                Ok(obs) => ParsedImportFileResult {
+                    file_name,
+                    observations: obs,
+                    error: None,
+                },
+            },
+        },
+    }
+}
+
+/// Parse observation JSON files on the host (parallel) in import order.
+#[tauri::command]
+fn parse_import_observation_json_paths(
+    paths: Vec<String>,
+) -> Result<Vec<ParsedImportFileResult>, String> {
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    if paths.len() > MAX_HOST_TEXT_BATCH_PATHS {
+        return Err(format!(
+            "batch too large (max {} paths per request)",
+            MAX_HOST_TEXT_BATCH_PATHS
+        ));
+    }
+
+    let indexed: Vec<(usize, ParsedImportFileResult)> = paths
+        .into_iter()
+        .enumerate()
+        .collect::<Vec<_>>()
+        .into_par_iter()
+        .map(|(i, raw)| {
+            let p = Path::new(raw.trim());
+            (i, parse_import_json_file(p))
+        })
+        .collect();
+
+    let mut indexed = indexed;
+    indexed.sort_by_key(|(i, _)| *i);
+    Ok(indexed.into_iter().map(|(_, r)| r).collect())
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct AttachmentCopyPair {
+    source_path: String,
+    attachment_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AttachmentCopyProgressEvent {
+    done: usize,
+    total: usize,
+    attachment_id: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AttachmentCopyBatchResult {
+    copied: usize,
+    failed: usize,
+    errors: Vec<String>,
+}
+
+fn copy_one_attachment_to_pending(
+    ws: &Path,
+    source_path: &str,
+    attachment_id: &str,
+) -> Result<(), String> {
+    let t = attachment_id.trim();
+    if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
+        return Err("invalid attachment id".to_string());
+    }
+    let src = PathBuf::from(source_path.trim());
+    let meta = fs::metadata(&src).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("source path is not a regular file".to_string());
+    }
+    let dest = attachment_path_pending(ws, t);
+    if let Some(parent) = dest.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    fs::copy(&src, &dest).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Copy many attachments into `attachments/pending/` with `import/attachment-copy-progress` events (fine-grained).
+#[tauri::command]
+fn copy_workspace_attachments_batch(
+    app: tauri::AppHandle,
+    items: Vec<AttachmentCopyPair>,
+    ctx: tauri::State<'_, AppCtx>,
+) -> Result<AttachmentCopyBatchResult, String> {
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let total = items.len();
+    if total == 0 {
+        return Ok(AttachmentCopyBatchResult {
+            copied: 0,
+            failed: 0,
+            errors: vec![],
+        });
+    }
+
+    let done = AtomicUsize::new(0);
+    let errors = Mutex::new(Vec::<String>::new());
+
+    items.par_iter().for_each(|it| {
+        let r = copy_one_attachment_to_pending(&ws, &it.source_path, &it.attachment_id);
+        let n = done.fetch_add(1, Ordering::Relaxed) + 1;
+        if let Err(e) = r {
+            errors
+                .lock()
+                .unwrap()
+                .push(format!("{}: {e}", it.attachment_id.trim()));
+        }
+        let _ = app.emit(
+            "import/attachment-copy-progress",
+            AttachmentCopyProgressEvent {
+                done: n,
+                total,
+                attachment_id: it.attachment_id.trim().to_string(),
+            },
+        );
+    });
+
+    let errs = errors.into_inner().unwrap();
+    let failed = errs.len();
+    Ok(AttachmentCopyBatchResult {
+        copied: total.saturating_sub(failed),
+        failed,
+        errors: errs,
+    })
+}
+
 /// GET `GET {base}/api/attachments/{id}` with Bearer auth and write bytes under `attachments/synced/`.
 /// Used during sync so downloads do not rely on the WebView `fetch` implementation (CORS / TLS quirks).
 /// `x_ode_version` is required: Synkronus [`formulusversion.Middleware`] rejects requests without `x-ode-version`.
@@ -3052,6 +3536,12 @@ pub fn run() {
             move_workspace,
             backup_workspace,
             write_workspace_attachment,
+            copy_workspace_attachment_from_path,
+            expand_import_staging_paths,
+            parse_import_observation_json_paths,
+            copy_workspace_attachments_batch,
+            read_host_text_file,
+            read_host_text_files_batch,
             download_workspace_attachment_from_url,
             upload_outbound_attachments,
             check_workspace_attachment_presence,

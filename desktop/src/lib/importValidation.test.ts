@@ -110,10 +110,10 @@ describe('staging keys', () => {
   });
 
   it('computeStagingKey distinguishes json vs attachment lists', () => {
-    const j = new File(['{}'], 'a.json', { type: 'application/json' });
-    const a = new File(['x'], 'b.png', { type: 'image/png' });
-    const k1 = computeStagingKey([{ file: j }], []);
-    const k2 = computeStagingKey([], [{ file: a }]);
+    const j = { name: 'a.json', size: 2, lastModified: 1 };
+    const a = { name: 'b.png', size: 1, lastModified: 2 };
+    const k1 = computeStagingKey([j], []);
+    const k2 = computeStagingKey([], [a]);
     expect(k1).not.toBe(k2);
   });
 });

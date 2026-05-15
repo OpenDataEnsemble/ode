@@ -1,3 +1,5 @@
+import { isTauri } from '@tauri-apps/api/core';
+import { confirm as tauriConfirm } from '@tauri-apps/plugin-dialog';
 import type { ProfileEnvironment } from '../types/domain';
 
 export type DestructiveActionKind =
@@ -9,24 +11,37 @@ export type DestructiveActionKind =
   | 'local_reset';
 
 /**
- * Returns true if the user confirmed (via browser confirm). Stricter copy on production.
+ * Returns true if the user confirmed. In Tauri, uses the native dialog so the choice is
+ * awaited correctly (WebView `window.confirm` can resolve before the prompt is dismissed).
  */
-export function confirmDestructiveAction(
+export async function confirmDestructiveAction(
   environment: ProfileEnvironment | null | undefined,
   kind: DestructiveActionKind,
   detail: string,
-): boolean {
+): Promise<boolean> {
   const tier = environment ?? 'production';
   const title = describeAction(kind);
-  if (tier === 'development') {
-    return window.confirm(`${title}\n\n${detail}`);
+  const dialogTitle =
+    tier === 'production'
+      ? `${title} — PRODUCTION`
+      : tier === 'staging'
+        ? `${title} (staging)`
+        : title;
+  const messageBody =
+    tier === 'production'
+      ? `${detail}\n\nType OK only if this is intentional.`
+      : tier === 'staging'
+        ? `${detail}\n\nProceed?`
+        : detail;
+
+  if (isTauri()) {
+    return await tauriConfirm(messageBody, {
+      title: dialogTitle,
+      kind: 'warning',
+    });
   }
-  if (tier === 'staging') {
-    return window.confirm(`${title} (staging)\n\n${detail}\n\nProceed?`);
-  }
-  return window.confirm(
-    `${title} — PRODUCTION\n\n${detail}\n\nType OK only if this is intentional.`,
-  );
+
+  return window.confirm(`${dialogTitle}\n\n${messageBody}`);
 }
 
 function describeAction(kind: DestructiveActionKind): string {

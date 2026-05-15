@@ -1,59 +1,47 @@
 import { create } from 'zustand';
-import {
-  computeStagingKey,
-  fileKeyForStaging,
-  type ImportValidationReport,
-} from '../lib/importValidation';
-
-function isJsonFile(file: File) {
-  const n = file.name.toLowerCase();
-  return n.endsWith('.json') || file.type === 'application/json';
-}
+import type { ImportStagingScanEntry } from '../types/domain';
+import { computeStagingKey, stagingFileKey } from '../lib/importValidation';
 
 export interface ImportStagedFile {
   id: string;
-  file: File;
+  /** Absolute host path — import copy + JSON reads use native filesystem I/O. */
+  nativePath: string;
+  name: string;
+  size: number;
+  lastModified: number;
 }
 
 interface ImportStagingState {
   stagedJson: ImportStagedFile[];
   stagedAttachments: ImportStagedFile[];
-  validationReport: ImportValidationReport | null;
-  lastValidatedStagingKey: string | null;
   message: string | null;
   error: string | null;
   importActivity: { statusText: string } | null;
-  addFiles: (fileList: FileList | File[]) => void;
-  removeJson: (id: string) => void;
-  removeAttachment: (id: string) => void;
-  /** Clears staged JSON + attachment lists and invalidates validation. */
+  addScanEntries: (entries: ImportStagingScanEntry[]) => void;
+  /** Clears staged JSON + attachment lists. */
   clearStagingLists: () => void;
-  setValidationResult: (
-    report: ImportValidationReport,
-    json: ImportStagedFile[],
-    attachments: ImportStagedFile[],
-  ) => void;
-  setValidationFailed: (err: string) => void;
   setMessage: (m: string | null) => void;
   setError: (e: string | null) => void;
   setImportActivity: (activity: { statusText: string } | null) => void;
 }
 
+function scanEntryToStaged(e: ImportStagingScanEntry): ImportStagedFile {
+  return {
+    id: crypto.randomUUID(),
+    nativePath: e.path,
+    name: e.fileName,
+    size: e.size,
+    lastModified: e.lastModifiedMs,
+  };
+}
+
 function emptyStagingState(): Pick<
   ImportStagingState,
-  | 'stagedJson'
-  | 'stagedAttachments'
-  | 'validationReport'
-  | 'lastValidatedStagingKey'
-  | 'message'
-  | 'error'
-  | 'importActivity'
+  'stagedJson' | 'stagedAttachments' | 'message' | 'error' | 'importActivity'
 > {
   return {
     stagedJson: [],
     stagedAttachments: [],
-    validationReport: null,
-    lastValidatedStagingKey: null,
     message: null,
     error: null,
     importActivity: null,
@@ -63,79 +51,38 @@ function emptyStagingState(): Pick<
 export const useImportStagingStore = create<ImportStagingState>(set => ({
   stagedJson: [],
   stagedAttachments: [],
-  validationReport: null,
-  lastValidatedStagingKey: null,
   message: null,
   error: null,
   importActivity: null,
 
-  addFiles: fileList => {
-    const files = Array.from(fileList);
+  addScanEntries: entries =>
     set(s => {
-      const jsonKeys = new Set(
-        s.stagedJson.map(x => fileKeyForStaging(x.file)),
-      );
-      const attKeys = new Set(
-        s.stagedAttachments.map(x => fileKeyForStaging(x.file)),
-      );
+      const jsonKeys = new Set(s.stagedJson.map(x => stagingFileKey(x)));
+      const attKeys = new Set(s.stagedAttachments.map(x => stagingFileKey(x)));
       const nextJson = [...s.stagedJson];
       const nextAtt = [...s.stagedAttachments];
-      for (const f of files) {
-        if (isJsonFile(f)) {
-          const k = fileKeyForStaging(f);
+      for (const e of entries) {
+        const row = scanEntryToStaged(e);
+        const k = stagingFileKey(row);
+        if (e.isJson) {
           if (!jsonKeys.has(k)) {
             jsonKeys.add(k);
-            nextJson.push({ id: crypto.randomUUID(), file: f });
+            nextJson.push(row);
           }
-        } else {
-          const k = fileKeyForStaging(f);
-          if (!attKeys.has(k)) {
-            attKeys.add(k);
-            nextAtt.push({ id: crypto.randomUUID(), file: f });
-          }
+        } else if (!attKeys.has(k)) {
+          attKeys.add(k);
+          nextAtt.push(row);
         }
       }
       return {
         stagedJson: nextJson,
         stagedAttachments: nextAtt,
-        lastValidatedStagingKey: null,
         message: null,
         error: null,
       };
-    });
-  },
-
-  removeJson: id =>
-    set(s => ({
-      stagedJson: s.stagedJson.filter(x => x.id !== id),
-      lastValidatedStagingKey: null,
-      message: null,
-      error: null,
-    })),
-
-  removeAttachment: id =>
-    set(s => ({
-      stagedAttachments: s.stagedAttachments.filter(x => x.id !== id),
-      lastValidatedStagingKey: null,
-      message: null,
-      error: null,
-    })),
+    }),
 
   clearStagingLists: () => set(emptyStagingState()),
-
-  setValidationResult: (report, json, attachments) =>
-    set({
-      validationReport: report,
-      lastValidatedStagingKey: computeStagingKey(json, attachments),
-      error: null,
-    }),
-
-  setValidationFailed: err =>
-    set({
-      validationReport: null,
-      lastValidatedStagingKey: null,
-      error: err,
-    }),
 
   setMessage: m => set({ message: m }),
   setError: e => set({ error: e }),
@@ -143,7 +90,18 @@ export const useImportStagingStore = create<ImportStagingState>(set => ({
 }));
 
 export function selectCurrentStagingKey(state: ImportStagingState): string {
-  return computeStagingKey(state.stagedJson, state.stagedAttachments);
+  return computeStagingKey(
+    state.stagedJson.map(s => ({
+      name: s.name,
+      size: s.size,
+      lastModified: s.lastModified,
+    })),
+    state.stagedAttachments.map(s => ({
+      name: s.name,
+      size: s.size,
+      lastModified: s.lastModified,
+    })),
+  );
 }
 
 export function selectImportActivity(state: ImportStagingState) {
