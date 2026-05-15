@@ -134,11 +134,14 @@ export interface AppHealth {
   workspacePath?: string | null;
   dbPath: string;
   totalObservations: number;
-  /** Count of observations pending push (see {@link ObservationRecord.dirty}). */
+  /**
+   * Observations with `dirty = 1` and `sync_status = 'dirty'` (eligible for push).
+   * Conflicts (`sync_status = 'conflict'`) appear under {@link AppHealth.conflictCount}.
+   */
   dirtyCount: number;
   /** Regular files across the local attachment layout (draft, synced, queues, loose). */
   totalAttachmentCount: number;
-  /** Files in `attachments/pending` (and legacy `pending_upload`) awaiting upload. */
+  /** Regular files under `attachments/pending` only. */
   pendingAttachmentCount: number;
   conflictCount: number;
   lastSaveAt?: string | null;
@@ -235,6 +238,76 @@ export interface SyncPushRequest {
   baseUrl?: string;
   endpoint?: string;
   token?: string;
+  /**
+   * When true, observations whose referenced attachment files are absent locally are still sent on push.
+   * Use {@link SyncPushRequest.onMissingAttachmentReport} to surface details.
+   */
+  forcePushMissingAttachments?: boolean;
+  /** Called before the sync job starts when forcing observations with missing attachments. */
+  onMissingAttachmentReport?: (lines: string[]) => void;
+}
+
+export type SyncOpKind = 'pull' | 'push' | 'reset';
+
+export interface SyncProgressPayload {
+  jobId: string;
+  op: SyncOpKind;
+  phase: string;
+  done: number;
+  total: number;
+  detail?: string;
+  message: string;
+}
+
+export interface SyncStatePayload {
+  jobId: string;
+  status: 'running' | 'paused' | 'completed' | 'cancelled' | 'failed';
+  errorCode?: string | null;
+  errorMessage?: string | null;
+}
+
+export interface SyncPushPreparePayload {
+  readyObservationIds: string[];
+  /** @deprecated Ignored — uploads use `attachments/pending/` only. */
+  extraAttachmentIds?: string[];
+  skipSummary?: string | null;
+}
+
+export interface SyncStartRequest {
+  op: SyncOpKind;
+  baseUrl: string;
+  bearerToken: string;
+  clientId: string;
+  xOdeVersion: string;
+  pushPrepare?: SyncPushPreparePayload;
+}
+
+export interface SyncStartAck {
+  jobId: string;
+}
+
+export interface SyncResumeJobRequest {
+  jobId: string;
+  baseUrl: string;
+  bearerToken: string;
+  clientId: string;
+  xOdeVersion: string;
+}
+
+/** Mirrors Rust `sync_engine::job::SyncJobRowOut` / `sync_get_status`. */
+export interface SyncJobRowOut {
+  id: string;
+  op: string;
+  status: string;
+  phase: string;
+  checkpointJson?: string | null;
+  progressDone: number;
+  progressTotal: number;
+  progressMessage?: string | null;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  retryCount: number;
+  nextRetryAt?: string | null;
 }
 
 // Thin domain layer between UI and storage representations.

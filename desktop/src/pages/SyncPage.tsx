@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
+import { productionPushConfirmDetail } from '../lib/syncUiCopy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
   selectAuthSessionForActiveProfile,
+  selectPausedSyncJob,
   selectSyncActivity,
   useCustodianStore,
 } from '../store/useCustodianStore';
@@ -15,33 +17,20 @@ function formatDate(value?: string | null) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-type SyncOp = 'pull' | 'push' | 'reset';
-
-const OP_LABELS: Record<
-  SyncOp,
-  { idle: string; busy: string; progress: string }
-> = {
-  pull: { idle: 'Pull', busy: 'Pulling…', progress: 'Pulling from server…' },
-  push: { idle: 'Push', busy: 'Pushing…', progress: 'Pushing to server…' },
-  reset: {
-    idle: 'Reset server repository and pull',
-    busy: 'Resetting…',
-    progress: 'Resetting server repository and pulling…',
-  },
-};
-
-function BtnSpinner() {
-  return <span className="btn-spinner" aria-hidden />;
-}
-
 export function SyncPage() {
   const activeProfile = useCustodianStore(selectActiveProfileState);
   const authSession = useCustodianStore(selectAuthSessionForActiveProfile);
   const syncActivity = useCustodianStore(selectSyncActivity);
+  const syncPausedJob = useCustodianStore(selectPausedSyncJob);
   const {
     synkPull,
     synkPush,
     synkResetServerRepository,
+    refreshPausedSyncJob,
+    resumePausedSyncEngineJob,
+    syncPauseInFlight,
+    syncContinueInFlight,
+    syncCancelJob,
     error,
     health,
     loadHealth,
@@ -55,25 +44,38 @@ export function SyncPage() {
   );
 
   const [opLog, setOpLog] = useState<string[]>([]);
-  const activeOp = syncActivity?.op ?? null;
-  const isBusy = activeOp !== null;
+  const [forcePushMissingAttachments, setForcePushMissingAttachments] =
+    useState(false);
 
   const appendLog = useCallback((line: string) => {
     const stamp = new Date().toLocaleString();
-    setOpLog(prev => [`${stamp} — ${line}`, ...prev].slice(0, 12));
+    setOpLog(prev => [`${stamp} — ${line}`, ...prev].slice(0, 40));
   }, []);
+
+  const activeInFlight = syncActivity !== null;
+  const enginePaused =
+    !activeInFlight &&
+    syncPausedJob !== null &&
+    (syncPausedJob.status === 'paused' || syncPausedJob.status === 'failed');
 
   useEffect(() => {
     void loadHealth();
-  }, [loadHealth]);
+    void refreshPausedSyncJob();
+  }, [loadHealth, refreshPausedSyncJob]);
+
+  useEffect(() => {
+    if (!syncActivity) {
+      return;
+    }
+    const t = window.setInterval(() => void loadHealth(), 2000);
+    return () => window.clearInterval(t);
+  }, [syncActivity, loadHealth]);
 
   async function pull() {
-    if (isBusy) return;
+    if (activeInFlight || enginePaused) return;
     try {
-      const result = await synkPull({ baseUrl: serverUrl });
-      appendLog(
-        `Pull finished: ${result.imported} imported, ${result.conflicts} conflicts.`,
-      );
+      await synkPull({ baseUrl: serverUrl });
+      appendLog(useCustodianStore.getState().syncMessage ?? 'Pull finished.');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       appendLog(`Pull failed: ${msg}`);
@@ -81,23 +83,32 @@ export function SyncPage() {
   }
 
   async function push() {
-    if (isBusy) return;
-    if (
-      !(await confirmDestructiveAction(
-        activeProfile?.environment ?? 'production',
-        'push',
-        `Server: ${serverUrl || '(not set)'}`,
-      ))
-    ) {
-      return;
+    if (activeInFlight || enginePaused) return;
+    const tier = activeProfile?.environment ?? 'production';
+    if (tier === 'production') {
+      await loadHealth();
+      const dirtyCount = useCustodianStore.getState().health?.dirtyCount ?? 0;
+      if (
+        !(await confirmDestructiveAction(
+          tier,
+          'push',
+          productionPushConfirmDetail(dirtyCount),
+        ))
+      ) {
+        return;
+      }
     }
     try {
-      const n = await synkPush({ baseUrl: serverUrl });
-      appendLog(
-        typeof n === 'number' && n > 0
-          ? `Push finished: ${n} observation(s) accepted.`
-          : 'Push finished.',
-      );
+      await synkPush({
+        baseUrl: serverUrl,
+        forcePushMissingAttachments,
+        onMissingAttachmentReport: lines => {
+          for (const line of lines) {
+            appendLog(line);
+          }
+        },
+      });
+      appendLog(useCustodianStore.getState().syncMessage ?? 'Push finished.');
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       appendLog(`Push failed: ${msg}`);
@@ -105,7 +116,7 @@ export function SyncPage() {
   }
 
   async function resetServerAndPull() {
-    if (isBusy) return;
+    if (activeInFlight || enginePaused) return;
     if (
       !(await confirmDestructiveAction(
         activeProfile?.environment ?? 'production',
@@ -119,9 +130,10 @@ export function SyncPage() {
       return;
     }
     try {
-      const result = await synkResetServerRepository({ baseUrl: serverUrl });
+      await synkResetServerRepository({ baseUrl: serverUrl });
       appendLog(
-        `Server reset + pull: ${result.imported} imported, ${result.conflicts} conflicts.`,
+        useCustodianStore.getState().syncMessage ??
+          'Server reset + pull finished.',
       );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -135,9 +147,8 @@ export function SyncPage() {
       : status === 'unconfigured'
         ? 'Not configured'
         : 'Unreachable';
-  const inFlightStatusText =
-    syncActivity?.statusText ??
-    (activeOp ? OP_LABELS[activeOp].progress : null);
+
+  const blockedStart = activeInFlight || enginePaused;
 
   return (
     <section className="page">
@@ -182,13 +193,16 @@ export function SyncPage() {
           </dd>
           <dt>Pending push</dt>
           <dd>
-            <strong>{health?.dirtyCount ?? 0}</strong> observation(s) with local
-            changes
+            <strong>{health?.dirtyCount ?? 0}</strong> observation(s){' '}
+            <span className="muted">
+              Rows with <code>sync_status: dirty</code> (conflicts excluded —
+              see below). Skipped runs stay here until attachments or validation
+              issues are fixed.
+            </span>
           </dd>
-          <dt>Attachments pending upload</dt>
+          <dt>Outbound queue</dt>
           <dd>
-            <strong>{health?.pendingAttachmentCount ?? 0}</strong> file(s) in
-            the outbound queue
+            <strong>{health?.pendingAttachmentCount ?? 0}</strong> file(s){' '}
           </dd>
           <dt>Conflicts</dt>
           <dd>
@@ -210,32 +224,94 @@ export function SyncPage() {
         </dl>
       </div>
 
-      {isBusy ? (
-        <div className="sync-status-bar" role="status" aria-live="polite">
-          <span className="btn-spinner btn-spinner--lg" aria-hidden />
-          <span>{inFlightStatusText}</span>
+      {activeInFlight ? (
+        <div className="panel">
+          <h3>Sync controls</h3>
+          <p className="muted">
+            Progress appears in the banner above. Pause waits between steps;
+            resume continues this session. Cancel stops the job.
+          </p>
+          <div className="button-row">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void syncPauseInFlight()}>
+              Pause
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void syncContinueInFlight()}>
+              Resume
+            </button>
+            <button
+              type="button"
+              className="secondary danger"
+              onClick={() => void syncCancelJob(undefined)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {enginePaused && syncPausedJob ? (
+        <div className="panel">
+          <h3>Paused sync job</h3>
+          <p className="muted">
+            A sync job stopped (<strong>{syncPausedJob.op}</strong>,{' '}
+            {syncPausedJob.phase}).{' '}
+            {syncPausedJob.errorMessage ?? syncPausedJob.progressMessage ?? ''}
+          </p>
+          <div className="button-row">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void resumePausedSyncEngineJob()}>
+              Resume job
+            </button>
+            <button
+              type="button"
+              className="secondary danger"
+              onClick={() => void syncCancelJob(syncPausedJob.id)}>
+              Discard job
+            </button>
+          </div>
         </div>
       ) : null}
 
       <div className="panel">
         <h3>Pull and push</h3>
+        <div className="field-row-checkbox">
+          <label className="sync-force-missing-label">
+            <input
+              type="checkbox"
+              width="inherit"
+              checked={forcePushMissingAttachments}
+              disabled={blockedStart}
+              onChange={e => setForcePushMissingAttachments(e.target.checked)}
+            />
+            Force push observations w/missing attachments
+          </label>
+        </div>
+        <p className="muted sync-force-missing-hint">
+          When checked, observations whose attachment files are not on disk are
+          still pushed; form type, observation id, and missing basenames are
+          logged below and appended to the sync status message. Server
+          validation may still reject rows.
+        </p>
         <div className="button-row">
           <button
             type="button"
             className="secondary"
-            disabled={isBusy}
-            aria-busy={activeOp === 'pull'}
+            disabled={blockedStart}
             onClick={() => void pull()}>
-            {activeOp === 'pull' ? <BtnSpinner /> : null}
-            {activeOp === 'pull' ? OP_LABELS.pull.busy : OP_LABELS.pull.idle}
+            Pull
           </button>
           <button
             type="button"
-            disabled={isBusy}
-            aria-busy={activeOp === 'push'}
+            disabled={blockedStart}
             onClick={() => void push()}>
-            {activeOp === 'push' ? <BtnSpinner /> : null}
-            {activeOp === 'push' ? OP_LABELS.push.busy : OP_LABELS.push.idle}
+            Push
           </button>
         </div>
       </div>
@@ -251,11 +327,9 @@ export function SyncPage() {
           <button
             type="button"
             className="secondary danger"
-            disabled={isBusy}
-            aria-busy={activeOp === 'reset'}
+            disabled={blockedStart}
             onClick={() => void resetServerAndPull()}>
-            {activeOp === 'reset' ? <BtnSpinner /> : null}
-            {activeOp === 'reset' ? OP_LABELS.reset.busy : OP_LABELS.reset.idle}
+            Reset server repository and pull
           </button>
         </div>
       </div>

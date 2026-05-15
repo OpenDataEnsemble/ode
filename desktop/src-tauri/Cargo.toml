@@ -34,4 +34,5 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 walkdir = "2"
 url = "2"
 urlencoding = "2"
+tokio = { version = "1", features = ["sync", "time", "macros"] }
 

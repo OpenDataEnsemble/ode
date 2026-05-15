@@ -4,8 +4,8 @@ use std::{
     io::{BufWriter, Cursor},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
-    sync::Mutex,
     sync::atomic::{AtomicUsize, Ordering},
+    sync::{Arc, Mutex},
     time::UNIX_EPOCH,
 };
 
@@ -25,6 +25,8 @@ use walkdir::WalkDir;
 use zip::read::ZipArchive;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
+
+mod sync_engine;
 
 #[derive(Debug, Error)]
 enum CustodianError {
@@ -130,11 +132,10 @@ fn sqlite_path_for_workspace(workspace: &Path) -> PathBuf {
 }
 
 /// V2 attachment layout (matches Formulus `attachmentStorage` / `WebViewFileUrlResolver`).
-/// `pending/` is the upload queue; `pending_upload/` is legacy v1 (still checked when resolving).
+/// `pending/` is the outbound upload queue.
 const ATTACH_SUBDIR_DRAFT: &str = "draft";
 const ATTACH_SUBDIR_PENDING: &str = "pending";
 const ATTACH_SUBDIR_SYNCED: &str = "synced";
-const ATTACH_LEGACY_PENDING_UPLOAD: &str = "pending_upload";
 
 fn attachments_root(workspace: &Path) -> PathBuf {
     workspace.join("attachments")
@@ -158,12 +159,10 @@ fn count_regular_files_in_dir(dir: &Path) -> i64 {
     n
 }
 
-/// Basenames queued for upload (`pending/`) plus legacy `pending_upload/` (not yet on server).
-fn count_pending_outbound_attachments(workspace: &Path) -> i64 {
-    let root = attachments_root(workspace);
-    let mut total = count_regular_files_in_dir(&root.join(ATTACH_SUBDIR_PENDING));
-    total += count_regular_files_in_dir(&root.join(ATTACH_LEGACY_PENDING_UPLOAD));
-    total
+/// Regular files directly under `attachments/pending/` (physical outbound queue only).
+/// Does not infer counts from observation JSON.
+fn count_attachment_pending_dir_files(workspace: &Path) -> i64 {
+    count_regular_files_in_dir(&attachments_root(workspace).join(ATTACH_SUBDIR_PENDING))
 }
 
 /// All regular files under `attachments/` (recursive), including subfolders.
@@ -197,7 +196,7 @@ fn resolve_workspace_root_for_profile(profile: &ServerProfile) -> Option<PathBuf
     infer_workspace_from_legacy_database_path(profile.database_path.trim())
 }
 
-fn resolve_active_workspace_dir(ctx: &AppCtx) -> Result<PathBuf, CustodianError> {
+fn resolve_active_workspace_dir(ctx: &AppCtxHandle) -> Result<PathBuf, CustodianError> {
     let db_path = resolve_db_path(ctx)?;
     if let Some(ws) = workspace_root_from_resolved_db_path(&db_path)
         && ws.is_dir()
@@ -220,6 +219,39 @@ fn ensure_workspace_layout(workspace: &Path) -> Result<(), CustodianError> {
     fs::create_dir_all(root.join(ATTACH_SUBDIR_PENDING))?;
     fs::create_dir_all(root.join(ATTACH_SUBDIR_SYNCED))?;
     migrate_attachments_flat_to_synced_layout(workspace)?;
+    migrate_legacy_pending_upload_into_pending(workspace)?;
+    Ok(())
+}
+
+/// Move historical `attachments/pending_upload/` files into `attachments/pending/` (layout no longer uses `pending_upload`).
+fn migrate_legacy_pending_upload_into_pending(workspace: &Path) -> Result<(), CustodianError> {
+    let root = attachments_root(workspace);
+    let legacy = root.join("pending_upload");
+    if !legacy.is_dir() {
+        return Ok(());
+    }
+    let pending = root.join(ATTACH_SUBDIR_PENDING);
+    fs::create_dir_all(&pending)?;
+    let entries: Vec<_> = fs::read_dir(&legacy)?.flatten().collect();
+    for entry in entries {
+        if !entry.file_type()?.is_file() {
+            continue;
+        }
+        let src = entry.path();
+        let dest = pending.join(entry.file_name());
+        if dest.exists() {
+            fs::remove_file(&src)?;
+            continue;
+        }
+        if fs::rename(&src, &dest).is_err() {
+            fs::copy(&src, &dest)?;
+            fs::remove_file(&src)?;
+        }
+    }
+    let leftover: Vec<_> = fs::read_dir(&legacy)?.flatten().collect();
+    if leftover.is_empty() {
+        let _ = fs::remove_dir(&legacy);
+    }
     Ok(())
 }
 
@@ -245,7 +277,7 @@ fn migrate_attachments_flat_to_synced_layout(workspace: &Path) -> Result<(), Cus
     Ok(())
 }
 
-/// Local resolution: draft → outbound queue (`pending` before `synced` so queued uploads override stale server copies) → legacy roots.
+/// Local resolution: draft → outbound queue (`pending` before `synced`) → loose under `attachments/`.
 fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> {
     let root = attachments_root(workspace);
     let candidates = [
@@ -253,7 +285,6 @@ fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> 
         root.join(ATTACH_SUBDIR_PENDING).join(basename),
         root.join(ATTACH_SUBDIR_SYNCED).join(basename),
         root.join(basename),
-        root.join(ATTACH_LEGACY_PENDING_UPLOAD).join(basename),
     ];
     candidates.into_iter().find(|p| p.is_file())
 }
@@ -270,12 +301,26 @@ fn attachment_path_pending(workspace: &Path, basename: &str) -> PathBuf {
         .join(basename)
 }
 
-/// Read source for uploading to Synkronus: prefer outbound queue, then draft, then synced (e.g. legacy writes), then loose.
+/// True when manifest-driven pull does not need a GET: synced/outbound queue already holds bytes.
+/// Typical after pushing from this workspace before updating `last_attachment_version`.
+pub(crate) fn skip_manifest_attachment_download(workspace: &Path, basename: &str) -> bool {
+    [
+        attachment_path_synced(workspace, basename),
+        attachment_path_pending(workspace, basename),
+    ]
+    .into_iter()
+    .any(|p| {
+        fs::metadata(&p)
+            .map(|m| m.is_file() && m.len() > 0)
+            .unwrap_or(false)
+    })
+}
+
+/// Read source for uploading to Synkronus: prefer outbound queue, then draft, then synced, then loose under `attachments/`.
 fn first_path_for_attachment_upload(workspace: &Path, basename: &str) -> Option<PathBuf> {
     let root = attachments_root(workspace);
     let candidates = [
         root.join(ATTACH_SUBDIR_PENDING).join(basename),
-        root.join(ATTACH_LEGACY_PENDING_UPLOAD).join(basename),
         root.join(ATTACH_SUBDIR_DRAFT).join(basename),
         root.join(ATTACH_SUBDIR_SYNCED).join(basename),
         root.join(basename),
@@ -284,10 +329,8 @@ fn first_path_for_attachment_upload(workspace: &Path, basename: &str) -> Option<
 }
 
 fn should_promote_upload_source_to_synced(workspace: &Path, src: &Path) -> bool {
-    let root = attachments_root(workspace);
-    let pending = root.join(ATTACH_SUBDIR_PENDING);
-    let legacy = root.join(ATTACH_LEGACY_PENDING_UPLOAD);
-    src.starts_with(&pending) || src.starts_with(&legacy)
+    let pending = attachments_root(workspace).join(ATTACH_SUBDIR_PENDING);
+    src.starts_with(&pending)
 }
 
 fn promote_uploaded_queue_file_to_synced(
@@ -389,7 +432,7 @@ fn normalize_config_profiles(cfg: &mut AppConfigFile) -> Result<(), CustodianErr
     Ok(())
 }
 
-fn ensure_active_workspace_dirs(ctx: &AppCtx) -> Result<(), CustodianError> {
+fn ensure_active_workspace_dirs(ctx: &AppCtxHandle) -> Result<(), CustodianError> {
     let cfg = ctx
         .config
         .lock()
@@ -422,7 +465,7 @@ struct SettingsResponse {
     data_directory: String,
 }
 
-#[derive(Debug)]
+/// Global app state managed by Tauri (config, auth, SQLite lock, active sync).
 struct AppCtx {
     config_path: PathBuf,
     data_dir: PathBuf,
@@ -430,7 +473,11 @@ struct AppCtx {
     auth: Mutex<Option<AuthSession>>,
     /// Serializes SQLite access and workspace filesystem operations that require a quiesced DB.
     workspace_sqlite_lock: Mutex<()>,
+    /// In-memory pause/cancel handles for the active sync worker (job row persists checkpoints).
+    active_sync: Mutex<Option<sync_engine::ActiveSyncHandle>>,
 }
+
+pub(crate) type AppCtxHandle = Arc<AppCtx>;
 
 struct ScopedDb<'a> {
     _guard: std::sync::MutexGuard<'a, ()>,
@@ -541,6 +588,10 @@ struct ApiObservation {
 struct ImportResult {
     imported: usize,
     conflicts: usize,
+    #[serde(default)]
+    attachments_downloaded: usize,
+    #[serde(default)]
+    attachments_failed: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -549,10 +600,11 @@ struct AppHealth {
     workspace_path: Option<String>,
     db_path: String,
     total_observations: i64,
+    /// Observations queued for push (`dirty = 1` and `sync_status = 'dirty'`). Conflicts use `sync_status = 'conflict'` and are counted in `conflict_count`.
     dirty_count: i64,
     /// Regular files across the local attachment layout (draft, synced, queues, loose under `attachments/`).
     total_attachment_count: i64,
-    /// Files in the outbound attachment queue (`attachments/pending`, legacy `pending_upload`).
+    /// Regular files under `attachments/pending/` only (disk queue, not observation references).
     pending_attachment_count: i64,
     conflict_count: i64,
     last_save_at: Option<String>,
@@ -577,22 +629,6 @@ struct SyncLoginRequest {
     base_url: String,
     username: String,
     password: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SyncPullRequest {
-    base_url: Option<String>,
-    endpoint: Option<String>,
-    token: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SyncPushRequest {
-    base_url: Option<String>,
-    endpoint: Option<String>,
-    token: Option<String>,
 }
 
 fn now_iso() -> String {
@@ -673,6 +709,7 @@ fn init_db(conn: &Connection) -> Result<(), CustodianError> {
         [],
     )?;
     migrate_repository_generation_fresh_install_defaults(conn)?;
+    sync_engine::migrate_sync_jobs_db(conn).map_err(CustodianError::Sqlite)?;
     Ok(())
 }
 
@@ -807,7 +844,7 @@ fn load_app_config_inner(path: &Path, data_dir: &Path) -> AppConfigFile {
     default_app_config(data_dir)
 }
 
-fn resolve_db_path(ctx: &AppCtx) -> Result<PathBuf, CustodianError> {
+fn resolve_db_path(ctx: &AppCtxHandle) -> Result<PathBuf, CustodianError> {
     let cfg = ctx
         .config
         .lock()
@@ -829,7 +866,7 @@ fn resolve_db_path(ctx: &AppCtx) -> Result<PathBuf, CustodianError> {
     }
 }
 
-fn open_db(ctx: &AppCtx) -> Result<ScopedDb<'_>, CustodianError> {
+fn open_db(ctx: &AppCtxHandle) -> Result<ScopedDb<'_>, CustodianError> {
     let guard = ctx
         .workspace_sqlite_lock
         .lock()
@@ -847,7 +884,7 @@ fn open_db(ctx: &AppCtx) -> Result<ScopedDb<'_>, CustodianError> {
 }
 
 /// Caller must hold `workspace_sqlite_lock`. Opens the DB, checkpoints WAL, then closes.
-fn quiesce_sqlite_unlocked(ctx: &AppCtx) -> Result<(), CustodianError> {
+fn quiesce_sqlite_unlocked(ctx: &AppCtxHandle) -> Result<(), CustodianError> {
     let db_path = resolve_db_path(ctx)?;
     if !db_path.exists() {
         return Ok(());
@@ -859,9 +896,9 @@ fn quiesce_sqlite_unlocked(ctx: &AppCtx) -> Result<(), CustodianError> {
 }
 
 /// Lock + checkpoint so filesystem copies/moves see a consistent DB; runs `f` while still holding the lock.
-fn with_workspace_fs_exclusive<T, F>(ctx: &AppCtx, f: F) -> Result<T, CustodianError>
+fn with_workspace_fs_exclusive<T, F>(ctx: &AppCtxHandle, f: F) -> Result<T, CustodianError>
 where
-    F: FnOnce(&AppCtx) -> Result<T, CustodianError>,
+    F: FnOnce(&AppCtxHandle) -> Result<T, CustodianError>,
 {
     let _guard = ctx
         .workspace_sqlite_lock
@@ -955,7 +992,7 @@ fn validate_move_destination(src: &Path, dest: &Path) -> Result<(), CustodianErr
     Ok(())
 }
 
-fn backup_workspace_zip(ctx: &AppCtx, zip_path: &Path) -> Result<(), CustodianError> {
+fn backup_workspace_zip(ctx: &AppCtxHandle, zip_path: &Path) -> Result<(), CustodianError> {
     let ws = get_workspace_path(ctx)?;
     let file = fs::File::create(zip_path)?;
     let mut zip = ZipWriter::new(BufWriter::new(file));
@@ -1039,7 +1076,7 @@ fn read_app_bundle_state_unlocked(
     Ok(Some(v))
 }
 
-fn persist_config(ctx: &AppCtx) -> Result<(), CustodianError> {
+fn persist_config(ctx: &AppCtxHandle) -> Result<(), CustodianError> {
     let cfg = ctx
         .config
         .lock()
@@ -1068,7 +1105,7 @@ fn active_profile_mut(cfg: &mut AppConfigFile) -> Result<&mut ServerProfile, Cus
         .ok_or_else(|| CustodianError::Message("active profile not found".to_string()))
 }
 
-fn get_workspace_path(ctx: &AppCtx) -> Result<PathBuf, CustodianError> {
+fn get_workspace_path(ctx: &AppCtxHandle) -> Result<PathBuf, CustodianError> {
     let cfg = ctx
         .config
         .lock()
@@ -1082,7 +1119,7 @@ fn get_workspace_path(ctx: &AppCtx) -> Result<PathBuf, CustodianError> {
 }
 
 fn resolve_workspace_path(
-    ctx: &AppCtx,
+    ctx: &AppCtxHandle,
     relative: Option<String>,
 ) -> Result<PathBuf, CustodianError> {
     let workspace = get_workspace_path(ctx)?;
@@ -1097,44 +1134,6 @@ fn resolve_workspace_path(
         return Err(CustodianError::PathOutsideWorkspace);
     }
     Ok(canonical_candidate)
-}
-
-fn build_auth_header(token: &str) -> String {
-    format!("Bearer {token}")
-}
-
-fn read_auth_token(ctx: &AppCtx, explicit: Option<String>) -> Result<String, CustodianError> {
-    if let Some(token) = explicit {
-        return Ok(token);
-    }
-
-    let guard = ctx
-        .auth
-        .lock()
-        .map_err(|_| CustodianError::Message("failed to lock auth state".to_string()))?;
-    guard
-        .as_ref()
-        .map(|session| session.token.clone())
-        .ok_or_else(|| {
-            CustodianError::Message("no auth token found; call synk_login first".to_string())
-        })
-}
-
-fn read_base_url(ctx: &AppCtx, explicit: Option<String>) -> Result<String, CustodianError> {
-    if let Some(base_url) = explicit {
-        return Ok(base_url);
-    }
-
-    let guard = ctx
-        .auth
-        .lock()
-        .map_err(|_| CustodianError::Message("failed to lock auth state".to_string()))?;
-    guard
-        .as_ref()
-        .map(|session| session.base_url.clone())
-        .ok_or_else(|| {
-            CustodianError::Message("no base url found; call synk_login first".to_string())
-        })
 }
 
 fn upsert_observation_from_api(
@@ -1293,7 +1292,7 @@ fn upsert_observation_from_local_import(
 }
 
 #[tauri::command]
-fn get_settings(ctx: tauri::State<'_, AppCtx>) -> Result<SettingsResponse, String> {
+fn get_settings(ctx: tauri::State<'_, AppCtxHandle>) -> Result<SettingsResponse, String> {
     let cfg = ctx
         .config
         .lock()
@@ -1306,7 +1305,10 @@ fn get_settings(ctx: tauri::State<'_, AppCtx>) -> Result<SettingsResponse, Strin
 }
 
 #[tauri::command]
-fn set_active_profile(profile_id: String, ctx: tauri::State<'_, AppCtx>) -> Result<(), String> {
+fn set_active_profile(
+    profile_id: String,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<(), String> {
     {
         let mut cfg = ctx
             .config
@@ -1322,7 +1324,10 @@ fn set_active_profile(profile_id: String, ctx: tauri::State<'_, AppCtx>) -> Resu
 }
 
 #[tauri::command]
-fn upsert_profile(mut profile: ServerProfile, ctx: tauri::State<'_, AppCtx>) -> Result<(), String> {
+fn upsert_profile(
+    mut profile: ServerProfile,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<(), String> {
     if profile
         .workspace_path
         .as_ref()
@@ -1351,7 +1356,7 @@ fn upsert_profile(mut profile: ServerProfile, ctx: tauri::State<'_, AppCtx>) -> 
 }
 
 #[tauri::command]
-fn delete_profile(profile_id: String, ctx: tauri::State<'_, AppCtx>) -> Result<(), String> {
+fn delete_profile(profile_id: String, ctx: tauri::State<'_, AppCtxHandle>) -> Result<(), String> {
     {
         let mut cfg = ctx
             .config
@@ -1411,7 +1416,7 @@ struct CredentialDeleteResult {
 fn credential_set(
     profile_id: String,
     password: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<CredentialSetResult, String> {
     let _ = &ctx;
     let entry = match credential_entry(&profile_id) {
@@ -1442,7 +1447,7 @@ fn credential_set(
 #[tauri::command]
 fn credential_get(
     profile_id: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<CredentialGetResult, String> {
     let _ = &ctx;
     let entry = match credential_entry(&profile_id) {
@@ -1473,7 +1478,7 @@ fn credential_get(
 #[tauri::command]
 fn credential_delete(
     profile_id: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<CredentialDeleteResult, String> {
     let _ = &ctx;
     let entry = match credential_entry(&profile_id) {
@@ -1502,7 +1507,7 @@ fn credential_delete(
 }
 
 #[tauri::command]
-fn get_workspace(ctx: tauri::State<'_, AppCtx>) -> Result<Option<String>, String> {
+fn get_workspace(ctx: tauri::State<'_, AppCtxHandle>) -> Result<Option<String>, String> {
     let cfg = ctx
         .config
         .lock()
@@ -1512,7 +1517,7 @@ fn get_workspace(ctx: tauri::State<'_, AppCtx>) -> Result<Option<String>, String
 }
 
 #[tauri::command]
-fn set_workspace(path: String, ctx: tauri::State<'_, AppCtx>) -> Result<(), String> {
+fn set_workspace(path: String, ctx: tauri::State<'_, AppCtxHandle>) -> Result<(), String> {
     let path_buf = PathBuf::from(&path);
     if !path_buf.exists() {
         return Err("workspace path does not exist".to_string());
@@ -1552,7 +1557,7 @@ fn set_workspace(path: String, ctx: tauri::State<'_, AppCtx>) -> Result<(), Stri
 #[tauri::command]
 fn list_workspace_items(
     relative_path: Option<String>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Vec<WorkspaceItem>, String> {
     let path = resolve_workspace_path(&ctx, relative_path).map_err(|err| err.to_string())?;
     let mut items = Vec::new();
@@ -1573,7 +1578,7 @@ fn list_workspace_items(
 #[tauri::command]
 fn save_observation(
     req: SaveObservationRequest,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<ObservationRecord, String> {
     {
         let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
@@ -1636,7 +1641,7 @@ fn save_observation(
 #[tauri::command]
 fn restore_last_backup(
     observation_id: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<ObservationRecord, String> {
     {
         let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
@@ -1665,7 +1670,10 @@ fn restore_last_backup(
 }
 
 #[tauri::command]
-fn get_observation(id: String, ctx: tauri::State<'_, AppCtx>) -> Result<ObservationRecord, String> {
+fn get_observation(
+    id: String,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<ObservationRecord, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let record = conn
         .query_row(
@@ -1703,7 +1711,7 @@ fn get_observation(id: String, ctx: tauri::State<'_, AppCtx>) -> Result<Observat
 fn list_observations(
     query: Option<String>,
     limit: Option<i64>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Vec<ObservationRecord>, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let text_query = query.unwrap_or_default();
@@ -1762,7 +1770,7 @@ fn list_observations_page(
     form_type: Option<String>,
     limit: Option<i64>,
     offset: Option<i64>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<ListObservationsPageResult, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let text_query = query.unwrap_or_default();
@@ -1849,19 +1857,20 @@ fn map_observation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ObservationR
     })
 }
 
-/// All locally dirty observations for sync push (not the paged UI list). Cap matches `list_observations_page` max.
+/// Locally dirty observations eligible for sync push (`dirty = 1`, `sync_status = 'dirty'`).
+/// Cap matches `list_observations_page` max.
 const MAX_DIRTY_OBSERVATIONS_FOR_PUSH: i64 = 10_000;
 
 #[tauri::command]
 fn list_dirty_observations(
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Vec<ObservationRecord>, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let mut stmt = conn
         .prepare(
             "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
              FROM observations
-             WHERE dirty = 1
+             WHERE dirty = 1 AND sync_status = 'dirty'
              ORDER BY last_saved_at ASC
              LIMIT ?1",
         )
@@ -1879,8 +1888,42 @@ fn list_dirty_observations(
     Ok(out)
 }
 
+pub(crate) fn load_dirty_observations_by_ids(
+    ctx: &AppCtxHandle,
+    ids: &[String],
+) -> Result<Vec<ObservationRecord>, String> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let conn = open_db(ctx).map_err(|err| err.to_string())?;
+    let mut found: HashMap<String, ObservationRecord> = HashMap::new();
+    for chunk in ids.chunks(400) {
+        let placeholders = chunk.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let sql = format!(
+            "SELECT id, payload, form_type, updated_at, remote_updated_at, dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+             FROM observations
+             WHERE dirty = 1 AND sync_status = 'dirty' AND id IN ({placeholders})"
+        );
+        let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
+        let mut rows = stmt
+            .query(rusqlite::params_from_iter(chunk.iter()))
+            .map_err(|err| err.to_string())?;
+        while let Some(row) = rows.next().map_err(|err| err.to_string())? {
+            let rec = map_observation_row(row).map_err(|err| err.to_string())?;
+            found.insert(rec.id.clone(), rec);
+        }
+    }
+    let mut ordered = Vec::new();
+    for id in ids {
+        if let Some(r) = found.remove(id.as_str()) {
+            ordered.push(r);
+        }
+    }
+    Ok(ordered)
+}
+
 #[tauri::command]
-fn list_form_types(ctx: tauri::State<'_, AppCtx>) -> Result<Vec<String>, String> {
+fn list_form_types(ctx: tauri::State<'_, AppCtxHandle>) -> Result<Vec<String>, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let mut stmt = conn
         .prepare(
@@ -1908,7 +1951,7 @@ struct SyncStateInfo {
 }
 
 #[tauri::command]
-fn get_sync_state(ctx: tauri::State<'_, AppCtx>) -> Result<SyncStateInfo, String> {
+fn get_sync_state(ctx: tauri::State<'_, AppCtxHandle>) -> Result<SyncStateInfo, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     conn.query_row(
         "SELECT repository_generation, observation_sync_version, last_attachment_version FROM sync_state WHERE id = 1",
@@ -1933,7 +1976,10 @@ struct SetSyncStateRequest {
 }
 
 #[tauri::command]
-fn set_sync_state(req: SetSyncStateRequest, ctx: tauri::State<'_, AppCtx>) -> Result<(), String> {
+fn set_sync_state(
+    req: SetSyncStateRequest,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<(), String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let current = conn
         .query_row(
@@ -1959,8 +2005,42 @@ fn set_sync_state(req: SetSyncStateRequest, ctx: tauri::State<'_, AppCtx>) -> Re
     Ok(())
 }
 
+pub(crate) fn set_sync_state_merge(
+    ctx: &AppCtxHandle,
+    repository_generation: Option<i64>,
+    observation_sync_version: Option<i64>,
+    last_attachment_version: Option<i64>,
+) -> Result<(), String> {
+    let conn = open_db(ctx).map_err(|err| err.to_string())?;
+    let current = conn
+        .query_row(
+            "SELECT repository_generation, observation_sync_version, last_attachment_version FROM sync_state WHERE id = 1",
+            [],
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                ))
+            },
+        )
+        .map_err(|err| err.to_string())?;
+    let repo = repository_generation.unwrap_or(current.0);
+    let obs = observation_sync_version.unwrap_or(current.1);
+    let att = last_attachment_version.unwrap_or(current.2);
+    conn.execute(
+        "UPDATE sync_state SET repository_generation = ?1, observation_sync_version = ?2, last_attachment_version = ?3 WHERE id = 1",
+        params![repo, obs, att],
+    )
+    .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
 #[tauri::command]
-fn move_workspace(destination: String, ctx: tauri::State<'_, AppCtx>) -> Result<String, String> {
+fn move_workspace(
+    destination: String,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<String, String> {
     let dest = PathBuf::from(destination.trim());
     let src = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     validate_move_destination(&src, &dest).map_err(|e| e.to_string())?;
@@ -2003,7 +2083,10 @@ fn move_workspace(destination: String, ctx: tauri::State<'_, AppCtx>) -> Result<
 }
 
 #[tauri::command]
-fn backup_workspace(zip_path: String, ctx: tauri::State<'_, AppCtx>) -> Result<String, String> {
+fn backup_workspace(
+    zip_path: String,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<String, String> {
     let path = PathBuf::from(zip_path.trim());
     if path.as_os_str().is_empty() {
         return Err("zip path is required".to_string());
@@ -2022,14 +2105,20 @@ fn backup_workspace(zip_path: String, ctx: tauri::State<'_, AppCtx>) -> Result<S
 /// Moves `sqlite` and `attachments` under `workspace/previous_generations/<stamp>/`, then recreates a fresh layout.
 #[tauri::command]
 fn archive_workspace_for_repository_generation(
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<String, String> {
-    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    archive_workspace_for_repository_generation_inner(&ctx)
+}
+
+pub(crate) fn archive_workspace_for_repository_generation_inner(
+    ctx: &AppCtxHandle,
+) -> Result<String, String> {
+    let ws = get_workspace_path(ctx).map_err(|e| e.to_string())?;
     let stamp = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
     let dest = ws
         .join("previous_generations")
         .join(format!("{stamp}_archive"));
-    with_workspace_fs_exclusive(&ctx, move |_ctx| {
+    with_workspace_fs_exclusive(ctx, move |_ctx| {
         fs::create_dir_all(&dest).map_err(|e| CustodianError::Message(e.to_string()))?;
         for sub in ["sqlite", "attachments"] {
             let p = ws.join(sub);
@@ -2047,7 +2136,7 @@ fn archive_workspace_for_repository_generation(
 fn write_workspace_attachment(
     attachment_id: String,
     data: Vec<u8>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<(), String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let t = attachment_id.trim();
@@ -2068,7 +2157,7 @@ fn write_workspace_attachment(
 fn copy_workspace_attachment_from_path(
     source_path: String,
     attachment_id: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<(), String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let t = attachment_id.trim();
@@ -2500,7 +2589,7 @@ fn copy_one_attachment_to_pending(
 fn copy_workspace_attachments_batch(
     app: tauri::AppHandle,
     items: Vec<AttachmentCopyPair>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<AttachmentCopyBatchResult, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let total = items.len();
@@ -2552,7 +2641,7 @@ async fn download_workspace_attachment_from_url(
     bearer_token: String,
     attachment_id: String,
     x_ode_version: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<(), String> {
     let base = base_url.trim();
     if base.is_empty() {
@@ -2604,31 +2693,29 @@ async fn download_workspace_attachment_from_url(
 
 fn collect_outbound_queue_basenames(ws: &Path) -> Result<HashSet<String>, String> {
     let mut s = HashSet::new();
-    let root = attachments_root(ws);
-    for sub in [ATTACH_SUBDIR_PENDING, ATTACH_LEGACY_PENDING_UPLOAD] {
-        let dir = root.join(sub);
-        if !dir.is_dir() {
-            continue;
-        }
-        for e in fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
-            let ft = e.file_type().map_err(|e| e.to_string())?;
-            if ft.is_file() {
-                s.insert(e.file_name().to_string_lossy().to_string());
-            }
+    let dir = attachments_root(ws).join(ATTACH_SUBDIR_PENDING);
+    if !dir.is_dir() {
+        return Ok(s);
+    }
+    for e in fs::read_dir(&dir).map_err(|e| e.to_string())?.flatten() {
+        let ft = e.file_type().map_err(|e| e.to_string())?;
+        if ft.is_file() {
+            s.insert(e.file_name().to_string_lossy().to_string());
         }
     }
     Ok(s)
 }
 
-/// `PUT /api/attachments/{id}` for each outbound file (queue + extras), then move queue copies into `synced/` on success or 409.
+/// `PUT /api/attachments/{id}` for each regular file under `attachments/pending/`, then move into `synced/` on success or 409.
+/// `extra_attachment_ids` is ignored (legacy parameter kept for stable IPC signature).
 #[tauri::command]
 async fn upload_outbound_attachments(
     base_url: String,
     bearer_token: String,
     x_ode_version: String,
     repository_generation: Option<i64>,
-    extra_attachment_ids: Vec<String>,
-    ctx: tauri::State<'_, AppCtx>,
+    _extra_attachment_ids: Vec<String>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<OutboundAttachmentUploadResult, String> {
     let base = base_url.trim();
     if base.is_empty() {
@@ -2645,21 +2732,7 @@ async fn upload_outbound_attachments(
 
     let ws = resolve_active_workspace_dir(&ctx).map_err(|e| e.to_string())?;
 
-    let mut required = HashSet::new();
-    for raw in extra_attachment_ids {
-        let t = raw.trim();
-        if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
-            continue;
-        }
-        required.insert(t.to_string());
-    }
-
-    let mut ids = collect_outbound_queue_basenames(&ws)?;
-    for r in required.iter() {
-        ids.insert(r.clone());
-    }
-
-    let mut id_list: Vec<String> = ids.into_iter().collect();
+    let mut id_list: Vec<String> = collect_outbound_queue_basenames(&ws)?.into_iter().collect();
     id_list.sort();
 
     let client = reqwest::Client::new();
@@ -2671,9 +2744,7 @@ async fn upload_outbound_attachments(
 
     for id in id_list {
         let Some(src) = first_path_for_attachment_upload(&ws, &id) else {
-            if required.contains(&id) {
-                skipped_missing += 1;
-            }
+            skipped_missing += 1;
             continue;
         };
 
@@ -2755,7 +2826,7 @@ struct WorkspaceAttachmentPresenceEntry {
 #[tauri::command]
 fn check_workspace_attachment_presence(
     file_names: Vec<String>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Vec<WorkspaceAttachmentPresenceEntry>, String> {
     let ws = resolve_active_workspace_dir(&ctx).map_err(|e| e.to_string())?;
     let mut seen = HashSet::<String>::new();
@@ -2783,7 +2854,7 @@ fn check_workspace_attachment_presence(
 fn write_workspace_file(
     relative_path: String,
     data: Vec<u8>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<String, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let rel = relative_path
@@ -2810,7 +2881,9 @@ fn write_workspace_file(
 }
 
 #[tauri::command]
-fn get_app_bundle_state(ctx: tauri::State<'_, AppCtx>) -> Result<Option<AppBundleState>, String> {
+fn get_app_bundle_state(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<Option<AppBundleState>, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let bundles = ws.join("bundles");
     read_app_bundle_state_unlocked(&bundles).map_err(|e| e.to_string())
@@ -2823,7 +2896,7 @@ fn apply_app_bundle_download(
     version: String,
     hash: String,
     zip_bytes: Vec<u8>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<AppBundleState, String> {
     let ver = version.trim();
     if ver.is_empty() {
@@ -2910,7 +2983,7 @@ fn sanitize_form_type_id(raw: &str) -> Result<String, String> {
 
 #[tauri::command]
 fn list_active_bundle_forms(
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Vec<ActiveBundleFormEntry>, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let mut seen = HashSet::new();
@@ -2943,7 +3016,7 @@ fn list_active_bundle_forms(
 #[tauri::command]
 fn read_bundle_form_spec(
     form_type: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<BundleFormSpec, String> {
     let ft = sanitize_form_type_id(&form_type)?;
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
@@ -3041,7 +3114,7 @@ fn bundle_cqt_to_json(
 #[tauri::command]
 fn read_workspace_text_file(
     relative_path: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<String, String> {
     let path = resolve_workspace_path(&ctx, Some(relative_path)).map_err(|e| e.to_string())?;
     fs::read_to_string(&path).map_err(|e| e.to_string())
@@ -3057,7 +3130,9 @@ fn write_text_file(path: String, contents: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_active_bundle_forms_file_base_url(ctx: tauri::State<'_, AppCtx>) -> Result<String, String> {
+fn get_active_bundle_forms_file_base_url(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<String, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     let forms = ws.join("bundles/active/forms");
     Url::from_directory_path(&forms)
@@ -3069,7 +3144,7 @@ fn get_active_bundle_forms_file_base_url(ctx: tauri::State<'_, AppCtx>) -> Resul
 #[tauri::command]
 fn workspace_directory_file_url(
     relative_path: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<String, String> {
     let path = resolve_workspace_path(&ctx, Some(relative_path)).map_err(|e| e.to_string())?;
     if !path.exists() {
@@ -3083,11 +3158,11 @@ fn workspace_directory_file_url(
         .map_err(|()| "invalid directory for file URL".to_string())
 }
 
-/// Resolve an attachment basename to a `file://` URL (draft → synced → pending → legacy roots).
+/// Resolve an attachment basename to a `file://` URL (draft → synced → pending → loose under `attachments/`).
 /// Same lookup order as Formulus `resolveAttachmentFileUrl`.
 fn resolve_workspace_attachment_file_url(
     file_name: String,
-    ctx: &AppCtx,
+    ctx: &AppCtxHandle,
 ) -> Result<Option<String>, String> {
     let t = file_name.trim();
     if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
@@ -3106,7 +3181,7 @@ fn resolve_workspace_attachment_file_url(
 #[tauri::command]
 fn workspace_attachment_file_url(
     file_name: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Option<String>, String> {
     resolve_workspace_attachment_file_url(file_name, &ctx)
 }
@@ -3115,13 +3190,13 @@ fn workspace_attachment_file_url(
 #[tauri::command]
 fn resolve_attachment_file_url(
     file_name: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Option<String>, String> {
     resolve_workspace_attachment_file_url(file_name, &ctx)
 }
 
 #[tauri::command]
-fn scan_bundle_custom_question_types(ctx: tauri::State<'_, AppCtx>) -> Result<Value, String> {
+fn scan_bundle_custom_question_types(ctx: tauri::State<'_, AppCtxHandle>) -> Result<Value, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
     // Prefer `bundles/active/app/**` (Synkronus zip layout) before legacy flat paths.
     let qt_dirs = [
@@ -3144,9 +3219,16 @@ fn scan_bundle_custom_question_types(ctx: tauri::State<'_, AppCtx>) -> Result<Va
 #[tauri::command]
 fn remove_workspace_attachment(
     attachment_id: String,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<(), String> {
-    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    remove_workspace_attachment_inner(&ctx, &attachment_id)
+}
+
+pub(crate) fn remove_workspace_attachment_inner(
+    ctx: &AppCtxHandle,
+    attachment_id: &str,
+) -> Result<(), String> {
+    let ws = get_workspace_path(ctx).map_err(|e| e.to_string())?;
     let t = attachment_id.trim();
     if t.is_empty() || t.contains('/') || t.contains('\\') || t.contains("..") {
         return Err("invalid attachment id".to_string());
@@ -3157,7 +3239,6 @@ fn remove_workspace_attachment(
         root.join(ATTACH_SUBDIR_SYNCED).join(t),
         root.join(ATTACH_SUBDIR_PENDING).join(t),
         root.join(t),
-        root.join(ATTACH_LEGACY_PENDING_UPLOAD).join(t),
     ];
     for path in paths {
         if path.is_file() {
@@ -3170,7 +3251,7 @@ fn remove_workspace_attachment(
 fn import_observations_run(
     observations: Vec<ApiObservation>,
     mark_pending: bool,
-    ctx: &AppCtx,
+    ctx: &AppCtxHandle,
 ) -> Result<ImportResult, String> {
     let mut conn = open_db(ctx).map_err(|err| err.to_string())?;
     let tx = conn.transaction().map_err(|err| err.to_string())?;
@@ -3202,6 +3283,8 @@ fn import_observations_run(
     Ok(ImportResult {
         imported,
         conflicts,
+        attachments_downloaded: 0,
+        attachments_failed: 0,
     })
 }
 
@@ -3209,20 +3292,34 @@ fn import_observations_run(
 fn import_observations(
     observations: Vec<ApiObservation>,
     mark_pending: Option<bool>,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<ImportResult, String> {
     import_observations_run(observations, mark_pending.unwrap_or(false), &ctx)
 }
 
 #[tauri::command]
-fn mark_observations_pushed(ids: Vec<String>, ctx: tauri::State<'_, AppCtx>) -> Result<(), String> {
+fn mark_observations_pushed(
+    ids: Vec<String>,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<(), String> {
+    mark_observations_pushed_inner(ids, &ctx)
+}
+
+pub(crate) fn mark_observations_pushed_inner(
+    ids: Vec<String>,
+    ctx: &AppCtxHandle,
+) -> Result<(), String> {
     if ids.is_empty() {
         return Ok(());
     }
-    let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let mut conn = open_db(ctx).map_err(|err| err.to_string())?;
     let tx = conn.transaction().map_err(|err| err.to_string())?;
     let now = now_iso();
-    for id in ids {
+    for raw in ids {
+        let id = raw.trim();
+        if id.is_empty() {
+            continue;
+        }
         tx.execute(
             "UPDATE observations
              SET dirty = 0,
@@ -3244,14 +3341,14 @@ fn mark_observations_pushed(ids: Vec<String>, ctx: tauri::State<'_, AppCtx>) -> 
 }
 
 #[tauri::command]
-fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
+fn get_app_health(ctx: tauri::State<'_, AppCtxHandle>) -> Result<AppHealth, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
     let total_observations: i64 = conn
         .query_row("SELECT COUNT(*) FROM observations", [], |row| row.get(0))
         .map_err(|err| err.to_string())?;
     let dirty_count: i64 = conn
         .query_row(
-            "SELECT COUNT(*) FROM observations WHERE dirty = 1",
+            "SELECT COUNT(*) FROM observations WHERE dirty = 1 AND sync_status = 'dirty'",
             [],
             |row| row.get(0),
         )
@@ -3277,17 +3374,14 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|err| err.to_string())?;
-    let db_resolved = resolve_db_path(&ctx).map_err(|e: CustodianError| e.to_string())?;
     let (total_attachment_count, pending_attachment_count) =
-        workspace_root_from_resolved_db_path(&db_resolved)
-            .as_ref()
-            .map(|ws| {
-                (
-                    count_all_attachment_files(ws),
-                    count_pending_outbound_attachments(ws),
-                )
-            })
-            .unwrap_or((0, 0));
+        match resolve_active_workspace_dir(&ctx) {
+            Ok(ws) => (
+                count_all_attachment_files(&ws),
+                count_attachment_pending_dir_files(&ws),
+            ),
+            Err(_) => (0, 0),
+        };
 
     let (workspace_path, db_path_str) = {
         let cfg = ctx
@@ -3318,7 +3412,7 @@ fn get_app_health(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
 /// Clears local observations, backup history, attachment files, and generation archives; resets
 /// `sync_state` to fresh-install values. Does not modify `bundles/` or app auth.
 #[tauri::command]
-fn reset_local_workspace_data(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth, String> {
+fn reset_local_workspace_data(ctx: tauri::State<'_, AppCtxHandle>) -> Result<AppHealth, String> {
     with_workspace_fs_exclusive(&ctx, |ctx| {
         let db_path = resolve_db_path(ctx)?;
         let conn = Connection::open(&db_path)?;
@@ -3353,7 +3447,7 @@ fn reset_local_workspace_data(ctx: tauri::State<'_, AppCtx>) -> Result<AppHealth
 #[tauri::command]
 async fn synk_login(
     req: SyncLoginRequest,
-    ctx: tauri::State<'_, AppCtx>,
+    ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<AuthSession, String> {
     let client = reqwest::Client::new();
     let response = client
@@ -3395,99 +3489,6 @@ async fn synk_login(
     Ok(session)
 }
 
-#[tauri::command]
-async fn synk_pull(
-    req: SyncPullRequest,
-    ctx: tauri::State<'_, AppCtx>,
-) -> Result<ImportResult, String> {
-    let base_url = read_base_url(&ctx, req.base_url).map_err(|err| err.to_string())?;
-    let token = read_auth_token(&ctx, req.token).map_err(|err| err.to_string())?;
-    let endpoint = req
-        .endpoint
-        .unwrap_or_else(|| "/api/observations".to_string());
-    let url = format!("{}{}", base_url.trim_end_matches('/'), endpoint);
-
-    let client = reqwest::Client::new();
-    let response = client
-        .get(url)
-        .header(AUTHORIZATION, build_auth_header(&token))
-        .send()
-        .await
-        .map_err(|err| err.to_string())?;
-    if !response.status().is_success() {
-        return Err(format!("pull failed with status {}", response.status()));
-    }
-    let body: Value = response.json().await.map_err(|err| err.to_string())?;
-    let observations = if body.is_array() {
-        serde_json::from_value::<Vec<ApiObservation>>(body).map_err(|err| err.to_string())?
-    } else if let Some(value) = body.get("observations") {
-        serde_json::from_value::<Vec<ApiObservation>>(value.clone())
-            .map_err(|err| err.to_string())?
-    } else {
-        return Err("pull response does not contain an observations array".to_string());
-    };
-    import_observations_run(observations, false, &ctx)
-}
-
-#[tauri::command]
-async fn synk_push(req: SyncPushRequest, ctx: tauri::State<'_, AppCtx>) -> Result<usize, String> {
-    let base_url = read_base_url(&ctx, req.base_url).map_err(|err| err.to_string())?;
-    let token = read_auth_token(&ctx, req.token).map_err(|err| err.to_string())?;
-    let endpoint = req
-        .endpoint
-        .unwrap_or_else(|| "/api/observations".to_string());
-    let url = format!("{}{}", base_url.trim_end_matches('/'), endpoint);
-    let outgoing = {
-        let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        let mut stmt = conn
-            .prepare(
-                "SELECT id, payload, form_type, updated_at FROM observations WHERE dirty = 1 ORDER BY last_saved_at ASC",
-            )
-            .map_err(|err| err.to_string())?;
-        let rows = stmt
-            .query_map([], |row| {
-                let payload: String = row.get(1)?;
-                let payload_value = serde_json::from_str::<Value>(&payload).unwrap_or(Value::Null);
-                Ok(ApiObservation {
-                    observation_id: row.get(0)?,
-                    data: payload_value,
-                    form_type: row.get(2)?,
-                    updated_at: row.get(3)?,
-                })
-            })
-            .map_err(|err| err.to_string())?;
-        let mut outgoing = Vec::new();
-        for item in rows {
-            outgoing.push(item.map_err(|err| err.to_string())?);
-        }
-        outgoing
-    };
-
-    if outgoing.is_empty() {
-        return Ok(0);
-    }
-
-    let client = reqwest::Client::new();
-    let response = client
-        .post(url)
-        .header(AUTHORIZATION, build_auth_header(&token))
-        .header(CONTENT_TYPE, "application/json")
-        .json(&serde_json::json!({ "observations": outgoing }))
-        .send()
-        .await
-        .map_err(|err| err.to_string())?;
-
-    if !response.status().is_success() {
-        return Err(format!("push failed with status {}", response.status()));
-    }
-    let pushed_ids = outgoing
-        .into_iter()
-        .map(|item| item.observation_id)
-        .collect::<Vec<_>>();
-    mark_observations_pushed(pushed_ids.clone(), ctx)?;
-    Ok(pushed_ids.len())
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -3500,16 +3501,21 @@ pub fn run() {
             let config_path = config_dir.join("config.json");
             let config = load_app_config(&config_path, &data_dir);
 
-            let ctx = AppCtx {
+            let ctx = Arc::new(AppCtx {
                 config_path: config_path.clone(),
                 data_dir: data_dir.clone(),
                 config: Mutex::new(config),
                 auth: Mutex::new(None),
                 workspace_sqlite_lock: Mutex::new(()),
-            };
+                active_sync: Mutex::new(None),
+            });
             persist_config(&ctx).map_err(|err| err.to_string())?;
             ensure_active_workspace_dirs(&ctx).map_err(|err| err.to_string())?;
-            open_db(&ctx).map_err(|err| err.to_string())?;
+            {
+                let scoped = open_db(&ctx).map_err(|err| err.to_string())?;
+                sync_engine::reconcile_interrupted_running_jobs(&scoped)
+                    .map_err(|e| e.to_string())?;
+            }
             app.manage(ctx);
             Ok(())
         })
@@ -3566,8 +3572,12 @@ pub fn run() {
             get_app_health,
             reset_local_workspace_data,
             synk_login,
-            synk_pull,
-            synk_push
+            sync_engine::sync_start,
+            sync_engine::sync_pause,
+            sync_engine::sync_continue,
+            sync_engine::sync_resume_job,
+            sync_engine::sync_cancel,
+            sync_engine::sync_get_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

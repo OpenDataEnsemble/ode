@@ -23,8 +23,10 @@ import type {
   BundleFormSpec,
   SetSyncStateRequest,
   SyncLoginRequest,
-  SyncPullRequest,
-  SyncPushRequest,
+  SyncResumeJobRequest,
+  SyncJobRowOut,
+  SyncStartAck,
+  SyncStartRequest,
   SyncStateInfo,
   WorkspaceItem,
 } from '../types/domain';
@@ -139,20 +141,20 @@ export const tauriClient = {
       attachmentId: args.attachmentId,
       xOdeVersion: args.xOdeVersion,
     }),
-  /** Upload pending/legacy-queue + extras via `PUT /api/attachments/{id}` before observation sync. */
+  /** Upload each file under `attachments/pending/` via Synkronus (legacy `extraAttachmentIds` ignored). */
   uploadOutboundAttachments: (args: {
     baseUrl: string;
     bearerToken: string;
     xOdeVersion: string;
     repositoryGeneration?: number;
-    extraAttachmentIds: string[];
+    extraAttachmentIds?: string[];
   }) =>
     invokeSafe<OutboundAttachmentUploadResult>('upload_outbound_attachments', {
       baseUrl: args.baseUrl,
       bearerToken: args.bearerToken,
       xOdeVersion: args.xOdeVersion,
       repositoryGeneration: args.repositoryGeneration,
-      extraAttachmentIds: args.extraAttachmentIds,
+      extraAttachmentIds: args.extraAttachmentIds ?? [],
     }),
   /** Batch-resolve whether each attachment basename exists locally (same rules as push/upload). */
   checkWorkspaceAttachmentPresence: (fileNames: string[]) =>
@@ -192,9 +194,9 @@ export const tauriClient = {
   workspaceDirectoryFileUrl: (relativePath: string) =>
     invokeSafe<string>('workspace_directory_file_url', { relativePath }),
   /**
-   * Basename-only resolution across `attachments/draft`, `attachments/synced`,
-   * `attachments/pending`, and legacy flat / `pending_upload` (matches Formulus
-   * `resolveAttachmentFileUrl`).
+   * Basename-only resolution across `attachments/draft`, `attachments/pending`,
+   * `attachments/synced`, then loose files directly under `attachments/`
+   * (matches Formulus `resolveAttachmentFileUrl`).
    */
   workspaceAttachmentFileUrl: (fileName: string) =>
     invokeSafe<string | null>('workspace_attachment_file_url', { fileName }),
@@ -230,7 +232,44 @@ export const tauriClient = {
     invokeSafe<AppHealth>('reset_local_workspace_data'),
   synkLogin: (req: SyncLoginRequest) =>
     invokeSafe<AuthSession>('synk_login', { req }),
-  synkPull: (req: SyncPullRequest) =>
-    invokeSafe<ImportResult>('synk_pull', { req }),
-  synkPush: (req: SyncPushRequest) => invokeSafe<number>('synk_push', { req }),
+
+  syncStart: (req: SyncStartRequest) =>
+    invokeSafe<SyncStartAck>('sync_start', {
+      req: {
+        op: req.op,
+        baseUrl: req.baseUrl,
+        bearerToken: req.bearerToken,
+        clientId: req.clientId,
+        xOdeVersion: req.xOdeVersion,
+        pushPrepare: req.pushPrepare
+          ? {
+              readyObservationIds: req.pushPrepare.readyObservationIds,
+              ...(req.pushPrepare.extraAttachmentIds !== undefined
+                ? { extraAttachmentIds: req.pushPrepare.extraAttachmentIds }
+                : {}),
+              skipSummary: req.pushPrepare.skipSummary ?? null,
+            }
+          : undefined,
+      },
+    }),
+
+  syncPause: () => invokeSafe<void>('sync_pause'),
+
+  syncContinue: () => invokeSafe<void>('sync_continue'),
+
+  syncResumeJob: (resume: SyncResumeJobRequest) =>
+    invokeSafe<void>('sync_resume_job', {
+      resume: {
+        jobId: resume.jobId,
+        baseUrl: resume.baseUrl,
+        bearerToken: resume.bearerToken,
+        clientId: resume.clientId,
+        xOdeVersion: resume.xOdeVersion,
+      },
+    }),
+
+  syncCancel: (jobId?: string | null) =>
+    invokeSafe<void>('sync_cancel', { jobId: jobId ?? null }),
+
+  syncGetStatus: () => invokeSafe<SyncJobRowOut | null>('sync_get_status'),
 };

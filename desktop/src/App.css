@@ -718,6 +718,45 @@ textarea {
   margin-bottom: 0.75rem;
 }
 
+.app-sync-banner-with-dismiss {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.app-sync-banner-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.app-sync-banner-dismiss {
+  appearance: none;
+  flex-shrink: 0;
+  margin: -0.2rem -0.15rem 0 0;
+  padding: 0.15rem 0.35rem;
+  border: none;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: inherit;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.55;
+}
+
+.app-sync-banner-dismiss:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.notice.success .app-sync-banner-dismiss:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
 .settings-cred-hint {
   margin: 0.25rem 0 0;
   font-size: 0.85rem;
@@ -1216,6 +1255,24 @@ button.secondary.danger {
 
 .sync-auth-ok {
   color: #89d29c;
+}
+
+.sync-force-missing-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 0.35rem;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+
+.sync-force-missing-label input {
+  margin-top: 0.2rem;
+}
+
+.sync-force-missing-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
 }
 
 .list-plain {

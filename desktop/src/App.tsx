@@ -7,7 +7,7 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import brandMarkUrl from './assets/custodian.png';
 import { OverviewPage } from './pages/OverviewPage';
 import { ObservationsPage } from './pages/ObservationsPage';
@@ -178,8 +178,28 @@ function Shell() {
   const syncMessage = useCustodianStore(s => s.syncMessage);
   const syncActivity = useCustodianStore(selectSyncActivity);
   const importActivity = useImportStagingStore(selectImportActivity);
-  const activityText =
+  const activityText: string | null =
     syncActivity?.statusText ?? importActivity?.statusText ?? null;
+
+  const activityPresent = syncActivity !== null || importActivity !== null;
+  const [activityBannerDismissed, setActivityBannerDismissed] = useState(false);
+  const [syncMessageDismissed, setSyncMessageDismissed] = useState(false);
+
+  useEffect(() => {
+    if (!activityPresent) {
+      setActivityBannerDismissed(false);
+    }
+  }, [activityPresent]);
+
+  useEffect(() => {
+    if (!syncMessage) {
+      setSyncMessageDismissed(false);
+    }
+  }, [syncMessage]);
+
+  const showActivityBanner =
+    Boolean(activityText) && activityPresent && !activityBannerDismissed;
+  const showSyncMessageBanner = Boolean(syncMessage) && !syncMessageDismissed;
 
   return (
     <div className="app">
@@ -226,17 +246,35 @@ function Shell() {
       </aside>
 
       <main className="content">
-        {activityText ? (
-          <p
-            className="notice info app-sync-banner"
+        {showActivityBanner ? (
+          <div
+            className="notice info app-sync-banner app-sync-banner-with-dismiss"
             role="status"
             aria-live="polite">
-            <span className="btn-spinner" aria-hidden />
-            {activityText}
-          </p>
+            <div className="app-sync-banner-body">
+              <span className="btn-spinner" aria-hidden />
+              <span>{activityText}</span>
+            </div>
+            <button
+              type="button"
+              className="app-sync-banner-dismiss"
+              aria-label="Dismiss status message"
+              onClick={() => setActivityBannerDismissed(true)}>
+              ×
+            </button>
+          </div>
         ) : null}
-        {syncMessage ? (
-          <p className="notice success app-sync-banner">{syncMessage}</p>
+        {showSyncMessageBanner ? (
+          <div className="notice success app-sync-banner app-sync-banner-with-dismiss">
+            <div className="app-sync-banner-body">{syncMessage}</div>
+            <button
+              type="button"
+              className="app-sync-banner-dismiss"
+              aria-label="Dismiss sync message"
+              onClick={() => setSyncMessageDismissed(true)}>
+              ×
+            </button>
+          </div>
         ) : null}
         <Routes>
           <Route path="/" element={<RootRedirect />} />
