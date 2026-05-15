@@ -38,13 +38,13 @@ export function OverviewPage() {
 
   async function resetLocalData() {
     if (
-      !confirmDestructiveAction(
+      !(await confirmDestructiveAction(
         activeProfile?.environment ?? 'production',
         'local_reset',
         'Remove all observations and attachment files from this device, clear local backup history, ' +
           'and reset sync offsets (as if this profile were recreated). ' +
           'The app bundle under this workspace and your sign-in are not changed.',
-      )
+      ))
     ) {
       return;
     }

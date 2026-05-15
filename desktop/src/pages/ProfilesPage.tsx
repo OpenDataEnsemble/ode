@@ -272,11 +272,11 @@ export function ProfilesPage() {
       return;
     }
     if (
-      !confirmDestructiveAction(
+      !(await confirmDestructiveAction(
         active.environment ?? 'production',
         'profile_delete',
         `Delete profile "${active.label}"? Local repository files on disk are not removed.`,
-      )
+      ))
     ) {
       return;
     }

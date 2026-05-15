@@ -83,11 +83,11 @@ export function SyncPage() {
   async function push() {
     if (isBusy) return;
     if (
-      !confirmDestructiveAction(
+      !(await confirmDestructiveAction(
         activeProfile?.environment ?? 'production',
         'push',
         `Server: ${serverUrl || '(not set)'}`,
-      )
+      ))
     ) {
       return;
     }
@@ -107,14 +107,14 @@ export function SyncPage() {
   async function resetServerAndPull() {
     if (isBusy) return;
     if (
-      !confirmDestructiveAction(
+      !(await confirmDestructiveAction(
         activeProfile?.environment ?? 'production',
         'server_reset',
         'Reset the server repository? This deletes all observations and attachment ' +
           'manifest data on Synkronus (app bundles are kept), creates a new server data ' +
           'generation, then pulls so this device archives its current workspace and ' +
           'starts fresh. Requires an admin-capable account.',
-      )
+      ))
     ) {
       return;
     }
