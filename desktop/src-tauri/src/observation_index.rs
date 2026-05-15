@@ -128,10 +128,10 @@ pub fn reindex_observation(
 }
 
 fn scalar_to_columns(val: &Value, value_type: Option<&str>) -> (Option<String>, Option<f64>) {
-    if value_type == Some("number") || val.is_number() {
-        if let Some(n) = val.as_f64() {
-            return (None, Some(n));
-        }
+    if (value_type == Some("number") || val.is_number())
+        && let Some(n) = val.as_f64()
+    {
+        return (None, Some(n));
     }
     if val.is_string() {
         return (Some(val.as_str().unwrap().to_string()), None);

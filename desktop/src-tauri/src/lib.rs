@@ -1712,7 +1712,13 @@ fn save_observation(
         let defs = load_active_index_defs(&ctx);
         if !defs.is_empty() {
             let ft = req.form_type.as_deref().unwrap_or("");
-            let _ = observation_index::incremental_reindex(&conn, &req.id, ft, &payload_raw, &defs);
+            let is_deleted = req.extras.as_ref().and_then(|e| e.deleted).unwrap_or(false);
+            if is_deleted {
+                let _ = observation_index::delete_observation_indexes(&conn, &req.id);
+            } else {
+                let _ =
+                    observation_index::incremental_reindex(&conn, &req.id, ft, &payload_raw, &defs);
+            }
         }
     }
     get_observation(req.id, ctx)
@@ -1984,6 +1990,12 @@ fn query_observations(
         &index_keys,
     )
     .map_err(|e| format!("{}: {}", e.code, e.message))?;
+
+    if !compiled.warnings.is_empty() {
+        for warning in &compiled.warnings {
+            eprintln!("observation query warning: {warning}");
+        }
+    }
 
     let mut sql = compiled.sql;
     if let Some(limit) = req.limit {
@@ -3672,6 +3684,7 @@ fn reset_local_workspace_data(ctx: tauri::State<'_, AppCtxHandle>) -> Result<App
         init_db(&conn)?;
         conn.execute("DELETE FROM observation_history", [])?;
         conn.execute("DELETE FROM observations", [])?;
+        conn.execute("DELETE FROM observation_index", [])?;
         conn.execute(
             "UPDATE sync_state SET repository_generation = 0, observation_sync_version = 0, \
              last_attachment_version = 0, last_pull_at = NULL, last_push_at = NULL, last_error = NULL \
