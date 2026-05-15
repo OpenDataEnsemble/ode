@@ -1909,7 +1909,7 @@ pub(crate) fn load_dirty_observations_by_ids(
             .query(rusqlite::params_from_iter(chunk.iter()))
             .map_err(|err| err.to_string())?;
         while let Some(row) = rows.next().map_err(|err| err.to_string())? {
-            let rec = map_observation_row(&row).map_err(|err| err.to_string())?;
+            let rec = map_observation_row(row).map_err(|err| err.to_string())?;
             found.insert(rec.id.clone(), rec);
         }
     }
@@ -2113,12 +2113,12 @@ fn archive_workspace_for_repository_generation(
 pub(crate) fn archive_workspace_for_repository_generation_inner(
     ctx: &AppCtxHandle,
 ) -> Result<String, String> {
-    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let ws = get_workspace_path(ctx).map_err(|e| e.to_string())?;
     let stamp = Utc::now().format("%Y%m%dT%H%M%SZ").to_string();
     let dest = ws
         .join("previous_generations")
         .join(format!("{stamp}_archive"));
-    with_workspace_fs_exclusive(&ctx, move |_ctx| {
+    with_workspace_fs_exclusive(ctx, move |_ctx| {
         fs::create_dir_all(&dest).map_err(|e| CustodianError::Message(e.to_string()))?;
         for sub in ["sqlite", "attachments"] {
             let p = ws.join(sub);
@@ -3312,7 +3312,7 @@ pub(crate) fn mark_observations_pushed_inner(
     if ids.is_empty() {
         return Ok(());
     }
-    let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let mut conn = open_db(ctx).map_err(|err| err.to_string())?;
     let tx = conn.transaction().map_err(|err| err.to_string())?;
     let now = now_iso();
     for raw in ids {

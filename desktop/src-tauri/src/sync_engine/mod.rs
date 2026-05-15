@@ -141,26 +141,27 @@ async fn wait_unpaused(handle: &ActiveSyncHandle) -> Result<(), Cancelled> {
     }
 }
 
-fn emit_progress(
-    app: &AppHandle,
-    job_id: &str,
-    op: &str,
-    phase: &str,
+struct ProgressEmit<'a> {
+    job_id: &'a str,
+    op: &'a str,
+    phase: &'a str,
     done: i64,
     total: i64,
-    detail: Option<&str>,
-    message: &str,
-) {
+    detail: Option<&'a str>,
+    message: &'a str,
+}
+
+fn emit_progress(app: &AppHandle, p: ProgressEmit<'_>) {
     let _ = app.emit(
         "sync/progress",
         SyncProgressEvent {
-            job_id: job_id.to_string(),
-            op: op.to_string(),
-            phase: phase.to_string(),
-            done,
-            total,
-            detail: detail.map(|s| s.to_string()),
-            message: message.to_string(),
+            job_id: p.job_id.to_string(),
+            op: p.op.to_string(),
+            phase: p.phase.to_string(),
+            done: p.done,
+            total: p.total,
+            detail: p.detail.map(|s| s.to_string()),
+            message: p.message.to_string(),
         },
     );
 }
@@ -296,13 +297,15 @@ async fn run_push(
             .map_err(|_| "cancelled".to_string())?;
         emit_progress(
             &app,
-            job_id,
-            "push",
-            phase,
-            0,
-            1,
-            None,
-            "Checking repository generation…",
+            ProgressEmit {
+                job_id,
+                op: "push",
+                phase,
+                done: 0,
+                total: 1,
+                detail: None,
+                message: "Checking repository generation…",
+            },
         );
 
         let server_gen = if repo_gen <= 0 {
@@ -358,13 +361,15 @@ async fn run_push(
         let done_before = checkpoint.uploaded_attachment_ids.len() as i64;
         emit_progress(
             &app,
-            job_id,
-            "push",
-            phase,
-            done_before,
-            total_att,
-            Some(id),
-            "Uploading attachments",
+            ProgressEmit {
+                job_id,
+                op: "push",
+                phase,
+                done: done_before,
+                total: total_att,
+                detail: Some(id),
+                message: "Uploading attachments",
+            },
         );
 
         let Some(src) = crate::first_path_for_attachment_upload(&ws, id) else {
@@ -383,7 +388,7 @@ async fn run_push(
                 return Err("cancelled".to_string());
             }
             let status = api.put_attachment(id, bytes.clone(), gen_hdr).await?;
-            if status >= 200 && status < 300 {
+            if (200..300).contains(&status) {
                 if crate::should_promote_upload_source_to_synced(&ws, &src) {
                     let _ = crate::promote_uploaded_queue_file_to_synced(&ws, id, &src);
                 }
@@ -471,15 +476,18 @@ async fn run_push(
     }
     let records: Vec<Value> = obs_rows.iter().map(observation_to_push_json).collect();
     let n = records.len() as i64;
+    let push_msg = format!("Pushing {n} observation(s)…");
     emit_progress(
         &app,
-        job_id,
-        "push",
-        phase,
-        0,
-        n.max(1),
-        None,
-        &format!("Pushing {n} observation(s)…"),
+        ProgressEmit {
+            job_id,
+            op: "push",
+            phase,
+            done: 0,
+            total: n.max(1),
+            detail: None,
+            message: &push_msg,
+        },
     );
 
     wait_unpaused(handle)
@@ -506,15 +514,18 @@ async fn run_push(
         crate::mark_observations_pushed_inner(accepted, ctx)?;
     }
     crate::set_sync_state_merge(ctx, Some(push_res.repository_generation), None, None)?;
+    let finish_msg = format!("Push finished: {accepted_n} accepted, {failed_n} rejected.");
     emit_progress(
         &app,
-        job_id,
-        "push",
-        phase,
-        n,
-        n.max(1),
-        None,
-        &format!("Push finished: {accepted_n} accepted, {failed_n} rejected."),
+        ProgressEmit {
+            job_id,
+            op: "push",
+            phase,
+            done: n,
+            total: n.max(1),
+            detail: None,
+            message: &finish_msg,
+        },
     );
     Ok(())
 }
@@ -543,13 +554,15 @@ async fn run_pull(
 
     emit_progress(
         &app,
-        job_id,
-        "pull",
-        "import",
-        0,
-        1,
-        None,
-        "Pulling observations…",
+        ProgressEmit {
+            job_id,
+            op: "pull",
+            phase: "import",
+            done: 0,
+            total: 1,
+            detail: None,
+            message: "Pulling observations…",
+        },
     );
 
     let mut page = {
@@ -580,7 +593,7 @@ async fn run_pull(
         let api_obs: Vec<crate::ApiObservation> = page
             .records
             .iter()
-            .filter_map(|v| pull_record_to_api_observation(v))
+            .filter_map(pull_record_to_api_observation)
             .collect();
         let imp = crate::import_observations_run(api_obs, false, ctx)?;
         imported_total += imp.imported;
@@ -608,13 +621,15 @@ async fn run_pull(
 
     emit_progress(
         &app,
-        job_id,
-        "pull",
-        "manifest",
-        0,
-        1,
-        None,
-        "Fetching attachment manifest…",
+        ProgressEmit {
+            job_id,
+            op: "pull",
+            phase: "manifest",
+            done: 0,
+            total: 1,
+            detail: None,
+            message: "Fetching attachment manifest…",
+        },
     );
 
     let manifest = match api.attachment_manifest(last_att_ver, repo_gen).await {
@@ -623,13 +638,15 @@ async fn run_pull(
             tracing_or_log(&format!("manifest failed (observations imported): {e}"));
             emit_progress(
                 &app,
-                job_id,
-                "pull",
-                "manifest",
-                1,
-                1,
-                None,
-                "Attachment manifest skipped.",
+                ProgressEmit {
+                    job_id,
+                    op: "pull",
+                    phase: "manifest",
+                    done: 1,
+                    total: 1,
+                    detail: None,
+                    message: "Attachment manifest skipped.",
+                },
             );
             return Ok(());
         }
@@ -644,13 +661,15 @@ async fn run_pull(
             .map_err(|_| "cancelled".to_string())?;
         emit_progress(
             &app,
-            job_id,
-            "pull",
-            "manifest",
-            i as i64,
-            total_ops,
-            op.attachment_id.as_deref(),
-            "Attachment manifest",
+            ProgressEmit {
+                job_id,
+                op: "pull",
+                phase: "manifest",
+                done: i as i64,
+                total: total_ops,
+                detail: op.attachment_id.as_deref(),
+                message: "Attachment manifest",
+            },
         );
         match op.operation.as_str() {
             "download" => {
@@ -694,18 +713,21 @@ async fn run_pull(
     } else {
         String::new()
     };
+    let pull_finish_msg = format!(
+        "Pull finished: {imported_total} observations ({conflicts_total} conflicts); \
+attachments: {attachments_downloaded} fetched{skip_seg}; {attachments_failed} failed.",
+    );
     emit_progress(
         &app,
-        job_id,
-        "pull",
-        "manifest",
-        total_ops,
-        total_ops,
-        None,
-        &format!(
-            "Pull finished: {imported_total} observations ({conflicts_total} conflicts); \
-attachments: {attachments_downloaded} fetched{skip_seg}; {attachments_failed} failed.",
-        ),
+        ProgressEmit {
+            job_id,
+            op: "pull",
+            phase: "manifest",
+            done: total_ops,
+            total: total_ops,
+            detail: None,
+            message: &pull_finish_msg,
+        },
     );
 
     Ok(())
@@ -802,13 +824,15 @@ async fn run_job_inner(
                 );
                 emit_progress(
                     &app,
-                    &job_id,
-                    "reset",
-                    "admin",
-                    0,
-                    1,
-                    None,
-                    "Resetting server repository…",
+                    ProgressEmit {
+                        job_id: &job_id,
+                        op: "reset",
+                        phase: "admin",
+                        done: 0,
+                        total: 1,
+                        detail: None,
+                        message: "Resetting server repository…",
+                    },
                 );
                 wait_unpaused(&handle)
                     .await
@@ -880,7 +904,7 @@ pub async fn sync_start(
     }
 
     {
-        let conn = crate::open_db(&*ctx).map_err(|e| e.to_string())?;
+        let conn = crate::open_db(&ctx).map_err(|e| e.to_string())?;
         if let Ok(Some(_)) = job::find_active_running_job(&conn) {
             return Err("A sync job is already running.".to_string());
         }
@@ -898,12 +922,12 @@ pub async fn sync_start(
         }
     }
 
-    let _ = crate::open_db(&*ctx).map_err(|e| e.to_string())?;
+    let _ = crate::open_db(&ctx).map_err(|e| e.to_string())?;
     let job_id = uuid::Uuid::new_v4().to_string();
     let handle = ActiveSyncHandle::new(job_id.clone());
 
     {
-        let conn = crate::open_db(&*ctx).map_err(|e| e.to_string())?;
+        let conn = crate::open_db(&ctx).map_err(|e| e.to_string())?;
         let _ = job::delete_completed_stale(&conn);
         job::insert_job(&conn, &job_id, &op, "running", "starting").map_err(|e| e.to_string())?;
     }
@@ -968,7 +992,7 @@ pub async fn sync_resume_job(
     app: AppHandle,
     ctx: tauri::State<'_, crate::AppCtxHandle>,
 ) -> Result<(), String> {
-    let conn = crate::open_db(&*ctx).map_err(|e| e.to_string())?;
+    let conn = crate::open_db(&ctx).map_err(|e| e.to_string())?;
     let op: String = conn
         .query_row(
             "SELECT op FROM sync_jobs WHERE id = ?1 AND status IN ('paused', 'failed')",
@@ -1025,7 +1049,7 @@ pub async fn sync_cancel(
             h.job_id.clone()
         } else {
             drop(g);
-            let conn = crate::open_db(&*ctx).map_err(|e| e.to_string())?;
+            let conn = crate::open_db(&ctx).map_err(|e| e.to_string())?;
             job::find_active_running_job(&conn)
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| {
@@ -1036,15 +1060,15 @@ pub async fn sync_cancel(
     };
     {
         let g = ctx.active_sync.lock().map_err(|_| "lock".to_string())?;
-        if let Some(h) = g.as_ref() {
-            if h.job_id == target {
-                h.cancelled.store(true, Ordering::SeqCst);
-                h.paused.store(false, Ordering::SeqCst);
-                h.resume.notify_waiters();
-            }
+        if let Some(h) = g.as_ref()
+            && h.job_id == target
+        {
+            h.cancelled.store(true, Ordering::SeqCst);
+            h.paused.store(false, Ordering::SeqCst);
+            h.resume.notify_waiters();
         }
     }
-    let conn = crate::open_db(&*ctx).map_err(|e| e.to_string())?;
+    let conn = crate::open_db(&ctx).map_err(|e| e.to_string())?;
     job::update_job_status(&conn, &target, "cancelled", "cancelled", None, None)
         .map_err(|e| e.to_string())?;
     emit_sync_state(&app, &target, "cancelled", None, Some("Sync cancelled."));
@@ -1055,6 +1079,6 @@ pub async fn sync_cancel(
 pub fn sync_get_status(
     ctx: tauri::State<'_, crate::AppCtxHandle>,
 ) -> Result<Option<job::SyncJobRowOut>, String> {
-    let conn = crate::open_db(&*ctx).map_err(|e| e.to_string())?;
+    let conn = crate::open_db(&ctx).map_err(|e| e.to_string())?;
     job::load_resumable_job(&conn).map_err(|e| e.to_string())
 }

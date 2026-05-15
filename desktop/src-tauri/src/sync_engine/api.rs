@@ -427,10 +427,10 @@ fn observation_id_from_failed_entry(obj: &serde_json::Map<String, Value>) -> Opt
         match rec_val {
             Value::Object(rec) => return observation_id_from_failed_entry(rec),
             Value::String(encoded) => {
-                if let Ok(v) = serde_json::from_str::<Value>(encoded.trim()) {
-                    if let Some(o) = v.as_object() {
-                        return observation_id_from_failed_entry(o);
-                    }
+                if let Ok(v) = serde_json::from_str::<Value>(encoded.trim())
+                    && let Some(o) = v.as_object()
+                {
+                    return observation_id_from_failed_entry(o);
                 }
             }
             _ => {}

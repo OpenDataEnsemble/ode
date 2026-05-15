@@ -14,7 +14,7 @@ pub(crate) fn backoff_delay_ms(attempt: u32) -> u64 {
 }
 
 pub(crate) fn http_status_transient(status: u16) -> bool {
-    matches!(status, 502 | 503 | 504)
+    matches!(status, 502..=504)
 }
 
 pub(crate) async fn sleep_backoff(attempt: u32) {
