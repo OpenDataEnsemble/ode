@@ -178,7 +178,7 @@ function Shell() {
   const syncMessage = useCustodianStore(s => s.syncMessage);
   const syncActivity = useCustodianStore(selectSyncActivity);
   const importActivity = useImportStagingStore(selectImportActivity);
-  let activityText: string | null =
+  const activityText: string | null =
     syncActivity?.statusText ?? importActivity?.statusText ?? null;
 
   const activityPresent = syncActivity !== null || importActivity !== null;
