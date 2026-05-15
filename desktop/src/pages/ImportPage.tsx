@@ -132,6 +132,9 @@ export function ImportPage() {
             }
             void (async () => {
               try {
+                setImportActivity({
+                  statusText: 'Collecting dropped paths for staging…',
+                });
                 const expanded = await tauriClient.expandImportStagingPaths(
                   paths,
                   MAX_INDIVIDUAL_FILES,
@@ -145,6 +148,8 @@ export function ImportPage() {
                     ? e.message
                     : 'Could not stage dropped files',
                 );
+              } finally {
+                setImportActivity(null);
               }
             })();
           }
@@ -157,7 +162,7 @@ export function ImportPage() {
       alive = false;
       unlisten?.();
     };
-  }, [addScanEntries, setError]);
+  }, [addScanEntries, setError, setImportActivity]);
 
   const pickImportFolder = useCallback(async () => {
     try {
@@ -171,6 +176,9 @@ export function ImportPage() {
       if (!paths.length) {
         return;
       }
+      setImportActivity({
+        statusText: 'Scanning folder for import files…',
+      });
       const expanded = await tauriClient.expandImportStagingPaths(
         paths,
         null,
@@ -180,8 +188,10 @@ export function ImportPage() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Folder selection failed');
+    } finally {
+      setImportActivity(null);
     }
-  }, [addScanEntries, setError]);
+  }, [addScanEntries, setError, setImportActivity]);
 
   const pickJsonFiles = useCallback(async () => {
     try {
@@ -194,6 +204,7 @@ export function ImportPage() {
       if (!paths.length) {
         return;
       }
+      setImportActivity({ statusText: 'Collecting selected JSON files…' });
       const expanded = await tauriClient.expandImportStagingPaths(
         paths,
         MAX_INDIVIDUAL_FILES,
@@ -203,8 +214,10 @@ export function ImportPage() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'File selection failed');
+    } finally {
+      setImportActivity(null);
     }
-  }, [addScanEntries, setError]);
+  }, [addScanEntries, setError, setImportActivity]);
 
   const pickAttachmentFiles = useCallback(async () => {
     try {
@@ -216,6 +229,7 @@ export function ImportPage() {
       if (!paths.length) {
         return;
       }
+      setImportActivity({ statusText: 'Collecting selected attachments…' });
       const expanded = await tauriClient.expandImportStagingPaths(
         paths,
         MAX_INDIVIDUAL_FILES,
@@ -225,8 +239,10 @@ export function ImportPage() {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'File selection failed');
+    } finally {
+      setImportActivity(null);
     }
-  }, [addScanEntries, setError]);
+  }, [addScanEntries, setError, setImportActivity]);
 
   const runFullImport = useCallback(async () => {
     if (stagedJson.length === 0) {
