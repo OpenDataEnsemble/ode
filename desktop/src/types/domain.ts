@@ -59,6 +59,35 @@ export interface ApiObservation {
   updatedAt?: string | null;
 }
 
+/** One file discovered for import staging (Rust walk of dialog/drop paths). */
+export interface ImportStagingScanEntry {
+  path: string;
+  fileName: string;
+  size: number;
+  lastModifiedMs: number;
+  isJson: boolean;
+}
+
+/** One row from {@link readHostTextFilesBatch}. */
+export interface HostTextReadResult {
+  path: string;
+  text?: string;
+  error?: string;
+}
+
+/** One parsed JSON file from {@link parseImportObservationJsonPaths} (Rust). */
+export interface ParsedImportFileResult {
+  fileName: string;
+  observations: ApiObservation[];
+  error?: string;
+}
+
+export interface AttachmentCopyBatchResult {
+  copied: number;
+  failed: number;
+  errors: string[];
+}
+
 export interface ImportResult {
   imported: number;
   conflicts: number;

@@ -95,28 +95,44 @@ export interface RunImportValidationInput {
   parsedFiles: ParsedObservationFile[];
   formSpecsByType: Map<string, BundleFormSpec>;
   stagedAttachmentBasenames: string[];
+  /** Called after each file’s validation pass (including parse-only failures). */
+  onFileValidated?: (
+    fileIndex: number,
+    totalFiles: number,
+    fileName: string,
+  ) => void;
 }
 
 /**
  * Validates staged JSON observations against bundle form schemas (AJV) and
  * reconciles attachment basenames with staged files.
  */
-export function fileKeyForStaging(file: File): string {
-  return `${file.name}:${file.size}:${file.lastModified}`;
+/** Stable identity for staging dedupe / “staging changed” detection. */
+export interface StagingFileMeta {
+  name: string;
+  size: number;
+  lastModified: number;
+}
+
+export function stagingFileKey(m: StagingFileMeta): string {
+  return `${m.name}:${m.size}:${m.lastModified}`;
+}
+
+/** Accepts a DOM `File` or explicit metadata (path-based staging). */
+export function fileKeyForStaging(file: File | StagingFileMeta): string {
+  return stagingFileKey(
+    file instanceof File
+      ? { name: file.name, size: file.size, lastModified: file.lastModified }
+      : file,
+  );
 }
 
 export function computeStagingKey(
-  jsonFiles: { file: File }[],
-  attachmentFiles: { file: File }[],
+  jsonFiles: StagingFileMeta[],
+  attachmentFiles: StagingFileMeta[],
 ): string {
-  const j = jsonFiles
-    .map(s => fileKeyForStaging(s.file))
-    .sort()
-    .join('\0');
-  const a = attachmentFiles
-    .map(s => fileKeyForStaging(s.file))
-    .sort()
-    .join('\0');
+  const j = jsonFiles.map(stagingFileKey).sort().join('\0');
+  const a = attachmentFiles.map(stagingFileKey).sort().join('\0');
   return `j:${j}|a:${a}`;
 }
 
@@ -186,20 +202,22 @@ export function runImportValidation(
 
   const allReferenced = new Set<string>();
 
-  for (const f of parsedFiles) {
-    if (f.error) {
-      continue;
+  const totalFiles = parsedFiles.length;
+  for (let fi = 0; fi < parsedFiles.length; fi++) {
+    const f = parsedFiles[fi]!;
+    if (!f.error) {
+      for (const obs of f.observations) {
+        pushObservationIssues(
+          f.fileName,
+          obs,
+          formSpecsByType,
+          validators,
+          issues,
+          allReferenced,
+        );
+      }
     }
-    for (const obs of f.observations) {
-      pushObservationIssues(
-        f.fileName,
-        obs,
-        formSpecsByType,
-        validators,
-        issues,
-        allReferenced,
-      );
-    }
+    input.onFileValidated?.(fi, totalFiles, f.fileName);
   }
 
   const stagedNorm = new Map<string, string>();

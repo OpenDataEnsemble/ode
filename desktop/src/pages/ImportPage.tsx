@@ -1,22 +1,27 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import { tauriClient } from '../lib/tauriClient';
-import { collectFilesFromDataTransfer } from '../lib/collectDroppedFiles';
 import {
   normalizeBasename,
   runImportValidation,
+  type ImportValidationReport,
 } from '../lib/importValidation';
 import type { BundleFormSpec } from '../types/domain';
 import {
   flattenObservations,
-  parseObservationJsonFiles,
+  mapPool,
+  parseObservationJsonPathsViaRust,
   summarizeImportFiles,
 } from '../lib/importSummary';
 import {
-  selectCurrentStagingKey,
   selectImportActivity,
   useImportStagingStore,
 } from '../store/useImportStagingStore';
 import { useCustodianStore } from '../store/useCustodianStore';
+
+const MAX_ISSUES_SHOWN = 50;
+const MAX_INDIVIDUAL_FILES = 20;
 
 function formatBytes(n: number) {
   if (n < 1024) {
@@ -28,98 +33,217 @@ function formatBytes(n: number) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function normalizeDialogPaths(
+  selected: string | string[] | null | undefined,
+): string[] {
+  if (selected == null) {
+    return [];
+  }
+  return Array.isArray(selected) ? selected : [selected];
+}
+
+/** Limits React updates while still feeling responsive (global banner). */
+function throttledImportStatus(
+  setImportActivity: (a: { statusText: string } | null) => void,
+  minIntervalMs = 90,
+) {
+  let lastFire = 0;
+  let pending: string | null = null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const fire = (text: string) => {
+    setImportActivity({ statusText: text });
+    lastFire = Date.now();
+    pending = null;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  };
+
+  return (text: string) => {
+    const now = Date.now();
+    if (now - lastFire >= minIntervalMs) {
+      fire(text);
+      return;
+    }
+    pending = text;
+    if (!timer) {
+      timer = setTimeout(() => {
+        timer = null;
+        if (pending != null) {
+          fire(pending);
+        }
+      }, minIntervalMs - (now - lastFire));
+    }
+  };
+}
+
 export function ImportPage() {
   const { loadObservations, loadHealth } = useCustodianStore();
-  const [validating, setValidating] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const folderPickerRef = useRef<HTMLInputElement>(null);
+  const [previewReport, setPreviewReport] =
+    useState<ImportValidationReport | null>(null);
 
   const stagedJson = useImportStagingStore(s => s.stagedJson);
   const stagedAttachments = useImportStagingStore(s => s.stagedAttachments);
-  const validationReport = useImportStagingStore(s => s.validationReport);
-  const lastValidatedStagingKey = useImportStagingStore(
-    s => s.lastValidatedStagingKey,
-  );
   const message = useImportStagingStore(s => s.message);
   const error = useImportStagingStore(s => s.error);
   const importActivity = useImportStagingStore(selectImportActivity);
   const busy = importActivity !== null;
 
-  const addFiles = useImportStagingStore(s => s.addFiles);
-  const removeJson = useImportStagingStore(s => s.removeJson);
-  const removeAttachment = useImportStagingStore(s => s.removeAttachment);
+  const addScanEntries = useImportStagingStore(s => s.addScanEntries);
   const clearStagingLists = useImportStagingStore(s => s.clearStagingLists);
-  const setValidationResult = useImportStagingStore(s => s.setValidationResult);
-  const setValidationFailed = useImportStagingStore(s => s.setValidationFailed);
   const setMessage = useImportStagingStore(s => s.setMessage);
   const setError = useImportStagingStore(s => s.setError);
   const setImportActivity = useImportStagingStore(s => s.setImportActivity);
 
-  const currentStagingKey = useImportStagingStore(selectCurrentStagingKey);
+  const stagingSummary = useMemo(() => {
+    const jsonCount = stagedJson.length;
+    const attCount = stagedAttachments.length;
+    const bytes =
+      stagedJson.reduce((a, s) => a + s.size, 0) +
+      stagedAttachments.reduce((a, s) => a + s.size, 0);
+    return { jsonCount, attCount, bytes };
+  }, [stagedJson, stagedAttachments]);
 
-  const importAllowed =
-    validationReport !== null &&
-    lastValidatedStagingKey === currentStagingKey &&
-    validationReport.observationCount > 0;
-
-  const onDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'copy';
+  useEffect(() => {
+    if (!isTauri()) {
+      return undefined;
     }
-    setDragOver(true);
-  }, []);
-
-  const onDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const next = e.relatedTarget as Node | null;
-    const el = e.currentTarget as HTMLElement;
-    if (next && el.contains(next)) {
-      return;
-    }
-    setDragOver(false);
-  }, []);
-
-  const onDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'copy';
-    }
-  }, []);
-
-  const onDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setDragOver(false);
+    let unlisten: (() => void) | undefined;
+    let alive = true;
+    void (async () => {
       try {
-        const files = await collectFilesFromDataTransfer(e.dataTransfer);
-        if (files.length) {
-          addFiles(files);
+        const { getCurrentWebview } = await import('@tauri-apps/api/webview');
+        if (!alive) {
+          return;
         }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'Could not read dropped files',
-        );
+        unlisten = await getCurrentWebview().onDragDropEvent(event => {
+          if (event.payload.type === 'enter' || event.payload.type === 'over') {
+            setDragOver(true);
+          } else if (event.payload.type === 'leave') {
+            setDragOver(false);
+          } else if (event.payload.type === 'drop') {
+            setDragOver(false);
+            const paths = event.payload.paths;
+            if (!paths.length) {
+              return;
+            }
+            void (async () => {
+              try {
+                const expanded = await tauriClient.expandImportStagingPaths(
+                  paths,
+                  MAX_INDIVIDUAL_FILES,
+                );
+                if (expanded.length) {
+                  addScanEntries(expanded);
+                }
+              } catch (e) {
+                setError(
+                  e instanceof Error
+                    ? e.message
+                    : 'Could not stage dropped files',
+                );
+              }
+            })();
+          }
+        });
+      } catch {
+        /* ignore */
       }
-    },
-    [addFiles, setError],
-  );
+    })();
+    return () => {
+      alive = false;
+      unlisten?.();
+    };
+  }, [addScanEntries, setError]);
 
-  const runValidate = useCallback(async () => {
+  const pickImportFolder = useCallback(async () => {
+    try {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        recursive: true,
+        title: 'Choose folder to import',
+      });
+      const paths = normalizeDialogPaths(selected);
+      if (!paths.length) {
+        return;
+      }
+      const expanded = await tauriClient.expandImportStagingPaths(
+        paths,
+        null,
+      );
+      if (expanded.length) {
+        addScanEntries(expanded);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Folder selection failed');
+    }
+  }, [addScanEntries, setError]);
+
+  const pickJsonFiles = useCallback(async () => {
+    try {
+      const selected = await open({
+        multiple: true,
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+        title: 'Choose observation JSON files',
+      });
+      const paths = normalizeDialogPaths(selected);
+      if (!paths.length) {
+        return;
+      }
+      const expanded = await tauriClient.expandImportStagingPaths(
+        paths,
+        MAX_INDIVIDUAL_FILES,
+      );
+      if (expanded.length) {
+        addScanEntries(expanded);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'File selection failed');
+    }
+  }, [addScanEntries, setError]);
+
+  const pickAttachmentFiles = useCallback(async () => {
+    try {
+      const selected = await open({
+        multiple: true,
+        title: 'Choose attachment files',
+      });
+      const paths = normalizeDialogPaths(selected);
+      if (!paths.length) {
+        return;
+      }
+      const expanded = await tauriClient.expandImportStagingPaths(
+        paths,
+        MAX_INDIVIDUAL_FILES,
+      );
+      if (expanded.length) {
+        addScanEntries(expanded);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'File selection failed');
+    }
+  }, [addScanEntries, setError]);
+
+  const runFullImport = useCallback(async () => {
     if (stagedJson.length === 0) {
       return;
     }
-    setValidating(true);
+    const pushStatus = throttledImportStatus(setImportActivity);
+    setPreviewReport(null);
     setMessage(null);
     setError(null);
+    pushStatus('Reading observation JSON…');
+
     try {
-      const parsed = await parseObservationJsonFiles(
-        stagedJson.map(s => s.file),
+      const parsed = await parseObservationJsonPathsViaRust(
+        stagedJson.map(s => ({ name: s.name, nativePath: s.nativePath })),
+        (done, tot) => pushStatus(`Reading JSON (${done}/${tot})…`),
       );
+
       const formTypes = new Set<string>();
       for (const p of parsed) {
         if (p.error) {
@@ -133,262 +257,203 @@ export function ImportPage() {
       }
 
       const formSpecsByType = new Map<string, BundleFormSpec>();
-      for (const ft of formTypes) {
-        try {
-          const spec = await tauriClient.readBundleFormSpec(ft);
-          formSpecsByType.set(ft, spec);
-        } catch {
-          /* missing schema reported inside runImportValidation */
-        }
+      const ftArr = [...formTypes].sort();
+      if (ftArr.length > 0) {
+        let schemaDone = 0;
+        await mapPool(ftArr, 8, async ft => {
+          try {
+            const spec = await tauriClient.readBundleFormSpec(ft);
+            formSpecsByType.set(ft, spec);
+          } catch {
+            /* missing schema reported inside runImportValidation */
+          } finally {
+            schemaDone += 1;
+            pushStatus(`Loading form schemas (${schemaDone}/${ftArr.length})…`);
+          }
+        });
       }
 
-      const basenames = stagedAttachments.map(s => s.file.name);
+      pushStatus('Validating…');
+      const basenames = stagedAttachments.map(s => s.name);
       const report = runImportValidation({
         parsedFiles: parsed,
         formSpecsByType,
         stagedAttachmentBasenames: basenames,
+        onFileValidated: (fi, tot, name) =>
+          pushStatus(`Validating (${fi + 1}/${tot}) ${name}…`),
       });
-      setValidationResult(report, stagedJson, stagedAttachments);
-    } catch (e) {
-      setValidationFailed(e instanceof Error ? e.message : 'Validation failed');
-    } finally {
-      setValidating(false);
-    }
-  }, [
-    stagedJson,
-    stagedAttachments,
-    setValidationResult,
-    setValidationFailed,
-    setMessage,
-    setError,
-  ]);
 
-  async function runImport() {
-    if (!importAllowed || !validationReport) {
-      return;
-    }
-    const hasIssues = validationReport.issues.length > 0;
-    if (hasIssues) {
-      const ok = window.confirm(
-        [
-          'Validation reported issues (schema errors, missing attachments, etc.).',
-          'Import anyway? This will write observations to the local store as parsed.',
-        ].join('\n\n'),
-      );
-      if (!ok) {
-        return;
+      if (report.issues.length > 0) {
+        const ok = window.confirm(
+          [
+            'Validation reported issues (schema errors, missing attachments, etc.).',
+            'Import anyway? This will write observations to the local store as parsed.',
+          ].join('\n\n'),
+        );
+        if (!ok) {
+          setPreviewReport(report);
+          setImportActivity(null);
+          return;
+        }
       }
-    }
-    setImportActivity({ statusText: 'Preparing import…' });
-    setError(null);
-    setMessage(null);
-    try {
-      const observations = flattenObservations(validationReport.parsedFiles);
-      setImportActivity({
-        statusText: 'Importing observations into local store…',
-      });
+
+      const observations = flattenObservations(report.parsedFiles);
+      pushStatus(`Writing ${observations.length} observations to local store…`);
       const result = await tauriClient.importObservations(observations, {
         markPending: true,
       });
 
       const stagedNorm = new Map<string, string>();
       for (const s of stagedAttachments) {
-        const k = normalizeBasename(s.file.name);
+        const k = normalizeBasename(s.name);
         if (k && !stagedNorm.has(k)) {
-          stagedNorm.set(k, s.file.name);
-        }
-      }
-      let attachmentsWritten = 0;
-      const writeErrors: string[] = [];
-      if (stagedAttachments.length > 0) {
-        setImportActivity({
-          statusText: `Copying attachments (0/${stagedAttachments.length})…`,
-        });
-      }
-      for (const s of stagedAttachments) {
-        const k = normalizeBasename(s.file.name);
-        const attachmentId = stagedNorm.get(k) ?? s.file.name;
-        try {
-          const bytes = new Uint8Array(await s.file.arrayBuffer());
-          await tauriClient.writeWorkspaceAttachment(attachmentId, bytes);
-          attachmentsWritten += 1;
-          setImportActivity({
-            statusText: `Copying attachments (${attachmentsWritten}/${stagedAttachments.length})…`,
-          });
-        } catch (e) {
-          writeErrors.push(
-            `${s.file.name}: ${e instanceof Error ? e.message : String(e)}`,
-          );
+          stagedNorm.set(k, s.name);
         }
       }
 
-      setImportActivity({ statusText: 'Refreshing local repository state…' });
+      const refNorm = new Set(
+        report.referencedAttachmentNames
+          .map(n => normalizeBasename(n))
+          .filter(Boolean),
+      );
+
+      const copyItems: { sourcePath: string; attachmentId: string }[] = [];
+      for (const s of stagedAttachments) {
+        const kn = normalizeBasename(s.name);
+        if (!kn || !refNorm.has(kn)) {
+          continue;
+        }
+        const attachmentId = stagedNorm.get(kn) ?? s.name;
+        copyItems.push({
+          sourcePath: s.nativePath,
+          attachmentId,
+        });
+      }
+
+      let copyErrors: string[] = [];
+      let attachmentsCopied = 0;
+      if (copyItems.length > 0) {
+        pushStatus(`Copying attachments (0/${copyItems.length})…`);
+        const { listen } = await import('@tauri-apps/api/event');
+        const unlisten = await listen<{
+          done: number;
+          total: number;
+          attachmentId: string;
+        }>('import/attachment-copy-progress', e => {
+          pushStatus(
+            `Copying attachments (${e.payload.done}/${e.payload.total}) ${e.payload.attachmentId}…`,
+          );
+        });
+        try {
+          const batchResult =
+            await tauriClient.copyWorkspaceAttachmentsBatch(copyItems);
+          copyErrors = batchResult.errors;
+          attachmentsCopied = batchResult.copied;
+        } finally {
+          unlisten();
+        }
+      }
+
+      pushStatus('Refreshing local repository state…');
       await loadObservations();
       await loadHealth();
+
       const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).`;
       const attMsg =
-        stagedAttachments.length > 0
-          ? ` Copied ${attachmentsWritten}/${stagedAttachments.length} attachment file(s) to the workspace queue.${writeErrors.length > 0 ? ` Errors: ${writeErrors.join('; ')}` : ''}`
+        copyItems.length > 0
+          ? ` Copied ${attachmentsCopied}/${copyItems.length} referenced attachment(s) to queue.${copyErrors.length ? ` Errors: ${copyErrors.slice(0, 5).join('; ')}${copyErrors.length > 5 ? '…' : ''}` : ''}`
           : '';
       setMessage(`${baseMsg}${attMsg}`);
+      setPreviewReport(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Import failed');
     } finally {
       setImportActivity(null);
     }
-  }
+  }, [
+    stagedJson,
+    stagedAttachments,
+    setMessage,
+    setError,
+    setImportActivity,
+    loadObservations,
+    loadHealth,
+  ]);
 
-  const preflightSummary = validationReport
-    ? summarizeImportFiles(validationReport.parsedFiles, 0)
+  const preflightSummary = previewReport
+    ? summarizeImportFiles(previewReport.parsedFiles, 0)
     : null;
+
+  const issuesToShow =
+    previewReport?.issues.slice(0, MAX_ISSUES_SHOWN) ?? [];
+  const hiddenIssueCount =
+    previewReport && previewReport.issues.length > MAX_ISSUES_SHOWN
+      ? previewReport.issues.length - MAX_ISSUES_SHOWN
+      : 0;
 
   return (
     <section className="page">
       <header className="page-header">
         <h2>Import observations</h2>
         <p>
-          Stage JSON observation files and optional attachment files. Validate
-          against the active app bundle schemas, review issues, then import into
-          the active profile&apos;s local repository. Your staged files stay
-          here while you navigate elsewhere in the app.
+          Pick a folder for large imports, or add up to {MAX_INDIVIDUAL_FILES}{' '}
+          JSON / attachment files at a time. Drop files onto this window or use
+          the buttons below. Import reads and validates on the host, then writes
+          to the active profile&apos;s local repository.
         </p>
       </header>
 
       <div
-        className={`import-staging-pane${dragOver ? ' import-staging-pane--drag' : ''}`}
-        onDragEnter={onDragEnter}
-        onDragLeave={onDragLeave}
-        onDragOver={onDragOver}
-        onDrop={e => void onDrop(e)}>
+        className={`import-staging-pane${dragOver ? ' import-staging-pane--drag' : ''}`}>
         <div className="import-staging-toolbar">
           <button
             type="button"
             className="secondary"
             disabled={
               busy ||
-              validating ||
               (stagedJson.length === 0 && stagedAttachments.length === 0)
             }
             onClick={() => clearStagingLists()}>
-            Clear lists
+            Clear staging
           </button>
           <button
             type="button"
             className="secondary"
-            disabled={busy || validating}
-            onClick={() => folderPickerRef.current?.click()}>
+            disabled={busy}
+            onClick={() => void pickImportFolder()}>
             Add folder…
           </button>
-          <input
-            ref={folderPickerRef}
-            type="file"
-            className="import-folder-input"
-            multiple
-            {...({
-              webkitdirectory: '',
-              directory: '',
-            } as Record<string, string>)}
-            onChange={e => {
-              const list = e.target.files;
-              if (list?.length) {
-                addFiles(list);
-              }
-              e.target.value = '';
-            }}
-          />
         </div>
-        <div className="import-staging-grid">
-          <div className="import-staging-column">
-            <h3>JSON files</h3>
-            <p className="import-staging-hint">
-              Observations (one or more per file). Dropped files with a
-              <code>.json</code> name go here.
-            </p>
-            <ul className="import-file-list">
-              {stagedJson.length === 0 ? (
-                <li className="import-file-list-empty">No JSON files staged</li>
-              ) : (
-                stagedJson.map(s => (
-                  <li key={s.id}>
-                    <span className="import-file-name" title={s.file.name}>
-                      {s.file.name}
-                    </span>
-                    <span className="import-file-meta">
-                      {formatBytes(s.file.size)}
-                    </span>
-                    <button
-                      type="button"
-                      className="secondary import-file-remove"
-                      onClick={() => removeJson(s.id)}
-                      disabled={busy || validating}
-                      aria-label={`Remove ${s.file.name}`}>
-                      <span className="material-symbols-outlined" aria-hidden>
-                        close
-                      </span>
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-            <input
-              type="file"
-              multiple
-              accept=".json,application/json"
-              onChange={e => {
-                const list = e.target.files;
-                if (list?.length) {
-                  addFiles(list);
-                }
-                e.target.value = '';
-              }}
-            />
-          </div>
 
-          <div className="import-staging-column">
-            <h3>Attachments</h3>
-            <p className="import-staging-hint">
-              Non-JSON files (images, PDFs, etc.) referenced from observation
-              payloads.
-            </p>
-            <ul className="import-file-list">
-              {stagedAttachments.length === 0 ? (
-                <li className="import-file-list-empty">
-                  No attachments staged
-                </li>
-              ) : (
-                stagedAttachments.map(s => (
-                  <li key={s.id}>
-                    <span className="import-file-name" title={s.file.name}>
-                      {s.file.name}
-                    </span>
-                    <span className="import-file-meta">
-                      {formatBytes(s.file.size)}
-                    </span>
-                    <button
-                      type="button"
-                      className="secondary import-file-remove"
-                      onClick={() => removeAttachment(s.id)}
-                      disabled={busy || validating}
-                      aria-label={`Remove ${s.file.name}`}>
-                      <span className="material-symbols-outlined" aria-hidden>
-                        close
-                      </span>
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
-            <input
-              type="file"
-              multiple
-              onChange={e => {
-                const list = e.target.files;
-                if (list?.length) {
-                  addFiles(list);
-                }
-                e.target.value = '';
-              }}
-            />
+        <div className="import-staging-summary">
+          <p className="import-staging-stats" role="status">
+            <strong>{stagingSummary.jsonCount}</strong> JSON file
+            {stagingSummary.jsonCount !== 1 ? 's' : ''}
+            {', '}
+            <strong>{stagingSummary.attCount}</strong> attachment
+            {stagingSummary.attCount !== 1 ? 's' : ''}
+            {stagingSummary.jsonCount + stagingSummary.attCount > 0 ? (
+              <>
+                {' '}
+                ({formatBytes(stagingSummary.bytes)} total)
+              </>
+            ) : null}
+          </p>
+          <div className="import-file-picker-actions">
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => void pickJsonFiles()}>
+              Add JSON files (max {MAX_INDIVIDUAL_FILES})…
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => void pickAttachmentFiles()}>
+              Add attachments (max {MAX_INDIVIDUAL_FILES})…
+            </button>
           </div>
         </div>
 
@@ -396,7 +461,9 @@ export function ImportPage() {
           <span className="material-symbols-outlined" aria-hidden>
             upload_file
           </span>
-          Drop files or folders here — folder contents are added recursively.
+          Drop up to {MAX_INDIVIDUAL_FILES} paths without a folder, or drop a
+          folder (use “Add folder…” for deep trees). Progress appears in the
+          sidebar banner.
         </p>
       </div>
 
@@ -404,30 +471,20 @@ export function ImportPage() {
         <div className="button-row">
           <button
             type="button"
-            disabled={validating || stagedJson.length === 0}
-            onClick={() => void runValidate()}>
-            {validating ? 'Validating…' : 'Validate'}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !importAllowed}
-            onClick={() => void runImport()}>
-            {busy ? 'Importing…' : 'Import into local store'}
+            disabled={busy || stagedJson.length === 0}
+            onClick={() => void runFullImport()}>
+            {busy ? 'Working…' : 'Import into local store'}
           </button>
         </div>
-        {validationReport &&
-        lastValidatedStagingKey !== currentStagingKey &&
-        stagedJson.length > 0 ? (
-          <p className="notice inline-warn" role="status">
-            Staging changed since last validation — run Validate again before
-            import.
-          </p>
-        ) : null}
       </div>
 
-      {validationReport && preflightSummary ? (
+      {previewReport && preflightSummary ? (
         <div className="panel import-issues-panel">
-          <h3>Last validation</h3>
+          <h3>Import cancelled — validation summary</h3>
+          <p className="notice inline-warn" role="status">
+            Fix issues or confirm import next time. Large imports should use{' '}
+            <strong>Add folder…</strong>.
+          </p>
           <ul className="import-summary-list">
             <li>
               <strong>{preflightSummary.observationCount}</strong> observations
@@ -438,23 +495,26 @@ export function ImportPage() {
             </li>
             <li>
               <strong>
-                {validationReport.stagedAttachmentBasenames.length}
+                {previewReport.stagedAttachmentBasenames.length}
               </strong>{' '}
               staged attachments
             </li>
             <li>
               <strong>
-                {validationReport.referencedAttachmentNames.length}
+                {previewReport.referencedAttachmentNames.length}
               </strong>{' '}
-              referenced attachment names (from payloads)
+              referenced attachment names
             </li>
           </ul>
 
-          {validationReport.issues.length > 0 ? (
+          {previewReport.issues.length > 0 ? (
             <div className="import-errors">
-              <h4>Issues ({validationReport.issues.length})</h4>
+              <h4>
+                Issues ({previewReport.issues.length}
+                {hiddenIssueCount ? `, showing ${issuesToShow.length}` : ''})
+              </h4>
               <ul className="import-issues-list">
-                {validationReport.issues.map((issue, i) => (
+                {issuesToShow.map((issue, i) => (
                   <li
                     key={`${issue.code}-${issue.message}-${issue.observationId ?? ''}-${i}`}
                     data-severity={issue.severity}>
@@ -470,6 +530,11 @@ export function ImportPage() {
                   </li>
                 ))}
               </ul>
+              {hiddenIssueCount > 0 ? (
+                <p className="import-issues-more">
+                  … and {hiddenIssueCount} more (not shown).
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="notice success">No issues reported.</p>

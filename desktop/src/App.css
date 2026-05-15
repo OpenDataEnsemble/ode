@@ -938,8 +938,8 @@ button.secondary.danger {
   margin-bottom: 0.75rem;
 }
 
-.import-folder-input {
-  display: none;
+.import-file-picker-actions {
+  margin-top: 0.5rem;
 }
 
 .import-staging-grid {

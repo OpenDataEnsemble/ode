@@ -1,4 +1,5 @@
-import type { ApiObservation } from '../types/domain';
+import type { ApiObservation, HostTextReadResult } from '../types/domain';
+import { tauriClient } from './tauriClient';
 
 export interface ParsedObservationFile {
   fileName: string;
@@ -175,35 +176,13 @@ export async function mapPool<T, R>(
   return results;
 }
 
-const DEFAULT_JSON_READ_CONCURRENCY = 12;
+const DEFAULT_JSON_READ_BATCH = 32;
 
-export async function parseObservationJsonFiles(
-  files: readonly File[],
-  concurrency = DEFAULT_JSON_READ_CONCURRENCY,
-): Promise<ParsedObservationFile[]> {
-  return mapPool(files, concurrency, (file, _i) =>
-    parseObservationJsonFile(file),
-  );
-}
-
-export async function parseObservationJsonFile(
-  file: File,
-): Promise<ParsedObservationFile> {
-  const fileName = file.name;
-  let text: string;
-  try {
-    text = await file.text();
-  } catch (e) {
-    const hint =
-      e instanceof Error && e.name === 'NotReadableError'
-        ? ' (try validating again; parallel read limit)'
-        : '';
-    return {
-      fileName,
-      observations: [],
-      error: `Could not read file${hint}`,
-    };
-  }
+/** Parse JSON text into observations (synchronous). */
+export function parseObservationJsonString(
+  fileName: string,
+  text: string,
+): ParsedObservationFile {
   try {
     const root = JSON.parse(text) as unknown;
     const { observations, error } = extractObservationsFromJson(root, fileName);
@@ -214,6 +193,109 @@ export async function parseObservationJsonFile(
   } catch (_e) {
     return { fileName, observations: [], error: 'Invalid JSON' };
   }
+}
+
+/** @deprecated Prefer {@link parseObservationJsonString} (sync). */
+export async function parseObservationJsonFromText(
+  fileName: string,
+  text: string,
+): Promise<ParsedObservationFile> {
+  return parseObservationJsonString(fileName, text);
+}
+
+export interface ParseObservationJsonPathsOptions {
+  /** After each batch of disk reads (one IPC round-trip) completes. */
+  onReadProgress?: (filesRead: number, totalJsonFiles: number) => void;
+  /**
+   * Paths per batch read (default 32). Rust enforces max 128 paths per invoke.
+   */
+  readBatchSize?: number;
+}
+
+/**
+ * Read observation JSON from absolute paths using batched native reads (parallel in Rust per batch).
+ */
+export async function parseObservationJsonFromPaths(
+  items: readonly { name: string; nativePath: string }[],
+  readTextBatch: (
+    paths: readonly string[],
+  ) => Promise<readonly HostTextReadResult[]>,
+  options?: ParseObservationJsonPathsOptions,
+): Promise<ParsedObservationFile[]> {
+  const total = items.length;
+  if (total === 0) {
+    return [];
+  }
+  const batchSize = Math.min(
+    128,
+    Math.max(1, options?.readBatchSize ?? DEFAULT_JSON_READ_BATCH),
+  );
+  const out: ParsedObservationFile[] = [];
+  let filesRead = 0;
+
+  for (let i = 0; i < total; i += batchSize) {
+    const chunk = items.slice(i, i + batchSize);
+    const paths = chunk.map(it => it.nativePath);
+    const reads = await readTextBatch(paths);
+    if (reads.length !== chunk.length) {
+      throw new Error(
+        `readTextBatch returned ${reads.length} results, expected ${chunk.length}`,
+      );
+    }
+    for (let j = 0; j < chunk.length; j++) {
+      const item = chunk[j]!;
+      const r = reads[j]!;
+      if (r.error != null || r.text == null) {
+        out.push({
+          fileName: item.name,
+          observations: [],
+          error: r.error ?? 'Could not read file',
+        });
+      } else {
+        out.push(parseObservationJsonString(item.name, r.text));
+      }
+    }
+    filesRead += chunk.length;
+    options?.onReadProgress?.(filesRead, total);
+  }
+
+  return out;
+}
+
+const RUST_PARSE_CHUNK = 128;
+
+/**
+ * Read and parse observation JSON via Rust (parallel per chunk). Preserves file order.
+ */
+export async function parseObservationJsonPathsViaRust(
+  items: readonly { name: string; nativePath: string }[],
+  onBatchProgress?: (filesRead: number, totalJsonFiles: number) => void,
+): Promise<ParsedObservationFile[]> {
+  const total = items.length;
+  if (total === 0) {
+    return [];
+  }
+  const out: ParsedObservationFile[] = [];
+  for (let i = 0; i < total; i += RUST_PARSE_CHUNK) {
+    const chunk = items.slice(i, i + RUST_PARSE_CHUNK);
+    const paths = chunk.map(c => c.nativePath);
+    const rows = await tauriClient.parseImportObservationJsonPaths(paths);
+    if (rows.length !== chunk.length) {
+      throw new Error(
+        `parseImportObservationJsonPaths returned ${rows.length} rows, expected ${chunk.length}`,
+      );
+    }
+    for (let j = 0; j < chunk.length; j++) {
+      const r = rows[j]!;
+      out.push({
+        fileName: r.fileName,
+        observations: r.observations,
+        error: r.error,
+      });
+    }
+    onBatchProgress?.(Math.min(i + chunk.length, total), total);
+  }
+  return out;
 }
 
 export function flattenObservations(
