@@ -175,6 +175,17 @@ export interface ServerProfile {
   environment?: ProfileEnvironment | null;
   /** Which mode subtree to open by default for this profile. */
   defaultAppMode?: DefaultAppMode | null;
+  /** When true, Workbench custom app loads from a mirrored local folder instead of `bundles/active`. */
+  customAppDeveloperMode?: boolean | null;
+  /** Absolute path to a folder containing `index.html` (e.g. custom app `dist/`). */
+  customAppLocalFolder?: string | null;
+}
+
+/** Result of mirroring a local custom app folder into the profile workspace. */
+export interface CustomAppDevMirrorResult {
+  sourcePath: string;
+  mirroredIndexRelativePath: string;
+  copiedFiles: number;
 }
 
 export interface AppSettings {

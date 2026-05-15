@@ -1,0 +1,16 @@
+{
+  "name": "numeric_range_gte_lte",
+  "jsonColumn": "payload",
+  "formType": "hh_person",
+  "includeDeleted": false,
+  "indexKeys": ["age_years"],
+  "filter": {
+    "op": "and",
+    "conditions": [
+      { "field": "data.age_years", "op": "gte", "value": 18 },
+      { "field": "data.age_years", "op": "lte", "value": 65 }
+    ]
+  },
+  "expectedSqlFragments": ["value_num", ">="],
+  "expectError": false
+}

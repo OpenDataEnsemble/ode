@@ -79,6 +79,7 @@ jest.mock(
 // Mock databaseService and its LocalRepo
 const mockGetObservationsByFormId = jest.fn();
 const mockGetObservationsByFormType = jest.fn();
+const mockQueryObservations = jest.fn();
 const mockDeleteObservation = jest.fn();
 const mockSaveObservation = jest.fn();
 const mockGetObservationsCount = jest.fn(); // Assuming this might be useful or part of a fuller repo mock
@@ -90,6 +91,7 @@ jest.mock('../../database/DatabaseService', () => ({
     getLocalRepo: jest.fn(() => ({
       getObservationsByFormId: mockGetObservationsByFormId,
       getObservationsByFormType: mockGetObservationsByFormType,
+      queryObservations: mockQueryObservations,
       deleteObservation: mockDeleteObservation,
       saveObservation: mockSaveObservation,
       getObservationsCount: mockGetObservationsCount,

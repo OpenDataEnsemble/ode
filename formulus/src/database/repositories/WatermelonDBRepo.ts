@@ -1,4 +1,10 @@
+import {
+  compileObservationQuery,
+  indexKeysFromConfig,
+  type ObservationFilter,
+} from '@ode/observation-query';
 import { Database, Q, Collection } from '@nozbe/watermelondb';
+import ObservationIndexService from '../../services/ObservationIndexService';
 import { ObservationModel } from '../models/ObservationModel';
 import { LocalRepoInterface } from './LocalRepoInterface';
 import {
@@ -134,6 +140,12 @@ export class WatermelonDBRepo implements LocalRepoInterface {
 
       console.log('Successfully created observation with ID:', observationId);
 
+      await ObservationIndexService.getInstance(this.database).incrementalReindex(
+        observationId,
+        input.formType,
+        stringifiedData,
+      );
+
       // Return the observationId as the public identifier
       return observationId;
     } catch (error) {
@@ -235,6 +247,44 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    * @param formId The unique identifier for the form type
    * @returns Promise resolving to an array of observations
    */
+  async queryObservations(options: {
+    formType: string;
+    includeDeleted?: boolean;
+    filter?: ObservationFilter;
+  }): Promise<Observation[]> {
+    try {
+      const indexKeys = indexKeysFromConfig(
+        ObservationIndexService.getInstance(this.database).getIndexDefs(),
+      );
+      const compiled = compileObservationQuery({
+        dialect: 'formulus',
+        jsonColumn: 'data',
+        tableAlias: 'observations',
+        observationsTable: 'observations',
+        formType: options.formType,
+        includeDeleted: options.includeDeleted,
+        filter: options.filter,
+        indexKeys,
+      });
+      if ('code' in compiled) {
+        throw new Error(`${compiled.code}: ${compiled.message}`);
+      }
+      if (compiled.warnings.length) {
+        console.warn('[queryObservations]', compiled.warnings.join('; '));
+      }
+      const rows = await this.observationsCollection
+        .query(Q.unsafeSqlQuery(compiled.sql, compiled.params))
+        .unsafeFetchRaw();
+      return rows.map(raw => this.mapRawObservationRow(raw));
+    } catch (error) {
+      console.error(
+        'Error querying observations:',
+        error instanceof Error ? error.message : String(error),
+      );
+      throw error;
+    }
+  }
+
   async getObservationsByFormType(formId: string): Promise<Observation[]> {
     try {
       // Validate formId parameter
@@ -316,12 +366,17 @@ export class WatermelonDBRepo implements LocalRepoInterface {
         success = true;
       });
 
-      // Verify the update
       if (success) {
-        // Force a database sync
+        const stringifiedData =
+          typeof input.data === 'string'
+            ? input.data
+            : JSON.stringify(input.data);
+        await ObservationIndexService.getInstance(this.database).incrementalReindex(
+          record.id,
+          record.formType,
+          stringifiedData,
+        );
         await this.database.get('observations').query().fetch();
-
-        // Verify the record was updated by querying for it again
         const updatedRecord = await this.observationsCollection.find(record.id);
         console.log('Successfully updated observation:', updatedRecord.id);
       }
@@ -546,6 +601,20 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       }
       return batchOps.length;
     });
+
+    const indexService = ObservationIndexService.getInstance(this.database);
+    for (const change of changes) {
+      const dataJson =
+        typeof change.data === 'string'
+          ? change.data
+          : JSON.stringify(change.data);
+      await indexService.incrementalReindex(
+        change.observationId,
+        change.formType,
+        dataJson,
+      );
+    }
+
     return count;
   }
 
@@ -672,42 +741,51 @@ export class WatermelonDBRepo implements LocalRepoInterface {
 
   // Helper method to map WatermelonDB model to our interface
   private mapObservationModelToInterface(model: ObservationModel): Observation {
-    const parsedData = model.getParsedData();
+    return this.mapRawObservationRow(model._raw as Record<string, unknown>);
+  }
 
-    // Parse geolocation data if available
+  private mapRawObservationRow(row: Record<string, unknown>): Observation {
+    const id = String(row.id ?? '');
+    const observationId = String(row.observation_id ?? id);
+    let parsedData: Record<string, unknown> = {};
+    try {
+      parsedData = JSON.parse(String(row.data ?? '{}')) as Record<string, unknown>;
+    } catch {
+      parsedData = {};
+    }
     let geolocation = null;
-    if (model.geolocation && model.geolocation.trim()) {
+    const geoRaw = row.geolocation;
+    if (typeof geoRaw === 'string' && geoRaw.trim()) {
       try {
-        geolocation = JSON.parse(model.geolocation);
-      } catch (error) {
-        console.warn('Failed to parse geolocation data:', error);
+        geolocation = JSON.parse(geoRaw);
+      } catch {
+        geolocation = null;
       }
     }
-
     let tags: string[] | null = null;
-    if (model.tags && model.tags.trim()) {
+    const tagsRaw = row.tags;
+    if (typeof tagsRaw === 'string' && tagsRaw.trim()) {
       try {
-        const parsed = JSON.parse(model.tags) as unknown;
+        const parsed = JSON.parse(tagsRaw) as unknown;
         if (Array.isArray(parsed)) {
           tags = parsed.filter((t): t is string => typeof t === 'string');
         }
-      } catch (e) {
-        console.warn('Failed to parse observation tags:', e);
+      } catch {
+        tags = null;
       }
     }
-
     return {
-      observationId: ObservationMapper.observationIdFromDBModel(model),
-      formType: model.formType,
-      formVersion: model.formVersion,
+      observationId,
+      formType: String(row.form_type ?? ''),
+      formVersion: String(row.form_version ?? '1.0'),
       data: parsedData,
-      createdAt: model.createdAt,
-      updatedAt: model.updatedAt,
-      syncedAt: model.syncedAt,
-      deleted: model.deleted,
+      createdAt: new Date(Number(row.created_at ?? 0)),
+      updatedAt: new Date(Number(row.updated_at ?? 0)),
+      syncedAt: row.synced_at ? new Date(Number(row.synced_at)) : null,
+      deleted: Boolean(row.deleted),
       geolocation,
-      author: model.author ?? null,
-      deviceId: model.deviceId ?? null,
+      author: row.author ? String(row.author) : null,
+      deviceId: row.device_id ? String(row.device_id) : null,
       tags,
     };
   }

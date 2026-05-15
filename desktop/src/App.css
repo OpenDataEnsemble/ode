@@ -215,6 +215,32 @@ body {
   word-break: break-all;
 }
 
+.page.page-custom-app .custom-app-dev-panel {
+  flex-shrink: 0;
+  margin-bottom: 0.75rem;
+}
+
+.page.page-custom-app .custom-app-dev-folder-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.page.page-custom-app .custom-app-dev-folder-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.page.page-custom-app .custom-app-dev-folder-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.page.page-custom-app .custom-app-dev-hint {
+  margin: 0.5rem 0 0;
+}
+
 .page.page-custom-app .custom-app-embed-panel {
   flex: 1;
   min-height: 0;

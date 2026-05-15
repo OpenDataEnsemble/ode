@@ -20,6 +20,7 @@ import type {
   ServerProfile,
   ActiveBundleFormEntry,
   AppBundleState,
+  CustomAppDevMirrorResult,
   BundleFormSpec,
   SetSyncStateRequest,
   SyncLoginRequest,
@@ -77,6 +78,21 @@ export const tauriClient = {
       limit: options?.limit,
       offset: options?.offset,
     }),
+  queryObservations: (req: {
+    formType: string;
+    includeDeleted?: boolean;
+    filter?: unknown;
+    limit?: number;
+  }) =>
+    invokeSafe<ObservationRecord[]>('query_observations', { req }),
+  rebuildObservationIndexes: () =>
+    invokeSafe<{ generation: number; lastRebuildAt?: string | null }>(
+      'rebuild_observation_indexes',
+    ),
+  getObservationIndexStatus: () =>
+    invokeSafe<{ activeGeneration: number; lastRebuildAt?: string | null }>(
+      'get_observation_index_status',
+    ),
   /** All `dirty` observations for push (not limited to the Observations table page). */
   listDirtyObservations: () =>
     invokeSafe<ObservationRecord[]>('list_dirty_observations'),
@@ -170,6 +186,9 @@ export const tauriClient = {
     }),
   getAppBundleState: () =>
     invokeSafe<AppBundleState | null>('get_app_bundle_state'),
+  /** Mirrors profile `customAppLocalFolder` into `bundles/dev-local/app/`. */
+  refreshCustomAppDevMirror: () =>
+    invokeSafe<CustomAppDevMirrorResult>('refresh_custom_app_dev_mirror'),
   /** Writes `bundles/archives/{version}.zip`, extracts to `bundles/active/`, updates `state.json`. */
   applyAppBundleDownload: (args: {
     version: string;

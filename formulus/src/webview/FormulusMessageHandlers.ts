@@ -1208,17 +1208,20 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         formType: string;
         isDraft?: boolean;
         includeDeleted?: boolean;
+        filter?: import('@ode/observation-query').ObservationFilter;
         whereClause?: string | null;
       };
       formType?: string;
       isDraft?: boolean;
       includeDeleted?: boolean;
+      filter?: import('@ode/observation-query').ObservationFilter;
       whereClause?: string | null;
     }) => {
       const options = (payload?.options ?? payload) as {
         formType: string;
         isDraft?: boolean;
         includeDeleted?: boolean;
+        filter?: import('@ode/observation-query').ObservationFilter;
         whereClause?: string | null;
       };
       if (!options?.formType) {

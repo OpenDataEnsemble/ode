@@ -9,7 +9,7 @@
  * | `getAvailableForms` | Lists form types from the active bundle (`listActiveBundleForms`). |
  * | `openFormplayer` | With `options.subObservationMode`, defers response and opens nested preview (when host provides hooks). Otherwise Workbench navigates or stubs. |
  * | `getObservations` | Local SQLite via `listObservationsPage`. |
- * | `getObservationsByQuery` | Same + best-effort `whereClause` filter (`formulus-load.js` flattens options). |
+ * | `getObservationsByQuery` | `query_observations` with structured `filter` AST. |
  * | `submitObservation` / `updateObservation` | Finalize dialog (JSON export or DB). |
  * | `requestCamera` / `requestLocation` / `requestFile` / `requestAudio` / `requestVideo` / `requestQrcode` / `requestBiometric` | **Stub** — no device bridge in preview. |
  * | `launchIntent` / `callSubform` | **Stub** — not supported in preview. |
@@ -19,7 +19,7 @@
  * | `getThemeMode` | `'system'`. |
  * | `getAttachmentUri` | Basename string or `{ filename }` only; workspace lookup → `convertFileSrc` (or `null`). |
  * | `getAttachmentsUri` | `file://` for `attachments/synced/` (canonical listing; matches Formulus `getAttachmentsDirectoryFileUrl`). |
- * | `getCustomAppUri` | Tauri asset URL for `bundles/active/` (directory of `app/`), not `file://`. |
+ * | `getCustomAppUri` | Tauri asset URL for `bundles/active/` or dev mirror parent when developer mode is on. |
  * | `getFormSpecsUri` | `getActiveBundleFormsFileBaseUrl()` (`bundles/active/forms`). |
  *
  * Messages **without** `messageId` (e.g. `formplayerReadyToReceiveInit` from the iframe stub) are ignored at the host.
@@ -228,53 +228,6 @@ async function resolveAttachmentUriForFormPreview(
   }
 }
 
-function getByPath(obj: unknown, path: string): unknown {
-  const parts = path.split('.').filter(Boolean);
-  let cur: unknown = obj;
-  for (const p of parts) {
-    if (cur === null || cur === undefined) {
-      return undefined;
-    }
-    if (typeof cur !== 'object') {
-      return undefined;
-    }
-    cur = (cur as Record<string, unknown>)[p];
-  }
-  return cur;
-}
-
-/** Best-effort filter for `data.*` equality clauses (same shape as mobile SQL WHERE). */
-function filterRowsByWhereClause(
-  rows: ObservationRecord[],
-  whereClause: string | null | undefined,
-): ObservationRecord[] {
-  if (!whereClause || !whereClause.trim()) {
-    return rows;
-  }
-  const parts = whereClause
-    .split(/\s+AND\s+/i)
-    .map(s => s.trim())
-    .filter(Boolean);
-  return rows.filter(row => {
-    const data =
-      row.payload &&
-      typeof row.payload === 'object' &&
-      !Array.isArray(row.payload)
-        ? (row.payload as Record<string, unknown>)
-        : {};
-    return parts.every(part => {
-      const m = part.match(/^data\.([\w.]+)\s*=\s*'((?:[^'\\]|\\.)*)'$/);
-      if (!m) {
-        return true;
-      }
-      const fieldPath = m[1];
-      const rawVal = m[2].replace(/\\'/g, "'");
-      const got = getByPath(data, fieldPath);
-      return String(got ?? '') === rawVal;
-    });
-  });
-}
-
 export function mapObservationToFormObservation(
   r: ObservationRecord,
 ): Record<string, unknown> {
@@ -427,19 +380,18 @@ export async function handleFormPreviewBridgeMessage(
       }
 
       case 'getObservationsByQuery': {
-        const formType = String(data.formType ?? '');
-        const includeDeleted = Boolean(data.includeDeleted);
-        const whereClause = data.whereClause as string | null | undefined;
-        const page = await tauriClient.listObservationsPage(undefined, {
+        const options = (data.options ?? data) as Record<string, unknown>;
+        const formType = String(options.formType ?? data.formType ?? '');
+        const includeDeleted = Boolean(options.includeDeleted ?? data.includeDeleted);
+        const filter = options.filter ?? data.filter;
+        const limit =
+          typeof options.limit === 'number' ? options.limit : undefined;
+        const rows = await tauriClient.queryObservations({
           formType,
-          limit: 5000,
-          offset: 0,
+          includeDeleted,
+          filter,
+          limit,
         });
-        let rows = page.rows;
-        if (!includeDeleted) {
-          rows = rows.filter(r => r.extras?.deleted !== true);
-        }
-        rows = filterRowsByWhereClause(rows, whereClause ?? null);
         reply('getObservationsByQuery', {
           result: rows.map(mapObservationToFormObservation),
         });
@@ -672,9 +624,15 @@ export async function handleFormPreviewBridgeMessage(
             reply('getCustomAppUri', { error: 'No workspace configured.' });
             return;
           }
-          const appDirPath = await join(ws, 'bundles', 'active', 'app');
-          const activeBundlePath = await dirname(appDirPath);
-          const u = convertFileSrc(activeBundlePath);
+          const settings = await tauriClient.getSettings();
+          const active = settings.profiles.find(
+            p => p.id === settings.activeProfileId,
+          );
+          const useDevMirror = Boolean(active?.customAppDeveloperMode);
+          const bundleSegment = useDevMirror ? 'dev-local' : 'active';
+          const appDirPath = await join(ws, 'bundles', bundleSegment, 'app');
+          const bundleBasePath = await dirname(appDirPath);
+          const u = convertFileSrc(bundleBasePath);
           const url = u.endsWith('/') ? u : `${u}/`;
           reply('getCustomAppUri', { result: url });
         } catch (e) {

@@ -4,6 +4,10 @@
  * Built-in extension functions that are always available in Formplayer.
  * These provide core functionality for dynamic choice lists and other features.
  */
+import {
+  buildQueryFilter,
+  type ObservationFilter,
+} from '@ode/observation-query';
 
 // Extend window interface to include getObservationsByQuery if not already defined
 declare global {
@@ -13,6 +17,7 @@ declare global {
         formType: string;
         isDraft?: boolean;
         includeDeleted?: boolean;
+        filter?: ObservationFilter;
         whereClause?: string | null;
       }): Promise<any[]>;
     };
@@ -80,97 +85,37 @@ export async function getDynamicChoiceList(
     const labelField = config.labelField || valueField;
     const distinct = config.distinct || false;
 
-    // Build WHERE clause from params (excluding _config)
-    // Support both 'where' and 'whereClause' for compatibility
-    let whereClause = params.where || params.whereClause || null;
-
-    // Get filter params (excluding _config, where, and whereClause)
-    const filterParams = Object.entries(params).filter(
-      ([key]) => key !== '_config' && key !== 'where' && key !== 'whereClause',
-    );
-
-    // Build WHERE clause from filter params if we have any
-    if (filterParams.length > 0) {
-      // Check if any filter values are null/undefined/empty - if so, return empty result
-      const hasEmptyValue = filterParams.some(
-        ([_, value]) => value === null || value === undefined || value === '',
-      );
-
-      if (hasEmptyValue) {
-        // Return empty choices when dependency values are not yet selected
-        return [];
-      }
-
-      const conditions = filterParams
-        .map(([fieldPath, value]) => {
-          // Escape single quotes in values
-          const escapedValue = String(value).replace(/'/g, "''");
-          return `data.${fieldPath} = '${escapedValue}'`;
-        })
-        .join(' AND ');
-
-      // Combine with existing WHERE clause if present
-      if (whereClause) {
-        whereClause = `${whereClause} AND ${conditions}`;
-      } else {
-        whereClause = conditions;
-      }
+    const whereClause = params.where || params.whereClause || null;
+    const filterParams: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(params)) {
+      if (key === '_config' || key === 'where' || key === 'whereClause') continue;
+      filterParams[key] = value;
     }
+
+    const hasEmptyValue = Object.values(filterParams).some(
+      v => v === null || v === undefined || v === '',
+    );
+    if (hasEmptyValue) {
+      return [];
+    }
+
+    const queryFilter = buildQueryFilter(filterParams, whereClause);
 
     // Helper to extract nested value from object path (e.g., 'data.hh_village_name')
     const getNestedValue = (obj: any, path: string): any => {
       return path.split('.').reduce((current, key) => current?.[key], obj);
     };
 
-    // Check if WHERE clause uses age_from_dob() syntax
     const usesAgeFromDob = whereClause && /age_from_dob\(/i.test(whereClause);
     const originalWhereClause = whereClause;
 
-    // If using age_from_dob(), we need to filter in JavaScript after fetching
-    // Remove age_from_dob conditions from SQL WHERE clause and filter in JS instead
-    if (usesAgeFromDob && whereClause) {
-      // Extract non-age conditions to keep in SQL WHERE clause
-      // Pattern matches: age_from_dob(...) with optional NOT before it
-      const agePattern =
-        /(NOT\s+)?age_from_dob\([^)]+\)\s*(>=|<=|>|<|=|!=)\s*\d+/gi;
-      const nonAgeConditions: string[] = [];
-
-      // Split by AND/OR and keep non-age conditions
-      // Handle parentheses and complex logic
-      const parts = whereClause.split(/\s+(AND|OR)\s+/i);
-      for (let i = 0; i < parts.length; i += 2) {
-        const condition = parts[i].trim();
-        // Remove leading/trailing parentheses and NOT
-        const cleanCondition = condition
-          .replace(/^NOT\s+/i, '')
-          .replace(/^\(+|\)+$/g, '')
-          .trim();
-        if (
-          cleanCondition &&
-          !agePattern.test(condition) &&
-          !agePattern.test(cleanCondition)
-        ) {
-          nonAgeConditions.push(cleanCondition);
-        }
-      }
-
-      // Rebuild WHERE clause without age conditions
-      if (nonAgeConditions.length > 0) {
-        whereClause = nonAgeConditions.join(' AND ');
-      } else {
-        whereClause = null; // No non-age conditions, fetch all and filter in JS
-      }
-    }
-
-    // Query observations via bridge
     let observations = await window.formulus.getObservationsByQuery({
       formType: queryName,
       isDraft: false,
       includeDeleted: false,
-      whereClause: whereClause,
+      filter: queryFilter,
     });
 
-    // If age_from_dob() was used, filter by calculated age in JavaScript
     if (usesAgeFromDob && originalWhereClause) {
       // Parse the WHERE clause to extract age conditions
       // Pattern: age_from_dob(data.dob) >= 18 or NOT age_from_dob(data.dob) >= 18

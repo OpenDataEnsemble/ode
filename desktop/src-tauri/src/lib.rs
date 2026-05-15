@@ -26,6 +26,8 @@ use zip::read::ZipArchive;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
+mod observation_index;
+mod observation_query;
 mod sync_engine;
 
 #[derive(Debug, Error)]
@@ -111,6 +113,10 @@ struct ServerProfile {
     environment: ProfileEnvironment,
     #[serde(default)]
     default_app_mode: DefaultAppMode,
+    #[serde(default)]
+    custom_app_developer_mode: bool,
+    #[serde(default)]
+    custom_app_local_folder: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -710,7 +716,20 @@ fn init_db(conn: &Connection) -> Result<(), CustodianError> {
     )?;
     migrate_repository_generation_fresh_install_defaults(conn)?;
     sync_engine::migrate_sync_jobs_db(conn).map_err(CustodianError::Sqlite)?;
+    observation_index::migrate_index_schema(conn).map_err(CustodianError::Sqlite)?;
     Ok(())
+}
+
+fn bundle_app_config_path(ctx: &AppCtxHandle) -> Result<PathBuf, String> {
+    let workspace = get_workspace_path(ctx).map_err(|e| e.to_string())?;
+    Ok(workspace.join("bundles/active/app/app.config.json"))
+}
+
+fn load_active_index_defs(ctx: &AppCtxHandle) -> Vec<observation_index::ObservationIndexDef> {
+    bundle_app_config_path(ctx)
+        .ok()
+        .map(|p| observation_index::load_index_config(&p))
+        .unwrap_or_default()
 }
 
 /// Older builds defaulted `repository_generation` to 1, which Synkronus treats as an explicit
@@ -788,6 +807,8 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             attachments_path: None,
             environment: ProfileEnvironment::default(),
             default_app_mode: DefaultAppMode::default(),
+            custom_app_developer_mode: false,
+            custom_app_local_folder: None,
         }],
     }
 }
@@ -809,6 +830,8 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             attachments_path: None,
             environment: ProfileEnvironment::default(),
             default_app_mode: DefaultAppMode::default(),
+            custom_app_developer_mode: false,
+            custom_app_local_folder: None,
         }],
     }
 }
@@ -921,18 +944,76 @@ fn path_is_strict_descendant(ancestor: &Path, maybe_desc: &Path) -> bool {
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), CustodianError> {
+    copy_dir_recursive_counting(src, dst, &mut 0)
+}
+
+fn should_skip_mirror_entry(name: &str) -> bool {
+    matches!(name, ".DS_Store" | "Thumbs.db" | "desktop.ini")
+}
+
+fn copy_dir_recursive_counting(
+    src: &Path,
+    dst: &Path,
+    copied_files: &mut u64,
+) -> Result<(), CustodianError> {
     fs::create_dir_all(dst)?;
     for entry in fs::read_dir(src)? {
         let entry = entry?;
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if should_skip_mirror_entry(name_str.as_ref()) {
+            continue;
+        }
         let path = entry.path();
-        let target = dst.join(entry.file_name());
+        let target = dst.join(&name);
         if path.is_dir() {
-            copy_dir_recursive(&path, &target)?;
+            copy_dir_recursive_counting(&path, &target, copied_files)?;
         } else {
             fs::copy(&path, &target)?;
+            *copied_files += 1;
         }
     }
     Ok(())
+}
+
+const CUSTOM_APP_DEV_MIRROR_INDEX_REL: &str = "bundles/dev-local/app/index.html";
+
+fn validate_custom_app_dev_source_folder(source: &Path) -> Result<(), String> {
+    if !source.exists() {
+        return Err(format!(
+            "local folder does not exist: {}",
+            source.display()
+        ));
+    }
+    if !source.is_dir() {
+        return Err("local folder must be a directory".to_string());
+    }
+    let index = source.join("index.html");
+    if !index.is_file() {
+        return Err("local folder must contain index.html".to_string());
+    }
+    Ok(())
+}
+
+fn mirror_custom_app_dev_folder(
+    ws: &Path,
+    source: &Path,
+) -> Result<u64, CustodianError> {
+    validate_custom_app_dev_source_folder(source).map_err(CustodianError::Message)?;
+    let dev_local = ws.join("bundles/dev-local");
+    if dev_local.exists() {
+        fs::remove_dir_all(&dev_local)?;
+    }
+    let mirror_app = dev_local.join("app");
+    let mut copied_files = 0u64;
+    copy_dir_recursive_counting(source, &mirror_app, &mut copied_files)?;
+    let mirrored_index = mirror_app.join("index.html");
+    if !mirrored_index.is_file() {
+        return Err(CustodianError::Message(
+            "mirror failed: index.html missing after copy".to_string(),
+        ));
+    }
+    Ok(copied_files)
 }
 
 fn rename_or_move_entry(src: &Path, dst: &Path) -> Result<(), CustodianError> {
@@ -1634,6 +1715,17 @@ fn save_observation(
         .map_err(|err| err.to_string())?;
 
         tx.commit().map_err(|err| err.to_string())?;
+        let defs = load_active_index_defs(&ctx);
+        if !defs.is_empty() {
+            let ft = req.form_type.as_deref().unwrap_or("");
+            let _ = observation_index::incremental_reindex(
+                &conn,
+                &req.id,
+                ft,
+                &payload_raw,
+                &defs,
+            );
+        }
     }
     get_observation(req.id, ctx)
 }
@@ -1854,6 +1946,113 @@ fn map_observation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ObservationR
         last_saved_at: row.get(8)?,
         last_pushed_at: row.get(9)?,
         extras: parse_observation_extras(extras_raw),
+    })
+}
+
+fn bind_query_params(
+    stmt: &mut rusqlite::Statement<'_>,
+    params: &[observation_query::SqlParam],
+) -> Result<(), rusqlite::Error> {
+    for (i, p) in params.iter().enumerate() {
+        let idx = i + 1;
+        match p {
+            observation_query::SqlParam::Text(s) => stmt.raw_bind_parameter(idx, s.as_str())?,
+            observation_query::SqlParam::Integer(n) => stmt.raw_bind_parameter(idx, *n)?,
+            observation_query::SqlParam::Real(f) => stmt.raw_bind_parameter(idx, *f)?,
+            observation_query::SqlParam::Null => stmt.raw_bind_parameter(idx, rusqlite::types::Null)?,
+        }
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RebuildObservationIndexesResult {
+    generation: i64,
+    last_rebuild_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct IndexRebuildStatus {
+    active_generation: i64,
+    last_rebuild_at: Option<String>,
+}
+
+#[tauri::command]
+fn query_observations(
+    req: observation_query::QueryObservationsRequest,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<Vec<ObservationRecord>, String> {
+    let defs = load_active_index_defs(&ctx);
+    let index_keys = observation_index::index_keys_set(&defs);
+    let filter_ref = req.filter.as_ref();
+    let compiled = observation_query::compile_observation_query(
+        &req.form_type,
+        req.include_deleted.unwrap_or(false),
+        filter_ref,
+        &index_keys,
+    )
+    .map_err(|e| format!("{}: {}", e.code, e.message))?;
+
+    let mut sql = compiled.sql;
+    if let Some(limit) = req.limit {
+        sql.push_str(&format!(" ORDER BY o.last_saved_at DESC LIMIT {}", limit.clamp(1, 5000)));
+    } else {
+        sql.push_str(" ORDER BY o.last_saved_at DESC LIMIT 5000");
+    }
+
+    let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
+    bind_query_params(&mut stmt, &compiled.params).map_err(|err| err.to_string())?;
+    let rows = stmt
+        .query_map([], map_observation_row)
+        .map_err(|err| err.to_string())?;
+    let mut out = Vec::new();
+    for row in rows {
+        out.push(row.map_err(|err| err.to_string())?);
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+fn rebuild_observation_indexes(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<RebuildObservationIndexesResult, String> {
+    let defs = load_active_index_defs(&ctx);
+    let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let generation = observation_index::rebuild_all_indexes(&conn, &defs)
+        .map_err(|err| err.to_string())?;
+    let last_rebuild_at: Option<String> = conn
+        .query_row(
+            "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+    Ok(RebuildObservationIndexesResult {
+        generation,
+        last_rebuild_at,
+    })
+}
+
+#[tauri::command]
+fn get_observation_index_status(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<IndexRebuildStatus, String> {
+    let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let active_generation = observation_index::active_generation(&conn)
+        .map_err(|err| err.to_string())?;
+    let last_rebuild_at: Option<String> = conn
+        .query_row(
+            "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+    Ok(IndexRebuildStatus {
+        active_generation,
+        last_rebuild_at,
     })
 }
 
@@ -2848,6 +3047,49 @@ fn check_workspace_attachment_presence(
     Ok(out)
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CustomAppDevMirrorResult {
+    source_path: String,
+    mirrored_index_relative_path: String,
+    copied_files: u64,
+}
+
+/// Copies the active profile's configured local custom app folder into
+/// `bundles/dev-local/app/` (developer mode mirror). Does not modify the source folder.
+#[tauri::command]
+fn refresh_custom_app_dev_mirror(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<CustomAppDevMirrorResult, String> {
+    let source_path = {
+        let cfg = ctx
+            .config
+            .lock()
+            .map_err(|_| "failed to lock config".to_string())?;
+        let profile = active_profile_ref(&cfg).map_err(|e: CustodianError| e.to_string())?;
+        if !profile.custom_app_developer_mode {
+            return Err("developer mode is not enabled for the active profile".to_string());
+        }
+        profile
+            .custom_app_local_folder
+            .as_ref()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                "custom app local folder is not configured for the active profile".to_string()
+            })?
+    };
+    let source = PathBuf::from(&source_path);
+    validate_custom_app_dev_source_folder(&source)?;
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let copied_files = mirror_custom_app_dev_folder(&ws, &source).map_err(|e| e.to_string())?;
+    Ok(CustomAppDevMirrorResult {
+        source_path,
+        mirrored_index_relative_path: CUSTOM_APP_DEV_MIRROR_INDEX_REL.to_string(),
+        copied_files,
+    })
+}
+
 /// Write arbitrary bytes under the active profile workspace (e.g. `bundles/app-bundle.zip`).
 /// Rejects empty paths, `..`, and other traversal attempts.
 #[tauri::command]
@@ -2951,6 +3193,12 @@ fn apply_app_bundle_download(
         let legacy = bundles.join("app-bundle.zip");
         if legacy.exists() {
             let _ = fs::remove_file(&legacy);
+        }
+        let app_config = active_dir.join("app/app.config.json");
+        if app_config.exists() {
+            let defs = observation_index::load_index_config(&app_config);
+            let conn = open_db(ctx)?;
+            let _ = observation_index::rebuild_all_indexes(&conn, &defs);
         }
         Ok(state)
     })
@@ -3258,6 +3506,7 @@ fn import_observations_run(
     let mut imported = 0usize;
     let mut conflicts = 0usize;
 
+    let index_defs = load_active_index_defs(ctx);
     for observation in observations {
         if mark_pending {
             upsert_observation_from_local_import(&tx, &observation)
@@ -3268,6 +3517,17 @@ fn import_observations_run(
             if conflict {
                 conflicts += 1;
             }
+        }
+        if !index_defs.is_empty() {
+            let payload = serde_json::to_string(&observation.data).map_err(|e| e.to_string())?;
+            let form_type = observation.form_type.as_deref().unwrap_or("");
+            let _ = observation_index::incremental_reindex(
+                &tx,
+                &observation.observation_id,
+                form_type,
+                &payload,
+                &index_defs,
+            );
         }
         imported += 1;
     }
@@ -3534,6 +3794,9 @@ pub fn run() {
             list_workspace_items,
             list_observations,
             list_observations_page,
+            query_observations,
+            rebuild_observation_indexes,
+            get_observation_index_status,
             list_dirty_observations,
             list_form_types,
             get_sync_state,
@@ -3553,6 +3816,7 @@ pub fn run() {
             check_workspace_attachment_presence,
             write_workspace_file,
             get_app_bundle_state,
+            refresh_custom_app_dev_mirror,
             apply_app_bundle_download,
             list_active_bundle_forms,
             read_bundle_form_spec,
@@ -3588,7 +3852,10 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    use super::{parse_time, resolve_attachment_path, should_mark_conflict};
+    use super::{
+        mirror_custom_app_dev_folder, parse_time, resolve_attachment_path, should_mark_conflict,
+        validate_custom_app_dev_source_folder,
+    };
 
     #[test]
     fn parse_time_handles_valid_timestamp() {
@@ -3633,6 +3900,37 @@ mod tests {
         fs::write(base.join("attachments/draft/a.jpg"), b"2").unwrap();
         let p = resolve_attachment_path(Path::new(&base), "a.jpg").unwrap();
         assert!(p.to_string_lossy().contains("draft"));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn validate_custom_app_dev_source_requires_index_html() {
+        let base =
+            std::env::temp_dir().join(format!("ode_dev_app_validate_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        assert!(validate_custom_app_dev_source_folder(Path::new(&base)).is_err());
+        fs::write(base.join("index.html"), b"<html></html>").unwrap();
+        assert!(validate_custom_app_dev_source_folder(Path::new(&base)).is_ok());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn mirror_custom_app_dev_folder_copies_tree() {
+        let base =
+            std::env::temp_dir().join(format!("ode_dev_app_mirror_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let source = base.join("source");
+        let ws = base.join("workspace");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(ws.join("bundles/active/app")).unwrap();
+        fs::write(source.join("index.html"), b"<html>dev</html>").unwrap();
+        fs::write(source.join("app.js"), b"console.log(1)").unwrap();
+        let copied = mirror_custom_app_dev_folder(Path::new(&ws), Path::new(&source)).unwrap();
+        assert_eq!(copied, 2);
+        let mirrored = ws.join("bundles/dev-local/app/index.html");
+        assert!(mirrored.is_file());
+        assert!(ws.join("bundles/dev-local/app/app.js").is_file());
         let _ = fs::remove_dir_all(&base);
     }
 
