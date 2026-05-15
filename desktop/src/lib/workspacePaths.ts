@@ -5,7 +5,8 @@ export const WORKSPACE_BUNDLE_ACTIVE_DIR = 'bundles/active';
 export const WORKSPACE_BUNDLE_STATE_FILE = 'bundles/state.json';
 /** Developer-mode mirror of a local custom app (see `refresh_custom_app_dev_mirror`). */
 export const WORKSPACE_BUNDLE_DEV_LOCAL_DIR = 'bundles/dev-local';
-export const WORKSPACE_BUNDLE_DEV_APP_INDEX = 'bundles/dev-local/app/index.html';
+export const WORKSPACE_BUNDLE_DEV_APP_INDEX =
+  'bundles/dev-local/app/index.html';
 
 /** Deterministic layout under a profile workspace root (matches Rust). */
 export function workspaceSqlitePath(workspaceRoot: string): string {

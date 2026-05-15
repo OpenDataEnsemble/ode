@@ -83,8 +83,7 @@ export const tauriClient = {
     includeDeleted?: boolean;
     filter?: unknown;
     limit?: number;
-  }) =>
-    invokeSafe<ObservationRecord[]>('query_observations', { req }),
+  }) => invokeSafe<ObservationRecord[]>('query_observations', { req }),
   rebuildObservationIndexes: () =>
     invokeSafe<{ generation: number; lastRebuildAt?: string | null }>(
       'rebuild_observation_indexes',

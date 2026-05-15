@@ -980,10 +980,7 @@ const CUSTOM_APP_DEV_MIRROR_INDEX_REL: &str = "bundles/dev-local/app/index.html"
 
 fn validate_custom_app_dev_source_folder(source: &Path) -> Result<(), String> {
     if !source.exists() {
-        return Err(format!(
-            "local folder does not exist: {}",
-            source.display()
-        ));
+        return Err(format!("local folder does not exist: {}", source.display()));
     }
     if !source.is_dir() {
         return Err("local folder must be a directory".to_string());
@@ -995,10 +992,7 @@ fn validate_custom_app_dev_source_folder(source: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn mirror_custom_app_dev_folder(
-    ws: &Path,
-    source: &Path,
-) -> Result<u64, CustodianError> {
+fn mirror_custom_app_dev_folder(ws: &Path, source: &Path) -> Result<u64, CustodianError> {
     validate_custom_app_dev_source_folder(source).map_err(CustodianError::Message)?;
     let dev_local = ws.join("bundles/dev-local");
     if dev_local.exists() {
@@ -1718,13 +1712,7 @@ fn save_observation(
         let defs = load_active_index_defs(&ctx);
         if !defs.is_empty() {
             let ft = req.form_type.as_deref().unwrap_or("");
-            let _ = observation_index::incremental_reindex(
-                &conn,
-                &req.id,
-                ft,
-                &payload_raw,
-                &defs,
-            );
+            let _ = observation_index::incremental_reindex(&conn, &req.id, ft, &payload_raw, &defs);
         }
     }
     get_observation(req.id, ctx)
@@ -1959,7 +1947,9 @@ fn bind_query_params(
             observation_query::SqlParam::Text(s) => stmt.raw_bind_parameter(idx, s.as_str())?,
             observation_query::SqlParam::Integer(n) => stmt.raw_bind_parameter(idx, *n)?,
             observation_query::SqlParam::Real(f) => stmt.raw_bind_parameter(idx, *f)?,
-            observation_query::SqlParam::Null => stmt.raw_bind_parameter(idx, rusqlite::types::Null)?,
+            observation_query::SqlParam::Null => {
+                stmt.raw_bind_parameter(idx, rusqlite::types::Null)?
+            }
         }
     }
     Ok(())
@@ -1997,7 +1987,10 @@ fn query_observations(
 
     let mut sql = compiled.sql;
     if let Some(limit) = req.limit {
-        sql.push_str(&format!(" ORDER BY o.last_saved_at DESC LIMIT {}", limit.clamp(1, 5000)));
+        sql.push_str(&format!(
+            " ORDER BY o.last_saved_at DESC LIMIT {}",
+            limit.clamp(1, 5000)
+        ));
     } else {
         sql.push_str(" ORDER BY o.last_saved_at DESC LIMIT 5000");
     }
@@ -2021,8 +2014,8 @@ fn rebuild_observation_indexes(
 ) -> Result<RebuildObservationIndexesResult, String> {
     let defs = load_active_index_defs(&ctx);
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-    let generation = observation_index::rebuild_all_indexes(&conn, &defs)
-        .map_err(|err| err.to_string())?;
+    let generation =
+        observation_index::rebuild_all_indexes(&conn, &defs).map_err(|err| err.to_string())?;
     let last_rebuild_at: Option<String> = conn
         .query_row(
             "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
@@ -2041,8 +2034,8 @@ fn get_observation_index_status(
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<IndexRebuildStatus, String> {
     let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-    let active_generation = observation_index::active_generation(&conn)
-        .map_err(|err| err.to_string())?;
+    let active_generation =
+        observation_index::active_generation(&conn).map_err(|err| err.to_string())?;
     let last_rebuild_at: Option<String> = conn
         .query_row(
             "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
@@ -3917,8 +3910,7 @@ mod tests {
 
     #[test]
     fn mirror_custom_app_dev_folder_copies_tree() {
-        let base =
-            std::env::temp_dir().join(format!("ode_dev_app_mirror_{}", std::process::id()));
+        let base = std::env::temp_dir().join(format!("ode_dev_app_mirror_{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         let source = base.join("source");
         let ws = base.join("workspace");

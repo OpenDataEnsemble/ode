@@ -181,8 +181,7 @@ export function WorkbenchCustomAppPage() {
     ? `dev-${localFolder}-${mirrorToken}-${reloadToken}`
     : `${bundleState?.activeVersion ?? 'none'}-${reloadToken}`;
 
-  const devBlocked =
-    developerMode && (!localFolder || devError != null);
+  const devBlocked = developerMode && (!localFolder || devError != null);
   const canLoadEmbed = developerMode
     ? !devBlocked && !devBusy
     : Boolean(bundleState);
@@ -276,8 +275,9 @@ export function WorkbenchCustomAppPage() {
         </div>
         {developerMode ? (
           <p className="muted custom-app-dev-hint">
-            The app is mirrored into your profile workspace. Observations and sync
-            still use this profile&apos;s database and downloaded bundle forms.
+            The app is mirrored into your profile workspace. Observations and
+            sync still use this profile&apos;s database and downloaded bundle
+            forms.
           </p>
         ) : null}
       </section>
@@ -297,8 +297,8 @@ export function WorkbenchCustomAppPage() {
           ) : (
             <>
               Active bundle <strong>{bundleState.activeVersion}</strong> (hash{' '}
-              <code className="custom-app-hash">{bundleState.activeHash}</code>) —
-              state file <code>{WORKSPACE_BUNDLE_STATE_FILE}</code>
+              <code className="custom-app-hash">{bundleState.activeHash}</code>)
+              — state file <code>{WORKSPACE_BUNDLE_STATE_FILE}</code>
             </>
           )}
         </p>
@@ -321,7 +321,8 @@ export function WorkbenchCustomAppPage() {
           />
         ) : developerMode ? (
           <p className="notice warn">
-            Configure a valid local folder and use Refresh to load the custom app.
+            Configure a valid local folder and use Refresh to load the custom
+            app.
           </p>
         ) : (
           <p className="notice warn">

@@ -88,7 +88,9 @@ export function SyncPage() {
       setIndexRebuildMessage(
         `Indexes rebuilt (generation ${result.generation}).`,
       );
-      appendLog(`Observation indexes rebuilt (generation ${result.generation}).`);
+      appendLog(
+        `Observation indexes rebuilt (generation ${result.generation}).`,
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setIndexRebuildMessage(`Rebuild failed: ${msg}`);
@@ -318,8 +320,8 @@ export function SyncPage() {
         <h3>Observation indexes</h3>
         <p className="muted">
           Local-only indexes for fast custom app queries (from{' '}
-          <code>app.config.json</code> <code>observationIndexes</code>). Use after
-          changing index config or bulk imports.
+          <code>app.config.json</code> <code>observationIndexes</code>). Use
+          after changing index config or bulk imports.
         </p>
         <dl className="meta-dl">
           <dt>Active generation</dt>

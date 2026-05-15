@@ -46,9 +46,8 @@ pub fn compile_observation_query(
     params.push(SqlParam::Text(form_type.to_string()));
 
     if !include_deleted {
-        where_parts.push(
-            "COALESCE(json_extract(o.observation_extras, '$.deleted'), 0) = 0".to_string(),
-        );
+        where_parts
+            .push("COALESCE(json_extract(o.observation_extras, '$.deleted'), 0) = 0".to_string());
     }
 
     if let Some(f) = filter {
@@ -194,7 +193,9 @@ fn compile_condition(
         return compile_index_condition(index_key, op, &value, params);
     }
 
-    warnings.push(format!("Undeclared index for {field}; using json_extract fallback"));
+    warnings.push(format!(
+        "Undeclared index for {field}; using json_extract fallback"
+    ));
     compile_json_extract(op, &json_path, &value, params)
 }
 
@@ -288,7 +289,7 @@ fn compile_json_extract(
             return Err(QueryCompileError {
                 code: "UNSUPPORTED_OP".into(),
                 message: format!("Unsupported op {op}"),
-            })
+            });
         }
     };
     let p = push_param(params, value);

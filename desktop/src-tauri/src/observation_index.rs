@@ -145,7 +145,10 @@ fn scalar_to_columns(val: &Value, value_type: Option<&str>) -> (Option<String>, 
     (Some(val.to_string()), None)
 }
 
-pub fn rebuild_all_indexes(conn: &Connection, defs: &[ObservationIndexDef]) -> rusqlite::Result<i64> {
+pub fn rebuild_all_indexes(
+    conn: &Connection,
+    defs: &[ObservationIndexDef],
+) -> rusqlite::Result<i64> {
     let active: i64 = conn.query_row(
         "SELECT active_generation FROM observation_index_meta WHERE id = 1",
         [],
@@ -163,9 +166,7 @@ pub fn rebuild_all_indexes(conn: &Connection, defs: &[ObservationIndexDef]) -> r
         params![new_gen],
     )?;
 
-    let mut stmt = conn.prepare(
-        "SELECT id, form_type, payload FROM observations",
-    )?;
+    let mut stmt = conn.prepare("SELECT id, form_type, payload FROM observations")?;
     let rows = stmt.query_map([], |row| {
         Ok((
             row.get::<_, String>(0)?,
@@ -230,7 +231,13 @@ pub fn recreate_sqlite_indexes(
 
 fn sanitize_ident(s: &str) -> String {
     s.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -306,7 +313,14 @@ mod tests {
             [],
         )
         .unwrap();
-        incremental_reindex(&conn, "obs1", "person", "{\"p_id\":\"P1\",\"age\":30}", &defs).unwrap();
+        incremental_reindex(
+            &conn,
+            "obs1",
+            "person",
+            "{\"p_id\":\"P1\",\"age\":30}",
+            &defs,
+        )
+        .unwrap();
         let count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM observation_index WHERE observation_id = 'obs1' AND index_generation = 1",
@@ -337,11 +351,20 @@ mod tests {
     fn form_type_glob_skips_non_matching() {
         let conn = test_conn();
         let defs = sample_defs();
-        incremental_reindex(&conn, "obs1", "household", "{\"p_id\":\"H1\",\"age\":5}", &defs).unwrap();
+        incremental_reindex(
+            &conn,
+            "obs1",
+            "household",
+            "{\"p_id\":\"H1\",\"age\":5}",
+            &defs,
+        )
+        .unwrap();
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM observation_index WHERE observation_id = 'obs1'", [], |r| {
-                r.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(*) FROM observation_index WHERE observation_id = 'obs1'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(count, 1);
     }

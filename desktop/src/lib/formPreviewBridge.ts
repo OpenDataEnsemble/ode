@@ -382,7 +382,9 @@ export async function handleFormPreviewBridgeMessage(
       case 'getObservationsByQuery': {
         const options = (data.options ?? data) as Record<string, unknown>;
         const formType = String(options.formType ?? data.formType ?? '');
-        const includeDeleted = Boolean(options.includeDeleted ?? data.includeDeleted);
+        const includeDeleted = Boolean(
+          options.includeDeleted ?? data.includeDeleted,
+        );
         const filter = options.filter ?? data.filter;
         const limit =
           typeof options.limit === 'number' ? options.limit : undefined;
