@@ -16,6 +16,7 @@ import type {
   AppHealth,
   AuthSession,
   BundleFormSpec,
+  ObservationIndexPromptState,
   ObservationRecord,
   SaveObservationRequest,
   ServerProfile,
@@ -250,6 +251,17 @@ interface CustodianState {
   } | null;
   /** Persisted Rust sync job awaiting resume (transient stall, auth, or cold start). */
   syncPausedJob: SyncJobRowOut | null;
+  /** Bumped after each successful `refresh_custom_app_dev_mirror` (Workbench embeds). */
+  devMirrorGeneration: number;
+  devBusy: boolean;
+  devError: string | null;
+  observationIndexPrompt: ObservationIndexPromptState | null;
+  indexCreateBusy: boolean;
+  indexCreateError: string | null;
+  refreshDevMirror: () => Promise<boolean>;
+  setDevError: (message: string | null) => void;
+  dismissObservationIndexPrompt: () => void;
+  createPendingObservationIndexes: () => Promise<boolean>;
   refreshSettings: () => Promise<void>;
   selectActiveProfile: (profileId: string) => Promise<void>;
   upsertProfileRemote: (profile: ServerProfile) => Promise<void>;
@@ -379,6 +391,71 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   syncMessage: null,
   syncActivity: null,
   syncPausedJob: null,
+  devMirrorGeneration: 0,
+  devBusy: false,
+  devError: null,
+  observationIndexPrompt: null,
+  indexCreateBusy: false,
+  indexCreateError: null,
+
+  setDevError: message => set({ devError: message }),
+
+  dismissObservationIndexPrompt: () =>
+    set({ observationIndexPrompt: null, indexCreateError: null }),
+
+  createPendingObservationIndexes: async () => {
+    set({ indexCreateBusy: true, indexCreateError: null });
+    try {
+      const result = await tauriClient.createObservationSqliteIndexes();
+      if (result.createdCount === 0) {
+        set({
+          observationIndexPrompt: null,
+          indexCreateError: null,
+        });
+        return true;
+      }
+      set({
+        observationIndexPrompt: null,
+        indexCreateError: null,
+      });
+      return true;
+    } catch (e) {
+      set({
+        indexCreateError: e instanceof Error ? e.message : String(e),
+      });
+      return false;
+    } finally {
+      set({ indexCreateBusy: false });
+    }
+  },
+
+  refreshDevMirror: async () => {
+    set({ devBusy: true });
+    try {
+      const mirrorResult = await tauriClient.refreshCustomAppDevMirror();
+      const pending = mirrorResult.pendingSqliteIndexStatements ?? [];
+      const needsIndexes =
+        mirrorResult.sqliteIndexesNeeded === true && pending.length > 0;
+      set(state => ({
+        devError: null,
+        devMirrorGeneration: state.devMirrorGeneration + 1,
+        observationIndexPrompt: needsIndexes
+          ? {
+              pendingStatements: pending,
+              indexDefsLoaded: mirrorResult.indexDefsLoaded ?? pending.length,
+            }
+          : null,
+      }));
+      return true;
+    } catch (e) {
+      set({
+        devError: e instanceof Error ? e.message : String(e),
+      });
+      return false;
+    } finally {
+      set({ devBusy: false });
+    }
+  },
 
   refreshSettings: async () => {
     try {

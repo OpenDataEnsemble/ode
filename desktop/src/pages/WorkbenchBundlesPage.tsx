@@ -4,6 +4,7 @@ import {
   DefaultApi,
   type AppBundleManifest,
 } from '../generated/synkronus-client';
+import { DeveloperModePanel } from '../components/DeveloperModePanel';
 import {
   appBundleUpdateAvailable,
   serverVersionsNotDownloaded,
@@ -209,6 +210,8 @@ export function WorkbenchBundlesPage() {
 
       {error ? <p className="notice error">{error}</p> : null}
       {saveNotice ? <p className="notice success">{saveNotice}</p> : null}
+
+      <DeveloperModePanel variant="full" />
 
       <section className="card">
         <h3>Server (active bundle)</h3>

@@ -20,7 +20,7 @@
  * | `getAttachmentUri` | Basename string or `{ filename }` only; workspace lookup → `convertFileSrc` (or `null`). |
  * | `getAttachmentsUri` | `file://` for `attachments/synced/` (canonical listing; matches Formulus `getAttachmentsDirectoryFileUrl`). |
  * | `getCustomAppUri` | Tauri asset URL for `bundles/active/` or dev mirror parent when developer mode is on. |
- * | `getFormSpecsUri` | `getActiveBundleFormsFileBaseUrl()` (`bundles/active/forms`). |
+ * | `getFormSpecsUri` | `getActiveBundleFormsFileBaseUrl()` (`bundles/active/forms` or dev mirror). |
  *
  * Messages **without** `messageId` (e.g. `formplayerReadyToReceiveInit` from the iframe stub) are ignored at the host.
  *
@@ -231,10 +231,15 @@ async function resolveAttachmentUriForFormPreview(
 export function mapObservationToFormObservation(
   r: ObservationRecord,
 ): Record<string, unknown> {
-  const data =
+  const payload =
     r.payload && typeof r.payload === 'object' && !Array.isArray(r.payload)
       ? (r.payload as Record<string, unknown>)
       : {};
+  const nestedData = payload.data;
+  const data =
+    nestedData && typeof nestedData === 'object' && !Array.isArray(nestedData)
+      ? (nestedData as Record<string, unknown>)
+      : payload;
   const created = r.extras?.createdAt ?? r.lastSavedAt;
   const updated = r.updatedAt ?? r.lastSavedAt;
   const synced = r.extras?.syncedAt ?? r.updatedAt ?? r.lastSavedAt;

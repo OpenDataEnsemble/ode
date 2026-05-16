@@ -20,6 +20,7 @@ import type {
   ServerProfile,
   ActiveBundleFormEntry,
   AppBundleState,
+  CreateObservationSqliteIndexesResult,
   CustomAppDevMirrorResult,
   BundleFormSpec,
   SetSyncStateRequest,
@@ -87,6 +88,10 @@ export const tauriClient = {
   rebuildObservationIndexes: () =>
     invokeSafe<{ generation: number; lastRebuildAt?: string | null }>(
       'rebuild_observation_indexes',
+    ),
+  createObservationSqliteIndexes: () =>
+    invokeSafe<CreateObservationSqliteIndexesResult>(
+      'create_observation_sqlite_indexes',
     ),
   getObservationIndexStatus: () =>
     invokeSafe<{ activeGeneration: number; lastRebuildAt?: string | null }>(

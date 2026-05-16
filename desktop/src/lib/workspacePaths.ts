@@ -7,6 +7,7 @@ export const WORKSPACE_BUNDLE_STATE_FILE = 'bundles/state.json';
 export const WORKSPACE_BUNDLE_DEV_LOCAL_DIR = 'bundles/dev-local';
 export const WORKSPACE_BUNDLE_DEV_APP_INDEX =
   'bundles/dev-local/app/index.html';
+export const WORKSPACE_BUNDLE_DEV_FORMS_DIR = 'bundles/dev-local/forms';
 
 /** Deterministic layout under a profile workspace root (matches Rust). */
 export function workspaceSqlitePath(workspaceRoot: string): string {

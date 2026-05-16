@@ -19,7 +19,11 @@ pub struct ObservationIndexDef {
 
 #[derive(Debug, Clone, Deserialize)]
 struct AppConfigIndexes {
-    #[serde(default)]
+    #[serde(
+        rename = "observationIndexes",
+        alias = "observation_indexes",
+        default
+    )]
     observation_indexes: Vec<ObservationIndexDef>,
 }
 
@@ -196,35 +200,86 @@ pub fn rebuild_all_indexes(
     Ok(new_gen)
 }
 
-pub fn recreate_sqlite_indexes(
-    conn: &Connection,
-    defs: &[ObservationIndexDef],
-) -> rusqlite::Result<()> {
-    let _ = conn.execute("DROP INDEX IF EXISTS ode_idx_manifest", []);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlannedSqliteIndex {
+    pub name: String,
+    pub sql: String,
+}
+
+pub fn planned_sqlite_indexes(defs: &[ObservationIndexDef]) -> Vec<PlannedSqliteIndex> {
+    let mut out = Vec::new();
+    out.push(PlannedSqliteIndex {
+        name: "idx_observations_form_type".to_string(),
+        sql: "CREATE INDEX IF NOT EXISTS idx_observations_form_type ON observations(form_type)"
+            .to_string(),
+    });
     for def in defs {
-        let idx_name = format!("ode_idx_obs_idx_{}_text", sanitize_ident(&def.key));
-        let _ = conn.execute(&format!("DROP INDEX IF EXISTS {idx_name}"), []);
-        let _ = conn.execute(
-            &format!(
+        let idx_name = format!("idx_{}_text", sanitize_ident(&def.key));
+        out.push(PlannedSqliteIndex {
+            name: idx_name.clone(),
+            sql: format!(
                 "CREATE INDEX IF NOT EXISTS {idx_name} ON observation_index(value_text) WHERE index_key = '{}'",
                 def.key.replace('\'', "''")
             ),
-            [],
-        );
+        });
 
-        let expr_name = format!("ode_idx_obs_data_{}", sanitize_ident(&def.key));
-        let _ = conn.execute(&format!("DROP INDEX IF EXISTS {expr_name}"), []);
+        let expr_name = format!("data_{}", sanitize_ident(&def.key));
         let json_path = if def.path.starts_with("$.") {
             def.path.clone()
         } else {
             format!("$.{}", def.path)
         };
-        let _ = conn.execute(
-            &format!(
+        out.push(PlannedSqliteIndex {
+            name: expr_name.clone(),
+            sql: format!(
                 "CREATE INDEX IF NOT EXISTS {expr_name} ON observations(json_extract(payload, '{json_path}'))"
             ),
-            [],
-        );
+        });
+    }
+    out
+}
+
+fn sqlite_index_exists(conn: &Connection, name: &str) -> rusqlite::Result<bool> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?1",
+        params![name],
+        |r| r.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+pub fn missing_sqlite_indexes(
+    conn: &Connection,
+    defs: &[ObservationIndexDef],
+) -> rusqlite::Result<Vec<PlannedSqliteIndex>> {
+    let mut missing = Vec::new();
+    for idx in planned_sqlite_indexes(defs) {
+        if !sqlite_index_exists(conn, &idx.name)? {
+            missing.push(idx);
+        }
+    }
+    Ok(missing)
+}
+
+pub fn create_missing_sqlite_indexes(
+    conn: &Connection,
+    defs: &[ObservationIndexDef],
+) -> rusqlite::Result<Vec<String>> {
+    let missing = missing_sqlite_indexes(conn, defs)?;
+    let mut executed = Vec::new();
+    for idx in missing {
+        conn.execute(&idx.sql, [])?;
+        executed.push(format!("{};", idx.sql));
+    }
+    Ok(executed)
+}
+
+pub fn recreate_sqlite_indexes(
+    conn: &Connection,
+    defs: &[ObservationIndexDef],
+) -> rusqlite::Result<()> {
+    for idx in planned_sqlite_indexes(defs) {
+        conn.execute(&idx.sql, [])?;
     }
     Ok(())
 }
@@ -390,6 +445,20 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rows, 1);
+    }
+
+    #[test]
+    fn missing_sqlite_indexes_detects_absent_names() {
+        let conn = test_conn();
+        let defs = sample_defs();
+        let missing = missing_sqlite_indexes(&conn, &defs).unwrap();
+        let names: Vec<&str> = missing.iter().map(|i| i.name.as_str()).collect();
+        assert!(names.contains(&"idx_observations_form_type"));
+        assert!(names.contains(&"idx_p_id_text"));
+        assert!(names.contains(&"data_p_id"));
+        recreate_sqlite_indexes(&conn, &defs).unwrap();
+        let missing_after = missing_sqlite_indexes(&conn, &defs).unwrap();
+        assert!(missing_after.is_empty());
     }
 
     #[test]

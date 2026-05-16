@@ -7,7 +7,9 @@ import {
   inferObservationIdFromSavedData,
   parseJsonObject,
 } from '../lib/buildFormPreviewInit';
+import { bundleFormsRel } from '../lib/bundleLayout';
 import { loadBundleFormplayerExtensions } from '../lib/bundleExtensionLoader';
+import { useDeveloperMode } from '../hooks/useDeveloperMode';
 import type { FinalizeRequest } from '../lib/formPreviewBridge';
 import {
   handleFormPreviewBridgeMessage,
@@ -59,6 +61,8 @@ type NestedSubObservationSession = {
 export function FormPreviewPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { developerMode, devMirrorGeneration } = useDeveloperMode();
+  const formsBundlePath = bundleFormsRel(developerMode);
 
   const [forms, setForms] = useState<ActiveBundleFormEntry[]>([]);
   const [listError, setListError] = useState<string | null>(null);
@@ -111,7 +115,7 @@ export function FormPreviewPage() {
     } finally {
       setListLoading(false);
     }
-  }, []);
+  }, [devMirrorGeneration]);
 
   useEffect(() => {
     void loadForms();
@@ -124,7 +128,10 @@ export function FormPreviewPage() {
       savedData: Record<string, unknown>,
       observationId: string | null,
     ) => {
-      const ext = await loadBundleFormplayerExtensions(s.formType);
+      const ext = await loadBundleFormplayerExtensions(
+        s.formType,
+        developerMode,
+      );
       return buildFormPreviewInit({
         formType: s.formType,
         observationId,
@@ -136,7 +143,7 @@ export function FormPreviewPage() {
         customQuestionTypes: ext.customQuestionTypes,
       });
     },
-    [],
+    [developerMode],
   );
 
   const loadSpec = useCallback(
@@ -294,7 +301,10 @@ export function FormPreviewPage() {
       void (async () => {
         try {
           const s = await tauriClient.readBundleFormSpec(formType);
-          const ext = await loadBundleFormplayerExtensions(formType);
+          const ext = await loadBundleFormplayerExtensions(
+            formType,
+            developerMode,
+          );
           const observationId = inferObservationIdFromSavedData(savedData);
           const initData = buildFormPreviewInit({
             formType,
@@ -482,8 +492,20 @@ export function FormPreviewPage() {
         <aside className="panel panel-form-preview-sidebar card">
           <h2>Form preview</h2>
           <p className="page-lead">
-            Load forms from the active app bundle under{' '}
-            <code>{WORKSPACE_BUNDLE_ACTIVE_DIR}</code> (same layout as Formulus:
+            Load forms from{' '}
+            <code>{formsBundlePath}/</code>
+            {developerMode ? (
+              <>
+                {' '}
+                (developer mirror — configure on the Bundles page)
+              </>
+            ) : (
+              <>
+                {' '}
+                (active app bundle under <code>{WORKSPACE_BUNDLE_ACTIVE_DIR}</code>)
+              </>
+            )}{' '}
+            (same layout as Formulus:
             each form folder has <code>schema.json</code> and{' '}
             <code>ui.json</code>
             ). Optional <code>ext.json</code> at <code>forms/ext.json</code> and
@@ -532,8 +554,9 @@ export function FormPreviewPage() {
             ) : forms.length === 0 && !listLoading ? (
               <p className="muted">
                 No forms found. Download and apply an app bundle on the Bundles
-                page so <code>bundles/active/forms/</code> contains form
-                folders.
+                page so <code>{formsBundlePath}/</code> contains form folders,
+                or enable developer mode and mirror a local <code>forms/</code>{' '}
+                folder.
               </p>
             ) : null}
 

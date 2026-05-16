@@ -40,14 +40,14 @@ pub fn compile_observation_query(
     filter: Option<&Value>,
     index_keys: &HashSet<String>,
 ) -> Result<CompiledSql, QueryCompileError> {
+    let _ = include_deleted;
     let mut warnings = Vec::new();
     let mut params: Vec<SqlParam> = Vec::new();
-    let mut where_parts = vec!["o.form_type = ?".to_string()];
-    params.push(SqlParam::Text(form_type.to_string()));
-
-    if !include_deleted {
-        where_parts
-            .push("COALESCE(json_extract(o.observation_extras, '$.deleted'), 0) = 0".to_string());
+    let mut where_parts = Vec::new();
+    let normalized_form_type = form_type.trim();
+    if !normalized_form_type.is_empty() && normalized_form_type != "*" {
+        where_parts.push("o.form_type = ?".to_string());
+        params.push(SqlParam::Text(normalized_form_type.to_string()));
     }
 
     if let Some(f) = filter {
@@ -99,7 +99,7 @@ fn compile_filter_node(
                 compile_filter_node(c, index_keys, params, warnings)?
             ));
         }
-        return Ok(parts.join(joiner));
+        return Ok(format!("({})", parts.join(joiner)));
     }
 
     if op == Some("any") {

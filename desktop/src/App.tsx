@@ -15,6 +15,8 @@ import { SyncPage } from './pages/SyncPage';
 import { ProfilesPage } from './pages/ProfilesPage';
 import { ImportPage } from './pages/ImportPage';
 import { FormPreviewPage } from './pages/FormPreviewPage';
+import { DeveloperModePanel } from './components/DeveloperModePanel';
+import { ObservationIndexPrompt } from './components/ObservationIndexPrompt';
 import { WorkbenchBundlesPage } from './pages/WorkbenchBundlesPage';
 import { WorkbenchCustomAppPage } from './pages/WorkbenchCustomAppPage';
 import { useSynkServerStatus } from './hooks/useSynkServerStatus';
@@ -174,6 +176,8 @@ function Shell() {
   const year = useMemo(() => new Date().getFullYear(), []);
   const location = useLocation();
   const isWorkbench = location.pathname.startsWith('/workbench');
+  const activeProfile = useCustodianStore(selectActiveProfileState);
+  const developerMode = Boolean(activeProfile?.customAppDeveloperMode);
   const navItems = isWorkbench ? WORKBENCH_NAV : DATA_NAV;
   const syncMessage = useCustodianStore(s => s.syncMessage);
   const syncActivity = useCustodianStore(selectSyncActivity);
@@ -246,6 +250,10 @@ function Shell() {
       </aside>
 
       <main className="content">
+        <ObservationIndexPrompt />
+        {isWorkbench && developerMode ? (
+          <DeveloperModePanel variant="banner" />
+        ) : null}
         {showActivityBanner ? (
           <div
             className="notice info app-sync-banner app-sync-banner-with-dismiss"

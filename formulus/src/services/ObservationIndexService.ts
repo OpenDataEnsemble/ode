@@ -199,13 +199,13 @@ export class ObservationIndexService {
   ): Promise<void> {
     for (const def of defs) {
       const safeKey = def.key.replace(/[^a-zA-Z0-9_]/g, '_');
-      const idxName = `ode_idx_obs_idx_${safeKey}_text`;
+      const idxName = `idx_${safeKey}_text`;
       await this.execute(`DROP INDEX IF EXISTS ${idxName}`);
       await this.execute(
         `CREATE INDEX IF NOT EXISTS ${idxName} ON observation_index(value_text) WHERE index_key = '${def.key.replace(/'/g, "''")}'`,
       );
       if (def.enableExpressionIndex !== false) {
-        const exprName = `ode_idx_obs_data_${safeKey}`;
+        const exprName = `data_${safeKey}`;
         const jsonPath = def.path.startsWith('$.') ? def.path : `$.${def.path}`;
         await this.execute(`DROP INDEX IF EXISTS ${exprName}`);
         await this.execute(

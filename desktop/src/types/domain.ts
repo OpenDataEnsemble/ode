@@ -186,6 +186,21 @@ export interface CustomAppDevMirrorResult {
   sourcePath: string;
   mirroredIndexRelativePath: string;
   copiedFiles: number;
+  indexDefsLoaded?: number;
+  indexRebuildGeneration?: number | null;
+  indexRebuildScheduled?: boolean;
+  sqliteIndexesNeeded?: boolean;
+  pendingSqliteIndexStatements?: string[];
+}
+
+export interface CreateObservationSqliteIndexesResult {
+  createdCount: number;
+  executedStatements: string[];
+}
+
+export interface ObservationIndexPromptState {
+  pendingStatements: string[];
+  indexDefsLoaded: number;
 }
 
 export interface AppSettings {

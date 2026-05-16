@@ -215,9 +215,82 @@ body {
   word-break: break-all;
 }
 
+.page.page-custom-app .custom-app-dev-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 0.5rem;
+  background: #0a1228;
+  border: 1px solid #2d3449;
+}
+
+.page.page-custom-app .custom-app-dev-toggle-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #90a3cb;
+  padding: 0 0.35rem 0 0.5rem;
+  white-space: nowrap;
+}
+
+.page.page-custom-app .custom-app-dev-toggle-btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8rem;
+  min-width: 2.75rem;
+  padding: 0.4rem 0.65rem;
+  border: none;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  background: transparent;
+  color: #90a3cb;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.page.page-custom-app .custom-app-dev-toggle-btn:hover:not(:disabled) {
+  color: #d9e3fd;
+  background: #1b2742;
+}
+
+.page.page-custom-app .custom-app-dev-toggle-btn-active {
+  background: #2f2ebe;
+  color: #f3f5ff;
+}
+
+.page.page-custom-app .custom-app-dev-toggle-btn-active:hover:not(:disabled) {
+  background: #3a38c4;
+  color: #fff;
+}
+
+.page.page-custom-app .custom-app-dev-toggle-btn-on.custom-app-dev-toggle-btn-active {
+  background: #b45309;
+  color: #fff8f0;
+}
+
+.page.page-custom-app
+  .custom-app-dev-toggle-btn-on.custom-app-dev-toggle-btn-active:hover:not(
+    :disabled
+  ) {
+  background: #c96a12;
+  color: #fff;
+}
+
 .page.page-custom-app .custom-app-dev-panel {
   flex-shrink: 0;
   margin-bottom: 0.75rem;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.page.page-custom-app .custom-app-dev-panel-active {
+  background: rgba(180, 110, 35, 0.14);
+  border-color: rgba(210, 140, 60, 0.5);
+}
+
+.page.page-custom-app .custom-app-dev-panel-active .custom-app-dev-folder-label {
+  color: #e8c48a;
 }
 
 .page.page-custom-app .custom-app-dev-folder-label {
@@ -239,6 +312,141 @@ body {
 
 .page.page-custom-app .custom-app-dev-hint {
   margin: 0.5rem 0 0;
+}
+
+.dev-mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem;
+  border-radius: 0.5rem;
+  background: #0a1228;
+  border: 1px solid #2d3449;
+}
+
+.dev-mode-toggle-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #90a3cb;
+  padding: 0 0.35rem 0 0.5rem;
+  white-space: nowrap;
+}
+
+.dev-mode-toggle-btn {
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.8rem;
+  min-width: 2.75rem;
+  padding: 0.4rem 0.65rem;
+  border: none;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  background: transparent;
+  color: #90a3cb;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.dev-mode-toggle-btn:hover:not(:disabled) {
+  color: #d9e3fd;
+  background: #1b2742;
+}
+
+.dev-mode-toggle-btn-active {
+  background: #2f2ebe;
+  color: #f3f5ff;
+}
+
+.dev-mode-toggle-btn-active:hover:not(:disabled) {
+  background: #3a38c4;
+  color: #fff;
+}
+
+.dev-mode-toggle-btn-on.dev-mode-toggle-btn-active {
+  background: #b45309;
+  color: #fff8f0;
+}
+
+.dev-mode-toggle-btn-on.dev-mode-toggle-btn-active:hover:not(:disabled) {
+  background: #c96a12;
+  color: #fff;
+}
+
+.dev-mode-config-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.dev-mode-config-header h3 {
+  margin: 0;
+}
+
+.dev-mode-panel {
+  flex-shrink: 0;
+  margin-bottom: 0.75rem;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.dev-mode-panel-active {
+  background: rgba(180, 110, 35, 0.14);
+  border-color: rgba(210, 140, 60, 0.5);
+}
+
+.dev-mode-panel-active .dev-mode-folder-label {
+  color: #e8c48a;
+}
+
+.dev-mode-folder-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.dev-mode-folder-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.dev-mode-folder-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dev-mode-hint {
+  margin: 0.5rem 0 0;
+}
+
+.dev-mode-banner {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+}
+
+.dev-mode-banner-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.dev-mode-banner-path {
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  word-break: break-all;
+  color: #e8d4b0;
 }
 
 .page.page-custom-app .custom-app-embed-panel {

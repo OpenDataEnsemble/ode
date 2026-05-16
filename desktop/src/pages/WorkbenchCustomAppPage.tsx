@@ -1,16 +1,12 @@
-import { open } from '@tauri-apps/plugin-dialog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CustomAppEmbed } from '../components/CustomAppEmbed';
 import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
+import { useDeveloperMode } from '../hooks/useDeveloperMode';
 import type { FinalizeRequest } from '../lib/formPreviewBridge';
 import { handleFormPreviewBridgeMessage } from '../lib/formPreviewBridge';
 import { tauriClient } from '../lib/tauriClient';
 import { WORKSPACE_BUNDLE_STATE_FILE } from '../lib/workspacePaths';
-import {
-  selectActiveProfileState,
-  useCustodianStore,
-} from '../store/useCustodianStore';
 import type { AppBundleState } from '../types/domain';
 
 export function WorkbenchCustomAppPage() {
@@ -24,15 +20,9 @@ export function WorkbenchCustomAppPage() {
   const [bundleState, setBundleState] = useState<AppBundleState | null>(null);
   const [bundleError, setBundleError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [mirrorToken, setMirrorToken] = useState(0);
-  const [devError, setDevError] = useState<string | null>(null);
-  const [devBusy, setDevBusy] = useState(false);
 
-  const activeProfile = useCustodianStore(selectActiveProfileState);
-  const upsertProfileRemote = useCustodianStore(s => s.upsertProfileRemote);
-
-  const developerMode = Boolean(activeProfile?.customAppDeveloperMode);
-  const localFolder = (activeProfile?.customAppLocalFolder ?? '').trim();
+  const { developerMode, devMirrorGeneration, devBusy, devError, localFolder } =
+    useDeveloperMode();
 
   const loadBundleState = useCallback(async () => {
     try {
@@ -45,38 +35,13 @@ export function WorkbenchCustomAppPage() {
     }
   }, []);
 
-  const refreshDevMirror = useCallback(async () => {
-    setDevBusy(true);
-    try {
-      await tauriClient.refreshCustomAppDevMirror();
-      setDevError(null);
-      setMirrorToken(t => t + 1);
-      return true;
-    } catch (e) {
-      setDevError(e instanceof Error ? e.message : String(e));
-      return false;
-    } finally {
-      setDevBusy(false);
-    }
-  }, []);
-
   useEffect(() => {
     void loadBundleState();
   }, [loadBundleState]);
 
   useEffect(() => {
-    if (!developerMode) {
-      setDevError(null);
-      return;
-    }
-    if (!localFolder) {
-      setDevError(
-        'Developer mode is on but no local custom app folder is configured.',
-      );
-      return;
-    }
-    void refreshDevMirror();
-  }, [developerMode, localFolder, activeProfile?.id, refreshDevMirror]);
+    setReloadToken(t => t + 1);
+  }, [developerMode, devMirrorGeneration]);
 
   const onFinalize = useCallback((request: FinalizeRequest) => {
     return new Promise<{ result?: string; error?: string }>(resolve => {
@@ -127,58 +92,9 @@ export function WorkbenchCustomAppPage() {
     return () => window.removeEventListener('message', onMessage);
   }, [onFinalize, onOpenFormplayerNavigate]);
 
-  const persistProfilePatch = useCallback(
-    async (
-      patch: Partial<{
-        customAppDeveloperMode: boolean | null;
-        customAppLocalFolder: string | null;
-      }>,
-    ) => {
-      if (!activeProfile) {
-        return;
-      }
-      await upsertProfileRemote({ ...activeProfile, ...patch });
-    },
-    [activeProfile, upsertProfileRemote],
-  );
-
-  const toggleDeveloperMode = useCallback(async () => {
-    if (!activeProfile) {
-      return;
-    }
-    const next = !developerMode;
-    await persistProfilePatch({ customAppDeveloperMode: next });
-    if (!next) {
-      setDevError(null);
-      setReloadToken(t => t + 1);
-    }
-  }, [activeProfile, developerMode, persistProfilePatch]);
-
-  const pickLocalFolder = useCallback(async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: 'Select local custom app folder',
-    });
-    if (selected == null || Array.isArray(selected)) {
-      return;
-    }
-    await persistProfilePatch({
-      customAppLocalFolder: selected,
-      customAppDeveloperMode: true,
-    });
-  }, [persistProfilePatch]);
-
-  const onRefreshDev = useCallback(async () => {
-    const ok = await refreshDevMirror();
-    if (ok) {
-      setReloadToken(t => t + 1);
-    }
-  }, [refreshDevMirror]);
-
   const embedMode = developerMode ? 'developer' : 'bundle';
   const mountKey = developerMode
-    ? `dev-${localFolder}-${mirrorToken}-${reloadToken}`
+    ? `dev-${localFolder}-${devMirrorGeneration}-${reloadToken}`
     : `${bundleState?.activeVersion ?? 'none'}-${reloadToken}`;
 
   const devBlocked = developerMode && (!localFolder || devError != null);
@@ -201,30 +117,8 @@ export function WorkbenchCustomAppPage() {
         <div>
           <h2>Custom app</h2>
         </div>
-        <div className="button-row">
-          <button
-            type="button"
-            className={`secondary${developerMode ? ' mode-switch-btn-active' : ''}`}
-            aria-pressed={developerMode}
-            disabled={!activeProfile || devBusy}
-            onClick={() => void toggleDeveloperMode()}>
-            Developer mode
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => void loadBundleState()}>
-            Refresh status
-          </button>
-          {developerMode ? (
-            <button
-              type="button"
-              className="secondary"
-              disabled={!localFolder || devBusy}
-              onClick={() => void onRefreshDev()}>
-              Refresh
-            </button>
-          ) : (
+        {!developerMode ? (
+          <div className="button-row">
             <button
               type="button"
               className="secondary"
@@ -232,55 +126,9 @@ export function WorkbenchCustomAppPage() {
               onClick={() => setReloadToken(t => t + 1)}>
               Reload app
             </button>
-          )}
-          {developerMode ? (
-            <button
-              type="button"
-              className="secondary"
-              disabled={!canLoadEmbed || devBusy}
-              onClick={() => setReloadToken(t => t + 1)}>
-              Reload app
-            </button>
-          ) : null}
-        </div>
-      </header>
-
-      <section className="card custom-app-dev-panel">
-        <label
-          className="custom-app-dev-folder-label"
-          htmlFor="custom-app-local-folder">
-          Local custom_app folder
-        </label>
-        <div className="custom-app-dev-folder-row">
-          <input
-            id="custom-app-local-folder"
-            type="text"
-            className="custom-app-dev-folder-input"
-            readOnly
-            disabled={!developerMode}
-            value={localFolder}
-            placeholder={
-              developerMode
-                ? 'Pick a folder that contains index.html (e.g. dist/)'
-                : 'Enable Developer mode to select a folder'
-            }
-          />
-          <button
-            type="button"
-            className="secondary"
-            disabled={!developerMode || devBusy}
-            onClick={() => void pickLocalFolder()}>
-            Browse…
-          </button>
-        </div>
-        {developerMode ? (
-          <p className="muted custom-app-dev-hint">
-            The app is mirrored into your profile workspace. Observations and
-            sync still use this profile&apos;s database and downloaded bundle
-            forms.
-          </p>
+          </div>
         ) : null}
-      </section>
+      </header>
 
       {devError ? <p className="notice error">{devError}</p> : null}
       {bundleError ? (
@@ -292,13 +140,13 @@ export function WorkbenchCustomAppPage() {
               Developer mirror active — downloaded bundle{' '}
               <strong>{bundleState.activeVersion}</strong> (hash{' '}
               <code className="custom-app-hash">{bundleState.activeHash}</code>)
-              remains on disk for forms/sync.
+              remains on disk for sync.
             </>
           ) : (
             <>
               Active bundle <strong>{bundleState.activeVersion}</strong> (hash{' '}
-              <code className="custom-app-hash">{bundleState.activeHash}</code>)
-              — state file <code>{WORKSPACE_BUNDLE_STATE_FILE}</code>
+              <code className="custom-app-hash">{bundleState.activeHash}</code>
+              ) — state file <code>{WORKSPACE_BUNDLE_STATE_FILE}</code>
             </>
           )}
         </p>
@@ -321,8 +169,8 @@ export function WorkbenchCustomAppPage() {
           />
         ) : developerMode ? (
           <p className="notice warn">
-            Configure a valid local folder and use Refresh to load the custom
-            app.
+            Configure developer mode on the Bundles page, then use Refresh app in
+            the banner to load the custom app.
           </p>
         ) : (
           <p className="notice warn">

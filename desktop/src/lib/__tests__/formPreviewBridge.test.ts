@@ -424,6 +424,27 @@ describe('handleFormPreviewBridgeMessage', () => {
     mockProfile.customAppDeveloperMode = false;
   });
 
+  it('getFormSpecsUri returns bundle forms base url from tauri', async () => {
+    vi.mocked(tauriClient.getActiveBundleFormsFileBaseUrl).mockResolvedValueOnce(
+      'file:///tmp/ws/bundles/dev-local/forms',
+    );
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'getFormSpecsUri',
+        messageId: 'gfs1',
+      }),
+      { iframe, onFinalize: async () => ({ error: 'no' }) },
+    );
+
+    expect(tauriClient.getActiveBundleFormsFileBaseUrl).toHaveBeenCalled();
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.result).toBe('file:///tmp/ws/bundles/dev-local/forms');
+  });
+
   it('legacy raw-only callers still reply using iframe.contentWindow fallback', async () => {
     const postMessage = vi.fn();
     const cw = { postMessage } as unknown as Window;
