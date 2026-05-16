@@ -33,7 +33,8 @@ function scalarToColumns(
     if (!Number.isNaN(n)) return { valueText: null, valueNum: n };
   }
   if (typeof val === 'string') return { valueText: val, valueNum: null };
-  if (typeof val === 'boolean') return { valueText: String(val), valueNum: null };
+  if (typeof val === 'boolean')
+    return { valueText: String(val), valueNum: null };
   return { valueText: String(val), valueNum: null };
 }
 
@@ -54,7 +55,10 @@ export class ObservationIndexService {
     this.db = db;
     appEvents.addListener('bundleUpdated', () => {
       void this.rebuildAllIndexes().catch(err => {
-        console.warn('[ObservationIndexService] rebuild after bundle failed:', err);
+        console.warn(
+          '[ObservationIndexService] rebuild after bundle failed:',
+          err,
+        );
       });
     });
   }
@@ -75,7 +79,10 @@ export class ObservationIndexService {
     activeGeneration: number;
     lastRebuildAt: string | null;
   }> {
-    const rows = await this.query<{ active_generation: number; last_rebuild_at: string | null }>(
+    const rows = await this.query<{
+      active_generation: number;
+      last_rebuild_at: string | null;
+    }>(
       'SELECT active_generation, last_rebuild_at FROM observation_index_meta WHERE id = ?',
       ['meta'],
     );
@@ -86,7 +93,10 @@ export class ObservationIndexService {
     };
   }
 
-  async rebuildAllIndexes(): Promise<{ generation: number; lastRebuildAt: string | null }> {
+  async rebuildAllIndexes(): Promise<{
+    generation: number;
+    lastRebuildAt: string | null;
+  }> {
     const defs = this.getIndexDefs();
     return this.db.write(async () => {
       const activeRows = await this.query<{ active_generation: number }>(
@@ -184,7 +194,9 @@ export class ObservationIndexService {
     }
   }
 
-  private async recreateSqliteIndexes(defs: ObservationIndexDef[]): Promise<void> {
+  private async recreateSqliteIndexes(
+    defs: ObservationIndexDef[],
+  ): Promise<void> {
     for (const def of defs) {
       const safeKey = def.key.replace(/[^a-zA-Z0-9_]/g, '_');
       const idxName = `ode_idx_obs_idx_${safeKey}_text`;

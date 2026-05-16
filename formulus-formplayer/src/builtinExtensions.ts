@@ -88,7 +88,8 @@ export async function getDynamicChoiceList(
     const whereClause = params.where || params.whereClause || null;
     const filterParams: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(params)) {
-      if (key === '_config' || key === 'where' || key === 'whereClause') continue;
+      if (key === '_config' || key === 'where' || key === 'whereClause')
+        continue;
       filterParams[key] = value;
     }
 

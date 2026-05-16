@@ -140,11 +140,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
 
       console.log('Successfully created observation with ID:', observationId);
 
-      await ObservationIndexService.getInstance(this.database).incrementalReindex(
-        observationId,
-        input.formType,
-        stringifiedData,
-      );
+      await ObservationIndexService.getInstance(
+        this.database,
+      ).incrementalReindex(observationId, input.formType, stringifiedData);
 
       // Return the observationId as the public identifier
       return observationId;
@@ -371,11 +369,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           typeof input.data === 'string'
             ? input.data
             : JSON.stringify(input.data);
-        await ObservationIndexService.getInstance(this.database).incrementalReindex(
-          record.id,
-          record.formType,
-          stringifiedData,
-        );
+        await ObservationIndexService.getInstance(
+          this.database,
+        ).incrementalReindex(record.id, record.formType, stringifiedData);
         await this.database.get('observations').query().fetch();
         const updatedRecord = await this.observationsCollection.find(record.id);
         console.log('Successfully updated observation:', updatedRecord.id);
@@ -749,7 +745,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     const observationId = String(row.observation_id ?? id);
     let parsedData: Record<string, unknown> = {};
     try {
-      parsedData = JSON.parse(String(row.data ?? '{}')) as Record<string, unknown>;
+      parsedData = JSON.parse(String(row.data ?? '{}')) as Record<
+        string,
+        unknown
+      >;
     } catch {
       parsedData = {};
     }
