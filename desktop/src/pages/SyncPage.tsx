@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { tauriClient } from '../lib/tauriClient';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
 import { productionPushConfirmDetail } from '../lib/syncUiCopy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
@@ -46,6 +47,14 @@ export function SyncPage() {
   const [opLog, setOpLog] = useState<string[]>([]);
   const [forcePushMissingAttachments, setForcePushMissingAttachments] =
     useState(false);
+  const [indexStatus, setIndexStatus] = useState<{
+    activeGeneration: number;
+    lastRebuildAt?: string | null;
+  } | null>(null);
+  const [indexRebuildBusy, setIndexRebuildBusy] = useState(false);
+  const [indexRebuildMessage, setIndexRebuildMessage] = useState<string | null>(
+    null,
+  );
 
   const appendLog = useCallback((line: string) => {
     const stamp = new Date().toLocaleString();
@@ -61,7 +70,35 @@ export function SyncPage() {
   useEffect(() => {
     void loadHealth();
     void refreshPausedSyncJob();
+    void tauriClient
+      .getObservationIndexStatus()
+      .then(setIndexStatus)
+      .catch(() => setIndexStatus(null));
   }, [loadHealth, refreshPausedSyncJob]);
+
+  async function recreateObservationIndexes() {
+    setIndexRebuildBusy(true);
+    setIndexRebuildMessage(null);
+    try {
+      const result = await tauriClient.rebuildObservationIndexes();
+      setIndexStatus({
+        activeGeneration: result.generation,
+        lastRebuildAt: result.lastRebuildAt ?? null,
+      });
+      setIndexRebuildMessage(
+        `Indexes rebuilt (generation ${result.generation}).`,
+      );
+      appendLog(
+        `Observation indexes rebuilt (generation ${result.generation}).`,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setIndexRebuildMessage(`Rebuild failed: ${msg}`);
+      appendLog(`Index rebuild failed: ${msg}`);
+    } finally {
+      setIndexRebuildBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!syncActivity) {
@@ -278,6 +315,35 @@ export function SyncPage() {
           </div>
         </div>
       ) : null}
+
+      <div className="panel">
+        <h3>Observation indexes</h3>
+        <p className="muted">
+          Local-only indexes for fast custom app queries (from{' '}
+          <code>app.config.json</code> <code>observationIndexes</code>). Use
+          after changing index config or bulk imports.
+        </p>
+        <dl className="meta-dl">
+          <dt>Active generation</dt>
+          <dd>
+            <strong>{indexStatus?.activeGeneration ?? '—'}</strong>
+          </dd>
+          <dt>Last rebuild</dt>
+          <dd>{formatDate(indexStatus?.lastRebuildAt)}</dd>
+        </dl>
+        <div className="button-row">
+          <button
+            type="button"
+            className="secondary"
+            disabled={indexRebuildBusy}
+            onClick={() => void recreateObservationIndexes()}>
+            {indexRebuildBusy ? 'Rebuilding indexes…' : 'Re-create index'}
+          </button>
+        </div>
+        {indexRebuildMessage ? (
+          <p className="muted">{indexRebuildMessage}</p>
+        ) : null}
+      </div>
 
       <div className="panel">
         <h3>Pull and push</h3>

@@ -56,12 +56,14 @@ Do not assume custom app authors have local checkouts of **ODE** or internal exa
 | [synkronus-portal](synkronus-portal/) | Web administration | React, TypeScript, Vite | [synkronus-portal/AGENTS.md](synkronus-portal/AGENTS.md) |
 | [packages/tokens](packages/tokens/) | Design tokens (`@ode/tokens`) | Style Dictionary | [packages/tokens/AGENTS.md](packages/tokens/AGENTS.md) |
 | [packages/components](packages/components/) | Shared UI (`@ode/components`) | React | [packages/components/AGENTS.md](packages/components/AGENTS.md) |
+| [desktop](desktop/) | Data management + Forms / app workbench (Tauri) | React, Rust | [desktop/AGENTS.md](desktop/AGENTS.md) |
 
 ---
 
 ## Cross-cutting contracts
 
 - **Formulus ↔ WebView (custom apps + formplayer):** [`formulus/src/webview/FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts) is the **source of truth** for the injected JavaScript API. Formplayer copies a synced TypeScript snapshot via `npm run sync-interface` in `formulus-formplayer` (see [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md)).
+- **ODE Desktop workbench developer mode:** local custom app mirror under `bundles/dev-local/` (profile-scoped); see [desktop/AGENTS.md](desktop/AGENTS.md) and [developer mode guide](https://opendataensemble.org/docs/guides/ode-desktop-developer-mode).
 - **Built-in attachment fields:** `photo`, `audio`, `video`, and generic file (`select_file`) persist attachment **basenames** (and metadata) in observation JSON while binaries live under Formulus **`attachments/`** storage and sync via the attachment pipeline—see published docs ([form specifications](https://opendataensemble.org/docs/reference/form-specifications), [form design guide](https://opendataensemble.org/docs/guides/form-design)) and [`FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts).
 - **Shared UI tokens:** Install **tokens** before **components** / **formplayer** where the docs require it (see package READMEs and formplayer AGENTS).
 
@@ -75,13 +77,9 @@ Do not assume custom app authors have local checkouts of **ODE** or internal exa
 
 ---
 
-## Planned (not shipped here)
+## Roadmap
 
-Do **not** implement or assume APIs for these as if they were in-repo unless issues/specs say otherwise:
-
-- **ODE Desktop** — Tauri app: **Data management** and **Forms / app workbench** in one shell; see [ROADMAP.md](ROADMAP.md).
-
-See [product roadmap context](https://opendataensemble.org/docs/) and organization roadmaps on [GitHub](https://github.com/OpenDataEnsemble).
+ODE Desktop ships in [`desktop/`](desktop/) (see [desktop/AGENTS.md](desktop/AGENTS.md)). Broader product direction: [ROADMAP.md](ROADMAP.md) and [opendataensemble.org](https://opendataensemble.org/docs/).
 
 ---
 

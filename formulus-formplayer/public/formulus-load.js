@@ -87,6 +87,7 @@
                 formType: options.formType,
                 isDraft: options.isDraft,
                 includeDeleted: options.includeDeleted,
+                filter: options.filter,
                 whereClause: options.whereClause,
               }),
             );

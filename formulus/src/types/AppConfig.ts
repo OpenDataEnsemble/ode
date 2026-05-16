@@ -76,6 +76,20 @@ export interface AppTheme {
 /**
  * Native navigation configuration for the Formulus tab bar.
  */
+/**
+ * Local-only observation index definition (from app.config.json).
+ * Never synced; used for fast getObservationsByQuery filters.
+ */
+export interface ObservationIndexDef {
+  key: string;
+  /** JSON path relative to observation data, e.g. $.p_id */
+  path: string;
+  valueType?: 'string' | 'number';
+  /** Optional form type patterns (suffix * for prefix match) */
+  formTypes?: string[];
+  enableExpressionIndex?: boolean;
+}
+
 export interface NavigationConfig {
   /**
    * Visible native tabs in display order.
@@ -101,6 +115,8 @@ export interface AppConfig {
    * If omitted, Formulus shows all default native tabs.
    */
   navigation?: NavigationConfig;
+  /** Local index definitions for observation queries */
+  observationIndexes?: ObservationIndexDef[];
 }
 
 // Keep this alias exported so app-config consumers can strongly type

@@ -16,6 +16,7 @@
     "@mui/material": "^7.3.7",
     "@mui/x-date-pickers": "^8.26.0",
     "@ode/components": "file:../packages/components",
+    "@ode/observation-query": "file:../packages/observation-query",
     "@ode/tokens": "file:../packages/tokens",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",

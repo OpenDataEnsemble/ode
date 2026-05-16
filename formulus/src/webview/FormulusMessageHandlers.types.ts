@@ -59,6 +59,7 @@ export interface FormulusMessageHandlers {
     formType: string;
     isDraft?: boolean;
     includeDeleted?: boolean;
+    filter?: import('@ode/observation-query').ObservationFilter;
     whereClause?: string | null;
   }) => Promise<Observation[]>;
   onOpenFormplayer?: (data: FormInitData) => Promise<FormCompletionResult>;

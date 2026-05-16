@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-05-04T10:47:58.554Z
+// Last generated: 2026-05-16T12:40:22.983Z
 
 (function () {
   // Enhanced API availability detection and recovery
@@ -356,7 +356,7 @@
       });
     },
 
-    // getObservationsByQuery: options: { formType: string; isDraft?: boolean; includeDeleted?: boolean; whereClause?: string; } => Promise<FormObservation[]>
+    // getObservationsByQuery: options: { formType: string; isDraft?: boolean; includeDeleted?: boolean; filter?: ObservationFilter; whereClause?: string; } => Promise<FormObservation[]>
     getObservationsByQuery: function (options) {
       return new Promise((resolve, reject) => {
         const messageId =

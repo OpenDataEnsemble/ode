@@ -1,3 +1,4 @@
+import { bundleFormsRel } from './bundleLayout';
 import type { FormInitData } from './formplayerHost';
 import { tauriClient } from './tauriClient';
 
@@ -136,23 +137,23 @@ const emptyNorm = (): ReturnType<typeof normalizeJson> => ({
  */
 export async function loadBundleFormplayerExtensions(
   formType: string,
+  developerMode = false,
 ): Promise<{
   extensions: FormInitData['extensions'];
   customQuestionTypes: FormInitData['customQuestionTypes'];
 }> {
+  const formsRoot = bundleFormsRel(developerMode);
   let appJson: Record<string, unknown> | null = null;
   let formJson: Record<string, unknown> | null = null;
   try {
-    const t = await tauriClient.readWorkspaceTextFile(
-      'bundles/active/forms/ext.json',
-    );
+    const t = await tauriClient.readWorkspaceTextFile(`${formsRoot}/ext.json`);
     appJson = JSON.parse(t) as Record<string, unknown>;
   } catch {
     // optional file
   }
   try {
     const t = await tauriClient.readWorkspaceTextFile(
-      `bundles/active/forms/${formType}/ext.json`,
+      `${formsRoot}/${formType}/ext.json`,
     );
     formJson = JSON.parse(t) as Record<string, unknown>;
   } catch {
