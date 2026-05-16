@@ -8,12 +8,12 @@ Published docs: [ODE Desktop developer mode](https://opendataensemble.org/docs/g
 
 ## Layout
 
-| Area | Path | Notes |
-|------|------|--------|
-| Frontend | `src/` | React, Zustand (`useCustodianStore`), workbench pages |
-| Backend | `src-tauri/src/lib.rs` | Workspace, bundles, SQLite, sync, dev mirror |
-| Formplayer assets | `public/formplayer_dist/` | Copy from `formulus-formplayer` (`pnpm build:formplayer`) |
-| Bridge | `public/formulus-injection.js`, `src/lib/formPreviewBridge.ts` | Same contract as Formulus WebView |
+| Area              | Path                                                           | Notes                                                     |
+| ----------------- | -------------------------------------------------------------- | --------------------------------------------------------- |
+| Frontend          | `src/`                                                         | React, Zustand (`useCustodianStore`), workbench pages     |
+| Backend           | `src-tauri/src/lib.rs`                                         | Workspace, bundles, SQLite, sync, dev mirror              |
+| Formplayer assets | `public/formplayer_dist/`                                      | Copy from `formulus-formplayer` (`pnpm build:formplayer`) |
+| Bridge            | `public/formulus-injection.js`, `src/lib/formPreviewBridge.ts` | Same contract as Formulus WebView                         |
 
 **Profiles** are server-scoped settings in Tauri config: workspace path, Synk credentials, and workbench options. Switching profile switches workspace + DB.
 
@@ -25,19 +25,19 @@ Lets authors iterate on a **local build** of a custom app (e.g. `dist/`) against
 
 ### Profile fields
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| `customAppDeveloperMode` | `boolean` | When true, workbench app + forms use dev mirror |
-| `customAppLocalFolder` | `string \| null` | Absolute path to folder containing `index.html` |
+| Field                    | Type             | Purpose                                         |
+| ------------------------ | ---------------- | ----------------------------------------------- |
+| `customAppDeveloperMode` | `boolean`        | When true, workbench app + forms use dev mirror |
+| `customAppLocalFolder`   | `string \| null` | Absolute path to folder containing `index.html` |
 
 Persisted per profile via `upsertProfileRemote` / Rust `ServerProfile`.
 
 ### Workspace paths
 
-| Mode | Custom app | Forms |
-|------|------------|-------|
-| Off | `bundles/active/app/` | `bundles/active/forms/` |
-| On | `bundles/dev-local/app/` (mirror) | `bundles/dev-local/forms/` (mirror if `<folder>/forms` exists) |
+| Mode | Custom app                        | Forms                                                          |
+| ---- | --------------------------------- | -------------------------------------------------------------- |
+| Off  | `bundles/active/app/`             | `bundles/active/forms/`                                        |
+| On   | `bundles/dev-local/app/` (mirror) | `bundles/dev-local/forms/` (mirror if `<folder>/forms` exists) |
 
 Synk downloads and **Refresh from server** on the Bundles page only touch `bundles/active/`. The source folder on disk is **never** modified.
 

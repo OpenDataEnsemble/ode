@@ -19,11 +19,7 @@ pub struct ObservationIndexDef {
 
 #[derive(Debug, Clone, Deserialize)]
 struct AppConfigIndexes {
-    #[serde(
-        rename = "observationIndexes",
-        alias = "observation_indexes",
-        default
-    )]
+    #[serde(rename = "observationIndexes", alias = "observation_indexes", default)]
     observation_indexes: Vec<ObservationIndexDef>,
 }
 

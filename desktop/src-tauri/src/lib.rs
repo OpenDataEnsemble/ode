@@ -1032,18 +1032,18 @@ fn profile_developer_mode(ctx: &AppCtxHandle) -> Result<bool, String> {
 }
 
 fn bundle_segment(dev: bool) -> &'static str {
-    if dev {
-        "dev-local"
-    } else {
-        "active"
-    }
+    if dev { "dev-local" } else { "active" }
 }
 
 fn bundle_form_roots(workspace: &Path, dev: bool) -> Vec<PathBuf> {
     let seg = bundle_segment(dev);
     vec![
         workspace.join("bundles").join(seg).join("forms"),
-        workspace.join("bundles").join(seg).join("app").join("forms"),
+        workspace
+            .join("bundles")
+            .join(seg)
+            .join("app")
+            .join("forms"),
     ]
 }
 
@@ -2234,8 +2234,8 @@ async fn create_observation_sqlite_indexes(
             });
         }
         let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        let executed =
-            observation_index::create_missing_sqlite_indexes(&conn, &defs).map_err(|e| e.to_string())?;
+        let executed = observation_index::create_missing_sqlite_indexes(&conn, &defs)
+            .map_err(|e| e.to_string())?;
         query_log(&format!(
             "[create_observation_sqlite_indexes] created_count={}",
             executed.len()
@@ -3327,17 +3327,17 @@ fn refresh_custom_app_dev_mirror(
     let index_rebuild_generation = None;
     let index_rebuild_scheduled = false;
     let (sqlite_indexes_needed, pending_sqlite_index_statements) = if defs.is_empty() {
-        query_log("[refresh_custom_app_dev_mirror] no observationIndexes found in mirrored app.config.json");
+        query_log(
+            "[refresh_custom_app_dev_mirror] no observationIndexes found in mirrored app.config.json",
+        );
         (false, Vec::new())
     } else {
         match open_db(&ctx) {
             Ok(conn) => {
                 let missing = observation_index::missing_sqlite_indexes(&conn, &defs)
                     .map_err(|e| e.to_string())?;
-                let pending: Vec<String> = missing
-                    .iter()
-                    .map(|idx| format!("{};", idx.sql))
-                    .collect();
+                let pending: Vec<String> =
+                    missing.iter().map(|idx| format!("{};", idx.sql)).collect();
                 let needed = !pending.is_empty();
                 query_log(&format!(
                     "[refresh_custom_app_dev_mirror] sqlite_indexes_needed={} defs={} pending_count={}",
@@ -4234,7 +4234,10 @@ mod tests {
         let mirrored = ws.join("bundles/dev-local/app/index.html");
         assert!(mirrored.is_file());
         assert!(ws.join("bundles/dev-local/app/app.js").is_file());
-        assert!(ws.join("bundles/dev-local/forms/demo/schema.json").is_file());
+        assert!(
+            ws.join("bundles/dev-local/forms/demo/schema.json")
+                .is_file()
+        );
         let _ = fs::remove_dir_all(&base);
     }
 
@@ -4255,7 +4258,10 @@ mod tests {
     fn bound_query_params_execute_with_raw_query() {
         let conn = Connection::open_in_memory().unwrap();
         let mut stmt = conn.prepare("SELECT ?1 AS a, ?2 AS b").unwrap();
-        let params = vec![SqlParam::Text("household".to_string()), SqlParam::Integer(7)];
+        let params = vec![
+            SqlParam::Text("household".to_string()),
+            SqlParam::Integer(7),
+        ];
         bind_query_params(&mut stmt, &params).unwrap();
 
         let mut rows = stmt.raw_query();

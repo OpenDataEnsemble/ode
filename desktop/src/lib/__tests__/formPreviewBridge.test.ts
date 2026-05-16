@@ -425,9 +425,9 @@ describe('handleFormPreviewBridgeMessage', () => {
   });
 
   it('getFormSpecsUri returns bundle forms base url from tauri', async () => {
-    vi.mocked(tauriClient.getActiveBundleFormsFileBaseUrl).mockResolvedValueOnce(
-      'file:///tmp/ws/bundles/dev-local/forms',
-    );
+    vi.mocked(
+      tauriClient.getActiveBundleFormsFileBaseUrl,
+    ).mockResolvedValueOnce('file:///tmp/ws/bundles/dev-local/forms');
     const postMessage = vi.fn();
     const cw = { postMessage } as unknown as Window;
     const iframe = { contentWindow: cw } as HTMLIFrameElement;

@@ -492,22 +492,18 @@ export function FormPreviewPage() {
         <aside className="panel panel-form-preview-sidebar card">
           <h2>Form preview</h2>
           <p className="page-lead">
-            Load forms from{' '}
-            <code>{formsBundlePath}/</code>
+            Load forms from <code>{formsBundlePath}/</code>
             {developerMode ? (
-              <>
-                {' '}
-                (developer mirror — configure on the Bundles page)
-              </>
+              <> (developer mirror — configure on the Bundles page)</>
             ) : (
               <>
                 {' '}
-                (active app bundle under <code>{WORKSPACE_BUNDLE_ACTIVE_DIR}</code>)
+                (active app bundle under{' '}
+                <code>{WORKSPACE_BUNDLE_ACTIVE_DIR}</code>)
               </>
             )}{' '}
-            (same layout as Formulus:
-            each form folder has <code>schema.json</code> and{' '}
-            <code>ui.json</code>
+            (same layout as Formulus: each form folder has{' '}
+            <code>schema.json</code> and <code>ui.json</code>
             ). Optional <code>ext.json</code> at <code>forms/ext.json</code> and
             per-form <code>forms/&lt;type&gt;/ext.json</code>, plus{' '}
             <code>question_types</code> / <code>validators</code> next to or

@@ -16,10 +16,7 @@ function DevModeToggle({
   onSetDeveloperMode: (enabled: boolean) => void;
 }) {
   return (
-    <div
-      className="dev-mode-toggle"
-      role="group"
-      aria-label="Developer mode">
+    <div className="dev-mode-toggle" role="group" aria-label="Developer mode">
       <span className="dev-mode-toggle-label">Developer mode</span>
       <button
         type="button"
@@ -87,7 +84,9 @@ export function DeveloperModePanel({ variant }: DeveloperModePanelProps) {
         aria-live="polite">
         <div className="dev-mode-banner-body">
           <strong>Developer mode active</strong>
-          <span className="dev-mode-banner-path" title={localFolder || undefined}>
+          <span
+            className="dev-mode-banner-path"
+            title={localFolder || undefined}>
             {localFolder || 'No folder configured'}
           </span>
         </div>
@@ -115,7 +114,9 @@ export function DeveloperModePanel({ variant }: DeveloperModePanelProps) {
 
       {developerMode ? (
         <section className="card dev-mode-panel dev-mode-panel-active">
-          <label className="dev-mode-folder-label" htmlFor="custom-app-local-folder">
+          <label
+            className="dev-mode-folder-label"
+            htmlFor="custom-app-local-folder">
             Developer mode active! Local custom_app folder:
           </label>
           <div className="dev-mode-folder-row">
@@ -144,11 +145,11 @@ export function DeveloperModePanel({ variant }: DeveloperModePanelProps) {
           </div>
           <p className="muted dev-mode-hint">
             The app and forms are mirrored into your profile workspace under{' '}
-            <code>bundles/dev-local/</code>. Observations and sync still use this
-            profile&apos;s database. Edit forms in <code>&lt;folder&gt;/forms</code>{' '}
-            and use Form preview to test. Downloaded bundles stay in{' '}
-            <code>bundles/active/</code> — use Refresh from server above to update
-            them.
+            <code>bundles/dev-local/</code>. Observations and sync still use
+            this profile&apos;s database. Edit forms in{' '}
+            <code>&lt;folder&gt;/forms</code> and use Form preview to test.
+            Downloaded bundles stay in <code>bundles/active/</code> — use
+            Refresh from server above to update them.
           </p>
         </section>
       ) : null}

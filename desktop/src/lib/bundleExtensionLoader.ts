@@ -146,9 +146,7 @@ export async function loadBundleFormplayerExtensions(
   let appJson: Record<string, unknown> | null = null;
   let formJson: Record<string, unknown> | null = null;
   try {
-    const t = await tauriClient.readWorkspaceTextFile(
-      `${formsRoot}/ext.json`,
-    );
+    const t = await tauriClient.readWorkspaceTextFile(`${formsRoot}/ext.json`);
     appJson = JSON.parse(t) as Record<string, unknown>;
   } catch {
     // optional file

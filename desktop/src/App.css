@@ -263,7 +263,8 @@ body {
   color: #fff;
 }
 
-.page.page-custom-app .custom-app-dev-toggle-btn-on.custom-app-dev-toggle-btn-active {
+.page.page-custom-app
+  .custom-app-dev-toggle-btn-on.custom-app-dev-toggle-btn-active {
   background: #b45309;
   color: #fff8f0;
 }
@@ -289,7 +290,9 @@ body {
   border-color: rgba(210, 140, 60, 0.5);
 }
 
-.page.page-custom-app .custom-app-dev-panel-active .custom-app-dev-folder-label {
+.page.page-custom-app
+  .custom-app-dev-panel-active
+  .custom-app-dev-folder-label {
   color: #e8c48a;
 }
 

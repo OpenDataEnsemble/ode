@@ -145,8 +145,8 @@ export function WorkbenchCustomAppPage() {
           ) : (
             <>
               Active bundle <strong>{bundleState.activeVersion}</strong> (hash{' '}
-              <code className="custom-app-hash">{bundleState.activeHash}</code>
-              ) — state file <code>{WORKSPACE_BUNDLE_STATE_FILE}</code>
+              <code className="custom-app-hash">{bundleState.activeHash}</code>)
+              — state file <code>{WORKSPACE_BUNDLE_STATE_FILE}</code>
             </>
           )}
         </p>
@@ -169,8 +169,8 @@ export function WorkbenchCustomAppPage() {
           />
         ) : developerMode ? (
           <p className="notice warn">
-            Configure developer mode on the Bundles page, then use Refresh app in
-            the banner to load the custom app.
+            Configure developer mode on the Bundles page, then use Refresh app
+            in the banner to load the custom app.
           </p>
         ) : (
           <p className="notice warn">
