@@ -4,32 +4,35 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
+# Install pnpm
+RUN npm install -g pnpm@11
+
 # Copy package files for all packages (monorepo structure)
-# Copy tokens package (with package-lock.json and config file needed for prepare script)
-COPY packages/tokens/package*.json ./packages/tokens/
-COPY packages/tokens/package-lock.json ./packages/tokens/
+# Copy tokens package (with pnpm-lock.yaml and config file needed for prepare script)
+COPY packages/tokens/package.json ./packages/tokens/
+COPY packages/tokens/pnpm-lock.yaml ./packages/tokens/
 COPY packages/tokens/style-dictionary.config.js ./packages/tokens/
 COPY packages/tokens/config.json ./packages/tokens/
 COPY packages/tokens/src ./packages/tokens/src
-# Copy components package  
-COPY packages/components/package*.json ./packages/components/
-# Copy portal package (with package-lock.json)
-COPY synkronus-portal/package*.json ./synkronus-portal/
-COPY synkronus-portal/package-lock.json ./synkronus-portal/
+# Copy components package
+COPY packages/components/package.json ./packages/components/
+COPY packages/components/pnpm-lock.yaml ./packages/components/
+# Copy portal package (with pnpm-lock.yaml)
+COPY synkronus-portal/package.json ./synkronus-portal/
+COPY synkronus-portal/pnpm-lock.yaml ./synkronus-portal/
 
 # Install dependencies for tokens (needed by components)
-# The prepare script will build tokens during npm ci
+# The prepare script will build tokens during pnpm install
 WORKDIR /app/packages/tokens
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Install dependencies for components (needed by portal)
-# Note: components doesn't have package-lock.json, so use npm install
 WORKDIR /app/packages/components
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
 # Install dependencies for portal
 WORKDIR /app/synkronus-portal
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source code for all packages
 WORKDIR /app
@@ -39,15 +42,15 @@ COPY synkronus-portal ./synkronus-portal
 
 # Build tokens first (if needed)
 WORKDIR /app/packages/tokens
-RUN npm run build || true
+RUN pnpm build || true
 
 # Build components (if needed)
 WORKDIR /app/packages/components
-RUN npm run build || true
+RUN pnpm build || true
 
 # Build the portal application
 WORKDIR /app/synkronus-portal
-RUN npm run build
+RUN pnpm build
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine

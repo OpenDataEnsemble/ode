@@ -73,30 +73,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: |
-            formulus/package-lock.json
-            packages/tokens/package-lock.json
-      
+            formulus/pnpm-lock.yaml
+            packages/tokens/pnpm-lock.yaml
+
       - name: Install and build @ode/tokens
         working-directory: .
         run: |
           cd packages/tokens
-          npm install
-          npm run build
-      
+          pnpm install
+          pnpm build
+
       - name: Install dependencies
-        run: npm install
-      
+        run: pnpm install
+
       - name: Run linter
-        run: npm run lint
+        run: pnpm lint
 
       - name: Run tests
-        run: npm test -- --ci --coverage --watchAll=false
+        run: pnpm test -- --ci --coverage --watchAll=false
 
   # Lint and test for formulus-formplayer (React Web)
   formulus-formplayer:
@@ -113,37 +118,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: formulus-formplayer/package-lock.json
-      
+          cache: 'pnpm'
+          cache-dependency-path: formulus-formplayer/pnpm-lock.yaml
+
       - name: Install and build @ode/tokens
         working-directory: .
         run: |
           cd packages/tokens
-          npm install
-          npm run build
-      
+          pnpm install
+          pnpm build
+
       - name: Install dependencies
-        run: npm install
-      
+        run: pnpm install
+
       - name: Run linter
-        run: npm run lint
+        run: pnpm lint
         continue-on-error: false
-      
+
       - name: Run Prettier check
-        run: npm run format:check
+        run: pnpm format:check
         continue-on-error: false
-      
+
       - name: Run tests
-        run: npm test -- --coverage --watchAll=false
+        run: pnpm test -- --coverage --watchAll=false
         continue-on-error: true # Tests not fully set up yet
-      
+
       - name: Build
-        run: npm run build
+        run: pnpm build
         continue-on-error: false
 
   # Build and test for synkronus (Go backend)

@@ -4,22 +4,30 @@
   "type": "module",
   "private": true,
   "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@nestjs/core",
+      "@openapitools/openapi-generator-cli",
+      "unrs-resolver"
+    ]
+  },
   "scripts": {
-    "preandroid": "npm run vendor:notifee",
+    "preandroid": "pnpm vendor:notifee",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint . --max-warnings 9999",
     "lint:fix": "eslint . --fix --max-warnings 9999",
-    "format": "npx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
-    "format:check": "npx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
+    "format": "pnpm dlx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
+    "format:check": "pnpm dlx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
     "start": "react-native start",
     "test": "jest",
     "generate": "tsx scripts/generateInjectionScript.ts",
-    "generate:api": "npx --yes @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated \"--additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && npm run format",
+    "generate:api": "pnpm dlx @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated \"--additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && pnpm format",
     "generate_qr": "tsx scripts/generateQR.ts",
     "sync:version": "node scripts/syncNativeVersion.js",
     "vendor:notifee": "node scripts/vendor-notifee-core.mjs",
-    "prebuild": "npm run sync:version && npm run generate"
+    "prebuild": "pnpm sync:version && pnpm generate"
   },
   "dependencies": {
     "@notifee/react-native": "^9.1.8",

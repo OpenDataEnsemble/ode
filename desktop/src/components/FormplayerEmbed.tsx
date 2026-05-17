@@ -31,7 +31,7 @@ function assertFormplayerIndexHtml(html: string): void {
 
   if (looksLikeDesktopShell || looksLikeDevShell || !looksLikeFormplayer) {
     throw new Error(
-      'formplayer_dist/index.html is missing or the app shell HTML was returned instead of the Formplayer bundle. Run pnpm copy:formplayer from desktop/ or npm run build:copy from formulus-formplayer.',
+      'formplayer_dist/index.html is missing or the app shell HTML was returned instead of the Formplayer bundle. Run pnpm copy:formplayer from desktop/ or pnpm build:copy from formulus-formplayer.',
     );
   }
 }

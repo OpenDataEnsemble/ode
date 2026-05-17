@@ -39,28 +39,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - name: Set up Node.js for assets
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: |
-            formulus-formplayer/package-lock.json
-            packages/tokens/package-lock.json
+            formulus-formplayer/pnpm-lock.yaml
+            packages/tokens/pnpm-lock.yaml
 
       - name: Install and build @ode/tokens
         working-directory: packages/tokens
         run: |
-          npm install
-          npm run build
+          pnpm install
+          pnpm build
 
       - name: Install formplayer dependencies
         working-directory: formulus-formplayer
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build and bundle formplayer
         working-directory: formulus-formplayer
-        run: npm run build:copy
+        run: pnpm build:copy
 
       - name: Upload formplayer assets artifact
         uses: actions/upload-artifact@v6
@@ -86,38 +91,43 @@ jobs:
           name: formplayer-assets
           path: formulus/android/app/src/main/assets/formplayer_dist
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: |
-            formulus/package-lock.json
+            formulus/pnpm-lock.yaml
             formulus/package.json
-            formulus-formplayer/package-lock.json
+            formulus-formplayer/pnpm-lock.yaml
             formulus-formplayer/package.json
-            packages/tokens/package-lock.json
+            packages/tokens/pnpm-lock.yaml
             packages/tokens/package.json
-            packages/components/package-lock.json
+            packages/components/pnpm-lock.yaml
             packages/components/package.json
 
       - name: Install and build @ode/tokens
         working-directory: packages/tokens
         run: |
-          npm install
-          npm run build
+          pnpm install
+          pnpm build
 
       - name: Install @ode/components dependencies
         working-directory: packages/components
-        run: npm install
+        run: pnpm install
 
-      - name: Install npm dependencies (formulus)
+      - name: Install dependencies (formulus)
         working-directory: formulus
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Vendor Notifee Android core (source build; dir is gitignored)
         working-directory: formulus
-        run: npm run vendor:notifee
+        run: pnpm vendor:notifee
 
       - name: Set up Java
         uses: actions/setup-java@v4

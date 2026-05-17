@@ -39,10 +39,10 @@ function parseArgs(): FRMLS {
 
   if (!params.url || !params.user || !params.pass) {
     console.error(
-      'Usage: npm run generate_qr url=<server_url> user=<username> pass=<password>',
+      'Usage: pnpm generate_qr url=<server_url> user=<username> pass=<password>',
     );
     console.error(
-      'Example: npm run generate_qr url=http://localhost:3000/synk user=admin pass=admin',
+      'Example: pnpm generate_qr url=http://localhost:3000/synk user=admin pass=admin',
     );
     process.exit(1);
   }

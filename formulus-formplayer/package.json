@@ -5,6 +5,9 @@
   "private": true,
   "license": "MIT",
   "homepage": ".",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
@@ -37,10 +40,10 @@
   "scripts": {
     "start": "vite",
     "sync-interface": "node scripts/sync-interface.js",
-    "build": "npm run sync-interface && tsc && vite build",
+    "build": "pnpm sync-interface && tsc && vite build",
     "preview": "vite preview",
-    "upload:android": "npm run build:copy",
-    "build:copy": "npm run build && npm run copy-to-rn && node ../desktop/scripts/copy-formplayer-to-desktop.mjs",
+    "upload:android": "pnpm build:copy",
+    "build:copy": "pnpm build && pnpm copy-to-rn && node ../desktop/scripts/copy-formplayer-to-desktop.mjs",
     "clean-rn-assets": "node scripts/clean-rn-assets.js",
     "copy-to-rn": "node scripts/copy-to-rn.js",
     "test": "vitest",

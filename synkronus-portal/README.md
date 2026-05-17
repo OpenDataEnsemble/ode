@@ -3,6 +3,7 @@
 Frontend service for Synkronus, built with React + TypeScript + Vite.
 
 ## Overview
+
 The Synkronus Portal provides a web-based interface for managing app bundles, users, observations, and data exports. It supports both development (hot reload) and production (optimized build) modes.
 
 ## Prerequisites
@@ -10,6 +11,7 @@ The Synkronus Portal provides a web-based interface for managing app bundles, us
 Before starting, ensure you have:
 
 ### For Docker-based Setup (Recommended)
+
 - **Docker** (version 20.10+) and **Docker Compose** (version 2.0+)
 - Check: `docker --version` and `docker compose version`
 - **Git** (for cloning the repository)
@@ -18,6 +20,7 @@ Before starting, ensure you have:
 **Note for Windows users:** Ensure WSL2 is enabled if using Docker Desktop.
 
 ### For Dockerless Development Setup
+
 - **Node.js** 20+ and **npm** or **yarn**
 - **Go** 1.22+ (for running the backend API)
 - **PostgreSQL** 17+ (installed locally or accessible)
@@ -26,6 +29,7 @@ Before starting, ensure you have:
 ---
 
 ## Quick Reference
+
 | Mode                         | Command                                                    | URL                   | Hot Reload | Docker Required |
 | ---------------------------- | ---------------------------------------------------------- | --------------------- | ---------- | --------------- |
 | **Production**               | `docker compose up -d --build`                             | http://localhost:5173 | ❌ No      | ✅ Yes          |
@@ -33,6 +37,7 @@ Before starting, ensure you have:
 | **Development (Dockerless)** | See [Dockerless Setup](#dockerless-development-setup)      | http://localhost:5174 | ✅ Yes     | ❌ No           |
 
 **Default Login Credentials:**
+
 - Username: `admin`
 - Password: `admin`
 
@@ -43,6 +48,7 @@ Before starting, ensure you have:
 **For users who just want to get it running:**
 
 ### Option 1: Production Mode (Docker - Easiest)
+
 1. **Navigate to directory:**
 
    ```bash
@@ -63,7 +69,6 @@ Before starting, ensure you have:
 5. **Login with:** `admin` / `admin`
 
 That's it! 🎉
-
 
 ### Option 2: Development Mode (Dockerless - No Docker Required)
 
@@ -108,6 +113,7 @@ docker compose logs -f
 - **Swagger UI**: http://localhost:8080/openapi/swagger-ui.html
 
 **Production Mode Features:**
+
 - ✅ Optimized production build (minified, tree-shaken)
 - ✅ Static file serving via Nginx (fast, efficient)
 - ✅ Persistent data storage (survives container restarts)
@@ -115,6 +121,7 @@ docker compose logs -f
 - ❌ No hot reload (requires rebuild for changes)
 
 **To stop production mode:**
+
 ```bash
 docker compose down
 ```
@@ -163,10 +170,12 @@ npm run dev
 ```
 
 **Step 6:** Access the portal
+
 - **Frontend Portal**: http://localhost:5174 (Vite dev server with hot reload)
 - **Backend API**: http://localhost:8080 (already running from Step 2)
 
 **Development Mode Features:**
+
 - ✅ Hot Module Replacement (HMR) - instant code updates without page refresh
 - ✅ Fast refresh - React components update instantly
 - ✅ Source maps for debugging
@@ -192,6 +201,7 @@ docker compose down
 **Perfect for developers who prefer not to use Docker or want a fully local development environment.**
 
 ### Prerequisites
+
 - **Node.js** 20+ and **npm**
 - **Go** 1.22+ ([Install Go](https://go.dev/doc/install))
 - **PostgreSQL** 17+ ([Install PostgreSQL](https://www.postgresql.org/download/))
@@ -200,6 +210,7 @@ docker compose down
 ### Step 1: Set Up PostgreSQL Database
 
 **Create the database and user:**
+
 ```bash
 # Connect to PostgreSQL (as superuser)
 psql -U postgres
@@ -314,6 +325,7 @@ npm run dev
 ```
 
 **Access the portal:**
+
 - **Frontend Portal**: http://localhost:5174
 - **Backend API**: http://localhost:8080
 - **Login**: `admin` / `admin`
@@ -350,11 +362,13 @@ npm run dev
 - Ensure database and user were created correctly
 
 **Frontend can't connect to backend:**
+
 - Verify backend is running on port 8080: `curl http://localhost:8080/health`
 - Check `vite.config.ts` proxy configuration
 - Ensure no firewall is blocking localhost connections
 
 **Database connection errors:**
+
 - Verify PostgreSQL is running
 - Check connection string format: `postgres://user:password@host:port/database`
 - Ensure user has proper permissions
@@ -382,10 +396,12 @@ curl http://localhost:8080/health
 Should return JSON like: `{\"status\":\"ok\",...}`
 
 3. **Test frontend:**
+
 - Open http://localhost:5173 (production) or http://localhost:5174 (development) in your browser
 - Should show the login page
 
 4. **Test login:**
+
 - Username: `admin`
 - Password: `admin`
 - Should successfully authenticate and show dashboard
@@ -403,11 +419,13 @@ docker compose logs -f
 ## Common Issues
 
 ### "cannot execute: required file not found" (init-db.sh)
+
 **Symptom:** PostgreSQL container fails to initialize database user.
 
 **Cause:** Windows line endings (CRLF) in shell scripts.
 
 **Solution:**
+
 ```powershell
 # Convert line endings (PowerShell)
 $content = Get-Content init-db.sh -Raw
@@ -419,6 +437,7 @@ docker compose up -d --build
 ```
 
 **Prevention:** The `.gitattributes` file enforces LF line endings. If you're on Windows, ensure Git is configured correctly:
+
 ```bash
 git config core.autocrlf false
 ```
@@ -455,6 +474,7 @@ PORT=8080  # Change to your desired port
 ### Health Checks Show "Unhealthy" or "Starting"
 
 **This is normal!** Health checks can take 30-60 seconds to pass on first startup. As long as:
+
 - Services show "Up" status
 - `curl http://localhost:8080/health` returns JSON with `"status":"ok"`
 - Frontend loads in browser
@@ -472,6 +492,7 @@ Then everything is working correctly. The health check status will update to "he
 7. Check `vite.config.ts` for correct HMR configuration (should be set up by default)
 
 ### API Connection Issues
+
 1. **Docker mode:**
    - Verify backend is running: `docker compose ps`
    - Check backend logs: `docker compose logs synkronus`
@@ -515,12 +536,14 @@ docker compose logs synkronus | grep -i "app bundle\|bundle path"
 ```
 
 5. **Ensure you're not using `docker compose down -v`:**
+
 - Use `docker compose down` (preserves volumes) ✅
 - Avoid `docker compose down -v` (deletes volumes) ❌
 
 **Note:** App bundles are stored in the `app-bundles` volume (Docker) or `./data/app-bundles` directory (Dockerless).
 
 This persists across restarts. If bundles are missing, check that:
+
 - The volume/directory wasn't accidentally deleted
 - The backend has proper permissions to read/write
 - The `APP_BUNDLE_PATH` environment variable is set correctly
@@ -528,18 +551,22 @@ This persists across restarts. If bundles are missing, check that:
 ### Windows-Specific Issues
 
 **Line Endings:**
+
 - Git should handle this automatically with `.gitattributes`
 - If issues persist: `git config core.autocrlf false`
 
 **File Watching (Dockerless):**
+
 - If hot reload doesn't work, files may need to be in WSL filesystem
 - Or use polling mode in `vite.config.ts` (already configured)
 
 **PowerShell vs Bash:**
+
 - Most commands work in both
 - Use backticks for line continuation in PowerShell: `` ` ``
 
 ---
+
 ## Architecture
 
 ### Development Mode (Docker)
@@ -630,33 +657,43 @@ This persists across restarts. If bundles are missing, check that:
 ```
 
 ---
+
 ## API Proxy Configuration
 
 ### Development Mode
+
 The Vite dev server automatically proxies `/api/*` requests to the backend:
+
 - **Frontend → Backend**: `/api/*` → `http://localhost:8080/*` (via Vite proxy)
 - **Configuration**: See `vite.config.ts`
 
 ### Production Mode
+
 Nginx proxies `/api/*` requests to the backend:
+
 - **Frontend → Backend**: `/api/*` → `http://synkronus:8080/*` (via Nginx)
 - **Configuration**: See `Dockerfile` nginx config
 
 ---
+
 ## Storage Persistence
 
 ### Docker Mode
+
 Both development and production modes use the **same named Docker volumes**, ensuring your data persists across:
+
 - Container restarts
 - Mode switches (dev ↔ prod)
 - Container removal (with `docker compose down`)
 - System reboots
 
 **Volumes:**
+
 - **postgres-data**: PostgreSQL database files (users, observations, app bundles metadata)
 - **app-bundles**: App bundle ZIP files and versions (stored at `/app/data/app-bundles` in the container)
 
 **Important:** App bundles are stored in **both** places:
+
 - **Files**: Actual ZIP files and extracted content in the `app-bundles` volume
 - **Database**: Metadata about bundles (versions, manifest info) in the `postgres-data` volume
 
@@ -664,22 +701,26 @@ Both volumes must persist for app bundles to work correctly after restart.
 
 **Volume Persistence Guarantee:**
 ✅ **Volumes are NOT deleted when you:**
+
 - Stop containers: `docker compose down`
 - Restart containers: `docker compose restart`
 - Switch between dev/prod modes
 - Rebuild containers: `docker compose build`
 
 ⚠️ **Volumes ARE deleted ONLY when you:**
+
 - Explicitly use: `docker compose down -v` (the `-v` flag removes volumes)
 - Manually delete: `docker volume rm <volume-name>`
 
 ### Dockerless Mode
 
 Data is stored in local directories:
+
 - **PostgreSQL**: Uses your local PostgreSQL data directory (configured during PostgreSQL installation)
 - **App Bundles**: Stored in `../synkronus/data/app-bundles` directory
 
 **Backup Recommendations:**
+
 - Regularly backup your PostgreSQL database
 - Backup the `data/app-bundles` directory
 
@@ -697,42 +738,52 @@ docker compose down
 ```
 
 This command:
+
 - ✅ Stops all containers
 - ✅ Removes containers
 - ✅ **Keeps all volumes** (your data is safe!)
 - ✅ Removes networks
 
 **Complete Removal (⚠️ DELETES ALL DATA):**
+
 ```bash
 # Stop services AND delete volumes - ⚠️ THIS DELETES ALL DATA!
 docker compose down -v
 ```
 
 **⚠️ WARNING:** The `-v` flag removes volumes, which will:
+
 - Delete all database data (users, observations, etc.)
 - Delete all uploaded app bundles
 - **This action cannot be undone!**
 
 **Restarting Services:**
+
 ```bash
 # Start services (volumes are automatically reattached)
 docker compose up -d
 ```
+
 Your data will be exactly as you left it!
 
 ### Dockerless Mode
+
 **Stop Frontend:**
+
 - Press `Ctrl+C` in the terminal running `npm run dev`
 
 **Stop Backend:**
+
 - Press `Ctrl+C` in the terminal running the Go server
 
 **Stop PostgreSQL:**
+
 - Use your system's service manager (e.g., `systemctl stop postgresql` on Linux)
 
 ---
 
 ## Default Credentials
+
 - **Admin username**: `admin`
 - **Admin password**: `admin`
 
@@ -743,6 +794,7 @@ Your data will be exactly as you left it!
 ## Switching Between Modes
 
 ### From Production to Development (Docker)
+
 1. Stop production containers:
 
    ```bash
@@ -762,6 +814,7 @@ Your data will be exactly as you left it!
    ```
 
 ### From Development to Production (Docker)
+
 1. Stop Vite dev server (`Ctrl+C`).
 
 2. Stop backend containers:
@@ -779,7 +832,9 @@ Your data will be exactly as you left it!
 **Important:** Your data (database, app bundles) persists when switching between modes because both use the same Docker volumes.
 
 ### From Docker to Dockerless (or vice versa)
+
 **Note:** Data is not automatically shared between Docker and Dockerless modes. You'll need to:
+
 - Export data from one mode
 - Import into the other mode
 - Or use the same PostgreSQL instance for both
@@ -789,6 +844,7 @@ Your data will be exactly as you left it!
 ## Building for Production
 
 ### First Time Setup
+
 For the first time, or after code changes:
 
 ```bash
@@ -800,6 +856,7 @@ docker compose up -d
 ```
 
 ### Rebuilding After Code Changes
+
 If you've made changes to the frontend code:
 
 ```bash
@@ -808,29 +865,35 @@ docker compose build synkronus-portal
 # Restart the portal service
 docker compose up -d synkronus-portal
 ```
+
 **Note:** The `--build` flag in `docker compose up -d --build` will:
+
 - Build images if they don't exist
 - Rebuild images if the Dockerfile or source code changed
 - Start all services after building
-This is the easiest way to ensure everything is up-to-date!
+  This is the easiest way to ensure everything is up-to-date!
 
 ---
 
 ## Environment Variables
 
 ### Development
+
 - `VITE_API_URL`: Backend API URL (default: uses `/api` proxy)
 - `DOCKER_ENV`: Set to `true` when running in Docker
 
 ### Production
+
 - `VITE_API_URL`: Backend API URL (default: `http://localhost:8080`)
 
 ### Backend (Dockerless)
+
 See `../synkronus/README.md` for complete backend environment variable documentation.
 
 ---
 
 ## See Also
+
 - [SETUP_ANALYSIS.md](./SETUP_ANALYSIS.md) - Detailed setup analysis and recommendations
 - [../synkronus/README.md](../synkronus/README.md) - Backend API documentation
 - [../synkronus/DEPLOYMENT.md](../synkronus/DEPLOYMENT.md) - Production deployment guide

@@ -1,4 +1,4 @@
-// Run with: npm run generate (tsx; package is "type": "module")
+// Run with: pnpm generate (tsx; package is "type": "module")
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';

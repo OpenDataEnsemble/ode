@@ -4,15 +4,22 @@
   "version": "1.0.0",
   "license": "MIT",
   "type": "module",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@nestjs/core",
+      "@openapitools/openapi-generator-cli"
+    ]
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "prebuild": "npm run generate:api",
-    "generate:api": "npx --yes @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated \"--additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && npm run format",
+    "prebuild": "pnpm generate:api",
+    "generate:api": "pnpm dlx @openapitools/openapi-generator-cli generate -i ../synkronus/openapi/synkronus.yaml -g typescript-axios -o src/api/synkronus/generated \"--additional-properties=supportsES6=true,useSingleRequestParameter=true,modelPropertyNaming=original\" && pnpm format",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "npx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
-    "format:check": "npx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
+    "format": "pnpm dlx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
+    "format:check": "pnpm dlx prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
     "preview": "vite preview"
   },
   "dependencies": {

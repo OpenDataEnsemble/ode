@@ -131,28 +131,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
+          cache: 'pnpm'
           cache-dependency-path: |
-            formulus-formplayer/package-lock.json
-            packages/tokens/package-lock.json
+            formulus-formplayer/pnpm-lock.yaml
+            packages/tokens/pnpm-lock.yaml
 
       - name: Install and build @ode/tokens
         working-directory: packages/tokens
         run: |
-          npm ci
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm build
 
       - name: Install formplayer dependencies
         working-directory: formulus-formplayer
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build formplayer
         working-directory: formulus-formplayer
-        run: npm run build
+        run: pnpm build
 
       - name: Stage formplayer for desktop
         run: |

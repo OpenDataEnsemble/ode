@@ -34,7 +34,7 @@
   "author": "ODE Design System Team",
   "license": "MIT",
   "peerDependencies": {
-    "@ode/tokens": "file:../tokens",
+    "@ode/tokens": "*",
     "react": ">=18.0.0",
     "react-native": ">=0.70.0"
   },

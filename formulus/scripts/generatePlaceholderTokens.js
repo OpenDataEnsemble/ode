@@ -34,7 +34,7 @@ function loadTokens() {
   if (!fs.existsSync(TOKENS_PATH)) {
     console.error(
       `[generatePlaceholderTokens] Tokens not found at ${TOKENS_PATH}\n` +
-        'Run "npm run build" in packages/tokens (or from repo root) and ensure formulus has @ode/tokens linked.',
+        'Run "pnpm build" in packages/tokens (or from repo root) and ensure formulus has @ode/tokens linked.',
     );
     process.exit(1);
   }
@@ -62,7 +62,7 @@ function generateRootBlock(t) {
   const opacity70 = opacity['70'] ?? '0.7';
 
   return `/*
-       * ODE design tokens — generated from packages/tokens. Do not edit; run npm run generate:placeholder-tokens to update.
+       * ODE design tokens — generated from packages/tokens. Do not edit; run pnpm generate:placeholder-tokens to update.
        */
       :root {
         /* color.brand.primary */

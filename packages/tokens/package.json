@@ -20,10 +20,10 @@
     "README.md"
   ],
   "scripts": {
-    "build": "npx style-dictionary build --config style-dictionary.config.js && node scripts/create-tokens-resolved.js",
+    "build": "style-dictionary build --config style-dictionary.config.js && node scripts/create-tokens-resolved.js",
     "clean": "rm -rf dist",
-    "prepare": "[ -d dist ] || npm run build",
-    "prepublishOnly": "npm run build"
+    "prepare": "[ -d dist ] || pnpm build",
+    "prepublishOnly": "pnpm build"
   },
   "keywords": [
     "design-tokens",

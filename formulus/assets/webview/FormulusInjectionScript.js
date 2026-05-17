@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-05-16T12:40:22.983Z
+// Last generated: 2026-05-17T18:46:02.357Z
 
 (function () {
   // Enhanced API availability detection and recovery

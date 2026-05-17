@@ -512,8 +512,8 @@ export function FormPreviewPage() {
             <code>defaultData</code>) and <strong>saved data</strong> for
             edit-style payloads — same shape as <code>FormInitData</code> in{' '}
             <code>FormulusInterfaceDefinition</code>. Build formplayer from{' '}
-            <code>formulus-formplayer/</code> (<code>npm run build:copy</code>)
-            or <code>pnpm copy:formplayer</code> in <code>desktop/</code>.
+            <code>formulus-formplayer/</code> (<code>pnpm build:copy</code>) or{' '}
+            <code>pnpm copy:formplayer</code> in <code>desktop/</code>.
           </p>
 
           <div className="form-preview-controls">

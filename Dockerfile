@@ -5,30 +5,34 @@ FROM node:24-alpine AS portal-builder
 # OpenAPI Generator CLI invokes Java during synkronus-portal prebuild (not installed in node:alpine)
 RUN apk add --no-cache openjdk21-jre-headless
 
+# Install pnpm
+RUN npm install -g pnpm@11
+
 WORKDIR /app
 
 # Copy package files for all packages (monorepo structure)
-COPY packages/tokens/package*.json ./packages/tokens/
-COPY packages/tokens/package-lock.json ./packages/tokens/
+COPY packages/tokens/package.json ./packages/tokens/
+COPY packages/tokens/pnpm-lock.yaml ./packages/tokens/
 COPY packages/tokens/style-dictionary.config.js ./packages/tokens/
 COPY packages/tokens/config.json ./packages/tokens/
 COPY packages/tokens/scripts ./packages/tokens/scripts
 COPY packages/tokens/src ./packages/tokens/src
-COPY packages/components/package*.json ./packages/components/
-COPY synkronus-portal/package*.json ./synkronus-portal/
-COPY synkronus-portal/package-lock.json ./synkronus-portal/
+COPY packages/components/package.json ./packages/components/
+COPY packages/components/pnpm-lock.yaml ./packages/components/
+COPY synkronus-portal/package.json ./synkronus-portal/
+COPY synkronus-portal/pnpm-lock.yaml ./synkronus-portal/
 
 # Install dependencies for tokens
 WORKDIR /app/packages/tokens
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Install dependencies for components
 WORKDIR /app/packages/components
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Install dependencies for portal
 WORKDIR /app/synkronus-portal
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
 # Copy source code for all packages
 WORKDIR /app
@@ -38,11 +42,11 @@ COPY synkronus-portal ./synkronus-portal
 
 # Build tokens first (if needed)
 WORKDIR /app/packages/tokens
-RUN npm run build || true
+RUN pnpm build || true
 
 # Build components (if needed)
 WORKDIR /app/packages/components
-RUN npm run build || true
+RUN pnpm build || true
 
 # Spec for generate:api (-i ../synkronus/openapi/synkronus.yaml); not part of synkronus-portal COPY above
 WORKDIR /app
@@ -50,7 +54,7 @@ COPY synkronus/openapi ./synkronus/openapi
 
 # Build the portal application
 WORKDIR /app/synkronus-portal
-RUN npm run build
+RUN pnpm build
 
 # Stage 2: Build the Go application (Synkronus) with embedded portal
 FROM golang:1.26.0-alpine AS synkronus-builder

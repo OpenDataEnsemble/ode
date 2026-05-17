@@ -71,7 +71,7 @@ function copyRecursive(src, dest) {
 
 if (!fs.existsSync(buildDir)) {
   console.error(
-    '❌ Build directory does not exist. Run "npm run build" first.',
+    '❌ Build directory does not exist. Run "pnpm build" first.',
   );
   process.exit(1);
 }
