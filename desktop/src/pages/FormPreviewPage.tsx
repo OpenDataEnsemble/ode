@@ -115,11 +115,11 @@ export function FormPreviewPage() {
     } finally {
       setListLoading(false);
     }
-  }, [devMirrorGeneration]);
+  }, []);
 
   useEffect(() => {
     void loadForms();
-  }, [loadForms]);
+  }, [loadForms, devMirrorGeneration]);
 
   const buildInitFromSpec = useCallback(
     async (
@@ -337,7 +337,7 @@ export function FormPreviewPage() {
         }
       })();
     },
-    [],
+    [developerMode],
   );
 
   const tryCompleteNestedSubObservationFinalize = useCallback(

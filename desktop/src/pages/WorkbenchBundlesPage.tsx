@@ -93,7 +93,7 @@ export function WorkbenchBundlesPage() {
     } finally {
       setLoading(false);
     }
-  }, [auth?.token, baseUrl, active?.id, loadLocalBundleState]);
+  }, [auth, baseUrl, active, loadLocalBundleState]);
 
   useEffect(() => {
     if (active?.id) {
