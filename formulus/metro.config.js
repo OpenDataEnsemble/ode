@@ -19,7 +19,10 @@ const projectRoot = __dirname;
  * (avoids incomplete copy in packages/components). react-native-svg only uses
  * extraNodeModules so Metro resolves its real entry (lib/commonjs/index.js).
  */
-const babelRuntimeRoot = path.resolve(projectRoot, 'node_modules/@babel/runtime');
+const babelRuntimeRoot = path.resolve(
+  projectRoot,
+  'node_modules/@babel/runtime',
+);
 
 const forcedModules = {
   react: path.resolve(projectRoot, 'node_modules/react'),
