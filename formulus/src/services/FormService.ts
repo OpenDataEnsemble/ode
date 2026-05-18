@@ -5,6 +5,11 @@ import {
   UpdateObservationInput,
 } from '../database/models/Observation';
 import RNFS from 'react-native-fs';
+import {
+  resolveSharedChoiceRefs,
+  SHARED_CHOICE_SCHEMA_ID,
+  type SharedChoiceSchemaDoc,
+} from '../utils/sharedChoiceSchema';
 
 /**
  * Interface representing a form type
@@ -27,6 +32,10 @@ export class FormService {
   private formSpecs: FormSpec[] = [];
   private static initializationPromise: Promise<void> | null = null;
   private cacheInvalidationCallbacks: Set<() => void> = new Set();
+  private sharedChoiceSchemaByDir = new Map<
+    string,
+    SharedChoiceSchemaDoc | null
+  >();
 
   private constructor() {
     console.log(
@@ -51,8 +60,49 @@ export class FormService {
     }
   }
 
+  private async loadSharedChoiceSchema(
+    formsDir: string,
+  ): Promise<SharedChoiceSchemaDoc | null> {
+    if (this.sharedChoiceSchemaByDir.has(formsDir)) {
+      return this.sharedChoiceSchemaByDir.get(formsDir) ?? null;
+    }
+    const filePath = `${formsDir}/shared-choice-defs.schema.json`;
+    try {
+      const exists = await RNFS.exists(filePath);
+      if (!exists) {
+        this.sharedChoiceSchemaByDir.set(formsDir, null);
+        return null;
+      }
+      const raw = await RNFS.readFile(filePath, 'utf8');
+      const doc = JSON.parse(raw) as SharedChoiceSchemaDoc;
+      if (!doc.$defs || typeof doc.$defs !== 'object') {
+        console.warn(
+          'FormService: shared-choice-defs.schema.json missing $defs',
+        );
+        this.sharedChoiceSchemaByDir.set(formsDir, null);
+        return null;
+      }
+      if (!doc.$id) {
+        doc.$id = SHARED_CHOICE_SCHEMA_ID;
+      }
+      this.sharedChoiceSchemaByDir.set(formsDir, doc);
+      console.log(
+        `FormService: loaded shared choice defs (${Object.keys(doc.$defs).length} lists) from ${filePath}`,
+      );
+      return doc;
+    } catch (error) {
+      console.warn(
+        'FormService: failed to load shared-choice-defs.schema.json',
+        error,
+      );
+      this.sharedChoiceSchemaByDir.set(formsDir, null);
+      return null;
+    }
+  }
+
   private async loadFormspec(
     formDir: RNFS.ReadDirItem,
+    formsParentDir: string,
   ): Promise<FormSpec | null> {
     if (!formDir.isDirectory()) {
       console.log('Skipping non-directory:', formDir.name);
@@ -71,6 +121,23 @@ export class FormService {
         error,
       );
       return null;
+    }
+
+    const sharedChoice = await this.loadSharedChoiceSchema(formsParentDir);
+    if (sharedChoice && schema && typeof schema === 'object') {
+      try {
+        schema = resolveSharedChoiceRefs(
+          schema as Record<string, unknown>,
+          sharedChoice,
+        );
+      } catch (resolveError) {
+        console.error(
+          'Failed to resolve shared choice refs for form:',
+          formDir.name,
+          resolveError,
+        );
+        return null;
+      }
     }
     let uiSchema: unknown;
     try {
@@ -127,7 +194,7 @@ export class FormService {
 
         for (const formDir of formDirs) {
           if (seenIds.has(formDir.name)) continue;
-          const spec = await this.loadFormspec(formDir);
+          const spec = await this.loadFormspec(formDir, formSpecsDir);
           if (spec) {
             allFormSpecs.push(spec);
             seenIds.add(spec.id);
