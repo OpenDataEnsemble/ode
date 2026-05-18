@@ -195,7 +195,7 @@ jobs:
             runner: windows-11-arm
             rust_target: aarch64-pc-windows-msvc
           - platform: darwin-amd64
-            runner: macos-15-intel
+            runner: macos-14
             rust_target: x86_64-apple-darwin
           - platform: darwin-arm64
             runner: macos-latest
@@ -267,16 +267,33 @@ jobs:
         working-directory: desktop
         env:
           CI: 'true'
-        run: >-
-          pnpm exec tauri build --target ${{ matrix.rust_target }} -c '${{ env.TAURI_BEFORE_BUILD }}'
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: |
+          set -euo pipefail
+          if [[ "${RUNNER_OS}" == "macOS" ]]; then
+            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+          fi
+          if ! pnpm exec tauri build --verbose --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'; then
+            if [[ "${RUNNER_OS}" != "macOS" ]]; then
+              exit 1
+            fi
+            echo "::warning::Tauri build failed; retrying DMG bundle on macOS"
+            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+            pnpm exec tauri build --verbose --bundles dmg --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'
+          fi
 
       - name: Collect installers for upload
         working-directory: desktop
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          RUST_TARGET: ${{ matrix.rust_target }}
         run: |
           set -euo pipefail
           rm -rf dist-ci
           mkdir -p dist-ci
-          bundle_dir="src-tauri/target/${{ matrix.rust_target }}/release/bundle"
+          bundle_dir="src-tauri/target/${RUST_TARGET}/release/bundle"
           if [[ ! -d "$bundle_dir" ]]; then
             echo "::error::Missing bundle dir: $bundle_dir"
             find src-tauri/target -maxdepth 4 -type d 2>/dev/null || true
@@ -285,11 +302,20 @@ jobs:
           count=0
           while IFS= read -r -d '' f; do
             base=$(basename "$f")
-            cp "$f" "dist-ci/ode-desktop-${{ matrix.platform }}-${base}"
+            cp "$f" "dist-ci/ode-desktop-${PLATFORM}-${base}"
             count=$((count + 1))
           done < <(find "$bundle_dir" -type f \( \
-            -name '*.AppImage' -o -name '*.deb' -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.rpm' \
+            -name '*.AppImage' -o -name '*.deb' -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.rpm' -o -name '*.app.zip' \
           \) -print0)
+          if [[ "$count" -eq 0 && "${RUNNER_OS}" == "macOS" ]]; then
+            app_path=$(find "$bundle_dir/macos" -maxdepth 1 -name '*.app' -print -quit)
+            if [[ -n "$app_path" ]]; then
+              zip_out="dist-ci/ode-desktop-${PLATFORM}-$(basename "$app_path").zip"
+              ditto -c -k --keepParent "$app_path" "$zip_out"
+              count=1
+              echo "::warning::DMG missing; uploaded .app zip fallback: $zip_out"
+            fi
+          fi
           if [[ "$count" -eq 0 ]]; then
             echo "::error::No bundle files matched in $bundle_dir"
             find "$bundle_dir" -type f || true
@@ -332,7 +358,7 @@ jobs:
             runner: windows-11-arm
             rust_target: aarch64-pc-windows-msvc
           - platform: darwin-amd64
-            runner: macos-15-intel
+            runner: macos-14
             rust_target: x86_64-apple-darwin
           - platform: darwin-arm64
             runner: macos-latest
@@ -404,16 +430,33 @@ jobs:
         working-directory: desktop
         env:
           CI: 'true'
-        run: >-
-          pnpm exec tauri build --target ${{ matrix.rust_target }} -c '${{ env.TAURI_BEFORE_BUILD }}'
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: |
+          set -euo pipefail
+          if [[ "${RUNNER_OS}" == "macOS" ]]; then
+            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+          fi
+          if ! pnpm exec tauri build --verbose --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'; then
+            if [[ "${RUNNER_OS}" != "macOS" ]]; then
+              exit 1
+            fi
+            echo "::warning::Tauri build failed; retrying DMG bundle on macOS"
+            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+            pnpm exec tauri build --verbose --bundles dmg --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'
+          fi
 
       - name: Collect installers for GitHub Release
         working-directory: desktop
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          RUST_TARGET: ${{ matrix.rust_target }}
         run: |
           set -euo pipefail
           rm -rf dist-release
           mkdir -p dist-release
-          bundle_dir="src-tauri/target/${{ matrix.rust_target }}/release/bundle"
+          bundle_dir="src-tauri/target/${RUST_TARGET}/release/bundle"
           if [[ ! -d "$bundle_dir" ]]; then
             echo "::error::Missing bundle dir: $bundle_dir"
             find src-tauri/target -maxdepth 4 -type d 2>/dev/null || true
@@ -422,11 +465,20 @@ jobs:
           count=0
           while IFS= read -r -d '' f; do
             base=$(basename "$f")
-            cp "$f" "dist-release/ode-desktop-${{ matrix.platform }}-${base}"
+            cp "$f" "dist-release/ode-desktop-${PLATFORM}-${base}"
             count=$((count + 1))
           done < <(find "$bundle_dir" -type f \( \
-            -name '*.AppImage' -o -name '*.deb' -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.rpm' \
+            -name '*.AppImage' -o -name '*.deb' -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.rpm' -o -name '*.app.zip' \
           \) -print0)
+          if [[ "$count" -eq 0 && "${RUNNER_OS}" == "macOS" ]]; then
+            app_path=$(find "$bundle_dir/macos" -maxdepth 1 -name '*.app' -print -quit)
+            if [[ -n "$app_path" ]]; then
+              zip_out="dist-release/ode-desktop-${PLATFORM}-$(basename "$app_path").zip"
+              ditto -c -k --keepParent "$app_path" "$zip_out"
+              count=1
+              echo "::warning::DMG missing; uploaded .app zip fallback: $zip_out"
+            fi
+          fi
           if [[ "$count" -eq 0 ]]; then
             echo "::error::No bundle files matched in $bundle_dir"
             find "$bundle_dir" -type f || true

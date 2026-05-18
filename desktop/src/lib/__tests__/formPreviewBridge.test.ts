@@ -14,11 +14,32 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 vi.mock('@tauri-apps/api/path', () => ({
   join: (...parts: string[]) => parts.join('/'),
+  dirname: (p: string) => {
+    const parts = p.split('/');
+    parts.pop();
+    return parts.join('/') || p;
+  },
+}));
+
+const { mockProfile } = vi.hoisted(() => ({
+  mockProfile: {
+    id: 'p1',
+    label: 'Test',
+    serverUrl: 'https://example.com',
+    databasePath: '/mock/ws/sqlite/custodian.sqlite3',
+    customAppDeveloperMode: false,
+    customAppLocalFolder: null as string | null,
+  },
 }));
 
 vi.mock('../tauriClient', () => ({
   tauriClient: {
     getWorkspace: vi.fn().mockResolvedValue('/mock/ws'),
+    getSettings: vi.fn().mockImplementation(async () => ({
+      activeProfileId: 'p1',
+      profiles: [mockProfile],
+      dataDirectory: '/data',
+    })),
     listActiveBundleForms: vi.fn().mockResolvedValue([{ formType: 'demo' }]),
     listObservationsPage: vi.fn().mockResolvedValue({ rows: [], total: 0 }),
     getActiveBundleFormsFileBaseUrl: vi
@@ -364,6 +385,64 @@ describe('handleFormPreviewBridgeMessage', () => {
     );
 
     expect(postMessage).not.toHaveBeenCalled();
+  });
+
+  it('getCustomAppUri points at active bundle when developer mode is off', async () => {
+    mockProfile.customAppDeveloperMode = false;
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'getCustomAppUri',
+        messageId: 'gcu1',
+      }),
+      { iframe, onFinalize: async () => ({ error: 'no' }) },
+    );
+
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.result).toBe('asset:/mock/ws/bundles/active/');
+  });
+
+  it('getCustomAppUri points at dev mirror when developer mode is on', async () => {
+    mockProfile.customAppDeveloperMode = true;
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'getCustomAppUri',
+        messageId: 'gcu2',
+      }),
+      { iframe, onFinalize: async () => ({ error: 'no' }) },
+    );
+
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.result).toBe('asset:/mock/ws/bundles/dev-local/');
+    mockProfile.customAppDeveloperMode = false;
+  });
+
+  it('getFormSpecsUri returns bundle forms base url from tauri', async () => {
+    vi.mocked(
+      tauriClient.getActiveBundleFormsFileBaseUrl,
+    ).mockResolvedValueOnce('file:///tmp/ws/bundles/dev-local/forms');
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'getFormSpecsUri',
+        messageId: 'gfs1',
+      }),
+      { iframe, onFinalize: async () => ({ error: 'no' }) },
+    );
+
+    expect(tauriClient.getActiveBundleFormsFileBaseUrl).toHaveBeenCalled();
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.result).toBe('file:///tmp/ws/bundles/dev-local/forms');
   });
 
   it('legacy raw-only callers still reply using iframe.contentWindow fallback', async () => {

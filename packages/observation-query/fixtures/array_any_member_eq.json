@@ -1,0 +1,15 @@
+{
+  "name": "array_any_member_eq",
+  "jsonColumn": "payload",
+  "formType": "household",
+  "includeDeleted": false,
+  "indexKeys": [],
+  "filter": {
+    "op": "any",
+    "path": "data.members",
+    "as": "m",
+    "where": { "field": "m.id", "op": "eq", "value": "M-9" }
+  },
+  "expectedSqlFragments": ["json_each", "EXISTS"],
+  "expectError": false
+}

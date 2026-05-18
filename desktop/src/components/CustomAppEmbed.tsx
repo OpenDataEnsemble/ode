@@ -14,9 +14,10 @@ import {
   stripOdeDesktopInjection,
 } from '../lib/rewriteEmbeddedBundleHtml';
 import { tauriClient } from '../lib/tauriClient';
+import { WORKSPACE_BUNDLE_DEV_APP_INDEX } from '../lib/workspacePaths';
 
 /** Matches Formulus: custom app entry under the extracted bundle (see `HomeScreen.tsx`). */
-const CUSTOM_APP_INDEX_REL = 'bundles/active/app/index.html';
+export const CUSTOM_APP_BUNDLE_INDEX_REL = 'bundles/active/app/index.html';
 
 /** Shell app origin (Vite / Tauri window), not the asset protocol — required so `formulus-injection.js` loads from `public/`. */
 function shellFormulusInjectionUrl(): string {
@@ -62,24 +63,39 @@ function injectIntoHead(
   return `<!DOCTYPE html><html><head>${baseHref ? wrapped : ''}</head><body>${html}</body></html>`;
 }
 
+export type CustomAppEmbedMode = 'bundle' | 'developer';
+
 export type CustomAppEmbedProps = {
-  /** Change when the active bundle (or profile) changes to reload the iframe. */
+  /** Change when the active source (bundle, dev mirror, or profile) changes to reload the iframe. */
   mountKey: string;
+  mode: CustomAppEmbedMode;
+  /** Workspace-relative path to `index.html`; defaults from {@link mode}. */
+  indexRelativePath?: string;
+  loadingLabel?: string;
 };
 
+function defaultIndexRelativePath(mode: CustomAppEmbedMode): string {
+  return mode === 'developer'
+    ? WORKSPACE_BUNDLE_DEV_APP_INDEX
+    : CUSTOM_APP_BUNDLE_INDEX_REL;
+}
+
 /**
- * Loads bundles/active/app/index.html, injects the Formulus bridge, writes merged HTML
+ * Loads a workspace `index.html`, injects the Formulus bridge, writes merged HTML
  * back to disk, and loads the iframe via convertFileSrc (real asset document URL).
  *
  * A blob: document can resolve subresources against the parent origin instead of the
  * the asset tree; loading the actual index.html from the asset protocol fixes 404s.
  *
- * Patches: rewriteEmbeddedBundleHtml + patchWorkspaceAppBundleAbsolutePaths (idempotent).
+ * Patches: rewriteEmbeddedBundleHtml + patchWorkspaceAppBundleAbsolutePaths (bundle mode only).
  */
 export const CustomAppEmbed = forwardRef<
   HTMLIFrameElement,
   CustomAppEmbedProps
->(function CustomAppEmbed({ mountKey }, ref) {
+>(function CustomAppEmbed(
+  { mountKey, mode, indexRelativePath, loadingLabel },
+  ref,
+) {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
   const setRefs = useCallback(
     (el: HTMLIFrameElement | null) => {
@@ -96,6 +112,8 @@ export const CustomAppEmbed = forwardRef<
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const indexRel = indexRelativePath ?? defaultIndexRelativePath(mode);
+
   const mountBlob = useCallback(async () => {
     const el = innerRef.current;
     if (!el) {
@@ -108,16 +126,12 @@ export const CustomAppEmbed = forwardRef<
       if (!workspace) {
         throw new Error('No workspace configured for the active profile.');
       }
-      const indexPath = await join(
-        workspace,
-        'bundles',
-        'active',
-        'app',
-        'index.html',
-      );
+      const indexPath = await join(workspace, ...indexRel.split('/'));
       const appDirPath = await dirname(indexPath);
-      await patchWorkspaceAppBundleAbsolutePaths();
-      let html = await tauriClient.readWorkspaceTextFile(CUSTOM_APP_INDEX_REL);
+      if (mode === 'bundle') {
+        await patchWorkspaceAppBundleAbsolutePaths();
+      }
+      let html = await tauriClient.readWorkspaceTextFile(indexRel);
       html = stripOdeDesktopInjection(html);
       html = rewriteEmbeddedBundleHtml(html);
       const indexAssetUrl = convertFileSrc(indexPath);
@@ -130,10 +144,7 @@ export const CustomAppEmbed = forwardRef<
       const stub = buildHostStub();
       const doc = injectIntoHead(html, stub, baseHref);
       const enc = new TextEncoder();
-      await tauriClient.writeWorkspaceFile(
-        CUSTOM_APP_INDEX_REL,
-        enc.encode(doc),
-      );
+      await tauriClient.writeWorkspaceFile(indexRel, enc.encode(doc));
       // Query busts document cache. Do not use a `#fragment` here: many SPAs use the
       // hash for routing (HashRouter or path), so `#ode-…` would break the initial route.
       const url = `${indexAssetUrl}?ode=${Date.now()}`;
@@ -145,17 +156,22 @@ export const CustomAppEmbed = forwardRef<
       setError(e instanceof Error ? e.message : String(e));
       setLoading(false);
     }
-  }, []);
+  }, [indexRel, mode]);
 
   useEffect(() => {
     void mountBlob();
   }, [mountKey, mountBlob]);
 
+  const defaultLoadingLabel =
+    mode === 'developer'
+      ? 'Loading custom app from developer mirror…'
+      : 'Loading custom app from active bundle…';
+
   return (
     <div className="formplayer-embed-wrap custom-app-embed-wrap">
       {error ? <p className="notice warn">{error}</p> : null}
       {loading && !error ? (
-        <p className="muted">Loading custom app from active bundle…</p>
+        <p className="muted">{loadingLabel ?? defaultLoadingLabel}</p>
       ) : null}
       <iframe
         ref={setRefs}

@@ -1,0 +1,17 @@
+{
+  "name": "top_level_observation_id_eq",
+  "jsonColumn": "data",
+  "formType": "hh_person",
+  "includeDeleted": false,
+  "indexKeys": [],
+  "filter": {
+    "field": "observation_id",
+    "op": "eq",
+    "value": "obs_123"
+  },
+  "expectedSqlFragmentsByDialect": {
+    "desktop": ["o.id = ?"],
+    "formulus": ["observation_id = ?"]
+  },
+  "expectError": false
+}

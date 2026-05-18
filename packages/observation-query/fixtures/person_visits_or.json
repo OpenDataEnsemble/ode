@@ -1,0 +1,18 @@
+{
+  "name": "person_visits_or",
+  "jsonColumn": "payload",
+  "formType": "p_health",
+  "includeDeleted": false,
+  "indexKeys": ["p_id", "p_num", "p_names", "names"],
+  "filter": {
+    "op": "or",
+    "conditions": [
+      { "field": "data.p_id", "op": "eq", "value": "P001" },
+      { "field": "data.p_num", "op": "eq", "value": "P001" },
+      { "field": "data.p_names", "op": "eq", "value": "Alice" },
+      { "field": "data.names", "op": "eq", "value": "Alice" }
+    ]
+  },
+  "expectedSqlFragments": ["observation_index", "index_key", "OR"],
+  "expectError": false
+}

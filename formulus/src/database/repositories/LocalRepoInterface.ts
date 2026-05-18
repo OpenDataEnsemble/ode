@@ -1,3 +1,4 @@
+import type { ObservationFilter } from '@ode/observation-query';
 import {
   Observation,
   NewObservationInput,
@@ -28,6 +29,15 @@ export interface LocalRepoInterface {
    * @returns Promise resolving to an array of observations
    */
   getObservationsByFormType(formType: string): Promise<Observation[]>;
+
+  /**
+   * Query observations with structured filter AST (SQLite + local indexes).
+   */
+  queryObservations(options: {
+    formType: string;
+    includeDeleted?: boolean;
+    filter?: ObservationFilter;
+  }): Promise<Observation[]>;
 
   /**
    * Get every observation row in local storage (including soft-deleted).

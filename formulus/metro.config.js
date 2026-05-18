@@ -19,9 +19,15 @@ const projectRoot = __dirname;
  * (avoids incomplete copy in packages/components). react-native-svg only uses
  * extraNodeModules so Metro resolves its real entry (lib/commonjs/index.js).
  */
+const babelRuntimeRoot = path.resolve(
+  projectRoot,
+  'node_modules/@babel/runtime',
+);
+
 const forcedModules = {
   react: path.resolve(projectRoot, 'node_modules/react'),
   'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+  '@babel/runtime': babelRuntimeRoot,
 };
 const extraModules = {
   ...forcedModules,
@@ -56,6 +62,20 @@ const config = {
     unstable_enablePackageExports: true,
     extraNodeModules: extraModules,
     resolveRequest(context, moduleName, platform) {
+      // @babel/runtime subpaths (workspace packages e.g. @ode/observation-query)
+      if (
+        moduleName === '@babel/runtime' ||
+        moduleName.startsWith('@babel/runtime/')
+      ) {
+        const relative =
+          moduleName === '@babel/runtime'
+            ? 'index.js'
+            : `${moduleName.slice('@babel/runtime/'.length)}.js`;
+        return {
+          type: 'sourceFile',
+          filePath: path.join(babelRuntimeRoot, relative),
+        };
+      }
       // Handle forced modules (react, react-native)
       if (forcedModules[moduleName]) {
         return {

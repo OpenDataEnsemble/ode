@@ -1,0 +1,16 @@
+{
+  "name": "household_and_eq",
+  "jsonColumn": "payload",
+  "formType": "household",
+  "includeDeleted": false,
+  "indexKeys": ["hh_id", "village"],
+  "filter": {
+    "op": "and",
+    "conditions": [
+      { "field": "data.hh_id", "op": "eq", "value": "HH-42" },
+      { "field": "data.village", "op": "eq", "value": "kopria" }
+    ]
+  },
+  "expectedSqlFragments": ["AND", "index_key", "value_text"],
+  "expectError": false
+}

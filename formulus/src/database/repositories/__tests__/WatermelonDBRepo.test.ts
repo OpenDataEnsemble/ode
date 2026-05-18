@@ -15,6 +15,20 @@ jest.mock('../../../api/synkronus/Auth', () => ({
   getUserInfo: jest.fn(async () => ({ username: 'jest-user' })),
 }));
 
+jest.mock('../../../services/ObservationIndexService', () => {
+  const incrementalReindex = jest.fn(async () => undefined);
+  const getIndexDefs = jest.fn(() => []);
+  return {
+    __esModule: true,
+    default: {
+      getInstance: jest.fn(() => ({
+        incrementalReindex,
+        getIndexDefs,
+      })),
+    },
+  };
+});
+
 import { Database } from '@nozbe/watermelondb';
 import LokiJSAdapter from '@nozbe/watermelondb/adapters/lokijs';
 import logger from '@nozbe/watermelondb/utils/common/logger';

@@ -1,12 +1,12 @@
 use std::{
     collections::{HashMap, HashSet},
     fs,
-    io::{BufWriter, Cursor},
+    io::{BufWriter, Cursor, Write},
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
     sync::{Arc, Mutex},
-    time::UNIX_EPOCH,
+    time::{Instant, UNIX_EPOCH},
 };
 
 use chrono::{DateTime, Utc};
@@ -26,6 +26,8 @@ use zip::read::ZipArchive;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
+mod observation_index;
+mod observation_query;
 mod sync_engine;
 
 #[derive(Debug, Error)]
@@ -111,6 +113,10 @@ struct ServerProfile {
     environment: ProfileEnvironment,
     #[serde(default)]
     default_app_mode: DefaultAppMode,
+    #[serde(default)]
+    custom_app_developer_mode: bool,
+    #[serde(default)]
+    custom_app_local_folder: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -694,6 +700,7 @@ fn init_db(conn: &Connection) -> Result<(), CustodianError> {
         );
         CREATE INDEX IF NOT EXISTS idx_observations_dirty ON observations(dirty);
         CREATE INDEX IF NOT EXISTS idx_observations_sync_status ON observations(sync_status);
+        CREATE INDEX IF NOT EXISTS idx_observations_form_type ON observations(form_type);
         CREATE TABLE IF NOT EXISTS sync_state (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             last_pull_at TEXT,
@@ -710,7 +717,26 @@ fn init_db(conn: &Connection) -> Result<(), CustodianError> {
     )?;
     migrate_repository_generation_fresh_install_defaults(conn)?;
     sync_engine::migrate_sync_jobs_db(conn).map_err(CustodianError::Sqlite)?;
+    observation_index::migrate_index_schema(conn).map_err(CustodianError::Sqlite)?;
     Ok(())
+}
+
+fn bundle_app_config_path(ctx: &AppCtxHandle) -> Result<PathBuf, String> {
+    let workspace = get_workspace_path(ctx).map_err(|e| e.to_string())?;
+    let dev = profile_developer_mode(ctx)?;
+    let seg = bundle_segment(dev);
+    Ok(workspace
+        .join("bundles")
+        .join(seg)
+        .join("app")
+        .join("app.config.json"))
+}
+
+fn load_active_index_defs(ctx: &AppCtxHandle) -> Vec<observation_index::ObservationIndexDef> {
+    bundle_app_config_path(ctx)
+        .ok()
+        .map(|p| observation_index::load_index_config(&p))
+        .unwrap_or_default()
 }
 
 /// Older builds defaulted `repository_generation` to 1, which Synkronus treats as an explicit
@@ -788,6 +814,8 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             attachments_path: None,
             environment: ProfileEnvironment::default(),
             default_app_mode: DefaultAppMode::default(),
+            custom_app_developer_mode: false,
+            custom_app_local_folder: None,
         }],
     }
 }
@@ -809,6 +837,8 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             attachments_path: None,
             environment: ProfileEnvironment::default(),
             default_app_mode: DefaultAppMode::default(),
+            custom_app_developer_mode: false,
+            custom_app_local_folder: None,
         }],
     }
 }
@@ -921,18 +951,118 @@ fn path_is_strict_descendant(ancestor: &Path, maybe_desc: &Path) -> bool {
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), CustodianError> {
+    copy_dir_recursive_counting(src, dst, &mut 0)
+}
+
+fn should_skip_mirror_entry(name: &str) -> bool {
+    matches!(name, ".DS_Store" | "Thumbs.db" | "desktop.ini")
+}
+
+fn copy_dir_recursive_counting(
+    src: &Path,
+    dst: &Path,
+    copied_files: &mut u64,
+) -> Result<(), CustodianError> {
     fs::create_dir_all(dst)?;
     for entry in fs::read_dir(src)? {
         let entry = entry?;
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if should_skip_mirror_entry(name_str.as_ref()) {
+            continue;
+        }
         let path = entry.path();
-        let target = dst.join(entry.file_name());
+        let target = dst.join(&name);
         if path.is_dir() {
-            copy_dir_recursive(&path, &target)?;
+            copy_dir_recursive_counting(&path, &target, copied_files)?;
         } else {
             fs::copy(&path, &target)?;
+            *copied_files += 1;
         }
     }
     Ok(())
+}
+
+const CUSTOM_APP_DEV_MIRROR_INDEX_REL: &str = "bundles/dev-local/app/index.html";
+
+fn validate_custom_app_dev_source_folder(source: &Path) -> Result<(), String> {
+    if !source.exists() {
+        return Err(format!("local folder does not exist: {}", source.display()));
+    }
+    if !source.is_dir() {
+        return Err("local folder must be a directory".to_string());
+    }
+    let index = source.join("index.html");
+    if !index.is_file() {
+        return Err("local folder must contain index.html".to_string());
+    }
+    Ok(())
+}
+
+fn mirror_custom_app_dev_folder(ws: &Path, source: &Path) -> Result<u64, CustodianError> {
+    validate_custom_app_dev_source_folder(source).map_err(CustodianError::Message)?;
+    let dev_local = ws.join("bundles/dev-local");
+    if dev_local.exists() {
+        fs::remove_dir_all(&dev_local)?;
+    }
+    let mirror_app = dev_local.join("app");
+    let mut copied_files = 0u64;
+    copy_dir_recursive_counting(source, &mirror_app, &mut copied_files)?;
+    let mirrored_index = mirror_app.join("index.html");
+    if !mirrored_index.is_file() {
+        return Err(CustodianError::Message(
+            "mirror failed: index.html missing after copy".to_string(),
+        ));
+    }
+    let forms_src = source.join("forms");
+    if forms_src.is_dir() {
+        let mirror_forms = dev_local.join("forms");
+        copy_dir_recursive_counting(&forms_src, &mirror_forms, &mut copied_files)?;
+    }
+    Ok(copied_files)
+}
+
+fn profile_developer_mode(ctx: &AppCtxHandle) -> Result<bool, String> {
+    let cfg = ctx
+        .config
+        .lock()
+        .map_err(|_| "failed to lock config".to_string())?;
+    let profile = active_profile_ref(&cfg).map_err(|e: CustodianError| e.to_string())?;
+    Ok(profile.custom_app_developer_mode)
+}
+
+fn bundle_segment(dev: bool) -> &'static str {
+    if dev { "dev-local" } else { "active" }
+}
+
+fn bundle_form_roots(workspace: &Path, dev: bool) -> Vec<PathBuf> {
+    let seg = bundle_segment(dev);
+    vec![
+        workspace.join("bundles").join(seg).join("forms"),
+        workspace
+            .join("bundles")
+            .join(seg)
+            .join("app")
+            .join("forms"),
+    ]
+}
+
+fn bundle_form_roots_for_ctx(ctx: &AppCtxHandle) -> Result<Vec<PathBuf>, String> {
+    let ws = get_workspace_path(ctx).map_err(|e| e.to_string())?;
+    let dev = profile_developer_mode(ctx)?;
+    Ok(bundle_form_roots(&ws, dev))
+}
+
+fn bundle_relative_dirs_for_ctx(
+    ctx: &AppCtxHandle,
+    suffixes: &[&str],
+) -> Result<Vec<String>, String> {
+    let dev = profile_developer_mode(ctx)?;
+    let seg = bundle_segment(dev);
+    Ok(suffixes
+        .iter()
+        .map(|s| format!("bundles/{seg}/{s}"))
+        .collect())
 }
 
 fn rename_or_move_entry(src: &Path, dst: &Path) -> Result<(), CustodianError> {
@@ -1634,6 +1764,17 @@ fn save_observation(
         .map_err(|err| err.to_string())?;
 
         tx.commit().map_err(|err| err.to_string())?;
+        let defs = load_active_index_defs(&ctx);
+        if !defs.is_empty() {
+            let ft = req.form_type.as_deref().unwrap_or("");
+            let is_deleted = req.extras.as_ref().and_then(|e| e.deleted).unwrap_or(false);
+            if is_deleted {
+                let _ = observation_index::delete_observation_indexes(&conn, &req.id);
+            } else {
+                let _ =
+                    observation_index::incremental_reindex(&conn, &req.id, ft, &payload_raw, &defs);
+            }
+        }
     }
     get_observation(req.id, ctx)
 }
@@ -1854,6 +1995,283 @@ fn map_observation_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ObservationR
         last_saved_at: row.get(8)?,
         last_pushed_at: row.get(9)?,
         extras: parse_observation_extras(extras_raw),
+    })
+}
+
+fn bind_query_params(
+    stmt: &mut rusqlite::Statement<'_>,
+    params: &[observation_query::SqlParam],
+) -> Result<(), rusqlite::Error> {
+    for (i, p) in params.iter().enumerate() {
+        let idx = i + 1;
+        match p {
+            observation_query::SqlParam::Text(s) => stmt.raw_bind_parameter(idx, s.as_str())?,
+            observation_query::SqlParam::Integer(n) => stmt.raw_bind_parameter(idx, *n)?,
+            observation_query::SqlParam::Real(f) => stmt.raw_bind_parameter(idx, *f)?,
+            observation_query::SqlParam::Null => {
+                stmt.raw_bind_parameter(idx, rusqlite::types::Null)?
+            }
+        }
+    }
+    Ok(())
+}
+
+fn query_sql_preview(sql: &str) -> String {
+    const MAX_SQL_CHARS: usize = 240;
+    let compact = sql.split_whitespace().collect::<Vec<_>>().join(" ");
+    if compact.len() <= MAX_SQL_CHARS {
+        compact
+    } else {
+        format!("{}...", &compact[..MAX_SQL_CHARS])
+    }
+}
+
+fn query_filter_preview(filter: Option<&Value>) -> String {
+    const MAX_FILTER_CHARS: usize = 240;
+    let Some(f) = filter else {
+        return "null".to_string();
+    };
+    let raw = serde_json::to_string(f).unwrap_or_else(|_| "<unserializable-filter>".to_string());
+    if raw.len() <= MAX_FILTER_CHARS {
+        raw
+    } else {
+        format!("{}...", &raw[..MAX_FILTER_CHARS])
+    }
+}
+
+fn query_log(message: &str) {
+    eprintln!("{message}");
+    let _ = std::io::stderr().flush();
+}
+
+fn query_param_values(params: &[observation_query::SqlParam]) -> String {
+    params
+        .iter()
+        .map(|p| match p {
+            observation_query::SqlParam::Text(s) => format!("'{}'", s.replace('\'', "''")),
+            observation_query::SqlParam::Integer(n) => n.to_string(),
+            observation_query::SqlParam::Real(f) => f.to_string(),
+            observation_query::SqlParam::Null => "NULL".to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn query_param_summary(params: &[observation_query::SqlParam]) -> String {
+    params
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let label = match p {
+                observation_query::SqlParam::Text(_) => "text",
+                observation_query::SqlParam::Integer(_) => "int",
+                observation_query::SqlParam::Real(_) => "real",
+                observation_query::SqlParam::Null => "null",
+            };
+            format!("${}:{}", i + 1, label)
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RebuildObservationIndexesResult {
+    generation: i64,
+    last_rebuild_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CreateObservationSqliteIndexesResult {
+    created_count: usize,
+    executed_statements: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct IndexRebuildStatus {
+    active_generation: i64,
+    last_rebuild_at: Option<String>,
+}
+
+#[tauri::command]
+fn query_observations(
+    req: observation_query::QueryObservationsRequest,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<Vec<ObservationRecord>, String> {
+    let started = Instant::now();
+    let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let defs = load_active_index_defs(&ctx);
+    let mut index_keys = observation_index::index_keys_set(&defs);
+    let filter_ref = req.filter.as_ref();
+    if filter_ref.is_some() && !index_keys.is_empty() {
+        let active_generation = observation_index::active_generation(&conn).unwrap_or(1);
+        let has_index_rows = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM observation_index WHERE index_generation = ?1 LIMIT 1)",
+                params![active_generation],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|v| v == 1)
+            .unwrap_or(false);
+        if !has_index_rows {
+            query_log(
+                "[query_observations] active observation_index rows missing; forcing json_extract fallback for correctness",
+            );
+            index_keys.clear();
+        }
+    }
+    let compiled = observation_query::compile_observation_query(
+        &req.form_type,
+        req.include_deleted.unwrap_or(false),
+        filter_ref,
+        &index_keys,
+    )
+    .map_err(|e| format!("{}: {}", e.code, e.message))?;
+
+    if !compiled.warnings.is_empty() {
+        for warning in &compiled.warnings {
+            eprintln!("observation query warning: {warning}");
+        }
+    }
+
+    let mut sql = compiled.sql;
+    if let Some(limit) = req.limit {
+        sql.push_str(&format!(
+            " ORDER BY o.last_saved_at DESC LIMIT {}",
+            limit.clamp(1, 5000)
+        ));
+    } else {
+        sql.push_str(" ORDER BY o.last_saved_at DESC LIMIT 5000");
+    }
+
+    query_log(&format!(
+        "[query_observations] start form_type={} include_deleted={} has_filter={} limit={} sql=\"{}\" param_count={} params=[{}]",
+        req.form_type,
+        req.include_deleted.unwrap_or(false),
+        filter_ref.is_some(),
+        req.limit.unwrap_or(5000),
+        query_sql_preview(&sql),
+        compiled.params.len(),
+        query_param_summary(&compiled.params),
+    ));
+    query_log(&format!("[query_observations] sql_full={}", sql));
+    query_log(&format!(
+        "[query_observations] params_full=[{}]",
+        query_param_values(&compiled.params)
+    ));
+    query_log(&format!(
+        "[query_observations] filter_ast={}",
+        query_filter_preview(filter_ref)
+    ));
+    let mut stmt = conn.prepare(&sql).map_err(|err| err.to_string())?;
+    bind_query_params(&mut stmt, &compiled.params).map_err(|err| err.to_string())?;
+    let mut out = Vec::new();
+    let mut rows = stmt.raw_query();
+    while let Some(row) = rows.next().map_err(|err| {
+        query_log(&format!(
+            "[query_observations] error phase=iterate elapsed_ms={} err={}",
+            started.elapsed().as_millis(),
+            err
+        ));
+        err.to_string()
+    })? {
+        out.push(map_observation_row(row).map_err(|err| {
+            query_log(&format!(
+                "[query_observations] error phase=map_row elapsed_ms={} err={}",
+                started.elapsed().as_millis(),
+                err
+            ));
+            err.to_string()
+        })?);
+    }
+    query_log(&format!(
+        "[query_observations] done rows={} elapsed_ms={}",
+        out.len(),
+        started.elapsed().as_millis()
+    ));
+    Ok(out)
+}
+
+#[tauri::command]
+async fn rebuild_observation_indexes(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<RebuildObservationIndexesResult, String> {
+    let ctx = ctx.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let defs = load_active_index_defs(&ctx);
+        let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+        let generation =
+            observation_index::rebuild_all_indexes(&conn, &defs).map_err(|err| err.to_string())?;
+        let last_rebuild_at: Option<String> = conn
+            .query_row(
+                "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
+        Ok(RebuildObservationIndexesResult {
+            generation,
+            last_rebuild_at,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn create_observation_sqlite_indexes(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<CreateObservationSqliteIndexesResult, String> {
+    let ctx = ctx.inner().clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let defs = load_active_index_defs(&ctx);
+        if defs.is_empty() {
+            return Ok(CreateObservationSqliteIndexesResult {
+                created_count: 0,
+                executed_statements: Vec::new(),
+            });
+        }
+        let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+        let executed = observation_index::create_missing_sqlite_indexes(&conn, &defs)
+            .map_err(|e| e.to_string())?;
+        query_log(&format!(
+            "[create_observation_sqlite_indexes] created_count={}",
+            executed.len()
+        ));
+        for statement in &executed {
+            query_log(&format!(
+                "[create_observation_sqlite_indexes] executed {}",
+                statement
+            ));
+        }
+        Ok(CreateObservationSqliteIndexesResult {
+            created_count: executed.len(),
+            executed_statements: executed,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn get_observation_index_status(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<IndexRebuildStatus, String> {
+    let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    let active_generation =
+        observation_index::active_generation(&conn).map_err(|err| err.to_string())?;
+    let last_rebuild_at: Option<String> = conn
+        .query_row(
+            "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
+    Ok(IndexRebuildStatus {
+        active_generation,
+        last_rebuild_at,
     })
 }
 
@@ -2848,6 +3266,123 @@ fn check_workspace_attachment_presence(
     Ok(out)
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CustomAppDevMirrorResult {
+    source_path: String,
+    mirrored_index_relative_path: String,
+    copied_files: u64,
+    index_defs_loaded: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    index_rebuild_generation: Option<i64>,
+    index_rebuild_scheduled: bool,
+    sqlite_indexes_needed: bool,
+    pending_sqlite_index_statements: Vec<String>,
+}
+
+/// Copies the active profile's configured local custom app folder into
+/// `bundles/dev-local/app/` (developer mode mirror). Does not modify the source folder.
+#[tauri::command]
+fn refresh_custom_app_dev_mirror(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<CustomAppDevMirrorResult, String> {
+    let started = Instant::now();
+    let source_path = {
+        let cfg = ctx
+            .config
+            .lock()
+            .map_err(|_| "failed to lock config".to_string())?;
+        let profile = active_profile_ref(&cfg).map_err(|e: CustodianError| e.to_string())?;
+        if !profile.custom_app_developer_mode {
+            return Err("developer mode is not enabled for the active profile".to_string());
+        }
+        profile
+            .custom_app_local_folder
+            .as_ref()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| {
+                "custom app local folder is not configured for the active profile".to_string()
+            })?
+    };
+    let source = PathBuf::from(&source_path);
+    validate_custom_app_dev_source_folder(&source)?;
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let mirror_started = Instant::now();
+    let copied_files = mirror_custom_app_dev_folder(&ws, &source).map_err(|e| e.to_string())?;
+    let app_config_path = bundle_app_config_path(&ctx).ok();
+    query_log(&format!(
+        "[refresh_custom_app_dev_mirror] source_path={} app_config_path={} app_config_exists={}",
+        source_path,
+        app_config_path
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "<unresolved>".to_string()),
+        app_config_path
+            .as_ref()
+            .map(|p| p.exists())
+            .unwrap_or(false),
+    ));
+    let defs = load_active_index_defs(&ctx);
+    let index_rebuild_generation = None;
+    let index_rebuild_scheduled = false;
+    let (sqlite_indexes_needed, pending_sqlite_index_statements) = if defs.is_empty() {
+        query_log(
+            "[refresh_custom_app_dev_mirror] no observationIndexes found in mirrored app.config.json",
+        );
+        (false, Vec::new())
+    } else {
+        match open_db(&ctx) {
+            Ok(conn) => {
+                let missing = observation_index::missing_sqlite_indexes(&conn, &defs)
+                    .map_err(|e| e.to_string())?;
+                let pending: Vec<String> =
+                    missing.iter().map(|idx| format!("{};", idx.sql)).collect();
+                let needed = !pending.is_empty();
+                query_log(&format!(
+                    "[refresh_custom_app_dev_mirror] sqlite_indexes_needed={} defs={} pending_count={}",
+                    needed,
+                    defs.len(),
+                    pending.len()
+                ));
+                if needed {
+                    query_log("[refresh_custom_app_dev_mirror] pending_index_sql begin");
+                    for statement in &pending {
+                        query_log(&format!(
+                            "[refresh_custom_app_dev_mirror] pending_index_sql {}",
+                            statement
+                        ));
+                    }
+                    query_log("[refresh_custom_app_dev_mirror] pending_index_sql end");
+                }
+                (needed, pending)
+            }
+            Err(err) => {
+                query_log(&format!(
+                    "[refresh_custom_app_dev_mirror] sqlite index check skipped err={err}"
+                ));
+                (false, Vec::new())
+            }
+        }
+    };
+    query_log(&format!(
+        "[refresh_custom_app_dev_mirror] done copied_files={} mirror_elapsed_ms={} total_elapsed_ms={}",
+        copied_files,
+        mirror_started.elapsed().as_millis(),
+        started.elapsed().as_millis()
+    ));
+    Ok(CustomAppDevMirrorResult {
+        source_path,
+        mirrored_index_relative_path: CUSTOM_APP_DEV_MIRROR_INDEX_REL.to_string(),
+        copied_files,
+        index_defs_loaded: defs.len(),
+        index_rebuild_generation,
+        index_rebuild_scheduled,
+        sqlite_indexes_needed,
+        pending_sqlite_index_statements,
+    })
+}
+
 /// Write arbitrary bytes under the active profile workspace (e.g. `bundles/app-bundle.zip`).
 /// Rejects empty paths, `..`, and other traversal attempts.
 #[tauri::command]
@@ -2952,16 +3487,15 @@ fn apply_app_bundle_download(
         if legacy.exists() {
             let _ = fs::remove_file(&legacy);
         }
+        let app_config = active_dir.join("app/app.config.json");
+        if app_config.exists() {
+            let defs = observation_index::load_index_config(&app_config);
+            let conn = open_db(ctx)?;
+            let _ = observation_index::rebuild_all_indexes(&conn, &defs);
+        }
         Ok(state)
     })
     .map_err(|e: CustodianError| e.to_string())
-}
-
-fn active_bundle_form_roots(workspace: &Path) -> Vec<PathBuf> {
-    vec![
-        workspace.join("bundles/active/forms"),
-        workspace.join("bundles/active/app/forms"),
-    ]
 }
 
 fn reserved_form_dir_name(name: &str) -> bool {
@@ -2985,10 +3519,10 @@ fn sanitize_form_type_id(raw: &str) -> Result<String, String> {
 fn list_active_bundle_forms(
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<Vec<ActiveBundleFormEntry>, String> {
-    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let roots = bundle_form_roots_for_ctx(&ctx)?;
     let mut seen = HashSet::new();
     let mut out = Vec::new();
-    for root in active_bundle_form_roots(&ws) {
+    for root in roots {
         let rd = match fs::read_dir(&root) {
             Ok(r) => r,
             Err(_) => continue,
@@ -3019,8 +3553,10 @@ fn read_bundle_form_spec(
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<BundleFormSpec, String> {
     let ft = sanitize_form_type_id(&form_type)?;
-    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
-    for root in active_bundle_form_roots(&ws) {
+    let dev = profile_developer_mode(&ctx)?;
+    let seg = bundle_segment(dev);
+    let roots = bundle_form_roots_for_ctx(&ctx)?;
+    for root in roots {
         let dir = root.join(&ft);
         let schema_path = dir.join("schema.json");
         let ui_path = dir.join("ui.json");
@@ -3039,7 +3575,7 @@ fn read_bundle_form_spec(
         }
     }
     Err(format!(
-        "Form \"{}\" not found under bundles/active (expected schema.json + ui.json).",
+        "Form \"{}\" not found under bundles/{seg} (expected schema.json + ui.json).",
         ft
     ))
 }
@@ -3134,10 +3670,12 @@ fn get_active_bundle_forms_file_base_url(
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<String, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
-    let forms = ws.join("bundles/active/forms");
+    let dev = profile_developer_mode(&ctx)?;
+    let seg = bundle_segment(dev);
+    let forms = ws.join("bundles").join(seg).join("forms");
     Url::from_directory_path(&forms)
         .map(|u| u.to_string().trim_end_matches('/').to_string())
-        .map_err(|()| "failed to build file URL for bundles/active/forms".to_string())
+        .map_err(|()| format!("failed to build file URL for bundles/{seg}/forms"))
 }
 
 /// `file://` URL for an existing directory under the workspace (trailing slash per `Url` rules).
@@ -3198,21 +3736,28 @@ fn resolve_attachment_file_url(
 #[tauri::command]
 fn scan_bundle_custom_question_types(ctx: tauri::State<'_, AppCtxHandle>) -> Result<Value, String> {
     let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
-    // Prefer `bundles/active/app/**` (Synkronus zip layout) before legacy flat paths.
-    let qt_dirs = [
-        "bundles/active/app/question_types",
-        "bundles/active/app/forms/question_types",
-        "bundles/active/question_types",
-        "bundles/active/forms/question_types",
-    ];
-    let val_dirs = [
-        "bundles/active/app/validators",
-        "bundles/active/app/forms/validators",
-        "bundles/active/validators",
-        "bundles/active/forms/validators",
-    ];
-    let custom_types = scan_js_modules_first_wins(&ws, &qt_dirs, false)?;
-    let validators = scan_js_modules_first_wins(&ws, &val_dirs, true)?;
+    let qt_dirs = bundle_relative_dirs_for_ctx(
+        &ctx,
+        &[
+            "app/question_types",
+            "app/forms/question_types",
+            "question_types",
+            "forms/question_types",
+        ],
+    )?;
+    let val_dirs = bundle_relative_dirs_for_ctx(
+        &ctx,
+        &[
+            "app/validators",
+            "app/forms/validators",
+            "validators",
+            "forms/validators",
+        ],
+    )?;
+    let qt_refs: Vec<&str> = qt_dirs.iter().map(String::as_str).collect();
+    let val_refs: Vec<&str> = val_dirs.iter().map(String::as_str).collect();
+    let custom_types = scan_js_modules_first_wins(&ws, &qt_refs, false)?;
+    let validators = scan_js_modules_first_wins(&ws, &val_refs, true)?;
     Ok(bundle_cqt_to_json(custom_types, validators))
 }
 
@@ -3258,6 +3803,7 @@ fn import_observations_run(
     let mut imported = 0usize;
     let mut conflicts = 0usize;
 
+    let index_defs = load_active_index_defs(ctx);
     for observation in observations {
         if mark_pending {
             upsert_observation_from_local_import(&tx, &observation)
@@ -3268,6 +3814,17 @@ fn import_observations_run(
             if conflict {
                 conflicts += 1;
             }
+        }
+        if !index_defs.is_empty() {
+            let payload = serde_json::to_string(&observation.data).map_err(|e| e.to_string())?;
+            let form_type = observation.form_type.as_deref().unwrap_or("");
+            let _ = observation_index::incremental_reindex(
+                &tx,
+                &observation.observation_id,
+                form_type,
+                &payload,
+                &index_defs,
+            );
         }
         imported += 1;
     }
@@ -3419,6 +3976,7 @@ fn reset_local_workspace_data(ctx: tauri::State<'_, AppCtxHandle>) -> Result<App
         init_db(&conn)?;
         conn.execute("DELETE FROM observation_history", [])?;
         conn.execute("DELETE FROM observations", [])?;
+        conn.execute("DELETE FROM observation_index", [])?;
         conn.execute(
             "UPDATE sync_state SET repository_generation = 0, observation_sync_version = 0, \
              last_attachment_version = 0, last_pull_at = NULL, last_push_at = NULL, last_error = NULL \
@@ -3534,6 +4092,10 @@ pub fn run() {
             list_workspace_items,
             list_observations,
             list_observations_page,
+            query_observations,
+            rebuild_observation_indexes,
+            create_observation_sqlite_indexes,
+            get_observation_index_status,
             list_dirty_observations,
             list_form_types,
             get_sync_state,
@@ -3553,6 +4115,7 @@ pub fn run() {
             check_workspace_attachment_presence,
             write_workspace_file,
             get_app_bundle_state,
+            refresh_custom_app_dev_mirror,
             apply_app_bundle_download,
             list_active_bundle_forms,
             read_bundle_form_spec,
@@ -3588,7 +4151,12 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    use super::{parse_time, resolve_attachment_path, should_mark_conflict};
+    use super::{
+        bind_query_params, mirror_custom_app_dev_folder, parse_time, resolve_attachment_path,
+        should_mark_conflict, validate_custom_app_dev_source_folder,
+    };
+    use crate::observation_query::SqlParam;
+    use rusqlite::Connection;
 
     #[test]
     fn parse_time_handles_valid_timestamp() {
@@ -3637,6 +4205,43 @@ mod tests {
     }
 
     #[test]
+    fn validate_custom_app_dev_source_requires_index_html() {
+        let base =
+            std::env::temp_dir().join(format!("ode_dev_app_validate_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        assert!(validate_custom_app_dev_source_folder(Path::new(&base)).is_err());
+        fs::write(base.join("index.html"), b"<html></html>").unwrap();
+        assert!(validate_custom_app_dev_source_folder(Path::new(&base)).is_ok());
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn mirror_custom_app_dev_folder_copies_tree() {
+        let base = std::env::temp_dir().join(format!("ode_dev_app_mirror_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        let source = base.join("source");
+        let ws = base.join("workspace");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(ws.join("bundles/active/app")).unwrap();
+        fs::write(source.join("index.html"), b"<html>dev</html>").unwrap();
+        fs::write(source.join("app.js"), b"console.log(1)").unwrap();
+        fs::create_dir_all(source.join("forms/demo")).unwrap();
+        fs::write(source.join("forms/demo/schema.json"), b"{}").unwrap();
+        fs::write(source.join("forms/demo/ui.json"), b"{}").unwrap();
+        let copied = mirror_custom_app_dev_folder(Path::new(&ws), Path::new(&source)).unwrap();
+        assert_eq!(copied, 6);
+        let mirrored = ws.join("bundles/dev-local/app/index.html");
+        assert!(mirrored.is_file());
+        assert!(ws.join("bundles/dev-local/app/app.js").is_file());
+        assert!(
+            ws.join("bundles/dev-local/forms/demo/schema.json")
+                .is_file()
+        );
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
     fn resolve_attachment_falls_back_to_legacy_flat_root() {
         let base =
             std::env::temp_dir().join(format!("ode_attach_test_legacy_{}", std::process::id()));
@@ -3647,5 +4252,25 @@ mod tests {
         assert_eq!(p.file_name().unwrap(), "b.jpg");
         assert!(!p.to_string_lossy().contains("synced"));
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn bound_query_params_execute_with_raw_query() {
+        let conn = Connection::open_in_memory().unwrap();
+        let mut stmt = conn.prepare("SELECT ?1 AS a, ?2 AS b").unwrap();
+        let params = vec![
+            SqlParam::Text("household".to_string()),
+            SqlParam::Integer(7),
+        ];
+        bind_query_params(&mut stmt, &params).unwrap();
+
+        let mut rows = stmt.raw_query();
+        let row = rows.next().unwrap().unwrap();
+        let a: String = row.get(0).unwrap();
+        let b: i64 = row.get(1).unwrap();
+
+        assert_eq!(a, "household");
+        assert_eq!(b, 7);
+        assert!(rows.next().unwrap().is_none());
     }
 }

@@ -371,13 +371,15 @@ export interface FormulusInterface {
    * @param options.formType - Form type to query
    * @param options.isDraft - Deprecated: drafts handled in formplayer; ignored
    * @param options.includeDeleted - Include deleted (default false)
-   * @param options.whereClause - SQL-like WHERE clause for filtering (e.g. "data.sex = 'male'")
+   * @param options.filter - Structured observation filter AST
+   * @param options.whereClause - Deprecated; use filter
    * @returns {Promise<FormObservation[]>} Array of filtered observations
    */
   getObservationsByQuery(options: {
     formType: string;
     isDraft?: boolean;
     includeDeleted?: boolean;
+    filter?: import('@ode/observation-query').ObservationFilter;
     whereClause?: string | null;
   }): Promise<FormObservation[]>;
 
