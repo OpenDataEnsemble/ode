@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  *
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2026-04-09T07:22:42.291Z
+ * Last generated: 2026-05-16T12:40:24.252Z
  *
  * @example
  * // In your JavaScript file:
@@ -97,10 +97,10 @@ const FormulusAPI = {
   requestCamera: function (fieldId) {},
 
   /**
-   * Request location for a field
+   * Request location for a field (captures into the form GPS field).
    * /
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<LocationResult>} Promise that resolves with location result or rejects on error
    */
   requestLocation: function (fieldId) {},
 
@@ -138,6 +138,14 @@ const FormulusAPI = {
    * @returns {Promise<AudioResult>} Promise that resolves with audio result or rejects on error/cancellation
    */
   requestAudio: function (fieldId) {},
+
+  /**
+   * Request video recording for a field (camera / picker — host-defined).
+   * /
+   * @param {string} fieldId - The ID of the field
+   * @returns {Promise<VideoResult>} Promise that resolves with video result or rejects on error/cancellation
+   */
+  requestVideo: function (fieldId) {},
 
   /**
    * Request QR code scanning for a field
@@ -195,18 +203,30 @@ const FormulusAPI = {
   getThemeMode: function () {},
 
   /**
-   * Resolve a synced or camera-saved attachment to a WebView-loadable `file://` URL.
-   * Checks `{DocumentDirectory}/attachments/` and `pending_upload/`. Pass the basename only
-   * (e.g. `photo.filename` from observation data); path segments and ".." are rejected.
+   * Resolve an attachment to a WebView-loadable URL (`file://`, `http(s):`, or host-specific).
+   * **String `fileName`:** basename only (e.g. `photo.filename`). Lookup order, first hit wins:
+   * 1. `attachments/draft/<name>`   — unsaved capture (formplayer preview)
+   * 2. `attachments/synced/<name>`  — canonical committed / downloaded copy
+   * 3. `attachments/pending/<name>` — queued for upload (fallback only)
+   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`) are also checked.
+   * Path segments and ".." are rejected.
+   * **`AttachmentDisplayDescriptor`:** `{ filename }` basename only (same lookup as a string argument).
    * /
-   * @returns {Promise<string | null>} `file://` URL if the file exists, otherwise `null`
+   * @returns {Promise<string | null>} Display URL, or `null` if none
    */
   getAttachmentUri: function (fileName) {},
 
   /**
-   * Base `file://` URL for the attachments directory (trailing slash).
+   * Base `file://` URL for the canonical attachments directory (trailing slash).
+   * Returns the `synced/` subfolder — only committed/downloaded files are
+   * iterable from here. Drafts and the upload queue are excluded by design so
+   * custom apps can safely list this directory.
+   * **Breaking change (v2 layout):** this used to return the `attachments/`
+   * parent directory, which mixed committed files with `draft/` and
+   * `pending_upload/` subfolders. Custom apps that iterate this URL will now
+   * see only fully-committed attachments.
    * /
-   * @returns {Promise<string>} e.g. `file:///.../attachments/`
+   * @returns {Promise<string>} e.g. `file:///.../attachments/synced/`
    */
   getAttachmentsUri: function () {},
 

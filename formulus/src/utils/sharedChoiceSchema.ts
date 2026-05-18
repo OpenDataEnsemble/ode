@@ -16,7 +16,9 @@ export interface SharedChoiceSchemaDoc {
 }
 
 export function extractSharedChoiceDefName(ref: string): string | null {
-  const m = String(ref || '').trim().match(SHARED_REF_RE);
+  const m = String(ref || '')
+    .trim()
+    .match(SHARED_REF_RE);
   return m ? m[1] : null;
 }
 
@@ -29,9 +31,10 @@ export function resolveSharedChoiceRefs(
     return formSchema;
   }
 
-  const resolved = JSON.parse(
-    JSON.stringify(formSchema),
-  ) as Record<string, unknown>;
+  const resolved = JSON.parse(JSON.stringify(formSchema)) as Record<
+    string,
+    unknown
+  >;
   if (!resolved.$defs || typeof resolved.$defs !== 'object') {
     resolved.$defs = {};
   }
