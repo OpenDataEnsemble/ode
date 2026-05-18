@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -55,17 +55,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     borderBottomColor: themeColors.divider as string,
   };
 
-  useEffect(() => {
-    loadObservation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [observationId]);
-
-  const loadObservation = async () => {
+  const loadObservation = useCallback(async () => {
     try {
       setLoading(true);
       const formService = await FormService.getInstance();
 
-      // Get all form types to find the observation
       const formSpecs = formService.getFormSpecs();
       let foundObservation: Observation | null = null;
 
@@ -95,7 +89,20 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [observationId, navigation]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        void loadObservation();
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [loadObservation]);
 
   const handleEdit = async () => {
     if (!observation) return;

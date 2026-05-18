@@ -26,3 +26,6 @@ formulus-formplayer/debug-storybook.log
 
 # Local SBOM output (CI uploads release artifacts instead)
 sbom-dist/
+
+# pnpm store
+.pnpm-store/

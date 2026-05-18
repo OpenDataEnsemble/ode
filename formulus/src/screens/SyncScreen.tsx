@@ -538,12 +538,16 @@ const SyncScreen = () => {
     prevSyncWasActiveRef.current = syncState.isActive;
 
     if (!syncState.isActive && !syncState.error) {
-      updatePendingUploads();
-      updatePendingObservations();
-      if (wasActive) {
-        checkForUpdates();
-      }
+      const timer = setTimeout(() => {
+        updatePendingUploads();
+        updatePendingObservations();
+        if (wasActive) {
+          checkForUpdates();
+        }
+      }, 0);
+      return () => clearTimeout(timer);
     }
+    return undefined;
   }, [
     syncState.isActive,
     syncState.error,
