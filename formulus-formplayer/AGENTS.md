@@ -17,19 +17,19 @@ This file gives AI assistants and developers enough context to work effectively 
   - **`packages/tokens`** — `@ode/tokens` (design tokens; Style Dictionary).
   - **`packages/components`** — `@ode/components` (shared UI; may use `@ode/tokens`).
 - **Install order** (from repo root):  
-  `cd packages/tokens && npm install` then `cd formulus-formplayer && npm install && npm start`.  
+  `cd packages/tokens && pnpm install` then `cd formulus-formplayer && pnpm install && pnpm start`.  
   Installing only in formulus-formplayer can break the tokens `prepare` script.
 
 ## Build and deploy (Formulus & Desktop)
 
 - **Scripts** (from `formulus-formplayer/`):
-  - `npm run build` — `sync-interface` → `tsc` → `vite build` (output: `build/`).
-  - `npm run build:copy` — build then **copy** `build/` into **Formulus** (Android + iOS formplayer assets) and **ODE Desktop** (`../desktop/public/formplayer_dist/`). Alternatively, from `desktop/` only: `pnpm copy:formplayer` (requires an existing `formulus-formplayer/build/`).
+  - `pnpm run build` — `sync-interface` → `tsc` → `vite build` (output: `build/`).
+  - `pnpm run build:copy` — build then **copy** `build/` into **Formulus** (Android + iOS formplayer assets) and **ODE Desktop** (`../desktop/public/formplayer_dist/`). Alternatively, from `desktop/` only: `pnpm copy:formplayer` (requires an existing `formulus-formplayer/build/`).
     - Android: `../formulus/android/app/src/main/assets/formplayer_dist/`
     - iOS: `../formulus/ios/formplayer_dist/`
 - **Interface sync**: `scripts/sync-interface.js` copies **one** shared TypeScript file from the Formulus app into the formplayer:  
   `formulus/src/webview/FormulusInterfaceDefinition.ts` → `formulus-formplayer/src/types/FormulusInterfaceDefinition.ts`.  
-  So the **single source of truth** for the bridge contract is in **formulus**; formplayer consumes a copy. Run `npm run sync-interface` (or `npm run build`) when that file changes.
+  So the **single source of truth** for the bridge contract is in **formulus**; formplayer consumes a copy. Run `pnpm run sync-interface` (or `pnpm run build`) when that file changes.
 - **Vite**: `vite.config.ts` is tuned for WebView:
   - `base: './'` so assets resolve under file://.
   - **Single bundle** (`inlineDynamicImports: true`) so the WebView doesn’t fail loading multiple chunks.
@@ -67,20 +67,20 @@ This file gives AI assistants and developers enough context to work effectively 
   Custom types are loaded by `CustomQuestionTypeLoader` from the manifest; they must comply with `CustomQuestionTypeContract.ts` and export a default component. No change in formplayer code needed for new custom types that follow the contract.
 - **New native capability (e.g. new “requestX” from RN)**
   1. Extend the contract in **formulus** (`FormulusInterfaceDefinition.ts`).
-  2. Run `npm run sync-interface` in formulus-formplayer.
+  2. Run `pnpm run sync-interface` in formulus-formplayer.
   3. Implement the client side in `FormulusInterface.ts` and use it in the relevant renderer or service.
 - **Build / bundle issues**  
   Keep **one** main bundle; avoid dynamic imports that create extra chunks unless you’ve verified loading under file:// in the RN WebView. Keep `base: './'` and the no-crossorigin plugin.
 
 ## Development
 
-- `npm start` — Vite dev server; uses `webview-mock` and (optionally) `DevTestbed` so you can test without the RN app.
-- Tests: `npm test` (Vitest). Lint/format: `npm run lint`, `npm run lint:fix`, `npm run format`, `npm run format:check`.
+- `pnpm start` — Vite dev server; uses `webview-mock` and (optionally) `DevTestbed` so you can test without the RN app.
+- Tests: `pnpm test` (Vitest). Lint/format: `pnpm run lint`, `pnpm run lint:fix`, `pnpm run format`, `pnpm run format:check`.
 
 ## Commit and pull request workflow
 
 - **Commit messages** must follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat(scope): add X`, `fix(scope): resolve Y`).
-- **Before opening a PR**, run `npm run format` so Prettier has formatted the files.
+- **Before opening a PR**, run `pnpm run format` so Prettier has formatted the files.
 - **PRs** should use the following template:
 
 ---

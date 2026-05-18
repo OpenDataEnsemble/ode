@@ -66,11 +66,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
-          cache-dependency-path: |
-            packages/tokens/package-lock.json
-            packages/components/package-lock.json
-            synkronus-portal/package-lock.json
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - name: Set up Java (OpenAPI Generator)
         uses: actions/setup-java@v4
@@ -85,14 +85,14 @@ jobs:
           set -euo pipefail
           ROOT="${GITHUB_WORKSPACE}"
           cd "${ROOT}/packages/tokens"
-          npm ci
-          npm run build || true
+          pnpm install --frozen-lockfile
+          pnpm run build || true
           cd "${ROOT}/packages/components"
-          npm ci
-          npm run build || true
+          pnpm install --frozen-lockfile
+          pnpm run build || true
           cd "${ROOT}/synkronus-portal"
-          npm ci
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm run build
           mkdir -p "${ROOT}/synkronus/portal/dist"
           cp -a dist/. "${ROOT}/synkronus/portal/dist/"
           cd "${ROOT}/synkronus"

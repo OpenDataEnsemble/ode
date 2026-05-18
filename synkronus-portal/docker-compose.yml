@@ -71,8 +71,8 @@ services:
   # Synkronus Portal (frontend)
   synkronus-portal:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: synkronus-portal/Dockerfile
     container_name: synkronus-portal
     ports:
       - "5173:80"

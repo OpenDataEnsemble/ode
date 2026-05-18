@@ -30,20 +30,13 @@ A placeholder **curl-style** installer script is at `scripts/install-ode-desktop
 
 ## Quick start (development)
 
-From the monorepo root:
-
 ```bash
 cd desktop
 pnpm install
-pnpm dev
-```
-
-In another terminal:
-
-```bash
-cd desktop
 pnpm tauri dev
 ```
+
+`pnpm tauri dev` starts the Vite dev server and opens the **Tauri desktop window** (required for the Rust backend). Do not open `http://localhost:1420` in a regular browser — IPC commands such as `invoke` are only available inside the Tauri shell.
 
 ## Scripts
 
@@ -59,7 +52,7 @@ pnpm tauri dev
 | `pnpm test`                         | Vitest (unit / component tests).                                                                                                                              |
 | `pnpm typecheck`                    | `tsc --noEmit`.                                                                                                                                               |
 | `pnpm codegen:synk-client`          | Regenerate TypeScript client from Synkronus OpenAPI.                                                                                                          |
-| `pnpm copy:formplayer`              | Copy `../formulus-formplayer/build/` → `public/formplayer_dist/`. Prefer from `formulus-formplayer/`: `npm run build:copy` (build + Formulus + desktop copy). |
+| `pnpm copy:formplayer`              | Copy `../formulus-formplayer/build/` → `public/formplayer_dist/`. Prefer from `formulus-formplayer/`: `pnpm run build:copy` (build + Formulus + desktop copy). |
 
 ### Rust (backend)
 

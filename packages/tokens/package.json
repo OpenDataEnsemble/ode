@@ -1,6 +1,7 @@
 {
   "name": "@ode/tokens",
   "version": "1.0.0",
+  "packageManager": "pnpm@10.33.2",
   "description": "ODE Design System - Unified design tokens for React Native, React Web, and all ODE applications",
   "main": "dist/js/tokens.js",
   "types": "dist/js/tokens.d.ts",
@@ -22,8 +23,8 @@
   "scripts": {
     "build": "npx style-dictionary build --config style-dictionary.config.js && node scripts/create-tokens-resolved.js",
     "clean": "rm -rf dist",
-    "prepare": "[ -d dist ] || npm run build",
-    "prepublishOnly": "npm run build"
+    "prepare": "[ -d dist ] || pnpm run build",
+    "prepublishOnly": "pnpm run build"
   },
   "keywords": [
     "design-tokens",

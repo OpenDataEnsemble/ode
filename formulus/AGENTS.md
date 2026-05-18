@@ -29,7 +29,7 @@
 ## Custom apps and formplayer
 
 - **Custom apps** are HTML/JS/CSS bundles loaded from Synkronus; they receive the **Formulus** injected API (see interface definition). Authors do not need this monorepo — public docs and [custom_app](https://github.com/OpenDataEnsemble/custom_app) describe usage.
-- **Formplayer** is a sibling package; after changing `FormulusInterfaceDefinition.ts`, run **`npm run sync-interface`** (or build) in **formulus-formplayer** so its copy stays aligned.
+- **Formplayer** is a sibling package; after changing `FormulusInterfaceDefinition.ts`, run **`pnpm run sync-interface`** (or build) in **formulus-formplayer** so its copy stays aligned.
 
 ---
 
@@ -43,4 +43,4 @@
 
 ## Build and run
 
-See [README.md](README.md): Metro, `npm run android` / `ios`, Android **Notifee** vendor step, iOS **Pods**. For CI and formatting, see root [README.md](../README.md) and [.github/CICD.md](../.github/CICD.md).
+See [README.md](README.md): Metro, `pnpm run android` / `ios`, Android **Notifee** vendor step, iOS **Pods**. For CI and formatting, see root [README.md](../README.md) and [.github/CICD.md](../.github/CICD.md).

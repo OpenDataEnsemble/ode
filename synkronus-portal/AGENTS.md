@@ -24,4 +24,4 @@
 
 ## Quick commands
 
-From `synkronus-portal/`: `npm install`, `npm run dev`, `npm run lint`, `npm run format` — align with root [README.md](../README.md) and CI.
+From `synkronus-portal/`: `pnpm install`, `pnpm run dev`, `pnpm run lint`, `pnpm run format` — align with root [README.md](../README.md) and CI.

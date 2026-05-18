@@ -16,7 +16,7 @@
 
 ## Build
 
-- From `packages/tokens/`: `npm install`, then `npm run build` (or the `prepare` script as invoked by npm).
+- From `packages/tokens/`: `pnpm install`, then `pnpm run build` (or the `prepare` script as invoked by pnpm).
 - **Order:** Other packages **depend on tokens built** — install tokens before formplayer/components when setting up a fresh clone (see formplayer AGENTS).
 
 ---

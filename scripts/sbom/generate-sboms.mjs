@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate CycloneDX JSON SBOMs from npm lockfiles (no `npm ls`) and Go modules (cyclonedx-gomod).
+ * Generate CycloneDX JSON SBOMs from the pnpm workspace and Go modules (cyclonedx-gomod).
  *
  * Usage:
  *   node scripts/sbom/generate-sboms.mjs [--out DIR] [--omit dev | --include-dev]
@@ -186,7 +186,7 @@ function lockfileToCycloneDX(lock, opts) {
           },
           {
             name: 'ode:sbom:source',
-            value: 'package-lock.json',
+            value: 'pnpm-lock.yaml',
           },
         ],
       },
@@ -202,27 +202,92 @@ function lockfileToCycloneDX(lock, opts) {
  * @param {string} slug
  * @param {boolean} omitDev
  */
+function collectPnpmListNode(node, byPurl) {
+  if (!node || typeof node !== 'object') return;
+  const n = /** @type {Record<string, unknown>} */ (node);
+  const name = typeof n.name === 'string' ? n.name : null;
+  const version = typeof n.version === 'string' ? n.version : null;
+  if (name && version) {
+    const purl = npmPurl(name, version);
+    if (!byPurl.has(purl)) {
+      byPurl.set(purl, {
+        type: 'library',
+        'bom-ref': purl,
+        name,
+        version,
+        purl,
+      });
+    }
+  }
+  const deps = n.dependencies;
+  if (deps && typeof deps === 'object') {
+    for (const dep of Object.values(deps)) {
+      collectPnpmListNode(dep, byPurl);
+    }
+  }
+}
+
 function generateNpmSbom(projectDir, slug, omitDev) {
   const abs = join(REPO_ROOT, projectDir);
-  const lockPath = join(abs, 'package-lock.json');
+  const pkgJsonPath = join(abs, 'package.json');
+  const lockPath = join(abs, 'pnpm-lock.yaml');
+  if (!existsSync(pkgJsonPath)) {
+    console.warn(`[sbom] skip (no package.json): ${projectDir}`);
+    return null;
+  }
   if (!existsSync(lockPath)) {
-    console.warn(`[sbom] skip npm (no package-lock): ${projectDir}`);
+    console.warn(`[sbom] skip pnpm (no pnpm-lock.yaml): ${projectDir}`);
     return null;
   }
 
-  const raw = readFileSync(lockPath, 'utf8');
-  const lock = JSON.parse(raw);
-  const root = lock.packages?.[''];
-  if (!root?.name || !root?.version) {
-    throw new Error(`Missing root package in ${lockPath}`);
+  const pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+  if (!pkg?.name || !pkg?.version) {
+    throw new Error(`Missing name/version in ${pkgJsonPath}`);
   }
 
-  const bom = lockfileToCycloneDX(lock, {
-    omitDev,
-    rootName: root.name,
-    rootVersion: root.version,
-    slug,
+  const args = ['list', '--json', '--depth', 'Infinity'];
+  if (omitDev) args.push('--prod');
+  const out = execFileSync('pnpm', args, {
+    cwd: abs,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
   });
+  const trees = JSON.parse(out);
+  if (!Array.isArray(trees)) {
+    throw new Error(`Unexpected pnpm list output for ${pkg.name}`);
+  }
+
+  /** @type {Map<string, object>} */
+  const byPurl = new Map();
+  for (const tree of trees) {
+    collectPnpmListNode(tree, byPurl);
+  }
+
+  const components = [...byPurl.values()].sort((a, b) =>
+    String(a.name).localeCompare(String(b.name)),
+  );
+
+  const bom = {
+    bomFormat: 'CycloneDX',
+    specVersion: CDX_SPEC_VERSION,
+    serialNumber: `urn:uuid:${randomUUID()}`,
+    version: 1,
+    metadata: {
+      timestamp: new Date().toISOString(),
+      component: {
+        type: 'application',
+        'bom-ref': npmPurl(pkg.name, pkg.version),
+        name: pkg.name,
+        version: pkg.version,
+        purl: npmPurl(pkg.name, pkg.version),
+        properties: [
+          { name: 'ode:sbom:slug', value: slug },
+          { name: 'ode:sbom:source', value: 'pnpm-lock.yaml' },
+        ],
+      },
+    },
+    components,
+  };
 
   return { filename: `${slug}.cdx.json`, json: JSON.stringify(bom, null, 2) };
 }
