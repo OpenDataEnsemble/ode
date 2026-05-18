@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { rankWith, ControlProps, formatIs } from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import {
@@ -42,37 +42,37 @@ interface LocationDisplayData {
   timestamp: string;
 }
 
+function parseLocationDisplayData(
+  data: unknown,
+): LocationDisplayData | null {
+  if (!data || typeof data !== 'string') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(data);
+    if (
+      parsed &&
+      typeof parsed.latitude === 'number' &&
+      typeof parsed.longitude === 'number'
+    ) {
+      return parsed as LocationDisplayData;
+    }
+  } catch (e) {
+    console.warn('Failed to parse existing location data:', e);
+  }
+  return null;
+}
+
 const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
   const { data, handleChange, path, errors, schema, enabled } = props;
 
   const [isCapturing, setIsCapturing] = useState(false);
-  const [locationData, setLocationData] = useState<LocationDisplayData | null>(
-    null,
-  );
   const [error, setError] = useState<string | null>(null);
   const formulusClient = useRef(FormulusClient.getInstance());
 
   const fieldId = path.replace(/\//g, '_').replace(/^_/, '') || 'gps_field';
 
-  // Parse existing location data if present
-  useEffect(() => {
-    if (data && typeof data === 'string') {
-      try {
-        const parsed = JSON.parse(data);
-        if (
-          parsed &&
-          typeof parsed.latitude === 'number' &&
-          typeof parsed.longitude === 'number'
-        ) {
-          setLocationData(parsed);
-          return;
-        }
-      } catch (e) {
-        console.warn('Failed to parse existing location data:', e);
-      }
-    }
-    setLocationData(null);
-  }, [data]);
+  const locationData = useMemo(() => parseLocationDisplayData(data), [data]);
 
   const handleCaptureLocation = useCallback(async () => {
     if (!enabled) return;
@@ -93,7 +93,6 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
           altitudeAccuracy: result.data.altitudeAccuracy ?? undefined,
           timestamp: result.data.timestamp,
         };
-        setLocationData(stored);
         handleChange(path, JSON.stringify(stored));
       } else {
         const msg =
@@ -128,7 +127,6 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
   }, [enabled, fieldId, handleChange, path]);
 
   const handleDeleteLocation = () => {
-    setLocationData(null);
     setError(null);
     handleChange(path, undefined);
   };
