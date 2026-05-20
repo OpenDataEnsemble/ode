@@ -154,7 +154,7 @@ function compileCondition(
 
   const idxTable = options.indexTable ?? 'observation_index';
   const keyPh = pushParam(params, indexKey);
-  const genClause = `idx.index_generation = (SELECT active_generation FROM observation_index_meta LIMIT 1)`;
+  const genClause = `idx.index_generation = COALESCE((SELECT active_generation FROM observation_index_meta WHERE id = 'meta'), 1)`;
 
   if (cond.op === 'in') {
     const values = Array.isArray(cond.value) ? cond.value : [];
@@ -257,8 +257,14 @@ export function compileObservationQuery(
   const dialect = options.dialect ?? 'desktop';
   const observationsTable = options.observationsTable ?? 'observations';
   const warnings: string[] = [];
-  const whereParts: string[] = [`${alias}.form_type = ?`];
-  const params: Array<string | number | null> = [options.formType ?? ''];
+  const whereParts: string[] = [];
+  const params: Array<string | number | null> = [];
+
+  const formType = options.formType;
+  if (formType && formType !== '*') {
+    whereParts.push(`${alias}.form_type = ?`);
+    params.push(formType);
+  }
 
   if (!options.includeDeleted) {
     if (dialect === 'formulus') {
@@ -277,7 +283,9 @@ export function compileObservationQuery(
     params.push(...compiled.params);
   }
 
-  const sql = `SELECT ${alias}.* FROM ${observationsTable} ${alias} WHERE ${whereParts.join(' AND ')}`;
+  const whereClause =
+    whereParts.length > 0 ? ` WHERE ${whereParts.join(' AND ')}` : '';
+  const sql = `SELECT ${alias}.* FROM ${observationsTable} ${alias}${whereClause}`;
   return { sql, params, warnings };
 }
 

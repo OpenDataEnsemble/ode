@@ -17,13 +17,22 @@ jest.mock('../../../api/synkronus/Auth', () => ({
 
 jest.mock('../../../services/ObservationIndexService', () => {
   const incrementalReindex = jest.fn(async () => undefined);
+  const incrementalReindexMany = jest.fn(async () => undefined);
   const getIndexDefs = jest.fn(() => []);
+  const ensureInitialRebuild = jest.fn(async () => undefined);
+  const rebuildAllIndexes = jest.fn(async () => ({
+    generation: 1,
+    lastRebuildAt: null,
+  }));
   return {
     __esModule: true,
     default: {
       getInstance: jest.fn(() => ({
         incrementalReindex,
+        incrementalReindexMany,
         getIndexDefs,
+        ensureInitialRebuild,
+        rebuildAllIndexes,
       })),
     },
   };

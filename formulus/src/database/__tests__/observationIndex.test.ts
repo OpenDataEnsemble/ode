@@ -22,6 +22,7 @@ jest.mock('../../services/AppConfigService', () => ({
   __esModule: true,
   default: {
     getInstance: jest.fn(() => ({
+      loadConfig: jest.fn(async () => undefined),
       getConfig: jest.fn(() => ({
         observationIndexes: [
           { key: 'p_id', path: '$.p_id' },

@@ -50,6 +50,9 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     this.database = database;
     this.observationsCollection =
       database.get<ObservationModel>('observations');
+    // Touch the index service early so the `bundleUpdated` listener and the
+    // initial-rebuild bootstrap kick off before any sync activity.
+    ObservationIndexService.getInstance(this.database);
   }
 
   /**
@@ -251,9 +254,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     filter?: ObservationFilter;
   }): Promise<Observation[]> {
     try {
-      const indexKeys = indexKeysFromConfig(
-        ObservationIndexService.getInstance(this.database).getIndexDefs(),
-      );
+      const indexService = ObservationIndexService.getInstance(this.database);
+      await indexService.ensureInitialRebuild();
+
+      const indexKeys = indexKeysFromConfig(indexService.getIndexDefs());
       const compiled = compileObservationQuery({
         dialect: 'formulus',
         jsonColumn: 'data',
@@ -599,17 +603,15 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     });
 
     const indexService = ObservationIndexService.getInstance(this.database);
-    for (const change of changes) {
-      const dataJson =
+    const indexRows = changes.map(change => ({
+      observationId: change.observationId,
+      formType: change.formType,
+      dataJson:
         typeof change.data === 'string'
           ? change.data
-          : JSON.stringify(change.data);
-      await indexService.incrementalReindex(
-        change.observationId,
-        change.formType,
-        dataJson,
-      );
-    }
+          : JSON.stringify(change.data),
+    }));
+    await indexService.incrementalReindexMany(indexRows);
 
     return count;
   }
