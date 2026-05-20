@@ -1,0 +1,14 @@
+{
+  "name": "wildcard_form_type",
+  "jsonColumn": "data",
+  "formType": "*",
+  "includeDeleted": false,
+  "indexKeys": ["hh_id"],
+  "filter": {
+    "field": "data.hh_id",
+    "op": "eq",
+    "value": "HH-42"
+  },
+  "expectedSqlFragments": ["index_key", "value_text"],
+  "expectError": false
+}
