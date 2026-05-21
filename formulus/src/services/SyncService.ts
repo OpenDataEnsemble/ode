@@ -269,7 +269,10 @@ export class SyncService {
         notificationService
           .showSyncCanceled()
           .catch(notifError =>
-            console.warn('Failed to show sync canceled notification:', notifError),
+            console.warn(
+              'Failed to show sync canceled notification:',
+              notifError,
+            ),
           );
         throw error;
       }

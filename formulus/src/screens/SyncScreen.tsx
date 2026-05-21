@@ -707,10 +707,7 @@ const SyncScreen = () => {
         ) : null}
         {progressShowsCurrentItem && progress?.currentItem ? (
           <Text
-            style={[
-              styles.progressItemText,
-              { color: mutedForeground },
-            ]}
+            style={[styles.progressItemText, { color: mutedForeground }]}
             numberOfLines={1}
             ellipsizeMode="middle">
             {progress.currentItem}

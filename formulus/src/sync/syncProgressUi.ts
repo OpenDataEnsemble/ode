@@ -1,8 +1,5 @@
 import type { SyncProgress, SyncProgressPhase } from './syncProgress';
-import {
-  syncProgressPercent,
-  syncProgressPhaseTitle,
-} from './syncProgress';
+import { syncProgressPercent, syncProgressPhaseTitle } from './syncProgress';
 
 const ATTACHMENT_PHASES: SyncProgressPhase[] = [
   'pull_attachments',
