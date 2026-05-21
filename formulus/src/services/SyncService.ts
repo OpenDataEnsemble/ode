@@ -1,7 +1,8 @@
 import { synkronusApi } from '../api/synkronus';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appEvents } from '../webview/FormulusMessageHandlers';
-import { SyncProgress } from '../contexts/SyncContext';
+import type { SyncProgress } from '../sync/syncProgress';
+import type { SynkronusSyncOptions } from '../sync/syncProgress';
 import { notificationService } from './NotificationService';
 import { getUserFacingAppBundleUpdateErrorMessage } from './appBundleUpdateErrors';
 import { FormService } from './FormService';
@@ -206,78 +207,22 @@ export class SyncService {
 
     try {
       await notificationService.startForegroundService();
-      // Phase 1: Pull - Get manifest and download changes
+
+      const syncOptions: SynkronusSyncOptions = {
+        onProgress: progress => this.updateProgress(progress),
+        isCancelled: () => this.shouldCancel,
+      };
+
       this.updateProgress({
         current: 0,
-        total: 4,
-        phase: 'pull',
-        details: 'Fetching manifest...',
+        total: 0,
+        phase: 'pull_observations',
+        indeterminate: true,
+        details: 'Starting…',
       });
-
-      if (this.shouldCancel) {
-        notificationService
-          .showSyncCanceled()
-          .catch(error =>
-            console.warn('Failed to show sync canceled notification:', error),
-          );
-        throw new Error('Sync cancelled');
-      }
-
-      // Phase 2: Pull - Download observations
-      this.updateProgress({
-        current: 1,
-        total: 4,
-        phase: 'pull',
-        details: 'Downloading observations...',
-      });
-
-      if (this.shouldCancel) {
-        notificationService
-          .showSyncCanceled()
-          .catch(error =>
-            console.warn('Failed to show sync canceled notification:', error),
-          );
-        throw new Error('Sync cancelled');
-      }
-
-      // Phase 3: Push - Upload local changes
-      this.updateProgress({
-        current: 2,
-        total: 4,
-        phase: 'push',
-        details: 'Uploading observations...',
-      });
-
-      if (this.shouldCancel) {
-        notificationService
-          .showSyncCanceled()
-          .catch(error =>
-            console.warn('Failed to show sync canceled notification:', error),
-          );
-        throw new Error('Sync cancelled');
-      }
-
-      // Phase 4: Attachments (if enabled)
-      if (includeAttachments) {
-        this.updateProgress({
-          current: 3,
-          total: 4,
-          phase: 'attachments_upload',
-          details: 'Syncing attachments...',
-        });
-
-        if (this.shouldCancel) {
-          notificationService
-            .showSyncCanceled()
-            .catch(error =>
-              console.warn('Failed to show sync canceled notification:', error),
-            );
-          throw new Error('Sync cancelled');
-        }
-      }
 
       const finalVersion = await this.withAutoLoginRetry(
-        () => synkronusApi.syncObservations(includeAttachments),
+        () => synkronusApi.syncObservations(includeAttachments, syncOptions),
         'sync observations',
       );
 
@@ -292,10 +237,10 @@ export class SyncService {
       );
 
       this.updateProgress({
-        current: 4,
-        total: 4,
-        phase: 'push',
-        details: 'Sync completed',
+        current: 1,
+        total: 1,
+        phase: 'push_observations',
+        details: 'Complete',
       });
       await AsyncStorage.setItem('@last_seen_version', finalVersion.toString());
 
@@ -316,6 +261,21 @@ export class SyncService {
       return finalVersion;
     } catch (error) {
       console.error('Sync failed', error);
+      if (
+        error instanceof Error &&
+        error.message === 'Sync cancelled' &&
+        this.shouldCancel
+      ) {
+        notificationService
+          .showSyncCanceled()
+          .catch(notifError =>
+            console.warn(
+              'Failed to show sync canceled notification:',
+              notifError,
+            ),
+          );
+        throw error;
+      }
       const errorMessage = getUserFacingSyncErrorMessage(error);
       this.updateStatus(`Sync failed: ${errorMessage}`);
 
@@ -407,8 +367,8 @@ export class SyncService {
     this.updateProgress({
       current: 0,
       total: 100,
-      phase: 'attachments_download',
-      details: 'Preparing app bundle download...',
+      phase: 'app_bundle',
+      details: 'Preparing download…',
     });
 
     try {
@@ -442,8 +402,8 @@ export class SyncService {
       this.updateProgress({
         current: 100,
         total: 100,
-        phase: 'attachments_download',
-        details: 'App bundle sync completed',
+        phase: 'app_bundle',
+        details: 'Complete',
       });
 
       appEvents.emit('bundleUpdated');
@@ -474,8 +434,7 @@ export class SyncService {
             this.updateProgress({
               current: normalized,
               total: 100,
-              phase: 'attachments_download',
-              details: `Downloading app bundle... ${normalized}%`,
+              phase: 'app_bundle',
             });
           }),
         'download app bundle',
