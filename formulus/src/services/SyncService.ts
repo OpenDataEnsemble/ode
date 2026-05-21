@@ -432,8 +432,6 @@ export class SyncService {
               current: normalized,
               total: 100,
               phase: 'app_bundle',
-              details: `${normalized}%`,
-              currentItem: 'Form bundle',
             });
           }),
         'download app bundle',

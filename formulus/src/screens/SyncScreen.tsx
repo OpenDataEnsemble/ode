@@ -46,7 +46,10 @@ import {
 import { syncProgressPercent } from '../sync/syncProgress';
 import {
   getSyncProgressCardTitle,
+  getSyncProgressDetailsForDisplay,
   getSyncProgressPercentLabel,
+  shouldShowSyncProgressCurrentItem,
+  shouldShowSyncProgressPercent,
 } from '../sync/syncProgressUi';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
@@ -601,10 +604,17 @@ const SyncScreen = () => {
   const showBundleProgress =
     syncState.isActive && syncState.progress && activeOperation === 'update';
 
+  const progress = syncState.progress;
   const progressPercentLabel =
-    syncState.progress && syncState.isActive
-      ? getSyncProgressPercentLabel(syncState.progress)
+    progress && syncState.isActive && shouldShowSyncProgressPercent(progress)
+      ? getSyncProgressPercentLabel(progress)
       : '';
+  const progressDetailsLabel =
+    progress && syncState.isActive
+      ? getSyncProgressDetailsForDisplay(progress)
+      : undefined;
+  const progressShowsCurrentItem =
+    progress != null && shouldShowSyncProgressCurrentItem(progress);
   const progressShowsIndeterminate =
     syncState.progress?.indeterminate === true ||
     (syncState.progress != null &&
@@ -677,17 +687,25 @@ const SyncScreen = () => {
             {progressPercentLabel}
           </Text>
         ) : null}
-        {syncState.progress.details ? (
+        {progressDetailsLabel ? (
           <Text
             style={[
-              styles.progressSubtext,
-              { color: mutedForeground },
+              progressPercentLabel
+                ? styles.progressSubtext
+                : styles.progressText,
+              {
+                color: progressPercentLabel
+                  ? mutedForeground
+                  : isDark
+                    ? (themeColors.onSurface as string)
+                    : (colors.neutral[700] as string),
+              },
             ]}
             numberOfLines={1}>
-            {syncState.progress.details}
+            {progressDetailsLabel}
           </Text>
         ) : null}
-        {syncState.progress.currentItem ? (
+        {progressShowsCurrentItem && progress?.currentItem ? (
           <Text
             style={[
               styles.progressItemText,
@@ -695,7 +713,7 @@ const SyncScreen = () => {
             ]}
             numberOfLines={1}
             ellipsizeMode="middle">
-            {syncState.progress.currentItem}
+            {progress.currentItem}
           </Text>
         ) : null}
         {syncState.canCancel && (

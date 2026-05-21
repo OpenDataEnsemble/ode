@@ -8,6 +8,10 @@ import {
   syncProgressPercent,
   syncProgressPhaseTitle,
 } from '../sync/syncProgress';
+import {
+  getSyncProgressDetailsForDisplay,
+  shouldShowSyncProgressCurrentItem,
+} from '../sync/syncProgressUi';
 
 class NotificationService {
   private syncNotificationId = 'sync_progress';
@@ -37,10 +41,14 @@ class NotificationService {
       progress.indeterminate === true || progress.total <= 0;
     const title = syncProgressPhaseTitle(progress.phase);
     const bodyParts: string[] = [];
-    if (progress.details?.trim()) {
-      bodyParts.push(progress.details.trim());
+    const displayDetails = getSyncProgressDetailsForDisplay(progress);
+    if (displayDetails) {
+      bodyParts.push(displayDetails);
     }
-    if (progress.currentItem?.trim()) {
+    if (
+      shouldShowSyncProgressCurrentItem(progress) &&
+      progress.currentItem?.trim()
+    ) {
       bodyParts.push(progress.currentItem.trim());
     }
     const body =
