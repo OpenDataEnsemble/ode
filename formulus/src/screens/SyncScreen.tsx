@@ -265,15 +265,7 @@ const SyncScreen = () => {
       startSync(true);
       setActiveOperation('sync');
 
-      const syncPromise = syncService.syncObservations(true);
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(
-          () => reject(new Error('Sync timed out after 30 minutes')),
-          30 * 60 * 1000,
-        );
-      });
-
-      await Promise.race([syncPromise, timeoutPromise]);
+      await syncService.syncObservations(true);
       await refreshAfterOperation();
     } catch (error) {
       if (isRepositoryResetRequiredError(error)) {
