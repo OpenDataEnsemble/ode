@@ -3,7 +3,11 @@ import notifee, {
   AndroidImportance,
   AndroidForegroundServiceType,
 } from '@notifee/react-native';
-import { SyncProgress } from '../contexts/SyncContext';
+import type { SyncProgress } from '../sync/syncProgress';
+import {
+  syncProgressPercent,
+  syncProgressPhaseTitle,
+} from '../sync/syncProgress';
 
 class NotificationService {
   private syncNotificationId = 'sync_progress';
@@ -28,23 +32,38 @@ class NotificationService {
   async showSyncProgress(progress: SyncProgress) {
     if (!this.foregroundServiceRunning) return;
 
-    const percentage =
-      progress.total > 0
-        ? Math.round((progress.current / progress.total) * 100)
-        : 0;
+    const percentage = syncProgressPercent(progress);
+    const indeterminate =
+      progress.indeterminate === true || progress.total <= 0;
+    const title = syncProgressPhaseTitle(progress.phase);
+    const bodyParts: string[] = [];
+    if (progress.details?.trim()) {
+      bodyParts.push(progress.details.trim());
+    }
+    if (progress.currentItem?.trim()) {
+      bodyParts.push(progress.currentItem.trim());
+    }
+    const body =
+      bodyParts.length > 0
+        ? bodyParts.join(' · ')
+        : indeterminate
+          ? 'In progress…'
+          : percentage != null
+            ? `${percentage}%`
+            : 'In progress…';
 
     try {
       await notifee.displayNotification({
         id: this.syncNotificationId,
-        title: this.getPhaseText(progress.phase),
-        body: `${percentage}%`,
+        title,
+        body,
         android: {
           channelId: this.channelId,
           ongoing: true,
           progress: {
             max: 100,
-            current: percentage,
-            indeterminate: progress.total === 0,
+            current: percentage ?? 0,
+            indeterminate,
           },
         },
       });
@@ -59,8 +78,8 @@ class NotificationService {
 
     await notifee.displayNotification({
       id: this.syncNotificationId,
-      title: 'Syncing...',
-      body: 'Starting...',
+      title: 'Syncing…',
+      body: 'Starting…',
       android: {
         channelId: this.channelId,
         asForegroundService: true,
@@ -165,21 +184,6 @@ class NotificationService {
 
   async clearAllSyncNotifications() {
     await notifee.cancelAllNotifications();
-  }
-
-  private getPhaseText(phase: SyncProgress['phase']): string {
-    switch (phase) {
-      case 'pull':
-        return 'Downloading data';
-      case 'push':
-        return 'Uploading observations';
-      case 'attachments_download':
-        return 'Updating app bundle';
-      case 'attachments_upload':
-        return 'Uploading attachments';
-      default:
-        return 'Syncing';
-    }
   }
 }
 

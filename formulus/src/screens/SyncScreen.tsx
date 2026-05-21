@@ -43,6 +43,11 @@ import {
   isNumericAppBundleVersionString,
   normalizeAppBundleVersion,
 } from '../utils/appBundleVersion';
+import { syncProgressPercent } from '../sync/syncProgress';
+import {
+  getSyncProgressCardTitle,
+  getSyncProgressPercentLabel,
+} from '../sync/syncProgressUi';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
@@ -521,11 +526,7 @@ const SyncScreen = () => {
       return;
     }
 
-    const { current, total } = syncState.progress;
-    const percent =
-      total && total > 0
-        ? Math.max(0, Math.min(100, (current / total) * 100))
-        : 0;
+    const percent = syncProgressPercent(syncState.progress) ?? 0;
 
     Animated.timing(animatedProgress, {
       toValue: percent,
@@ -555,12 +556,6 @@ const SyncScreen = () => {
     updatePendingObservations,
     checkForUpdates,
   ]);
-
-  const getProgressTitle = (): string => {
-    if (activeOperation === 'sync_then_update') return 'Syncing & Updating';
-    if (activeOperation === 'update') return 'Updating App Bundle';
-    return 'Syncing Data';
-  };
 
   const isSyncButtonActive =
     activeOperation === 'sync' || activeOperation === 'sync_then_update';
@@ -614,6 +609,16 @@ const SyncScreen = () => {
   const showBundleProgress =
     syncState.isActive && syncState.progress && activeOperation === 'update';
 
+  const progressPercentLabel =
+    syncState.progress && syncState.isActive
+      ? getSyncProgressPercentLabel(syncState.progress)
+      : '';
+  const progressShowsIndeterminate =
+    syncState.progress?.indeterminate === true ||
+    (syncState.progress != null &&
+      syncState.progress.total <= 0 &&
+      syncProgressPercent(syncState.progress) == null);
+
   const progressCard =
     syncState.isActive && syncState.progress ? (
       <View
@@ -626,13 +631,20 @@ const SyncScreen = () => {
           },
         ]}>
         <View style={styles.progressHeader}>
-          <Icon name="sync" size={20} color={themeColors.primary as string} />
+          {progressShowsIndeterminate ? (
+            <ActivityIndicator
+              size="small"
+              color={themeColors.primary as string}
+            />
+          ) : (
+            <Icon name="sync" size={20} color={themeColors.primary as string} />
+          )}
           <Text
             style={[
               styles.progressTitle,
               { color: themeColors.onSurface as string },
             ]}>
-            {getProgressTitle()}
+            {getSyncProgressCardTitle(syncState.progress, activeOperation)}
           </Text>
         </View>
         <View
@@ -649,28 +661,51 @@ const SyncScreen = () => {
               styles.progressFill,
               {
                 backgroundColor: themeColors.primary as string,
-                width: animatedProgress.interpolate({
-                  inputRange: [0, 100],
-                  outputRange: ['0%', '100%'],
-                }),
+                width: progressShowsIndeterminate
+                  ? '30%'
+                  : animatedProgress.interpolate({
+                      inputRange: [0, 100],
+                      outputRange: ['0%', '100%'],
+                    }),
+                opacity: progressShowsIndeterminate ? 0.55 : 1,
               },
             ]}
           />
         </View>
-        <Text
-          style={[
-            styles.progressText,
-            {
-              color: isDark
-                ? (themeColors.onSurface as string)
-                : (colors.neutral[700] as string),
-            },
-          ]}>
-          {Math.round(
-            (syncState.progress.current / syncState.progress.total) * 100,
-          )}
-          %
-        </Text>
+        {progressPercentLabel ? (
+          <Text
+            style={[
+              styles.progressText,
+              {
+                color: isDark
+                  ? (themeColors.onSurface as string)
+                  : (colors.neutral[700] as string),
+              },
+            ]}>
+            {progressPercentLabel}
+          </Text>
+        ) : null}
+        {syncState.progress.details ? (
+          <Text
+            style={[
+              styles.progressSubtext,
+              { color: mutedForeground },
+            ]}
+            numberOfLines={1}>
+            {syncState.progress.details}
+          </Text>
+        ) : null}
+        {syncState.progress.currentItem ? (
+          <Text
+            style={[
+              styles.progressItemText,
+              { color: mutedForeground },
+            ]}
+            numberOfLines={1}
+            ellipsizeMode="middle">
+            {syncState.progress.currentItem}
+          </Text>
+        ) : null}
         {syncState.canCancel && (
           <Button
             title="Cancel"
@@ -1315,7 +1350,18 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: odeTypography.caption,
     textAlign: 'center',
+    marginBottom: 4,
+  },
+  progressSubtext: {
+    fontSize: odeTypography.caption,
+    textAlign: 'center',
+    marginBottom: 2,
+  },
+  progressItemText: {
+    fontSize: odeTypography.caption,
+    textAlign: 'center',
     marginBottom: 12,
+    fontFamily: 'monospace',
   },
   errorCard: {
     marginBottom: odeSpacing.md,

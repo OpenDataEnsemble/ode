@@ -7,12 +7,9 @@ import React, {
 } from 'react';
 import { syncService as syncServiceInstance } from '../services/SyncService';
 
-export interface SyncProgress {
-  current: number;
-  total: number;
-  phase: 'pull' | 'push' | 'attachments_download' | 'attachments_upload';
-  details?: string;
-}
+export type { SyncProgress, SyncProgressPhase } from '../sync/syncProgress';
+export type { SyncProgressReporter } from '../sync/syncProgress';
+import type { SyncProgress } from '../sync/syncProgress';
 
 export interface SyncState {
   isActive: boolean;
