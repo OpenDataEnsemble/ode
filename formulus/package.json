@@ -104,6 +104,16 @@
       "@openapitools/openapi-generator-cli",
       "esbuild",
       "unrs-resolver"
-    ]
+    ],
+    "overrides": {
+      "jest-environment-node": "^30.4.1",
+      "jest-haste-map": "^30.4.1",
+      "jest-message-util": "^30.4.1",
+      "jest-mock": "^30.4.1",
+      "jest-regex-util": "^30.4.0",
+      "jest-util": "^30.4.1",
+      "jest-validate": "^30.4.1",
+      "jest-worker": "^30.4.1"
+    }
   }
 }

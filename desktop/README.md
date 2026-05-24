@@ -40,18 +40,18 @@ pnpm tauri dev
 
 ## Scripts
 
-| Script                              | Purpose                                                                                                                                                       |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm dev`                          | Vite dev server (frontend).                                                                                                                                   |
-| `pnpm build`                        | Typecheck + Vite production build.                                                                                                                            |
-| `pnpm build:formplayer`             | Build `../formulus-formplayer` and copy output into `public/formplayer_dist/`.                                                                                |
-| `pnpm build:tauri`                  | Prepare Formplayer assets (`build:formplayer`) and then run the desktop frontend build.                                                                       |
-| `pnpm tauri build`                  | Full desktop bundle; automatically runs `pnpm build:tauri` first, so the packaged app includes `formplayer_dist`.                                             |
-| `pnpm lint` / `pnpm lint:fix`       | ESLint.                                                                                                                                                       |
-| `pnpm format` / `pnpm format:check` | Prettier.                                                                                                                                                     |
-| `pnpm test`                         | Vitest (unit / component tests).                                                                                                                              |
-| `pnpm typecheck`                    | `tsc --noEmit`.                                                                                                                                               |
-| `pnpm codegen:synk-client`          | Regenerate TypeScript client from Synkronus OpenAPI.                                                                                                          |
+| Script                              | Purpose                                                                                                                                                        |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm dev`                          | Vite dev server (frontend).                                                                                                                                    |
+| `pnpm build`                        | Typecheck + Vite production build.                                                                                                                             |
+| `pnpm build:formplayer`             | Build `../formulus-formplayer` and copy output into `public/formplayer_dist/`.                                                                                 |
+| `pnpm build:tauri`                  | Prepare Formplayer assets (`build:formplayer`) and then run the desktop frontend build.                                                                        |
+| `pnpm tauri build`                  | Full desktop bundle; automatically runs `pnpm build:tauri` first, so the packaged app includes `formplayer_dist`.                                              |
+| `pnpm lint` / `pnpm lint:fix`       | ESLint.                                                                                                                                                        |
+| `pnpm format` / `pnpm format:check` | Prettier.                                                                                                                                                      |
+| `pnpm test`                         | Vitest (unit / component tests).                                                                                                                               |
+| `pnpm typecheck`                    | `tsc --noEmit`.                                                                                                                                                |
+| `pnpm codegen:synk-client`          | Regenerate TypeScript client from Synkronus OpenAPI.                                                                                                           |
 | `pnpm copy:formplayer`              | Copy `../formulus-formplayer/build/` → `public/formplayer_dist/`. Prefer from `formulus-formplayer/`: `pnpm run build:copy` (build + Formulus + desktop copy). |
 
 ### Rust (backend)

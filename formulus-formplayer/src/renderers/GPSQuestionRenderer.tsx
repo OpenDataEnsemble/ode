@@ -42,9 +42,7 @@ interface LocationDisplayData {
   timestamp: string;
 }
 
-function parseLocationDisplayData(
-  data: unknown,
-): LocationDisplayData | null {
+function parseLocationDisplayData(data: unknown): LocationDisplayData | null {
   if (!data || typeof data !== 'string') {
     return null;
   }
