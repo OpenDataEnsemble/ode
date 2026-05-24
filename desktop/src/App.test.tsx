@@ -1,5 +1,11 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { vi } from 'vitest';
+
+vi.mock('@tauri-apps/api/core', () => ({
+  isTauri: vi.fn(() => true),
+  invoke: vi.fn(),
+}));
+
 import App from './App';
 
 const { defaultSettings } = vi.hoisted(() => ({
