@@ -93,7 +93,9 @@ jobs:
         run: pnpm run lint
 
       - name: Run tests
-        run: pnpm test -- --ci --coverage --watchAll=false
+        # Do not use `pnpm test -- --ci`: pnpm forwards args after `--` with an extra
+        # `--` to Jest, which then treats `--ci` as a test path pattern (0 matches).
+        run: pnpm run test --ci --coverage --watchAll=false
 
   formulus-formplayer:
     name: Formulus Formplayer (React Web)
@@ -135,7 +137,8 @@ jobs:
         run: pnpm run format:check
 
       - name: Run tests
-        run: pnpm test -- --coverage --watchAll=false
+        # Vitest: `run` subcommand = single CI pass (Jest's --watchAll=false does not apply).
+        run: pnpm run test run
         continue-on-error: true
 
       - name: Build

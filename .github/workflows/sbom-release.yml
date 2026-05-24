@@ -30,10 +30,24 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      - name: Setup pnpm
+        # scripts/sbom/generate-sboms.mjs shells out to `pnpm list`; needs pnpm on PATH.
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies for each pnpm project
+        # pnpm list requires node_modules to be present in each project dir.
+        run: |
+          set -euo pipefail
+          for d in packages/tokens packages/components packages/observation-query formulus-formplayer formulus synkronus-portal; do
+            (cd "$d" && pnpm install --frozen-lockfile)
+          done
 
       - name: Generate SBOMs
         run: node scripts/sbom/generate-sboms.mjs --out sbom-dist

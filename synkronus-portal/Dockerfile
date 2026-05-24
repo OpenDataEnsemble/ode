@@ -9,7 +9,7 @@ COPY packages/tokens/package.json packages/tokens/pnpm-lock.yaml ./packages/toke
 COPY packages/tokens/style-dictionary.config.js ./packages/tokens/
 COPY packages/tokens/config.json ./packages/tokens/
 COPY packages/tokens/src ./packages/tokens/src
-COPY packages/components/package.json ./packages/components/
+COPY packages/components/package.json packages/components/pnpm-lock.yaml ./packages/components/
 COPY synkronus-portal/package.json synkronus-portal/pnpm-lock.yaml ./synkronus-portal/
 
 WORKDIR /app/packages/tokens
