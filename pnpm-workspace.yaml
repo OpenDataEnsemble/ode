@@ -1,0 +1,6 @@
+packages:
+  - formulus
+  - formulus-formplayer
+  - desktop
+  - synkronus-portal
+  - packages/*

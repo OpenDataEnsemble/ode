@@ -69,6 +69,14 @@ Do not assume custom app authors have local checkouts of **ODE** or internal exa
 
 ---
 
+## Package manager (pnpm)
+
+- **Tooling:** `pnpm@10.33.2` (Corepack / `packageManager` in each `package.json`). Workspace: [pnpm-workspace.yaml](pnpm-workspace.yaml).
+- **Install:** Run `pnpm install` in the package you change; each package keeps its own `pnpm-lock.yaml`. Build [`packages/tokens`](packages/tokens/) before consumers that depend on `@ode/tokens`.
+- **Scripts:** Prefer `pnpm exec` / `pnpm dlx` over `npx` for CLI tools.
+
+---
+
 ## CI and code quality
 
 - **Pipelines:** [.github/CICD.md](.github/CICD.md).

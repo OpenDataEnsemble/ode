@@ -89,6 +89,18 @@ This monorepo uses GitHub Actions for CI/CD. For details (trigger conditions, ta
 - Formulus Android build (includes Formplayer asset build): `.github/workflows/formulus-android.yml`
 - Synkronus deployment docs: `synkronus/DOCKER.md`, `synkronus/DEPLOYMENT.md`
 
+## Package manager (pnpm)
+
+JavaScript/TypeScript packages use **pnpm** (`pnpm@10.33.2` via Corepack). The repo defines a [pnpm workspace](pnpm-workspace.yaml); each package still has its own `pnpm-lock.yaml` — run `pnpm install` in the package directory you are working on (build `packages/tokens` first when a consumer depends on `@ode/tokens`).
+
+```bash
+corepack enable
+corepack prepare pnpm@10.33.2 --activate
+cd packages/tokens && pnpm install && pnpm run build
+```
+
+See [AGENTS.md](AGENTS.md) and `.github/CICD.md` for CI install order.
+
 ## Code Quality: Linting & Formatting 
 
 ODE enforces consistent formatting and linting for the frontend projects both **locally** and in **CI**.
