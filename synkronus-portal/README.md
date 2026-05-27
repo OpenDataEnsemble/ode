@@ -21,7 +21,7 @@ Before starting, ensure you have:
 
 ### For Dockerless Development Setup
 
-- **Node.js** 20+ and **npm** or **yarn**
+- **Node.js** 20+ and **pnpm**
 - **Go** 1.22+ (for running the backend API)
 - **PostgreSQL** 17+ (installed locally or accessible)
 - **Git** (for cloning the repository)
@@ -33,7 +33,7 @@ Before starting, ensure you have:
 | Mode                         | Command                                                    | URL                   | Hot Reload | Docker Required |
 | ---------------------------- | ---------------------------------------------------------- | --------------------- | ---------- | --------------- |
 | **Production**               | `docker compose up -d --build`                             | http://localhost:5173 | ❌ No      | ✅ Yes          |
-| **Development (Docker)**     | `docker compose up -d postgres synkronus`<br>`npm run dev` | http://localhost:5174 | ✅ Yes     | ✅ Partial      |
+| **Development (Docker)**     | `docker compose up -d postgres synkronus`<br>`pnpm run dev` | http://localhost:5174 | ✅ Yes     | ✅ Partial      |
 | **Development (Dockerless)** | See [Dockerless Setup](#dockerless-development-setup)      | http://localhost:5174 | ✅ Yes     | ❌ No           |
 
 **Default Login Credentials:**
@@ -160,13 +160,13 @@ curl http://localhost:8080/health
 **Step 4:** Install dependencies (if not already done)
 
 ```bash
-npm install
+pnpm install
 ```
 
 **Step 5:** Start the Vite dev server
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 **Step 6:** Access the portal
@@ -187,7 +187,7 @@ npm run dev
 
 ```bash
 # Stop Vite dev server: Press Ctrl+C in the terminal running
-npm run dev
+pnpm run dev
 # Stop backend services
 docker compose down
 ```
@@ -202,7 +202,7 @@ docker compose down
 
 ### Prerequisites
 
-- **Node.js** 20+ and **npm**
+- **Node.js** 20+ and **pnpm**
 - **Go** 1.22+ ([Install Go](https://go.dev/doc/install))
 - **PostgreSQL** 17+ ([Install PostgreSQL](https://www.postgresql.org/download/))
 - **Git**
@@ -315,13 +315,13 @@ cd ../synkronus-portal
 **Install dependencies:**
 
 ```bash
-npm install
+pnpm install
 ```
 
 **Start the Vite dev server:**
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 **Access the portal:**
@@ -350,7 +350,7 @@ npm run dev
 
 ### Stopping Dockerless Development
 
-1. **Stop frontend:** Press `Ctrl+C` in the terminal running `npm run dev`
+1. **Stop frontend:** Press `Ctrl+C` in the terminal running `pnpm run dev`
 2. **Stop backend:** Press `Ctrl+C` in the terminal running the Go server
 
 ### Troubleshooting Dockerless Setup
@@ -483,7 +483,7 @@ Then everything is working correctly. The health check status will update to "he
 
 ### Hot Reload Not Working (Development Mode)
 
-1. Ensure you're running `npm run dev` (not Docker for frontend)
+1. Ensure you're running `pnpm run dev` (not Docker for frontend)
 2. Check that Vite is running on port 5174
 3. Verify the browser is connected to the correct port (http://localhost:5174)
 4. Check browser console for HMR connection errors
@@ -609,7 +609,7 @@ This persists across restarts. If bundles are missing, check that:
 │  │  Vite Dev Server  │      │   Go API Server   │           │
 │  │   (Frontend)      │      │    (Backend)      │           │
 │  │                   │      │                   │           │
-│  │  • npm run dev    │◄────►│  • go run         │           │
+│  │  • pnpm run dev    │◄────►│  • go run         │           │
 │  │  • Port 5174      │      │  • Port 8080      │           │
 │  │  • Hot Reload     │      │  • App Bundles    │           │
 │  │  • Local Files    │      │  • Local Files    │           │
@@ -770,7 +770,7 @@ Your data will be exactly as you left it!
 
 **Stop Frontend:**
 
-- Press `Ctrl+C` in the terminal running `npm run dev`
+- Press `Ctrl+C` in the terminal running `pnpm run dev`
 
 **Stop Backend:**
 
@@ -810,7 +810,7 @@ Your data will be exactly as you left it!
 3. Start dev server:
 
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
 ### From Development to Production (Docker)

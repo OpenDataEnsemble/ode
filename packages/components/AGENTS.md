@@ -23,4 +23,4 @@
 
 ## Build / dev
 
-See [README.md](README.md): `npm install`, storybook or dev commands as documented. Keep **lint/format** consistent with the rest of the monorepo (see root [README.md](../../README.md)).
+See [README.md](README.md): `pnpm install`, Storybook or dev commands as documented. Keep **lint/format** consistent with the rest of the monorepo (see root [README.md](../../README.md)).
