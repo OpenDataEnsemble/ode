@@ -25,16 +25,25 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
       - name: Setup pnpm
         # scripts/sbom/generate-sboms.mjs shells out to `pnpm list`; needs pnpm on PATH.
         uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: |
+            formulus/pnpm-lock.yaml
+            formulus-formplayer/pnpm-lock.yaml
+            synkronus-portal/pnpm-lock.yaml
+            packages/tokens/pnpm-lock.yaml
+            packages/components/pnpm-lock.yaml
+            packages/observation-query/pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
 
       - name: Set up Go
         uses: actions/setup-go@v5

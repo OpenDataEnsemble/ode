@@ -62,15 +62,20 @@ jobs:
           go-version: '1.25.x'
           cache-dependency-path: synkronus/go.sum
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
+          cache: pnpm
+          cache-dependency-path: |
+            synkronus-portal/pnpm-lock.yaml
+            packages/tokens/pnpm-lock.yaml
+            packages/components/pnpm-lock.yaml
 
       - name: Set up Java (OpenAPI Generator)
         uses: actions/setup-java@v4
