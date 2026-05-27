@@ -21,7 +21,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "npx style-dictionary build --config style-dictionary.config.js && node scripts/create-tokens-resolved.js",
+    "build": "pnpm exec style-dictionary build --config style-dictionary.config.js && node scripts/create-tokens-resolved.js",
     "clean": "rm -rf dist",
     "prepare": "[ -d dist ] || pnpm run build",
     "prepublishOnly": "pnpm run build"
