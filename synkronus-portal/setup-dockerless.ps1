@@ -146,16 +146,16 @@ Write-Host "Setting up frontend (Portal)..." -ForegroundColor Cyan
 
 Push-Location $PSScriptRoot
 
-# Install npm dependencies
+# Install pnpm dependencies
 if (Test-Path "node_modules") {
-    Write-Host "⚠ node_modules already exists, skipping npm install" -ForegroundColor Yellow
+    Write-Host "⚠ node_modules already exists, skipping pnpm install" -ForegroundColor Yellow
 } else {
-    Write-Host "Installing npm dependencies..." -ForegroundColor Yellow
-    npm install
+    Write-Host "Installing pnpm dependencies..." -ForegroundColor Yellow
+    pnpm install
     if ($LASTEXITCODE -eq 0) {
-        Write-Host "✓ npm dependencies installed" -ForegroundColor Green
+        Write-Host "✓ pnpm dependencies installed" -ForegroundColor Green
     } else {
-        Write-Host "✗ Failed to install npm dependencies" -ForegroundColor Red
+        Write-Host "✗ Failed to install pnpm dependencies" -ForegroundColor Red
         Pop-Location
         exit 1
     }
@@ -177,7 +177,7 @@ Write-Host "   go run cmd/synkronus/main.go" -ForegroundColor White
 Write-Host ""
 Write-Host "2. In another terminal, start the frontend:" -ForegroundColor Cyan
 Write-Host "   cd synkronus-portal" -ForegroundColor White
-Write-Host "   npm run dev" -ForegroundColor White
+Write-Host "   pnpm run dev" -ForegroundColor White
 Write-Host ""
 Write-Host "3. Open http://localhost:5174 in your browser" -ForegroundColor Cyan
 Write-Host "   Login with: admin / admin" -ForegroundColor Cyan

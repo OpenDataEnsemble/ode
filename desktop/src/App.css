@@ -32,6 +32,30 @@ body {
   min-height: 0;
 }
 
+.tauri-required-screen {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 2rem;
+}
+
+.tauri-required-card {
+  max-width: 32rem;
+}
+
+.tauri-required-card h1 {
+  margin: 0 0 0.75rem;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.tauri-required-command {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  overflow-x: auto;
+}
+
 .material-symbols-outlined {
   font-variation-settings:
     'FILL' 0,

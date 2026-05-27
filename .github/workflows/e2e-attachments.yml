@@ -75,12 +75,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: formulus/package-lock.json
 
       - name: Start Compose (postgres + synkronus)
         run: |
@@ -89,7 +92,7 @@ jobs:
             -f e2e/docker-compose.e2e.yml \
             --profile e2e up --build --wait
 
-      # TODO: replace with `npm --prefix e2e/headless test` once the
+      # TODO: replace with `pnpm --dir e2e/headless test` once the
       # headless harness lands.
       - name: Headless tests (placeholder)
         run: echo "No headless tests wired yet — see e2e/README.md"

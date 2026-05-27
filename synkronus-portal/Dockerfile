@@ -1,62 +1,44 @@
-# Multi-stage build for Synkronus Portal
-# Stage 1: Build the React application
+# Multi-stage build for Synkronus Portal (build context: repository root)
 FROM node:24-alpine AS builder
+
+RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
 
 WORKDIR /app
 
-# Copy package files for all packages (monorepo structure)
-# Copy tokens package (with package-lock.json and config file needed for prepare script)
-COPY packages/tokens/package*.json ./packages/tokens/
-COPY packages/tokens/package-lock.json ./packages/tokens/
+COPY packages/tokens/package.json packages/tokens/pnpm-lock.yaml ./packages/tokens/
 COPY packages/tokens/style-dictionary.config.js ./packages/tokens/
 COPY packages/tokens/config.json ./packages/tokens/
 COPY packages/tokens/src ./packages/tokens/src
-# Copy components package  
-COPY packages/components/package*.json ./packages/components/
-# Copy portal package (with package-lock.json)
-COPY synkronus-portal/package*.json ./synkronus-portal/
-COPY synkronus-portal/package-lock.json ./synkronus-portal/
+COPY packages/components/package.json packages/components/pnpm-lock.yaml ./packages/components/
+COPY synkronus-portal/package.json synkronus-portal/pnpm-lock.yaml ./synkronus-portal/
 
-# Install dependencies for tokens (needed by components)
-# The prepare script will build tokens during npm ci
 WORKDIR /app/packages/tokens
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
-# Install dependencies for components (needed by portal)
-# Note: components doesn't have package-lock.json, so use npm install
 WORKDIR /app/packages/components
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
-# Install dependencies for portal
 WORKDIR /app/synkronus-portal
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
-# Copy source code for all packages
 WORKDIR /app
 COPY packages/tokens ./packages/tokens
 COPY packages/components ./packages/components
 COPY synkronus-portal ./synkronus-portal
 
-# Build tokens first (if needed)
 WORKDIR /app/packages/tokens
-RUN npm run build || true
+RUN pnpm run build || true
 
-# Build components (if needed)
 WORKDIR /app/packages/components
-RUN npm run build || true
+RUN pnpm run build || true
 
-# Build the portal application
 WORKDIR /app/synkronus-portal
-RUN npm run build
+RUN pnpm run build
 
-# Stage 2: Serve with nginx
 FROM nginx:alpine
 
-# Copy built assets from builder
 COPY --from=builder /app/synkronus-portal/dist /usr/share/nginx/html
 
-# Copy custom nginx configuration for SPA routing
-# Backend API: http://demo.synkronus.cloud (remote demo server)
 RUN echo 'server { \
     listen 0.0.0.0:80; \
     listen [::]:80; \
@@ -66,7 +48,6 @@ RUN echo 'server { \
     location / { \
         try_files $uri $uri/ /index.html; \
     } \
-    # Proxy API requests to demo server; backend mounts REST under /api \
     location /api { \
         proxy_pass http://demo.synkronus.cloud; \
         proxy_http_version 1.1; \
@@ -77,7 +58,6 @@ RUN echo 'server { \
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \
         proxy_set_header X-Forwarded-Proto $scheme; \
         proxy_set_header X-Forwarded-Host $host; \
-        # Explicitly pass Authorization header for authentication \
         proxy_set_header Authorization $http_authorization; \
         proxy_pass_request_headers on; \
         proxy_connect_timeout 60s; \
@@ -86,7 +66,6 @@ RUN echo 'server { \
         proxy_buffering off; \
         client_max_body_size 100M; \
     } \
-    # Health lives at server root (not under /api), same as synkronus router \
     location = /health { \
         proxy_pass http://demo.synkronus.cloud; \
         proxy_http_version 1.1; \
@@ -100,5 +79,3 @@ RUN echo 'server { \
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
-
-

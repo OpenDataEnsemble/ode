@@ -1215,7 +1215,7 @@ The Formplayer includes a comprehensive mock environment for development:
 
 **Testing Your Question Types:**
 
-1. Start the development server: `npm start`
+1. Start the development server: `pnpm start`
 2. Open http://localhost:3000 in your browser
 3. Use the mock popups to simulate user interactions
 4. Check the browser console for debug information

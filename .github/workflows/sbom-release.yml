@@ -25,15 +25,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        # scripts/sbom/generate-sboms.mjs shells out to `pnpm list`; needs pnpm on PATH.
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: |
+            formulus/pnpm-lock.yaml
+            formulus-formplayer/pnpm-lock.yaml
+            synkronus-portal/pnpm-lock.yaml
+            packages/tokens/pnpm-lock.yaml
+            packages/components/pnpm-lock.yaml
+            packages/observation-query/pnpm-lock.yaml
+            desktop/pnpm-lock.yaml
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies for each pnpm project
+        # pnpm list requires node_modules to be present in each project dir.
+        run: |
+          set -euo pipefail
+          for d in packages/tokens packages/components packages/observation-query formulus-formplayer formulus synkronus-portal desktop; do
+            (cd "$d" && pnpm install --frozen-lockfile)
+          done
 
       - name: Generate SBOMs
         run: node scripts/sbom/generate-sboms.mjs --out sbom-dist

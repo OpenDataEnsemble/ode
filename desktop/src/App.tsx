@@ -7,6 +7,7 @@ import {
   useLocation,
   useNavigate,
 } from 'react-router-dom';
+import { isTauri } from '@tauri-apps/api/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import brandMarkUrl from './assets/custodian.png';
 import { OverviewPage } from './pages/OverviewPage';
@@ -346,7 +347,32 @@ function Shell() {
   );
 }
 
+function TauriRequiredScreen() {
+  return (
+    <div className="tauri-required-screen">
+      <div className="tauri-required-card notice info">
+        <h1>ODE Desktop</h1>
+        <p>
+          This UI talks to the local Rust backend through Tauri. Opening{' '}
+          <code>http://localhost:1420</code> in a browser alone will not work.
+        </p>
+        <p>
+          From the <code>desktop/</code> directory, run:
+        </p>
+        <pre className="tauri-required-command">pnpm tauri dev</pre>
+        <p className="muted">
+          That starts Vite and opens the desktop window. You do not need a
+          separate <code>pnpm dev</code> terminal.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  if (!isTauri()) {
+    return <TauriRequiredScreen />;
+  }
   return (
     <HashRouter>
       <Shell />

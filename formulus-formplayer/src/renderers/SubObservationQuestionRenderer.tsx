@@ -133,19 +133,32 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
 
   const valueRows = useMemo(() => coerceSubObservationRows(data), [data]);
 
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const configError = useMemo(
+    () =>
+      missingKeys.length > 0
+        ? `Missing sub-observation config: ${missingKeys.join(', ')}`
+        : null,
+    [missingKeys],
+  );
+
+  const sortedFromProps = useMemo(
+    () =>
+      missingKeys.length > 0
+        ? []
+        : sortRows(valueRows, config.orderBy as OrderBySpec),
+    [valueRows, missingKeys, config.orderBy],
+  );
+
+  const [rows, setRows] = useState<Record<string, unknown>[]>(sortedFromProps);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [prevSortedFromProps, setPrevSortedFromProps] =
+    useState(sortedFromProps);
 
-  useEffect(() => {
-    if (missingKeys.length > 0) {
-      setRows([]);
-      setError(`Missing sub-observation config: ${missingKeys.join(', ')}`);
-      return;
-    }
-    setRows(sortRows(valueRows, config.orderBy as OrderBySpec));
-    setError(null);
-  }, [valueRows, missingKeys, config.orderBy]);
+  if (sortedFromProps !== prevSortedFromProps) {
+    setPrevSortedFromProps(sortedFromProps);
+    setRows(sortedFromProps);
+  }
 
   useEffect(() => {
     function refresh() {
@@ -484,12 +497,12 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
           </Box>
         </Box>
 
-        {error && (
+        {(configError ?? error) && (
           <Typography
             variant="caption"
             color="error"
             sx={{ mt: 1, display: 'block' }}>
-            {error}
+            {configError ?? error}
           </Typography>
         )}
       </Box>

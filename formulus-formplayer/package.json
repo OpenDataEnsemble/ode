@@ -1,6 +1,7 @@
 {
   "name": "formulus-formplayer",
   "version": "0.0.3",
+  "packageManager": "pnpm@10.33.2",
   "type": "module",
   "private": true,
   "license": "MIT",
@@ -37,10 +38,10 @@
   "scripts": {
     "start": "vite",
     "sync-interface": "node scripts/sync-interface.js",
-    "build": "npm run sync-interface && tsc && vite build",
+    "build": "pnpm run sync-interface && tsc && vite build",
     "preview": "vite preview",
-    "upload:android": "npm run build:copy",
-    "build:copy": "npm run build && npm run copy-to-rn && node ../desktop/scripts/copy-formplayer-to-desktop.mjs",
+    "upload:android": "pnpm run build:copy",
+    "build:copy": "pnpm run build && pnpm run copy-to-rn && node ../desktop/scripts/copy-formplayer-to-desktop.mjs",
     "clean-rn-assets": "node scripts/clean-rn-assets.js",
     "copy-to-rn": "node scripts/copy-to-rn.js",
     "test": "vitest",
@@ -82,6 +83,11 @@
       "last 1 chrome version",
       "last 1 firefox version",
       "last 1 safari version"
+    ]
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
     ]
   }
 }

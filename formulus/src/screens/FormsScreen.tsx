@@ -52,11 +52,15 @@ const FormsScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
 
+  const shouldShowSearch = forms.length > 4;
+  const effectiveSearchQuery = shouldShowSearch ? searchQuery : '';
+  const effectiveShowSearch = shouldShowSearch && showSearch;
+
   const filteredForms = useMemo(() => {
-    if (!searchQuery.trim()) return forms;
-    const q = searchQuery.trim().toLowerCase();
+    if (!effectiveSearchQuery.trim()) return forms;
+    const q = effectiveSearchQuery.trim().toLowerCase();
     return forms.filter(form => form.name.toLowerCase().includes(q));
-  }, [forms, searchQuery]);
+  }, [forms, effectiveSearchQuery]);
 
   const showSubtitle = forms.length > 0;
 
@@ -65,15 +69,6 @@ const FormsScreen: React.FC = () => {
       refresh();
     }, [refresh]),
   );
-
-  const shouldShowSearch = forms.length > 4;
-
-  React.useEffect(() => {
-    if (!shouldShowSearch) {
-      setShowSearch(false);
-      setSearchQuery('');
-    }
-  }, [shouldShowSearch]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -178,9 +173,9 @@ const FormsScreen: React.FC = () => {
           {shouldShowSearch ? (
             <TouchableOpacity
               style={styles.searchButton}
-              onPress={() => setShowSearch(!showSearch)}>
+              onPress={() => setShowSearch(!effectiveShowSearch)}>
               <Icon
-                name={showSearch ? 'close' : 'magnify'}
+                name={effectiveShowSearch ? 'close' : 'magnify'}
                 size={24}
                 color={themeColors.primary}
               />
@@ -190,7 +185,7 @@ const FormsScreen: React.FC = () => {
           )}
         </View>
 
-        {shouldShowSearch && showSearch && (
+        {effectiveShowSearch && (
           <View style={searchContainerStyle}>
             <Icon
               name="magnify"
@@ -204,7 +199,7 @@ const FormsScreen: React.FC = () => {
               onChangeText={setSearchQuery}
               style={styles.searchInput}
             />
-            {searchQuery.length > 0 && (
+            {effectiveSearchQuery.length > 0 && (
               <TouchableOpacity
                 onPress={() => setSearchQuery('')}
                 style={styles.clearIconButton}
@@ -229,9 +224,11 @@ const FormsScreen: React.FC = () => {
         ) : filteredForms.length === 0 ? (
           <EmptyState
             icon="file-document-outline"
-            title={searchQuery ? 'No Forms Found' : 'No Forms Available'}
+            title={
+              effectiveSearchQuery ? 'No Forms Found' : 'No Forms Available'
+            }
             message={
-              searchQuery
+              effectiveSearchQuery
                 ? 'Try adjusting your search.'
                 : 'No forms have been downloaded yet. Go to the Sync screen to download forms from the server.'
             }

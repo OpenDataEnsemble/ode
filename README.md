@@ -18,7 +18,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
 
-Welcome to the **Open Data Ensemble** - a comprehensive platform for mobile data collection and synchronization! 
+Welcome to the **Open Data Ensemble** - a comprehensive platform for mobile data collection and synchronization!
 
 ## About ODE
 
@@ -95,26 +95,26 @@ ODE enforces consistent formatting and linting for the frontend projects both **
 
 ### Formulus (React Native)
 
-- **Run linting**: `cd formulus && npm run lint`
-- **Run linting with auto-fix**: `cd formulus && npm run lint:fix`
-- **Format code**: `cd formulus && npm run format`
-- **Check formatting (no writes)**: `cd formulus && npm run format:check`
+- **Run linting**: `cd formulus && pnpm run lint`
+- **Run linting with auto-fix**: `cd formulus && pnpm run lint:fix`
+- **Format code**: `cd formulus && pnpm run format`
+- **Check formatting (no writes)**: `cd formulus && pnpm run format:check`
 
 ### Formulus Formplayer (React Web)
 
-- **Run linting**: `cd formulus-formplayer && npm run lint`
-- **Run linting with auto-fix**: `cd formulus-formplayer && npm run lint:fix`
-- **Format code**: `cd formulus-formplayer && npm run format`
-- **Check formatting (no writes)**: `cd formulus-formplayer && npm run format:check`
+- **Run linting**: `cd formulus-formplayer && pnpm run lint`
+- **Run linting with auto-fix**: `cd formulus-formplayer && pnpm run lint:fix`
+- **Format code**: `cd formulus-formplayer && pnpm run format`
+- **Check formatting (no writes)**: `cd formulus-formplayer && pnpm run format:check`
 
 ### What CI Enforces
 
 In the main CI workflow:
 
 - For `formulus`:
-  - Runs `npm run format:check` and `npm run lint` after install and before tests.
+  - Runs `pnpm run lint` after install and before tests.
 - For `formulus-formplayer`:
-  - Runs `npm run lint`, `npm run format:check`, then tests and build.
+  - Runs `pnpm run lint`, `pnpm run format:check`, then tests and build.
 
 CI will **fail** if:
 

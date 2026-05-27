@@ -6,8 +6,8 @@ Get up and running with ODE Design Tokens in a few minutes!
 
 ```bash
 cd packages/tokens
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 ## Using Tokens

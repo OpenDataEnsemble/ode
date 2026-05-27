@@ -17,7 +17,7 @@ Design tokens are the **smallest pieces of design information** - like colors, s
 ## Installation
 
 ```bash
-npm install @ode/tokens
+pnpm install @ode/tokens
 ```
 
 ## Quick Start
@@ -72,7 +72,7 @@ Static HTML files (such as a WebView placeholder) cannot import JavaScript modul
 2. **Reference implementation:** In this repo, the Formulus app’s placeholder page uses this approach:
    - **Placeholder file:** `formulus/assets/webview/placeholder_app.html` (contains a generated `:root` block between `/* ODE_TOKENS_START */` and `/* ODE_TOKENS_END */`).
    - **Generator script:** `formulus/scripts/generatePlaceholderTokens.js` (reads tokens and rewrites that block).
-   - **Commands:** From the Formulus app directory, run `npm run generate:placeholder-tokens` to regenerate; the Android build also runs this before copying webview assets.
+   - **Commands:** From the Formulus app directory, run `pnpm run generate:placeholder-tokens` to regenerate; the Android build also runs this before copying webview assets.
 
 See the script and placeholder file for the exact token paths and CSS variable names used.
 
@@ -136,8 +136,8 @@ For a complete list of all available tokens with detailed specifications, see th
 
 ```bash
 cd packages/tokens
-npm install
-npm run build
+pnpm install
+pnpm run build
 ```
 
 This generates all output formats in the `dist/` directory:

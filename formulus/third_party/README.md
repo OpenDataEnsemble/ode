@@ -7,9 +7,9 @@
 Generate or update it before Android builds:
 
 ```bash
-npm run vendor:notifee
+pnpm run vendor:notifee
 ```
 
 The folder is gitignored. CI and F-Droid should run that command (or an equivalent `git clone` + `git checkout`) before `./gradlew assembleRelease`.
 
-When you **upgrade `@notifee/react-native`**, update the npm package, read the new `gitHead` from the [npm registry](https://www.npmjs.com/package/@notifee/react-native?activeTab=versions), paste it into `scripts/vendor-notifee-core.mjs`, then run `npm run vendor:notifee` again.
+When you **upgrade `@notifee/react-native`**, update the npm package, read the new `gitHead` from the [npm registry](https://www.npmjs.com/package/@notifee/react-native?activeTab=versions), paste it into `scripts/vendor-notifee-core.mjs`, then run `pnpm run vendor:notifee` again.

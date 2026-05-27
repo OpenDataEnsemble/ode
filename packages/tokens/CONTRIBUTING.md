@@ -19,7 +19,7 @@ Thank you for contributing to the ODE Design System! This guide will help you ad
 ### Prerequisites
 
 - Node.js (v14 or higher)
-- npm (v6 or higher)
+- pnpm 10.33.2 (via Corepack)
 
 ### Setup
 
@@ -28,10 +28,10 @@ Thank you for contributing to the ODE Design System! This guide will help you ad
 cd packages/tokens
 
 # Install dependencies
-npm install
+pnpm install
 
 # Build tokens to see current output
-npm run build
+pnpm run build
 ```
 
 ---
@@ -97,7 +97,7 @@ See [Naming Conventions](#naming-conventions) below.
 ### Step 4: Build and Test
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 Check the generated files in `dist/` to ensure your token appears correctly.
@@ -110,7 +110,7 @@ Check the generated files in `dist/` to ensure your token appears correctly.
 
 1. Open the appropriate JSON file
 2. Update the `value` field
-3. Build: `npm run build`
+3. Build: `pnpm run build`
 4. Test in your application
 
 **Example**: Changing the primary brand color
@@ -126,7 +126,7 @@ Check the generated files in `dist/` to ensure your token appears correctly.
 ### Removing a Token
 
 1. Remove the token from the JSON file
-2. Build: `npm run build`
+2. Build: `pnpm run build`
 3. Check for any breaking changes in dependent projects
 
 **⚠️ Warning**: Removing tokens can break existing code. Consider deprecating instead.
@@ -183,7 +183,7 @@ Check the generated files in `dist/` to ensure your token appears correctly.
 ### 1. Build Tokens
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 This generates all output formats:

@@ -188,7 +188,7 @@ The `Dockerfile` includes nginx configuration that:
 
 ### Development Mode (`docker-compose.dev.yml`)
 
-- **Frontend**: Runs `npm run dev` with hot reload
+- **Frontend**: Runs `pnpm run dev` with hot reload
 - **Backend**: Built from `../synkronus`
 - **Database**: PostgreSQL with auto-initialization script
 

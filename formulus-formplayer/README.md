@@ -22,14 +22,14 @@ The formplayer is solely responsible for
 
 This project depends on `@ode/tokens` (local `packages/tokens`). On a fresh clone or new branch, install in order:
 
-1. From repo root: `cd packages/tokens && npm install`
-2. Then: `cd formulus-formplayer && npm install && npm start`
+1. From repo root: `cd packages/tokens && pnpm install`
+2. Then: `cd formulus-formplayer && pnpm install && pnpm start`
 
-If you run `npm install` only in formulus-formplayer, the tokens package’s `prepare` script may fail with "Cannot find module 'style-dictionary'" until tokens has its own dependencies installed.
+If you run `pnpm install` only in formulus-formplayer, the tokens package’s `prepare` script may fail with "Cannot find module 'style-dictionary'" until tokens has its own dependencies installed.
 
 ## Building this project
 
-Use `npm run build:copy` to build the project and copy the bundle into the Formulus app (Android + iOS) and ODE Desktop (`desktop/public/formplayer_dist/`).
+Use `pnpm run build:copy` to build the project and copy the bundle into the Formulus app (Android + iOS) and ODE Desktop (`desktop/public/formplayer_dist/`).
 
 ## Javascript interface
 
@@ -95,15 +95,15 @@ config: An object containing the configuration for the formulus formplayer objec
   Any other cells, either custom developed or provided by the community, will be included as well once they are downloaded from synkronus as part of the normal sync process.
 - formSpecs: An array of jsonform formSpecs to be used by the formplayer wrapped in an envelope object: `{formType: string, version: string, spec: any}`
 
-## Available `npm` scripts
+## Available `pnpm` scripts
 
 In the project directory, you can run:
 
-- `npm start` Runs the app in the development mode. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-- `npm test`. Launches the test runner in the interactive watch mode.
-- `npm run build`. Builds the app for production to the `build` folder. It correctly bundles React in production mode and optimizes the build for the best performance.
-- `npm run storybook` Starts the Storybook dev server. Open [http://localhost:6006](http://localhost:6006) to view the component stories.
-- `npm run build-storybook` Builds a static Storybook for deployment.
+- `pnpm start` Runs the app in the development mode. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- `pnpm test`. Launches the test runner in the interactive watch mode.
+- `pnpm run build`. Builds the app for production to the `build` folder. It correctly bundles React in production mode and optimizes the build for the best performance.
+- `pnpm run storybook` Starts the Storybook dev server. Open [http://localhost:6006](http://localhost:6006) to view the component stories.
+- `pnpm run build-storybook` Builds a static Storybook for deployment.
 
 The build is minified and the filenames include the hashes.
 

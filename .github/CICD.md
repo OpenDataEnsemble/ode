@@ -101,12 +101,12 @@ The workflow intelligently handles formplayer assets using two jobs:
 
 1. **`build-formplayer-assets` job**:
    - Builds `@ode/tokens`
-   - Builds Formplayer assets using `npm run build:copy` in `formulus-formplayer`
+   - Builds Formplayer assets using `pnpm run build:copy` in `formulus-formplayer`
    - Uploads the built assets from `formulus/android/app/src/main/assets/formplayer_dist/` as a GitHub Actions artifact
 
 2. **`build-android` job** (depends on assets job):
    - Downloads the Formplayer assets artifact into `formulus/android/app/src/main/assets/formplayer_dist/`
-   - Runs `npm run vendor:notifee` in `formulus/` to clone the pinned [invertase/notifee](https://github.com/invertase/notifee) commit into `third_party/notifee` (gitignored; required for Gradle `:notifee_core`)
+   - Runs `pnpm run vendor:notifee` in `formulus/` to clone the pinned [invertase/notifee](https://github.com/invertase/notifee) commit into `third_party/notifee` (gitignored; required for Gradle `:notifee_core`)
    - Builds the Android APK (debug for PRs, release for main/dev/release events)
 
 Formplayer assets are **not committed to git** and are ignored via `.gitignore`. CI builds always use the assets artifact produced in the same workflow run, ensuring a single, consistent source of truth for each build.
@@ -310,7 +310,7 @@ For local development, you can manually build and copy assets:
 
 ```bash
 cd formulus-formplayer
-npm run build:copy
+pnpm run build:copy
 ```
 
 This will:
@@ -347,7 +347,7 @@ From `desktop/`: `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm typecheck`
 
 **Job `desktop-formplayer-dist`** (bundling and release flows)
 
-Ubuntu job: installs and builds `@ode/tokens`, runs `npm ci` / `npm run build` in `formulus-formplayer`, stages `build/` → `desktop/public/formplayer_dist/`, uploads artifact `desktop-formplayer-dist` (short retention for CI).
+Ubuntu job: installs and builds `@ode/tokens`, runs `pnpm install --frozen-lockfile` / `pnpm run build` in `formulus-formplayer`, stages `build/` → `desktop/public/formplayer_dist/`, uploads artifact `desktop-formplayer-dist` (short retention for CI).
 
 **Jobs `build-desktop-bundles` (CI) and `release-desktop-bundles` (release)**
 

@@ -59,7 +59,16 @@ export const useObservations = (): UseObservationsResult => {
   }, []);
 
   useEffect(() => {
-    loadObservations();
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        void loadObservations();
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [loadObservations]);
 
   const filteredAndSorted = useMemo(() => {

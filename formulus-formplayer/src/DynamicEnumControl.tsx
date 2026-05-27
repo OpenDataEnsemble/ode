@@ -260,9 +260,19 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
     [currentFormData],
   );
   useEffect(() => {
-    if (dynamicConfig && visible && enabled) {
-      loadChoices();
+    if (!dynamicConfig || !visible || !enabled) {
+      return undefined;
     }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      if (!cancelled) {
+        void loadChoices();
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [
     dynamicQuery,
     dynamicParamsStr,

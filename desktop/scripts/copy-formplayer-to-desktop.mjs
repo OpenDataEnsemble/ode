@@ -41,7 +41,7 @@ function copyRecursive(src, dest) {
 
 if (!fs.existsSync(buildDir)) {
   console.error(
-    '❌ formplayer build/ not found. From formulus-formplayer: npm run build',
+    '❌ formplayer build/ not found. From formulus-formplayer: pnpm run build',
   );
   process.exit(1);
 }

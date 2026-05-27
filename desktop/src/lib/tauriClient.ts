@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import type {
   ApiObservation,
   AppHealth,
@@ -33,9 +33,17 @@ import type {
   WorkspaceItem,
 } from '../types/domain';
 
+const NOT_IN_TAURI_MESSAGE =
+  'ODE Desktop must run in the Tauri shell (not a browser tab). From desktop/, run: pnpm tauri dev';
+
 function invokeSafe<T>(command: string, payload?: Record<string, unknown>) {
+  if (!isTauri()) {
+    return Promise.reject(new Error(NOT_IN_TAURI_MESSAGE));
+  }
   return invoke<T>(command, payload);
 }
+
+export { NOT_IN_TAURI_MESSAGE };
 
 export const tauriClient = {
   getSettings: () => invokeSafe<AppSettings>('get_settings'),
