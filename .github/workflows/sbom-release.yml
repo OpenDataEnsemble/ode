@@ -54,7 +54,7 @@ jobs:
         # pnpm list requires node_modules to be present in each project dir.
         run: |
           set -euo pipefail
-          for d in packages/tokens packages/components packages/observation-query formulus-formplayer formulus synkronus-portal; do
+          for d in packages/tokens packages/components packages/observation-query formulus-formplayer formulus synkronus-portal desktop; do
             (cd "$d" && pnpm install --frozen-lockfile)
           done
 

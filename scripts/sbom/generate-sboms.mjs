@@ -21,8 +21,10 @@ const NPM_PROJECTS = [
   { dir: 'formulus', slug: 'formulus' },
   { dir: 'formulus-formplayer', slug: 'formulus-formplayer' },
   { dir: 'synkronus-portal', slug: 'synkronus-portal' },
+  { dir: 'desktop', slug: 'ode-desktop' },
   { dir: 'packages/components', slug: 'ode-components' },
   { dir: 'packages/tokens', slug: 'ode-tokens' },
+  { dir: 'packages/observation-query', slug: 'ode-observation-query' },
 ];
 
 /** @type {{ dir: string, slug: string }[]} */
