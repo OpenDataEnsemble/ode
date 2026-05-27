@@ -30,11 +30,11 @@ Before starting, ensure you have:
 
 ## Quick Reference
 
-| Mode                         | Command                                                    | URL                   | Hot Reload | Docker Required |
-| ---------------------------- | ---------------------------------------------------------- | --------------------- | ---------- | --------------- |
-| **Production**               | `docker compose up -d --build`                             | http://localhost:5173 | ❌ No      | ✅ Yes          |
+| Mode                         | Command                                                     | URL                   | Hot Reload | Docker Required |
+| ---------------------------- | ----------------------------------------------------------- | --------------------- | ---------- | --------------- |
+| **Production**               | `docker compose up -d --build`                              | http://localhost:5173 | ❌ No      | ✅ Yes          |
 | **Development (Docker)**     | `docker compose up -d postgres synkronus`<br>`pnpm run dev` | http://localhost:5174 | ✅ Yes     | ✅ Partial      |
-| **Development (Dockerless)** | See [Dockerless Setup](#dockerless-development-setup)      | http://localhost:5174 | ✅ Yes     | ❌ No           |
+| **Development (Dockerless)** | See [Dockerless Setup](#dockerless-development-setup)       | http://localhost:5174 | ✅ Yes     | ❌ No           |
 
 **Default Login Credentials:**
 
