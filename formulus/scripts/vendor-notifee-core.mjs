@@ -57,6 +57,23 @@ function patchNotifeeAndroidReleaseMinify() {
   );
 }
 
+/** Prebuilt app.notifee:core AAR in npm; F-Droid requires :notifee_core from source only. */
+function removeProprietaryNotifeeLibs() {
+  const libsDir = path.join(
+    repoRoot,
+    'node_modules',
+    '@notifee',
+    'react-native',
+    'android',
+    'libs',
+  );
+  if (!fs.existsSync(libsDir)) {
+    return;
+  }
+  fs.rmSync(libsDir, { recursive: true, force: true });
+  console.log('Removed @notifee/react-native/android/libs (proprietary AAR).');
+}
+
 if (!fs.existsSync(path.join(dest, 'android', 'build.gradle'))) {
   fs.mkdirSync(dest, { recursive: true });
   if (!fs.existsSync(path.join(dest, '.git'))) {
@@ -67,6 +84,7 @@ if (!fs.existsSync(path.join(dest, 'android', 'build.gradle'))) {
   sh(`git fetch --depth 1 origin ${NOTIFEE_COMMIT}`, { cwd: dest });
   sh('git checkout FETCH_HEAD', { cwd: dest });
   patchNotifeeAndroidReleaseMinify();
+  removeProprietaryNotifeeLibs();
   console.log('notifee core ready.');
   process.exit(0);
 }
@@ -74,6 +92,7 @@ if (!fs.existsSync(path.join(dest, 'android', 'build.gradle'))) {
 const head = headAt(dest);
 if (head === NOTIFEE_COMMIT) {
   patchNotifeeAndroidReleaseMinify();
+  removeProprietaryNotifeeLibs();
   console.log(`notifee core already at ${NOTIFEE_COMMIT}`);
   process.exit(0);
 }
@@ -82,4 +101,5 @@ console.log(`Updating notifee ${head || '(unknown)'} → ${NOTIFEE_COMMIT} ...`)
 sh(`git fetch --depth 1 origin ${NOTIFEE_COMMIT}`, { cwd: dest });
 sh('git checkout FETCH_HEAD', { cwd: dest });
 patchNotifeeAndroidReleaseMinify();
+removeProprietaryNotifeeLibs();
 console.log('notifee core ready.');

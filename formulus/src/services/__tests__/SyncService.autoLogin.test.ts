@@ -20,7 +20,7 @@ jest.mock('react-native-fs', () => ({
   readFile: jest.fn(),
   writeFile: jest.fn(),
 }));
-jest.mock('react-native-geolocation-service', () => ({
+jest.mock('@react-native-community/geolocation', () => ({
   __esModule: true,
   default: {
     requestAuthorization: jest.fn(),
