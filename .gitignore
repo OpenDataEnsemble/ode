@@ -9,6 +9,8 @@ node_modules/
 **/node_modules/
 package-lock.json
 **/package-lock.json
+# F-Droid builds use npm ci / install --build-from-source in formulus/
+!formulus/package-lock.json
 
 # Generated credentials
 **/credentials.txt
