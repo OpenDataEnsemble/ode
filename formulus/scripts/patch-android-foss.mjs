@@ -154,7 +154,7 @@ function patchDeviceInfo() {
     '',
   );
   gradle = gradle.replace(
-    /\n  def firebaseBomVersion[\s\S]*?(?=\n  testImplementation)/,
+    /\n {2}def firebaseBomVersion[\s\S]*?(?=\n {2}testImplementation)/,
     `\n  ${marker}\n`,
   );
   if (gradle.includes('installreferrer') || gradle.includes('firebase-iid')) {
