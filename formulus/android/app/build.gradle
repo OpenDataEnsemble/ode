@@ -148,6 +148,11 @@ android {
     packagingOptions {
         pickFirst '**/libc++_shared.so' // for watermelondb JSI fastness
     }
+
+    dependenciesInfo {
+        includeInApk false
+        includeInBundle false
+    }
 }
 
 dependencies {

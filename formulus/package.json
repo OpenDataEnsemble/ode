@@ -6,7 +6,8 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "preandroid": "pnpm run vendor:notifee",
+    "preandroid": "pnpm run vendor:notifee && pnpm run patch:android-foss",
+    "postinstall": "node scripts/patch-android-foss.mjs",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint . --max-warnings 9999",
@@ -20,6 +21,7 @@
     "generate_qr": "tsx scripts/generateQR.ts",
     "sync:version": "node scripts/syncNativeVersion.js",
     "vendor:notifee": "node scripts/vendor-notifee-core.mjs",
+    "patch:android-foss": "node scripts/patch-android-foss.mjs",
     "prebuild": "pnpm run sync:version && pnpm run generate"
   },
   "dependencies": {
