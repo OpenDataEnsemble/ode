@@ -121,6 +121,16 @@ jobs:
         working-directory: formulus
         run: pnpm run vendor:notifee
 
+      - name: Apply FOSS Android patches (match F-Droid init)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus
+        run: pnpm run patch:android-foss
+
+      - name: Generate injection script (match F-Droid init)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus
+        run: pnpm run generate
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
