@@ -169,11 +169,13 @@ android {
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
             def versionName = variant.versionName
-            def versionCode = variant.versionCode
+            def versionCode = output.versionCode
             def buildType = variant.buildType.name
             def date = new Date().format('yyyyMMdd')
+            def abi = output.getFilter(com.android.build.OutputFile.ABI)
+            def abiSuffix = abi != null ? "-${abi}" : ""
 
-            outputFileName = "formulus-v${versionName}-${versionCode}-${buildType}-${date}.apk"
+            outputFileName = "formulus-v${versionName}-${versionCode}${abiSuffix}-${buildType}-${date}.apk"
         }
     }
 
