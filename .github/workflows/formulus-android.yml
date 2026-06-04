@@ -75,7 +75,7 @@ jobs:
           retention-days: 7
 
   build-android:
-    name: Build Formulus Android APK
+    name: Build Formulus Android
     runs-on: ubuntu-latest
     needs: build-formplayer-assets
     permissions:
@@ -120,6 +120,16 @@ jobs:
       - name: Vendor Notifee Android core (source build; dir is gitignored)
         working-directory: formulus
         run: pnpm run vendor:notifee
+
+      - name: Apply FOSS Android patches (match F-Droid init)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus
+        run: pnpm run patch:android-foss
+
+      - name: Generate injection script (match F-Droid init)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus
+        run: pnpm run generate
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -166,6 +176,11 @@ jobs:
         working-directory: formulus/android
         run: ./gradlew assembleRelease --no-daemon
 
+      - name: Build release AAB for Play Store (main/dev/release)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus/android
+        run: ./gradlew bundleRelease --no-daemon
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6
         with:
@@ -173,11 +188,20 @@ jobs:
           path: |
             formulus/android/app/build/outputs/apk/**/**/*.apk
 
+      - name: Upload AAB artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v6
+        with:
+          name: formulus-android-aab-${{ github.event_name }}-${{ github.run_id }}
+          path: |
+            formulus/android/app/build/outputs/bundle/release/*.aab
+
       - name: Upload APK to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
             formulus/android/app/build/outputs/apk/**/**/*.apk
+            formulus/android/app/build/outputs/bundle/release/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
