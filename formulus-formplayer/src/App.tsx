@@ -39,6 +39,12 @@ import {
   applySchemaDefaultTokens,
   dataMatchingSchemaRoot,
 } from './utils/formObservationData';
+import {
+  collectStickyFieldPaths,
+  extractStickyValues,
+  applyStickyDefaults,
+} from './utils/stickyFieldHelpers';
+import { stickyService } from './services/StickyService';
 
 import SwipeLayoutRenderer, {
   swipeLayoutTester,
@@ -78,9 +84,9 @@ import SubObservationQuestionRenderer, {
 import { shellMaterialRenderers } from './theme/material-wrappers';
 import { numberStepperRenderer } from './renderers/NumberStepperRenderer';
 import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
-import MaterialTextControlWithImeHint, {
-  materialTextControlWithImeHintTester,
-} from './jsonforms/MaterialTextControlWithImeHint';
+import ShellInputControl, {
+  shellInputControlTester,
+} from './jsonforms/ShellInputControl';
 import type { KeyboardPrimaryEnterKeyHint } from './utils/keyboardEnterKeyHint';
 
 import ErrorBoundary from './components/ErrorBoundary';
@@ -180,6 +186,7 @@ const ensureSwipeLayoutRoot = (uiSchema: FormUISchema | null): FormUISchema => {
 // Function to process UI schema and ensure Finalize element is present
 const processUISchemaWithFinalize = (
   uiSchema: FormUISchema | null,
+  skipFinalize?: boolean,
 ): FormUISchema => {
   if (!uiSchema || !uiSchema.elements) {
     // If no UI schema or no elements, create a basic one with just Finalize
@@ -215,10 +222,12 @@ const processUISchemaWithFinalize = (
     });
   }
 
-  // Always add our Finalize element as the last element
-  elements.push({
-    type: 'Finalize',
-  });
+  // Append Finalize page unless skipFinalize (sub-observation fast path).
+  if (!skipFinalize) {
+    elements.push({
+      type: 'Finalize',
+    });
+  }
 
   processedUISchema.elements = elements;
   return processedUISchema;
@@ -252,8 +261,8 @@ export const useFormContext = () => useContext(FormContext);
 
 export const customRenderers = [
   {
-    tester: materialTextControlWithImeHintTester,
-    renderer: MaterialTextControlWithImeHint,
+    tester: shellInputControlTester,
+    renderer: ShellInputControl,
   },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer },
@@ -369,6 +378,9 @@ function App() {
           uiSchema,
           extensions,
         } = initData;
+        const skipFinalize = Boolean(
+          (initData as FormInitData & { skipFinalize?: boolean }).skipFinalize,
+        );
 
         setFormInitData(initData);
 
@@ -518,17 +530,20 @@ function App() {
           setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
           // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(null);
-          const processedUISchema =
-            processUISchemaWithFinalize(swipeLayoutUISchema);
+          const processedUISchema = processUISchemaWithFinalize(
+            swipeLayoutUISchema,
+            skipFinalize,
+          );
           setUISchema(processedUISchema);
         } else {
           setSchema(formSchema as FormSchema);
-          // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
             uiSchema as FormUISchema,
           );
-          const processedUISchema =
-            processUISchemaWithFinalize(swipeLayoutUISchema);
+          const processedUISchema = processUISchemaWithFinalize(
+            swipeLayoutUISchema,
+            skipFinalize,
+          );
           setUISchema(processedUISchema);
         }
 
@@ -567,9 +582,27 @@ function App() {
           setData(
             dataMatchingSchemaRoot(savedData as FormData, formSchemaTyped),
           );
+        } else if (!isSubObservationSession(initData)) {
+          const formVersion = (formSchemaTyped as { version?: string })
+            ?.version;
+          const layoutRoot = ensureSwipeLayoutRoot(uiSchema as FormUISchema);
+          const stickyPaths = collectStickyFieldPaths(layoutRoot);
+          const stored = stickyService.getStickyValues(
+            receivedFormType,
+            formVersion,
+          );
+          const relevantSticky: Record<string, unknown> = {};
+          for (const p of stickyPaths) {
+            if (stored[p] !== undefined) relevantSticky[p] = stored[p];
+          }
+          const withTokens = applySchemaDefaultTokens(
+            initialFormDataFromParams(params),
+            formSchemaTyped,
+          );
+          const withSticky = applyStickyDefaults(withTokens, relevantSticky);
+          console.log('Preloading initialization form values:', withSticky);
+          setData(dataMatchingSchemaRoot(withSticky, formSchemaTyped));
         } else {
-          // New observation: merge dynamic schema default tokens ($today/$now)
-          // for any field not already provided via params/defaultData.
           const defaultData = applySchemaDefaultTokens(
             initialFormDataFromParams(params),
             formSchemaTyped,
@@ -891,6 +924,19 @@ function App() {
               payloadFormInit.formType,
               draftSessionKey,
             );
+          }
+          // Persist sticky field values for next new observation of this form.
+          if (!isSubObservationSession(payloadFormInit) && uischema) {
+            const formVersion = (schema as { version?: string } | null)?.version;
+            const stickyPaths = collectStickyFieldPaths(uischema);
+            const stickyValues = extractStickyValues(payloadData, stickyPaths);
+            if (Object.keys(stickyValues).length > 0) {
+              stickyService.saveStickyValues(
+                payloadFormInit.formType,
+                formVersion,
+                stickyValues,
+              );
+            }
           }
           setSubmitError(null);
           setShowFinalizeMessage(true);

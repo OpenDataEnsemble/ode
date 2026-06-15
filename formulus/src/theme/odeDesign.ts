@@ -77,3 +77,10 @@ export const odeScreenHeaderHeight = (() => {
     odeSpacing.md * 2 + titleLineHeight + odeSpacing.xs + subtitleLineHeight
   );
 })();
+
+/** Compact single-line header for the Formplayer modal (title + close only). */
+export const odeFormplayerHeaderHeight = (() => {
+  const lineHeightFactor = 1.25;
+  const titleLineHeight = odeTypography.screenTitle * lineHeightFactor;
+  return odeSpacing.sm * 2 + titleLineHeight;
+})();

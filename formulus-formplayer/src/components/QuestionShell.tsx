@@ -1,43 +1,33 @@
 import React, { ReactNode } from 'react';
-import { Box, Typography, Alert, Stack, Divider } from '@mui/material';
+import { Box, Typography, Alert, Stack, Divider, useTheme } from '@mui/material';
 import ErrorOutline from '@mui/icons-material/ErrorOutline';
+import { useFormDensity } from '../context/FormDensityContext';
+import { tokens } from '../theme/tokens-adapter';
 
 /**
  * Simple HTML sanitizer that removes dangerous tags and attributes.
- * This is a lightweight alternative that doesn't require external dependencies.
  */
 const sanitizeHtml = (html: string): string => {
-  // Remove script tags and their content
   let sanitized = html.replace(
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
     '',
   );
-  // Remove style tags and their content
   sanitized = sanitized.replace(
     /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
     '',
   );
-  // Remove event handlers (onclick, onerror, etc.)
   sanitized = sanitized.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '');
   sanitized = sanitized.replace(/\s*on\w+\s*=\s*[^\s>]+/gi, '');
-  // Remove javascript: URLs
   sanitized = sanitized.replace(/javascript:/gi, '');
-  // Remove data: URLs in href/src (potential XSS vector)
   sanitized = sanitized.replace(/\s*href\s*=\s*["']?\s*data:/gi, ' href="');
   sanitized = sanitized.replace(/\s*src\s*=\s*["']?\s*data:/gi, ' src="');
 
   return sanitized;
 };
 
-/**
- * Renders content with basic HTML support.
- * Detects HTML tags and renders them safely using dangerouslySetInnerHTML.
- * Falls back to plain text for non-HTML content.
- */
 const renderHtmlContent = (content: string | undefined): React.ReactNode => {
   if (!content) return null;
 
-  // Check for HTML tags - looks for < followed by a letter (tag start)
   const htmlTagPattern = /<[a-z][a-z0-9]*(\s+[^>]*)?>/i;
   const hasHtmlTags = htmlTagPattern.test(content);
 
@@ -46,13 +36,11 @@ const renderHtmlContent = (content: string | undefined): React.ReactNode => {
       const sanitized = sanitizeHtml(content);
       return <span dangerouslySetInnerHTML={{ __html: sanitized }} />;
     } catch (error) {
-      // If sanitization fails, strip all HTML tags
       console.error('Error rendering HTML content:', error);
       return content.replace(/<[^>]*>/g, '');
     }
   }
 
-  // No HTML tags detected, render as plain text
   return content;
 };
 
@@ -64,6 +52,10 @@ export interface QuestionShellProps {
   helperText?: ReactNode;
   actions?: ReactNode;
   metadata?: ReactNode;
+  /** Full-width layout (colspan 2) for large/media controls. */
+  block?: boolean;
+  /** Per-instance layout override from control `options.labelLayout`. */
+  labelLayout?: 'inline' | 'stacked';
   children: ReactNode;
 }
 
@@ -83,9 +75,58 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
   helperText,
   actions,
   metadata,
+  block = false,
+  labelLayout,
   children,
 }) => {
+  const theme = useTheme();
+  const { labelLayout: contextLayout } = useFormDensity();
   const normalizedError = normalizeError(error);
+  const isDark = theme.palette.mode === 'dark';
+  const subtitleColor = isDark
+    ? tokens.color.neutral[400]
+    : tokens.color.neutral[600];
+
+  const effectiveLayout = labelLayout ?? contextLayout;
+  const useInline =
+    !block && effectiveLayout === 'inline' && Boolean(title);
+
+  const titleBlock = (title || description) && (
+    <Stack spacing={0.5}>
+      {title && (
+        <Typography
+          variant="subtitle1"
+          sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: '1rem' }}>
+          {renderHtmlContent(title)}
+          {required && (
+            <Box component="span" sx={{ color: 'error.main', ml: 0.5 }}>
+              *
+            </Box>
+          )}
+        </Typography>
+      )}
+      {description && (
+        <Typography
+          variant="body2"
+          sx={{ color: subtitleColor, lineHeight: 1.4 }}>
+          {renderHtmlContent(description)}
+        </Typography>
+      )}
+    </Stack>
+  );
+
+  const inputBlock = (
+    <Box
+      sx={{
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        minWidth: 0,
+      }}>
+      {children}
+    </Box>
+  );
 
   return (
     <Box
@@ -95,24 +136,23 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
         flexDirection: 'column',
         gap: 1,
       }}>
-      {(title || description) && (
-        <Stack spacing={0.5}>
-          {title && (
-            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
-              {renderHtmlContent(title)}
-              {required && (
-                <Box component="span" sx={{ color: 'error.main', ml: 0.5 }}>
-                  *
-                </Box>
-              )}
-            </Typography>
-          )}
-          {description && (
-            <Typography variant="body1" color="text.secondary">
-              {renderHtmlContent(description)}
-            </Typography>
-          )}
-        </Stack>
+      {useInline ? (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', sm: 'minmax(0, 38%) 1fr' },
+            alignItems: 'start',
+            columnGap: 2,
+            rowGap: 1,
+          }}>
+          <Box sx={{ minWidth: 0 }}>{titleBlock}</Box>
+          {inputBlock}
+        </Box>
+      ) : (
+        <>
+          {titleBlock}
+          {inputBlock}
+        </>
       )}
 
       {normalizedError && (
@@ -130,20 +170,10 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
         </Alert>
       )}
 
-      <Box
-        sx={{
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-        }}>
-        {children}
-      </Box>
-
       {(helperText || actions) && (
         <Stack spacing={1}>
           {helperText && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: subtitleColor }}>
               {typeof helperText === 'string'
                 ? renderHtmlContent(helperText)
                 : helperText}

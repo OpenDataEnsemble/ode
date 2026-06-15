@@ -221,7 +221,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
     errors && (Array.isArray(errors) ? errors.join(', ') : errors);
 
   return (
-    <QuestionShell
+    <QuestionShell block
       title={schema.title}
       description={schema.description}
       required={Boolean(

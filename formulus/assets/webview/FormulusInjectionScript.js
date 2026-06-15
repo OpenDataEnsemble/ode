@@ -1807,6 +1807,62 @@
         );
       });
     },
+
+    // getCurrentDataRevisionCount:  => Promise<number>
+    getCurrentDataRevisionCount: function () {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data;
+            } else {
+              window.removeEventListener('message', callback);
+              reject(
+                new Error(
+                  'getCurrentDataRevisionCount callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
+              return;
+            }
+            if (
+              data.type === 'getCurrentDataRevisionCount_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            console.error(
+              "'getCurrentDataRevisionCount' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback);
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'getCurrentDataRevisionCount',
+            messageId,
+          }),
+        );
+      });
+    },
   };
 
   // Register the callback handler with the window object

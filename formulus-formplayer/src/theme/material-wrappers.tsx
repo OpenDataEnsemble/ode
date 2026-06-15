@@ -1,14 +1,21 @@
 import {
+  and,
+  or,
   isEnumControl,
   isOneOfEnumControl,
+  optionIs,
+  schemaMatches,
+  uiTypeIs,
   RankedTester,
   rankWith,
   ControlProps,
   OwnPropsOfEnum,
+  DispatchPropsOfMultiEnumControl,
 } from '@jsonforms/core';
 import {
   withJsonFormsControlProps,
   withJsonFormsOneOfEnumProps,
+  withJsonFormsMultiEnumProps,
 } from '@jsonforms/react';
 import {
   Typography,
@@ -18,6 +25,12 @@ import {
   Select,
   MenuItem,
   FormHelperText,
+  Radio,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from './tokens-adapter';
@@ -182,6 +195,10 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
     (uischema as any)?.options?.required ?? (schema as any)?.options?.required,
   );
   const hasError = Boolean(errors && errors.length > 0);
+  const placeholder =
+    typeof (uischema as any)?.options?.placeholder === 'string'
+      ? (uischema as any).options.placeholder
+      : '—';
 
   return (
     <QuestionShell
@@ -199,13 +216,13 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
           }}
           renderValue={(selected: unknown) => {
             if (selected === undefined || selected === null || selected === '') {
-              return <em>—</em>;
+              return <em>{placeholder}</em>;
             }
             const match = options.find(o => o.value === selected);
             return match ? match.label : String(selected);
           }}>
           <MenuItem value="">
-            <em>—</em>
+            <em>{placeholder}</em>
           </MenuItem>
           {options.map(option => (
             <MenuItem key={String(option.value)} value={option.value as any}>
@@ -215,6 +232,243 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
         </Select>
         {hasError ? <FormHelperText>{errors}</FormHelperText> : null}
       </FormControl>
+    </QuestionShell>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Choice display options (opt-in via `ui.json` control `options`)
+//
+//   options.display:
+//     single-select (enum / oneOf): "radio" | "buttons"
+//     multi-select  (array enum):   "checkboxes" | "buttons"
+//   options.orientation: "vertical" (default) | "horizontal" | "flow" (wrap)
+//   options.buttonGroup: "segmented" (default) | "separated"
+//
+// Single-select radio/buttons support tap-the-selected-option-to-clear.
+// These claim rank 7 so they win over the rank-6 enum controls, but only when
+// `options.display` is set and the field has no `schema.format` (so custom
+// question types like `native_enum` still win).
+// ---------------------------------------------------------------------------
+
+type ChoiceOption = { value: unknown; label: string };
+
+const deriveChoiceOptions = (schema: any): ChoiceOption[] =>
+  schema.oneOf?.map((o: any) => ({
+    value: o.const ?? o.enum?.[0] ?? o,
+    label: o.title ?? String(o.const ?? o),
+  })) ||
+  (schema.enum || []).map((v: any) => ({ value: v, label: String(v) }));
+
+type ChoiceOrientation = 'vertical' | 'horizontal' | 'flow';
+
+const readChoiceLayout = (uischema: any) => {
+  const o = uischema?.options ?? {};
+  const orientation: ChoiceOrientation =
+    o.orientation === 'horizontal' || o.orientation === 'flow'
+      ? o.orientation
+      : 'vertical';
+  const separated = o.buttonGroup === 'separated';
+  return { orientation, separated };
+};
+
+const choiceListSx = (orientation: ChoiceOrientation) => ({
+  display: 'flex',
+  flexDirection: orientation === 'vertical' ? 'column' : 'row',
+  flexWrap: orientation === 'flow' ? 'wrap' : 'nowrap',
+  gap: orientation === 'vertical' ? 0 : 0.5,
+});
+
+const toggleGroupSx = (orientation: ChoiceOrientation, separated: boolean) => ({
+  flexWrap: orientation === 'flow' ? 'wrap' : 'nowrap',
+  ...(separated
+    ? {
+        gap: 1,
+        '& .MuiToggleButtonGroup-grouped': {
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 1,
+          '&:not(:first-of-type)': { marginLeft: 0 },
+        },
+      }
+    : {}),
+});
+
+export const choiceControlTester: RankedTester = rankWith(
+  7,
+  and(
+    or(isEnumControl, isOneOfEnumControl),
+    schemaMatches(schema => !(schema as any)?.format),
+    or(optionIs('display', 'radio'), optionIs('display', 'buttons')),
+  ),
+);
+
+export const ChoiceControl = (props: AnyControlProps) => {
+  const {
+    data,
+    handleChange,
+    path,
+    schema,
+    uischema,
+    errors,
+    enabled = true,
+  } = props;
+  const label = (uischema as any)?.label || schema.title;
+  const description = schema.description;
+  const required = Boolean(
+    (uischema as any)?.options?.required ?? (schema as any)?.options?.required,
+  );
+  const display = (uischema as any)?.options?.display;
+  const { orientation, separated } = readChoiceLayout(uischema);
+  const options = deriveChoiceOptions(schema);
+
+  const body =
+    display === 'buttons' ? (
+      <ToggleButtonGroup
+        exclusive
+        disabled={!enabled}
+        orientation={orientation === 'vertical' ? 'vertical' : 'horizontal'}
+        value={data ?? null}
+        onChange={(_e, val) => {
+          if (!enabled) return;
+          // Exclusive group returns null when re-clicking the active option,
+          // which gives tap-to-clear for free.
+          handleChange(path, val == null ? undefined : val);
+        }}
+        sx={toggleGroupSx(orientation, separated)}>
+        {options.map(opt => (
+          <ToggleButton key={String(opt.value)} value={opt.value as any}>
+            {opt.label}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+    ) : (
+      <Box role="radiogroup" sx={choiceListSx(orientation)}>
+        {options.map(opt => {
+          const selected = data === opt.value;
+          return (
+            <FormControlLabel
+              key={String(opt.value)}
+              disabled={!enabled}
+              control={
+                <Radio
+                  checked={selected}
+                  onClick={() => {
+                    if (!enabled) return;
+                    // Tap the selected option again to clear it.
+                    handleChange(path, selected ? undefined : opt.value);
+                  }}
+                />
+              }
+              label={opt.label}
+            />
+          );
+        })}
+      </Box>
+    );
+
+  return (
+    <QuestionShell
+      title={label}
+      description={description}
+      required={required}
+      error={errors}
+      block={display === 'buttons' || orientation !== 'vertical'}>
+      {body}
+    </QuestionShell>
+  );
+};
+
+export const multiChoiceControlTester: RankedTester = rankWith(
+  7,
+  and(
+    uiTypeIs('Control'),
+    schemaMatches(
+      schema =>
+        (schema as any)?.type === 'array' &&
+        !!(schema as any)?.items &&
+        (Array.isArray((schema as any).items.oneOf) ||
+          Array.isArray((schema as any).items.enum)),
+    ),
+    or(optionIs('display', 'checkboxes'), optionIs('display', 'buttons')),
+  ),
+);
+
+export const MultiChoiceControl = (
+  props: ControlProps & OwnPropsOfEnum & DispatchPropsOfMultiEnumControl,
+) => {
+  const {
+    data,
+    options = [],
+    addItem,
+    removeItem,
+    path,
+    schema,
+    uischema,
+    errors,
+    enabled = true,
+  } = props;
+  const label = (uischema as any)?.label || schema.title;
+  const description = schema.description;
+  const required = Boolean((uischema as any)?.options?.required);
+  const display = (uischema as any)?.options?.display;
+  const { orientation, separated } = readChoiceLayout(uischema);
+  const selected: unknown[] = Array.isArray(data) ? data : [];
+  const isSelected = (v: unknown) => selected.includes(v);
+  const toggle = (v: unknown) => {
+    if (!enabled) return;
+    if (isSelected(v)) removeItem?.(path, v);
+    else addItem?.(path, v);
+  };
+
+  const body =
+    display === 'buttons' ? (
+      <ToggleButtonGroup
+        disabled={!enabled}
+        orientation={orientation === 'vertical' ? 'vertical' : 'horizontal'}
+        value={selected as any}
+        onChange={(_e, newVals: unknown[]) => {
+          if (!enabled) return;
+          newVals
+            .filter(v => !selected.includes(v))
+            .forEach(v => addItem?.(path, v));
+          selected
+            .filter(v => !newVals.includes(v))
+            .forEach(v => removeItem?.(path, v));
+        }}
+        sx={toggleGroupSx(orientation, separated)}>
+        {options.map(opt => (
+          <ToggleButton key={String(opt.value)} value={opt.value as any}>
+            {opt.label}
+          </ToggleButton>
+        ))}
+      </ToggleButtonGroup>
+    ) : (
+      <FormGroup sx={choiceListSx(orientation)}>
+        {options.map(opt => (
+          <FormControlLabel
+            key={String(opt.value)}
+            disabled={!enabled}
+            control={
+              <Checkbox
+                checked={isSelected(opt.value)}
+                onChange={() => toggle(opt.value)}
+              />
+            }
+            label={opt.label}
+          />
+        ))}
+      </FormGroup>
+    );
+
+  return (
+    <QuestionShell
+      title={label}
+      description={description}
+      required={required}
+      error={errors}
+      block={display === 'buttons' || orientation !== 'vertical'}>
+      {body}
     </QuestionShell>
   );
 };
@@ -233,5 +487,15 @@ export const shellMaterialRenderers = [
   {
     tester: selectOneOfEnumControlTester,
     renderer: withJsonFormsOneOfEnumProps(SelectOneOfEnumControl),
+  },
+  // Opt-in radio / button single-select (ui.json options.display)
+  {
+    tester: choiceControlTester,
+    renderer: withJsonFormsControlProps(ChoiceControl),
+  },
+  // Opt-in checkbox / button multi-select (ui.json options.display)
+  {
+    tester: multiChoiceControlTester,
+    renderer: withJsonFormsMultiEnumProps(MultiChoiceControl),
   },
 ];

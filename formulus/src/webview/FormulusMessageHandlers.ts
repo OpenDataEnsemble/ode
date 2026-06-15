@@ -126,6 +126,7 @@ const startFormplayerOperation = (
   savedData: Record<string, unknown> = {},
   observationId: string | null = null,
   subObservationMode: boolean = false,
+  skipFinalize: boolean = false,
 ): Promise<FormCompletionResult> => {
   const operationId = `${formType}_${Date.now()}_${Math.random()
     .toString(36)
@@ -146,6 +147,7 @@ const startFormplayerOperation = (
       observationId,
       operationId,
       subObservationMode,
+      skipFinalize,
     });
 
     setTimeout(
@@ -1089,6 +1091,19 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         return { online: false, serverUrl: null, checkedAt };
       }
     },
+    onGetCurrentDataRevisionCount: async (): Promise<number> => {
+      try {
+        const raw = await AsyncStorage.getItem('@last_seen_version');
+        const n = raw != null ? Number(raw) : 0;
+        return Number.isFinite(n) && n >= 0 ? n : 0;
+      } catch (error) {
+        console.warn(
+          'FormulusMessageHandlers: getCurrentDataRevisionCount failed',
+          error,
+        );
+        return 0;
+      }
+    },
     onRunLocalModel: (
       fieldId: string,
       modelId: string,
@@ -1306,7 +1321,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onOpenFormplayer: async (
       data: FormInitData & {
-        options?: { subObservationMode?: boolean; returnOnly?: boolean };
+        options?: {
+          subObservationMode?: boolean;
+          skipFinalize?: boolean;
+          returnOnly?: boolean;
+        };
         /** @deprecated Legacy key; prefer subObservationMode */
         returnOnly?: boolean;
       },
@@ -1317,12 +1336,16 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         data.options?.returnOnly ||
         data.returnOnly,
       );
+      const skipFinalize = Boolean(
+        data.options?.skipFinalize || data.skipFinalize,
+      );
       return startFormplayerOperation(
         data.formType,
         data.params,
         data.savedData,
         data.observationId ?? null,
         subObservationMode,
+        skipFinalize,
       );
     },
     onFormplayerInitialized: (_data: {

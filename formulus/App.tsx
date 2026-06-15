@@ -70,7 +70,8 @@ function AppInner(): React.JSX.Element {
     observationId: string | null;
     savedData: Record<string, unknown> | null;
     operationId: string | null;
-    subObservationMode?: boolean; // Embedded sub-observation (e.g. sub-observation custom type)
+    subObservationMode?: boolean;
+    skipFinalize?: boolean;
   };
 
   const [formplayerStack, setFormplayerStack] = useState<
@@ -102,6 +103,7 @@ function AppInner(): React.JSX.Element {
             entry.savedData,
             entry.operationId,
             entry.subObservationMode,
+            entry.skipFinalize,
           );
         }, 200);
       };
@@ -159,10 +161,12 @@ function AppInner(): React.JSX.Element {
         savedData,
         operationId,
         subObservationMode: subObservationModeField,
+        skipFinalize: skipFinalizeField,
       } = config;
       const legacy = config as FormInitData & { returnOnly?: boolean };
       const subObservationMode =
         Boolean(subObservationModeField) || Boolean(legacy.returnOnly);
+      const skipFinalize = Boolean(skipFinalizeField);
 
       try {
         const formService = await FormService.getInstance();
@@ -196,6 +200,7 @@ function AppInner(): React.JSX.Element {
           savedData: savedData || null,
           operationId: operationId || null,
           subObservationMode,
+          skipFinalize,
         };
 
         setFormplayerStack(current => [...current, entry]);

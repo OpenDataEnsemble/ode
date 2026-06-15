@@ -28,6 +28,10 @@ import { draftService } from '../services/DraftService';
 import FormProgressBar from '../components/FormProgressBar';
 import FormLayout from '../components/FormLayout';
 import {
+  FormDensityContext,
+  type LabelLayout,
+} from '../context/FormDensityContext';
+import {
   collectVisibleControlsInSubtree,
   pageIsVisibleInSwipe,
   visiblePageIndicesFromLayouts,
@@ -88,9 +92,13 @@ const SwipeLayoutRenderer = ({
   renderers,
   cells,
   enabled,
+  visible,
   currentPage,
   onPageChange,
 }: SwipeLayoutProps) => {
+  if (visible === false) {
+    return null;
+  }
   const theme = useTheme();
   const [isNavigating, setIsNavigating] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -133,6 +141,12 @@ const SwipeLayoutRenderer = ({
     }, [uischema]);
 
   const autoFocusFirstInput = swipeOptions.autoFocusFirstInput !== false;
+  const labelLayout: LabelLayout =
+    swipeOptions.labelLayout === 'stacked' ? 'stacked' : 'inline';
+  const showInnerTitle = swipeOptions.showInnerTitle === true;
+  const skipFinalize = Boolean(
+    (formInitData as { skipFinalize?: boolean } | null)?.skipFinalize,
+  );
 
   const swipeScreenRef = useRef<HTMLDivElement>(null);
 
@@ -412,6 +426,23 @@ const SwipeLayoutRenderer = ({
     return layouts[currentPage]?.type === 'Finalize';
   }, [layouts, currentPage]);
 
+  const isLastContentPage =
+    nextVisiblePage === null && !isOnFinalizePage;
+
+  const trySubmitForm = useCallback(() => {
+    if (!formInitData) return;
+    window.dispatchEvent(
+      new CustomEvent('formShowValidation'),
+    );
+    const errorCount = core?.errors?.length ?? 0;
+    if (errorCount > 0) return;
+    window.dispatchEvent(
+      new CustomEvent('finalizeForm', {
+        detail: { formInitData, data },
+      }),
+    );
+  }, [formInitData, data, core?.errors]);
+
   const keyboardSubmitAction = useMemo(() => {
     const errorCount = core?.errors?.length ?? 0;
     if (isOnFinalizePage) {
@@ -425,6 +456,12 @@ const SwipeLayoutRenderer = ({
           );
         },
         disabled: errorCount > 0 || !formInitData,
+      };
+    }
+    if (skipFinalize && isLastContentPage) {
+      return {
+        onTrigger: trySubmitForm,
+        disabled: errorCount > 0 || !formInitData || isNavigating,
       };
     }
     if (nextVisiblePage !== null) {
@@ -441,7 +478,9 @@ const SwipeLayoutRenderer = ({
     isNavigating,
     core?.errors,
     formInitData,
-    data,
+    trySubmitForm,
+    skipFinalize,
+    isLastContentPage,
   ]);
 
   const keyboardEnterKeyHint = useMemo(
@@ -498,18 +537,24 @@ const SwipeLayoutRenderer = ({
     swipeOptions.headerTitle || (schema as any)?.title || undefined;
   const headerFields: string[] = (swipeOptions.headerFields || []).slice(0, 2);
 
+  const densityContextValue = useMemo(
+    () => ({ labelLayout }),
+    [labelLayout],
+  );
+
   // ----- Render -----
 
   return (
+    <FormDensityContext.Provider value={densityContextValue}>
     <FormContext.Provider value={formContextForSwipe}>
       <FormLayout
         keyboardSubmitAction={keyboardSubmitAction}
         header={
           <>
             {/* Author-configured form title and sticky fields */}
-            {(headerTitle || headerFields.length > 0) && (
+            {((showInnerTitle && headerTitle) || headerFields.length > 0) && (
               <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
-                {headerTitle && (
+                {showInnerTitle && headerTitle && (
                   <Typography
                     variant="subtitle2"
                     sx={{
@@ -595,7 +640,16 @@ const SwipeLayoutRenderer = ({
             : undefined
         }
         nextButton={
-          nextVisiblePage !== null
+          skipFinalize && isLastContentPage
+            ? {
+                onClick: trySubmitForm,
+                disabled:
+                  isNavigating ||
+                  !formInitData ||
+                  (core?.errors?.length ?? 0) > 0,
+                label: finalizeButtonLabelOption ?? 'Done',
+              }
+            : nextVisiblePage !== null
             ? {
                 onClick: () => navigateToPage(nextVisiblePage),
                 disabled: isNavigating,
@@ -688,6 +742,7 @@ const SwipeLayoutRenderer = ({
           )}
       </FormLayout>
     </FormContext.Provider>
+    </FormDensityContext.Provider>
   );
 };
 

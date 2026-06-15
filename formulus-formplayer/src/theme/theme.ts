@@ -1,6 +1,7 @@
 import {
   createTheme as muiCreateTheme,
   ThemeOptions,
+  alpha,
 } from '@mui/material/styles';
 import { tokens } from './tokens-adapter';
 
@@ -454,7 +455,7 @@ export const getThemeOptions = (
             marginRight: 0,
           },
           label: {
-            fontSize: parsePx(tokens.typography.fontSize.base),
+            fontSize: parsePx(tokens.typography.fontSize.sm),
             '&.Mui-disabled': {
               color: isDark
                 ? tokens.color.neutral[600]
@@ -512,6 +513,45 @@ export const getThemeOptions = (
         styleOverrides: {
           root: {
             flexDirection: 'column',
+          },
+        },
+      },
+      // Toggle buttons (opt-in `options.display: "buttons"` choice controls)
+      MuiToggleButton: {
+        styleOverrides: {
+          root: {
+            minHeight: FIELD_MIN_HEIGHT,
+            padding: `${FIELD_PADDING_Y}px ${FIELD_PADDING_X}px`,
+            textTransform: 'none',
+            fontSize: parsePx(tokens.typography.fontSize.base),
+            lineHeight: parseFloat(tokens.typography.lineHeight.normal),
+            color: isDark
+              ? tokens.color.neutral[200]
+              : tokens.color.neutral[800],
+            borderColor: isDark
+              ? tokens.color.neutral[700]
+              : tokens.color.neutral[300],
+            '&.Mui-selected': {
+              color: primaryMain,
+              backgroundColor: alpha(primaryMain, isDark ? 0.24 : 0.12),
+              borderColor: primaryMain,
+              fontWeight: 600,
+              '&:hover': {
+                backgroundColor: alpha(primaryMain, isDark ? 0.32 : 0.18),
+              },
+            },
+            '&.Mui-disabled': {
+              color: isDark
+                ? tokens.color.neutral[700]
+                : tokens.color.neutral[400],
+            },
+          },
+        },
+      },
+      MuiToggleButtonGroup: {
+        styleOverrides: {
+          root: {
+            flexWrap: 'wrap',
           },
         },
       },

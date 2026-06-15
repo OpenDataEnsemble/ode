@@ -192,7 +192,7 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
   );
 
   return (
-    <QuestionShell
+    <QuestionShell block
       title={label}
       description={description}
       required={isRequired}

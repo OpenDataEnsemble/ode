@@ -58,6 +58,8 @@ export interface FormInitData {
   operationId?: string;
   /** Sub-observation session: embedded child form returns JSON to parent; do not persist as a top-level observation. */
   subObservationMode?: boolean;
+  /** Skip the Finalize page and submit from the last content page (sub-observation fast path). */
+  skipFinalize?: boolean;
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
     custom_types: Record<string, { source: string }>;
@@ -395,7 +397,7 @@ export interface FormulusInterface {
     formType: string,
     params: Record<string, unknown>,
     savedData: Record<string, unknown>,
-    options?: { subObservationMode?: boolean },
+    options?: { subObservationMode?: boolean; skipFinalize?: boolean },
   ): Promise<FormCompletionResult>;
 
   /**
@@ -656,6 +658,17 @@ export interface FormulusInterface {
    * @returns {Promise<ConnectivityStatus>} The current connectivity status
    */
   getConnectivityStatus(): Promise<ConnectivityStatus>;
+
+  /**
+   * Read the device's last-known Synkronus data revision (`current_version`
+   * from the most recent successful sync). Reflects server-stream alignment
+   * only — not unsynced local edits. Use with periodic polling or after
+   * {@link sync} to detect when another device has pushed changes.
+   *
+   * @since 1.4.0
+   * @returns {Promise<number>} Non-negative revision count (0 if never synced)
+   */
+  getCurrentDataRevisionCount(): Promise<number>;
 }
 
 /**
@@ -674,7 +687,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = '1.3.0';
+export const FORMULUS_INTERFACE_VERSION = '1.4.0';
 
 /** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
 function semverSegments(version: string): [number, number, number] {

@@ -225,7 +225,10 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
         childFormType,
         baseValues,
         {},
-        { subObservationMode: true },
+        {
+          subObservationMode: true,
+          skipFinalize: Boolean(config.skipFinalize),
+        },
       );
       if (result?.status === 'form_submitted' && result.formData) {
         const row = result.formData as Record<string, unknown>;
@@ -273,7 +276,10 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
           childFormType,
           {},
           savedData,
-          { subObservationMode: true },
+          {
+            subObservationMode: true,
+            skipFinalize: Boolean(config.skipFinalize),
+          },
         );
         if (
           result &&
@@ -345,7 +351,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       : String(errors));
 
   return (
-    <QuestionShell
+    <QuestionShell block
       title={label ?? ''}
       description={description}
       required={required}

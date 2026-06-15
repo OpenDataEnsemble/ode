@@ -91,6 +91,7 @@ export interface FormulusMessageHandlers {
     includeAttachments?: boolean;
   }) => Promise<SyncResult>;
   onGetConnectivityStatus?: () => Promise<ConnectivityStatus>;
+  onGetCurrentDataRevisionCount?: () => Promise<number>;
   // Called when the Formplayer WebView signals that it has completed initialization
   // via a `formplayerInitialized` message. Primarily used for logging/diagnostics.
   onFormplayerInitialized?: (data: {
