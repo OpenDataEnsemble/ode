@@ -320,13 +320,56 @@ export interface FormCompletionResult {
 }
 
 /**
+ * Input for {@link FormulusInterface.persistObservation}.
+ * @property formType - Form type id the observation belongs to
+ * @property finalData - Observation JSON to store (must match the form schema)
+ * @property observationId - Provide to update an existing observation; omit/null to create
+ */
+export interface PersistObservationInput {
+  formType: string;
+  finalData: Record<string, unknown>;
+  observationId?: string | null;
+}
+
+/**
+ * Result of {@link FormulusInterface.persistObservation}.
+ * @property observationId - The id of the created/updated observation
+ * @property formData - The stored data (attachment paths normalized to committed locations)
+ */
+export interface PersistObservationResult {
+  observationId: string;
+  formData: Record<string, unknown>;
+}
+
+/**
+ * Result of {@link FormulusInterface.sync}.
+ * @property version - Final repository/data version reported by the server after sync
+ */
+export interface SyncResult {
+  version: number;
+}
+
+/**
+ * Result of {@link FormulusInterface.getConnectivityStatus}.
+ * @property online - Whether the configured Synkronus server answered a `/health` probe
+ * @property serverUrl - The configured server URL, or null if none is set
+ * @property checkedAt - Epoch milliseconds when the probe completed
+ */
+export interface ConnectivityStatus {
+  online: boolean;
+  serverUrl: string | null;
+  checkedAt: number;
+}
+
+/**
  * Interface for the Formulus app methods that will be injected into the WebViews for custom_app and FormPlayer
  * @namespace formulus
  */
 export interface FormulusInterface {
   /**
-   * Get the current version of the Formulus API
-   * @returns {Promise<string>} The API version
+   * Get the current version of the Formulus bridge API (the interface contract
+   * version, e.g. for {@link isCompatibleVersion} checks).
+   * @returns {Promise<string>} The API version (semver)
    */
   getVersion(): Promise<string>;
 
@@ -339,7 +382,12 @@ export interface FormulusInterface {
   /**
    * Open Formplayer with the specified form
    * @param {string} formType - The identifier of the formtype to open
-   * @param {Object} params - Additional parameters for form initialization
+   * @param {Object} params - Additional parameters for form initialization.
+   *   Reserved keys are not treated as observation data:
+   *   `defaultData` (prefill), `theme`/`darkMode`/`themeColors` (theming), and
+   *   `context` — a read-only **session context** object (device role, selected
+   *   cluster, ...) that Formplayer never persists and exposes to extensions as
+   *   `window.formulusSessionContext`.
    * @param {Object} savedData - Previously saved form data (for editing)
    * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
@@ -568,6 +616,46 @@ export interface FormulusInterface {
    * @returns Forms directory URL
    */
   getFormSpecsUri(): Promise<string>;
+
+  /**
+   * Persist an observation **without opening Formplayer** (headless write).
+   *
+   * Intended for custom apps that create or update records programmatically.
+   * Uses the same persistence path as a Formplayer submit, including promotion
+   * of any referenced draft attachments. Provide `observationId` to update an
+   * existing row; omit it to create a new one.
+   *
+   * @since 1.3.0
+   * @param {PersistObservationInput} input - The observation to persist
+   * @returns {Promise<PersistObservationResult>} The stored observation id and data
+   */
+  persistObservation(
+    input: PersistObservationInput,
+  ): Promise<PersistObservationResult>;
+
+  /**
+   * Trigger a synchronization with Synkronus (pull + push).
+   *
+   * Resolves when the sync completes; rejects if a sync is already in progress
+   * or the sync fails. Attachments are excluded by default for speed.
+   *
+   * @since 1.3.0
+   * @param {{ includeAttachments?: boolean }} [options] - Sync options
+   * @returns {Promise<SyncResult>} The final data version after sync
+   */
+  sync(options?: { includeAttachments?: boolean }): Promise<SyncResult>;
+
+  /**
+   * Probe connectivity to the configured Synkronus server (`GET /health`).
+   *
+   * Never rejects for an offline device — returns `{ online: false }` so callers
+   * can branch on connectivity without try/catch. Suitable for the
+   * "verify subject details when online, fall back when offline" pattern.
+   *
+   * @since 1.3.0
+   * @returns {Promise<ConnectivityStatus>} The current connectivity status
+   */
+  getConnectivityStatus(): Promise<ConnectivityStatus>;
 }
 
 /**
@@ -586,7 +674,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = '1.2.1';
+export const FORMULUS_INTERFACE_VERSION = '1.3.0';
 
 /** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
 function semverSegments(version: string): [number, number, number] {

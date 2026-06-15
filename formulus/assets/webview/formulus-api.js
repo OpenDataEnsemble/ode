@@ -244,6 +244,26 @@ const FormulusAPI = {
    * @returns {Promise<string>} Forms directory URL
    */
   getFormSpecsUri: function () {},
+
+  /**
+   * Persist an observation without opening Formplayer (headless write).
+   * @param {PersistObservationInput} input - The observation to persist
+   * @returns {Promise<PersistObservationResult>} The stored observation id and data
+   */
+  persistObservation: function (input) {},
+
+  /**
+   * Trigger a synchronization with Synkronus (pull + push).
+   * @param {{ includeAttachments?: boolean }} options - Sync options
+   * @returns {Promise<SyncResult>} The final data version after sync
+   */
+  sync: function (options) {},
+
+  /**
+   * Probe connectivity to the configured Synkronus server (GET /health).
+   * @returns {Promise<ConnectivityStatus>} The current connectivity status
+   */
+  getConnectivityStatus: function () {},
 };
 
 // Make the API available globally in browser environments

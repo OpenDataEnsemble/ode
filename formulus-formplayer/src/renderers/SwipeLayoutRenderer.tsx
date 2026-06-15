@@ -348,6 +348,13 @@ const SwipeLayoutRenderer = ({
       const isNavigatingForward = newPage > currentPage;
       const isOnFinalize = layouts[currentPage]?.type === 'Finalize';
 
+      // Deferred validation: once the enumerator moves forward, surface
+      // validation so empty/invalid required fields they are leaving behind are
+      // highlighted. App.tsx listens and switches JsonForms to ValidateAndShow.
+      if (isNavigatingForward) {
+        window.dispatchEvent(new CustomEvent('formShowValidation'));
+      }
+
       if (isNavigatingForward && !isOnFinalize) {
         const missingFields = getMissingRequiredFieldsOnPage();
 

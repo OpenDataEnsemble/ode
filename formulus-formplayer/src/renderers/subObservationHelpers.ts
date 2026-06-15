@@ -38,12 +38,34 @@ export function readDataPath(data: unknown, dotPath: string): unknown {
   return cur;
 }
 
+/** Matches a string that is exactly one `{{ token }}` with no surrounding text. */
+const SINGLE_TOKEN_RE = /^\s*\{\{\s*([^}]+?)\s*\}\}\s*$/;
+
 export function resolveTemplateValue(
   value: unknown,
   formData: Record<string, unknown>,
   parentValue: string | null,
 ): unknown {
   if (typeof value !== 'string') return value;
+
+  // When the whole value is a single token (e.g. "{{age}}"), preserve the
+  // source value's JSON type so numbers/booleans copied into a sub-observation
+  // stay numbers/booleans (otherwise AJV `type: "integer"` rejects "5"). Mixed
+  // templates (e.g. "AF-{{num}}") still interpolate as text below.
+  const single = value.match(SINGLE_TOKEN_RE);
+  if (single) {
+    const t = single[1].trim();
+    if (t === 'parentValue') {
+      return parentValue == null ? '' : String(parentValue);
+    }
+    if (t === 'currentInstanceId') {
+      const id = formData.observationId;
+      return id == null ? '' : String(id);
+    }
+    const fromData = readDataPath(formData, t);
+    return fromData == null ? '' : fromData;
+  }
+
   return value.replace(/\{\{\s*([^}]+)\s*\}\}/g, (_m, token: string) => {
     const t = String(token || '').trim();
     if (t === 'parentValue')

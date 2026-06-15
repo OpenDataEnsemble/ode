@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applySchemaDefaultTokens,
   dataMatchingSchemaRoot,
   initialFormDataFromParams,
+  resolveDefaultToken,
 } from './formObservationData';
 
 /**
@@ -60,6 +62,82 @@ describe('dataMatchingSchemaRoot', () => {
   it('passes data through when properties is empty', () => {
     const data = { a: 1, theme: 'x' };
     expect(dataMatchingSchemaRoot(data, { properties: {} })).toEqual(data);
+  });
+});
+
+describe('resolveDefaultToken', () => {
+  it('resolves $today to a local YYYY-MM-DD date', () => {
+    const result = resolveDefaultToken('$today');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    const d = new Date();
+    const expected = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      '0',
+    )}-${String(d.getDate()).padStart(2, '0')}`;
+    expect(result).toBe(expected);
+  });
+
+  it('resolves $now to an ISO date-time', () => {
+    const result = resolveDefaultToken('$now');
+    expect(typeof result).toBe('string');
+    expect(() => new Date(result as string).toISOString()).not.toThrow();
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('returns undefined for static or unknown defaults', () => {
+    expect(resolveDefaultToken('2026-01-01')).toBeUndefined();
+    expect(resolveDefaultToken('hello')).toBeUndefined();
+    expect(resolveDefaultToken(5)).toBeUndefined();
+    expect(resolveDefaultToken(undefined)).toBeUndefined();
+  });
+});
+
+describe('applySchemaDefaultTokens', () => {
+  it('injects $today only for missing fields with a token default', () => {
+    const schema = {
+      properties: {
+        obsdate: { type: 'string', format: 'date', default: '$today' },
+        name: { type: 'string' },
+      },
+    };
+    const out = applySchemaDefaultTokens({ name: 'x' }, schema);
+    expect(out.name).toBe('x');
+    expect(out.obsdate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('does not override values already provided via params/defaultData', () => {
+    const schema = {
+      properties: {
+        obsdate: { type: 'string', format: 'date', default: '$today' },
+      },
+    };
+    expect(
+      applySchemaDefaultTokens({ obsdate: '2020-05-05' }, schema).obsdate,
+    ).toBe('2020-05-05');
+  });
+
+  it('fills empty-string values (treated as missing)', () => {
+    const schema = {
+      properties: {
+        obsdate: { type: 'string', format: 'date', default: '$today' },
+      },
+    };
+    expect(applySchemaDefaultTokens({ obsdate: '' }, schema).obsdate).toMatch(
+      /^\d{4}-\d{2}-\d{2}$/,
+    );
+  });
+
+  it('leaves static defaults untouched (no auto-merge of plain defaults)', () => {
+    const schema = {
+      properties: {
+        color: { type: 'string', default: 'red' },
+      },
+    };
+    expect(applySchemaDefaultTokens({}, schema)).toEqual({});
+  });
+
+  it('is a no-op when schema has no properties', () => {
+    expect(applySchemaDefaultTokens({ a: 1 }, {})).toEqual({ a: 1 });
   });
 });
 

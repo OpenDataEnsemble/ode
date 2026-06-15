@@ -1,11 +1,24 @@
 import {
   isEnumControl,
+  isOneOfEnumControl,
   RankedTester,
   rankWith,
   ControlProps,
+  OwnPropsOfEnum,
 } from '@jsonforms/core';
-import { withJsonFormsControlProps } from '@jsonforms/react';
-import { Typography, Box, useTheme } from '@mui/material';
+import {
+  withJsonFormsControlProps,
+  withJsonFormsOneOfEnumProps,
+} from '@jsonforms/react';
+import {
+  Typography,
+  Box,
+  useTheme,
+  FormControl,
+  Select,
+  MenuItem,
+  FormHelperText,
+} from '@mui/material';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from './tokens-adapter';
 
@@ -122,6 +135,90 @@ const CardEnumControl = (props: AnyControlProps) => {
   );
 };
 
+/**
+ * Keyboard-free dropdown for `oneOf` enums (the shape produced by shared
+ * `$ref` choice lists). The stock `MaterialOneOfEnumControl` defaults to an
+ * Autocomplete, which opens the on-screen keyboard on tablets/phones. This
+ * override renders a plain MUI `Select` (menu picker) instead. The theme sets
+ * `MuiSelect` `inputProps.readOnly`/`inputMode: 'none'`, so no keyboard appears.
+ *
+ * Opt back into the searchable Autocomplete per field with
+ * `ui.json` `"options": { "autocomplete": true }` (then the tester below
+ * defers to the stock rank-5 control).
+ */
+const selectOneOfEnumControlTester: RankedTester = rankWith(
+  6,
+  (uischema, schema, context) => {
+    if (!isOneOfEnumControl(uischema, schema, context)) {
+      return false;
+    }
+    // Defer to format-based renderers (custom question types share rank 6 and
+    // are registered later in the array, so on a tie the first match would win
+    // here). A field that declares a `format` wants that specialized renderer
+    // (e.g. GBMIS `native_enum`), so this Select only claims plain $ref/oneOf.
+    if ((schema as any)?.format) {
+      return false;
+    }
+    // Explicit opt-in to the searchable Autocomplete -> let the stock control win.
+    const autocomplete = (uischema as any)?.options?.autocomplete;
+    return autocomplete !== true;
+  },
+);
+
+const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
+  const {
+    data,
+    handleChange,
+    path,
+    schema,
+    uischema,
+    errors,
+    enabled = true,
+    options = [],
+  } = props;
+  const label = (uischema as any)?.label || schema.title;
+  const description = schema.description;
+  const required = Boolean(
+    (uischema as any)?.options?.required ?? (schema as any)?.options?.required,
+  );
+  const hasError = Boolean(errors && errors.length > 0);
+
+  return (
+    <QuestionShell
+      title={label}
+      description={description}
+      required={required}
+      error={errors}>
+      <FormControl fullWidth error={hasError} disabled={!enabled}>
+        <Select
+          value={data ?? ''}
+          displayEmpty
+          onChange={event => {
+            const value = event.target.value;
+            handleChange(path, value === '' ? undefined : value);
+          }}
+          renderValue={(selected: unknown) => {
+            if (selected === undefined || selected === null || selected === '') {
+              return <em>—</em>;
+            }
+            const match = options.find(o => o.value === selected);
+            return match ? match.label : String(selected);
+          }}>
+          <MenuItem value="">
+            <em>—</em>
+          </MenuItem>
+          {options.map(option => (
+            <MenuItem key={String(option.value)} value={option.value as any}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </Select>
+        {hasError ? <FormHelperText>{errors}</FormHelperText> : null}
+      </FormControl>
+    </QuestionShell>
+  );
+};
+
 // NOTE: We removed the shell wrappers for text/number/integer/date controls because
 // they interfere with JSONForms' internal cell rendering mechanism.
 // The default materialRenderers handle these controls properly.
@@ -131,5 +228,10 @@ export const shellMaterialRenderers = [
   {
     tester: cardEnumControlTester,
     renderer: withJsonFormsControlProps(CardEnumControl),
+  },
+  // Keyboard-free Select for oneOf enums (shared $ref choice lists)
+  {
+    tester: selectOneOfEnumControlTester,
+    renderer: withJsonFormsOneOfEnumProps(SelectOneOfEnumControl),
   },
 ];

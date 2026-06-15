@@ -93,7 +93,7 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: 1.5,
+        gap: 1,
       }}>
       {(title || description) && (
         <Stack spacing={0.5}>

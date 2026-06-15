@@ -36,6 +36,7 @@ import FormulusClient from './services/FormulusInterface';
 import { FormInitData } from './types/FormulusInterfaceDefinition';
 import {
   initialFormDataFromParams,
+  applySchemaDefaultTokens,
   dataMatchingSchemaRoot,
 } from './utils/formObservationData';
 
@@ -329,6 +330,12 @@ function App() {
   const [customValidatorErrors, setCustomValidatorErrors] = useState<
     ErrorObject[]
   >([]);
+  // Deferred validation: new forms start hidden (no red errors on first paint),
+  // then switch to ValidateAndShow on first forward navigation / finalize. Edits
+  // and draft resumes start shown. Host can override via params.validationMode.
+  const [validationMode, setValidationMode] = useState<
+    'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
+  >('ValidateAndShow');
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -526,13 +533,47 @@ function App() {
         }
 
         const formSchemaTyped = formSchema as FormSchema | null;
+        // Deferred-validation policy. Honor an explicit host override first;
+        // otherwise defer (hide) for brand-new observations and show for
+        // edits / draft resumes so existing data is validated immediately.
+        const paramValidationMode = (params as Record<string, unknown> | null)?.[
+          'validationMode'
+        ];
+        const hasSavedData = Boolean(
+          savedData && Object.keys(savedData).length > 0,
+        );
+        if (
+          paramValidationMode === 'ValidateAndShow' ||
+          paramValidationMode === 'ValidateAndHide' ||
+          paramValidationMode === 'NoValidation'
+        ) {
+          setValidationMode(paramValidationMode);
+        } else {
+          setValidationMode(hasSavedData ? 'ValidateAndShow' : 'ValidateAndHide');
+        }
+
+        // Reserved session-context channel: a custom app may pass
+        // `params.context` (device role, selected cluster, etc.). It is excluded
+        // from observation data (see FORMPARAMS_NON_DATA_KEYS) and exposed here
+        // read-only so extensions / custom question types can react to it.
+        const sessionContext = (params as Record<string, unknown> | null)?.[
+          'context'
+        ];
+        (window as unknown as Record<string, unknown>).formulusSessionContext =
+          sessionContext ?? null;
+
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
           setData(
             dataMatchingSchemaRoot(savedData as FormData, formSchemaTyped),
           );
         } else {
-          const defaultData = initialFormDataFromParams(params);
+          // New observation: merge dynamic schema default tokens ($today/$now)
+          // for any field not already provided via params/defaultData.
+          const defaultData = applySchemaDefaultTokens(
+            initialFormDataFromParams(params),
+            formSchemaTyped,
+          );
           console.log('Preloading initialization form values:', defaultData);
           setData(dataMatchingSchemaRoot(defaultData, formSchemaTyped));
         }
@@ -807,7 +848,16 @@ function App() {
       }
     };
 
+    const handleShowValidation = () => {
+      // Idempotent: once shown, stays shown for the session.
+      setValidationMode(prev =>
+        prev === 'ValidateAndHide' ? 'ValidateAndShow' : prev,
+      );
+    };
+
     const handleFinalizeForm = (event: Event) => {
+      // Reaching finalize is a meaningful checkpoint: ensure validation is shown.
+      handleShowValidation();
       // Prefer the payload from the FinalizeRenderer if available
       const customEvent = event as CustomEvent<{
         formInitData?: FormInitData;
@@ -859,6 +909,10 @@ function App() {
       'finalizeForm',
       handleFinalizeForm as EventListener,
     );
+    window.addEventListener(
+      'formShowValidation',
+      handleShowValidation as EventListener,
+    );
 
     return () => {
       window.removeEventListener(
@@ -868,6 +922,10 @@ function App() {
       window.removeEventListener(
         'finalizeForm',
         handleFinalizeForm as EventListener,
+      );
+      window.removeEventListener(
+        'formShowValidation',
+        handleShowValidation as EventListener,
       );
     };
   }, [data, formInitData, draftSessionKey, uischema, schema]); // Include all dependencies
@@ -1192,7 +1250,7 @@ function App() {
                       ]}
                       cells={materialCells}
                       onChange={handleDataChange}
-                      validationMode="ValidateAndShow"
+                      validationMode={validationMode}
                       ajv={ajv}
                       additionalErrors={customValidatorErrors}
                     />

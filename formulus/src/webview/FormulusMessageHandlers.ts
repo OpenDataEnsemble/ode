@@ -24,11 +24,20 @@ import {
 } from '@react-native-documents/picker';
 import {
   AttachmentDisplayDescriptor,
+  ConnectivityStatus,
   FormInitData,
   FormCompletionResult,
   FormInfo,
+  FORMULUS_INTERFACE_VERSION,
+  PersistObservationInput,
+  PersistObservationResult,
+  SyncResult,
 } from './FormulusInterfaceDefinition';
 import { FormulusMessageHandlers } from './FormulusMessageHandlers.types';
+import { persistObservationWithAttachments } from '../services/attachmentStorage';
+import { databaseService } from '../database/DatabaseService';
+import { SyncService } from '../services/SyncService';
+import { ServerConfigService } from '../services/ServerConfigService';
 
 // NitroSound is disabled for emulator in react-native.config.js - do not load the module
 // to avoid "Sound HybridObject not registered" console errors. Load lazily only when
@@ -241,9 +250,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onGetVersion: async (): Promise<string> => {
       console.log('FormulusMessageHandlers: onGetVersion handler invoked.');
-      // Replace with your actual version retrieval logic.
-      const version = '0.1.0-native'; // Example version
-      return version;
+      // Return the bridge interface contract version so custom apps can do
+      // meaningful compatibility checks (see isCompatibleVersion).
+      return FORMULUS_INTERFACE_VERSION;
     },
     onSubmitObservation: async (data: {
       formType: string;
@@ -1016,6 +1025,69 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onRequestSyncStatus: () => {
       // TODO: implement sync status logic
       console.log('Request sync status handler called');
+    },
+    onPersistObservation: async (
+      data: {
+        input?: PersistObservationInput;
+      } & Partial<PersistObservationInput>,
+    ): Promise<PersistObservationResult> => {
+      // The bridge nests the single argument under `input`; tolerate both shapes.
+      const input = (data?.input ?? data) as PersistObservationInput;
+      if (!input || !input.formType) {
+        throw new Error('persistObservation: formType is required');
+      }
+      if (!input.finalData || typeof input.finalData !== 'object') {
+        throw new Error('persistObservation: finalData object is required');
+      }
+
+      const localRepo = databaseService.getLocalRepo();
+      if (!localRepo) {
+        throw new Error('persistObservation: database repository not available');
+      }
+
+      // Reuse the exact Formplayer submit persistence path (attachment promotion
+      // included). Headless writes are never sub-observations.
+      return persistObservationWithAttachments(
+        {
+          formType: input.formType,
+          finalData: input.finalData,
+          observationId: input.observationId ?? null,
+          subObservationMode: false,
+        },
+        {
+          saveObservation: args => localRepo.saveObservation(args),
+          updateObservation: args => localRepo.updateObservation(args),
+        },
+      );
+    },
+    onSync: async (data: {
+      options?: { includeAttachments?: boolean };
+      includeAttachments?: boolean;
+    }): Promise<SyncResult> => {
+      const includeAttachments = Boolean(
+        data?.options?.includeAttachments ?? data?.includeAttachments ?? false,
+      );
+      const version =
+        await SyncService.getInstance().syncObservations(includeAttachments);
+      return { version };
+    },
+    onGetConnectivityStatus: async (): Promise<ConnectivityStatus> => {
+      const checkedAt = Date.now();
+      try {
+        const serverUrl = await ServerConfigService.getInstance().getServerUrl();
+        if (!serverUrl) {
+          return { online: false, serverUrl: null, checkedAt: Date.now() };
+        }
+        const online =
+          await ServerConfigService.getInstance().isHealthEndpointOk(serverUrl);
+        return { online, serverUrl, checkedAt: Date.now() };
+      } catch (error) {
+        console.warn(
+          'FormulusMessageHandlers: getConnectivityStatus probe failed',
+          error,
+        );
+        return { online: false, serverUrl: null, checkedAt };
+      }
     },
     onRunLocalModel: (
       fieldId: string,

@@ -3,9 +3,13 @@
 import { Observation } from '../database/models/Observation';
 import {
   AttachmentDisplayDescriptor,
+  ConnectivityStatus,
   FormInitData,
   FormCompletionResult,
   FormInfo,
+  PersistObservationInput,
+  PersistObservationResult,
+  SyncResult,
 } from './FormulusInterfaceDefinition';
 
 export interface FormulusMessageHandlers {
@@ -76,6 +80,17 @@ export interface FormulusMessageHandlers {
   onGetAttachmentsUri?: () => Promise<string>;
   onGetCustomAppUri?: () => Promise<string>;
   onGetFormSpecsUri?: () => Promise<string>;
+  // Payload is the WebView message minus {type, messageId}; for single-object
+  // methods the argument is nested under its parameter name (e.g. `input`,
+  // `options`), so handlers accept either the wrapped or unwrapped shape.
+  onPersistObservation?: (
+    data: { input?: PersistObservationInput } & Partial<PersistObservationInput>,
+  ) => Promise<PersistObservationResult>;
+  onSync?: (data: {
+    options?: { includeAttachments?: boolean };
+    includeAttachments?: boolean;
+  }) => Promise<SyncResult>;
+  onGetConnectivityStatus?: () => Promise<ConnectivityStatus>;
   // Called when the Formplayer WebView signals that it has completed initialization
   // via a `formplayerInitialized` message. Primarily used for logging/diagnostics.
   onFormplayerInitialized?: (data: {

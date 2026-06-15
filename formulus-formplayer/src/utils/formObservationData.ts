@@ -9,6 +9,10 @@ export const FORMPARAMS_NON_DATA_KEYS = new Set([
   'theme',
   'darkMode',
   'themeColors',
+  // Reserved read-only session context channel (see App init): a custom app may
+  // pass `params.context` with session info (device role, selected cluster, ...)
+  // that must never be persisted as observation data.
+  'context',
 ]);
 
 export type FormObservationData = Record<string, unknown>;
@@ -31,6 +35,73 @@ export function initialFormDataFromParams(
   for (const [key, value] of Object.entries(p)) {
     if (!FORMPARAMS_NON_DATA_KEYS.has(key)) {
       out[key] = value;
+    }
+  }
+  return out;
+}
+
+/**
+ * Resolve a dynamic default token used in a schema property `default`.
+ *
+ * Only a small, documented set of tokens is supported so that existing static
+ * `default` values are never altered:
+ *   - `$today` -> local calendar date as `YYYY-MM-DD` (matches `format: "date"`)
+ *   - `$now`   -> ISO 8601 date-time (matches `format: "date-time"`)
+ *
+ * Returns `undefined` for anything that is not a recognized token, signalling
+ * "do not inject a value".
+ */
+export function resolveDefaultToken(token: unknown): unknown {
+  if (typeof token !== 'string') {
+    return undefined;
+  }
+  switch (token) {
+    case '$today': {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    case '$now':
+      return new Date().toISOString();
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Merge resolved dynamic-default tokens (`$today` / `$now`) from the schema into
+ * initial data for a NEW observation.
+ *
+ * Rules:
+ *   - Only acts on properties whose `default` is a recognized token (see
+ *     `resolveDefaultToken`); plain/static `default` values are left untouched
+ *     so existing forms keep their current behaviour.
+ *   - Never overrides a value already provided via `params` / `defaultData`
+ *     (only fills keys that are missing/empty).
+ *
+ * Callers must only use this on the new-observation path (no saved draft), so
+ * resumed/edited observations keep their stored values.
+ */
+export function applySchemaDefaultTokens(
+  data: FormObservationData,
+  formSchema: unknown,
+): FormObservationData {
+  const props = (formSchema as { properties?: unknown } | null)?.properties;
+  if (!props || typeof props !== 'object' || Array.isArray(props)) {
+    return { ...data };
+  }
+  const out: FormObservationData = { ...data };
+  for (const [key, prop] of Object.entries(props as Record<string, unknown>)) {
+    const existing = out[key];
+    if (existing !== undefined && existing !== null && existing !== '') {
+      continue;
+    }
+    const def = (prop as { default?: unknown } | null)?.default;
+    const resolved = resolveDefaultToken(def);
+    if (resolved !== undefined) {
+      out[key] = resolved;
     }
   }
   return out;

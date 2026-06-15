@@ -1637,6 +1637,176 @@
         );
       });
     },
+
+    // persistObservation: input: PersistObservationInput => Promise<PersistObservationResult>
+    persistObservation: function (input) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data; // Already an object
+            } else {
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'persistObservation callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
+              return;
+            }
+            if (
+              data.type === 'persistObservation_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            console.error(
+              "'persistObservation' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        // Send the message to React Native
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'persistObservation',
+            messageId,
+            input: input,
+          }),
+        );
+      });
+    },
+
+    // sync: options: { includeAttachments?: boolean } => Promise<SyncResult>
+    sync: function (options) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data; // Already an object
+            } else {
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'sync callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
+              return;
+            }
+            if (data.type === 'sync_response' && data.messageId === messageId) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            console.error(
+              "'sync' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        // Send the message to React Native
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'sync',
+            messageId,
+            options: options,
+          }),
+        );
+      });
+    },
+
+    // getConnectivityStatus:  => Promise<ConnectivityStatus>
+    getConnectivityStatus: function () {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data; // Already an object
+            } else {
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'getConnectivityStatus callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
+              return;
+            }
+            if (
+              data.type === 'getConnectivityStatus_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            console.error(
+              "'getConnectivityStatus' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        // Send the message to React Native
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'getConnectivityStatus',
+            messageId,
+          }),
+        );
+      });
+    },
   };
 
   // Register the callback handler with the window object
