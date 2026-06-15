@@ -51,7 +51,7 @@ const NumberStepperRenderer = ({
   const description = schema.description;
   const isRequired = Boolean(
     (uischema as { options?: { required?: boolean } })?.options?.required ??
-      required,
+    required,
   );
 
   const handleAdd = () => {

@@ -96,13 +96,13 @@ const Button: React.FC<NativeButtonProps> = ({
   const pressedBorderColor = actualVariant === 'danger' ? dangerDefaultBorder : 'transparent';
 
   const textColor =
-    actualVariant === 'danger'
-      ? dangerDefaultText
-      : isActiveOrPressed
-        ? textOnFill
-        : borderColor;
+    actualVariant === 'danger' ? dangerDefaultText : isActiveOrPressed ? textOnFill : borderColor;
   const activeBorderColor =
-    actualVariant === 'danger' ? dangerDefaultBorder : isActiveOrPressed ? pressedBorderColor : borderColor;
+    actualVariant === 'danger'
+      ? dangerDefaultBorder
+      : isActiveOrPressed
+        ? pressedBorderColor
+        : borderColor;
   const backgroundColor =
     actualVariant === 'danger'
       ? isPressed

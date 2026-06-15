@@ -376,7 +376,8 @@ const AudioQuestionRenderer: React.FC<ControlProps> = ({
     typeof meta?.duration === 'number';
 
   return (
-    <QuestionShell block
+    <QuestionShell
+      block
       title={label}
       description={description}
       required={isRequired}

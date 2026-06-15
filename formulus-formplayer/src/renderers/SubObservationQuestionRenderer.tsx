@@ -351,7 +351,8 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       : String(errors));
 
   return (
-    <QuestionShell block
+    <QuestionShell
+      block
       title={label ?? ''}
       description={description}
       required={required}

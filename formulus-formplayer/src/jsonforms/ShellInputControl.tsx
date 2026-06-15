@@ -21,11 +21,12 @@ const ShellInputControl = (props: ControlProps) => {
 
   if (visible === false) return null;
 
-  const title = (uischema as { label?: string })?.label || schema?.title || label;
+  const title =
+    (uischema as { label?: string })?.label || schema?.title || label;
   const description = schema?.description;
   const isRequired = Boolean(
     (uischema as { options?: { required?: boolean } })?.options?.required ??
-      required,
+    required,
   );
   const errorStr = Array.isArray(errors)
     ? errors.filter(Boolean).join(', ')

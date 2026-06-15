@@ -11,6 +11,13 @@ export { default as Card } from './Card';
 export { default as Badge } from './Badge';
 
 // Export types for TypeScript inference
-export type { ButtonProps, ButtonVariant, ButtonSize, InputProps, CardProps, BadgeProps } from '../shared/types';
+export type {
+  ButtonProps,
+  ButtonVariant,
+  ButtonSize,
+  InputProps,
+  CardProps,
+  BadgeProps,
+} from '../shared/types';
 export type { WebButtonProps } from './Button';
 export type { ButtonGroupProps } from './ButtonGroup';

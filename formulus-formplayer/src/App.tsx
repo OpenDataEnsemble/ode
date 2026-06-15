@@ -551,9 +551,9 @@ function App() {
         // Deferred-validation policy. Honor an explicit host override first;
         // otherwise defer (hide) for brand-new observations and show for
         // edits / draft resumes so existing data is validated immediately.
-        const paramValidationMode = (params as Record<string, unknown> | null)?.[
-          'validationMode'
-        ];
+        const paramValidationMode = (
+          params as Record<string, unknown> | null
+        )?.['validationMode'];
         const hasSavedData = Boolean(
           savedData && Object.keys(savedData).length > 0,
         );
@@ -564,7 +564,9 @@ function App() {
         ) {
           setValidationMode(paramValidationMode);
         } else {
-          setValidationMode(hasSavedData ? 'ValidateAndShow' : 'ValidateAndHide');
+          setValidationMode(
+            hasSavedData ? 'ValidateAndShow' : 'ValidateAndHide',
+          );
         }
 
         // Reserved session-context channel: a custom app may pass
@@ -927,7 +929,8 @@ function App() {
           }
           // Persist sticky field values for next new observation of this form.
           if (!isSubObservationSession(payloadFormInit) && uischema) {
-            const formVersion = (schema as { version?: string } | null)?.version;
+            const formVersion = (schema as { version?: string } | null)
+              ?.version;
             const stickyPaths = collectStickyFieldPaths(uischema);
             const stickyValues = extractStickyValues(payloadData, stickyPaths);
             if (Object.keys(stickyValues).length > 0) {

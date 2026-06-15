@@ -1,16 +1,21 @@
 import {
   and,
   or,
+  not,
+  hasType,
   isEnumControl,
   isOneOfEnumControl,
   optionIs,
   schemaMatches,
+  schemaSubPathMatches,
+  resolveSchema,
   uiTypeIs,
   RankedTester,
   rankWith,
   ControlProps,
   OwnPropsOfEnum,
   DispatchPropsOfMultiEnumControl,
+  JsonSchema,
 } from '@jsonforms/core';
 import {
   withJsonFormsControlProps,
@@ -23,7 +28,6 @@ import {
   useTheme,
   FormControl,
   Select,
-  MenuItem,
   FormHelperText,
   Radio,
   Checkbox,
@@ -151,9 +155,11 @@ const CardEnumControl = (props: AnyControlProps) => {
 /**
  * Keyboard-free dropdown for `oneOf` enums (the shape produced by shared
  * `$ref` choice lists). The stock `MaterialOneOfEnumControl` defaults to an
- * Autocomplete, which opens the on-screen keyboard on tablets/phones. This
- * override renders a plain MUI `Select` (menu picker) instead. The theme sets
- * `MuiSelect` `inputProps.readOnly`/`inputMode: 'none'`, so no keyboard appears.
+ * Autocomplete, which opens the on-screen keyboard on tablets/phones.
+ *
+ * Uses a **native** `<select>` so the
+ * picker works inside Formulus / ODE Desktop WebViews — MUI Menu portals and
+ * `readOnly` on the faux input both break menu open on mobile WebViews.
  *
  * Opt back into the searchable Autocomplete per field with
  * `ui.json` `"options": { "autocomplete": true }` (then the tester below
@@ -168,7 +174,7 @@ const selectOneOfEnumControlTester: RankedTester = rankWith(
     // Defer to format-based renderers (custom question types share rank 6 and
     // are registered later in the array, so on a tie the first match would win
     // here). A field that declares a `format` wants that specialized renderer
-    // (e.g. GBMIS `native_enum`), so this Select only claims plain $ref/oneOf.
+    // (e.g. a custom `format` renderer), so this Select only claims plain $ref/oneOf.
     if ((schema as any)?.format) {
       return false;
     }
@@ -206,32 +212,130 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
       description={description}
       required={required}
       error={errors}>
-      <FormControl fullWidth error={hasError} disabled={!enabled}>
+      <FormControl
+        fullWidth
+        variant="outlined"
+        error={hasError}
+        disabled={!enabled}>
         <Select
+          native
           value={data ?? ''}
           displayEmpty
           onChange={event => {
             const value = event.target.value;
             handleChange(path, value === '' ? undefined : value);
           }}
-          renderValue={(selected: unknown) => {
-            if (selected === undefined || selected === null || selected === '') {
-              return <em>{placeholder}</em>;
-            }
-            const match = options.find(o => o.value === selected);
-            return match ? match.label : String(selected);
+          inputProps={{
+            'aria-label':
+              typeof label === 'string' ? label : (schema.title ?? undefined),
           }}>
-          <MenuItem value="">
-            <em>{placeholder}</em>
-          </MenuItem>
+          <option value="">{placeholder}</option>
           {options.map(option => (
-            <MenuItem key={String(option.value)} value={option.value as any}>
+            <option key={String(option.value)} value={String(option.value)}>
               {option.label}
-            </MenuItem>
+            </option>
           ))}
         </Select>
         {hasError ? <FormHelperText>{errors}</FormHelperText> : null}
       </FormControl>
+    </QuestionShell>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Default multi-select (array enum) — QuestionShell + vertical checkboxes
+// Replaces stock MaterialEnumArrayRenderer (legend above row of boxes) in
+// SwipeLayout inline mode. Opt-in display modes stay on MultiChoiceControl (7).
+// ---------------------------------------------------------------------------
+
+const hasOneOfItems = (schema: JsonSchema): boolean =>
+  schema.oneOf !== undefined &&
+  schema.oneOf.length > 0 &&
+  (schema.oneOf as JsonSchema[]).every(entry => entry.const !== undefined);
+
+const hasEnumItems = (schema: JsonSchema): boolean =>
+  schema.type === 'string' && schema.enum !== undefined;
+
+const isMultiEnumControl = and(
+  uiTypeIs('Control'),
+  and(
+    schemaMatches(
+      schema =>
+        hasType(schema, 'array') &&
+        !Array.isArray(schema.items) &&
+        schema.uniqueItems === true,
+    ),
+    schemaSubPathMatches('items', (schema, rootSchema) => {
+      if (!schema) return false;
+      const resolvedSchema =
+        schema.$ref && rootSchema
+          ? resolveSchema(rootSchema, schema.$ref, rootSchema)
+          : schema;
+      if (!resolvedSchema) return false;
+      return hasOneOfItems(resolvedSchema) || hasEnumItems(resolvedSchema);
+    }),
+  ),
+);
+
+export const enumArrayShellControlTester: RankedTester = rankWith(
+  6,
+  and(
+    isMultiEnumControl,
+    not(or(optionIs('display', 'checkboxes'), optionIs('display', 'buttons'))),
+  ),
+);
+
+const EnumArrayShellControl = (
+  props: ControlProps & OwnPropsOfEnum & DispatchPropsOfMultiEnumControl,
+) => {
+  const {
+    data,
+    options = [],
+    addItem,
+    removeItem,
+    path,
+    schema,
+    uischema,
+    errors,
+    enabled = true,
+    visible,
+    label,
+  } = props;
+
+  if (visible === false) return null;
+
+  const title = (uischema as any)?.label || schema.title || label;
+  const description = schema.description;
+  const required = Boolean((uischema as any)?.options?.required);
+  const selected: unknown[] = Array.isArray(data) ? data : [];
+  const isSelected = (v: unknown) => selected.includes(v);
+  const toggle = (v: unknown) => {
+    if (!enabled) return;
+    if (isSelected(v)) removeItem?.(path, v);
+    else addItem?.(path, v);
+  };
+
+  return (
+    <QuestionShell
+      title={title}
+      description={description}
+      required={required}
+      error={errors}>
+      <FormGroup sx={choiceListSx('vertical')}>
+        {options.map(opt => (
+          <FormControlLabel
+            key={String(opt.value)}
+            disabled={!enabled}
+            control={
+              <Checkbox
+                checked={isSelected(opt.value)}
+                onChange={() => toggle(opt.value)}
+              />
+            }
+            label={opt.label}
+          />
+        ))}
+      </FormGroup>
     </QuestionShell>
   );
 };
@@ -257,8 +361,7 @@ const deriveChoiceOptions = (schema: any): ChoiceOption[] =>
   schema.oneOf?.map((o: any) => ({
     value: o.const ?? o.enum?.[0] ?? o,
     label: o.title ?? String(o.const ?? o),
-  })) ||
-  (schema.enum || []).map((v: any) => ({ value: v, label: String(v) }));
+  })) || (schema.enum || []).map((v: any) => ({ value: v, label: String(v) }));
 
 type ChoiceOrientation = 'vertical' | 'horizontal' | 'flow';
 
@@ -373,7 +476,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
       description={description}
       required={required}
       error={errors}
-      block={display === 'buttons' || orientation !== 'vertical'}>
+      block={orientation === 'flow'}>
       {body}
     </QuestionShell>
   );
@@ -382,14 +485,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
 export const multiChoiceControlTester: RankedTester = rankWith(
   7,
   and(
-    uiTypeIs('Control'),
-    schemaMatches(
-      schema =>
-        (schema as any)?.type === 'array' &&
-        !!(schema as any)?.items &&
-        (Array.isArray((schema as any).items.oneOf) ||
-          Array.isArray((schema as any).items.enum)),
-    ),
+    isMultiEnumControl,
     or(optionIs('display', 'checkboxes'), optionIs('display', 'buttons')),
   ),
 );
@@ -467,7 +563,7 @@ export const MultiChoiceControl = (
       description={description}
       required={required}
       error={errors}
-      block={display === 'buttons' || orientation !== 'vertical'}>
+      block={orientation === 'flow'}>
       {body}
     </QuestionShell>
   );
@@ -487,6 +583,11 @@ export const shellMaterialRenderers = [
   {
     tester: selectOneOfEnumControlTester,
     renderer: withJsonFormsOneOfEnumProps(SelectOneOfEnumControl),
+  },
+  // Default multi-select checkboxes in two-column QuestionShell
+  {
+    tester: enumArrayShellControlTester,
+    renderer: withJsonFormsMultiEnumProps(EnumArrayShellControl),
   },
   // Opt-in radio / button single-select (ui.json options.display)
   {

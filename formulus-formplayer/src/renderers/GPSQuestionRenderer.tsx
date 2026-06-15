@@ -148,7 +148,8 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
   const isDisabled = !enabled || isCapturing;
 
   return (
-    <QuestionShell block
+    <QuestionShell
+      block
       title={schema.title || 'GPS Location'}
       description={schema.description}
       required={Boolean(

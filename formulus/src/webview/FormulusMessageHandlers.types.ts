@@ -84,7 +84,9 @@ export interface FormulusMessageHandlers {
   // methods the argument is nested under its parameter name (e.g. `input`,
   // `options`), so handlers accept either the wrapped or unwrapped shape.
   onPersistObservation?: (
-    data: { input?: PersistObservationInput } & Partial<PersistObservationInput>,
+    data: {
+      input?: PersistObservationInput;
+    } & Partial<PersistObservationInput>,
   ) => Promise<PersistObservationResult>;
   onSync?: (data: {
     options?: { includeAttachments?: boolean };

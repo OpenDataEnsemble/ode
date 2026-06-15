@@ -240,7 +240,8 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   );
 
   return (
-    <QuestionShell block
+    <QuestionShell
+      block
       title={label}
       description={description}
       required={isRequired}

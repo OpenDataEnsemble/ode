@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 import {
   choiceControlTester,
+  enumArrayShellControlTester,
   multiChoiceControlTester,
 } from './material-wrappers';
 
@@ -23,7 +24,13 @@ const rootSchema: JsonSchema = {
     } as JsonSchema,
     tags: {
       type: 'array',
-      items: { oneOf: [{ const: 'x', title: 'X' }] },
+      uniqueItems: true,
+      items: {
+        oneOf: [
+          { const: 'x', title: 'X' },
+          { const: 'y', title: 'Y' },
+        ],
+      },
     } as JsonSchema,
   },
 };
@@ -64,6 +71,23 @@ describe('choiceControlTester (single-select)', () => {
   it('does not claim array (multi-select) controls', () => {
     const ui = control('#/properties/tags', { display: 'radio' });
     expect(choiceControlTester(ui, rootSchema, ctx)).toBe(-1);
+  });
+});
+
+describe('enumArrayShellControlTester (default multi-select)', () => {
+  it('claims array-of-enum when options.display is not set', () => {
+    const ui = control('#/properties/tags');
+    expect(enumArrayShellControlTester(ui, rootSchema, ctx)).toBe(6);
+  });
+
+  it('defers when options.display=checkboxes (MultiChoiceControl wins)', () => {
+    const ui = control('#/properties/tags', { display: 'checkboxes' });
+    expect(enumArrayShellControlTester(ui, rootSchema, ctx)).toBe(-1);
+  });
+
+  it('defers when options.display=buttons', () => {
+    const ui = control('#/properties/tags', { display: 'buttons' });
+    expect(enumArrayShellControlTester(ui, rootSchema, ctx)).toBe(-1);
   });
 });
 

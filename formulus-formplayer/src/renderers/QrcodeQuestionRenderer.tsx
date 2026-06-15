@@ -141,7 +141,8 @@ const QrcodeQuestionRenderer: React.FC<ControlProps> = ({
   const validationError = errors && errors.length > 0 ? String(errors) : null;
 
   return (
-    <QuestionShell block
+    <QuestionShell
+      block
       title={label}
       description={description}
       required={isRequired}

@@ -614,13 +614,17 @@ export const getThemeOptions = (
           },
         },
         defaultProps: {
-          inputProps: {
-            readOnly: true,
-            inputMode: 'none',
-          },
+          // Native selects (see SelectOneOfEnumControl) need no readOnly hack.
+          // For any remaining MUI Menu-based selects, keep the menu inside the
+          // WebView scroll tree — portaled menus are often clipped/invisible.
           MenuProps: {
+            disablePortal: true,
             disableAutoFocus: true,
             disableEnforceFocus: true,
+            disableScrollLock: true,
+            PaperProps: {
+              sx: { zIndex: 10000 },
+            },
           },
         },
       },

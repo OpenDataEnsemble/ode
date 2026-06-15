@@ -1044,7 +1044,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
 
       const localRepo = databaseService.getLocalRepo();
       if (!localRepo) {
-        throw new Error('persistObservation: database repository not available');
+        throw new Error(
+          'persistObservation: database repository not available',
+        );
       }
 
       // Reuse the exact Formplayer submit persistence path (attachment promotion
@@ -1076,7 +1078,8 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onGetConnectivityStatus: async (): Promise<ConnectivityStatus> => {
       const checkedAt = Date.now();
       try {
-        const serverUrl = await ServerConfigService.getInstance().getServerUrl();
+        const serverUrl =
+          await ServerConfigService.getInstance().getServerUrl();
         if (!serverUrl) {
           return { online: false, serverUrl: null, checkedAt: Date.now() };
         }
