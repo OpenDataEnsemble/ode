@@ -1,4 +1,3 @@
-import type { UISchemaElement } from '@jsonforms/core';
 import type { FormObservationData } from './formObservationData';
 
 /** Walk uischema and collect data paths for controls with `options.sticky: true`. */

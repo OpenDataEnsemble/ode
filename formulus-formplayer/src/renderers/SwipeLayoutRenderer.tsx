@@ -96,9 +96,6 @@ const SwipeLayoutRenderer = ({
   currentPage,
   onPageChange,
 }: SwipeLayoutProps) => {
-  if (visible === false) {
-    return null;
-  }
   const theme = useTheme();
   const [isNavigating, setIsNavigating] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -535,6 +532,10 @@ const SwipeLayoutRenderer = ({
   const headerFields: string[] = (swipeOptions.headerFields || []).slice(0, 2);
 
   const densityContextValue = useMemo(() => ({ labelLayout }), [labelLayout]);
+
+  if (visible === false) {
+    return null;
+  }
 
   // ----- Render -----
 

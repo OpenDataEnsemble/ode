@@ -38,6 +38,8 @@ const NumberStepperRenderer = ({
   visible,
   required,
 }: ControlProps) => {
+  const [isFocused, setIsFocused] = useState(false);
+
   if (visible === false) return null;
 
   const numericValue =
@@ -86,8 +88,6 @@ const NumberStepperRenderer = ({
   const currentValue = numericValue || 0;
   const addDisabled = max !== undefined && currentValue >= max;
   const subtractDisabled = min !== undefined && currentValue <= min;
-
-  const [isFocused, setIsFocused] = useState(false);
 
   const errorStr = Array.isArray(errors)
     ? errors.filter(Boolean).join(', ')

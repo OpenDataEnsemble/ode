@@ -73,6 +73,7 @@ Do not assume custom app authors have local checkouts of **ODE** or internal exa
 
 - **Pipelines:** [.github/CICD.md](.github/CICD.md).
 - **Lint/format:** Run the relevant scripts in the **package you touch** (see root [README.md](README.md) and each package).
+- **Pre-flight before opening a PR:** each package `AGENTS.md` lists the local `lint` / `format:check` / `test` / `build` commands that match CI — run them in every package you changed (e.g. [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md#pre-flight-before-a-pr)).
 - **Commits/PRs:** Conventional Commits and PR expectations are documented in [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md) (project-wide convention).
 
 ---
