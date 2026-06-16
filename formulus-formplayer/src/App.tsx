@@ -36,8 +36,15 @@ import FormulusClient from './services/FormulusInterface';
 import { FormInitData } from './types/FormulusInterfaceDefinition';
 import {
   initialFormDataFromParams,
+  applySchemaDefaultTokens,
   dataMatchingSchemaRoot,
 } from './utils/formObservationData';
+import {
+  collectStickyFieldPaths,
+  extractStickyValues,
+  applyStickyDefaults,
+} from './utils/stickyFieldHelpers';
+import { stickyService } from './services/StickyService';
 
 import SwipeLayoutRenderer, {
   swipeLayoutTester,
@@ -77,9 +84,9 @@ import SubObservationQuestionRenderer, {
 import { shellMaterialRenderers } from './theme/material-wrappers';
 import { numberStepperRenderer } from './renderers/NumberStepperRenderer';
 import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
-import MaterialTextControlWithImeHint, {
-  materialTextControlWithImeHintTester,
-} from './jsonforms/MaterialTextControlWithImeHint';
+import ShellInputControl, {
+  shellInputControlTester,
+} from './jsonforms/ShellInputControl';
 import type { KeyboardPrimaryEnterKeyHint } from './utils/keyboardEnterKeyHint';
 
 import ErrorBoundary from './components/ErrorBoundary';
@@ -179,6 +186,7 @@ const ensureSwipeLayoutRoot = (uiSchema: FormUISchema | null): FormUISchema => {
 // Function to process UI schema and ensure Finalize element is present
 const processUISchemaWithFinalize = (
   uiSchema: FormUISchema | null,
+  skipFinalize?: boolean,
 ): FormUISchema => {
   if (!uiSchema || !uiSchema.elements) {
     // If no UI schema or no elements, create a basic one with just Finalize
@@ -214,10 +222,12 @@ const processUISchemaWithFinalize = (
     });
   }
 
-  // Always add our Finalize element as the last element
-  elements.push({
-    type: 'Finalize',
-  });
+  // Append Finalize page unless skipFinalize (sub-observation fast path).
+  if (!skipFinalize) {
+    elements.push({
+      type: 'Finalize',
+    });
+  }
 
   processedUISchema.elements = elements;
   return processedUISchema;
@@ -251,8 +261,8 @@ export const useFormContext = () => useContext(FormContext);
 
 export const customRenderers = [
   {
-    tester: materialTextControlWithImeHintTester,
-    renderer: MaterialTextControlWithImeHint,
+    tester: shellInputControlTester,
+    renderer: ShellInputControl,
   },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer },
@@ -329,6 +339,12 @@ function App() {
   const [customValidatorErrors, setCustomValidatorErrors] = useState<
     ErrorObject[]
   >([]);
+  // Deferred validation: new forms start hidden (no red errors on first paint),
+  // then switch to ValidateAndShow on first forward navigation / finalize. Edits
+  // and draft resumes start shown. Host can override via params.validationMode.
+  const [validationMode, setValidationMode] = useState<
+    'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
+  >('ValidateAndShow');
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -362,6 +378,9 @@ function App() {
           uiSchema,
           extensions,
         } = initData;
+        const skipFinalize = Boolean(
+          (initData as FormInitData & { skipFinalize?: boolean }).skipFinalize,
+        );
 
         setFormInitData(initData);
 
@@ -511,28 +530,85 @@ function App() {
           setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
           // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(null);
-          const processedUISchema =
-            processUISchemaWithFinalize(swipeLayoutUISchema);
+          const processedUISchema = processUISchemaWithFinalize(
+            swipeLayoutUISchema,
+            skipFinalize,
+          );
           setUISchema(processedUISchema);
         } else {
           setSchema(formSchema as FormSchema);
-          // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
             uiSchema as FormUISchema,
           );
-          const processedUISchema =
-            processUISchemaWithFinalize(swipeLayoutUISchema);
+          const processedUISchema = processUISchemaWithFinalize(
+            swipeLayoutUISchema,
+            skipFinalize,
+          );
           setUISchema(processedUISchema);
         }
 
         const formSchemaTyped = formSchema as FormSchema | null;
+        // Deferred-validation policy. Honor an explicit host override first;
+        // otherwise defer (hide) for brand-new observations and show for
+        // edits / draft resumes so existing data is validated immediately.
+        const paramValidationMode = (
+          params as Record<string, unknown> | null
+        )?.['validationMode'];
+        const hasSavedData = Boolean(
+          savedData && Object.keys(savedData).length > 0,
+        );
+        if (
+          paramValidationMode === 'ValidateAndShow' ||
+          paramValidationMode === 'ValidateAndHide' ||
+          paramValidationMode === 'NoValidation'
+        ) {
+          setValidationMode(paramValidationMode);
+        } else {
+          setValidationMode(
+            hasSavedData ? 'ValidateAndShow' : 'ValidateAndHide',
+          );
+        }
+
+        // Reserved session-context channel: a custom app may pass
+        // `params.context` (device role, selected cluster, etc.). It is excluded
+        // from observation data (see FORMPARAMS_NON_DATA_KEYS) and exposed here
+        // read-only so extensions / custom question types can react to it.
+        const sessionContext = (params as Record<string, unknown> | null)?.[
+          'context'
+        ];
+        (window as unknown as Record<string, unknown>).formulusSessionContext =
+          sessionContext ?? null;
+
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
           setData(
             dataMatchingSchemaRoot(savedData as FormData, formSchemaTyped),
           );
+        } else if (!isSubObservationSession(initData)) {
+          const formVersion = (formSchemaTyped as { version?: string })
+            ?.version;
+          const layoutRoot = ensureSwipeLayoutRoot(uiSchema as FormUISchema);
+          const stickyPaths = collectStickyFieldPaths(layoutRoot);
+          const stored = stickyService.getStickyValues(
+            receivedFormType,
+            formVersion,
+          );
+          const relevantSticky: Record<string, unknown> = {};
+          for (const p of stickyPaths) {
+            if (stored[p] !== undefined) relevantSticky[p] = stored[p];
+          }
+          const withTokens = applySchemaDefaultTokens(
+            initialFormDataFromParams(params),
+            formSchemaTyped,
+          );
+          const withSticky = applyStickyDefaults(withTokens, relevantSticky);
+          console.log('Preloading initialization form values:', withSticky);
+          setData(dataMatchingSchemaRoot(withSticky, formSchemaTyped));
         } else {
-          const defaultData = initialFormDataFromParams(params);
+          const defaultData = applySchemaDefaultTokens(
+            initialFormDataFromParams(params),
+            formSchemaTyped,
+          );
           console.log('Preloading initialization form values:', defaultData);
           setData(dataMatchingSchemaRoot(defaultData, formSchemaTyped));
         }
@@ -807,7 +883,16 @@ function App() {
       }
     };
 
+    const handleShowValidation = () => {
+      // Idempotent: once shown, stays shown for the session.
+      setValidationMode(prev =>
+        prev === 'ValidateAndHide' ? 'ValidateAndShow' : prev,
+      );
+    };
+
     const handleFinalizeForm = (event: Event) => {
+      // Reaching finalize is a meaningful checkpoint: ensure validation is shown.
+      handleShowValidation();
       // Prefer the payload from the FinalizeRenderer if available
       const customEvent = event as CustomEvent<{
         formInitData?: FormInitData;
@@ -842,6 +927,20 @@ function App() {
               draftSessionKey,
             );
           }
+          // Persist sticky field values for next new observation of this form.
+          if (!isSubObservationSession(payloadFormInit) && uischema) {
+            const formVersion = (schema as { version?: string } | null)
+              ?.version;
+            const stickyPaths = collectStickyFieldPaths(uischema);
+            const stickyValues = extractStickyValues(payloadData, stickyPaths);
+            if (Object.keys(stickyValues).length > 0) {
+              stickyService.saveStickyValues(
+                payloadFormInit.formType,
+                formVersion,
+                stickyValues,
+              );
+            }
+          }
           setSubmitError(null);
           setShowFinalizeMessage(true);
         })
@@ -859,6 +958,10 @@ function App() {
       'finalizeForm',
       handleFinalizeForm as EventListener,
     );
+    window.addEventListener(
+      'formShowValidation',
+      handleShowValidation as EventListener,
+    );
 
     return () => {
       window.removeEventListener(
@@ -868,6 +971,10 @@ function App() {
       window.removeEventListener(
         'finalizeForm',
         handleFinalizeForm as EventListener,
+      );
+      window.removeEventListener(
+        'formShowValidation',
+        handleShowValidation as EventListener,
       );
     };
   }, [data, formInitData, draftSessionKey, uischema, schema]); // Include all dependencies
@@ -1192,7 +1299,7 @@ function App() {
                       ]}
                       cells={materialCells}
                       onChange={handleDataChange}
-                      validationMode="ValidateAndShow"
+                      validationMode={validationMode}
                       ajv={ajv}
                       additionalErrors={customValidatorErrors}
                     />

@@ -90,6 +90,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   header,
   showNavigation = true,
   keyboardSubmitAction,
+  contentBottomPadding = 0,
 }) => {
   const handleFormSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
@@ -110,7 +111,9 @@ const FormLayout: React.FC<FormLayoutProps> = ({
         overflowY: 'auto',
         overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
-        paddingBottom: theme.spacing(2),
+        // Base breathing room + caller-provided extra so the last fields can
+        // scroll clear of the nav bar / on-screen keyboard.
+        paddingBottom: `calc(${theme.spacing(2)} + ${contentBottomPadding}px)`,
         overscrollBehavior: 'contain',
         position: 'relative',
       })}>

@@ -77,6 +77,23 @@ This file gives AI assistants and developers enough context to work effectively 
 - `pnpm start` — Vite dev server; uses `webview-mock` and (optionally) `DevTestbed` so you can test without the RN app.
 - Tests: `pnpm test` (Vitest). Lint/format: `pnpm run lint`, `pnpm run lint:fix`, `pnpm run format`, `pnpm run format:check`.
 
+## Pre-flight before a PR
+
+Run from **`formulus-formplayer/`** (CI runs the same steps):
+
+```bash
+pnpm run lint
+pnpm run format:check
+pnpm run test run
+pnpm run build
+```
+
+**React renderers:** never put `if (visible === false) return null` (or any early return) **before** hooks. Call all hooks unconditionally at the top of the component, then return `null` when hidden. ESLint `react-hooks/rules-of-hooks` fails CI; this pattern is easy to miss when adding `visible` guards to renderers.
+
+**Imports:** remove unused symbols (`@typescript-eslint/no-unused-vars` is an error).
+
+If the PR also touches **Formulus** (`../formulus/`), run `pnpm run lint` there too (errors block; warnings are capped with `--max-warnings 9999`).
+
 ## Commit and pull request workflow
 
 - **Commit messages** must follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat(scope): add X`, `fix(scope): resolve Y`).

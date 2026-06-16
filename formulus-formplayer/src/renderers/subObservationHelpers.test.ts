@@ -28,6 +28,17 @@ describe('subObservationHelpers', () => {
     expect(resolveTemplateValue('{{p_id}}', { p_id: 'x' }, null)).toBe('x');
   });
 
+  it('resolveTemplateValue preserves JSON type for a whole-string single token', () => {
+    // Numbers stay numbers (so AJV type:"integer" passes on copied sub-obs data)
+    expect(resolveTemplateValue('{{age}}', { age: 5 }, null)).toBe(5);
+    expect(resolveTemplateValue('{{n}}', { n: 0 }, null)).toBe(0);
+    expect(resolveTemplateValue('{{flag}}', { flag: false }, null)).toBe(false);
+    // Missing -> empty string (unchanged behavior)
+    expect(resolveTemplateValue('{{missing}}', {}, null)).toBe('');
+    // Mixed templates still interpolate as text
+    expect(resolveTemplateValue('AF-{{num}}', { num: 7 }, null)).toBe('AF-7');
+  });
+
   it('resolveInitialValues maps object values', () => {
     expect(
       resolveInitialValues(

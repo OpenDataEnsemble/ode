@@ -367,7 +367,7 @@ class FormulusClient {
     formType: string,
     params: Record<string, unknown>,
     savedData: Record<string, unknown>,
-    options?: { subObservationMode?: boolean },
+    options?: { subObservationMode?: boolean; skipFinalize?: boolean },
   ): Promise<FormCompletionResult> {
     await this.tryEnsureFormulus();
     if (this.formulus) {

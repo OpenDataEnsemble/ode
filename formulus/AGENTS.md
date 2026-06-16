@@ -44,3 +44,14 @@
 ## Build and run
 
 See [README.md](README.md): Metro, `pnpm run android` / `ios`, Android **Notifee** vendor step, iOS **Pods**. For CI and formatting, see root [README.md](../README.md) and [.github/CICD.md](../.github/CICD.md).
+
+## Pre-flight before a PR
+
+From **`formulus/`**:
+
+```bash
+pnpm run lint
+pnpm run test --ci --watchAll=false
+```
+
+Lint allows warnings (`--max-warnings 9999`) but **errors** fail CI — e.g. unused imports (`@typescript-eslint/no-unused-vars`). If the PR touches formplayer too, run its pre-flight in [formulus-formplayer/AGENTS.md](../formulus-formplayer/AGENTS.md#pre-flight-before-a-pr).

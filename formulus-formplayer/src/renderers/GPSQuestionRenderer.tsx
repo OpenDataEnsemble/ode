@@ -149,6 +149,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
 
   return (
     <QuestionShell
+      block
       title={schema.title || 'GPS Location'}
       description={schema.description}
       required={Boolean(

@@ -40,6 +40,13 @@ export interface CustomQuestionTypeProps {
   /** Whether the field is currently enabled/editable */
   enabled: boolean;
 
+  /**
+   * Whether the field is currently visible according to JSON Forms relevance
+   * rules (SHOW/HIDE). The adapter already hides the component when this is
+   * false, but the value is exposed so renderers can react (e.g. clear state).
+   */
+  visible: boolean;
+
   /** The field's unique path in the form data (e.g., "satisfaction") */
   fieldPath: string;
 

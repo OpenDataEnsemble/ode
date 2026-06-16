@@ -38,7 +38,7 @@ import {
   odeSpacing,
   odeTypography,
   odeBorderWidth,
-  odeScreenHeaderHeight,
+  odeFormplayerHeaderHeight,
 } from '../theme/odeDesign';
 import { FormSpec } from '../services'; // FormService will be imported directly
 import { ExtensionService } from '../services/ExtensionService';
@@ -62,6 +62,7 @@ export interface FormplayerModalHandle {
     existingObservationData: Record<string, unknown> | null,
     operationId: string | null,
     subObservationMode?: boolean,
+    skipFinalize?: boolean,
   ) => void;
   handleSubmission: (data: {
     formType: string;
@@ -101,6 +102,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     // Sub-observation (embedded child) forms: return JSON only; do not persist as top-level observations.
     // Ref updates synchronously in initializeForm so submit cannot run before flag is set.
     const subObservationModeRef = useRef(false);
+    const skipFinalizeRef = useRef(false);
 
     // Author-configurable display name shown in the native header bar
     const [currentFormDisplayName, setCurrentFormDisplayName] = useState<
@@ -216,6 +218,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       existingObservationData: Record<string, unknown> | null,
       operationId: string | null,
       subObservationMode: boolean = false,
+      skipFinalize: boolean = false,
     ) => {
       // Check if WebView is ready, if not log a warning (retry logic will handle it)
       if (!webViewReady) {
@@ -225,9 +228,12 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       }
 
       subObservationModeRef.current = subObservationMode;
+      skipFinalizeRef.current = skipFinalize;
 
-      // GPS session: fresh fix + light watch while the user fills the form
-      geolocationService.beginObservationSession();
+      // GPS session: skip for sub-observations (data is not persisted with geo).
+      if (!subObservationMode) {
+        geolocationService.beginObservationSession();
+      }
 
       setCurrentFormType(formType.id);
       setCurrentObservationId(observationId);
@@ -459,6 +465,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         extensions,
         customQuestionTypes,
         subObservationMode,
+        skipFinalize,
       } as FormInitData;
 
       if (!webViewRef.current) {
@@ -543,13 +550,17 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
           if (currentOperationId) {
             resolveFormOperation(currentOperationId, completionResult);
-            // Clear the operation ID to prevent double resolution
             setCurrentOperationId(null);
           } else {
             resolveFormOperationByType(formType, completionResult);
           }
 
-          // Show success message and close modal
+          if (subObservationModeRef.current && skipFinalizeRef.current) {
+            setIsSubmitting(false);
+            onClose();
+            return resultObservationId;
+          }
+
           const successMessage = effectiveObservationId
             ? 'Observation updated successfully!'
             : 'Form submitted successfully!';
@@ -735,7 +746,8 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
-    minHeight: odeScreenHeaderHeight,
+    minHeight: odeFormplayerHeaderHeight,
+    paddingVertical: odeSpacing.sm,
     borderTopWidth: 0,
     borderLeftWidth: 0,
     borderRightWidth: 0,
