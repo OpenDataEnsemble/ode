@@ -327,3 +327,101 @@ function pushObservationIssues(
     allReferenced.add(r);
   }
 }
+
+/** Validate a single observation payload against a bundle form spec (save-time). */
+export function validateObservationPayload(
+  observationId: string,
+  formType: string | null | undefined,
+  data: unknown,
+  formSpec: BundleFormSpec | undefined,
+): ImportIssue[] {
+  const issues: ImportIssue[] = [];
+  const ft = formType?.trim();
+  if (!ft) {
+    return issues;
+  }
+  if (!formSpec) {
+    issues.push({
+      severity: 'warning',
+      code: 'missing_form_schema',
+      message: `No form schema in the active app bundle for form type "${ft}".`,
+      observationId,
+      formType: ft,
+    });
+    return issues;
+  }
+  const ajv = createAjv();
+  let validate: ValidateFunction;
+  try {
+    validate = ajv.compile(formSpec.formSchema as object);
+  } catch (e) {
+    issues.push({
+      severity: 'error',
+      code: 'invalid_form_schema',
+      message: `Could not compile JSON Schema for "${ft}": ${e instanceof Error ? e.message : String(e)}`,
+      observationId,
+      formType: ft,
+    });
+    return issues;
+  }
+  const ok = validate(data);
+  if (!ok && validate.errors?.length) {
+    for (const err of validate.errors) {
+      issues.push({
+        severity: 'error',
+        code: 'schema_validation',
+        message: ajvErrorMessage(err),
+        observationId,
+        formType: ft,
+      });
+    }
+  }
+  return issues;
+}
+
+export type ImportIssueCategory =
+  | 'schema'
+  | 'observation'
+  | 'attachment'
+  | 'other';
+
+export function categorizeImportIssue(issue: ImportIssue): ImportIssueCategory {
+  const code = issue.code;
+  if (
+    code === 'missing_form_schema' ||
+    code === 'invalid_form_schema' ||
+    code === 'schema_validation'
+  ) {
+    return 'schema';
+  }
+  if (code === 'missing_attachment' || code === 'orphan_attachment') {
+    return 'attachment';
+  }
+  if (code === 'parse_file' || code === 'missing_form_type') {
+    return 'observation';
+  }
+  return 'other';
+}
+
+export function groupIssuesBySeverityAndCategory(issues: ImportIssue[]): {
+  errors: Record<ImportIssueCategory, ImportIssue[]>;
+  warnings: Record<ImportIssueCategory, ImportIssue[]>;
+} {
+  const empty = (): Record<ImportIssueCategory, ImportIssue[]> => ({
+    schema: [],
+    observation: [],
+    attachment: [],
+    other: [],
+  });
+  const errors = empty();
+  const warnings = empty();
+  for (const issue of issues) {
+    const cat = categorizeImportIssue(issue);
+    if (issue.severity === 'error') {
+      errors[cat].push(issue);
+    } else {
+      warnings[cat].push(issue);
+    }
+  }
+  return { errors, warnings };
+}

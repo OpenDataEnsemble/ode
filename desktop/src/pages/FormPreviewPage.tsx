@@ -7,7 +7,6 @@ import {
   inferObservationIdFromSavedData,
   parseJsonObject,
 } from '../lib/buildFormPreviewInit';
-import { bundleFormsRel } from '../lib/bundleLayout';
 import { loadBundleFormplayerExtensions } from '../lib/bundleExtensionLoader';
 import { useDeveloperMode } from '../hooks/useDeveloperMode';
 import type { FinalizeRequest } from '../lib/formPreviewBridge';
@@ -18,7 +17,6 @@ import {
 } from '../lib/formPreviewBridge';
 import type { FormPreviewEditState } from '../lib/formPreviewNavigation';
 import { tauriClient } from '../lib/tauriClient';
-import { WORKSPACE_BUNDLE_ACTIVE_DIR } from '../lib/workspacePaths';
 import type { FormInitData } from '../lib/formplayerHost';
 import type { ActiveBundleFormEntry, BundleFormSpec } from '../types/domain';
 
@@ -62,7 +60,6 @@ export function FormPreviewPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { developerMode, devMirrorGeneration } = useDeveloperMode();
-  const formsBundlePath = bundleFormsRel(developerMode);
 
   const [forms, setForms] = useState<ActiveBundleFormEntry[]>([]);
   const [listError, setListError] = useState<string | null>(null);
@@ -488,128 +485,85 @@ export function FormPreviewPage() {
         </div>
       ) : null}
 
+      <header className="page-header">
+        <h2>Form preview</h2>
+      </header>
+
       <div className="split split-form-preview">
         <aside className="panel panel-form-preview-sidebar card">
-          <h2>Form preview</h2>
-          <p className="page-lead">
-            Load forms from <code>{formsBundlePath}/</code>
-            {developerMode ? (
-              <> (developer mirror — configure on the Bundles page)</>
-            ) : (
-              <>
-                {' '}
-                (active app bundle under{' '}
-                <code>{WORKSPACE_BUNDLE_ACTIVE_DIR}</code>)
-              </>
-            )}{' '}
-            (same layout as Formulus: each form folder has{' '}
-            <code>schema.json</code> and <code>ui.json</code>
-            ). Optional <code>ext.json</code> at <code>forms/ext.json</code> and
-            per-form <code>forms/&lt;type&gt;/ext.json</code>, plus{' '}
-            <code>question_types</code> / <code>validators</code> next to or
-            under <code>forms/</code>, match the Formulus bundle. Use{' '}
-            <strong>params</strong> for host / prefill data (e.g.{' '}
-            <code>defaultData</code>) and <strong>saved data</strong> for
-            edit-style payloads — same shape as <code>FormInitData</code> in{' '}
-            <code>FormulusInterfaceDefinition</code>. Build formplayer from{' '}
-            <code>formulus-formplayer/</code> (<code>npm run build:copy</code>)
-            or <code>pnpm copy:formplayer</code> in <code>desktop/</code>.
-          </p>
-
           <div className="form-preview-controls">
-            <div className="form-preview-row">
-              <label className="form-preview-label" htmlFor="form-type-select">
-                Form type
-              </label>
-              <div className="form-preview-field">
-                <select
-                  id="form-type-select"
-                  value={selectedFormType}
-                  disabled={listLoading}
-                  onChange={e => {
-                    const v = e.target.value;
-                    setSelectedFormType(v);
-                    void loadSpec(v);
-                  }}>
-                  <option value="">
-                    {listLoading ? 'Loading…' : '— Select —'}
-                  </option>
-                  {formOptions}
-                </select>
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={listLoading}
-                  onClick={() => void loadForms()}>
-                  Refresh list
-                </button>
-              </div>
-            </div>
+            <select
+              id="form-type-select"
+              className="form-preview-type-select"
+              aria-label="Form type"
+              value={selectedFormType}
+              disabled={listLoading}
+              onChange={e => {
+                const v = e.target.value;
+                setSelectedFormType(v);
+                void loadSpec(v);
+              }}>
+              <option value="">{listLoading ? 'Loading…' : 'Form type'}</option>
+              {formOptions}
+            </select>
             {listError ? (
               <p className="notice error">{listError}</p>
             ) : forms.length === 0 && !listLoading ? (
-              <p className="muted">
-                No forms found. Download and apply an app bundle on the Bundles
-                page so <code>{formsBundlePath}/</code> contains form folders,
-                or enable developer mode and mirror a local <code>forms/</code>{' '}
-                folder.
-              </p>
+              <p className="muted">No forms in bundle.</p>
             ) : null}
 
             {specLoading ? <p className="muted">Loading form spec…</p> : null}
             {specError ? <p className="notice error">{specError}</p> : null}
 
-            {spec ? (
-              <>
-                <div className="form-preview-row">
-                  <label className="form-preview-label" htmlFor="params-json">
-                    params (JSON object)
-                  </label>
-                  <textarea
-                    id="params-json"
-                    className="form-preview-json"
-                    spellCheck={false}
-                    value={paramsJson}
-                    onChange={e => setParamsJson(e.target.value)}
-                    rows={6}
-                  />
-                </div>
-                <div className="form-preview-row">
-                  <label className="form-preview-label" htmlFor="saved-json">
-                    savedData (JSON object)
-                  </label>
-                  <textarea
-                    id="saved-json"
-                    className="form-preview-json"
-                    spellCheck={false}
-                    value={savedJson}
-                    onChange={e => setSavedJson(e.target.value)}
-                    rows={6}
-                  />
-                </div>
-                {parseError ? (
-                  <p className="notice error">{parseError}</p>
-                ) : null}
-                <div className="button-row">
-                  <button
-                    type="button"
-                    onClick={() => void applyJsonToPreview()}>
-                    Apply JSON to preview
-                  </button>
-                </div>
-              </>
-            ) : null}
+            <details className="form-preview-advanced">
+              <summary>Advanced params</summary>
+              <div className="form-preview-row form-preview-row-stacked">
+                <label className="form-preview-label" htmlFor="params-json">
+                  params
+                </label>
+                <textarea
+                  id="params-json"
+                  className="form-preview-json"
+                  spellCheck={false}
+                  disabled={!selectedFormType}
+                  value={paramsJson}
+                  onChange={e => setParamsJson(e.target.value)}
+                  rows={5}
+                />
+              </div>
+              <div className="form-preview-row form-preview-row-stacked">
+                <label className="form-preview-label" htmlFor="saved-json">
+                  savedData
+                </label>
+                <textarea
+                  id="saved-json"
+                  className="form-preview-json"
+                  spellCheck={false}
+                  disabled={!selectedFormType}
+                  value={savedJson}
+                  onChange={e => setSavedJson(e.target.value)}
+                  rows={5}
+                />
+              </div>
+              {parseError ? <p className="notice error">{parseError}</p> : null}
+              <div className="button-row">
+                <button
+                  type="button"
+                  disabled={!spec}
+                  onClick={() => void applyJsonToPreview()}>
+                  Apply
+                </button>
+              </div>
+            </details>
           </div>
         </aside>
 
-        <div className="panel panel-form-preview-embed">
-          <section className="card form-preview-embed-card">
-            <FormplayerEmbed
-              ref={iframeRef}
-              formInitData={formInitData}
-              emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON and click Apply."
-            />
-          </section>
+        <div className="panel panel-form-preview-embed panel-embed-flush">
+          <FormplayerEmbed
+            ref={iframeRef}
+            formInitData={formInitData}
+            emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON and click Apply."
+          />
         </div>
       </div>
     </div>

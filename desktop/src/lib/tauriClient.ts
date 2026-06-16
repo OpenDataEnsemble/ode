@@ -242,8 +242,6 @@ export const tauriClient = {
     invokeSafe<ObservationRecord>('get_observation', { id }),
   saveObservation: (req: SaveObservationRequest) =>
     invokeSafe<ObservationRecord>('save_observation', { req }),
-  restoreLastBackup: (observationId: string) =>
-    invokeSafe<ObservationRecord>('restore_last_backup', { observationId }),
   /**
    * @param markPending When true (file import), observations are stored as pending push.
    *   When false/omitted, rows match server pull semantics (synced / conflict rules).

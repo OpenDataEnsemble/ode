@@ -7,15 +7,11 @@ import {
   setCustodianSyncProgressHandler,
   SyncPausedError,
 } from '../lib/syncTauriEvents';
-import {
-  normalizeBasename,
-  referencedNamesForObservation,
-} from '../lib/importValidation';
+import { partitionPendingPushObservations } from '../lib/pushAttachmentAudit';
 import { getOrCreateClientId, syncGateway } from '../services/synk';
 import type {
   AppHealth,
   AuthSession,
-  BundleFormSpec,
   ObservationIndexPromptState,
   ObservationRecord,
   SaveObservationRequest,
@@ -26,7 +22,6 @@ import type {
   SyncPullRequest,
   SyncPushRequest,
   SyncResumeJobRequest,
-  WorkspaceAttachmentPresenceEntry,
   WorkspaceItem,
 } from '../types/domain';
 
@@ -54,19 +49,6 @@ function persistAuthMap(map: Record<string, AuthSession>) {
     return;
   }
   localStorage.setItem(AUTH_MAP_KEY, JSON.stringify(map));
-}
-
-function refsMissingAfterPresence(
-  refs: string[],
-  presenceRows: WorkspaceAttachmentPresenceEntry[],
-): string[] {
-  const normPresent = new Set<string>();
-  for (const row of presenceRows) {
-    if (row.present) {
-      normPresent.add(normalizeBasename(row.fileName));
-    }
-  }
-  return refs.filter(r => !normPresent.has(normalizeBasename(r)));
 }
 
 let lastHealthPollDuringSync = 0;
@@ -102,26 +84,6 @@ function attachSyncProgressToStore(
       },
     });
   };
-}
-
-async function attachmentRefsForPushObservation(
-  o: ObservationRecord,
-  specCache: Map<string, BundleFormSpec | undefined>,
-): Promise<string[]> {
-  const ft = o.formType?.trim();
-  let spec: BundleFormSpec | undefined;
-  if (ft) {
-    if (!specCache.has(ft)) {
-      try {
-        const s = await tauriClient.readBundleFormSpec(ft);
-        specCache.set(ft, s);
-      } catch {
-        specCache.set(ft, undefined);
-      }
-    }
-    spec = specCache.get(ft);
-  }
-  return [...referencedNamesForObservation(spec?.formSchema, o.payload)];
 }
 
 async function reauthenticateActiveProfile(
@@ -268,6 +230,7 @@ interface CustodianState {
   deleteProfileRemote: (profileId: string) => Promise<void>;
   setSelectedObservationId: (id: string | null) => void;
   clearError: () => void;
+  clearSyncMessage: () => void;
   loadWorkspace: () => Promise<void>;
   setWorkspace: (path: string) => Promise<void>;
   refreshWorkspaceItems: (relativePath?: string) => Promise<void>;
@@ -278,7 +241,6 @@ interface CustodianState {
   loadFormTypes: () => Promise<void>;
   loadHealth: () => Promise<void>;
   saveObservation: (request: SaveObservationRequest) => Promise<void>;
-  restoreLastBackup: (observationId: string) => Promise<void>;
   synkLogin: (request: SyncLoginRequest) => Promise<void>;
   synkPull: (request?: SyncPullRequest) => Promise<void>;
   synkPush: (request?: SyncPushRequest) => Promise<number>;
@@ -542,6 +504,8 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   setSelectedObservationId: id => set({ selectedObservationId: id }),
   clearError: () => set({ error: null }),
 
+  clearSyncMessage: () => set({ syncMessage: null }),
+
   loadWorkspace: async () =>
     withErrorHandling(set, async () => {
       const workspacePath = await tauriClient.getWorkspace();
@@ -614,14 +578,6 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
       await get().loadObservations();
       await get().loadHealth();
       set({ syncMessage: 'Saved locally. Observation is now pending push.' });
-    }),
-
-  restoreLastBackup: async observationId =>
-    withErrorHandling(set, async () => {
-      await tauriClient.restoreLastBackup(observationId);
-      await get().loadObservations();
-      await get().loadHealth();
-      set({ syncMessage: 'Restored last known good backup.' });
     }),
 
   synkLogin: async request =>
@@ -709,40 +665,12 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           return 0;
         }
 
-        const specCache = new Map<string, BundleFormSpec | undefined>();
-        const missingAttachmentIssues: {
-          id: string;
-          formType: string;
-          missing: string[];
-        }[] = [];
-        const readyToPush: ObservationRecord[] = [];
         const forceMissing = Boolean(request?.forcePushMissingAttachments);
-
-        for (const o of pendingPushObservations) {
-          const refs = [
-            ...new Set(await attachmentRefsForPushObservation(o, specCache)),
-          ];
-          const formType = (o.formType ?? '').trim() || '(unknown)';
-          if (refs.length === 0) {
-            readyToPush.push(o);
-            continue;
-          }
-          const presenceRows =
-            await tauriClient.checkWorkspaceAttachmentPresence(refs);
-          const missing = refsMissingAfterPresence(refs, presenceRows);
-          if (missing.length === 0) {
-            readyToPush.push(o);
-          } else {
-            missingAttachmentIssues.push({
-              id: o.id,
-              formType,
-              missing,
-            });
-            if (forceMissing) {
-              readyToPush.push(o);
-            }
-          }
-        }
+        const { readyToPush, missingAttachmentIssues } =
+          await partitionPendingPushObservations(
+            pendingPushObservations,
+            forceMissing,
+          );
 
         const skipSummary =
           missingAttachmentIssues.length > 0 && !forceMissing

@@ -6,7 +6,7 @@ import {
   workspaceAttachmentsDir,
   workspaceSqlitePath,
 } from '../lib/workspacePaths';
-import type { ProfileEnvironment, ServerProfile } from '../types/domain';
+import type { ServerProfile } from '../types/domain';
 import {
   selectActiveProfileState,
   selectAuthSessionForActiveProfile,
@@ -16,39 +16,34 @@ import { confirmDestructiveAction } from '../lib/destructivePolicy';
 
 function PasswordField({
   id,
-  label,
   value,
   onChange,
 }: {
   id: string;
-  label: string;
   value: string;
   onChange: (v: string) => void;
 }) {
   const [visible, setVisible] = useState(false);
   return (
-    <label className="password-field" htmlFor={id}>
-      {label}
-      <div className="password-field-inner">
-        <input
-          id={id}
-          type={visible ? 'text' : 'password'}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          autoComplete="off"
-        />
-        <button
-          type="button"
-          className="password-field-toggle"
-          aria-pressed={visible}
-          aria-label={visible ? 'Hide password' : 'Show password'}
-          onClick={() => setVisible(v => !v)}>
-          <span className="material-symbols-outlined" aria-hidden>
-            {visible ? 'visibility_off' : 'visibility'}
-          </span>
-        </button>
-      </div>
-    </label>
+    <div className="password-field-inner">
+      <input
+        id={id}
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        autoComplete="off"
+      />
+      <button
+        type="button"
+        className="password-field-toggle"
+        aria-pressed={visible}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+        onClick={() => setVisible(v => !v)}>
+        <span className="material-symbols-outlined" aria-hidden>
+          {visible ? 'visibility_off' : 'visibility'}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -97,8 +92,6 @@ export function ProfilesPage() {
   const [profileNoticeTone, setProfileNoticeTone] = useState<
     'warn' | 'success'
   >('warn');
-  const [environment, setEnvironment] =
-    useState<ProfileEnvironment>('production');
 
   const syncDraftFromActive = useCallback(async (p: ServerProfile | null) => {
     if (!p) {
@@ -108,7 +101,6 @@ export function ProfilesPage() {
     setServerUrl(p.serverUrl ?? '');
     setUsername(p.username ?? '');
     setWorkspacePath(p.workspacePath ?? '');
-    setEnvironment(p.environment ?? 'production');
     setProfileNotice(null);
     setProfileNoticeTone('warn');
     try {
@@ -239,7 +231,7 @@ export function ProfilesPage() {
       workspacePath: ws,
       databasePath,
       attachmentsPath: null,
-      environment,
+      environment: 'production',
     };
     await upsertProfileRemote(profile);
     if (password.trim()) {
@@ -273,7 +265,6 @@ export function ProfilesPage() {
     }
     if (
       !(await confirmDestructiveAction(
-        active.environment ?? 'production',
         'profile_delete',
         `Delete profile "${active.label}"? Local repository files on disk are not removed.`,
       ))
@@ -325,217 +316,174 @@ export function ProfilesPage() {
   const derivedDb = ws ? workspaceSqlitePath(ws) : '';
   const derivedAttachments = ws ? workspaceAttachmentsDir(ws) : '';
 
+  const authIcon = authSession ? 'verified_user' : 'lock_open';
+  const authLabel = authSession ? 'Authenticated' : 'Authenticate';
+
   return (
     <section className="page">
-      <header className="page-header page-header-inline">
-        <div>
-          <h2>Profiles</h2>
-          <p>
-            Each profile is a unit of custody: its own Synkronus server, local
-            repository, workspace, and credentials. Switching profile switches
-            the entire context.
-          </p>
-        </div>
-        <div className="button-row">
-          <button type="button" onClick={() => void refreshSettings()}>
-            Reload
-          </button>
-        </div>
+      <header className="page-header">
+        <h2>Profiles</h2>
       </header>
 
       <div className="panel">
-        <h3>Active profile</h3>
-        <div className="form-grid">
-          <label>
-            Profile
-            <select
-              value={activeProfileId}
-              onChange={e => void selectActiveProfile(e.target.value)}>
-              {profiles.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.label || p.id}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="button-row">
-          <button type="button" onClick={() => void addProfile()}>
-            Add profile
-          </button>
+        <div className="profile-toolbar">
+          <select
+            aria-label="Profile"
+            value={activeProfileId}
+            onChange={e => void selectActiveProfile(e.target.value)}>
+            {profiles.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.label || p.id}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
-            className="secondary danger"
-            disabled={!active || profiles.length <= 1}
-            onClick={() => void removeProfile()}>
-            Delete profile
+            className="secondary btn-icon"
+            title="Add profile"
+            aria-label="Add profile"
+            onClick={() => void addProfile()}>
+            <span className="material-symbols-outlined" aria-hidden>
+              add
+            </span>
           </button>
         </div>
+        {active ? (
+          <div className="button-row profile-toolbar-actions">
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={() => void saveCurrent()}>
+              <span className="material-symbols-outlined" aria-hidden>
+                save
+              </span>
+              Save profile
+            </button>
+            <button
+              type="button"
+              className="secondary danger btn-icon"
+              disabled={profiles.length <= 1}
+              onClick={() => void removeProfile()}>
+              <span className="material-symbols-outlined" aria-hidden>
+                delete
+              </span>
+              Delete profile
+            </button>
+          </div>
+        ) : null}
+        {error ? <p className="notice error">{error}</p> : null}
       </div>
 
       {active ? (
         <div className="panel">
-          <h3>Authentication</h3>
-          <p className="profiles-auth-lead">
-            Sign in to Synkronus for this profile. Your access token (and
-            refresh token when provided) is stored in this app; sync will retry
-            sign-in using a saved password if the session expires.
-          </p>
-          <dl className="kv-grid">
-            <dt>Status</dt>
-            <dd>
-              {authSession ? (
-                <span className="sync-auth-ok">
-                  Authenticated for {authSession.baseUrl}
-                </span>
-              ) : (
-                <span className="muted">Not authenticated</span>
-              )}
-            </dd>
-          </dl>
-          <div className="button-row">
-            <button type="button" onClick={() => void authenticate()}>
-              Authenticate
-            </button>
-          </div>
-          {error ? (
-            <p className="notice error profiles-auth-notice">{error}</p>
-          ) : null}
-        </div>
-      ) : null}
-
-      {active ? (
-        <div className="panel">
-          <h3>Edit “{active.label}”</h3>
-          <div className="form-grid form-grid-profile">
-            <label>
-              Display name
-              <input
-                value={label}
-                onChange={e => setLabel(e.target.value)}
-                placeholder="e.g. Production"
-              />
-            </label>
-            <label>
-              Environment tier
-              <select
-                value={environment}
-                onChange={e =>
-                  setEnvironment(e.target.value as ProfileEnvironment)
-                }>
-                <option value="production">Production</option>
-                <option value="staging">Staging</option>
-                <option value="development">Development</option>
-              </select>
-              <span className="muted small-hint">
-                Client-side guardrail for confirmations only — not sent to
-                Synkronus as a server mode.
-              </span>
-            </label>
-            <label>
-              Server URL
-              <input
-                value={serverUrl}
-                onChange={e => setServerUrl(e.target.value)}
-                placeholder="https://synkronus.example"
-              />
-            </label>
-            <label>
-              Username
-              <input
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                autoComplete="username"
-              />
-            </label>
-            <PasswordField
-              id="profiles-password"
-              label={
-                passwordStorageAvailable
-                  ? 'Password (stored in OS secure storage)'
-                  : 'Password (secure storage unavailable — enter when authenticating; not persisted)'
-              }
-              value={password}
-              onChange={setPassword}
-            />
-            {!passwordStorageAvailable ? (
-              <div className="settings-cred-inline">
-                <span className="settings-cred-summary">
-                  Passwords will not be saved{' '}
-                  <details className="settings-cred-details">
-                    <summary className="settings-cred-more">?</summary>
-                    <div className="settings-cred-body">
-                      <p>
-                        OS secure storage could not be reached (common on Linux
-                        without Secret Service / D-Bus). Username, URL, and
-                        workspace still save; passwords are not stored on disk.
-                      </p>
-                      <p>
-                        On Ubuntu and many desktops, install and run{' '}
-                        <code>gnome-keyring</code> and ensure a graphical
-                        session provides the Secret Service (D-Bus). On SSH-only
-                        or minimal environments the keyring may be
-                        unavailable—enter your password when you authenticate.
-                      </p>
-                    </div>
-                  </details>
-                </span>
-              </div>
-            ) : null}
-            <label>
-              Workspace folder
-              <div className="input-with-button">
-                <input
-                  readOnly
-                  value={workspacePath}
-                  placeholder="Required — root for sqlite, attachments, exports"
-                />
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() =>
-                    void pickDirectory('Workspace folder').then(
-                      p => p && setWorkspacePath(p),
-                    )
-                  }>
-                  Browse…
-                </button>
-                <button
-                  type="button"
-                  className="secondary"
-                  disabled={!workspacePath.trim()}
-                  onClick={() => void openWorkspaceFolder()}
-                  title="Show this folder in the file manager">
-                  Open folder
-                </button>
-              </div>
-            </label>
-            <div className="workspace-toolbar-actions">
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => void moveWorkspaceToFolder()}>
-                Move workspace…
-              </button>
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => void backupWorkspaceToZip()}>
-                Backup workspace…
-              </button>
-            </div>
-            <div className="workspace-derived-paths">
-              <p className="muted small-hint">
-                Local paths under the workspace (fixed layout):
-              </p>
-              <dl className="kv-grid kv-grid-tight">
-                <dt>SQLite database</dt>
-                <dd className="path-dd">{derivedDb || '—'}</dd>
-                <dt>Attachments</dt>
-                <dd className="path-dd">{derivedAttachments || '—'}</dd>
-              </dl>
-            </div>
-          </div>
+          <table className="form-table">
+            <tbody>
+              <tr>
+                <th scope="row">Display name</th>
+                <td>
+                  <input
+                    value={label}
+                    onChange={e => setLabel(e.target.value)}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Server URL</th>
+                <td>
+                  <input
+                    value={serverUrl}
+                    onChange={e => setServerUrl(e.target.value)}
+                    placeholder="https://synkronus.example"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Username</th>
+                <td>
+                  <input
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    autoComplete="username"
+                  />
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">
+                  {passwordStorageAvailable
+                    ? 'Password'
+                    : 'Password (not persisted)'}
+                </th>
+                <td>
+                  <PasswordField
+                    id="profiles-password"
+                    value={password}
+                    onChange={setPassword}
+                  />
+                </td>
+              </tr>
+              <tr>
+                <td colSpan={2} className="form-table-actions-cell">
+                  <button
+                    type="button"
+                    className={`btn-icon${authSession ? ' btn-success' : ' secondary'}`}
+                    disabled={Boolean(authSession)}
+                    onClick={() => void authenticate()}>
+                    <span className="material-symbols-outlined" aria-hidden>
+                      {authIcon}
+                    </span>
+                    {authLabel}
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Workspace</th>
+                <td>
+                  <input
+                    readOnly
+                    value={workspacePath}
+                    className="field-block"
+                  />
+                  <div className="field-button-row">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() =>
+                        void pickDirectory('Workspace folder').then(
+                          p => p && setWorkspacePath(p),
+                        )
+                      }>
+                      Browse…
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary"
+                      disabled={!workspacePath.trim()}
+                      onClick={() => void openWorkspaceFolder()}>
+                      Open
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Database</th>
+                <td>
+                  <code className="path-value-wrap">{derivedDb || '—'}</code>
+                  <p className="muted form-table-hint">
+                    External SQL tools: quit ODE Desktop first; direct edits can
+                    break sync.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">Attachments</th>
+                <td>
+                  <code className="path-value-wrap">
+                    {derivedAttachments || '—'}
+                  </code>
+                </td>
+              </tr>
+            </tbody>
+          </table>
           {profileNotice ? (
             <p
               className={`notice ${profileNoticeTone === 'success' ? 'success' : 'warn'}`}>
@@ -543,13 +491,31 @@ export function ProfilesPage() {
             </p>
           ) : null}
           <div className="button-row">
-            <button type="button" onClick={() => void saveCurrent()}>
-              Save profile
+            <button
+              type="button"
+              className="secondary btn-icon"
+              onClick={() => void moveWorkspaceToFolder()}>
+              <span className="material-symbols-outlined" aria-hidden>
+                drive_file_move
+              </span>
+              Move workspace…
             </button>
             <button
               type="button"
-              className="secondary"
+              className="secondary btn-icon"
+              onClick={() => void backupWorkspaceToZip()}>
+              <span className="material-symbols-outlined" aria-hidden>
+                archive
+              </span>
+              Backup workspace…
+            </button>
+            <button
+              type="button"
+              className="secondary btn-icon"
               onClick={() => void clearStoredPassword()}>
+              <span className="material-symbols-outlined" aria-hidden>
+                key_off
+              </span>
               Clear saved password
             </button>
           </div>
