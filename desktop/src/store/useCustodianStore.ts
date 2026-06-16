@@ -7,9 +7,7 @@ import {
   setCustodianSyncProgressHandler,
   SyncPausedError,
 } from '../lib/syncTauriEvents';
-import {
-  partitionPendingPushObservations,
-} from '../lib/pushAttachmentAudit';
+import { partitionPendingPushObservations } from '../lib/pushAttachmentAudit';
 import { getOrCreateClientId, syncGateway } from '../services/synk';
 import type {
   AppHealth,

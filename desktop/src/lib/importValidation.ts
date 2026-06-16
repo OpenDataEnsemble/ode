@@ -394,16 +394,10 @@ export function categorizeImportIssue(issue: ImportIssue): ImportIssueCategory {
   ) {
     return 'schema';
   }
-  if (
-    code === 'missing_attachment' ||
-    code === 'orphan_attachment'
-  ) {
+  if (code === 'missing_attachment' || code === 'orphan_attachment') {
     return 'attachment';
   }
-  if (
-    code === 'parse_file' ||
-    code === 'missing_form_type'
-  ) {
+  if (code === 'parse_file' || code === 'missing_form_type') {
     return 'observation';
   }
   return 'other';

@@ -150,7 +150,10 @@ export function WorkbenchBundlesPage() {
       <header className="page-header page-header-inline">
         <h2>Bundles</h2>
         <div className="button-row">
-          <button type="button" disabled={loading} onClick={() => void refresh()}>
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => void refresh()}>
             {loading ? 'Refreshing…' : 'Refresh from server'}
           </button>
         </div>
@@ -158,7 +161,9 @@ export function WorkbenchBundlesPage() {
 
       {error ? <p className="notice error">{error}</p> : null}
       {updateAvailable ? (
-        <p className="notice warn">Server bundle differs from local workspace.</p>
+        <p className="notice warn">
+          Server bundle differs from local workspace.
+        </p>
       ) : null}
 
       <div className="panel">
@@ -191,7 +196,9 @@ export function WorkbenchBundlesPage() {
           <p className="muted">{loading ? 'Loading…' : 'No manifest.'}</p>
         )}
         {versions.length > 0 ? (
-          <table className="bundle-versions-table" style={{ marginTop: '1rem' }}>
+          <table
+            className="bundle-versions-table"
+            style={{ marginTop: '1rem' }}>
             <thead>
               <tr>
                 <th>Versions on server</th>

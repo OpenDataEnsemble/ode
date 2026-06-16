@@ -369,7 +369,9 @@ export function ImportPage() {
             /* missing schema reported inside runImportValidation */
           } finally {
             schemaDone += 1;
-            statusCtl.push(`Loading form schemas (${schemaDone}/${ftArr.length})…`);
+            statusCtl.push(
+              `Loading form schemas (${schemaDone}/${ftArr.length})…`,
+            );
           }
         });
       }
@@ -385,7 +387,9 @@ export function ImportPage() {
       });
 
       if (report.issues.length > 0) {
-        const errCount = report.issues.filter(i => i.severity === 'error').length;
+        const errCount = report.issues.filter(
+          i => i.severity === 'error',
+        ).length;
         const warnCount = report.issues.filter(
           i => i.severity === 'warning',
         ).length;
@@ -400,7 +404,9 @@ export function ImportPage() {
       }
 
       const observations = flattenObservations(report.parsedFiles);
-      statusCtl.push(`Writing ${observations.length} observations to local store…`);
+      statusCtl.push(
+        `Writing ${observations.length} observations to local store…`,
+      );
       const result = await tauriClient.importObservations(observations, {
         markPending: true,
       });
@@ -529,8 +535,8 @@ export function ImportPage() {
 
         <div
           className={`import-drop-zone${dragOver ? ' import-staging-pane--drag' : ''}`}>
-          Drop up to {MAX_INDIVIDUAL_FILES} JSON / attachment files, or a
-          folder (use Import folder for large trees).
+          Drop up to {MAX_INDIVIDUAL_FILES} JSON / attachment files, or a folder
+          (use Import folder for large trees).
         </div>
 
         <p className="muted import-staging-stats">

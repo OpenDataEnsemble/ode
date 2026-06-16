@@ -381,7 +381,10 @@ export function ProfilesPage() {
               <tr>
                 <th scope="row">Display name</th>
                 <td>
-                  <input value={label} onChange={e => setLabel(e.target.value)} />
+                  <input
+                    value={label}
+                    onChange={e => setLabel(e.target.value)}
+                  />
                 </td>
               </tr>
               <tr>
@@ -435,7 +438,11 @@ export function ProfilesPage() {
               <tr>
                 <th scope="row">Workspace</th>
                 <td>
-                  <input readOnly value={workspacePath} className="field-block" />
+                  <input
+                    readOnly
+                    value={workspacePath}
+                    className="field-block"
+                  />
                   <div className="field-button-row">
                     <button
                       type="button"
@@ -460,9 +467,7 @@ export function ProfilesPage() {
               <tr>
                 <th scope="row">Database</th>
                 <td>
-                  <code className="path-value-wrap">
-                    {derivedDb || '—'}
-                  </code>
+                  <code className="path-value-wrap">{derivedDb || '—'}</code>
                   <p className="muted form-table-hint">
                     External SQL tools: quit ODE Desktop first; direct edits can
                     break sync.

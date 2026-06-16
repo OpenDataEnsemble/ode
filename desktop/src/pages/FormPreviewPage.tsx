@@ -503,9 +503,7 @@ export function FormPreviewPage() {
                 setSelectedFormType(v);
                 void loadSpec(v);
               }}>
-              <option value="">
-                {listLoading ? 'Loading…' : 'Form type'}
-              </option>
+              <option value="">{listLoading ? 'Loading…' : 'Form type'}</option>
               {formOptions}
             </select>
             {listError ? (
@@ -547,9 +545,7 @@ export function FormPreviewPage() {
                   rows={5}
                 />
               </div>
-              {parseError ? (
-                <p className="notice error">{parseError}</p>
-              ) : null}
+              {parseError ? <p className="notice error">{parseError}</p> : null}
               <div className="button-row">
                 <button
                   type="button"
@@ -564,10 +560,10 @@ export function FormPreviewPage() {
 
         <div className="panel panel-form-preview-embed panel-embed-flush">
           <FormplayerEmbed
-              ref={iframeRef}
-              formInitData={formInitData}
-              emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON and click Apply."
-            />
+            ref={iframeRef}
+            formInitData={formInitData}
+            emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON and click Apply."
+          />
         </div>
       </div>
     </div>

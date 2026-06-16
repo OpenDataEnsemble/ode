@@ -11,10 +11,7 @@ export function ToastHost() {
   return (
     <div className="toast-host" aria-live="polite" aria-relevant="additions">
       {toasts.map(t => (
-        <div
-          key={t.id}
-          className={`toast toast-${t.variant}`}
-          role="status">
+        <div key={t.id} className={`toast toast-${t.variant}`} role="status">
           <span className="toast-message">{t.message}</span>
           <button
             type="button"

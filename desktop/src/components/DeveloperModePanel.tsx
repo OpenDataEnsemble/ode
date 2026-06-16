@@ -90,7 +90,9 @@ export function DeveloperModePanel() {
         Refresh app
       </button>
       {devError ? (
-        <span className="notice error" style={{ margin: 0, padding: '0.25rem 0.5rem' }}>
+        <span
+          className="notice error"
+          style={{ margin: 0, padding: '0.25rem 0.5rem' }}>
           {devError}
         </span>
       ) : null}

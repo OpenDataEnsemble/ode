@@ -47,7 +47,9 @@ export function AboutPage() {
           forum
         </a>{' '}
         or email{' '}
-        <a href="mailto:hello@opendataensemble.org">hello@opendataensemble.org</a>
+        <a href="mailto:hello@opendataensemble.org">
+          hello@opendataensemble.org
+        </a>
         .
       </p>
     </section>

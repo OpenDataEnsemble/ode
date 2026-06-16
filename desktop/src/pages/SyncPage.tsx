@@ -64,7 +64,9 @@ export function SyncPage() {
   useEffect(() => {
     void (async () => {
       const ok = await tryAutoSynkAuth();
-      setAuthBlocked(!ok && !selectAuthSessionForActiveProfile(useCustodianStore.getState()));
+      setAuthBlocked(
+        !ok && !selectAuthSessionForActiveProfile(useCustodianStore.getState()),
+      );
     })();
   }, [activeProfile?.id]);
 
@@ -223,8 +225,8 @@ export function SyncPage() {
 
       {authBlocked && !authSession ? (
         <p className="notice warn">
-          Not authenticated.{' '}
-          <Link to="/data/profiles">Open Profiles</Link> to sign in.
+          Not authenticated. <Link to="/data/profiles">Open Profiles</Link> to
+          sign in.
         </p>
       ) : null}
 

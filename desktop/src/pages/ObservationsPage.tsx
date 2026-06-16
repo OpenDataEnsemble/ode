@@ -147,9 +147,7 @@ export function ObservationsPage() {
   const [drafts, setDrafts] = useState<Record<string, ObservationEditorDraft>>(
     {},
   );
-  const [records, setRecords] = useState<Record<string, ObservationRecord>>(
-    {},
-  );
+  const [records, setRecords] = useState<Record<string, ObservationRecord>>({});
   const [formSpecs, setFormSpecs] = useState<Record<string, BundleFormSpec>>(
     {},
   );
@@ -197,19 +195,22 @@ export function ObservationsPage() {
     return r;
   }, []);
 
-  const ensureFormSpec = useCallback(async (formType: string) => {
-    const ft = formType.trim();
-    if (!ft || formSpecs[ft]) {
-      return formSpecs[ft];
-    }
-    try {
-      const spec = await tauriClient.readBundleFormSpec(ft);
-      setFormSpecs(s => ({ ...s, [ft]: spec }));
-      return spec;
-    } catch {
-      return undefined;
-    }
-  }, [formSpecs]);
+  const ensureFormSpec = useCallback(
+    async (formType: string) => {
+      const ft = formType.trim();
+      if (!ft || formSpecs[ft]) {
+        return formSpecs[ft];
+      }
+      try {
+        const spec = await tauriClient.readBundleFormSpec(ft);
+        setFormSpecs(s => ({ ...s, [ft]: spec }));
+        return spec;
+      } catch {
+        return undefined;
+      }
+    },
+    [formSpecs],
+  );
 
   const filteredObservations = useMemo(() => {
     let list = observations;
@@ -346,14 +347,20 @@ export function ObservationsPage() {
       try {
         geolocation = JSON.parse(draft.geoText);
       } catch {
-        pushToast({ message: 'Geolocation must be valid JSON.', variant: 'error' });
+        pushToast({
+          message: 'Geolocation must be valid JSON.',
+          variant: 'error',
+        });
         return null;
       }
       if (
         geolocation !== null &&
         (typeof geolocation !== 'object' || Array.isArray(geolocation))
       ) {
-        pushToast({ message: 'Geolocation must be a JSON object.', variant: 'error' });
+        pushToast({
+          message: 'Geolocation must be a JSON object.',
+          variant: 'error',
+        });
         return null;
       }
     }
@@ -398,7 +405,10 @@ export function ObservationsPage() {
         const summary = `${errors.length} validation error(s). Save anyway?`;
         setDrafts(d => ({
           ...d,
-          [id]: { ...d[id]!, validationSummary: errors.map(e => e.message).join('\n') },
+          [id]: {
+            ...d[id]!,
+            validationSummary: errors.map(e => e.message).join('\n'),
+          },
         }));
         const proceed = await confirm(summary, {
           title: 'Validation failed',
@@ -460,7 +470,10 @@ export function ObservationsPage() {
     try {
       const url = await tauriClient.resolveAttachmentFileUrl(name);
       if (!url) {
-        pushToast({ message: `Attachment not found: ${name}`, variant: 'warn' });
+        pushToast({
+          message: `Attachment not found: ${name}`,
+          variant: 'warn',
+        });
         return;
       }
       await openPath(fileUrlToPath(url));
@@ -494,7 +507,9 @@ export function ObservationsPage() {
       params: {},
       savedData: dataObj as Record<string, unknown>,
     };
-    navigate('/workbench/form-preview', { state: { formPreviewEdit: payload } });
+    navigate('/workbench/form-preview', {
+      state: { formPreviewEdit: payload },
+    });
   }
 
   function renderEditorTab(id: string) {
@@ -631,9 +646,7 @@ export function ObservationsPage() {
                 <input
                   id={`obs-created-${id}`}
                   value={draft.createdAt}
-                  onChange={e =>
-                    updateDraft(id, { createdAt: e.target.value })
-                  }
+                  onChange={e => updateDraft(id, { createdAt: e.target.value })}
                 />
               </td>
             </tr>
@@ -643,9 +656,7 @@ export function ObservationsPage() {
                 <input
                   id={`obs-updated-${id}`}
                   value={draft.updatedAt}
-                  onChange={e =>
-                    updateDraft(id, { updatedAt: e.target.value })
-                  }
+                  onChange={e => updateDraft(id, { updatedAt: e.target.value })}
                 />
               </td>
             </tr>
@@ -656,9 +667,7 @@ export function ObservationsPage() {
                   id={`obs-deleted-${id}`}
                   type="checkbox"
                   checked={draft.deleted}
-                  onChange={e =>
-                    updateDraft(id, { deleted: e.target.checked })
-                  }
+                  onChange={e => updateDraft(id, { deleted: e.target.checked })}
                 />
               </td>
             </tr>
@@ -668,9 +677,7 @@ export function ObservationsPage() {
                 <input
                   id={`obs-synced-${id}`}
                   value={draft.syncedAt}
-                  onChange={e =>
-                    updateDraft(id, { syncedAt: e.target.value })
-                  }
+                  onChange={e => updateDraft(id, { syncedAt: e.target.value })}
                 />
               </td>
             </tr>
@@ -690,9 +697,7 @@ export function ObservationsPage() {
                 <input
                   id={`obs-device-${id}`}
                   value={draft.deviceId}
-                  onChange={e =>
-                    updateDraft(id, { deviceId: e.target.value })
-                  }
+                  onChange={e => updateDraft(id, { deviceId: e.target.value })}
                 />
               </td>
             </tr>
@@ -702,9 +707,7 @@ export function ObservationsPage() {
                 <input
                   id={`obs-tags-${id}`}
                   value={draft.tagsText}
-                  onChange={e =>
-                    updateDraft(id, { tagsText: e.target.value })
-                  }
+                  onChange={e => updateDraft(id, { tagsText: e.target.value })}
                 />
               </td>
             </tr>
@@ -715,9 +718,7 @@ export function ObservationsPage() {
                   id={`obs-geo-${id}`}
                   className="editor editor-geo"
                   value={draft.geoText}
-                  onChange={e =>
-                    updateDraft(id, { geoText: e.target.value })
-                  }
+                  onChange={e => updateDraft(id, { geoText: e.target.value })}
                 />
               </td>
             </tr>
@@ -777,7 +778,9 @@ export function ObservationsPage() {
               <button
                 key={key}
                 type="button"
-                className={filter === key ? 'filter-chip active' : 'filter-chip'}
+                className={
+                  filter === key ? 'filter-chip active' : 'filter-chip'
+                }
                 onClick={() => setFilter(key)}>
                 {lab}
               </button>

@@ -35,7 +35,9 @@ export function ForcePushMissingAttachmentsDialog({
           {issues.length} observation(s) reference attachment files that are not
           on disk. They will be skipped unless you force push.
         </p>
-        <pre className="force-push-issue-list">{formatMissingAttachmentSummary(issues)}</pre>
+        <pre className="force-push-issue-list">
+          {formatMissingAttachmentSummary(issues)}
+        </pre>
         <label className="field-row-checkbox force-push-checkbox">
           <input
             type="checkbox"
@@ -45,7 +47,10 @@ export function ForcePushMissingAttachmentsDialog({
           <span>Force push observations with missing attachments</span>
         </label>
         <div className="button-row">
-          <button type="button" className="secondary" onClick={() => onChoice(null)}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => onChoice(null)}>
             Cancel
           </button>
           <button type="button" onClick={() => onChoice(force)}>

@@ -1,4 +1,7 @@
-import { normalizeBasename, referencedNamesForObservation } from './importValidation';
+import {
+  normalizeBasename,
+  referencedNamesForObservation,
+} from './importValidation';
 import { tauriClient } from './tauriClient';
 import type {
   BundleFormSpec,
@@ -57,13 +60,16 @@ export async function partitionPendingPushObservations(
   const readyToPush: ObservationRecord[] = [];
 
   for (const o of pending) {
-    const refs = [...new Set(await attachmentRefsForPushObservation(o, specCache))];
+    const refs = [
+      ...new Set(await attachmentRefsForPushObservation(o, specCache)),
+    ];
     const formType = (o.formType ?? '').trim() || '(unknown)';
     if (refs.length === 0) {
       readyToPush.push(o);
       continue;
     }
-    const presenceRows = await tauriClient.checkWorkspaceAttachmentPresence(refs);
+    const presenceRows =
+      await tauriClient.checkWorkspaceAttachmentPresence(refs);
     const missing = refsMissingAfterPresence(refs, presenceRows);
     if (missing.length === 0) {
       readyToPush.push(o);

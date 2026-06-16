@@ -249,97 +249,106 @@ function Shell() {
         <ObservationIndexPrompt />
         {isWorkbench ? <DeveloperModePanel /> : null}
         <div className="content-body">
-        {showActivityBanner ? (
-          <div
-            className="notice info app-sync-banner app-sync-banner-with-dismiss"
-            role="status"
-            aria-live="polite">
-            <div className="app-sync-banner-body">
-              <span className="btn-spinner" aria-hidden />
-              <span>{activityText}</span>
+          {showActivityBanner ? (
+            <div
+              className="notice info app-sync-banner app-sync-banner-with-dismiss"
+              role="status"
+              aria-live="polite">
+              <div className="app-sync-banner-body">
+                <span className="btn-spinner" aria-hidden />
+                <span>{activityText}</span>
+              </div>
+              <button
+                type="button"
+                className="app-sync-banner-dismiss"
+                aria-label="Dismiss status message"
+                onClick={() => setActivityBannerDismissed(true)}>
+                ×
+              </button>
             </div>
-            <button
-              type="button"
-              className="app-sync-banner-dismiss"
-              aria-label="Dismiss status message"
-              onClick={() => setActivityBannerDismissed(true)}>
-              ×
-            </button>
-          </div>
-        ) : null}
-        {showSyncMessageBanner ? (
-          <div className="notice success app-sync-banner app-sync-banner-with-dismiss">
-            <div className="app-sync-banner-body">{syncMessage}</div>
-            <button
-              type="button"
-              className="app-sync-banner-dismiss"
-              aria-label="Dismiss sync message"
-              onClick={() => clearSyncMessage()}>
-              ×
-            </button>
-          </div>
-        ) : null}
-        <Routes>
-          <Route path="/" element={<RootRedirect />} />
-          <Route
-            path="/overview"
-            element={<Navigate to="/data/profiles" replace />}
-          />
-          <Route
-            path="/data/overview"
-            element={<Navigate to="/data/profiles" replace />}
-          />
-          <Route
-            path="/observations"
-            element={<Navigate to="/data/observations" replace />}
-          />
-          <Route
-            path="/import"
-            element={<Navigate to="/data/import" replace />}
-          />
-          <Route path="/sync" element={<Navigate to="/data/sync" replace />} />
-          <Route
-            path="/profiles"
-            element={<Navigate to="/data/profiles" replace />}
-          />
-          <Route
-            path="/records"
-            element={<Navigate to="/data/observations" replace />}
-          />
-          <Route
-            path="/explorer"
-            element={<Navigate to="/data/observations" replace />}
-          />
-          <Route
-            path="/health"
-            element={<Navigate to="/data/profiles" replace />}
-          />
-          <Route
-            path="/workspace"
-            element={<Navigate to="/data/profiles" replace />}
-          />
-          <Route
-            path="/settings"
-            element={<Navigate to="/data/profiles" replace />}
-          />
+          ) : null}
+          {showSyncMessageBanner ? (
+            <div className="notice success app-sync-banner app-sync-banner-with-dismiss">
+              <div className="app-sync-banner-body">{syncMessage}</div>
+              <button
+                type="button"
+                className="app-sync-banner-dismiss"
+                aria-label="Dismiss sync message"
+                onClick={() => clearSyncMessage()}>
+                ×
+              </button>
+            </div>
+          ) : null}
+          <Routes>
+            <Route path="/" element={<RootRedirect />} />
+            <Route
+              path="/overview"
+              element={<Navigate to="/data/profiles" replace />}
+            />
+            <Route
+              path="/data/overview"
+              element={<Navigate to="/data/profiles" replace />}
+            />
+            <Route
+              path="/observations"
+              element={<Navigate to="/data/observations" replace />}
+            />
+            <Route
+              path="/import"
+              element={<Navigate to="/data/import" replace />}
+            />
+            <Route
+              path="/sync"
+              element={<Navigate to="/data/sync" replace />}
+            />
+            <Route
+              path="/profiles"
+              element={<Navigate to="/data/profiles" replace />}
+            />
+            <Route
+              path="/records"
+              element={<Navigate to="/data/observations" replace />}
+            />
+            <Route
+              path="/explorer"
+              element={<Navigate to="/data/observations" replace />}
+            />
+            <Route
+              path="/health"
+              element={<Navigate to="/data/profiles" replace />}
+            />
+            <Route
+              path="/workspace"
+              element={<Navigate to="/data/profiles" replace />}
+            />
+            <Route
+              path="/settings"
+              element={<Navigate to="/data/profiles" replace />}
+            />
 
-          <Route path="/data/profiles" element={<ProfilesPage />} />
-          <Route path="/data/observations" element={<ObservationsPage />} />
-          <Route path="/data/import" element={<ImportPage />} />
-          <Route path="/data/sync" element={<SyncPage />} />
-          <Route path="/data/about" element={<AboutPage />} />
+            <Route path="/data/profiles" element={<ProfilesPage />} />
+            <Route path="/data/observations" element={<ObservationsPage />} />
+            <Route path="/data/import" element={<ImportPage />} />
+            <Route path="/data/sync" element={<SyncPage />} />
+            <Route path="/data/about" element={<AboutPage />} />
 
-          <Route path="/workbench/bundles" element={<WorkbenchBundlesPage />} />
-          <Route path="/workbench/form-preview" element={<FormPreviewPage />} />
-          <Route
-            path="/workbench/custom-app"
-            element={<WorkbenchCustomAppPage />}
-          />
-          <Route
-            path="/workbench"
-            element={<Navigate to="/workbench/bundles" replace />}
-          />
-        </Routes>
+            <Route
+              path="/workbench/bundles"
+              element={<WorkbenchBundlesPage />}
+            />
+            <Route
+              path="/workbench/form-preview"
+              element={<FormPreviewPage />}
+            />
+            <Route
+              path="/workbench/custom-app"
+              element={<WorkbenchCustomAppPage />}
+            />
+            <Route
+              path="/workbench"
+              element={<Navigate to="/workbench/bundles" replace />}
+            />
+          </Routes>
         </div>
       </main>
     </div>
