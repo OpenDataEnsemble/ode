@@ -1,40 +1,29 @@
-# Custodian — screen reference
+# ODE Desktop — screen reference
 
-Structured product/UX reference for the ODE Custodian (Tauri) app.
+Structured product/UX reference for ODE Desktop (Tauri).
 
 ## Navigation
 
-Hash routes: `#/overview`, `#/observations`, `#/import`, `#/sync`, `#/profiles`.
+**Data mode:** `#/data/profiles` (home), `#/data/observations`, `#/data/import`, `#/data/sync`, `#/data/about`
 
-**Redirects (bookmarks):** `#/` → Overview; `#/explorer` and `#/records` → Observations; `#/health` → Overview; `#/workspace` and `#/settings` → Profiles.
+**Workbench:** `#/workbench/bundles`, `#/workbench/form-preview`, `#/workbench/custom-app`
 
-**Sidebar (primary):** Overview, Observations, Import, Sync, Profiles.
+**Redirects:** `#/overview`, `#/data/overview`, `#/health` → Profiles; legacy paths → Observations or Profiles.
 
-**App shell:** Brand, sidebar nav, footer server status (polls `GET {activeProfile.serverUrl}/health`), Open Data Ensemble credit.
+**Feedback patterns:** [UI_FEEDBACK.md](./UI_FEEDBACK.md)
 
----
-
-## Per-screen specifications
-
-Authoritative detail for each primary screen (purpose, user questions, scope, actions, data):
+## Screens
 
 | Screen       | Spec                                                      |
 | ------------ | --------------------------------------------------------- |
-| Overview     | [docs/screens/overview.md](./screens/overview.md)         |
+| Profiles     | [docs/screens/profiles.md](./screens/profiles.md)         |
 | Observations | [docs/screens/observations.md](./screens/observations.md) |
 | Import       | [docs/screens/import.md](./screens/import.md)             |
 | Sync         | [docs/screens/sync.md](./screens/sync.md)                 |
-| Profiles     | [docs/screens/profiles.md](./screens/profiles.md)         |
+| About        | In-app only (links, license, support)                     |
 
----
+Workbench: Bundles, Form preview, Custom app — see [AGENTS.md](../AGENTS.md).
 
-## Follow-up (review checklist)
+## Changelog
 
-| Task                     | Status   | Notes                                                       |
-| ------------------------ | -------- | ----------------------------------------------------------- |
-| Keyring / Linux fallback | Done     | See [profiles.md](./screens/profiles.md)                    |
-| Structured UI review     | Open     | Walk specs above; mark keep/remove/defer                    |
-| Linux deps for testers   | Optional | README / Profiles: Secret Service for saved passwords       |
-| Token storage hardening  | Future   | Tokens in `localStorage` per profile; could move to keyring |
-
-Capture review decisions in an issue or doc section with a date.
+See [CHANGELOG.md](../CHANGELOG.md).

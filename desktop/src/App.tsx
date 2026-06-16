@@ -10,7 +10,7 @@ import {
 import { isTauri } from '@tauri-apps/api/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import brandMarkUrl from './assets/custodian.png';
-import { OverviewPage } from './pages/OverviewPage';
+import { AboutPage } from './pages/AboutPage';
 import { ObservationsPage } from './pages/ObservationsPage';
 import { SyncPage } from './pages/SyncPage';
 import { ProfilesPage } from './pages/ProfilesPage';
@@ -18,6 +18,7 @@ import { ImportPage } from './pages/ImportPage';
 import { FormPreviewPage } from './pages/FormPreviewPage';
 import { DeveloperModePanel } from './components/DeveloperModePanel';
 import { ObservationIndexPrompt } from './components/ObservationIndexPrompt';
+import { ToastHost } from './components/ToastHost';
 import { WorkbenchBundlesPage } from './pages/WorkbenchBundlesPage';
 import { WorkbenchCustomAppPage } from './pages/WorkbenchCustomAppPage';
 import { useSynkServerStatus } from './hooks/useSynkServerStatus';
@@ -30,14 +31,15 @@ import {
   selectImportActivity,
   useImportStagingStore,
 } from './store/useImportStagingStore';
+import { useToastStore } from './store/useToastStore';
 import './App.css';
 
 const DATA_NAV = [
-  { to: '/data/overview', label: 'Overview', icon: 'dashboard' },
+  { to: '/data/profiles', label: 'Profiles', icon: 'badge' },
   { to: '/data/observations', label: 'Observations', icon: 'manage_search' },
   { to: '/data/import', label: 'Import', icon: 'input' },
   { to: '/data/sync', label: 'Sync', icon: 'sync_alt' },
-  { to: '/data/profiles', label: 'Profiles', icon: 'badge' },
+  { to: '/data/about', label: 'About', icon: 'info' },
 ];
 
 const WORKBENCH_NAV = [
@@ -80,7 +82,7 @@ function ModeSwitch() {
   const upsertProfileRemote = useCustodianStore(s => s.upsertProfileRemote);
 
   async function goData() {
-    navigate('/data/overview');
+    navigate('/data/profiles');
     if (active) {
       await upsertProfileRemote({
         ...active,
@@ -121,7 +123,6 @@ function ModeSwitch() {
   );
 }
 
-/** On profile switch (not initial mount), navigate to that profile’s default mode home. */
 function ProfileSwitchNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -143,7 +144,7 @@ function ProfileSwitchNavigation() {
     }
     const p = profiles.find(x => x.id === activeProfileId);
     const mode = p?.defaultAppMode ?? 'data_management';
-    navigate(mode === 'workbench' ? '/workbench/bundles' : '/data/overview', {
+    navigate(mode === 'workbench' ? '/workbench/bundles' : '/data/profiles', {
       replace: true,
     });
   }, [activeProfileId, profiles, navigate, location.pathname]);
@@ -154,33 +155,18 @@ function ProfileSwitchNavigation() {
 function RootRedirect() {
   const p = useCustodianStore(selectActiveProfileState);
   const mode = p?.defaultAppMode ?? 'data_management';
-  const to = mode === 'workbench' ? '/workbench/bundles' : '/data/overview';
+  const to = mode === 'workbench' ? '/workbench/bundles' : '/data/profiles';
   return <Navigate to={to} replace />;
-}
-
-function EnvironmentBadge() {
-  const active = useCustodianStore(selectActiveProfileState);
-  const tier = active?.environment ?? 'production';
-  if (tier === 'production') {
-    return null;
-  }
-  return (
-    <div
-      className={`env-badge env-badge-${tier}`}
-      title="Profile environment tier">
-      {tier}
-    </div>
-  );
 }
 
 function Shell() {
   const year = useMemo(() => new Date().getFullYear(), []);
   const location = useLocation();
   const isWorkbench = location.pathname.startsWith('/workbench');
-  const activeProfile = useCustodianStore(selectActiveProfileState);
-  const developerMode = Boolean(activeProfile?.customAppDeveloperMode);
   const navItems = isWorkbench ? WORKBENCH_NAV : DATA_NAV;
   const syncMessage = useCustodianStore(s => s.syncMessage);
+  const clearSyncMessage = useCustodianStore(s => s.clearSyncMessage);
+  const pushToast = useToastStore(s => s.pushToast);
   const syncActivity = useCustodianStore(selectSyncActivity);
   const importActivity = useImportStagingStore(selectImportActivity);
   const activityText: string | null =
@@ -188,7 +174,6 @@ function Shell() {
 
   const activityPresent = syncActivity !== null || importActivity !== null;
   const [activityBannerDismissed, setActivityBannerDismissed] = useState(false);
-  const [syncMessageDismissed, setSyncMessageDismissed] = useState(false);
 
   useEffect(() => {
     if (!activityPresent) {
@@ -198,18 +183,29 @@ function Shell() {
 
   useEffect(() => {
     if (!syncMessage) {
-      setSyncMessageDismissed(false);
+      return;
     }
-  }, [syncMessage]);
+    const isLong = syncMessage.includes('\n') || syncMessage.length > 120;
+    if (isLong) {
+      return;
+    }
+    pushToast({ message: syncMessage, variant: 'success' });
+    clearSyncMessage();
+  }, [syncMessage, pushToast, clearSyncMessage]);
 
   const showActivityBanner =
     Boolean(activityText) && activityPresent && !activityBannerDismissed;
-  const showSyncMessageBanner = Boolean(syncMessage) && !syncMessageDismissed;
+
+  const showSyncMessageBanner =
+    Boolean(syncMessage) &&
+    syncMessage !== null &&
+    (syncMessage.includes('\n') || syncMessage.length > 120);
 
   return (
     <div className="app">
       <ProfilesBootstrap />
       <ProfileSwitchNavigation />
+      <ToastHost />
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-icon">
@@ -227,14 +223,13 @@ function Shell() {
           </div>
         </div>
         <ModeSwitch />
-        <EnvironmentBadge />
         <nav className="nav">
           {navItems.map(item => (
             <NavLink
               key={item.to}
               to={item.to}
               end={
-                item.to === '/data/overview' || item.to === '/workbench/bundles'
+                item.to === '/data/profiles' || item.to === '/workbench/bundles'
               }
               className={({ isActive }) =>
                 `nav-link${isActive ? ' active' : ''}`
@@ -252,9 +247,8 @@ function Shell() {
 
       <main className="content">
         <ObservationIndexPrompt />
-        {isWorkbench && developerMode ? (
-          <DeveloperModePanel variant="banner" />
-        ) : null}
+        {isWorkbench ? <DeveloperModePanel /> : null}
+        <div className="content-body">
         {showActivityBanner ? (
           <div
             className="notice info app-sync-banner app-sync-banner-with-dismiss"
@@ -280,7 +274,7 @@ function Shell() {
               type="button"
               className="app-sync-banner-dismiss"
               aria-label="Dismiss sync message"
-              onClick={() => setSyncMessageDismissed(true)}>
+              onClick={() => clearSyncMessage()}>
               ×
             </button>
           </div>
@@ -289,7 +283,11 @@ function Shell() {
           <Route path="/" element={<RootRedirect />} />
           <Route
             path="/overview"
-            element={<Navigate to="/data/overview" replace />}
+            element={<Navigate to="/data/profiles" replace />}
+          />
+          <Route
+            path="/data/overview"
+            element={<Navigate to="/data/profiles" replace />}
           />
           <Route
             path="/observations"
@@ -314,7 +312,7 @@ function Shell() {
           />
           <Route
             path="/health"
-            element={<Navigate to="/data/overview" replace />}
+            element={<Navigate to="/data/profiles" replace />}
           />
           <Route
             path="/workspace"
@@ -325,11 +323,11 @@ function Shell() {
             element={<Navigate to="/data/profiles" replace />}
           />
 
-          <Route path="/data/overview" element={<OverviewPage />} />
+          <Route path="/data/profiles" element={<ProfilesPage />} />
           <Route path="/data/observations" element={<ObservationsPage />} />
           <Route path="/data/import" element={<ImportPage />} />
           <Route path="/data/sync" element={<SyncPage />} />
-          <Route path="/data/profiles" element={<ProfilesPage />} />
+          <Route path="/data/about" element={<AboutPage />} />
 
           <Route path="/workbench/bundles" element={<WorkbenchBundlesPage />} />
           <Route path="/workbench/form-preview" element={<FormPreviewPage />} />
@@ -342,6 +340,7 @@ function Shell() {
             element={<Navigate to="/workbench/bundles" replace />}
           />
         </Routes>
+        </div>
       </main>
     </div>
   );

@@ -81,11 +81,11 @@ CI regenerates the client and **fails** if the repo does not match (`ode-desktop
 
 For **custom app authors** testing locally before publishing a bundle:
 
-1. Workbench → **Bundles** → turn **Developer mode** **On** and pick a folder that contains **`index.html`** (e.g. your `dist/` output).
-2. Optional: add **`forms/`** next to `index.html` with the usual `{formType}/schema.json` + `ui.json` layout for **Form preview**.
-3. Use **Refresh app** after each build (also available from the orange Workbench banner while mode is on).
+1. Workbench → enable **Developer mode** in the top bar → pick a folder that contains **`index.html`** (e.g. your `dist/` output).
+2. Optional: add **`forms/`** next to `index.html` for **Form preview**.
+3. Use **Refresh app** after each build.
 
-Mirrored files live under **`bundles/dev-local/app/`** and **`bundles/dev-local/forms/`** in the active profile workspace. Synk downloads stay in **`bundles/active/`** — use **Refresh from server** on Bundles to update those.
+Mirrored files live under **`bundles/dev-local/`** in the active profile workspace. See [docs/UI_FEEDBACK.md](docs/UI_FEEDBACK.md) and [CHANGELOG.md](CHANGELOG.md).
 
 User guide: [ODE Desktop developer mode](https://opendataensemble.org/docs/guides/ode-desktop-developer-mode). Agent reference: [AGENTS.md](AGENTS.md).
 

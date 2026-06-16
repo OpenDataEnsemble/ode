@@ -587,6 +587,8 @@ struct ApiObservation {
     data: Value,
     form_type: Option<String>,
     updated_at: Option<String>,
+    #[serde(default)]
+    extras: Option<ObservationExtras>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1266,6 +1268,13 @@ fn resolve_workspace_path(
     Ok(canonical_candidate)
 }
 
+fn serialize_observation_extras(extras: &Option<ObservationExtras>) -> Result<Option<String>, CustodianError> {
+    match extras {
+        Some(e) => Ok(Some(serde_json::to_string(e)?)),
+        None => Ok(None),
+    }
+}
+
 fn upsert_observation_from_api(
     conn: &Connection,
     incoming: &ApiObservation,
@@ -1286,6 +1295,7 @@ fn upsert_observation_from_api(
 
     let payload = serde_json::to_string(&incoming.data)?;
     let timestamp = now_iso();
+    let extras_json = serialize_observation_extras(&incoming.extras)?;
 
     if let Some((local_dirty, local_remote_updated_at, local_payload)) = existing {
         if should_mark_conflict(local_dirty, &local_remote_updated_at, &incoming.updated_at) {
@@ -1333,13 +1343,15 @@ fn upsert_observation_from_api(
                      dirty = 0,
                      sync_status = 'clean',
                      conflict_payload = NULL,
-                     last_saved_at = ?4
-                 WHERE id = ?5",
+                     last_saved_at = ?4,
+                     observation_extras = COALESCE(?5, observation_extras)
+                 WHERE id = ?6",
                 params![
                     payload,
                     incoming.form_type,
                     incoming.updated_at,
                     timestamp,
+                    extras_json,
                     incoming.observation_id
                 ],
             )?;
@@ -1350,14 +1362,15 @@ fn upsert_observation_from_api(
     conn.execute(
         "INSERT INTO observations (
             id, payload, form_type, updated_at, remote_updated_at,
-            dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at
-         ) VALUES (?1, ?2, ?3, ?4, ?4, 0, 'clean', NULL, ?5, NULL)",
+            dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+         ) VALUES (?1, ?2, ?3, ?4, ?4, 0, 'clean', NULL, ?5, NULL, ?6)",
         params![
             incoming.observation_id,
             payload,
             incoming.form_type,
             incoming.updated_at,
-            timestamp
+            timestamp,
+            extras_json
         ],
     )?;
     Ok(false)
@@ -1777,37 +1790,6 @@ fn save_observation(
         }
     }
     get_observation(req.id, ctx)
-}
-
-#[tauri::command]
-fn restore_last_backup(
-    observation_id: String,
-    ctx: tauri::State<'_, AppCtxHandle>,
-) -> Result<ObservationRecord, String> {
-    {
-        let mut conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        let tx = conn.transaction().map_err(|err| err.to_string())?;
-        let backup: Option<String> = tx
-            .query_row(
-                "SELECT payload FROM observation_history WHERE observation_id = ?1 ORDER BY created_at DESC LIMIT 1",
-                params![observation_id],
-                |row| row.get(0),
-            )
-            .optional()
-            .map_err(|err| err.to_string())?;
-
-        let payload = backup.ok_or_else(|| "no backup found".to_string())?;
-        let timestamp = now_iso();
-        tx.execute(
-            "UPDATE observations
-             SET payload = ?1, dirty = 1, sync_status = 'dirty', conflict_payload = NULL, last_saved_at = ?2
-             WHERE id = ?3",
-            params![payload, timestamp, observation_id],
-        )
-        .map_err(|err| err.to_string())?;
-        tx.commit().map_err(|err| err.to_string())?;
-    }
-    get_observation(observation_id, ctx)
 }
 
 #[tauri::command]
@@ -2714,7 +2696,7 @@ fn expand_import_staging_paths(
     if dirs.is_empty() {
         if loose_files.len() > max_files {
             return Err(format!(
-                "Too many files at once ({} files). You can select up to {max_files} without a folder. Use “Add folder…” for larger imports.",
+                "Too many files at once ({} files). You can select up to {max_files} without a folder. Use “Import folder…” for larger imports.",
                 loose_files.len()
             ));
         }
@@ -2881,6 +2863,7 @@ fn extract_observations_from_json_value(
             data,
             form_type,
             updated_at,
+            extras: None,
         });
     }
 
@@ -4129,7 +4112,6 @@ pub fn run() {
             remove_workspace_attachment,
             get_observation,
             save_observation,
-            restore_last_backup,
             import_observations,
             mark_observations_pushed,
             get_app_health,

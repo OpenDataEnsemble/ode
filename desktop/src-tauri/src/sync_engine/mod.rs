@@ -228,6 +228,38 @@ fn observation_to_push_json(o: &crate::ObservationRecord) -> Value {
 
 fn pull_record_to_api_observation(v: &Value) -> Option<crate::ApiObservation> {
     let o = v.as_object()?;
+    let tags = o.get("tags").and_then(|t| {
+        t.as_array().map(|arr| {
+            arr.iter()
+                .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                .collect::<Vec<_>>()
+        })
+    });
+    let extras = Some(crate::ObservationExtras {
+        form_version: o
+            .get("form_version")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string()),
+        created_at: o
+            .get("created_at")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string()),
+        deleted: o.get("deleted").and_then(|x| x.as_bool()),
+        synced_at: o
+            .get("synced_at")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string()),
+        geolocation: o.get("geolocation").cloned(),
+        author: o
+            .get("author")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string()),
+        device_id: o
+            .get("device_id")
+            .and_then(|x| x.as_str())
+            .map(|s| s.to_string()),
+        tags,
+    });
     Some(crate::ApiObservation {
         observation_id: o.get("observation_id")?.as_str()?.to_string(),
         data: o.get("data").cloned().unwrap_or(Value::Null),
@@ -239,6 +271,7 @@ fn pull_record_to_api_observation(v: &Value) -> Option<crate::ApiObservation> {
             .get("updated_at")
             .and_then(|x| x.as_str())
             .map(|s| s.to_string()),
+        extras,
     })
 }
 

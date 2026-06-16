@@ -81,7 +81,6 @@ vi.mock('./lib/tauriClient', () => ({
     removeWorkspaceAttachment: vi.fn(),
     getObservation: vi.fn(),
     saveObservation: vi.fn(),
-    restoreLastBackup: vi.fn(),
     importObservations: vi.fn(),
     markObservationsPushed: vi.fn(),
     getAppHealth: vi.fn().mockResolvedValue({
@@ -104,22 +103,21 @@ vi.mock('./lib/tauriClient', () => ({
 }));
 
 describe('App shell', () => {
-  it('renders the overview and primary navigation', async () => {
+  it('renders profiles home and primary navigation', async () => {
     render(<App />);
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'Overview' }),
+        screen.getByRole('heading', { name: 'Profiles' }),
       ).toBeInTheDocument();
     });
     expect(screen.getByText('ODE Desktop')).toBeInTheDocument();
     const nav = screen.getByRole('navigation');
-    expect(within(nav).getByText('Overview')).toBeInTheDocument();
+    expect(within(nav).getByText('Profiles')).toBeInTheDocument();
     expect(within(nav).getByText('Observations')).toBeInTheDocument();
     expect(within(nav).getByText('Import')).toBeInTheDocument();
     expect(within(nav).getByText('Sync')).toBeInTheDocument();
-    expect(within(nav).getByText('Profiles')).toBeInTheDocument();
-    expect(screen.queryByText('Dashboard')).not.toBeInTheDocument();
-    expect(screen.queryByText('Repository Health')).not.toBeInTheDocument();
+    expect(within(nav).getByText('About')).toBeInTheDocument();
+    expect(within(nav).queryByText('Overview')).not.toBeInTheDocument();
     expect(within(nav).queryByText('Workspace')).not.toBeInTheDocument();
   });
 });

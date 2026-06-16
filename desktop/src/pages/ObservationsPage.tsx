@@ -1,15 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { tauriClient } from '../lib/tauriClient';
+import { confirm } from '@tauri-apps/plugin-dialog';
+import { openPath } from '@tauri-apps/plugin-opener';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
 import {
   createNewObservationSaveRequest,
   DEFAULT_OBSERVATION_FORM_VERSION,
   parseTagsCommaSeparated,
   tagsToCommaSeparated,
 } from '../lib/observation';
-import { useCustodianStore } from '../store/useCustodianStore';
+import {
+  MAX_OBSERVATION_TABS,
+  observationTabLabel,
+} from '../lib/observationTabs';
+import { referencedNamesForObservation } from '../lib/importValidation';
+import { validateObservationPayload } from '../lib/importValidation';
 import type { FormPreviewEditState } from '../lib/formPreviewNavigation';
+import { confirmDestructiveAction } from '../lib/destructivePolicy';
+import { tauriClient } from '../lib/tauriClient';
+import { workspaceAttachmentsDir } from '../lib/workspacePaths';
+import {
+  selectActiveProfileState,
+  useCustodianStore,
+} from '../store/useCustodianStore';
+import { useToastStore } from '../store/useToastStore';
 import type {
+  BundleFormSpec,
   ObservationExtras,
   ObservationRecord,
   SaveObservationRequest,
@@ -20,6 +36,7 @@ function toPayloadText(value: unknown) {
 }
 
 function statusClass(obs: ObservationRecord) {
+  if (obs.extras?.deleted) return 'danger';
   if (obs.syncStatus === 'conflict') return 'danger';
   if (obs.dirty) return 'warn';
   return 'ok';
@@ -43,69 +60,100 @@ function formatDate(value?: string | null) {
 }
 
 function syncPillLabel(item: ObservationRecord): string {
-  if (item.syncStatus === 'conflict') {
-    return 'Conflict';
-  }
-  if (item.dirty || item.syncStatus === 'dirty') {
-    return 'Pending';
-  }
-  if (item.syncStatus === 'clean') {
-    return 'Synced';
-  }
+  if (item.syncStatus === 'conflict') return 'Conflict';
+  if (item.dirty || item.syncStatus === 'dirty') return 'Pending';
+  if (item.syncStatus === 'clean') return 'Synced';
   return item.syncStatus;
 }
 
 function syncStatusDetail(status: ObservationRecord['syncStatus']): string {
-  if (status === 'conflict') {
-    return 'Conflict';
-  }
-  if (status === 'dirty') {
-    return 'Pending';
-  }
-  if (status === 'clean') {
-    return 'Synced';
-  }
+  if (status === 'conflict') return 'Conflict';
+  if (status === 'dirty') return 'Pending';
+  if (status === 'clean') return 'Synced';
   return status;
 }
 
-type FilterMode = 'all' | 'pending' | 'conflicts' | 'recent';
+type FilterMode = 'all' | 'pending' | 'conflicts' | 'recent' | 'deleted';
+
+export interface ObservationEditorDraft {
+  data: string;
+  formType: string;
+  updatedAt: string;
+  formVersion: string;
+  createdAt: string;
+  deleted: boolean;
+  syncedAt: string;
+  geoText: string;
+  author: string;
+  deviceId: string;
+  tagsText: string;
+  dirty: boolean;
+  validationSummary: string | null;
+}
+
+function draftFromRecord(record: ObservationRecord): ObservationEditorDraft {
+  const x = record.extras;
+  return {
+    data: toPayloadText(record.payload),
+    formType: record.formType ?? '',
+    updatedAt: record.updatedAt ?? '',
+    formVersion: x?.formVersion ?? DEFAULT_OBSERVATION_FORM_VERSION,
+    createdAt: x?.createdAt ?? record.updatedAt ?? '',
+    deleted: x?.deleted ?? false,
+    syncedAt: x?.syncedAt ?? '',
+    geoText:
+      x?.geolocation != null && typeof x.geolocation === 'object'
+        ? JSON.stringify(x.geolocation, null, 2)
+        : '',
+    author: x?.author ?? '',
+    deviceId: x?.deviceId ?? '',
+    tagsText: tagsToCommaSeparated(x?.tags),
+    dirty: false,
+    validationSummary: null,
+  };
+}
+
+function fileUrlToPath(url: string): string {
+  if (url.startsWith('file://')) {
+    try {
+      return decodeURIComponent(url.replace(/^file:\/\//, ''));
+    } catch {
+      return url.replace(/^file:\/\//, '');
+    }
+  }
+  return url;
+}
 
 export function ObservationsPage() {
   const navigate = useNavigate();
+  const pushToast = useToastStore(s => s.pushToast);
+  const activeProfile = useCustodianStore(selectActiveProfileState);
   const {
     observations,
     observationsTotal,
     observationListParams,
     formTypes,
-    selectedObservationId,
-    setSelectedObservationId,
     loadObservations,
     loadFormTypes,
     saveObservation,
-    restoreLastBackup,
     error,
   } = useCustodianStore();
 
   const [search, setSearch] = useState('');
   const [formTypeFilter, setFormTypeFilter] = useState<string>('');
   const [filter, setFilter] = useState<FilterMode>('all');
-  const [detailObservation, setDetailObservation] =
-    useState<ObservationRecord | null>(null);
-  const [hasUnsavedDraft, setHasUnsavedDraft] = useState(false);
-
-  const [draftData, setDraftData] = useState('');
-  const [draftFormType, setDraftFormType] = useState('');
-  const [draftUpdatedAt, setDraftUpdatedAt] = useState('');
-  const [draftFormVersion, setDraftFormVersion] = useState(
-    DEFAULT_OBSERVATION_FORM_VERSION,
+  const [activeTab, setActiveTab] = useState<'list' | string>('list');
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, ObservationEditorDraft>>(
+    {},
   );
-  const [draftCreatedAt, setDraftCreatedAt] = useState('');
-  const [draftDeleted, setDraftDeleted] = useState(false);
-  const [draftSyncedAt, setDraftSyncedAt] = useState('');
-  const [draftGeoText, setDraftGeoText] = useState('');
-  const [draftAuthor, setDraftAuthor] = useState('');
-  const [draftDeviceId, setDraftDeviceId] = useState('');
-  const [draftTagsText, setDraftTagsText] = useState('');
+  const [records, setRecords] = useState<Record<string, ObservationRecord>>(
+    {},
+  );
+  const [formSpecs, setFormSpecs] = useState<Record<string, BundleFormSpec>>(
+    {},
+  );
+  const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
 
   const formTypeSkipFirst = useRef(true);
 
@@ -127,32 +175,41 @@ export function ObservationsPage() {
   }, [formTypeFilter, loadObservations, observationListParams.pageSize]);
 
   useEffect(() => {
-    if (!selectedObservationId) {
-      setDetailObservation(null);
-      return;
-    }
-    const fromList = observations.find(o => o.id === selectedObservationId);
+    setRecords(prev => {
+      const next = { ...prev };
+      for (const o of observations) {
+        next[o.id] = o;
+      }
+      return next;
+    });
+  }, [observations]);
+
+  const loadRecord = useCallback(async (id: string) => {
+    const fromList = useCustodianStore
+      .getState()
+      .observations.find(o => o.id === id);
     if (fromList) {
-      setDetailObservation(fromList);
-      return;
+      setRecords(r => ({ ...r, [id]: fromList }));
+      return fromList;
     }
-    let cancelled = false;
-    void tauriClient
-      .getObservation(selectedObservationId)
-      .then(r => {
-        if (!cancelled) {
-          setDetailObservation(r);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDetailObservation(null);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedObservationId, observations]);
+    const r = await tauriClient.getObservation(id);
+    setRecords(rec => ({ ...rec, [id]: r }));
+    return r;
+  }, []);
+
+  const ensureFormSpec = useCallback(async (formType: string) => {
+    const ft = formType.trim();
+    if (!ft || formSpecs[ft]) {
+      return formSpecs[ft];
+    }
+    try {
+      const spec = await tauriClient.readBundleFormSpec(ft);
+      setFormSpecs(s => ({ ...s, [ft]: spec }));
+      return spec;
+    } catch {
+      return undefined;
+    }
+  }, [formSpecs]);
 
   const filteredObservations = useMemo(() => {
     let list = observations;
@@ -162,54 +219,11 @@ export function ObservationsPage() {
       list = list.filter(o => o.syncStatus === 'conflict');
     } else if (filter === 'recent') {
       list = list.filter(isRecentlyModified);
+    } else if (filter === 'deleted') {
+      list = list.filter(o => o.extras?.deleted);
     }
     return list;
   }, [observations, filter]);
-
-  const selected = useMemo(() => {
-    if (!selectedObservationId) {
-      return null;
-    }
-    return (
-      observations.find(item => item.id === selectedObservationId) ??
-      detailObservation
-    );
-  }, [observations, selectedObservationId, detailObservation]);
-
-  useEffect(() => {
-    if (!selected) {
-      setDraftData('');
-      setDraftFormType('');
-      setDraftUpdatedAt('');
-      setDraftFormVersion(DEFAULT_OBSERVATION_FORM_VERSION);
-      setDraftCreatedAt('');
-      setDraftDeleted(false);
-      setDraftSyncedAt('');
-      setDraftGeoText('');
-      setDraftAuthor('');
-      setDraftDeviceId('');
-      setDraftTagsText('');
-      setHasUnsavedDraft(false);
-      return;
-    }
-    const x = selected.extras;
-    setDraftData(toPayloadText(selected.payload));
-    setDraftFormType(selected.formType ?? '');
-    setDraftUpdatedAt(selected.updatedAt ?? '');
-    setDraftFormVersion(x?.formVersion ?? DEFAULT_OBSERVATION_FORM_VERSION);
-    setDraftCreatedAt(x?.createdAt ?? selected.updatedAt ?? '');
-    setDraftDeleted(x?.deleted ?? false);
-    setDraftSyncedAt(x?.syncedAt ?? '');
-    setDraftGeoText(
-      x?.geolocation != null && typeof x.geolocation === 'object'
-        ? JSON.stringify(x.geolocation, null, 2)
-        : '',
-    );
-    setDraftAuthor(x?.author ?? '');
-    setDraftDeviceId(x?.deviceId ?? '');
-    setDraftTagsText(tagsToCommaSeparated(x?.tags));
-    setHasUnsavedDraft(false);
-  }, [selected]);
 
   async function searchNow() {
     await loadObservations(search, {
@@ -232,118 +246,521 @@ export function ObservationsPage() {
     });
   }
 
-  async function saveNow() {
-    if (!selected) return;
+  function updateDraft(id: string, patch: Partial<ObservationEditorDraft>) {
+    setDrafts(d => ({
+      ...d,
+      [id]: { ...d[id]!, ...patch, dirty: true },
+    }));
+  }
+
+  async function openObservationTab(id: string) {
+    if (!openTabs.includes(id)) {
+      if (openTabs.length >= MAX_OBSERVATION_TABS) {
+        pushToast({
+          message: `Maximum ${MAX_OBSERVATION_TABS} editor tabs open. Close a tab first.`,
+          variant: 'warn',
+        });
+        return;
+      }
+      setOpenTabs(t => [...t, id]);
+    }
+    setActiveTab(id);
+    if (!drafts[id]) {
+      const rec = await loadRecord(id);
+      setDrafts(d => ({ ...d, [id]: draftFromRecord(rec) }));
+      if (rec.formType) {
+        void ensureFormSpec(rec.formType);
+      }
+    }
+  }
+
+  function requestCloseTab(id: string) {
+    const draft = drafts[id];
+    if (draft?.dirty) {
+      setPendingCloseId(id);
+      return;
+    }
+    closeTab(id);
+  }
+
+  function closeTab(id: string) {
+    setOpenTabs(t => {
+      const remaining = t.filter(x => x !== id);
+      setActiveTab(prev => {
+        if (prev !== id) return prev;
+        return remaining.length > 0 ? remaining[remaining.length - 1]! : 'list';
+      });
+      return remaining;
+    });
+    setDrafts(d => {
+      const next = { ...d };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function closeAllTabs() {
+    const dirty = openTabs.some(id => drafts[id]?.dirty);
+    if (dirty) {
+      pushToast({
+        message: 'Save or discard changes before closing all tabs.',
+        variant: 'warn',
+      });
+      return;
+    }
+    setOpenTabs([]);
+    setDrafts({});
+    setActiveTab('list');
+  }
+
+  async function handleUnsavedChoice(choice: 'save' | 'discard' | 'cancel') {
+    const id = pendingCloseId;
+    setPendingCloseId(null);
+    if (!id || choice === 'cancel') {
+      return;
+    }
+    if (choice === 'save') {
+      const ok = await saveTab(id);
+      if (!ok) return;
+    }
+    closeTab(id);
+  }
+
+  function parseDraftForSave(
+    id: string,
+    draft: ObservationEditorDraft,
+  ): SaveObservationRequest | null {
     let dataObj: unknown;
     try {
-      dataObj = JSON.parse(draftData);
+      dataObj = JSON.parse(draft.data);
     } catch {
-      window.alert('Data must be valid JSON before saving.');
-      return;
+      pushToast({ message: 'Data must be valid JSON.', variant: 'error' });
+      return null;
     }
     if (!dataObj || typeof dataObj !== 'object' || Array.isArray(dataObj)) {
-      window.alert('Data must be a JSON object (Synkronus Observation.data).');
-      return;
+      pushToast({ message: 'Data must be a JSON object.', variant: 'error' });
+      return null;
     }
     let geolocation: unknown = null;
-    if (draftGeoText.trim()) {
+    if (draft.geoText.trim()) {
       try {
-        geolocation = JSON.parse(draftGeoText);
+        geolocation = JSON.parse(draft.geoText);
       } catch {
-        window.alert('Geolocation must be valid JSON (object per OpenAPI).');
-        return;
+        pushToast({ message: 'Geolocation must be valid JSON.', variant: 'error' });
+        return null;
       }
       if (
         geolocation !== null &&
         (typeof geolocation !== 'object' || Array.isArray(geolocation))
       ) {
-        window.alert('Geolocation must be a JSON object.');
-        return;
+        pushToast({ message: 'Geolocation must be a JSON object.', variant: 'error' });
+        return null;
       }
     }
     const now = new Date().toISOString();
-    const updatedIso = draftUpdatedAt.trim() || now;
+    const updatedIso = draft.updatedAt.trim() || now;
     const extras: ObservationExtras = {
-      formVersion: draftFormVersion.trim() || DEFAULT_OBSERVATION_FORM_VERSION,
-      createdAt: draftCreatedAt.trim() || updatedIso,
-      deleted: draftDeleted,
-      syncedAt: draftSyncedAt.trim() || null,
+      formVersion: draft.formVersion.trim() || DEFAULT_OBSERVATION_FORM_VERSION,
+      createdAt: draft.createdAt.trim() || updatedIso,
+      deleted: draft.deleted,
+      syncedAt: draft.syncedAt.trim() || null,
       geolocation,
-      author: draftAuthor.trim() || null,
-      deviceId: draftDeviceId.trim() || null,
-      tags: parseTagsCommaSeparated(draftTagsText),
+      author: draft.author.trim() || null,
+      deviceId: draft.deviceId.trim() || null,
+      tags: parseTagsCommaSeparated(draft.tagsText),
     };
-    const req: SaveObservationRequest = {
-      id: selected.id,
+    return {
+      id,
       payload: dataObj,
-      formType: draftFormType.trim() || null,
+      formType: draft.formType.trim() || null,
       updatedAt: updatedIso,
       extras,
     };
+  }
+
+  async function saveTab(
+    id: string,
+    draftOverride?: ObservationEditorDraft,
+  ): Promise<boolean> {
+    const draft = draftOverride ?? drafts[id];
+    const record = records[id];
+    if (!draft || !record) return false;
+
+    const req = parseDraftForSave(id, draft);
+    if (!req) return false;
+
+    const ft = draft.formType.trim();
+    if (ft) {
+      const spec = formSpecs[ft] ?? (await ensureFormSpec(ft));
+      const issues = validateObservationPayload(id, ft, req.payload, spec);
+      const errors = issues.filter(i => i.severity === 'error');
+      if (errors.length > 0) {
+        const summary = `${errors.length} validation error(s). Save anyway?`;
+        setDrafts(d => ({
+          ...d,
+          [id]: { ...d[id]!, validationSummary: errors.map(e => e.message).join('\n') },
+        }));
+        const proceed = await confirm(summary, {
+          title: 'Validation failed',
+          kind: 'warning',
+        });
+        if (!proceed) return false;
+      }
+    }
+
     await saveObservation(req);
-    setHasUnsavedDraft(false);
+    const refreshed = await loadRecord(id);
+    setDrafts(d => ({
+      ...d,
+      [id]: { ...draftFromRecord(refreshed), validationSummary: null },
+    }));
+    return true;
+  }
+
+  async function deleteTab(id: string) {
+    const draft = drafts[id];
+    if (!draft || draft.deleted) {
+      return;
+    }
+    if (
+      !(await confirmDestructiveAction(
+        'bulk_delete',
+        `Mark observation "${id}" as deleted and save?`,
+      ))
+    ) {
+      return;
+    }
+    await saveTab(id, { ...draft, deleted: true });
   }
 
   async function addNewObservation() {
-    const req: SaveObservationRequest = createNewObservationSaveRequest();
+    const req = createNewObservationSaveRequest();
     await saveObservation(req);
-    setSelectedObservationId(req.id);
+    await loadObservations();
+    await openObservationTab(req.id);
   }
 
-  function editInFormplayer() {
-    if (!selected) {
+  async function openAttachmentsFolder() {
+    const ws = activeProfile?.workspacePath?.trim();
+    if (!ws) {
+      pushToast({ message: 'No workspace configured.', variant: 'warn' });
       return;
     }
+    try {
+      await openPath(workspaceAttachmentsDir(ws));
+    } catch (e) {
+      pushToast({
+        message: e instanceof Error ? e.message : String(e),
+        variant: 'error',
+      });
+    }
+  }
+
+  async function openAttachmentFile(name: string) {
+    try {
+      const url = await tauriClient.resolveAttachmentFileUrl(name);
+      if (!url) {
+        pushToast({ message: `Attachment not found: ${name}`, variant: 'warn' });
+        return;
+      }
+      await openPath(fileUrlToPath(url));
+    } catch (e) {
+      pushToast({
+        message: e instanceof Error ? e.message : String(e),
+        variant: 'error',
+      });
+    }
+  }
+
+  function editInFormplayer(id: string) {
+    const draft = drafts[id];
+    const record = records[id];
+    if (!draft || !record) return;
     let dataObj: unknown;
     try {
-      dataObj = JSON.parse(draftData);
+      dataObj = JSON.parse(draft.data);
     } catch {
-      window.alert('Data must be valid JSON before opening in formplayer.');
+      pushToast({ message: 'Data must be valid JSON.', variant: 'error' });
       return;
     }
-    if (!dataObj || typeof dataObj !== 'object' || Array.isArray(dataObj)) {
-      window.alert('Data must be a JSON object (Synkronus Observation.data).');
-      return;
-    }
-    const ft = draftFormType.trim();
+    const ft = draft.formType.trim();
     if (!ft) {
-      window.alert('Set form_type before opening in formplayer.');
+      pushToast({ message: 'Set form_type first.', variant: 'warn' });
       return;
     }
     const payload: FormPreviewEditState = {
       formType: ft,
-      observationId: selected.id,
+      observationId: id,
       params: {},
       savedData: dataObj as Record<string, unknown>,
     };
-    navigate('/workbench/form-preview', {
-      state: { formPreviewEdit: payload },
-    });
+    navigate('/workbench/form-preview', { state: { formPreviewEdit: payload } });
   }
 
-  function touchDraft() {
-    setHasUnsavedDraft(true);
-  }
+  function renderEditorTab(id: string) {
+    const draft = drafts[id];
+    const record = records[id];
+    if (!draft || !record) {
+      return <p className="muted">Loading…</p>;
+    }
 
-  return (
-    <section className="page page-observations">
-      <header className="page-header page-header-inline">
-        <div>
-          <h2>Observations</h2>
-          <p>
-            Inspect, correct, and resolve observations in your local repository.
-            Use filters to focus on pending changes and conflicts.
-          </p>
-        </div>
-        <div className="button-row">
-          <button type="button" onClick={() => void addNewObservation()}>
-            New observation
+    let dataObj: unknown = null;
+    try {
+      dataObj = JSON.parse(draft.data);
+    } catch {
+      /* attachment list skipped */
+    }
+
+    const ft = draft.formType.trim();
+    const spec = ft ? formSpecs[ft] : undefined;
+    const attachmentNames =
+      dataObj !== null
+        ? [...referencedNamesForObservation(spec?.formSchema, dataObj)]
+        : [];
+
+    return (
+      <div className="observation-form">
+        <div className="button-row editor-header">
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => void saveTab(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              save
+            </span>
+            Save
+          </button>
+          <button
+            type="button"
+            className="secondary danger btn-icon"
+            disabled={draft.deleted}
+            onClick={() => void deleteTab(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              delete
+            </span>
+            Delete
+          </button>
+          <button
+            type="button"
+            className="secondary btn-icon"
+            disabled={!ft}
+            onClick={() => editInFormplayer(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              edit
+            </span>
+            Edit in formplayer
           </button>
         </div>
-      </header>
 
-      <div className="split split-observations">
-        <div className="panel panel-observations-list">
+        {draft.validationSummary ? (
+          <p className="notice warn">{draft.validationSummary}</p>
+        ) : null}
+
+        <div className="section-heading">
+          <h4>Repository</h4>
+          <hr />
+        </div>
+        <table className="form-table form-table-compact">
+          <tbody>
+            <tr>
+              <th scope="row">Last saved (local)</th>
+              <td>{formatDate(record.lastSavedAt)}</td>
+            </tr>
+            <tr>
+              <th scope="row">Remote updated</th>
+              <td>{formatDate(record.remoteUpdatedAt)}</td>
+            </tr>
+            <tr>
+              <th scope="row">Pending push</th>
+              <td>{record.dirty ? 'Yes' : 'No'}</td>
+            </tr>
+            <tr>
+              <th scope="row">Sync status</th>
+              <td>
+                {record.syncStatus === 'conflict' ? (
+                  <strong className="text-danger">Conflict</strong>
+                ) : (
+                  syncStatusDetail(record.syncStatus)
+                )}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Last pushed</th>
+              <td>{formatDate(record.lastPushedAt)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="section-heading">
+          <h4>Metadata</h4>
+          <hr />
+        </div>
+        <table className="form-table">
+          <tbody>
+            <tr>
+              <th scope="row">observation_id</th>
+              <td>
+                <input id={`obs-id-${id}`} readOnly value={id} />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">form_type</th>
+              <td>
+                <input
+                  id={`obs-ft-${id}`}
+                  value={draft.formType}
+                  onChange={e => updateDraft(id, { formType: e.target.value })}
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">form_version</th>
+              <td>
+                <input
+                  id={`obs-fv-${id}`}
+                  value={draft.formVersion}
+                  onChange={e =>
+                    updateDraft(id, { formVersion: e.target.value })
+                  }
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">created_at</th>
+              <td>
+                <input
+                  id={`obs-created-${id}`}
+                  value={draft.createdAt}
+                  onChange={e =>
+                    updateDraft(id, { createdAt: e.target.value })
+                  }
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">updated_at</th>
+              <td>
+                <input
+                  id={`obs-updated-${id}`}
+                  value={draft.updatedAt}
+                  onChange={e =>
+                    updateDraft(id, { updatedAt: e.target.value })
+                  }
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Deleted</th>
+              <td>
+                <input
+                  id={`obs-deleted-${id}`}
+                  type="checkbox"
+                  checked={draft.deleted}
+                  onChange={e =>
+                    updateDraft(id, { deleted: e.target.checked })
+                  }
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">synced_at</th>
+              <td>
+                <input
+                  id={`obs-synced-${id}`}
+                  value={draft.syncedAt}
+                  onChange={e =>
+                    updateDraft(id, { syncedAt: e.target.value })
+                  }
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">author</th>
+              <td>
+                <input
+                  id={`obs-author-${id}`}
+                  value={draft.author}
+                  onChange={e => updateDraft(id, { author: e.target.value })}
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">device_id</th>
+              <td>
+                <input
+                  id={`obs-device-${id}`}
+                  value={draft.deviceId}
+                  onChange={e =>
+                    updateDraft(id, { deviceId: e.target.value })
+                  }
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">tags</th>
+              <td>
+                <input
+                  id={`obs-tags-${id}`}
+                  value={draft.tagsText}
+                  onChange={e =>
+                    updateDraft(id, { tagsText: e.target.value })
+                  }
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">geolocation</th>
+              <td>
+                <textarea
+                  id={`obs-geo-${id}`}
+                  className="editor editor-geo"
+                  value={draft.geoText}
+                  onChange={e =>
+                    updateDraft(id, { geoText: e.target.value })
+                  }
+                />
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">Attachments</th>
+              <td>
+                <div className="attachments-row">
+                  {attachmentNames.length === 0 ? (
+                    <span className="muted">None referenced</span>
+                  ) : (
+                    attachmentNames.map(name => (
+                      <button
+                        key={name}
+                        type="button"
+                        className="linkish"
+                        onClick={() => void openAttachmentFile(name)}>
+                        {name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div className="section-heading">
+          <h4>data</h4>
+          <hr />
+        </div>
+        <textarea
+          className="editor"
+          value={draft.data}
+          onChange={e => updateDraft(id, { data: e.target.value })}
+        />
+      </div>
+    );
+  }
+
+  function renderListTab() {
+    return (
+      <div className="observations-list-full">
+        <div className="filter-bar">
           <div
             className="filter-chips"
             role="group"
@@ -354,314 +771,182 @@ export function ObservationsPage() {
                 ['pending', 'Pending'],
                 ['conflicts', 'Conflicts'],
                 ['recent', `Recent (${RECENT_DAYS}d)`],
+                ['deleted', 'Deleted'],
               ] as const
             ).map(([key, lab]) => (
               <button
                 key={key}
                 type="button"
-                className={
-                  filter === key ? 'filter-chip active' : 'filter-chip'
-                }
+                className={filter === key ? 'filter-chip active' : 'filter-chip'}
                 onClick={() => setFilter(key)}>
                 {lab}
               </button>
             ))}
           </div>
-          <div className="search-row">
-            <input
-              value={search}
-              placeholder="Search by id or form type"
-              onChange={event => setSearch(event.target.value)}
-            />
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => void searchNow()}>
-              Search
-            </button>
-          </div>
-          <label className="form-type-filter-label">
-            Form type
-            <select
-              value={formTypeFilter}
-              onChange={e => setFormTypeFilter(e.target.value)}>
-              <option value="">(all)</option>
-              {formTypes.map(ft => (
-                <option key={ft} value={ft}>
-                  {ft}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="muted small-hint">
-            Paged list (search + form type). Chip filters apply to the current
-            page. Repository totals are on{' '}
-            <Link to="/data/overview">Overview</Link>.
-          </p>
-          <div className="observations-list-scroll">
-            <ul className="list">
-              {filteredObservations.map(item => (
-                <li key={item.id} className="observation-row">
-                  <button
-                    type="button"
-                    className="linkish"
-                    onClick={() => setSelectedObservationId(item.id)}>
-                    <span>{item.id}</span>
-                    <small>{item.formType ?? 'no-form-type'}</small>
-                  </button>
-                  <span className="observation-row-badges">
-                    <span
-                      className={`status-pill ${statusClass(item)}`}
-                      title={
-                        item.syncStatus === 'conflict'
-                          ? 'Conflict — review before push'
-                          : item.dirty
-                            ? 'Pending push'
-                            : item.syncStatus === 'clean'
-                              ? 'Synced with server'
-                              : undefined
-                      }>
-                      {syncPillLabel(item)}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-          <div className="observations-pager">
-            <button
-              type="button"
-              className="secondary"
-              disabled={page <= 0}
-              onClick={() => void goPage(page - 1)}>
-              Previous
-            </button>
-            <span className="muted observations-pager-status">
-              Page {page + 1} of {totalPages} ({observationsTotal} matches)
-            </span>
-            <button
-              type="button"
-              className="secondary"
-              disabled={page >= totalPages - 1}
-              onClick={() => void goPage(page + 1)}>
-              Next
-            </button>
-          </div>
+          <select
+            className="filter-bar-select"
+            aria-label="Form type filter"
+            value={formTypeFilter}
+            onChange={e => setFormTypeFilter(e.target.value)}>
+            <option value="">Formtype (all)</option>
+            {formTypes.map(ft => (
+              <option key={ft} value={ft}>
+                {ft}
+              </option>
+            ))}
+          </select>
         </div>
-
-        <div className="panel panel-observations-editor">
-          {!selected ? (
-            <p className="muted">
-              Select an observation to edit the full Synkronus Observation shape
-              (OpenAPI), including <code>data</code> and optional metadata.
-            </p>
-          ) : (
-            <>
-              <div className="editor-header">
-                <h3>{selected.id}</h3>
-                <div className="button-row">
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => void restoreLastBackup(selected.id)}>
-                    Restore backup
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={!draftFormType.trim()}
-                    onClick={() => editInFormplayer()}>
-                    Edit in formplayer
-                  </button>
-                  <button type="button" onClick={() => void saveNow()}>
-                    Save local
-                  </button>
-                </div>
-              </div>
-
-              <div className="observation-form">
-                <fieldset>
-                  <legend>Repository</legend>
-                  <dl className="kv-grid observation-meta">
-                    <dt>Last saved (local)</dt>
-                    <dd>{formatDate(selected.lastSavedAt)}</dd>
-                    <dt>Remote updated</dt>
-                    <dd>{formatDate(selected.remoteUpdatedAt)}</dd>
-                    <dt>Pending push</dt>
-                    <dd>{selected.dirty ? 'Yes' : 'No'}</dd>
-                    <dt>Sync status</dt>
-                    <dd>
-                      {selected.syncStatus === 'conflict' ? (
-                        <strong className="text-danger">Conflict</strong>
-                      ) : (
-                        syncStatusDetail(selected.syncStatus)
-                      )}
-                      {selected.hasConflictCopy
-                        ? ' · conflict copy stored'
-                        : null}
-                    </dd>
-                    <dt>Last pushed</dt>
-                    <dd>{formatDate(selected.lastPushedAt)}</dd>
-                  </dl>
-                </fieldset>
-
-                <fieldset>
-                  <legend>Observation (OpenAPI)</legend>
-                  <div className="field-row">
-                    <label htmlFor="obs-id">observation_id</label>
-                    <input
-                      id="obs-id"
-                      readOnly
-                      value={selected.id}
-                      aria-readonly="true"
-                    />
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="obs-form-type">form_type</label>
-                    <input
-                      id="obs-form-type"
-                      value={draftFormType}
-                      onChange={e => {
-                        setDraftFormType(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="obs-form-version">form_version</label>
-                    <input
-                      id="obs-form-version"
-                      value={draftFormVersion}
-                      onChange={e => {
-                        setDraftFormVersion(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="obs-created">created_at</label>
-                    <input
-                      id="obs-created"
-                      placeholder="ISO 8601 date-time"
-                      value={draftCreatedAt}
-                      onChange={e => {
-                        setDraftCreatedAt(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="obs-updated">updated_at</label>
-                    <input
-                      id="obs-updated"
-                      placeholder="ISO 8601 date-time"
-                      value={draftUpdatedAt}
-                      onChange={e => {
-                        setDraftUpdatedAt(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row field-row-checkbox">
-                    <label htmlFor="obs-deleted">deleted</label>
-                    <input
-                      id="obs-deleted"
-                      type="checkbox"
-                      checked={draftDeleted}
-                      onChange={e => {
-                        setDraftDeleted(e.target.checked);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="obs-synced">synced_at</label>
-                    <input
-                      id="obs-synced"
-                      placeholder="Optional, ISO 8601"
-                      value={draftSyncedAt}
-                      onChange={e => {
-                        setDraftSyncedAt(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="obs-author">author</label>
-                    <input
-                      id="obs-author"
-                      value={draftAuthor}
-                      onChange={e => {
-                        setDraftAuthor(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row">
-                    <label htmlFor="obs-device">device_id</label>
-                    <input
-                      id="obs-device"
-                      value={draftDeviceId}
-                      onChange={e => {
-                        setDraftDeviceId(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row field-row-tags">
-                    <label htmlFor="obs-tags">tags</label>
-                    <input
-                      id="obs-tags"
-                      placeholder="Comma-separated"
-                      value={draftTagsText}
-                      onChange={e => {
-                        setDraftTagsText(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                  <div className="field-row field-row-stack">
-                    <label htmlFor="obs-geo">geolocation</label>
-                    <textarea
-                      id="obs-geo"
-                      className="editor editor-geo"
-                      placeholder='Optional JSON object, e.g. {"latitude":59.3,"longitude":18.1}'
-                      value={draftGeoText}
-                      onChange={e => {
-                        setDraftGeoText(e.target.value);
-                        touchDraft();
-                      }}
-                    />
-                  </div>
-                </fieldset>
-
-                <fieldset>
-                  <legend>data</legend>
-                  <p className="muted small-hint">
-                    Arbitrary JSON object (form fields). Required by OpenAPI.
-                  </p>
-                  <textarea
-                    className="editor"
-                    value={draftData}
-                    onChange={event => {
-                      setDraftData(event.target.value);
-                      touchDraft();
-                    }}
-                  />
-                </fieldset>
-              </div>
-
-              <p className="muted">
-                {hasUnsavedDraft
-                  ? 'Unsaved changes in editor.'
-                  : selected.dirty
-                    ? 'Saved locally but not pushed.'
-                    : 'Saved and synced.'}
-              </p>
-            </>
-          )}
+        <div className="search-row">
+          <input
+            value={search}
+            placeholder="Search by id or form type"
+            onChange={event => setSearch(event.target.value)}
+          />
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void searchNow()}>
+            Search
+          </button>
+        </div>
+        <div className="observations-list-scroll">
+          <ul className="list">
+            {filteredObservations.map(item => (
+              <li key={item.id}>
+                <button
+                  type="button"
+                  className={`observation-list-row${activeTab === item.id ? ' observation-list-row-active' : ''}`}
+                  onClick={() => void openObservationTab(item.id)}>
+                  <span className="observation-list-primary">
+                    {item.formType ?? 'no-form-type'}
+                  </span>
+                  <span
+                    className={`status-pill ${statusClass(item)}`}
+                    title={syncPillLabel(item)}>
+                    {syncPillLabel(item)}
+                  </span>
+                  {item.extras?.deleted ? (
+                    <span className="tag-deleted">Deleted</span>
+                  ) : null}
+                  <span className="observation-list-id">{item.id}</span>
+                  <span className="observation-list-updated">
+                    {formatDate(item.updatedAt ?? item.extras?.createdAt)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="observations-pager">
+          <button
+            type="button"
+            className="secondary"
+            disabled={page <= 0}
+            onClick={() => void goPage(page - 1)}>
+            Previous
+          </button>
+          <span className="muted observations-pager-status">
+            Page {page + 1} of {totalPages} ({observationsTotal} matches)
+          </span>
+          <button
+            type="button"
+            className="secondary"
+            disabled={page >= totalPages - 1}
+            onClick={() => void goPage(page + 1)}>
+            Next
+          </button>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <section className="page page-observations page-observations-tabs">
+      <header className="page-header page-header-inline">
+        <h2>Observations</h2>
+        <div className="button-row">
+          <button
+            type="button"
+            className="secondary btn-icon"
+            title="Open attachments folder"
+            onClick={() => void openAttachmentsFolder()}>
+            <span className="material-symbols-outlined" aria-hidden>
+              folder_open
+            </span>
+          </button>
+          <button
+            type="button"
+            className="btn-compact"
+            title="Create an observation manually"
+            onClick={() => void addNewObservation()}>
+            New observation
+          </button>
+        </div>
+      </header>
+
+      <div className="tab-bar" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          className={`tab${activeTab === 'list' ? ' tab-active' : ''}`}
+          aria-selected={activeTab === 'list'}
+          onClick={() => setActiveTab('list')}>
+          List
+        </button>
+        {openTabs.map(id => {
+          const dirty = drafts[id]?.dirty;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              className={`tab${activeTab === id ? ' tab-active' : ''}${dirty ? ' tab-dirty' : ''}`}
+              aria-selected={activeTab === id}
+              onClick={() => setActiveTab(id)}>
+              {observationTabLabel(id)}
+              <span
+                role="button"
+                tabIndex={0}
+                className="tab-close"
+                aria-label={`Close ${id}`}
+                onClick={e => {
+                  e.stopPropagation();
+                  requestCloseTab(id);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    requestCloseTab(id);
+                  }
+                }}>
+                ×
+              </span>
+            </button>
+          );
+        })}
+        {openTabs.length > 0 ? (
+          <div className="tab-bar-actions">
+            <button
+              type="button"
+              className="secondary btn-compact"
+              title="Close all tabs"
+              onClick={closeAllTabs}>
+              ××
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="tab-content" role="tabpanel">
+        {activeTab === 'list' ? renderListTab() : renderEditorTab(activeTab)}
+      </div>
+
+      <UnsavedChangesDialog
+        open={pendingCloseId !== null}
+        onChoice={choice => void handleUnsavedChoice(choice)}
+      />
+
       {error ? <p className="notice error">{error}</p> : null}
     </section>
   );

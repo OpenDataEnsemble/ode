@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ForcePushMissingAttachmentsDialog } from '../components/ForcePushMissingAttachmentsDialog';
 import { tauriClient } from '../lib/tauriClient';
+import { tryAutoSynkAuth } from '../lib/autoSynkAuth';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
+import {
+  auditPendingPushMissingAttachments,
+  type MissingAttachmentIssue,
+} from '../lib/pushAttachmentAudit';
 import { productionPushConfirmDetail } from '../lib/syncUiCopy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
@@ -35,6 +41,7 @@ export function SyncPage() {
     error,
     health,
     loadHealth,
+    resetLocalWorkspaceData,
   } = useCustodianStore();
 
   const serverUrl = (activeProfile?.serverUrl ?? '').trim();
@@ -44,28 +51,22 @@ export function SyncPage() {
     profileLabel,
   );
 
-  const [opLog, setOpLog] = useState<string[]>([]);
-  const [forcePushMissingAttachments, setForcePushMissingAttachments] =
-    useState(false);
+  const [authBlocked, setAuthBlocked] = useState(false);
+  const [missingAttachmentIssues, setMissingAttachmentIssues] = useState<
+    MissingAttachmentIssue[] | null
+  >(null);
   const [indexStatus, setIndexStatus] = useState<{
     activeGeneration: number;
     lastRebuildAt?: string | null;
   } | null>(null);
   const [indexRebuildBusy, setIndexRebuildBusy] = useState(false);
-  const [indexRebuildMessage, setIndexRebuildMessage] = useState<string | null>(
-    null,
-  );
 
-  const appendLog = useCallback((line: string) => {
-    const stamp = new Date().toLocaleString();
-    setOpLog(prev => [`${stamp} — ${line}`, ...prev].slice(0, 40));
-  }, []);
-
-  const activeInFlight = syncActivity !== null;
-  const enginePaused =
-    !activeInFlight &&
-    syncPausedJob !== null &&
-    (syncPausedJob.status === 'paused' || syncPausedJob.status === 'failed');
+  useEffect(() => {
+    void (async () => {
+      const ok = await tryAutoSynkAuth();
+      setAuthBlocked(!ok && !selectAuthSessionForActiveProfile(useCustodianStore.getState()));
+    })();
+  }, [activeProfile?.id]);
 
   useEffect(() => {
     void loadHealth();
@@ -76,25 +77,27 @@ export function SyncPage() {
       .catch(() => setIndexStatus(null));
   }, [loadHealth, refreshPausedSyncJob]);
 
+  async function ensureAuth(): Promise<boolean> {
+    if (authSession?.token) {
+      return true;
+    }
+    const ok = await tryAutoSynkAuth();
+    if (!ok) {
+      setAuthBlocked(true);
+      return false;
+    }
+    setAuthBlocked(false);
+    return true;
+  }
+
   async function recreateObservationIndexes() {
     setIndexRebuildBusy(true);
-    setIndexRebuildMessage(null);
     try {
       const result = await tauriClient.rebuildObservationIndexes();
       setIndexStatus({
         activeGeneration: result.generation,
         lastRebuildAt: result.lastRebuildAt ?? null,
       });
-      setIndexRebuildMessage(
-        `Indexes rebuilt (generation ${result.generation}).`,
-      );
-      appendLog(
-        `Observation indexes rebuilt (generation ${result.generation}).`,
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setIndexRebuildMessage(`Rebuild failed: ${msg}`);
-      appendLog(`Index rebuild failed: ${msg}`);
     } finally {
       setIndexRebuildBusy(false);
     }
@@ -108,76 +111,6 @@ export function SyncPage() {
     return () => window.clearInterval(t);
   }, [syncActivity, loadHealth]);
 
-  async function pull() {
-    if (activeInFlight || enginePaused) return;
-    try {
-      await synkPull({ baseUrl: serverUrl });
-      appendLog(useCustodianStore.getState().syncMessage ?? 'Pull finished.');
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      appendLog(`Pull failed: ${msg}`);
-    }
-  }
-
-  async function push() {
-    if (activeInFlight || enginePaused) return;
-    const tier = activeProfile?.environment ?? 'production';
-    if (tier === 'production') {
-      await loadHealth();
-      const dirtyCount = useCustodianStore.getState().health?.dirtyCount ?? 0;
-      if (
-        !(await confirmDestructiveAction(
-          tier,
-          'push',
-          productionPushConfirmDetail(dirtyCount),
-        ))
-      ) {
-        return;
-      }
-    }
-    try {
-      await synkPush({
-        baseUrl: serverUrl,
-        forcePushMissingAttachments,
-        onMissingAttachmentReport: lines => {
-          for (const line of lines) {
-            appendLog(line);
-          }
-        },
-      });
-      appendLog(useCustodianStore.getState().syncMessage ?? 'Push finished.');
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      appendLog(`Push failed: ${msg}`);
-    }
-  }
-
-  async function resetServerAndPull() {
-    if (activeInFlight || enginePaused) return;
-    if (
-      !(await confirmDestructiveAction(
-        activeProfile?.environment ?? 'production',
-        'server_reset',
-        'Reset the server repository? This deletes all observations and attachment ' +
-          'manifest data on Synkronus (app bundles are kept), creates a new server data ' +
-          'generation, then pulls so this device archives its current workspace and ' +
-          'starts fresh. Requires an admin-capable account.',
-      ))
-    ) {
-      return;
-    }
-    try {
-      await synkResetServerRepository({ baseUrl: serverUrl });
-      appendLog(
-        useCustodianStore.getState().syncMessage ??
-          'Server reset + pull finished.',
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      appendLog(`Server reset + pull failed: ${msg}`);
-    }
-  }
-
   const reachabilityLabel =
     status === 'live'
       ? `Reachable${displayVersion ? ` (${displayVersion})` : ''}`
@@ -185,75 +118,131 @@ export function SyncPage() {
         ? 'Not configured'
         : 'Unreachable';
 
+  const activeInFlight = syncActivity !== null;
+  const enginePaused =
+    !activeInFlight &&
+    syncPausedJob !== null &&
+    (syncPausedJob.status === 'paused' || syncPausedJob.status === 'failed');
   const blockedStart = activeInFlight || enginePaused;
+
+  async function pull() {
+    if (!(await ensureAuth())) return;
+    if (activeInFlight || enginePaused) return;
+    try {
+      await synkPull({ baseUrl: serverUrl });
+    } catch {
+      /* store error */
+    }
+  }
+
+  async function runPush(forcePushMissingAttachments: boolean) {
+    try {
+      await synkPush({
+        baseUrl: serverUrl,
+        forcePushMissingAttachments,
+      });
+    } catch {
+      /* store error */
+    }
+  }
+
+  async function push() {
+    if (!(await ensureAuth())) return;
+    if (activeInFlight || enginePaused) return;
+    await loadHealth();
+    const dirtyCount = useCustodianStore.getState().health?.dirtyCount ?? 0;
+    if (
+      !(await confirmDestructiveAction(
+        'push',
+        productionPushConfirmDetail(dirtyCount),
+      ))
+    ) {
+      return;
+    }
+
+    const pending = await tauriClient.listDirtyObservations();
+    if (pending.length === 0) {
+      return;
+    }
+
+    const issues = await auditPendingPushMissingAttachments(pending);
+    if (issues.length > 0) {
+      setMissingAttachmentIssues(issues);
+      return;
+    }
+
+    await runPush(false);
+  }
+
+  async function pullAndPush() {
+    if (!(await ensureAuth())) return;
+    if (activeInFlight || enginePaused) return;
+    try {
+      await synkPull({ baseUrl: serverUrl });
+    } catch {
+      return;
+    }
+    await push();
+  }
+
+  async function resetServerAndPull() {
+    if (!(await ensureAuth())) return;
+    if (activeInFlight || enginePaused) return;
+    if (
+      !(await confirmDestructiveAction(
+        'server_reset',
+        'Reset the server repository? This deletes all observations and attachment manifest data on Synkronus, then pulls so this device archives its workspace and starts fresh.',
+      ))
+    ) {
+      return;
+    }
+    try {
+      await synkResetServerRepository({ baseUrl: serverUrl });
+    } catch {
+      /* store error */
+    }
+  }
+
+  async function resetLocalData() {
+    if (
+      !(await confirmDestructiveAction(
+        'local_reset',
+        'Remove all observations and attachment files from this device and reset sync offsets.',
+      ))
+    ) {
+      return;
+    }
+    await resetLocalWorkspaceData();
+  }
 
   return (
     <section className="page">
       <header className="page-header">
         <h2>Sync</h2>
-        <p>
-          Pull remote changes into your local repository and push pending
-          updates to Synkronus.{' '}
-          <Link to="/data/profiles">Authenticate in Profiles</Link> for the
-          active profile before syncing (your token is saved automatically).
-        </p>
       </header>
 
+      {authBlocked && !authSession ? (
+        <p className="notice warn">
+          Not authenticated.{' '}
+          <Link to="/data/profiles">Open Profiles</Link> to sign in.
+        </p>
+      ) : null}
+
       <div className="panel">
-        <h3>Operational state</h3>
         <dl className="kv-grid">
-          <dt>Server URL</dt>
-          <dd>
-            {serverUrl || (
-              <span className="muted">Set in Profiles for this profile.</span>
-            )}
-          </dd>
-          <dt>Reachability</dt>
+          <dt>Server</dt>
+          <dd>{serverUrl || '—'}</dd>
+          <dt>Status</dt>
           <dd>
             <span className={`server-status-inline ${status}`}>
               <span className={`server-status-dot ${status}`} aria-hidden />
               {reachabilityLabel}
             </span>
           </dd>
-          <dt>Authentication</dt>
-          <dd>
-            {authSession ? (
-              <span className="sync-auth-ok">
-                Signed in for {authSession.baseUrl}
-              </span>
-            ) : (
-              <span className="muted">
-                Not authenticated —{' '}
-                <Link to="/data/profiles">open Profiles</Link> to sign in.
-              </span>
-            )}
-          </dd>
           <dt>Pending push</dt>
-          <dd>
-            <strong>{health?.dirtyCount ?? 0}</strong> observation(s){' '}
-            <span className="muted">
-              Rows with <code>sync_status: dirty</code> (conflicts excluded —
-              see below). Skipped runs stay here until attachments or validation
-              issues are fixed.
-            </span>
-          </dd>
-          <dt>Outbound queue</dt>
-          <dd>
-            <strong>{health?.pendingAttachmentCount ?? 0}</strong> file(s){' '}
-          </dd>
+          <dd>{health?.dirtyCount ?? 0}</dd>
           <dt>Conflicts</dt>
-          <dd>
-            <strong>{health?.conflictCount ?? 0}</strong>
-            {health && health.conflictCount > 0 ? (
-              <>
-                {' '}
-                — review in <Link to="/data/observations">
-                  Observations
-                </Link>{' '}
-                (Conflicts filter)
-              </>
-            ) : null}
-          </dd>
+          <dd>{health?.conflictCount ?? 0}</dd>
           <dt>Last pull</dt>
           <dd>{formatDate(health?.lastPullAt)}</dd>
           <dt>Last push</dt>
@@ -263,11 +252,6 @@ export function SyncPage() {
 
       {activeInFlight ? (
         <div className="panel">
-          <h3>Sync controls</h3>
-          <p className="muted">
-            Progress appears in the banner above. Pause waits between steps;
-            resume continues this session. Cancel stops the job.
-          </p>
           <div className="button-row">
             <button
               type="button"
@@ -293,11 +277,8 @@ export function SyncPage() {
 
       {enginePaused && syncPausedJob ? (
         <div className="panel">
-          <h3>Paused sync job</h3>
           <p className="muted">
-            A sync job stopped (<strong>{syncPausedJob.op}</strong>,{' '}
-            {syncPausedJob.phase}).{' '}
-            {syncPausedJob.errorMessage ?? syncPausedJob.progressMessage ?? ''}
+            Paused: {syncPausedJob.op} — {syncPausedJob.phase}
           </p>
           <div className="button-row">
             <button
@@ -317,79 +298,60 @@ export function SyncPage() {
       ) : null}
 
       <div className="panel">
-        <h3>Observation indexes</h3>
-        <p className="muted">
-          Local-only indexes for fast custom app queries (from{' '}
-          <code>app.config.json</code> <code>observationIndexes</code>). Use
-          after changing index config or bulk imports.
-        </p>
-        <dl className="meta-dl">
-          <dt>Active generation</dt>
-          <dd>
-            <strong>{indexStatus?.activeGeneration ?? '—'}</strong>
-          </dd>
-          <dt>Last rebuild</dt>
-          <dd>{formatDate(indexStatus?.lastRebuildAt)}</dd>
-        </dl>
         <div className="button-row">
           <button
             type="button"
-            className="secondary"
-            disabled={indexRebuildBusy}
-            onClick={() => void recreateObservationIndexes()}>
-            {indexRebuildBusy ? 'Rebuilding indexes…' : 'Re-create index'}
+            className="btn-icon btn-success"
+            disabled={blockedStart}
+            onClick={() => void pullAndPush()}>
+            <span className="material-symbols-outlined" aria-hidden>
+              sync_alt
+            </span>
+            Sync (Pull + Push)
           </button>
-        </div>
-        {indexRebuildMessage ? (
-          <p className="muted">{indexRebuildMessage}</p>
-        ) : null}
-      </div>
-
-      <div className="panel">
-        <h3>Pull and push</h3>
-        <div className="field-row-checkbox">
-          <label className="sync-force-missing-label">
-            <input
-              type="checkbox"
-              width="inherit"
-              checked={forcePushMissingAttachments}
-              disabled={blockedStart}
-              onChange={e => setForcePushMissingAttachments(e.target.checked)}
-            />
-            Force push observations w/missing attachments
-          </label>
-        </div>
-        <p className="muted sync-force-missing-hint">
-          When checked, observations whose attachment files are not on disk are
-          still pushed; form type, observation id, and missing basenames are
-          logged below and appended to the sync status message. Server
-          validation may still reject rows.
-        </p>
-        <div className="button-row">
           <button
             type="button"
-            className="secondary"
+            className="btn-icon secondary"
             disabled={blockedStart}
             onClick={() => void pull()}>
+            <span className="material-symbols-outlined" aria-hidden>
+              download
+            </span>
             Pull
           </button>
           <button
             type="button"
+            className="btn-icon"
             disabled={blockedStart}
             onClick={() => void push()}>
+            <span className="material-symbols-outlined" aria-hidden>
+              upload
+            </span>
             Push
           </button>
         </div>
       </div>
 
-      <div className="panel">
-        <h3>Server repository reset</h3>
+      <div className="panel panel-danger-zone">
+        <h3>Danger zone</h3>
         <p className="muted">
-          Admin-only: wipe remote observation data and start a new repository
-          generation on the server, then pull so this profile archives its
-          current workspace and syncs against the empty server state.
+          Index generation {indexStatus?.activeGeneration ?? '—'} · last rebuild{' '}
+          {formatDate(indexStatus?.lastRebuildAt)}
         </p>
         <div className="button-row">
+          <button
+            type="button"
+            className="secondary danger"
+            onClick={() => void resetLocalData()}>
+            Reset local data
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={indexRebuildBusy}
+            onClick={() => void recreateObservationIndexes()}>
+            Re-create index
+          </button>
           <button
             type="button"
             className="secondary danger"
@@ -400,20 +362,20 @@ export function SyncPage() {
         </div>
       </div>
 
-      {opLog.length > 0 ? (
-        <div className="panel">
-          <h3>Recent operations</h3>
-          <ul className="op-log list-plain">
-            {opLog.map((line, i) => (
-              <li key={`${i}-${line.slice(0, 24)}`} className="op-log-line">
-                {line}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
       {error ? <p className="notice error">{error}</p> : null}
+
+      <ForcePushMissingAttachmentsDialog
+        open={missingAttachmentIssues !== null}
+        issues={missingAttachmentIssues ?? []}
+        onChoice={force => {
+          const issues = missingAttachmentIssues;
+          setMissingAttachmentIssues(null);
+          if (force === null || !issues?.length) {
+            return;
+          }
+          void runPush(force);
+        }}
+      />
     </section>
   );
 }

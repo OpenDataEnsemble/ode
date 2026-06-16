@@ -1,21 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import {
   Configuration,
   DefaultApi,
   type AppBundleManifest,
 } from '../generated/synkronus-client';
-import { DeveloperModePanel } from '../components/DeveloperModePanel';
-import {
-  appBundleUpdateAvailable,
-  serverVersionsNotDownloaded,
-} from '../lib/appBundleStatus';
+import { appBundleUpdateAvailable } from '../lib/appBundleStatus';
 import { readBundleCache, writeBundleCache } from '../lib/bundleCacheMeta';
 import { SYNKRONUS_CLIENT_VERSION } from '../lib/synkConstants';
 import { tauriClient } from '../lib/tauriClient';
-import {
-  WORKSPACE_BUNDLE_ACTIVE_DIR,
-  WORKSPACE_BUNDLE_ARCHIVES_DIR,
-} from '../lib/workspacePaths';
 import {
   selectActiveProfileState,
   selectAuthSessionForActiveProfile,
@@ -23,10 +16,8 @@ import {
 } from '../store/useCustodianStore';
 import type { AppBundleState } from '../types/domain';
 
-function shortHash(h: string, n = 12): string {
-  if (h.length <= n) {
-    return h;
-  }
+function shortHash(h: string, n = 10): string {
+  if (h.length <= n) return h;
   return `${h.slice(0, n)}…`;
 }
 
@@ -39,14 +30,12 @@ export function WorkbenchBundlesPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [zipLoading, setZipLoading] = useState(false);
-  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const baseUrl = (active?.serverUrl ?? '').trim().replace(/\/+$/, '');
 
   const loadLocalBundleState = useCallback(async () => {
     try {
-      const s = await tauriClient.getAppBundleState();
-      setLocalState(s);
+      setLocalState(await tauriClient.getAppBundleState());
     } catch {
       setLocalState(null);
     }
@@ -54,7 +43,7 @@ export function WorkbenchBundlesPage() {
 
   const refresh = useCallback(async () => {
     if (!auth?.token || !baseUrl) {
-      setError('Authenticate in Profiles with a server URL for this profile.');
+      setError('Authenticate in Profiles first.');
       setVersions([]);
       setManifest(null);
       return;
@@ -63,18 +52,11 @@ export function WorkbenchBundlesPage() {
     setError(null);
     try {
       const api = new DefaultApi(
-        new Configuration({
-          basePath: baseUrl,
-          accessToken: auth.token,
-        }),
+        new Configuration({ basePath: baseUrl, accessToken: auth.token }),
       );
       const [vRes, mRes] = await Promise.all([
-        api.getAppBundleVersions({
-          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-        }),
-        api.getAppBundleManifest({
-          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-        }),
+        api.getAppBundleVersions({ xOdeVersion: SYNKRONUS_CLIENT_VERSION }),
+        api.getAppBundleManifest({ xOdeVersion: SYNKRONUS_CLIENT_VERSION }),
       ]);
       const list = vRes.versions ?? [];
       setVersions(list);
@@ -117,34 +99,25 @@ export function WorkbenchBundlesPage() {
   }, [refresh]);
 
   const updateAvailable = appBundleUpdateAvailable(manifest, localState);
-  const notDownloaded = serverVersionsNotDownloaded(
-    versions,
-    localState?.archivedVersions ?? [],
-  );
 
   async function downloadAndApply() {
     if (!auth?.token || !baseUrl) {
       setError('Authenticate first.');
       return;
     }
-    const tier = active?.environment ?? 'production';
     if (
-      tier === 'production' &&
-      !window.confirm(
-        'Download the active app bundle from the production server, replace the extracted copy under this profile’s workspace, and add the ZIP to the local archive?',
-      )
+      !(await confirm(
+        'Download and apply the active app bundle from the server?',
+        { title: 'Download bundle', kind: 'warning' },
+      ))
     ) {
       return;
     }
     setZipLoading(true);
     setError(null);
-    setSaveNotice(null);
     try {
       const api = new DefaultApi(
-        new Configuration({
-          basePath: baseUrl,
-          accessToken: auth.token,
-        }),
+        new Configuration({ basePath: baseUrl, accessToken: auth.token }),
       );
       const m =
         manifest ??
@@ -162,9 +135,9 @@ export function WorkbenchBundlesPage() {
       });
       setLocalState(state);
       setManifest(m);
-      setSaveNotice(
-        `Applied version ${state.activeVersion} — extracted to ${WORKSPACE_BUNDLE_ACTIVE_DIR}, archive under ${WORKSPACE_BUNDLE_ARCHIVES_DIR}.`,
-      );
+      useCustodianStore.setState(s => ({
+        devMirrorGeneration: s.devMirrorGeneration + 1,
+      }));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -175,150 +148,87 @@ export function WorkbenchBundlesPage() {
   return (
     <div className="page workbench-page">
       <header className="page-header page-header-inline">
-        <div>
-          <h2>Bundles</h2>
-          <p className="page-lead">
-            Per profile, Synkronus app bundles are stored under that profile’s
-            workspace: versioned ZIPs in{' '}
-            <code>{WORKSPACE_BUNDLE_ARCHIVES_DIR}</code>, and the currently
-            active bundle extracted to{' '}
-            <code>{WORKSPACE_BUNDLE_ACTIVE_DIR}</code> (previous extraction is
-            removed before unpacking a new download). Switching profiles uses
-            each profile’s own workspace paths.
-          </p>
-        </div>
+        <h2>Bundles</h2>
         <div className="button-row">
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => void refresh()}>
+          <button type="button" disabled={loading} onClick={() => void refresh()}>
             {loading ? 'Refreshing…' : 'Refresh from server'}
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            disabled={zipLoading || !auth}
-            onClick={() => void downloadAndApply()}>
-            {zipLoading
-              ? 'Downloading…'
-              : updateAvailable
-                ? 'Download and apply latest bundle…'
-                : 'Re-download and apply bundle…'}
           </button>
         </div>
       </header>
 
       {error ? <p className="notice error">{error}</p> : null}
-      {saveNotice ? <p className="notice success">{saveNotice}</p> : null}
+      {updateAvailable ? (
+        <p className="notice warn">Server bundle differs from local workspace.</p>
+      ) : null}
 
-      <DeveloperModePanel variant="full" />
-
-      <section className="card">
-        <h3>Server (active bundle)</h3>
+      <div className="panel">
+        <h3>Server</h3>
         {manifest ? (
-          <div className="bundle-facts">
-            <p>
-              <strong>Version</strong> {manifest.version}
-            </p>
-            <p>
-              <strong>Hash</strong>{' '}
-              <span title={manifest.hash}>{shortHash(manifest.hash)}</span>
-            </p>
-            <p>
-              <strong>Generated</strong>{' '}
-              {manifest.generatedAt instanceof Date
-                ? manifest.generatedAt.toLocaleString()
-                : String(manifest.generatedAt)}
-            </p>
-          </div>
+          <table className="bundle-versions-table">
+            <tbody>
+              <tr>
+                <th>Active version</th>
+                <td>{manifest.version}</td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn-compact"
+                    disabled={zipLoading || !auth}
+                    onClick={() => void downloadAndApply()}>
+                    {zipLoading ? 'Downloading…' : 'Download & apply'}
+                  </button>
+                </td>
+              </tr>
+              <tr>
+                <th>Hash</th>
+                <td colSpan={2} title={manifest.hash}>
+                  {shortHash(manifest.hash)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         ) : (
-          <p className="muted">
-            {loading ? 'Loading manifest…' : 'No manifest yet.'}
-          </p>
+          <p className="muted">{loading ? 'Loading…' : 'No manifest.'}</p>
         )}
-        {updateAvailable ? (
-          <p className="notice warn">
-            Update available: server active bundle differs from the last bundle
-            applied in this workspace (or nothing applied yet).
-          </p>
-        ) : manifest && localState ? (
-          <p className="muted small-hint">
-            Local workspace matches this server manifest version and hash.
-          </p>
+        {versions.length > 0 ? (
+          <table className="bundle-versions-table" style={{ marginTop: '1rem' }}>
+            <thead>
+              <tr>
+                <th>Versions on server</th>
+                <th>Local archive</th>
+              </tr>
+            </thead>
+            <tbody>
+              {versions.map(v => (
+                <tr key={v}>
+                  <td>{v}</td>
+                  <td>
+                    {localState?.archivedVersions.includes(v) ? 'Yes' : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : null}
-      </section>
+      </div>
 
-      <section className="card">
-        <h3>This profile’s workspace</h3>
+      <div className="panel">
+        <h3>Local workspace</h3>
         {localState ? (
-          <div className="bundle-facts">
-            <p>
-              <strong>Applied version</strong> {localState.activeVersion}
-            </p>
-            <p>
-              <strong>Applied hash</strong>{' '}
-              <span title={localState.activeHash}>
-                {shortHash(localState.activeHash)}
-              </span>
-            </p>
-            <p>
-              <strong>Downloaded at</strong>{' '}
-              {new Date(localState.downloadedAt).toLocaleString()}
-            </p>
-            <p>
-              <strong>Archived versions (ZIPs kept)</strong>{' '}
-              {localState.archivedVersions.length === 0 ? (
-                <span className="muted">None yet</span>
-              ) : (
-                <span>{localState.archivedVersions.join(', ')}</span>
-              )}
-            </p>
-          </div>
+          <dl className="kv-grid">
+            <dt>Version</dt>
+            <dd>{localState.activeVersion}</dd>
+            <dt>Hash</dt>
+            <dd title={localState.activeHash}>
+              {shortHash(localState.activeHash)}
+            </dd>
+            <dt>Downloaded</dt>
+            <dd>{new Date(localState.downloadedAt).toLocaleString()}</dd>
+          </dl>
         ) : (
-          <p className="muted">
-            No bundle state on disk for this workspace yet.
-          </p>
+          <p className="muted">No bundle applied yet.</p>
         )}
-      </section>
-
-      <section className="card">
-        <h3>Versions on server</h3>
-        {versions.length === 0 && !loading ? (
-          <p className="muted">No versions loaded yet.</p>
-        ) : (
-          <ul className="list-plain">
-            {versions.map(v => {
-              const have = localState?.archivedVersions.includes(v) ?? false;
-              return (
-                <li key={v}>
-                  {v}
-                  {have ? (
-                    <span className="muted"> — archived locally</span>
-                  ) : (
-                    <span className="muted">
-                      {' '}
-                      — not downloaded in this workspace
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {notDownloaded.length > 0 ? (
-          <p className="muted small-hint">
-            Some server versions are not in the local archive yet. Only the
-            server&apos;s <strong>active</strong> bundle can be downloaded with
-            the current API; applying it adds that version to the archive and
-            extracts it.
-          </p>
-        ) : null}
-        {active?.id ? (
-          <p className="muted small-hint">
-            Version list metadata is cached in browser storage for this profile.
-          </p>
-        ) : null}
-      </section>
+      </div>
     </div>
   );
 }

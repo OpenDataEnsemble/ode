@@ -1,6 +1,5 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { confirm as tauriConfirm } from '@tauri-apps/plugin-dialog';
-import type { ProfileEnvironment } from '../types/domain';
 
 export type DestructiveActionKind =
   | 'push'
@@ -15,24 +14,12 @@ export type DestructiveActionKind =
  * awaited correctly (WebView `window.confirm` can resolve before the prompt is dismissed).
  */
 export async function confirmDestructiveAction(
-  environment: ProfileEnvironment | null | undefined,
   kind: DestructiveActionKind,
   detail: string,
 ): Promise<boolean> {
-  const tier = environment ?? 'production';
   const title = describeAction(kind);
-  const dialogTitle =
-    tier === 'production'
-      ? `${title} — PRODUCTION`
-      : tier === 'staging'
-        ? `${title} (staging)`
-        : title;
-  const messageBody =
-    tier === 'production'
-      ? `${detail}\n\nType OK only if this is intentional.`
-      : tier === 'staging'
-        ? `${detail}\n\nProceed?`
-        : detail;
+  const dialogTitle = `${title} — PRODUCTION`;
+  const messageBody = `${detail}\n\nType OK only if this is intentional.`;
 
   if (isTauri()) {
     return await tauriConfirm(messageBody, {

@@ -150,17 +150,17 @@ export function WorkbenchCustomAppPage() {
             </>
           )}
         </p>
-      ) : (
+      ) : !developerMode ? (
         <p className="muted">
           No local bundle state yet. Download an app bundle on the Bundles page.
         </p>
-      )}
+      ) : null}
 
       {devBusy ? (
         <p className="muted">Syncing local custom app into workspace…</p>
       ) : null}
 
-      <section className="card custom-app-embed-panel">
+      <section className="panel panel-embed-flush custom-app-embed-panel">
         {canLoadEmbed ? (
           <CustomAppEmbed
             ref={iframeRef}
