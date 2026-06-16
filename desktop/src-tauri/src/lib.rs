@@ -1268,7 +1268,9 @@ fn resolve_workspace_path(
     Ok(canonical_candidate)
 }
 
-fn serialize_observation_extras(extras: &Option<ObservationExtras>) -> Result<Option<String>, CustodianError> {
+fn serialize_observation_extras(
+    extras: &Option<ObservationExtras>,
+) -> Result<Option<String>, CustodianError> {
     match extras {
         Some(e) => Ok(Some(serde_json::to_string(e)?)),
         None => Ok(None),
