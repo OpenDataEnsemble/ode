@@ -1,6 +1,7 @@
 package org.opendataensemble.formulus
 
 import android.os.Bundle
+import androidx.core.view.WindowCompat
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
@@ -17,6 +18,8 @@ class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     supportFragmentManager.fragmentFactory = RNScreensFragmentFactory()
     super.onCreate(savedInstanceState)
+    // Restore classic window fitting so adjustResize works on Android 15+ (targetSdk 35+).
+    WindowCompat.setDecorFitsSystemWindows(window, true)
   }
 
   /**

@@ -674,7 +674,7 @@ const SwipeLayoutRenderer = ({
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  minHeight: '100dvh',
+                  minHeight: '100%',
                   height: '100%',
                   zIndex: 99,
                   display: 'flex',
