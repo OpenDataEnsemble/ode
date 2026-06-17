@@ -441,15 +441,8 @@ const SwipeLayoutRenderer = ({
     const errorCount = core?.errors?.length ?? 0;
     if (isOnFinalizePage) {
       return {
-        onTrigger: () => {
-          if (errorCount > 0 || !formInitData) return;
-          window.dispatchEvent(
-            new CustomEvent('finalizeForm', {
-              detail: { formInitData, data },
-            }),
-          );
-        },
-        disabled: errorCount > 0 || !formInitData,
+        onTrigger: trySubmitForm,
+        disabled: errorCount > 0 || !formInitData || isNavigating,
       };
     }
     if (skipFinalize && isLastContentPage) {

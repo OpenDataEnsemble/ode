@@ -62,7 +62,15 @@ function parseLocationDisplayData(data: unknown): LocationDisplayData | null {
 }
 
 const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
-  const { data, handleChange, path, errors, schema, enabled } = props;
+  const {
+    data,
+    handleChange,
+    path,
+    errors,
+    schema,
+    enabled,
+    visible = true,
+  } = props;
 
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -146,6 +154,8 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
 
   const hasValidationErrors = errors && errors.length > 0;
   const isDisabled = !enabled || isCapturing;
+
+  if (visible === false) return null;
 
   return (
     <QuestionShell

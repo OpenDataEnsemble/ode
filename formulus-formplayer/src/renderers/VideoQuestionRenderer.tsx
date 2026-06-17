@@ -108,6 +108,7 @@ const VideoQuestionRenderer: React.FC<ControlProps> = ({
   schema,
   uischema,
   enabled = true,
+  visible = true,
 }) => {
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -329,6 +330,8 @@ const VideoQuestionRenderer: React.FC<ControlProps> = ({
     !!displayBasename &&
     !!currentVideoData &&
     typeof meta?.duration === 'number';
+
+  if (visible === false) return null;
 
   return (
     <QuestionShell
