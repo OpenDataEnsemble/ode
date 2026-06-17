@@ -229,7 +229,7 @@
       });
     },
 
-    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown>, options: { subObservationMode?: boolean; } => Promise<FormCompletionResult>
+    // openFormplayer: formType, params, savedData, options?: { subObservationMode?, skipFinalize?, skipDraftSelection? }
     openFormplayer: function (formType, params, savedData, options) {
       return new Promise((resolve, reject) => {
         const messageId =

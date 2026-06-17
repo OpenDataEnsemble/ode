@@ -26,6 +26,8 @@ export function buildFormPreviewInit(args: {
   observationId?: string | null;
   /** Nested sub-observation session opened via `openFormplayer`. */
   subObservationMode?: boolean;
+  skipFinalize?: boolean;
+  skipDraftSelection?: boolean;
   extensions?: FormInitData['extensions'];
   customQuestionTypes?: FormInitData['customQuestionTypes'];
 }): FormInitData {
@@ -41,6 +43,12 @@ export function buildFormPreviewInit(args: {
   };
   if (args.subObservationMode) {
     init.subObservationMode = true;
+  }
+  if (args.skipFinalize) {
+    init.skipFinalize = true;
+  }
+  if (args.skipDraftSelection) {
+    init.skipDraftSelection = true;
   }
   return init;
 }

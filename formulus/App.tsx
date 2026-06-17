@@ -72,6 +72,7 @@ function AppInner(): React.JSX.Element {
     operationId: string | null;
     subObservationMode?: boolean;
     skipFinalize?: boolean;
+    skipDraftSelection?: boolean;
   };
 
   const [formplayerStack, setFormplayerStack] = useState<
@@ -104,6 +105,7 @@ function AppInner(): React.JSX.Element {
             entry.operationId,
             entry.subObservationMode,
             entry.skipFinalize,
+            entry.skipDraftSelection,
           );
         }, 200);
       };
@@ -162,11 +164,13 @@ function AppInner(): React.JSX.Element {
         operationId,
         subObservationMode: subObservationModeField,
         skipFinalize: skipFinalizeField,
+        skipDraftSelection: skipDraftSelectionField,
       } = config;
       const legacy = config as FormInitData & { returnOnly?: boolean };
       const subObservationMode =
         Boolean(subObservationModeField) || Boolean(legacy.returnOnly);
       const skipFinalize = Boolean(skipFinalizeField);
+      const skipDraftSelection = Boolean(skipDraftSelectionField);
 
       try {
         const formService = await FormService.getInstance();
@@ -201,6 +205,7 @@ function AppInner(): React.JSX.Element {
           operationId: operationId || null,
           subObservationMode,
           skipFinalize,
+          skipDraftSelection,
         };
 
         setFormplayerStack(current => [...current, entry]);

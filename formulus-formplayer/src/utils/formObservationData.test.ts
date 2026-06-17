@@ -4,6 +4,7 @@ import {
   dataMatchingSchemaRoot,
   initialFormDataFromParams,
   resolveDefaultToken,
+  shouldOfferDraftSelector,
 } from './formObservationData';
 
 /**
@@ -195,5 +196,36 @@ describe('observation pipeline (regression: host params vs observation JSON)', (
     expect(initialObservationDataForNewForm(params, formSchema)).toEqual({
       fieldA: 2,
     });
+  });
+});
+
+describe('shouldOfferDraftSelector', () => {
+  it('returns false for sub-observation sessions', () => {
+    expect(
+      shouldOfferDraftSelector({ subObservationMode: true }, {}),
+    ).toBe(false);
+  });
+
+  it('returns false when skipDraftSelection is set', () => {
+    expect(
+      shouldOfferDraftSelector({ skipDraftSelection: true }, {}),
+    ).toBe(false);
+  });
+
+  it('returns false when savedData is non-empty', () => {
+    expect(
+      shouldOfferDraftSelector({}, { name: 'x' }),
+    ).toBe(false);
+  });
+
+  it('returns true for new root form without skip flag', () => {
+    expect(shouldOfferDraftSelector({}, {})).toBe(true);
+    expect(shouldOfferDraftSelector({}, null)).toBe(true);
+  });
+
+  it('returns false for legacy returnOnly sub-observation flag', () => {
+    expect(
+      shouldOfferDraftSelector({ returnOnly: true }, {}),
+    ).toBe(false);
   });
 });

@@ -51,7 +51,11 @@ export interface ValidationError {
  * Parameters passed to a custom validator function.
  */
 export interface CustomValidatorParams {
-  /** Full form data object (all field values) */
+  /**
+   * Full form data object (all field values). Validators may mutate this object
+   * in place (e.g. auto-numbering repeat rows); Formplayer detects mutations and
+   * refreshes UI state — returning patches is not required.
+   */
   data: Record<string, unknown>;
   /** Current field value being validated */
   value: unknown;

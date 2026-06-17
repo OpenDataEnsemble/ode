@@ -127,6 +127,7 @@ const startFormplayerOperation = (
   observationId: string | null = null,
   subObservationMode: boolean = false,
   skipFinalize: boolean = false,
+  skipDraftSelection: boolean = false,
 ): Promise<FormCompletionResult> => {
   const operationId = `${formType}_${Date.now()}_${Math.random()
     .toString(36)
@@ -148,6 +149,7 @@ const startFormplayerOperation = (
       operationId,
       subObservationMode,
       skipFinalize,
+      skipDraftSelection,
     });
 
     setTimeout(
@@ -1327,6 +1329,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         options?: {
           subObservationMode?: boolean;
           skipFinalize?: boolean;
+          skipDraftSelection?: boolean;
           returnOnly?: boolean;
         };
         /** @deprecated Legacy key; prefer subObservationMode */
@@ -1342,6 +1345,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const skipFinalize = Boolean(
         data.options?.skipFinalize || data.skipFinalize,
       );
+      const skipDraftSelection = Boolean(
+        data.options?.skipDraftSelection || data.skipDraftSelection,
+      );
       return startFormplayerOperation(
         data.formType,
         data.params,
@@ -1349,6 +1355,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         data.observationId ?? null,
         subObservationMode,
         skipFinalize,
+        skipDraftSelection,
       );
     },
     onFormplayerInitialized: (_data: {

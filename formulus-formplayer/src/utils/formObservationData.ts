@@ -17,6 +17,33 @@ export const FORMPARAMS_NON_DATA_KEYS = new Set([
 
 export type FormObservationData = Record<string, unknown>;
 
+/** Minimal init shape for draft-selector gating (avoids circular imports). */
+export interface DraftSelectorInitShape {
+  subObservationMode?: boolean;
+  skipDraftSelection?: boolean;
+  returnOnly?: boolean;
+}
+
+/**
+ * Whether Formplayer should offer the draft picker for this session.
+ * Caller still checks that drafts exist before showing DraftSelector.
+ */
+export function shouldOfferDraftSelector(
+  initData: DraftSelectorInitShape,
+  savedData: Record<string, unknown> | null | undefined,
+): boolean {
+  if (initData.subObservationMode || initData.returnOnly) {
+    return false;
+  }
+  if (initData.skipDraftSelection) {
+    return false;
+  }
+  if (savedData && Object.keys(savedData).length > 0) {
+    return false;
+  }
+  return true;
+}
+
 export function initialFormDataFromParams(
   params: unknown,
 ): FormObservationData {

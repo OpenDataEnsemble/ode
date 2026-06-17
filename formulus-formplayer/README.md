@@ -80,6 +80,29 @@ The React Native host passes `FormInitData` into the WebView (including `params`
 - **Legacy prefills**: If `defaultData` is missing, the formplayer copies other top-level `params` keys except the reserved keys above.
 - **Sanitization**: When the schema defines non-empty root `properties`, loaded and submitted data are filtered to those keys plus `locale` (so older polluted rows are cleaned on edit/save). Schemas with missing or empty root `properties` pass data through unchanged.
 
+## Custom validators that mutate data
+
+Custom validators (`ui.json` → `options.customValidators`) may **mutate** `data` in place (e.g. auto-numbering embedded sub-observation rows). After each change and before finalize, Formplayer re-dispatches form state when mutations are detected so sub-observation tables and computed displays update immediately.
+
+## Sub-observation `parentKey`
+
+`format: "sub-observation"` requires **`linkedForm`** only. **`parentKey`** is optional: when set, the parent value is injected into the child session on add; when omitted, the embedded repeat model relies on data already nested in the parent JSON.
+
+## `skipDraftSelection`
+
+Root forms with saved drafts normally show **DraftSelector** on open. Custom apps that orchestrate the session can bypass it:
+
+```javascript
+await formulus.openFormplayer(
+  'inclusion_decision',
+  { defaultData: payload },
+  {},
+  { skipDraftSelection: true, skipFinalize: true },
+);
+```
+
+Same flag is available on `FormInitData.skipDraftSelection` from the native host. Sub-observation sessions never offer the draft picker.
+
 ## Initialization
 
 The formulus formplayer object will be initialized by the formulus app. The formulus app will inject the initialized formulus object into the custom app, hence **the custom app does not need to do anything to initialize the formulus object**.

@@ -60,6 +60,8 @@ export interface FormInitData {
   subObservationMode?: boolean;
   /** Skip the Finalize page and submit from the last content page (sub-observation fast path). */
   skipFinalize?: boolean;
+  /** Skip DraftSelector when the host orchestrates the session (e.g. programmatic open). */
+  skipDraftSelection?: boolean;
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
     custom_types: Record<string, { source: string }>;
@@ -387,9 +389,10 @@ export interface FormulusInterface {
    * @param {Object} params - Additional parameters for form initialization.
    *   Reserved keys are not treated as observation data:
    *   `defaultData` (prefill), `theme`/`darkMode`/`themeColors` (theming), and
-   *   `context` — a read-only **session context** object (device role, selected
-   *   cluster, ...) that Formplayer never persists and exposes to extensions as
-   *   `window.formulusSessionContext`.
+   *   `context` — a read-only **session context** object (device role, selected cluster,
+   *   ...) that Formplayer never persists and exposes to extensions as
+   *   `window.formulusSessionContext`. Draft bypass is not a param key — use
+   *   `options.skipDraftSelection` on {@link openFormplayer} (same as `skipFinalize`).
    * @param {Object} savedData - Previously saved form data (for editing)
    * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
@@ -397,7 +400,11 @@ export interface FormulusInterface {
     formType: string,
     params: Record<string, unknown>,
     savedData: Record<string, unknown>,
-    options?: { subObservationMode?: boolean; skipFinalize?: boolean },
+    options?: {
+      subObservationMode?: boolean;
+      skipFinalize?: boolean;
+      skipDraftSelection?: boolean;
+    },
   ): Promise<FormCompletionResult>;
 
   /**
