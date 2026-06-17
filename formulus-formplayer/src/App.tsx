@@ -1174,7 +1174,7 @@ function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100dvh',
+          height: '100%',
         }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
@@ -1198,7 +1198,7 @@ function App() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            height: '100dvh',
+            height: '100%',
             p: 3,
             backgroundColor: 'background.paper',
           }}>
@@ -1230,7 +1230,7 @@ function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100dvh',
+          height: '100%',
         }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
@@ -1256,7 +1256,7 @@ function App() {
           className="App"
           style={{
             display: 'flex',
-            height: '100dvh', // Use dynamic viewport height for mobile keyboard support
+            height: '100%', // Fill WebView; host resizes for keyboard (adjustResize)
             width: '100%',
             backgroundColor: currentTheme.palette.background.default, // Ensure dark background
             color: currentTheme.palette.text.primary,

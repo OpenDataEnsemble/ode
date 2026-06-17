@@ -212,11 +212,11 @@ Use `openFormplayer(formType, params, savedData, options?)`. Reserved `params` k
 
 Common **options** (4th argument):
 
-| Option | Purpose |
-|--------|---------|
+| Option               | Purpose                                                                      |
+| -------------------- | ---------------------------------------------------------------------------- |
 | `subObservationMode` | Embedded child form; result JSON returns to parent without top-level persist |
-| `skipFinalize` | Auto-submit from last page (typical with sub-observations) |
-| `skipDraftSelection` | Skip draft picker when the app orchestrates a new root session |
+| `skipFinalize`       | Auto-submit from last page (typical with sub-observations)                   |
+| `skipDraftSelection` | Skip draft picker when the app orchestrates a new root session               |
 
 ```javascript
 await formulus.openFormplayer(

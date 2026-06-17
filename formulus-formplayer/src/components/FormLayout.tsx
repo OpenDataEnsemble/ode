@@ -75,8 +75,8 @@ interface FormLayoutProps {
  * - Keeps prev/next in normal flex flow at the bottom of the WebView so when the
  *   host app resizes the WebView for the keyboard (e.g. Android adjustResize), the
  *   bar stays at the bottom of the visible area without visualViewport math.
- * - Ensures all form fields are scrollable and accessible
- * - Uses dynamic viewport height (100dvh) for proper mobile support
+ * - Web content fills the WebView with height: 100% (not dvh) so keyboard inset
+ *   is not double-counted when the host also shrinks the WebView.
  *
  * Layout Structure:
  * - Header area (sticky at top, optional)
@@ -236,7 +236,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100dvh',
+        height: '100%',
         width: '100%',
         overflow: 'hidden',
         position: 'relative',
