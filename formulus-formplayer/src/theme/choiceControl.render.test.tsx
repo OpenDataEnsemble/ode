@@ -68,6 +68,24 @@ describe('ChoiceControl (single-select)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'r' }));
     expect(handleChange).toHaveBeenCalledWith('color', undefined);
   });
+
+  it('returns null when visible is false (SHOW/HIDE rules)', () => {
+    renderWithTheme(
+      <ChoiceControl
+        {...({
+          data: undefined,
+          path: 'color',
+          handleChange: vi.fn(),
+          schema: enumSchema,
+          uischema: { type: 'Control', options: { display: 'buttons' } },
+          enabled: true,
+          visible: false,
+        } as unknown as ControlProps)}
+      />,
+    );
+    expect(screen.queryByText('r')).toBeNull();
+    expect(screen.queryByText('g')).toBeNull();
+  });
 });
 
 describe('MultiChoiceControl (multi-select)', () => {
@@ -121,5 +139,22 @@ describe('MultiChoiceControl (multi-select)', () => {
     renderWithTheme(<MultiChoiceControl {...(props as any)} />);
     fireEvent.click(screen.getByText('X'));
     expect(removeItem).toHaveBeenCalledWith('tags', 'x');
+  });
+
+  it('returns null when visible is false (SHOW/HIDE rules)', () => {
+    const props = {
+      data: [] as string[],
+      options,
+      addItem: vi.fn(),
+      removeItem: vi.fn(),
+      path: 'tags',
+      schema: arraySchema,
+      uischema: { type: 'Control', options: { display: 'checkboxes' } },
+      enabled: true,
+      visible: false,
+    };
+    renderWithTheme(<MultiChoiceControl {...(props as any)} />);
+    expect(screen.queryByText('X')).toBeNull();
+    expect(screen.queryByText('Y')).toBeNull();
   });
 });

@@ -37,6 +37,7 @@ import {
   ToggleButtonGroup,
 } from '@mui/material';
 import QuestionShell from '../components/QuestionShell';
+import { isControlHidden } from '../jsonforms/visibleGuard';
 import { tokens } from './tokens-adapter';
 
 const parsePx = (value: string): number =>
@@ -56,7 +57,10 @@ const CardEnumControl = (props: AnyControlProps) => {
     uischema,
     errors,
     enabled = true,
+    visible,
   } = props;
+
+  if (isControlHidden(visible)) return null;
   const label = (uischema as any)?.label || schema.title;
   const description = schema.description;
   const required = Boolean(
@@ -194,7 +198,10 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
     errors,
     enabled = true,
     options = [],
+    visible,
   } = props;
+
+  if (isControlHidden(visible)) return null;
   const label = (uischema as any)?.label || schema.title;
   const description = schema.description;
   const required = Boolean(
@@ -415,7 +422,10 @@ export const ChoiceControl = (props: AnyControlProps) => {
     uischema,
     errors,
     enabled = true,
+    visible,
   } = props;
+
+  if (isControlHidden(visible)) return null;
   const label = (uischema as any)?.label || schema.title;
   const description = schema.description;
   const required = Boolean(
@@ -503,7 +513,10 @@ export const MultiChoiceControl = (
     uischema,
     errors,
     enabled = true,
+    visible,
   } = props;
+
+  if (isControlHidden(visible)) return null;
   const label = (uischema as any)?.label || schema.title;
   const description = schema.description;
   const required = Boolean((uischema as any)?.options?.required);

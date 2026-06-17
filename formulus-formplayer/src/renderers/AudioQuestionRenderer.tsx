@@ -106,6 +106,7 @@ const AudioQuestionRenderer: React.FC<ControlProps> = ({
   uischema,
   errors,
   enabled = true,
+  visible = true,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -374,6 +375,8 @@ const AudioQuestionRenderer: React.FC<ControlProps> = ({
     !!displayBasename &&
     !!currentAudioData &&
     typeof meta?.duration === 'number';
+
+  if (visible === false) return null;
 
   return (
     <QuestionShell

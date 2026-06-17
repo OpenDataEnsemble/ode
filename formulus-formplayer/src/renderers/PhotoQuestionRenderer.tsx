@@ -75,6 +75,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   schema,
   uischema,
   enabled = true,
+  visible = true,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -238,6 +239,8 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
   const displayBasename = attachmentBasenameFromObservation(
     currentPhotoData as Record<string, unknown> | null,
   );
+
+  if (visible === false) return null;
 
   return (
     <QuestionShell
