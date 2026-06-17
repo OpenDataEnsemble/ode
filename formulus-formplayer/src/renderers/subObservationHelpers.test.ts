@@ -8,6 +8,10 @@ import {
   coerceSubObservationRows,
   readSubObservationField,
   optionalRecordMap,
+  resolveItemLabel,
+  resolveAddButtonLabel,
+  resolveEmptyLabel,
+  resolveDeleteFallbackLabel,
 } from './subObservationHelpers';
 
 describe('subObservationHelpers', () => {
@@ -87,5 +91,48 @@ describe('subObservationHelpers', () => {
     expect(optionalRecordMap({ a: 1 })).toEqual({ a: 1 });
     expect(optionalRecordMap(null)).toBeUndefined();
     expect(optionalRecordMap([1, 2])).toBeUndefined();
+  });
+
+  it('resolveItemLabel trims and rejects empty strings', () => {
+    expect(resolveItemLabel({ itemLabel: '  room  ' })).toBe('room');
+    expect(resolveItemLabel({ itemLabel: '' })).toBeNull();
+    expect(resolveItemLabel({ itemLabel: '   ' })).toBeNull();
+    expect(resolveItemLabel(undefined)).toBeNull();
+  });
+
+  it('resolveAddButtonLabel uses defaults, itemLabel, and ui override', () => {
+    expect(resolveAddButtonLabel({ itemLabel: null, busy: false })).toBe(
+      '+ Add observation',
+    );
+    expect(resolveAddButtonLabel({ itemLabel: null, busy: true })).toBe(
+      'Adding…',
+    );
+    expect(resolveAddButtonLabel({ itemLabel: 'quarto', busy: false })).toBe(
+      '+ Add quarto',
+    );
+    expect(resolveAddButtonLabel({ itemLabel: 'quarto', busy: true })).toBe(
+      'Adding quarto…',
+    );
+    expect(
+      resolveAddButtonLabel({
+        itemLabel: 'quarto',
+        addButtonLabel: '+ Adicionar quarto',
+        busy: false,
+      }),
+    ).toBe('+ Adicionar quarto');
+    expect(
+      resolveAddButtonLabel({
+        itemLabel: 'quarto',
+        addButtonLabel: '+ Adicionar quarto',
+        busy: true,
+      }),
+    ).toBe('Adding…');
+  });
+
+  it('resolveEmptyLabel and resolveDeleteFallbackLabel respect itemLabel', () => {
+    expect(resolveEmptyLabel(null)).toBe('No observations');
+    expect(resolveEmptyLabel('room')).toBe('No room');
+    expect(resolveDeleteFallbackLabel(null)).toBe('this sub-observation');
+    expect(resolveDeleteFallbackLabel('room')).toBe('this room');
   });
 });

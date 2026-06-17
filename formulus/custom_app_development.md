@@ -215,8 +215,10 @@ Common **options** (4th argument):
 | Option               | Purpose                                                                      |
 | -------------------- | ---------------------------------------------------------------------------- |
 | `subObservationMode` | Embedded child form; result JSON returns to parent without top-level persist |
-| `skipFinalize`       | Auto-submit from last page (typical with sub-observations)                   |
+| `skipFinalize`       | Omit Finalize page; **Done** validates child schema then returns `formData` to parent |
 | `skipDraftSelection` | Skip draft picker when the app orchestrates a new root session               |
+
+**Nested sub-observations:** Each child session has its own schema and validators. `skipFinalize` does not defer validation to the root form. For multi-level embedded trees, put validators on each form where rows are added, or pass parent snapshots via flat `subObservationInitValues` — see [Custom Extensions](https://opendataensemble.org/docs/guides/custom-extensions#nested-sessions-and-custom-validators) on opendataensemble.org.
 
 ```javascript
 await formulus.openFormplayer(
