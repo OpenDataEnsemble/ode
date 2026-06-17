@@ -1,0 +1,106 @@
+# E2E attachment-sync harness (skeleton).
+#
+# Intentionally runs on `workflow_dispatch` ONLY. The jobs below stand
+# up the Compose rig and the language runtimes the eventual tests will
+# need, then exit 0. They pin the shape of the CI integration so that
+# wiring in real tests is a drop-in change.
+#
+# See e2e/README.md for the three-layer test design.
+
+name: E2E — attachments
+
+on:
+  workflow_dispatch:
+  # When the layer 1 contract tests land, enable this:
+  # pull_request:
+  #   paths:
+  #     - 'synkronus/**'
+  #     - 'synkronus-cli/**'
+  #     - 'e2e/**'
+  #     - '.github/workflows/e2e-attachments.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-attachments-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Layer 1 — Synkronus contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: synkronus/go.mod
+          cache: true
+
+      - name: Start Compose (postgres + synkronus)
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f e2e/docker-compose.e2e.yml \
+            --profile e2e up --build --wait
+
+      - name: Smoke — /health responds
+        env:
+          SYNKRONUS_HOST_PORT: 18080
+        run: |
+          curl --fail --retry 10 --retry-delay 2 --retry-connrefused \
+            "http://127.0.0.1:${SYNKRONUS_HOST_PORT}/health"
+
+      # TODO: replace with `go test ./e2e/contracts/... -tags=e2e` once
+      # the contract package lands.
+      - name: Contract tests (placeholder)
+        run: echo "No contract tests wired yet — see e2e/README.md"
+
+      - name: Tear down Compose
+        if: always()
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f e2e/docker-compose.e2e.yml \
+            --profile e2e down -v
+
+  headless:
+    name: Layer 2 — Formulus headless
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: contract
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Start Compose (postgres + synkronus)
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f e2e/docker-compose.e2e.yml \
+            --profile e2e up --build --wait
+
+      # TODO: replace with `pnpm --dir e2e/headless test` once the
+      # headless harness lands.
+      - name: Headless tests (placeholder)
+        run: echo "No headless tests wired yet — see e2e/README.md"
+
+      - name: Tear down Compose
+        if: always()
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f e2e/docker-compose.e2e.yml \
+            --profile e2e down -v

@@ -11,6 +11,10 @@
 
 ### ✅ Core Sync Design
 - Pull → Push model: client pulls recent changes, then pushes local changes
+- **Repository generation (epoch)** is separate from the **change stream cursor** (`since.version` / `change_id`):
+  - `repository_generation` is a monotonic integer on the server; it increments only when an administrator performs a **hard repository reset** (wiping observation/attachment sync state).
+  - Clients must send `x-repository-generation` on sync pull, push, attachment manifest, and attachment upload; responses include the current epoch in JSON (and may repeat it in the header).
+  - If the client’s epoch lags or diverges, the server responds with **409 Conflict** and stable error `code: repository_reset_required`. Clients must align (typically by pulling fresh state after wiping local observation/attachment data that no longer matches the server).
 - Each record contains:
   - `id`
   - `schemaType`
@@ -144,11 +148,10 @@ These fields are stored with the observation and returned on pull; push payloads
 - Minor version increments add new functionality in a backward-compatible manner
 - Patch version increments represent backward-compatible bug fixes
 
-#### Version Negotiation
-- Clients specify desired API version through the `x-api-version` header
-- Example: `x-api-version: 1.2.0`
-- If omitted, the server defaults to the latest stable version
-- Server respects highest compatible version less than or equal to requested version
+#### Version Compatibility
+- Clients MUST send `x-ode-version` on API requests
+- Example: `x-ode-version: 1.0.0`
+- Server validates major-version compatibility and returns `426 Upgrade Required` if missing, invalid, or incompatible
 
 #### Version Lifecycle
 - **Supported**: Currently maintained and recommended for use
@@ -157,8 +160,7 @@ These fields are stored with the observation and returned on pull; push payloads
 
 #### Version Discovery
 - GET `/api/versions` endpoint lists all available API versions and their status
-- Responses include `x-api-version-used` header indicating the version used to process the request
-- 406 Not Acceptable returned if requested version cannot be satisfied
+- Version-mismatch responses include `x-synkronus-version` to help clients detect compatible versions
 
 #### Backward Compatibility Guarantees
 - Within the same major version:

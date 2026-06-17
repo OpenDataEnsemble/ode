@@ -222,6 +222,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
 
   return (
     <QuestionShell
+      block
       title={schema.title}
       description={schema.description}
       required={Boolean(

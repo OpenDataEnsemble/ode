@@ -8,6 +8,10 @@ import { StatusBar, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
+import {
+  runAttachmentLayoutMigrationV2,
+  sweepStaleDraftAttachments,
+} from './src/services/attachmentStorage';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { AppThemeProvider, useAppTheme } from './src/contexts/AppThemeContext';
 import { ConfirmModalProvider } from './src/contexts/ConfirmModalContext';
@@ -19,6 +23,7 @@ import QRScannerModal from './src/components/QRScannerModal';
 import SignatureCaptureModal from './src/components/SignatureCaptureModal';
 import MainAppNavigator from './src/navigation/MainAppNavigator';
 import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
+import { FormSpec } from './src/services';
 
 /**
  * Inner component that consumes the AppTheme context to build a dynamic
@@ -58,16 +63,75 @@ function AppInner(): React.JSX.Element {
     onResult: (result: unknown) => void;
   } | null>(null);
 
-  const [formplayerVisible, setFormplayerVisible] = useState(false);
-  const formplayerModalRef = React.useRef<FormplayerModalHandle>(null);
-  const formplayerVisibleRef = React.useRef(false);
+  type FormplayerStackEntry = {
+    id: string;
+    formSpec: FormSpec;
+    params: Record<string, unknown> | null;
+    observationId: string | null;
+    savedData: Record<string, unknown> | null;
+    operationId: string | null;
+    subObservationMode?: boolean;
+    skipFinalize?: boolean;
+    skipDraftSelection?: boolean;
+  };
 
-  useEffect(() => {
-    formplayerVisibleRef.current = formplayerVisible;
-  }, [formplayerVisible]);
+  const [formplayerStack, setFormplayerStack] = useState<
+    FormplayerStackEntry[]
+  >([]);
+  const formplayerModalRefs = React.useRef(
+    new Map<string, FormplayerModalHandle | null>(),
+  );
+
+  const initializeStackEntry = React.useCallback(
+    (entry: FormplayerStackEntry) => {
+      let attempt = 0;
+
+      const tryInitialize = () => {
+        const modalHandle = formplayerModalRefs.current.get(entry.id);
+        if (!modalHandle) {
+          if (attempt < 20) {
+            attempt += 1;
+            setTimeout(tryInitialize, 100);
+          }
+          return;
+        }
+
+        setTimeout(() => {
+          modalHandle.initializeForm(
+            entry.formSpec,
+            entry.params,
+            entry.observationId,
+            entry.savedData,
+            entry.operationId,
+            entry.subObservationMode,
+            entry.skipFinalize,
+            entry.skipDraftSelection,
+          );
+        }, 200);
+      };
+
+      tryInitialize();
+    },
+    [],
+  );
+
+  const closeFormplayerEntry = React.useCallback((entryId: string) => {
+    formplayerModalRefs.current.delete(entryId);
+    setFormplayerStack(current =>
+      current.filter(entry => entry.id !== entryId),
+    );
+  }, []);
 
   useEffect(() => {
     FormService.getInstance();
+
+    // Run the v2 attachment folder-layout migration first (idempotent; guarded by
+    // AsyncStorage flag), then the best-effort stale-draft sweep. Both failure
+    // paths are logged inside the helpers; neither is allowed to throw on boot.
+    void (async () => {
+      await runAttachmentLayoutMigrationV2();
+      await sweepStaleDraftAttachments();
+    })().catch(() => undefined);
 
     const handleOpenQRScanner = (data: {
       fieldId: string;
@@ -92,19 +156,21 @@ function AppInner(): React.JSX.Element {
     );
 
     const handleOpenFormplayer = async (config: FormInitData) => {
-      // If formplayer is already visible, close it first to allow opening a new form
-      if (formplayerVisibleRef.current) {
-        console.log(
-          '[App] Formplayer already visible, closing first before opening new form',
-        );
-        formplayerVisibleRef.current = false;
-        setFormplayerVisible(false);
-        // Wait for modal to close before proceeding
-        await new Promise<void>(resolve => setTimeout(() => resolve(), 300));
-      }
-
-      const { formType, observationId, params, savedData, operationId } =
-        config;
+      const {
+        formType,
+        observationId,
+        params,
+        savedData,
+        operationId,
+        subObservationMode: subObservationModeField,
+        skipFinalize: skipFinalizeField,
+        skipDraftSelection: skipDraftSelectionField,
+      } = config;
+      const legacy = config as FormInitData & { returnOnly?: boolean };
+      const subObservationMode =
+        Boolean(subObservationModeField) || Boolean(legacy.returnOnly);
+      const skipFinalize = Boolean(skipFinalizeField);
+      const skipDraftSelection = Boolean(skipDraftSelectionField);
 
       try {
         const formService = await FormService.getInstance();
@@ -127,21 +193,23 @@ function AppInner(): React.JSX.Element {
           return;
         }
 
-        // Set visible state first to mount the modal
-        formplayerVisibleRef.current = true;
-        setFormplayerVisible(true);
+        const entryId =
+          operationId ||
+          `${formType}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        const entry: FormplayerStackEntry = {
+          id: entryId,
+          formSpec,
+          params: params || null,
+          observationId: observationId || null,
+          savedData: savedData || null,
+          operationId: operationId || null,
+          subObservationMode,
+          skipFinalize,
+          skipDraftSelection,
+        };
 
-        // Wait for modal to mount and WebView to start loading before initializing form
-        // This ensures the WebView ref is available and the modal is visible
-        setTimeout(() => {
-          formplayerModalRef.current?.initializeForm(
-            formSpec,
-            params || null,
-            observationId || null,
-            savedData || null,
-            operationId || null,
-          );
-        }, 200);
+        setFormplayerStack(current => [...current, entry]);
+        initializeStackEntry(entry);
       } catch (error) {
         console.error('[App] Error opening formplayer:', error);
         Alert.alert(
@@ -150,15 +218,19 @@ function AppInner(): React.JSX.Element {
             error instanceof Error ? error.message : 'Unknown error'
           }`,
         );
-        // Reset state on error
-        formplayerVisibleRef.current = false;
-        setFormplayerVisible(false);
       }
     };
 
     const handleCloseFormplayer = () => {
-      formplayerVisibleRef.current = false;
-      setFormplayerVisible(false);
+      setFormplayerStack(current => {
+        if (current.length === 0) {
+          return current;
+        }
+        const next = current.slice(0, -1);
+        const removed = current[current.length - 1];
+        formplayerModalRefs.current.delete(removed.id);
+        return next;
+      });
     };
 
     appEvents.addListener(
@@ -182,7 +254,7 @@ function AppInner(): React.JSX.Element {
       );
       appEvents.removeListener('closeFormplayer', handleCloseFormplayer);
     };
-  }, []);
+  }, [closeFormplayerEntry, initializeStackEntry]);
 
   return (
     <>
@@ -192,14 +264,23 @@ function AppInner(): React.JSX.Element {
       />
       <NavigationContainer theme={navigationTheme}>
         <MainAppNavigator />
-        <FormplayerModal
-          ref={formplayerModalRef}
-          visible={formplayerVisible}
-          onClose={() => {
-            formplayerVisibleRef.current = false;
-            setFormplayerVisible(false);
-          }}
-        />
+        {formplayerStack.map((entry, index) => (
+          <FormplayerModal
+            key={entry.id}
+            ref={instance => {
+              if (instance) {
+                formplayerModalRefs.current.set(entry.id, instance);
+              } else {
+                formplayerModalRefs.current.delete(entry.id);
+              }
+            }}
+            visible={true}
+            isActive={index === formplayerStack.length - 1}
+            onClose={() => {
+              closeFormplayerEntry(entry.id);
+            }}
+          />
+        ))}
       </NavigationContainer>
 
       <QRScannerModal

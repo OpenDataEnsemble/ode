@@ -206,7 +206,30 @@ async function loadAndDisplayForms() {
 }
 ```
 
-**5. Signaling Web App Readiness (If Required by Host)**
+**5. Opening Formplayer from a custom app**
+
+Use `openFormplayer(formType, params, savedData, options?)`. Reserved `params` keys (`defaultData`, `theme`, `context`, …) are not observation fields — see the formplayer README.
+
+Common **options** (4th argument):
+
+| Option               | Purpose                                                                      |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `subObservationMode` | Embedded child form; result JSON returns to parent without top-level persist |
+| `skipFinalize`       | Omit Finalize page; **Done** validates child schema then returns `formData` to parent |
+| `skipDraftSelection` | Skip draft picker when the app orchestrates a new root session               |
+
+**Nested sub-observations:** Each child session has its own schema and validators. `skipFinalize` does not defer validation to the root form. For multi-level embedded trees, put validators on each form where rows are added, or pass parent snapshots via flat `subObservationInitValues` — see [Custom Extensions](https://opendataensemble.org/docs/guides/custom-extensions#nested-sessions-and-custom-validators) on opendataensemble.org.
+
+```javascript
+await formulus.openFormplayer(
+  'inclusion_decision',
+  { defaultData: decisionPayload },
+  {},
+  { skipDraftSelection: true },
+);
+```
+
+**6. Signaling Web App Readiness (If Required by Host)**
 
 Your web app might need to inform Formulus when it's fully loaded. Consult the Formulus host integration details for the exact mechanism expected. A common pattern is to send a specific message:
 
@@ -225,7 +248,7 @@ function signalMyAppIsReady() {
 }
 ```
 
-**6. Debugging**
+**7. Debugging**
 
 - Use your browser's developer tools or the WebView debugging tools provided by the Formulus environment.
 - `console.log()` statements in your web app's JavaScript will output to the debugging console.

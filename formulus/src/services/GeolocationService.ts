@@ -1,7 +1,8 @@
-import Geolocation from 'react-native-geolocation-service';
+import Geolocation from '@react-native-community/geolocation';
 import {
   ObservationGeolocation,
   GeolocationConfig,
+  GeolocationPosition,
 } from '../types/Geolocation';
 import {
   ensureLocationPermission,
@@ -94,10 +95,7 @@ export class GeolocationService {
         },
         {
           enableHighAccuracy: true,
-          // Battery: avoid tight polling; refine when accuracy improves or user moves.
           distanceFilter: 20,
-          interval: 20_000,
-          fastestInterval: 15_000,
         },
       );
     })();
@@ -162,11 +160,7 @@ export class GeolocationService {
             console.warn('Failed to get location for observation:', error);
             resolve(null);
           },
-          {
-            ...config,
-            forceRequestLocation: true,
-            showLocationDialog: true,
-          },
+          config,
         );
       });
     } catch (error) {
@@ -221,7 +215,7 @@ export class GeolocationService {
   }
 
   private convertToObservationGeolocation(
-    position: Geolocation.GeoPosition,
+    position: GeolocationPosition,
   ): ObservationGeolocation {
     const ts =
       position.timestamp != null && Number.isFinite(position.timestamp)

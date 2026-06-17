@@ -10,6 +10,7 @@ on:
       - 'formulus-formplayer/**'
       - 'packages/tokens/**'
       - 'packages/components/**'
+      - 'packages/observation-query/**'
       - '.github/workflows/formulus-android.yml'
   pull_request:
     paths:
@@ -17,6 +18,7 @@ on:
       - 'formulus-formplayer/**'
       - 'packages/tokens/**'
       - 'packages/components/**'
+      - 'packages/observation-query/**'
       - '.github/workflows/formulus-android.yml'
   release:
     types: [published]
@@ -39,28 +41,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
       - name: Set up Node.js for assets
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: |
-            formulus-formplayer/package-lock.json
-            packages/tokens/package-lock.json
+          cache: pnpm
+          cache-dependency-path: formulus-formplayer/pnpm-lock.yaml
 
       - name: Install and build @ode/tokens
         working-directory: packages/tokens
         run: |
-          npm install
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm run build
 
       - name: Install formplayer dependencies
         working-directory: formulus-formplayer
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build and bundle formplayer
         working-directory: formulus-formplayer
-        run: npm run build:rn
+        run: pnpm run build:copy
 
       - name: Upload formplayer assets artifact
         uses: actions/upload-artifact@v6
@@ -70,7 +75,7 @@ jobs:
           retention-days: 7
 
   build-android:
-    name: Build Formulus Android APK
+    name: Build Formulus Android
     runs-on: ubuntu-latest
     needs: build-formplayer-assets
     permissions:
@@ -86,38 +91,45 @@ jobs:
           name: formplayer-assets
           path: formulus/android/app/src/main/assets/formplayer_dist
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: |
-            formulus/package-lock.json
-            formulus/package.json
-            formulus-formplayer/package-lock.json
-            formulus-formplayer/package.json
-            packages/tokens/package-lock.json
-            packages/tokens/package.json
-            packages/components/package-lock.json
-            packages/components/package.json
+          cache: pnpm
+          cache-dependency-path: formulus/pnpm-lock.yaml
 
       - name: Install and build @ode/tokens
         working-directory: packages/tokens
         run: |
-          npm install
-          npm run build
+          pnpm install --frozen-lockfile
+          pnpm run build
 
       - name: Install @ode/components dependencies
         working-directory: packages/components
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
-      - name: Install npm dependencies (formulus)
+      - name: Install dependencies (formulus)
         working-directory: formulus
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Vendor Notifee Android core (source build; dir is gitignored)
         working-directory: formulus
-        run: npm run vendor:notifee
+        run: pnpm run vendor:notifee
+
+      - name: Apply FOSS Android patches (match F-Droid init)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus
+        run: pnpm run patch:android-foss
+
+      - name: Generate injection script (match F-Droid init)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus
+        run: pnpm run generate
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -164,6 +176,11 @@ jobs:
         working-directory: formulus/android
         run: ./gradlew assembleRelease --no-daemon
 
+      - name: Build release AAB for Play Store (main/dev/release)
+        if: github.event_name != 'pull_request'
+        working-directory: formulus/android
+        run: ./gradlew bundleRelease --no-daemon
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v6
         with:
@@ -171,12 +188,20 @@ jobs:
           path: |
             formulus/android/app/build/outputs/apk/**/**/*.apk
 
+      - name: Upload AAB artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v6
+        with:
+          name: formulus-android-aab-${{ github.event_name }}-${{ github.run_id }}
+          path: |
+            formulus/android/app/build/outputs/bundle/release/*.aab
+
       - name: Upload APK to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |
             formulus/android/app/build/outputs/apk/**/**/*.apk
+            formulus/android/app/build/outputs/bundle/release/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

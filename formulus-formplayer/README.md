@@ -3,28 +3,33 @@
 This app implements the core functionality to render and submit forms to Formulus (which can then sync with Synkronus).
 
 # Usage in custom apps
-Primarily the formplayer exposes a javascript interface, that is injected into the custom app and can be used to render forms based on the jsonform spec's provided by formulus (formulus downloads the jsonform spec's and question_types from synkronus). Likewise, all of the question_types provided are loaded into the formplayer at initialization (by the formulus app) and can thus be used in the forms.
+
+Primarily the formplayer exposes a javascript interface, that is injected into the custom app and can be used to render forms based on the jsonform spec's provided by formulus (formulus downloads the jsonform spec's and optional bundle-local **question_types** from Synkronus). Built-in controls — including **`format: sub-observation`** for embedded repeats on the parent observation — ship inside Formplayer; additional formats can still be supplied via **`question_types/*/renderer.js`** in the app bundle and are merged at initialization.
 
 ## Responsibility of the Formulus Formplayer
-The formplayer is solely responsible for 
+
+The formplayer is solely responsible for
+
 - rendering the forms
-    - create new observations
-    - edit existing observations
-    - validate form responses
+  - create new observations
+  - edit existing observations
+  - validate form responses
 - loading previously saved data (if the form is opened with a valid observation_id)
 - submitting the forms to Formulus (either as draft or final)
 - (soft-)deleting observations
 
 ## Development setup
+
 This project depends on `@ode/tokens` (local `packages/tokens`). On a fresh clone or new branch, install in order:
 
-1. From repo root: `cd packages/tokens && npm install`
-2. Then: `cd formulus-formplayer && npm install && npm start`
+1. From repo root: `cd packages/tokens && pnpm install`
+2. Then: `cd formulus-formplayer && pnpm install && pnpm start`
 
-If you run `npm install` only in formulus-formplayer, the tokens package’s `prepare` script may fail with "Cannot find module 'style-dictionary'" until tokens has its own dependencies installed.
+If you run `pnpm install` only in formulus-formplayer, the tokens package’s `prepare` script may fail with "Cannot find module 'style-dictionary'" until tokens has its own dependencies installed.
 
 ## Building this project
-Use 'npm run build:rn' to build the project. This will build the project and copy the build to the formulus app. 
+
+Use `pnpm run build:copy` to build the project and copy the bundle into the Formulus app (Android + iOS) and ODE Desktop (`desktop/public/formplayer_dist/`).
 
 ## Javascript interface
 
@@ -42,26 +47,27 @@ window.formulus.formplayer = {
 ### addObservation
 
 ```javascript
-window.formulus.addObservation(formType, initializationData)
+window.formulus.addObservation(formType, initializationData);
 ```
+
 formType: The type of the form to be rendered. Notice that formulus will always use the latest version of a form to render the form.
 initializationData: An object containing any initialization data that should be passed to the form
-
 
 ### editObservation
 
 ```javascript
-window.formulus.editObservation(formType, observationId)
+window.formulus.editObservation(formType, observationId);
 ```
+
 formType: The type of the form to be rendered. Editing an existing observation will always use the version of the form that was used to create the observation.
 observationId: The id of the observation to be edited
-
 
 ### deleteObservation
 
 ```javascript
-window.formulus.deleteObservation(formType, observationId)
+window.formulus.deleteObservation(formType, observationId);
 ```
+
 formType: The type of the form to be rendered
 observationId: The id of the observation to be deleted
 
@@ -74,46 +80,59 @@ The React Native host passes `FormInitData` into the WebView (including `params`
 - **Legacy prefills**: If `defaultData` is missing, the formplayer copies other top-level `params` keys except the reserved keys above.
 - **Sanitization**: When the schema defines non-empty root `properties`, loaded and submitted data are filtered to those keys plus `locale` (so older polluted rows are cleaned on edit/save). Schemas with missing or empty root `properties` pass data through unchanged.
 
+## Custom validators that mutate data
+
+Custom validators (`ui.json` → `options.customValidators`) may **mutate** `data` in place (e.g. auto-numbering embedded sub-observation rows). After each change and before finalize, Formplayer re-dispatches form state when mutations are detected so sub-observation tables and computed displays update immediately.
+
+**Per-session scope:** Validators run only in the **active** Formplayer session. A validator on the root form does not run when the enumerator adds a row inside an open **child** sub-observation form. For multi-level embedded trees, attach validators on **each** form where rows are added. Author docs: [Custom Extensions — nested sessions](https://opendataensemble.org/docs/guides/custom-extensions#nested-sessions-and-custom-validators).
+
+## Sub-observation `skipFinalize`
+
+`skipFinalize` **omits the Finalize page** only. **Done** on the last content page still runs AJV + that form’s custom validators, then returns `formData` to the parent via `SubObservationQuestionRenderer`. Parent-level validators (denormalized indexes, global numbering) do not run in the child session. See [Custom Extensions — validation and skipFinalize](https://opendataensemble.org/docs/guides/custom-extensions#validation-and-skipfinalize).
+
+## Sub-observation `parentKey`
+
+`format: "sub-observation"` requires **`linkedForm`** only. **`parentKey`** is optional: when set, the parent value is injected into the child session on add; when omitted, the embedded repeat model relies on data already nested in the parent JSON.
+
+## `skipDraftSelection`
+
+Root forms with saved drafts normally show **DraftSelector** on open. Custom apps that orchestrate the session can bypass it:
+
+```javascript
+await formulus.openFormplayer(
+  'inclusion_decision',
+  { defaultData: payload },
+  {},
+  { skipDraftSelection: true, skipFinalize: true },
+);
+```
+
+Same flag is available on `FormInitData.skipDraftSelection` from the native host. Sub-observation sessions never offer the draft picker.
+
 ## Initialization
+
 The formulus formplayer object will be initialized by the formulus app. The formulus app will inject the initialized formulus object into the custom app, hence **the custom app does not need to do anything to initialize the formulus object**.
 
 ```javascript
-new formulus.formplayer(
-    config
-)
+new formulus.formplayer(config);
 ```
 
 config: An object containing the configuration for the formulus formplayer object. The config object should have the following properties:
+
 - renderers: An array of renderers to be used by the formplayer. Renderers are container components responsible for rendering the form.
-- cells: An array of cells to be used by the formplayer. Cells maps to `question types` and are components responsible for handling specific input types - e.g. text input cell, date input cell, etc. Core formulus provides the following cells:
-    - text cell
-    - date cell
-    - time cell
-    - datetime cell
-    - number cell
-    - boolean cell
-    - select cell
-    - select multiple cell
-    - file cell
-    - image cell
-    - signature cell
-    - barcode cell
-    - qr code cell
-    - location cell
-Any other cells, either custom developed or provided by the community, will be included as well once they are downloaded from synkronus as part of the normal sync process.
+- cells: An array of cells to be used by the formplayer. Cells maps to `question types` and are components responsible for handling specific input types - e.g. text input cell, date input cell, etc. Core formulus provides the following cells: - text cell - date cell - time cell - datetime cell - number cell - boolean cell - select cell - select multiple cell - file cell - image cell - signature cell - barcode cell - qr code cell - location cell
+  Any other cells, either custom developed or provided by the community, will be included as well once they are downloaded from synkronus as part of the normal sync process.
 - formSpecs: An array of jsonform formSpecs to be used by the formplayer wrapped in an envelope object: `{formType: string, version: string, spec: any}`
 
-
-
-## Available `npm` scripts
+## Available `pnpm` scripts
 
 In the project directory, you can run:
 
-- `npm start` Runs the app in the development mode. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
-- `npm test`. Launches the test runner in the interactive watch mode.
-- `npm run build`. Builds the app for production to the `build` folder. It correctly bundles React in production mode and optimizes the build for the best performance.
-- `npm run storybook` Starts the Storybook dev server. Open [http://localhost:6006](http://localhost:6006) to view the component stories.
-- `npm run build-storybook` Builds a static Storybook for deployment.
+- `pnpm start` Runs the app in the development mode. Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- `pnpm test`. Launches the test runner in the interactive watch mode.
+- `pnpm run build`. Builds the app for production to the `build` folder. It correctly bundles React in production mode and optimizes the build for the best performance.
+- `pnpm run storybook` Starts the Storybook dev server. Open [http://localhost:6006](http://localhost:6006) to view the component stories.
+- `pnpm run build-storybook` Builds a static Storybook for deployment.
 
 The build is minified and the filenames include the hashes.
 

@@ -11,7 +11,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/version"
 )
 
-const headerFormulusVersion = "X-Formulus-Version"
+const headerODEVersion = "x-ode-version"
 
 // VersionMismatchResponse is the JSON body returned when version check fails (mismatch or invalid/missing version).
 // Uses HTTP 426 Upgrade Required status code - the standard HTTP status for version incompatibility.
@@ -20,22 +20,21 @@ type VersionMismatchResponse struct {
 	SynkronusVersion string `json:"synkronus_version"`
 }
 
-// Middleware returns a middleware that requires X-Formulus-Version and checks major version match.
-// No fallbacks: missing header, unparseable client version, or unparseable server version all result in 426.
+// Middleware returns a middleware that requires x-ode-version and checks major version match.
 func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			serverVer := version.BuildVersion()
-			clientVer := strings.TrimSpace(r.Header.Get(headerFormulusVersion))
+			clientVer := strings.TrimSpace(r.Header.Get(headerODEVersion))
 			if clientVer == "" {
-				log.Warn("Missing x-formulus-version header")
-				writeVersionError(w, "Missing x-formulus-version header. Client must send a valid semantic version.", serverVer)
+				log.Warn("Missing version header", "required_header", headerODEVersion)
+				writeVersionError(w, "missing x-ode-version header. client must send a valid semantic version.", serverVer)
 				return
 			}
 			clientMajor, ok := parseMajor(clientVer)
 			if !ok {
-				log.Warn("Formulus version header unparseable", "x-formulus-version", clientVer)
-				writeVersionError(w, "x-formulus-version must be a valid semantic version (e.g. 1.0.0).", serverVer)
+				log.Warn("Client version header unparseable", "header", headerODEVersion, "value", clientVer)
+				writeVersionError(w, fmt.Sprintf("%s must be a valid semantic version (e.g. 1.0.0).", headerODEVersion), serverVer)
 				return
 			}
 			serverMajor, ok := parseMajor(serverVer)
@@ -45,12 +44,13 @@ func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 				return
 			}
 			if clientMajor != serverMajor {
-				log.Warn("Formulus-Synkronus version mismatch",
-					"formulus_version", clientVer,
+				log.Warn("Client-Synkronus version mismatch",
+					"client_header", headerODEVersion,
+					"client_version", clientVer,
 					"synkronus_version", serverVer,
 					"client_major", clientMajor,
 					"server_major", serverMajor)
-				writeVersionError(w, fmt.Sprintf("Formulus v%s is not compatible with this server (v%s). Please update the app.", clientVer, serverVer), serverVer)
+				writeVersionError(w, fmt.Sprintf("client v%s is not compatible with this server (v%s). please update the app.", clientVer, serverVer), serverVer)
 				return
 			}
 			next.ServeHTTP(w, r)
@@ -59,8 +59,8 @@ func Middleware(log *logger.Logger) func(http.Handler) http.Handler {
 }
 
 func writeVersionError(w http.ResponseWriter, message, serverVer string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("X-Synkronus-Version", serverVer) // Always advertise server version in header
+	w.Header().Set("content-type", "application/json")
+	w.Header().Set("x-synkronus-version", serverVer) // Always advertise server version in header.
 	w.WriteHeader(http.StatusUpgradeRequired)        // 426 - standard HTTP status for version incompatibility
 	_ = json.NewEncoder(w).Encode(VersionMismatchResponse{
 		Message:          message,

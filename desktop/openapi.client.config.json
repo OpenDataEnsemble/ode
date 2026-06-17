@@ -1,0 +1,4 @@
+{
+  "sourceSpecRelativePath": "../synkronus/openapi/synkronus.yaml",
+  "outputRelativePath": "src/generated/synkronus-client"
+}

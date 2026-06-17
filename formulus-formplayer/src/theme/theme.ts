@@ -1,6 +1,7 @@
 import {
   createTheme as muiCreateTheme,
   ThemeOptions,
+  alpha,
 } from '@mui/material/styles';
 import { tokens } from './tokens-adapter';
 
@@ -22,6 +23,20 @@ import { tokens } from './tokens-adapter';
 const parsePx = (value: string): number => {
   return parseInt(value.replace('px', ''), 10);
 };
+
+/**
+ * Compact field density (form-field height reduction).
+ *
+ * Inputs/selects previously used a 56px (`touchTarget.large`) minimum height
+ * with 16px vertical padding, which made long forms feel very tall on mobile.
+ * These constants shrink the vertical footprint while keeping an accessible
+ * tap target (>= 44px including border) and the same horizontal text inset.
+ */
+const FIELD_MIN_HEIGHT = 44; // px (was tokens.touchTarget.large = 56)
+const FIELD_PADDING_Y = parsePx(tokens.spacing[2]); // 8px (was tokens.spacing[4] = 16)
+const FIELD_PADDING_X = parsePx(tokens.spacing[4]); // 16px (unchanged horizontal inset)
+const FIELD_PADDING = `${FIELD_PADDING_Y}px ${FIELD_PADDING_X}px`;
+const FIELD_MARGIN_BOTTOM = parsePx(tokens.spacing[3]); // 12px (was tokens.spacing[4] = 16)
 
 // Token-based helpers (single source: @ode/tokens)
 const getDisabledOpacity = (): number =>
@@ -304,7 +319,7 @@ export const getThemeOptions = (
         styleOverrides: {
           root: {
             width: '100%',
-            marginBottom: parsePx(tokens.spacing[4]),
+            marginBottom: FIELD_MARGIN_BOTTOM,
             '& .MuiOutlinedInput-root': {
               borderRadius: parsePx(tokens.border.radius.md), // 8px - match button, not too rounded
               backgroundColor: 'transparent',
@@ -353,10 +368,10 @@ export const getThemeOptions = (
               },
             },
             '& .MuiInputBase-input': {
-              padding: `${parsePx(tokens.spacing[4])}px`,
+              padding: FIELD_PADDING,
               fontSize: parsePx(tokens.typography.fontSize.base),
               lineHeight: parseFloat(tokens.typography.lineHeight.normal),
-              minHeight: `${tokens.touchTarget.large}px`, // 56px - Minimum touch target
+              minHeight: `${FIELD_MIN_HEIGHT}px`, // compact field height
               '&::placeholder': {
                 color: isDark
                   ? tokens.color.neutral[500]
@@ -404,10 +419,10 @@ export const getThemeOptions = (
             },
           },
           input: {
-            padding: parsePx(tokens.spacing[4]),
+            padding: FIELD_PADDING,
             fontSize: parsePx(tokens.typography.fontSize.base),
             lineHeight: parseFloat(tokens.typography.lineHeight.normal),
-            minHeight: `${tokens.touchTarget.large}px`,
+            minHeight: `${FIELD_MIN_HEIGHT}px`,
           },
         },
       },
@@ -440,7 +455,7 @@ export const getThemeOptions = (
             marginRight: 0,
           },
           label: {
-            fontSize: parsePx(tokens.typography.fontSize.base),
+            fontSize: parsePx(tokens.typography.fontSize.sm),
             '&.Mui-disabled': {
               color: isDark
                 ? tokens.color.neutral[600]
@@ -501,6 +516,45 @@ export const getThemeOptions = (
           },
         },
       },
+      // Toggle buttons (opt-in `options.display: "buttons"` choice controls)
+      MuiToggleButton: {
+        styleOverrides: {
+          root: {
+            minHeight: FIELD_MIN_HEIGHT,
+            padding: `${FIELD_PADDING_Y}px ${FIELD_PADDING_X}px`,
+            textTransform: 'none',
+            fontSize: parsePx(tokens.typography.fontSize.base),
+            lineHeight: parseFloat(tokens.typography.lineHeight.normal),
+            color: isDark
+              ? tokens.color.neutral[200]
+              : tokens.color.neutral[800],
+            borderColor: isDark
+              ? tokens.color.neutral[700]
+              : tokens.color.neutral[300],
+            '&.Mui-selected': {
+              color: primaryMain,
+              backgroundColor: alpha(primaryMain, isDark ? 0.24 : 0.12),
+              borderColor: primaryMain,
+              fontWeight: 600,
+              '&:hover': {
+                backgroundColor: alpha(primaryMain, isDark ? 0.32 : 0.18),
+              },
+            },
+            '&.Mui-disabled': {
+              color: isDark
+                ? tokens.color.neutral[700]
+                : tokens.color.neutral[400],
+            },
+          },
+        },
+      },
+      MuiToggleButtonGroup: {
+        styleOverrides: {
+          root: {
+            flexWrap: 'wrap',
+          },
+        },
+      },
       // Switch styling
       MuiSwitch: {
         styleOverrides: {
@@ -550,7 +604,7 @@ export const getThemeOptions = (
         styleOverrides: {
           root: {
             borderRadius: parsePx(tokens.border.radius.md), // Same as text fields (8px, match button)
-            minHeight: `${tokens.touchTarget.large}px`,
+            minHeight: `${FIELD_MIN_HEIGHT}px`,
             '&.Mui-focused': {
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: primaryMain,
@@ -560,13 +614,17 @@ export const getThemeOptions = (
           },
         },
         defaultProps: {
-          inputProps: {
-            readOnly: true,
-            inputMode: 'none',
-          },
+          // Native selects (see SelectOneOfEnumControl) need no readOnly hack.
+          // For any remaining MUI Menu-based selects, keep the menu inside the
+          // WebView scroll tree — portaled menus are often clipped/invisible.
           MenuProps: {
+            disablePortal: true,
             disableAutoFocus: true,
             disableEnforceFocus: true,
+            disableScrollLock: true,
+            PaperProps: {
+              sx: { zIndex: 10000 },
+            },
           },
         },
       },

@@ -1,0 +1,9 @@
+node_modules
+dist
+.vscode
+# Copied from formulus/assets/webview/FormulusInjectionScript.js (npm run generate); not Prettier-stable.
+public/formulus-injection.js
+package-lock.json
+src/generated
+src-tauri/target
+src-tauri/gen

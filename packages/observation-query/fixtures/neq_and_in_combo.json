@@ -1,0 +1,16 @@
+{
+  "name": "neq_and_in_combo",
+  "jsonColumn": "payload",
+  "formType": "hh_person",
+  "includeDeleted": false,
+  "indexKeys": ["village", "sex"],
+  "filter": {
+    "op": "and",
+    "conditions": [
+      { "field": "data.sex", "op": "neq", "value": "unknown" },
+      { "field": "data.village", "op": "in", "value": ["kopria", "chare"] }
+    ]
+  },
+  "expectedSqlFragments": ["!=", "IN"],
+  "expectError": false
+}

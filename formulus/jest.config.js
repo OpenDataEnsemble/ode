@@ -1,10 +1,19 @@
 export default {
   preset: 'react-native',
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
+  moduleNameMapper: {
+    '^@babel/runtime/(.*)$': '<rootDir>/node_modules/@babel/runtime/$1',
+  },
   // Vendored packages ship their own Jest suites; they are not part of this app.
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/third_party/'],
-  // Force Jest to exit after all tests complete
-  // This helps with WatermelonDB's LokiJS adapter which can leave open handles
+  // Allow Babel to transform our internal @ode/* packages whose `main` points
+  // at TypeScript source (not pre-built). Without this override pnpm's hoisted
+  // node_modules layout lets jest's default ignore pattern skip them and Jest
+  // chokes on `export`.
+  transformIgnorePatterns: [
+    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@ode)/)',
+  ],
+  // WatermelonDB / Loki can leave handles open in Jest; force exit avoids hung workers.
   forceExit: true,
   // Set a timeout for the entire test suite
   testTimeout: 30000,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -57,15 +57,7 @@ const FormManagementScreen = () => {
     initFormService();
   }, []);
 
-  useEffect(() => {
-    if (formService) {
-      loadData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formService]);
-
-  // Function to load form types and observations
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!formService) {
       Alert.alert('Error', 'FormService is not initialized');
       return;
@@ -73,11 +65,9 @@ const FormManagementScreen = () => {
     try {
       setLoading(true);
 
-      // Get all form types
       const types = formService.getFormSpecs();
       setFormSpecs(types);
 
-      // Get observations for each form type
       const observationsMap: Record<string, Observation[]> = {};
 
       for (const formType of types) {
@@ -95,7 +85,23 @@ const FormManagementScreen = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [formService]);
+
+  useEffect(() => {
+    if (!formService) {
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        void loadData();
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [formService, loadData]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

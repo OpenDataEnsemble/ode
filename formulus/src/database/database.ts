@@ -2,7 +2,10 @@ import { Database } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 import { schemas } from './schema';
 import { ObservationModel } from './models/ObservationModel';
-import { schemaMigrations } from '@nozbe/watermelondb/Schema/migrations';
+import {
+  schemaMigrations,
+  unsafeExecuteSql,
+} from '@nozbe/watermelondb/Schema/migrations';
 
 // Define migrations
 const migrations = schemaMigrations({
@@ -51,6 +54,37 @@ const migrations = schemaMigrations({
           table: 'observations',
           columns: [{ name: 'tags', type: 'string' }],
         },
+      ],
+    },
+    {
+      toVersion: 6,
+      steps: [
+        unsafeExecuteSql(`
+          CREATE TABLE IF NOT EXISTS observation_index_meta (
+            id TEXT PRIMARY KEY NOT NULL,
+            _status TEXT,
+            _changed TEXT,
+            active_generation INTEGER NOT NULL DEFAULT 1,
+            building_generation INTEGER,
+            last_rebuild_at TEXT
+          );
+          INSERT OR IGNORE INTO observation_index_meta(id, active_generation) VALUES ('meta', 1);
+
+          CREATE TABLE IF NOT EXISTS observation_index (
+            id TEXT PRIMARY KEY NOT NULL,
+            _status TEXT,
+            _changed TEXT,
+            observation_id TEXT NOT NULL,
+            index_key TEXT NOT NULL,
+            index_generation INTEGER NOT NULL,
+            value_text TEXT,
+            value_num REAL
+          );
+          CREATE INDEX IF NOT EXISTS idx_observation_index_lookup
+            ON observation_index(index_generation, index_key, value_text, observation_id);
+          CREATE INDEX IF NOT EXISTS idx_observation_index_lookup_num
+            ON observation_index(index_generation, index_key, value_num, observation_id);
+        `),
       ],
     },
   ],

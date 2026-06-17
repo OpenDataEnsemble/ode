@@ -51,13 +51,22 @@ export const useForms = (): UseFormsResult => {
   }, []);
 
   useEffect(() => {
-    loadForms();
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        void loadForms();
+      }
+    }, 0);
     const formServicePromise = FormService.getInstance();
     formServicePromise.then(service => {
       service.onCacheInvalidated(() => {
-        loadForms();
+        void loadForms();
       });
     });
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [loadForms]);
 
   const getObservationCount = useCallback(

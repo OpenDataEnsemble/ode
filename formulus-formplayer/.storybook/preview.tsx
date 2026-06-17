@@ -2,6 +2,13 @@ import React from 'react';
 import type { Preview } from '@storybook/react-vite';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from '../src/theme/theme';
+import FormulusClient from '../src/services/FormulusInterface';
+
+/** Ensure each story's `window.getFormulus` mock is picked up (singleton cache). */
+function ClearFormulusBridgeCache({ children }: { children: React.ReactNode }) {
+  FormulusClient.clearCachedFormulusApi();
+  return <>{children}</>;
+}
 
 const preview: Preview = {
   parameters: {
@@ -14,11 +21,13 @@ const preview: Preview = {
     layout: 'centered',
   },
   decorators: [
-    (Story) => (
+    Story => (
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <div style={{ padding: 24, maxWidth: 640 }}>
-          <Story />
+          <ClearFormulusBridgeCache>
+            <Story />
+          </ClearFormulusBridgeCache>
         </div>
       </ThemeProvider>
     ),

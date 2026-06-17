@@ -20,7 +20,7 @@ jest.mock('react-native-fs', () => ({
   readFile: jest.fn(),
   writeFile: jest.fn(),
 }));
-jest.mock('react-native-geolocation-service', () => ({
+jest.mock('@react-native-community/geolocation', () => ({
   __esModule: true,
   default: {
     requestAuthorization: jest.fn(),
@@ -114,7 +114,16 @@ jest.mock('../FormService', () => ({
   },
 }));
 
-import { jest, describe, test, expect, beforeEach } from '@jest/globals';
+import {
+  jest,
+  describe,
+  test,
+  expect,
+  beforeEach,
+  afterEach,
+  beforeAll,
+  afterAll,
+} from '@jest/globals';
 import { SyncService } from '../SyncService';
 import { synkronusApi } from '../../api/synkronus';
 import { autoLogin, isUnauthorizedError } from '../../api/synkronus/Auth';
@@ -123,12 +132,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 describe('SyncService - Auto-Login Integration', () => {
   let syncService: SyncService;
 
+  beforeAll(() => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     // Get a fresh instance for each test
     syncService = SyncService.getInstance();
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue('0');
     (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    syncService.clearAllSubscriptions();
   });
 
   describe('withAutoLoginRetry - syncObservations', () => {

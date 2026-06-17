@@ -58,6 +58,15 @@ USER synkronus
 # Expose port (default 8080, configurable via PORT env var)
 EXPOSE 8080
 
+# Optional attachment image-processing defaults (override at runtime as needed):
+# - SYNKRONUS_IMAGE_COMPRESSION_LEVEL: 0..10 (0 disables compression)
+# - SYNKRONUS_IMAGE_MAX_WIDTH_PX / SYNKRONUS_IMAGE_MAX_HEIGHT_PX: bounding box (0 disables axis)
+# - SYNKRONUS_IMAGE_APPLY_EXIF_ORIENTATION: true/false
+ENV SYNKRONUS_IMAGE_COMPRESSION_LEVEL=0 \
+    SYNKRONUS_IMAGE_MAX_WIDTH_PX=0 \
+    SYNKRONUS_IMAGE_MAX_HEIGHT_PX=0 \
+    SYNKRONUS_IMAGE_APPLY_EXIF_ORIENTATION=true
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 -O - http://127.0.0.1:8080/health || wget --no-verbose --tries=1 -O - http://localhost:8080/health || exit 1

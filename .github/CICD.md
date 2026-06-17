@@ -34,26 +34,40 @@ Images are published to **GitHub Container Registry (GHCR)**:
 
 #### Tagging Strategy
 
-| Branch/Event | Tags Generated | Description |
-|--------------|----------------|-------------|
-| `main` | `latest`, `main-{sha}` | Latest stable release |
-| `dev` | `dev`, `dev-{sha}` | Development pre-release |
-| Feature branches | `{branch-name}`, `{branch-name}-{sha}` | Feature-specific builds |
-| Pull Requests | `pr-{number}` | PR validation builds (not pushed) |
-| Manual with version | `v{version}`, `v{major}.{minor}`, `latest` | Versioned release |
+Image tags are computed by `docker/metadata-action`. The highest-priority tag per event is also used as the primary tag in manifest verification.
+
+| Event | Tags produced | Published? |
+|-------|--------------|------------|
+| Release published, **not** prerelease | `v{X.Y.Z}`, `v{X.Y}`, `v{X}`, `latest` | Yes |
+| Release published, **is** prerelease | `v{X.Y.Z}-{pre}`, `latest-pre-release` | Yes |
+| Push → `main` | `main`, `sha-{short}` | Yes |
+| Push → `dev` | `dev`, `sha-{short}` | Yes |
+| Push → other branch | `{branch-name}`, `sha-{short}` | Yes |
+| `workflow_dispatch` | `sha-{short}` | Yes |
+| Pull request | `pr-{number}` | No (build only) |
+
+Moving pointer tags:
+
+- **`latest`** — always points to the most recent **non-prerelease** GitHub Release. Never moved by branch pushes.
+- **`latest-pre-release`** — always points to the most recent **prerelease** GitHub Release (e.g. `-alpha.N`, `-rc.N`).
+- **`main`** / **`dev`** — track the tip of the respective branch.
+
+`workflow_dispatch` intentionally produces only `sha-{short}` so that manual runs cannot accidentally reassign `latest`, `main`, `dev`, or any other pointer tag.
 
 #### Build Features
 
-- **Multi-platform**: Builds for `linux/amd64` and `linux/arm64`
-- **Build Cache**: Uses GitHub Actions cache for faster builds
-- **Attestation**: Generates build provenance for security
-- **Metadata**: Includes OCI-compliant labels and annotations
+- **Multi-platform**: Builds for `linux/amd64` and `linux/arm64` using Buildah
+- **Attestation**: Generates SLSA build provenance and pushes it to GHCR
+- **Metadata**: Includes OCI-compliant labels (title, description, vendor, source, revision)
+- **Verification**: After push, the manifest list and per-arch layers are pulled to confirm correctness
 
 #### Permissions Required
 
 The workflow requires these permissions:
 - `contents: read` - To checkout the repository
 - `packages: write` - To publish to GHCR
+- `id-token: write` - For OIDC-based build provenance attestation
+- `attestations: write` - To push attestation records to GHCR
 
 #### Secrets Used
 
@@ -87,12 +101,12 @@ The workflow intelligently handles formplayer assets using two jobs:
 
 1. **`build-formplayer-assets` job**:
    - Builds `@ode/tokens`
-   - Builds Formplayer assets using `npm run build:rn` in `formulus-formplayer`
+   - Builds Formplayer assets using `pnpm run build:copy` in `formulus-formplayer`
    - Uploads the built assets from `formulus/android/app/src/main/assets/formplayer_dist/` as a GitHub Actions artifact
 
 2. **`build-android` job** (depends on assets job):
    - Downloads the Formplayer assets artifact into `formulus/android/app/src/main/assets/formplayer_dist/`
-   - Runs `npm run vendor:notifee` in `formulus/` to clone the pinned [invertase/notifee](https://github.com/invertase/notifee) commit into `third_party/notifee` (gitignored; required for Gradle `:notifee_core`)
+   - Runs `pnpm run vendor:notifee` in `formulus/` to clone the pinned [invertase/notifee](https://github.com/invertase/notifee) commit into `third_party/notifee` (gitignored; required for Gradle `:notifee_core`)
    - Builds the Android APK (debug for PRs, release for main/dev/release events)
 
 Formplayer assets are **not committed to git** and are ignored via `.gitignore`. CI builds always use the assets artifact produced in the same workflow run, ensuring a single, consistent source of truth for each build.
@@ -139,10 +153,20 @@ node scripts/sbom/generate-sboms.mjs --out sbom-dist
 
 ## Using Published Images
 
-### Pull Latest Release
+### Pull Latest Stable Release
+
+Points to the most recent non-prerelease GitHub Release.
 
 ```bash
 docker pull ghcr.io/opendataensemble/synkronus:latest
+```
+
+### Pull Latest Pre-release
+
+Points to the most recent prerelease GitHub Release (e.g. `-alpha.N`, `-rc.N`).
+
+```bash
+docker pull ghcr.io/opendataensemble/synkronus:latest-pre-release
 ```
 
 ### Pull Specific Version
@@ -153,8 +177,18 @@ docker pull ghcr.io/opendataensemble/synkronus:v1.0.0
 
 ### Pull Development Build
 
+Tracks the tip of the `dev` branch (rebuilt on every push to `dev`).
+
 ```bash
 docker pull ghcr.io/opendataensemble/synkronus:dev
+```
+
+### Pull Main Branch Build
+
+Tracks the tip of the `main` branch between releases.
+
+```bash
+docker pull ghcr.io/opendataensemble/synkronus:main
 ```
 
 ### Pull Feature Branch Build
@@ -163,20 +197,26 @@ docker pull ghcr.io/opendataensemble/synkronus:dev
 docker pull ghcr.io/opendataensemble/synkronus:feature-xyz
 ```
 
-## Manual Release Process
+## Release Process
 
-To create a versioned release:
+Versioned images are produced by publishing a **GitHub Release** (the workflow listens for `release: [published]`).
 
-1. Go to **Actions** → **Synkronus Docker Build & Publish**
-2. Click **Run workflow**
-3. Select the `main` branch
-4. Enter version (e.g., `v1.0.0`)
-5. Click **Run workflow**
+1. Go to **Releases** → **Draft a new release**
+2. Create a new tag following semver, prefixed with `v`:
+   - Stable release: `v1.0.0`
+   - Pre-release: `v1.0.0-rc.1`, `v1.0.1-alpha.7`, etc.
+3. Select the target commit (typically tip of `main` for stable, tip of `dev` for pre-release)
+4. Tick **Set as a pre-release** for alpha/beta/rc tags
+5. Click **Publish release**
 
 This will create:
-- `ghcr.io/opendataensemble/synkronus:latest`
-- `ghcr.io/opendataensemble/synkronus:v1.0.0`
-- `ghcr.io/opendataensemble/synkronus:v1.0`
+
+| Release kind | Tags produced |
+|-------|--------------|
+| Stable (`v1.0.0`) | `v1.0.0`, `v1.0`, `v1`, `latest` |
+| Pre-release (`v1.0.0-rc.1`) | `v1.0.0-rc.1`, `latest-pre-release` |
+
+> Note: `workflow_dispatch` is available for manual runs but intentionally **does not** create any pointer tags (only `sha-{short}`) — it is for debugging the build pipeline, not for publishing releases.
 
 ## Image Visibility
 
@@ -240,10 +280,11 @@ echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 
 ### For Deployments
 
-1. **Pin versions in production**: Use specific version tags, not `latest`
-2. **Test pre-releases**: Use `dev` tag for staging environments
-3. **Monitor image sizes**: Keep images lean for faster deployments
-4. **Use health checks**: Always configure health checks in deployments
+1. **Pin versions in production**: Use specific version tags (`v{X.Y.Z}`), not `latest`
+2. **Staging/QA upcoming releases**: Use `latest-pre-release` to track the most recent prerelease (alpha/rc)
+3. **Bleeding-edge integration**: Use `dev` for builds from the tip of the `dev` branch
+4. **Monitor image sizes**: Keep images lean for faster deployments
+5. **Use health checks**: Always configure health checks in deployments
 
 ## Formplayer Asset Synchronization
 
@@ -269,15 +310,60 @@ For local development, you can manually build and copy assets:
 
 ```bash
 cd formulus-formplayer
-npm run build:rn
+pnpm run build:copy
 ```
 
 This will:
 1. Build the formplayer web app
-2. Clean existing assets in formulus
-3. Copy new assets to `formulus/android/app/src/main/assets/formplayer_dist/`
+2. Clean existing formplayer asset folders in Formulus and copy new assets to Android and iOS paths
+3. Copy the same bundle to `desktop/public/formplayer_dist/` for ODE Desktop
 
-The `build:rn` script automatically handles cleaning, so no need to run `clean-rn-assets` separately.
+The `copy-to-rn` step run inside `build:copy` handles cleaning targets before copy, so no need to run `clean-rn-assets` separately for a normal refresh.
+
+## ODE Desktop (Tauri)
+
+**Workflow file**: `.github/workflows/ode-desktop.yml`
+
+### Triggers
+
+- **Pull requests** and **pushes** to `main` / `dev` when relevant paths change (see below), or **manual dispatch**.
+- **`release: published`**: packages installers and attaches them to the GitHub Release (same pattern as [`Synkronus CLI`](workflows/synkronus-cli.yml); no path filter).
+
+### Path filters
+
+For pull requests / pushes (`main`, `dev`), the workflow runs when any of these change:
+
+- `desktop/**`
+- `formulus-formplayer/**`
+- `packages/tokens/**`, `packages/components/**` (formplayer build inputs)
+- `formulus/src/webview/FormulusInterfaceDefinition.ts` (formplayer `sync-interface` source)
+- `.github/workflows/ode-desktop.yml`
+
+### What it runs
+
+**Job `desktop` (not on release)**
+
+From `desktop/`: `pnpm lint`, `pnpm format:check`, `pnpm test`, `pnpm typecheck`, `pnpm codegen:synk-client`, then **fails** if `desktop/src/generated` drifts from the regenerated OpenAPI client. From `desktop/src-tauri/`: `cargo fmt --check`, `cargo clippy -D warnings`, `cargo test`.
+
+**Job `desktop-formplayer-dist`** (bundling and release flows)
+
+Ubuntu job: installs and builds `@ode/tokens`, runs `pnpm install --frozen-lockfile` / `pnpm run build` in `formulus-formplayer`, stages `build/` → `desktop/public/formplayer_dist/`, uploads artifact `desktop-formplayer-dist` (short retention for CI).
+
+**Jobs `build-desktop-bundles` (CI) and `release-desktop-bundles` (release)**
+
+Matrix build (mirrors CLI OS/arch coverage): **linux** amd64 + arm64, **windows** amd64 + arm64, **darwin** amd64 (`macos-15-intel`) + arm64 (`macos-latest`). Each runner installs Node + pnpm, restores formplayer artifact, installs Linux WebKitGTK packages where needed, runs `pnpm exec tauri build --target …` with a merged config so `beforeBuildCommand` runs **`pnpm build` only** (frontend + Vite output; embedded formplayer is already present). Builds use `Swatinem/rust-cache` scoped per platform.
+
+**CI artifacts**
+
+Each matrix cell uploads installers under artifact name `ode-desktop-<platform>` (files renamed with prefix `ode-desktop-<platform>-<original-name>`).
+
+**Release assets**
+
+On `release`, `softprops/action-gh-release` attaches those installers for each platform to the published release alongside other assets (CLI, APK, SBOMs, etc.).
+
+### Formplayer embed
+
+Production bundles must include embedded formplayer: locally, `pnpm tauri build` uses `pnpm build:tauri` (`beforeBuildCommand` in `tauri.conf.json`). In CI/Rust release jobs, formplayer is built once on Ubuntu and copied into `desktop/public/formplayer_dist/` before each OS build. Copied assets are gitignored locally (see `desktop/README.md`).
 
 ## Future Enhancements
 

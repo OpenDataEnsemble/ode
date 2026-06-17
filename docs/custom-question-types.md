@@ -10,6 +10,15 @@ Formplayer supports a plugin system that allows you to render custom UI componen
 4. **Loading Payload**: When Formulus opens a form, it reads all custom question types in the `question_types` folder and injects their source code into the Formplayer WebView.
 5. **Execution**: Formplayer dynamically evaluates and registers your component. It wraps it in an error boundary and adapts it to the JSONForms architecture.
 
+### Formulus API: WebView file URLs (v1.2.0+)
+
+Inside the WebView, `<img src>` cannot load legacy relative paths like `/default/data/tables/...`. Use the injected `getFormulus()` API (see `FormulusInterfaceDefinition.ts` in Formulus / Formplayer):
+
+- **`getAttachmentUri(fileName)`** — returns a `file://` URL if that basename exists under the app attachments directory (or `pending_upload`), else `null`. Use the observation media `filename` / `photo.filename` basename.
+- **`getAttachmentsUri()`** — base `file://` URL for the attachments folder (trailing slash).
+- **`getCustomAppUri()`** — base `file://` URL for `DocumentDirectory/app/`.
+- **`getFormSpecsUri()`** — base `file://` URL for `DocumentDirectory/forms/`.
+
 ---
 
 ## Creating a Custom Question Type
@@ -129,6 +138,16 @@ By default, standard JSON Schema properties (`type`, `title`, `description`, `re
 ### Data Storage
 
 Your component can return complex objects, arrays, or primitive values back to `onChange()`. Just ensure the `"type"` property in your schema matches what you are returning (e.g. `"type": "object"` if returning an object) so that AJV validation passes.
+
+---
+
+## Custom validators (related)
+
+Custom **question types** render UI; custom **validators** (`validators/<name>/index.js` in the app bundle) run on `ui.json` `options.customValidators` and return errors. Validators may also **mutate** the full form `data` object in place (for example assigning sequence numbers on embedded sub-observation arrays). Formplayer detects those mutations and refreshes state so tables and dependent fields update without extra custom question types.
+
+**Per-session scope:** Validators run only in the **active** Formplayer session. Nested sub-observation child forms need their own validators (or parent snapshot init fields) for numbering and cross-row rules — root-only validators are not enough for deep embedded trees.
+
+See [Custom Extensions](https://opendataensemble.org/docs/guides/custom-extensions) on opendataensemble.org for validator packaging, [nested sessions](https://opendataensemble.org/docs/guides/custom-extensions#nested-sessions-and-custom-validators), [parent context](https://opendataensemble.org/docs/guides/custom-extensions#parent-context-across-nesting-levels), and sub-observation configuration (`linkedForm` required; `parentKey` optional).
 
 ---
 

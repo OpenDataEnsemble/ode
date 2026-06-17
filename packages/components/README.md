@@ -16,7 +16,7 @@ A comprehensive component library for the Open Data Ensemble (ODE) ecosystem. Th
 ## Installation
 
 ```bash
-npm install @ode/components @ode/tokens
+pnpm install @ode/components @ode/tokens
 ```
 
 ## Quick Start

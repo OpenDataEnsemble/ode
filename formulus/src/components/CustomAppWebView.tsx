@@ -26,6 +26,7 @@ export interface CustomAppWebViewHandle {
   injectJavaScript: (script: string) => void;
   sendFormInit: (formData: FormInitData) => Promise<void>;
   sendAttachmentData: (attachmentData: File) => Promise<void>;
+  notifyReceiveFocus: () => void;
 }
 
 interface CustomAppWebViewProps {
@@ -39,6 +40,8 @@ interface CustomAppWebViewProps {
   onNavigateToSettings?: () => void;
   /** When true, WebView and container use transparent background (e.g. for placeholder over the app screen shell). */
   transparentBackground?: boolean;
+  /** WebView surface color behind HTML content (defaults to platform white on Android). */
+  backgroundColor?: string;
 }
 
 const INJECTION_SCRIPT_PATH =
@@ -173,6 +176,7 @@ const CustomAppWebView = forwardRef<
       onNavigateToSync,
       onNavigateToSettings,
       transparentBackground = false,
+      backgroundColor,
     },
     ref,
   ) => {
@@ -340,6 +344,7 @@ const CustomAppWebView = forwardRef<
           messageManager.sendFormInit(formData),
         sendAttachmentData: (attachmentData: File) =>
           messageManager.sendAttachmentData(attachmentData),
+        notifyReceiveFocus: () => messageManager.notifyReceiveFocus(),
       }),
       [messageManager],
     );
@@ -432,6 +437,7 @@ const CustomAppWebView = forwardRef<
         style={[
           styles.webView,
           transparentBackground && styles.webViewTransparent,
+          backgroundColor != null && { backgroundColor },
         ]}
         containerStyle={
           transparentBackground ? styles.webViewContainerTransparent : undefined

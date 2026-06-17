@@ -8,11 +8,15 @@
  */
 
 import {
+  AttachmentDisplayDescriptor,
   FormulusInterface,
   CameraResult,
+  VideoResult,
   QrcodeResult,
   FileResult,
   AudioResult,
+  LocationResult,
+  FormCompletionResult,
 } from '../types/FormulusInterfaceDefinition';
 
 import {
@@ -64,6 +68,19 @@ class FormulusClient {
       FormulusClient.instance = new FormulusClient();
     }
     return FormulusClient.instance;
+  }
+
+  /**
+   * Drop the cached injected API so the next bridge call re-runs `window.getFormulus()`.
+   * Storybook installs a different partial {@link FormulusInterface} per story; without this,
+   * navigating from e.g. Photo to File leaves a stale object missing `requestFile`.
+   */
+  public static clearCachedFormulusApi(): void {
+    FormulusClient.instance?.resetCachedFormulusApi();
+  }
+
+  private resetCachedFormulusApi(): void {
+    this.formulus = null;
   }
 
   /**
@@ -120,11 +137,37 @@ class FormulusClient {
   }
 
   /**
-   * Request location from the Formulus RN app.
-   * The shared interface no longer returns a typed LocationResult; this
-   * simply forwards the request and returns the underlying Promise<void>.
+   * Resolve an attachment basename or photo descriptor to a WebView-loadable URL.
    */
-  public async requestLocation(fieldId: string): Promise<void> {
+  public async getAttachmentUri(
+    fileRef: string | AttachmentDisplayDescriptor | null | undefined,
+  ): Promise<string | null> {
+    if (fileRef == null) {
+      return null;
+    }
+    if (typeof fileRef === 'string') {
+      if (!fileRef.trim()) {
+        return null;
+      }
+    } else {
+      const hasFn =
+        typeof fileRef.filename === 'string' && fileRef.filename.trim() !== '';
+      if (!hasFn) {
+        return null;
+      }
+    }
+    await this.tryEnsureFormulus();
+    if (this.formulus) {
+      return this.formulus.getAttachmentUri(fileRef);
+    }
+    console.warn('Formulus interface not available for getAttachmentUri');
+    return null;
+  }
+
+  /**
+   * Request location from the Formulus RN app (native GPS for this field).
+   */
+  public async requestLocation(fieldId: string): Promise<LocationResult> {
     console.log('Requesting location for field', fieldId);
     await this.tryEnsureFormulus();
     if (this.formulus) {
@@ -163,6 +206,23 @@ class FormulusClient {
       return this.formulus.requestAudio(fieldId);
     }
     console.warn('Formulus interface not available for requestAudio');
+    return Promise.reject({
+      fieldId,
+      status: 'error',
+      message: 'Formulus interface not available',
+    });
+  }
+
+  /**
+   * Request video recording from the Formulus RN app
+   */
+  public async requestVideo(fieldId: string): Promise<VideoResult> {
+    console.debug('Requesting video for field', fieldId);
+    await this.tryEnsureFormulus();
+    if (this.formulus) {
+      return this.formulus.requestVideo(fieldId);
+    }
+    console.warn('Formulus interface not available for requestVideo');
     return Promise.reject({
       fieldId,
       status: 'error',
@@ -296,6 +356,26 @@ class FormulusClient {
     console.warn('Formulus interface not available for runLocalModel');
     return Promise.reject(
       new Error('Formulus interface not available for runLocalModel'),
+    );
+  }
+
+  /**
+   * Open Formplayer from within the formplayer WebView (e.g. sub-observation rows).
+   * Forwards to the injected Formulus API.
+   */
+  public async openFormplayer(
+    formType: string,
+    params: Record<string, unknown>,
+    savedData: Record<string, unknown>,
+    options?: { subObservationMode?: boolean; skipFinalize?: boolean },
+  ): Promise<FormCompletionResult> {
+    await this.tryEnsureFormulus();
+    if (this.formulus) {
+      return this.formulus.openFormplayer(formType, params, savedData, options);
+    }
+    console.warn('Formulus interface not available for openFormplayer');
+    return Promise.reject(
+      new Error('Formulus interface not available for openFormplayer'),
     );
   }
 

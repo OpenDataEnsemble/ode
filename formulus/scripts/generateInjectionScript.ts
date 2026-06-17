@@ -1,7 +1,21 @@
-// Run with: npx ts-node generateInjectionScript.ts
+// Run with: npm run generate (tsx; package is "type": "module")
 import * as ts from 'typescript';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+/** True when this file is the Node entrypoint (ESM package; run via tsx). */
+function isRunAsCli(): boolean {
+  const entry = process.argv[1];
+  if (!entry) {
+    return false;
+  }
+  try {
+    return path.resolve(entry) === path.resolve(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
 // Types are only used in JSDoc comments, not imported
 
 // Core type definitions
@@ -228,7 +242,7 @@ function generateInjectionScript(interfaceFilePath: string): string {
   // Enhanced API availability detection and recovery
   function getFormulus() {
     // Check multiple locations where the API might exist
-    return globalThis.formulus || window.formulus || (typeof formulus !== 'undefined' ? formulus : undefined);
+    return globalThis.formulus || (typeof window !== 'undefined' ? window.formulus : undefined);
   }
 
   function isFormulusAvailable() {
@@ -326,6 +340,7 @@ function generateInjectionScript(interfaceFilePath: string): string {
       }));
     }
   }
+  globalThis.__formulusRequestApiReinjection = requestApiReinjection;
 
   // Notify React Native that the interface is ready
   if (globalThis.ReactNativeWebView) {
@@ -537,12 +552,13 @@ function extractMethods(sourceFile: ts.SourceFile): MethodInfo[] {
 }
 
 // Main execution
-if (require.main === module) {
+if (isRunAsCli()) {
   try {
     console.log('Running as main module');
 
     // Get the project root directory (one level up from scripts directory)
-    const projectRoot = path.resolve(__dirname, '..');
+    const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+    const projectRoot = path.resolve(scriptDir, '..');
     const interfacePath = path.join(
       projectRoot,
       'src',

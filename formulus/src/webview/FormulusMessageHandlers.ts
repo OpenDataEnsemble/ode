@@ -23,11 +23,21 @@ import {
   errorCodes,
 } from '@react-native-documents/picker';
 import {
+  AttachmentDisplayDescriptor,
+  ConnectivityStatus,
   FormInitData,
   FormCompletionResult,
   FormInfo,
+  FORMULUS_INTERFACE_VERSION,
+  PersistObservationInput,
+  PersistObservationResult,
+  SyncResult,
 } from './FormulusInterfaceDefinition';
 import { FormulusMessageHandlers } from './FormulusMessageHandlers.types';
+import { persistObservationWithAttachments } from '../services/attachmentStorage';
+import { databaseService } from '../database/DatabaseService';
+import { SyncService } from '../services/SyncService';
+import { ServerConfigService } from '../services/ServerConfigService';
 
 // NitroSound is disabled for emulator in react-native.config.js - do not load the module
 // to avoid "Sound HybridObject not registered" console errors. Load lazily only when
@@ -42,7 +52,12 @@ type AudioSet = {
   AudioChannels: number;
 };
 import { FormService } from '../services/FormService';
-import { Observation, ObservationData } from '../database/models/Observation';
+import {
+  getAttachmentsDirectoryFileUrl,
+  getCustomAppDirectoryFileUrl,
+  getFormSpecsDirectoryFileUrl,
+  resolveAttachmentDisplayUri,
+} from '../services/WebViewFileUrlResolver';
 
 export type HandlerArgs = {
   data: unknown;
@@ -110,6 +125,9 @@ const startFormplayerOperation = (
   params: Record<string, unknown> = {},
   savedData: Record<string, unknown> = {},
   observationId: string | null = null,
+  subObservationMode: boolean = false,
+  skipFinalize: boolean = false,
+  skipDraftSelection: boolean = false,
 ): Promise<FormCompletionResult> => {
   const operationId = `${formType}_${Date.now()}_${Math.random()
     .toString(36)
@@ -129,6 +147,9 @@ const startFormplayerOperation = (
       savedData,
       observationId,
       operationId,
+      subObservationMode,
+      skipFinalize,
+      skipDraftSelection,
     });
 
     setTimeout(
@@ -152,24 +173,32 @@ export const openFormplayerFromNative = (
   return startFormplayerOperation(formType, params, savedData, observationId);
 };
 
-let activeFormplayerModalRef: {
+export type ActiveFormplayerModalHandle = {
   handleSubmission: (data: {
     formType: string;
     finalData: Record<string, unknown>;
     observationId?: string | null;
   }) => Promise<string>;
-} | null = null;
+};
+
+let activeFormplayerModalRef: ActiveFormplayerModalHandle | null = null;
 
 export const setActiveFormplayerModal = (
-  modalRef: {
-    handleSubmission: (data: {
-      formType: string;
-      finalData: Record<string, unknown>;
-      observationId?: string | null;
-    }) => Promise<string>;
-  } | null,
+  modalRef: ActiveFormplayerModalHandle | null,
 ) => {
   activeFormplayerModalRef = modalRef;
+};
+
+/** Clears the global active modal only if it still points to this submission handler (stacked modals). */
+export const clearActiveFormplayerModalIfMatches = (
+  handleSubmission: ActiveFormplayerModalHandle['handleSubmission'],
+) => {
+  if (
+    activeFormplayerModalRef &&
+    activeFormplayerModalRef.handleSubmission === handleSubmission
+  ) {
+    activeFormplayerModalRef = null;
+  }
 };
 
 export const resolveFormOperation = (
@@ -217,39 +246,6 @@ export const rejectFormOperation = (operationId: string, error: Error) => {
   }
 };
 
-const saveFormData = async (
-  formType: string,
-  data: ObservationData,
-  observationId: string | null,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  isPartial = true,
-) => {
-  try {
-    const observation: Partial<Observation> = {
-      formType,
-      data,
-    };
-
-    if (observationId !== null) {
-      observation.observationId = observationId;
-      observation.updatedAt = new Date();
-    } else {
-      observation.createdAt = new Date();
-    }
-
-    const formService = await FormService.getInstance();
-    const id =
-      observationId !== null
-        ? await formService.updateObservation(observationId, data)
-        : await formService.addNewObservation(formType, data);
-
-    return id;
-  } catch (error) {
-    console.error('Error saving form data:', error);
-    return null;
-  }
-};
-
 export function createFormulusMessageHandlers(): FormulusMessageHandlers {
   return {
     onInitForm: (payload: unknown) => {
@@ -258,9 +254,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
     onGetVersion: async (): Promise<string> => {
       console.log('FormulusMessageHandlers: onGetVersion handler invoked.');
-      // Replace with your actual version retrieval logic.
-      const version = '0.1.0-native'; // Example version
-      return version;
+      // Return the bridge interface contract version so custom apps can do
+      // meaningful compatibility checks (see isCompatibleVersion).
+      return FORMULUS_INTERFACE_VERSION;
     },
     onSubmitObservation: async (data: {
       formType: string;
@@ -281,13 +277,15 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           formType,
           finalData,
         });
-      } else {
-        // Fallback to the old method if no modal is active
-        console.warn(
-          'FormulusMessageHandlers: No active FormplayerModal, using fallback saveFormData',
-        );
-        return await saveFormData(formType, finalData, null, false);
       }
+
+      console.error(
+        'FormulusMessageHandlers: No active FormplayerModal for submitObservation; refusing to persist.',
+        { formType },
+      );
+      throw new Error(
+        'Form submission failed: no active form session. Close and reopen the form.',
+      );
     },
     onUpdateObservation: async (data: {
       observationId: string;
@@ -306,11 +304,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           observationId: data.observationId,
         });
       }
-      return await saveFormData(
-        data.formType,
-        data.finalData,
-        data.observationId,
-        false,
+
+      console.error(
+        'FormulusMessageHandlers: No active FormplayerModal for updateObservation; refusing to persist.',
+        { observationId: data.observationId, formType: data.formType },
+      );
+      throw new Error(
+        'Form update failed: no active form session. Close and reopen the form.',
       );
     },
     onRequestCamera: async (fieldId: string): Promise<unknown> => {
@@ -404,36 +404,26 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               );
 
               const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
-              const pendingUploadDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending_upload`;
+              const draftDirectory = `${attachmentsDirectory}/draft`;
+              const draftFilePath = `${draftDirectory}/${guidFilename}`;
 
-              const mainFilePath = `${attachmentsDirectory}/${guidFilename}`;
-              const pendingFilePath = `${pendingUploadDirectory}/${guidFilename}`;
-
-              console.log('Copying camera image to attachment sync system:', {
+              console.log('Copying camera image to draft attachment storage:', {
                 source: asset.uri,
-                mainPath: mainFilePath,
-                pendingPath: pendingFilePath,
+                draftPath: draftFilePath,
               });
 
-              // Ensure both directories exist and copy file to both locations
               Promise.all([
                 RNFS.mkdir(attachmentsDirectory),
-                RNFS.mkdir(pendingUploadDirectory),
+                RNFS.mkdir(draftDirectory),
               ])
-                .then(() => {
-                  // Copy to both locations simultaneously
-                  return Promise.all([
-                    RNFS.copyFile(asset.uri, mainFilePath),
-                    RNFS.copyFile(asset.uri, pendingFilePath),
-                  ]);
-                })
+                .then(() => RNFS.copyFile(asset.uri, draftFilePath))
                 .then(() => {
                   console.log(
-                    'Image saved to attachment sync system:',
-                    mainFilePath,
+                    'Image saved to draft attachments:',
+                    draftFilePath,
                   );
 
-                  const webViewUrl = `file://${mainFilePath}`;
+                  const webViewUrl = `file://${draftFilePath}`;
 
                   resolve({
                     fieldId,
@@ -442,8 +432,8 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                       type: 'image',
                       id: imageGuid,
                       filename: guidFilename,
-                      uri: mainFilePath, // Main attachment path for sync protocol
-                      url: webViewUrl, // WebView-accessible URL for display
+                      uri: draftFilePath,
+                      url: webViewUrl,
                       timestamp: new Date().toISOString(),
                       metadata: {
                         width: asset.width || 1920,
@@ -454,8 +444,8 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                         quality: 0.8,
                         originalFileName: asset.fileName || guidFilename,
                         persistentStorage: true,
-                        storageLocation: 'attachments_with_upload_queue',
-                        syncReady: true,
+                        storageLocation: 'draft_attachments',
+                        syncReady: false,
                       },
                     },
                   });
@@ -645,7 +635,15 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       });
     },
 
-    onRequestLocation: async (fieldId: string): Promise<unknown> => {
+    onRequestLocation: async (
+      payload: string | { fieldId?: string },
+    ): Promise<unknown> => {
+      const fieldId =
+        typeof payload === 'string'
+          ? payload
+          : typeof payload?.fieldId === 'string'
+            ? payload.fieldId
+            : '';
       console.log('Request location handler called', fieldId);
 
       // eslint-disable-next-line no-async-promise-executor
@@ -680,13 +678,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         } catch (error) {
           console.error('Location capture failed:', error);
 
-          const errorResult = {
-            fieldId,
-            status: 'error' as const,
-            message: 'Location capture failed',
-          };
-
-          reject(errorResult);
+          const message =
+            error instanceof Error ? error.message : 'Location capture failed';
+          reject(
+            new Error(fieldId ? `${message} (field: ${fieldId})` : message),
+          );
         }
       });
     },
@@ -727,24 +723,42 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               const asset = response.assets[0];
 
               try {
-                // Generate a unique filename
-                const timestamp = Date.now();
-                const filename = `video_${timestamp}.${
-                  asset.type?.split('/')[1] || 'mp4'
-                }`;
+                const generateGUID = () => {
+                  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+                    /[xy]/g,
+                    function (c) {
+                      const r = (Math.random() * 16) | 0;
+                      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+                      return v.toString(16);
+                    },
+                  );
+                };
 
-                // Copy video to app storage directory
-                const destinationPath = `${RNFS.DocumentDirectoryPath}/videos/${filename}`;
+                const ext = asset.type?.split('/')[1] || 'mp4';
+                const videoGuid = generateGUID();
+                const filename = `${videoGuid}.${ext}`;
 
-                // Ensure videos directory exists
-                await RNFS.mkdir(`${RNFS.DocumentDirectoryPath}/videos`);
+                const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+                const draftDirectory = `${attachmentsDirectory}/draft`;
 
-                // Copy the video file
-                if (asset.uri) {
-                  await RNFS.copyFile(asset.uri, destinationPath);
-                } else {
+                await RNFS.mkdir(attachmentsDirectory);
+                await RNFS.mkdir(draftDirectory);
+
+                const draftFilePath = `${draftDirectory}/${filename}`;
+
+                if (!asset.uri) {
                   console.error('Asset uri not available', asset);
+                  reject({
+                    fieldId,
+                    status: 'error',
+                    message: 'Video asset URI not available',
+                  });
+                  return;
                 }
+
+                await RNFS.copyFile(asset.uri, draftFilePath);
+
+                const webViewUrl = `file://${draftFilePath}`;
 
                 const videoResult = {
                   fieldId,
@@ -752,11 +766,12 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                   data: {
                     type: 'video' as const,
                     filename,
-                    uri: `file://${destinationPath}`,
+                    uri: draftFilePath,
+                    url: webViewUrl,
                     timestamp: new Date().toISOString(),
                     metadata: {
                       duration: asset.duration || 0,
-                      format: asset.type?.split('/')[1] || 'mp4',
+                      format: ext,
                       size: asset.fileSize || 0,
                       width: asset.width,
                       height: asset.height,
@@ -806,16 +821,63 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
 
         console.log('File selected:', result);
 
+        const originalName =
+          typeof result.name === 'string' && result.name.trim().length > 0
+            ? result.name.trim()
+            : 'file';
+
+        const extFromName = /\.([^.\\/]{1,32})$/.exec(originalName);
+        const subtype =
+          result.type
+            ?.split('/')[1]
+            ?.split('+')[0]
+            ?.replace(/[^a-z0-9]/gi, '') ?? '';
+        const fromName = extFromName?.[1]?.toLowerCase().trim() ?? '';
+        const fromMime =
+          subtype.length > 0 && subtype.length <= 16
+            ? subtype.toLowerCase()
+            : '';
+        const ext = (fromName.length > 0 ? fromName : fromMime) || 'bin';
+
+        const generateGUID = () => {
+          return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+            /[xy]/g,
+            function (c) {
+              const r = (Math.random() * 16) | 0;
+              const v = c === 'x' ? r : (r & 0x3) | 0x8;
+              return v.toString(16);
+            },
+          );
+        };
+
+        const basename = `${generateGUID()}.${ext}`;
+
+        const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+        const draftDirectory = `${attachmentsDirectory}/draft`;
+        const draftFilePath = `${draftDirectory}/${basename}`;
+
+        await RNFS.mkdir(attachmentsDirectory);
+        await RNFS.mkdir(draftDirectory);
+
+        await RNFS.copyFile(result.uri, draftFilePath);
+
+        const webViewUrl = `file://${draftFilePath}`;
+
         return {
           fieldId,
           status: 'success' as const,
           data: {
-            filename: result.name,
-            uri: result.uri,
-            size: result.size || 0,
-            mimeType: result.type || 'application/octet-stream',
             type: 'file' as const,
+            filename: basename,
+            uri: draftFilePath,
+            url: webViewUrl,
+            size: result.size ?? 0,
+            mimeType: result.type || 'application/octet-stream',
             timestamp: new Date().toISOString(),
+            metadata: {
+              extension: ext,
+              originalFileName: originalName,
+            },
           },
         };
       } catch (error) {
@@ -869,8 +931,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         };
       }
       try {
+        const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+        const draftDirectory = `${attachmentsDirectory}/draft`;
         const filename = `audio_${Date.now()}.m4a`;
-        const path = `${RNFS.DocumentDirectoryPath}/${filename}`;
+        const path = `${draftDirectory}/${filename}`;
+
+        await RNFS.mkdir(attachmentsDirectory);
+        await RNFS.mkdir(draftDirectory);
 
         const audioSet: AudioSet = {
           // Common settings automatically applied to the appropriate platform
@@ -892,12 +959,15 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           data: {
             type: 'audio' as const,
             filename: filename,
-            uri: `file://${path}`,
+            uri: path,
+            url: `file://${path}`,
             timestamp: new Date().toISOString(),
             metadata: {
               duration: 3.0,
               format: 'm4a',
               size: fileStats.size || 0,
+              sampleRate: 44100,
+              channels: 1,
             },
           },
         };
@@ -959,6 +1029,85 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onRequestSyncStatus: () => {
       // TODO: implement sync status logic
       console.log('Request sync status handler called');
+    },
+    onPersistObservation: async (
+      data: {
+        input?: PersistObservationInput;
+      } & Partial<PersistObservationInput>,
+    ): Promise<PersistObservationResult> => {
+      // The bridge nests the single argument under `input`; tolerate both shapes.
+      const input = (data?.input ?? data) as PersistObservationInput;
+      if (!input || !input.formType) {
+        throw new Error('persistObservation: formType is required');
+      }
+      if (!input.finalData || typeof input.finalData !== 'object') {
+        throw new Error('persistObservation: finalData object is required');
+      }
+
+      const localRepo = databaseService.getLocalRepo();
+      if (!localRepo) {
+        throw new Error(
+          'persistObservation: database repository not available',
+        );
+      }
+
+      // Reuse the exact Formplayer submit persistence path (attachment promotion
+      // included). Headless writes are never sub-observations.
+      return persistObservationWithAttachments(
+        {
+          formType: input.formType,
+          finalData: input.finalData,
+          observationId: input.observationId ?? null,
+          subObservationMode: false,
+        },
+        {
+          saveObservation: args => localRepo.saveObservation(args),
+          updateObservation: args => localRepo.updateObservation(args),
+        },
+      );
+    },
+    onSync: async (data: {
+      options?: { includeAttachments?: boolean };
+      includeAttachments?: boolean;
+    }): Promise<SyncResult> => {
+      const includeAttachments = Boolean(
+        data?.options?.includeAttachments ?? data?.includeAttachments ?? false,
+      );
+      const version =
+        await SyncService.getInstance().syncObservations(includeAttachments);
+      return { version };
+    },
+    onGetConnectivityStatus: async (): Promise<ConnectivityStatus> => {
+      const checkedAt = Date.now();
+      try {
+        const serverUrl =
+          await ServerConfigService.getInstance().getServerUrl();
+        if (!serverUrl) {
+          return { online: false, serverUrl: null, checkedAt: Date.now() };
+        }
+        const online =
+          await ServerConfigService.getInstance().isHealthEndpointOk(serverUrl);
+        return { online, serverUrl, checkedAt: Date.now() };
+      } catch (error) {
+        console.warn(
+          'FormulusMessageHandlers: getConnectivityStatus probe failed',
+          error,
+        );
+        return { online: false, serverUrl: null, checkedAt };
+      }
+    },
+    onGetCurrentDataRevisionCount: async (): Promise<number> => {
+      try {
+        const raw = await AsyncStorage.getItem('@last_seen_version');
+        const n = raw != null ? Number(raw) : 0;
+        return Number.isFinite(n) && n >= 0 ? n : 0;
+      } catch (error) {
+        console.warn(
+          'FormulusMessageHandlers: getCurrentDataRevisionCount failed',
+          error,
+        );
+        return 0;
+      }
     },
     onRunLocalModel: (
       fieldId: string,
@@ -1076,6 +1225,38 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         return 'system';
       }
     },
+    onGetAttachmentUri: async (data: {
+      fileName?: string | AttachmentDisplayDescriptor;
+      filename?: string | AttachmentDisplayDescriptor;
+    }): Promise<string | null> => {
+      const ref = data?.fileName ?? data?.filename;
+      if (ref == null) {
+        console.warn(
+          'FormulusMessageHandlers: onGetAttachmentUri missing fileName',
+        );
+        return null;
+      }
+      if (typeof ref === 'string' && !ref.trim()) {
+        return null;
+      }
+      if (typeof ref === 'object' && ref !== null && !Array.isArray(ref)) {
+        const hasFn =
+          typeof ref.filename === 'string' && ref.filename.trim() !== '';
+        if (!hasFn) {
+          return null;
+        }
+      }
+      return resolveAttachmentDisplayUri(ref);
+    },
+    onGetAttachmentsUri: async (): Promise<string> => {
+      return getAttachmentsDirectoryFileUrl();
+    },
+    onGetCustomAppUri: async (): Promise<string> => {
+      return getCustomAppDirectoryFileUrl();
+    },
+    onGetFormSpecsUri: async (): Promise<string> => {
+      return getFormSpecsDirectoryFileUrl();
+    },
     onGetObservations: async (
       formType: string | { formType: string },
       isDraft?: boolean,
@@ -1119,17 +1300,20 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         formType: string;
         isDraft?: boolean;
         includeDeleted?: boolean;
+        filter?: import('@ode/observation-query').ObservationFilter;
         whereClause?: string | null;
       };
       formType?: string;
       isDraft?: boolean;
       includeDeleted?: boolean;
+      filter?: import('@ode/observation-query').ObservationFilter;
       whereClause?: string | null;
     }) => {
       const options = (payload?.options ?? payload) as {
         formType: string;
         isDraft?: boolean;
         includeDeleted?: boolean;
+        filter?: import('@ode/observation-query').ObservationFilter;
         whereClause?: string | null;
       };
       if (!options?.formType) {
@@ -1140,12 +1324,38 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const service = await FormService.getInstance();
       return await service.getObservationsByQuery(options);
     },
-    onOpenFormplayer: async (data: FormInitData) => {
+    onOpenFormplayer: async (
+      data: FormInitData & {
+        options?: {
+          subObservationMode?: boolean;
+          skipFinalize?: boolean;
+          skipDraftSelection?: boolean;
+          returnOnly?: boolean;
+        };
+        /** @deprecated Legacy key; prefer subObservationMode */
+        returnOnly?: boolean;
+      },
+    ) => {
+      const subObservationMode = Boolean(
+        data.options?.subObservationMode ||
+        data.subObservationMode ||
+        data.options?.returnOnly ||
+        data.returnOnly,
+      );
+      const skipFinalize = Boolean(
+        data.options?.skipFinalize || data.skipFinalize,
+      );
+      const skipDraftSelection = Boolean(
+        data.options?.skipDraftSelection || data.skipDraftSelection,
+      );
       return startFormplayerOperation(
         data.formType,
         data.params,
         data.savedData,
         data.observationId ?? null,
+        subObservationMode,
+        skipFinalize,
+        skipDraftSelection,
       );
     },
     onFormplayerInitialized: (_data: {

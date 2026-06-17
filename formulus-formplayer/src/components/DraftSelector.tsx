@@ -177,7 +177,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   const content = (
     <Box
       sx={{
-        minHeight: fullScreen ? '100dvh' : 'auto',
+        minHeight: fullScreen ? '100%' : 'auto',
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'background.default',

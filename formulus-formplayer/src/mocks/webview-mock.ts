@@ -5,24 +5,9 @@ import {
   QrcodeResult,
   FileResult,
   AudioResult,
+  LocationResult,
+  VideoResult,
 } from '../types/FormulusInterfaceDefinition';
-
-// Local lightweight types for location/video results used only in the
-// development mock. The shared Formulus interface no longer exposes
-// these, but the mock helpers still refer to them.
-type LocationResult = {
-  fieldId: string;
-  status: 'success' | 'cancelled' | 'error';
-  message?: string;
-  data?: any;
-};
-
-type VideoResult = {
-  fieldId: string;
-  status: 'success' | 'cancelled' | 'error';
-  message?: string;
-  data?: any;
-};
 
 interface MockWebView {
   postMessage: (message: string) => void;
@@ -104,6 +89,42 @@ class WebViewMock {
       reject: (result: VideoResult) => void;
     }
   >();
+
+  /**
+   * basename → WebView-loadable URL (browser dev).
+   * Mirrors RN behaviour: capture registers the file, previews resolve via getAttachmentUri only.
+   */
+  private attachmentDisplayUrlsByBasename = new Map<string, string>();
+
+  private basenameFromAttachmentRef(
+    fileRef: string | { filename?: string },
+  ): string | null {
+    const raw =
+      typeof fileRef === 'string'
+        ? fileRef
+        : typeof fileRef.filename === 'string'
+          ? fileRef.filename
+          : '';
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const base = trimmed.replace(/\\/g, '/').split('/').pop()?.trim() ?? '';
+    if (!base || base === '.' || base === '..' || base.includes('..')) {
+      return null;
+    }
+    return base;
+  }
+
+  private resolveMockAttachmentDisplayUrl(
+    fileRef: string | { filename?: string },
+  ): string | null {
+    const base = this.basenameFromAttachmentRef(fileRef);
+    if (!base) {
+      return null;
+    }
+    return this.attachmentDisplayUrlsByBasename.get(base) ?? null;
+  }
 
   // Mock the postMessage function that the app uses to send messages to native
   private postMessage = (message: string) => {
@@ -327,6 +348,18 @@ class WebViewMock {
             // Show interactive popup for audio recording simulation
             this.showAudioSimulationPopup(fieldId);
           });
+        },
+        getAttachmentUri: (
+          fileRef: string | { filename?: string },
+        ): Promise<string | null> => {
+          const resolved = this.resolveMockAttachmentDisplayUrl(fileRef);
+          console.log(
+            '[WebView Mock] getAttachmentUri',
+            fileRef,
+            '→',
+            resolved,
+          );
+          return Promise.resolve(resolved);
         },
         launchIntent: (
           fieldId: string,
@@ -634,8 +667,11 @@ class WebViewMock {
     };
 
     const imageGuid = generateGUID();
-    // Use the actual dummy photo from public folder for browser testing
+    const basename = `${imageGuid}.jpg`;
     const dummyPhotoUrl = `${window.location.origin}/dummyphoto.png`;
+    this.attachmentDisplayUrlsByBasename.set(basename, dummyPhotoUrl);
+
+    const draftFilePath = `/mock_document/attachments/draft/${basename}`;
 
     const mockCameraResult: CameraResult = {
       fieldId,
@@ -643,9 +679,9 @@ class WebViewMock {
       data: {
         type: 'image',
         id: imageGuid,
-        filename: `${imageGuid}.jpg`,
-        uri: dummyPhotoUrl, // Use the dummy photo URL as the URI for display
-        url: dummyPhotoUrl, // For compatibility with CameraResultData.url
+        filename: basename,
+        uri: draftFilePath,
+        url: `file://${draftFilePath}`,
         timestamp: new Date().toISOString(),
         metadata: {
           width: 1920,
@@ -835,9 +871,8 @@ class WebViewMock {
   private simulateFileSuccessResponse(
     fieldId: string,
     mimeType: string,
-    filename: string,
+    originalFilename: string,
   ): void {
-    // Generate GUID for file
     const generateGUID = () => {
       return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
         /[xy]/g,
@@ -849,24 +884,35 @@ class WebViewMock {
       );
     };
 
-    const fileGuid = generateGUID();
-    const extension = filename.split('.').pop() || '';
-    const mockFileSize = Math.floor(Math.random() * 1000000) + 50000; // 50KB to 1MB
-    const mockUri = `file:///storage/emulated/0/Android/data/com.formulus/files/${fileGuid}.${extension}`;
+    const extFromName = /\.([^.\\/]{1,32})$/.exec(originalFilename);
+    const subtype =
+      mimeType
+        ?.split('/')[1]
+        ?.split('+')[0]
+        ?.replace(/[^a-z0-9]/gi, '') ?? '';
+    const fromName = extFromName?.[1]?.toLowerCase().trim() ?? '';
+    const fromMime =
+      subtype.length > 0 && subtype.length <= 16 ? subtype.toLowerCase() : '';
+    const ext = (fromName.length > 0 ? fromName : fromMime) || 'bin';
+
+    const basename = `${generateGUID()}.${ext}`;
+    const draftPath = `/mock_document/attachments/draft/${basename}`;
+    const mockFileSize = Math.floor(Math.random() * 1000000) + 50000;
 
     const mockFileResult: FileResult = {
       fieldId,
       status: 'success',
       data: {
         type: 'file',
-        filename,
-        uri: mockUri,
+        filename: basename,
+        uri: draftPath,
+        url: `file://${draftPath}`,
         mimeType,
         size: mockFileSize,
         timestamp: new Date().toISOString(),
         metadata: {
-          extension,
-          originalPath: `/storage/emulated/0/Download/${filename}`,
+          extension: ext,
+          originalFileName: originalFilename,
         },
       },
     };
@@ -876,7 +922,6 @@ class WebViewMock {
       mockFileResult,
     );
 
-    // Resolve the pending Promise for this field
     const pendingPromise = this.pendingFilePromises.get(fieldId);
     if (pendingPromise) {
       pendingPromise.resolve(mockFileResult);
@@ -1048,8 +1093,11 @@ class WebViewMock {
     );
 
     // Generate mock audio file data
-    const mockFilename = `audio_${Date.now()}.m4a`;
+    const basename = `audio_${Date.now()}.m4a`;
     const dummyAudioUrl = `${window.location.origin}/dummyaudio.m4a`;
+    this.attachmentDisplayUrlsByBasename.set(basename, dummyAudioUrl);
+
+    const draftPath = `/mock_document/attachments/draft/${basename}`;
     const base64Placeholder =
       'UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA='; // tiny WAV header stub
 
@@ -1058,9 +1106,10 @@ class WebViewMock {
       status: 'success',
       data: {
         type: 'audio',
-        filename: mockFilename,
+        filename: basename,
+        uri: draftPath,
+        url: `file://${draftPath}`,
         base64: base64Placeholder,
-        url: dummyAudioUrl,
         timestamp: new Date().toISOString(),
         metadata: {
           duration: 15.5, // 15.5 seconds
@@ -1458,13 +1507,21 @@ class WebViewMock {
       fieldId,
     );
 
+    const basename = `video_${Date.now()}.mp4`;
+    const demoVideoUrl =
+      'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4';
+    this.attachmentDisplayUrlsByBasename.set(basename, demoVideoUrl);
+
+    const draftPath = `/mock_document/attachments/draft/${basename}`;
+
     const videoResult: VideoResult = {
       fieldId,
       status: 'success',
       data: {
         type: 'video',
-        filename: `video_${Date.now()}.mp4`,
-        uri: `file:///mock/videos/video_${Date.now()}.mp4`,
+        filename: basename,
+        uri: draftPath,
+        url: `file://${draftPath}`,
         timestamp: new Date().toISOString(),
         metadata: {
           duration: 15.5, // 15.5 seconds

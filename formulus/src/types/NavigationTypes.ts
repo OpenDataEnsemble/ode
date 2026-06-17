@@ -1,3 +1,5 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
+
 export type MainTabParamList = {
   Home: undefined;
   Forms: undefined;
@@ -27,6 +29,6 @@ export type VisibleMainTab = (typeof VISIBLE_MAIN_TABS)[number];
 
 export type MainAppStackParamList = {
   Welcome: undefined;
-  MainApp: undefined;
+  MainApp: NavigatorScreenParams<MainTabParamList> | undefined;
   ObservationDetail: { observationId: string };
 };

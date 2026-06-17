@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: Synkronus API
-  version: 1.0.5
+  version: 1.0.6
 paths:
   /health:
     get:
@@ -53,6 +53,10 @@ paths:
       operationId: getVersion
       summary: Get server version and system information
       description: Returns detailed version information about the server, including build information and system details
+      security:
+        - bearerAuth: [read-only, read-write, admin]
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: Successful response with version information
@@ -60,12 +64,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemVersionInfo'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '500':
           description: Internal server error
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/versions:
+    get:
+      operationId: getAPIVersions
+      summary: List supported API contract versions
+      description: Returns version metadata for the public HTTP API (compatibility hints for clients).
+      security:
+        - bearerAuth: [read-only, read-write, admin]
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
+      responses:
+        '200':
+          description: API version list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIVersionsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /api/app-bundle/changes:
     get:
@@ -87,14 +112,7 @@ paths:
           schema:
             type: string
           description: The target version to compare against (defaults to previous version)
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: Successfully retrieved changes between versions
@@ -128,14 +146,13 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-api-version
+        - $ref: '#/components/parameters/XOdeVersion'
+        - name: x-ode-client-id
           in: header
           required: false
           schema:
             type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Optional client instance id for correlating app bundle checks with presence.
       responses:
         '200':
           description: Bundle file list
@@ -172,14 +189,7 @@ paths:
           in: header
           schema:
             type: string
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: File content
@@ -195,6 +205,34 @@ paths:
         '304':
           description: Not Modified
 
+  /api/app-bundle/download-zip:
+    get:
+      operationId: downloadAppBundleZip
+      summary: Download the active app bundle as a single ZIP
+      description: Returns the full custom app bundle archive for the active version as `application/zip`.
+      security:
+        - bearerAuth: [read-only, read-write]
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
+      responses:
+        '200':
+          description: ZIP archive of the app bundle
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Bundle zip not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /api/app-bundle/versions:
     get:
       operationId: getAppBundleVersions
@@ -202,14 +240,7 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: List of available app bundle versions
@@ -225,14 +256,7 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -289,14 +313,7 @@ paths:
           schema:
             type: string
           description: Version identifier to switch to
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: Successfully switched to the specified version
@@ -339,14 +356,7 @@ paths:
       summary: Authenticate user and return JWT tokens
       description: Obtain a JWT token by providing username and password
       parameters:
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -388,14 +398,7 @@ paths:
       summary: Refresh JWT token
       description: Obtain a new JWT token using a refresh token
       parameters:
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -435,14 +438,7 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -498,18 +494,19 @@ paths:
     get:
       operationId: listUsers
       summary: List all users (admin only)
-      description: Retrieve a list of all users in the system. Admin access required.
+      description: |
+        Retrieve a list of all users in the system. Admin access required.
+        Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-api-version
+        - $ref: '#/components/parameters/XOdeVersion'
+        - name: x-ode-client-id
           in: header
           required: false
           schema:
             type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.
       responses:
         '200':
           description: List of all users
@@ -518,7 +515,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UserResponse'
+                  $ref: '#/components/schemas/UserListItem'
         '401':
           description: Unauthorized
           content:
@@ -546,14 +543,7 @@ paths:
           schema:
             type: string
           description: Username of the user to delete
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: User deleted successfully
@@ -598,14 +588,7 @@ paths:
       security:
         - bearerAuth: [admin]
       parameters:
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -665,14 +648,7 @@ paths:
       security:
         - bearerAuth: [read-only, read-write, admin]
       parameters:
-        - name: x-api-version
-          in: header
-          required: false
-          schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+        - $ref: '#/components/parameters/XOdeVersion'
       requestBody:
         required: true
         content:
@@ -746,14 +722,21 @@ paths:
             default: 50
           description: Maximum number of records to return
 
-        - name: x-api-version
+        - $ref: '#/components/parameters/XOdeVersion'
+        - name: x-ode-client-id
           in: header
           required: false
           schema:
             type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Optional client instance id; improves per-device presence when combined with sync body `client_id`.
+        - name: x-repository-generation
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          description: Client repository epoch; must match the server. Omitted or invalid values are treated as 1. Successful responses include the current epoch in JSON and in this header.
       requestBody:
         required: true
         content:
@@ -763,10 +746,27 @@ paths:
       responses:
         '200':
           description: Sync data
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+              description: Current repository epoch (same as response body `repository_generation`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SyncPullResponse'
+        '409':
+          description: Repository epoch mismatch (e.g. after admin hard reset). Client must align repository_generation before pulling.
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/sync/push:
     post:
@@ -775,14 +775,21 @@ paths:
       security:
         - bearerAuth: [read-write]
       parameters:
-        - name: x-api-version
+        - $ref: '#/components/parameters/XOdeVersion'
+        - name: x-ode-client-id
           in: header
           required: false
           schema:
             type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+          description: Optional client instance id; improves per-device presence when combined with sync body `client_id`.
+        - name: x-repository-generation
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          description: Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
       requestBody:
         required: true
         content:
@@ -792,10 +799,83 @@ paths:
       responses:
         '200':
           description: Sync result
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+              description: Current repository epoch (same as response body `repository_generation`).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SyncPushResponse'
+        '409':
+          description: Repository epoch mismatch (e.g. after admin hard reset). Client must pull current state and align repository_generation before pushing.
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/admin/repository/reset:
+    post:
+      operationId: adminRepositoryReset
+      summary: Irreversibly wipe server observation and attachment sync data (admin only)
+      description: >
+        Destructive operation: deletes all observations and attachment manifest rows, resets the observation stream
+        cursor, increments repository_generation, and clears attachment files on disk. App bundles are not removed.
+        Requires body `{ "confirm": "RESET_REPOSITORY" }`.
+      security:
+        - bearerAuth: [admin]
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RepositoryResetRequest'
+      responses:
+        '200':
+          description: Reset completed
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+              description: New repository epoch after reset (same as response body `repository_generation`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryResetResponse'
+        '400':
+          description: Invalid confirmation body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden (non-admin)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /api/attachments/manifest:
     post:
@@ -805,14 +885,15 @@ paths:
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
-        - name: x-api-version
+        - $ref: '#/components/parameters/XOdeVersion'
+        - name: x-repository-generation
           in: header
           required: false
           schema:
-            type: string
-            pattern: '^\d+\.\d+\.\d+$'
-            example: '1.0.0'
-          description: Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)
+            type: integer
+            format: int64
+            minimum: 1
+          description: Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
       requestBody:
         required: true
         content:
@@ -826,6 +907,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AttachmentManifestResponse'
+        '409':
+          description: Repository epoch mismatch
+          headers:
+            x-repository-generation:
+              schema:
+                type: integer
+                format: int64
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '400':
           description: Invalid request parameters
           content:
@@ -854,6 +946,8 @@ paths:
         Entry paths correspond to attachment IDs. Large exports stream without buffering the full archive in memory.
       tags:
         - Attachments
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: ZIP archive stream
@@ -890,6 +984,15 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - $ref: '#/components/parameters/XOdeVersion'
+        - name: x-repository-generation
+          in: header
+          required: false
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+          description: Client repository epoch; must match the server. Omitted or invalid values are treated as 1.
       requestBody:
         required: true
         content:
@@ -919,11 +1022,19 @@ paths:
         '401':
           description: Unauthorized
         '409':
-          description: Conflict (attachment already exists and cannot be overwritten)
+          description: Conflict — attachment already exists, or repository_generation mismatch (epoch; align before upload)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
     get:
       operationId: downloadAttachment
       summary: Download an attachment by ID
+      description: >
+        Downloads the processed attachment by default. If `original=true` (or `1` / `yes`)
+        and an uncompressed sibling exists, the original file is returned. If no original
+        exists, the endpoint falls back to the processed attachment.
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
@@ -933,6 +1044,17 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - $ref: '#/components/parameters/XOdeVersion'
+        - name: original
+          in: query
+          required: false
+          description: >
+            Prefer the original (uncompressed) attachment when available. Truthy values:
+            `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no
+            original exists.
+          schema:
+            type: string
+            example: "true"
       responses:
         '200':
           description: The binary attachment content
@@ -949,6 +1071,9 @@ paths:
     head:
       operationId: checkAttachmentExists
       summary: Check if an attachment exists
+      description: >
+        Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`),
+        existence is checked against the original file first, with fallback to the processed file.
       security:
         - bearerAuth: [read-only, read-write]
       parameters:
@@ -958,6 +1083,17 @@ paths:
           schema:
             type: string
             example: "abc123.jpg"
+        - $ref: '#/components/parameters/XOdeVersion'
+        - name: original
+          in: query
+          required: false
+          description: >
+            Prefer the original (uncompressed) attachment when available. Truthy values:
+            `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no
+            original exists.
+          schema:
+            type: string
+            example: "true"
       responses:
         '200':
           description: Attachment exists
@@ -976,6 +1112,8 @@ paths:
       operationId: getParquetExportZip
       tags:
         - DataExport
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: ZIP archive stream containing Parquet files
@@ -1002,6 +1140,8 @@ paths:
         grouped by form type folder. Each file contains metadata fields and a nested `data` object with the form payload.
       tags:
         - DataExport
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
       responses:
         '200':
           description: ZIP archive stream containing JSON files
@@ -1020,7 +1160,43 @@ paths:
         - bearerAuth: [read-only, read-write, admin]
 
 components:
+  parameters:
+    XOdeVersion:
+      name: x-ode-version
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^([vV])?\d+\.\d+\.\d+([+.-].*)?$'
+        example: '1.0.0'
+      description: >-
+        Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
   schemas:
+    APIVersionsResponse:
+      type: object
+      required: [versions, current]
+      properties:
+        versions:
+          type: array
+          items:
+            $ref: '#/components/schemas/APIVersionInfo'
+        current:
+          type: string
+          description: Identifier of the current API contract version
+          example: '1.0.0'
+    APIVersionInfo:
+      type: object
+      required: [version, releaseDate, deprecated]
+      properties:
+        version:
+          type: string
+          example: '1.0.0'
+        releaseDate:
+          type: string
+          format: date
+          example: '2025-01-01'
+        deprecated:
+          type: boolean
     SystemVersionInfo:
       type: object
       properties:
@@ -1080,6 +1256,13 @@ components:
         error:
           type: string
           example: "Failed to get version information"
+        message:
+          type: string
+          description: Optional human-readable detail
+        code:
+          type: string
+          description: Stable machine-readable code (e.g. repository_reset_required)
+          example: repository_reset_required
     ChangeLog:
       type: object
       properties:
@@ -1228,12 +1411,91 @@ components:
           type: string
           format: date-time
 
+    UserListItem:
+      type: object
+      required: [id, username, role, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        role:
+          type: string
+          enum: [read-only, read-write, admin]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        presence:
+          $ref: '#/components/schemas/UserPresenceSummary'
+    UserPresenceSummary:
+      type: object
+      properties:
+        lastSeenAt:
+          type: string
+          format: date-time
+          description: Latest activity across all clients for this user
+        clientCount:
+          type: integer
+          description: Number of distinct client ids seen
+        clients:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserPresenceClient'
+    UserPresenceClient:
+      type: object
+      required: [clientId, lastSeenAt]
+      properties:
+        clientId:
+          type: string
+          description: Client id from sync or empty string when unknown
+        lastSeenAt:
+          type: string
+          format: date-time
+        lastDataVersion:
+          type: integer
+          format: int64
+          description: Last known sync data version cursor hint for this client
+        appBundleVersion:
+          type: string
+        lastOdeVersion:
+          type: string
+          description: ODE/Formulus client version header last seen for this row
+
+    RepositoryResetRequest:
+      type: object
+      required: [confirm]
+      properties:
+        confirm:
+          type: string
+          enum: [RESET_REPOSITORY]
+          description: Must be exactly RESET_REPOSITORY to authorize destructive reset
+
+    RepositoryResetResponse:
+      type: object
+      required: [repository_generation, message]
+      properties:
+        repository_generation:
+          type: integer
+          format: int64
+          description: New repository epoch after reset
+        message:
+          type: string
+
     SyncPullRequest:
       type: object
       required: [client_id]
       properties:
         client_id:
           type: string
+        repository_generation:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Optional body copy of epoch; header x-repository-generation wins when both are sent. Must match the server or the request returns 409.
         since:
           type: object
           description: Optional pagination cursor indicating the last seen change
@@ -1249,11 +1511,15 @@ components:
 
     SyncPullResponse:
       type: object
-      required: [current_version, records, change_cutoff]
+      required: [current_version, repository_generation, records, change_cutoff]
       properties:
         current_version:
           type: integer
           description: Current database version number that increments with each update
+        repository_generation:
+          type: integer
+          format: int64
+          description: Monotonic repository epoch (increments on admin hard reset only)
         records:
           type: array
           items:
@@ -1277,6 +1543,11 @@ components:
           format: uuid
         client_id:
           type: string
+        repository_generation:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Optional body copy of epoch; header x-repository-generation wins when both are sent.
         records:
           type: array
           items:
@@ -1284,11 +1555,14 @@ components:
 
     SyncPushResponse:
       type: object
-      required: [current_version, success_count]
+      required: [current_version, repository_generation, success_count]
       properties:
         current_version:
           type: integer
           description: Current database version number after processing the push
+        repository_generation:
+          type: integer
+          format: int64
         success_count:
           type: integer
         failed_records:
@@ -1432,15 +1706,24 @@ components:
           description: Data version number from which to get attachment changes (0 for all attachments)
           example: 42
           minimum: 0
+        repository_generation:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Optional body copy of epoch; header wins when both are sent.
 
     AttachmentManifestResponse:
       type: object
-      required: [current_version, operations]
+      required: [current_version, repository_generation, operations]
       properties:
         current_version:
           type: integer
           description: Current database version number
           example: 45
+        repository_generation:
+          type: integer
+          format: int64
+          description: Monotonic repository epoch
         operations:
           type: array
           description: List of attachment operations to perform
@@ -1490,6 +1773,26 @@ components:
           type: integer
           description: Version when this attachment was created/modified/deleted
           example: 43
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 
   securitySchemes:
     bearerAuth:

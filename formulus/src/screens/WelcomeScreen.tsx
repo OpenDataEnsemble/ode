@@ -57,7 +57,12 @@ const WelcomeScreen = () => {
   const handleGetStarted = () => {
     navigation.reset({
       index: 0,
-      routes: [{ name: 'MainApp' }],
+      routes: [
+        {
+          name: 'MainApp',
+          params: { screen: 'Settings' },
+        },
+      ],
     });
   };
 

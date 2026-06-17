@@ -2,6 +2,8 @@
 
 A command-line interface for interacting with the Synkronus API.
 
+> Developer note: after OpenAPI spec changes in `../synkronus/openapi/synkronus.yaml`, regenerate the Go client with `go generate ./pkg/client`.
+
 ## Features
 
 - Authentication with JWT tokens
@@ -166,6 +168,15 @@ synk sync pull --client-id your-client-id --after-change-id 1234 --schema-types 
 synk sync push data.json
 ```
 
+### User management (admin)
+
+```bash
+# List users with role, last activity timestamp (UTC), and client count (N/A when absent)
+synk user list
+
+# Create, delete, reset password, change own password — see synk user --help
+```
+
 ### Data Export
 
 ```bash
@@ -195,3 +206,29 @@ Build with: `go build -o bin/synk.exe ./cmd/synkronus`
 Run with: `bin/synk.exe`
 
 Icon: configured in versioninfo.json and built with goversioninfo `goversioninfo -o cmd/synkronus/resource.syso` to create a syso file next to main go file.
+
+### Regenerating the OpenAPI client
+
+The Go API client in `pkg/client/generated/client.gen.go` is generated from:
+
+- Spec: `../synkronus/openapi/synkronus.yaml`
+- Tool: `github.com/oapi-codegen/oapi-codegen/v2` (pinned in `tools.go`)
+- Config: `oapi-codegen.yaml`
+
+Use:
+
+```bash
+go generate ./pkg/client
+```
+
+Then verify:
+
+```bash
+go test ./...
+```
+
+### FOSS notes for generation stack
+
+- `oapi-codegen` is open source under Apache-2.0.
+- `github.com/oapi-codegen/runtime` is also open source under Apache-2.0.
+- Apache-2.0 is permissive and compatible with MIT-licensed projects.

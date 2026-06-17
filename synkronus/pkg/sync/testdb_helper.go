@@ -147,12 +147,16 @@ func ensureTestSchema(ctx context.Context, conn *sql.Conn) error {
 		}
 	}
 
-	// Create sync_version table
+	// Create sync_version table (aligned with production: single row id=1 + repository epoch)
 	syncVersionSQL := `
 		CREATE TABLE sync_version (
-			id SERIAL PRIMARY KEY,
+			id INTEGER PRIMARY KEY DEFAULT 1,
 			current_version BIGINT NOT NULL DEFAULT 1,
-			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			repository_generation BIGINT NOT NULL DEFAULT 1,
+			last_reset_at TIMESTAMP WITH TIME ZONE,
+			last_reset_by VARCHAR(255),
+			CONSTRAINT sync_version_single_row CHECK (id = 1)
 		)
 	`
 	if _, err := conn.ExecContext(ctx, syncVersionSQL); err != nil {
@@ -160,7 +164,7 @@ func ensureTestSchema(ctx context.Context, conn *sql.Conn) error {
 	}
 
 	// Insert initial version
-	if _, err := conn.ExecContext(ctx, "INSERT INTO sync_version (current_version) VALUES (1)"); err != nil {
+	if _, err := conn.ExecContext(ctx, "INSERT INTO sync_version (id, current_version, repository_generation) VALUES (1, 1, 1)"); err != nil {
 		return fmt.Errorf("failed to insert initial version: %w", err)
 	}
 
@@ -197,8 +201,8 @@ func ensureTestSchema(ctx context.Context, conn *sql.Conn) error {
 	triggerFunctionSQL := `
 		CREATE OR REPLACE FUNCTION update_sync_version() RETURNS TRIGGER AS $$
 		BEGIN
-			UPDATE sync_version SET current_version = current_version + 1, updated_at = CURRENT_TIMESTAMP;
-			NEW.version = (SELECT current_version FROM sync_version ORDER BY id DESC LIMIT 1);
+			UPDATE sync_version SET current_version = current_version + 1, updated_at = CURRENT_TIMESTAMP WHERE id = 1;
+			NEW.version = (SELECT current_version FROM sync_version WHERE id = 1);
 			RETURN NEW;
 		END;
 		$$ LANGUAGE plpgsql;
@@ -285,7 +289,7 @@ func ResetTestData(db *sql.DB) error {
 	}
 
 	// Reset sync version
-	if _, err := db.Exec("UPDATE sync_version SET current_version = 1, updated_at = CURRENT_TIMESTAMP"); err != nil {
+	if _, err := db.Exec("UPDATE sync_version SET current_version = 1, repository_generation = 1, last_reset_at = NULL, last_reset_by = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = 1"); err != nil {
 		return fmt.Errorf("failed to reset sync version: %w", err)
 	}
 

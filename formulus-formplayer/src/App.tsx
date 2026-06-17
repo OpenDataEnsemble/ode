@@ -35,9 +35,17 @@ import * as MUI from '@mui/material';
 import FormulusClient from './services/FormulusInterface';
 import { FormInitData } from './types/FormulusInterfaceDefinition';
 import {
-  initialFormDataFromParams,
+  applySchemaDefaultTokens,
   dataMatchingSchemaRoot,
+  initialFormDataFromParams,
+  shouldOfferDraftSelector,
 } from './utils/formObservationData';
+import {
+  collectStickyFieldPaths,
+  extractStickyValues,
+  applyStickyDefaults,
+} from './utils/stickyFieldHelpers';
+import { stickyService } from './services/StickyService';
 
 import SwipeLayoutRenderer, {
   swipeLayoutTester,
@@ -71,12 +79,15 @@ import HtmlLabelRenderer, {
 import AdateQuestionRenderer, {
   adateQuestionTester,
 } from './renderers/AdateQuestionRenderer';
+import SubObservationQuestionRenderer, {
+  subObservationQuestionTester,
+} from './renderers/SubObservationQuestionRenderer';
 import { shellMaterialRenderers } from './theme/material-wrappers';
 import { numberStepperRenderer } from './renderers/NumberStepperRenderer';
 import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
-import MaterialTextControlWithImeHint, {
-  materialTextControlWithImeHintTester,
-} from './jsonforms/MaterialTextControlWithImeHint';
+import ShellInputControl, {
+  shellInputControlTester,
+} from './jsonforms/ShellInputControl';
 import type { KeyboardPrimaryEnterKeyHint } from './utils/keyboardEnterKeyHint';
 
 import ErrorBoundary from './components/ErrorBoundary';
@@ -88,8 +99,14 @@ import { FormEvaluationProvider } from './FormEvaluationContext';
 import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
 import { loadCustomValidators } from './services/CustomValidatorLoader';
 import { customValidatorRegistry } from './services/CustomValidatorRegistry';
-import { executeAllCustomValidators } from './services/CustomValidatorExecutor';
+import { runCustomValidatorsAndRefreshData } from './services/customValidatorDataRefresh';
 import { newDraftSessionKey } from './utils/draftSessionKey';
+
+/** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
+function isSubObservationSession(init: FormInitData): boolean {
+  const i = init as FormInitData & { returnOnly?: boolean };
+  return Boolean(i.subObservationMode || i.returnOnly);
+}
 
 // Mock and DevTestbed are loaded only in development via dynamic import (see index.tsx).
 // This keeps ~2000+ lines of mock code out of production bundles.
@@ -170,6 +187,7 @@ const ensureSwipeLayoutRoot = (uiSchema: FormUISchema | null): FormUISchema => {
 // Function to process UI schema and ensure Finalize element is present
 const processUISchemaWithFinalize = (
   uiSchema: FormUISchema | null,
+  skipFinalize?: boolean,
 ): FormUISchema => {
   if (!uiSchema || !uiSchema.elements) {
     // If no UI schema or no elements, create a basic one with just Finalize
@@ -205,10 +223,12 @@ const processUISchemaWithFinalize = (
     });
   }
 
-  // Always add our Finalize element as the last element
-  elements.push({
-    type: 'Finalize',
-  });
+  // Append Finalize page unless skipFinalize (sub-observation fast path).
+  if (!skipFinalize) {
+    elements.push({
+      type: 'Finalize',
+    });
+  }
 
   processedUISchema.elements = elements;
   return processedUISchema;
@@ -242,8 +262,8 @@ export const useFormContext = () => useContext(FormContext);
 
 export const customRenderers = [
   {
-    tester: materialTextControlWithImeHintTester,
-    renderer: MaterialTextControlWithImeHint,
+    tester: shellInputControlTester,
+    renderer: ShellInputControl,
   },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer },
@@ -257,6 +277,10 @@ export const customRenderers = [
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
   { tester: htmlLabelTester, renderer: HtmlLabelRenderer },
   { tester: adateQuestionTester, renderer: AdateQuestionRenderer },
+  {
+    tester: subObservationQuestionTester,
+    renderer: SubObservationQuestionRenderer,
+  },
   // Dynamic choice list renderer for x-dynamicEnum fields
   { tester: dynamicEnumTester, renderer: DynamicEnumControl },
   // Number/integer fields with simple +/- buttons via InputAdornment
@@ -316,6 +340,12 @@ function App() {
   const [customValidatorErrors, setCustomValidatorErrors] = useState<
     ErrorObject[]
   >([]);
+  // Deferred validation: new forms start hidden (no red errors on first paint),
+  // then switch to ValidateAndShow on first forward navigation / finalize. Edits
+  // and draft resumes start shown. Host can override via params.validationMode.
+  const [validationMode, setValidationMode] = useState<
+    'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
+  >('ValidateAndShow');
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -329,7 +359,11 @@ function App() {
       newObservationDraftSessionKey?: string | null,
     ) => {
       try {
-        if (initData.observationId != null) {
+        if (
+          isSubObservationSession(initData) ||
+          initData.observationId != null
+        ) {
+          // Sub-observation or editing an existing observation: no new-observation draft session key.
           setDraftSessionKey(null);
         } else if (newObservationDraftSessionKey !== undefined) {
           setDraftSessionKey(newObservationDraftSessionKey);
@@ -345,6 +379,9 @@ function App() {
           uiSchema,
           extensions,
         } = initData;
+        const skipFinalize = Boolean(
+          (initData as FormInitData & { skipFinalize?: boolean }).skipFinalize,
+        );
 
         setFormInitData(initData);
 
@@ -494,28 +531,85 @@ function App() {
           setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
           // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(null);
-          const processedUISchema =
-            processUISchemaWithFinalize(swipeLayoutUISchema);
+          const processedUISchema = processUISchemaWithFinalize(
+            swipeLayoutUISchema,
+            skipFinalize,
+          );
           setUISchema(processedUISchema);
         } else {
           setSchema(formSchema as FormSchema);
-          // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
             uiSchema as FormUISchema,
           );
-          const processedUISchema =
-            processUISchemaWithFinalize(swipeLayoutUISchema);
+          const processedUISchema = processUISchemaWithFinalize(
+            swipeLayoutUISchema,
+            skipFinalize,
+          );
           setUISchema(processedUISchema);
         }
 
         const formSchemaTyped = formSchema as FormSchema | null;
+        // Deferred-validation policy. Honor an explicit host override first;
+        // otherwise defer (hide) for brand-new observations and show for
+        // edits / draft resumes so existing data is validated immediately.
+        const paramValidationMode = (
+          params as Record<string, unknown> | null
+        )?.['validationMode'];
+        const hasSavedData = Boolean(
+          savedData && Object.keys(savedData).length > 0,
+        );
+        if (
+          paramValidationMode === 'ValidateAndShow' ||
+          paramValidationMode === 'ValidateAndHide' ||
+          paramValidationMode === 'NoValidation'
+        ) {
+          setValidationMode(paramValidationMode);
+        } else {
+          setValidationMode(
+            hasSavedData ? 'ValidateAndShow' : 'ValidateAndHide',
+          );
+        }
+
+        // Reserved session-context channel: a custom app may pass
+        // `params.context` (device role, selected cluster, etc.). It is excluded
+        // from observation data (see FORMPARAMS_NON_DATA_KEYS) and exposed here
+        // read-only so extensions / custom question types can react to it.
+        const sessionContext = (params as Record<string, unknown> | null)?.[
+          'context'
+        ];
+        (window as unknown as Record<string, unknown>).formulusSessionContext =
+          sessionContext ?? null;
+
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
           setData(
             dataMatchingSchemaRoot(savedData as FormData, formSchemaTyped),
           );
+        } else if (!isSubObservationSession(initData)) {
+          const formVersion = (formSchemaTyped as { version?: string })
+            ?.version;
+          const layoutRoot = ensureSwipeLayoutRoot(uiSchema as FormUISchema);
+          const stickyPaths = collectStickyFieldPaths(layoutRoot);
+          const stored = stickyService.getStickyValues(
+            receivedFormType,
+            formVersion,
+          );
+          const relevantSticky: Record<string, unknown> = {};
+          for (const p of stickyPaths) {
+            if (stored[p] !== undefined) relevantSticky[p] = stored[p];
+          }
+          const withTokens = applySchemaDefaultTokens(
+            initialFormDataFromParams(params),
+            formSchemaTyped,
+          );
+          const withSticky = applyStickyDefaults(withTokens, relevantSticky);
+          console.log('Preloading initialization form values:', withSticky);
+          setData(dataMatchingSchemaRoot(withSticky, formSchemaTyped));
         } else {
-          const defaultData = initialFormDataFromParams(params);
+          const defaultData = applySchemaDefaultTokens(
+            initialFormDataFromParams(params),
+            formSchemaTyped,
+          );
           console.log('Preloading initialization form values:', defaultData);
           setData(dataMatchingSchemaRoot(defaultData, formSchemaTyped));
         }
@@ -588,9 +682,17 @@ function App() {
         }
 
         // Check if this is a new form (no savedData) and if drafts exist
-        const hasExistingSavedData =
-          savedData && Object.keys(savedData).length > 0;
-        if (!hasExistingSavedData) {
+        if (
+          shouldOfferDraftSelector(
+            {
+              subObservationMode: initData.subObservationMode,
+              skipDraftSelection: initData.skipDraftSelection,
+              returnOnly: (initData as FormInitData & { returnOnly?: boolean })
+                .returnOnly,
+            },
+            savedData,
+          )
+        ) {
           const availableDrafts = draftService.getDraftsForForm(
             receivedFormType,
             (formSchema as any)?.version,
@@ -762,6 +864,59 @@ function App() {
   // Attachment handling is now fully encapsulated within individual components
   // using the Promise-based media/action APIs exposed by Formulus.
 
+  // Create AJV instance with extension definitions support
+  const ajv = useMemo(() => {
+    const instance = new Ajv({
+      allErrors: true,
+      strict: false, // Allow custom keywords like x-formulus-validation
+      $data: true,
+    });
+    addErrors(instance);
+    addFormats(instance);
+
+    // Add custom format validators
+    instance.addFormat('photo', () => true); // Accept any value for photo format
+    instance.addFormat('qrcode', () => true); // Accept any value for qrcode format
+    instance.addFormat('signature', () => true); // Accept any value for signature format
+    instance.addFormat('select_file', () => true); // Accept any value for file selection format
+    instance.addFormat('audio', () => true); // Accept any value for audio format
+    instance.addFormat('gps', () => true); // Accept any value for GPS format
+    instance.addFormat('video', () => true); // Accept any value for video format
+    instance.addFormat('adate', (data: any) => {
+      // Allow null, undefined, or empty string (for optional fields)
+      if (data === null || data === undefined || data === '') {
+        return true;
+      }
+      // Validate YYYY-MM-DD format (may contain ?? for unknown parts)
+      const dateRegex = /^(\d{4}|\?\?\?\?)-(\d{2}|\?\?)-(\d{2}|\?\?)$/;
+      return typeof data === 'string' && dateRegex.test(data);
+    });
+    instance.addFormat('sub-observation', () => true);
+
+    // Register custom question type formats with AJV
+    // Custom question types use "format": "formatName" in schemas (not "type")
+    // This is required because JSON Schema only allows standard types in the "type" field
+    if (customTypeFormats.length > 0) {
+      customTypeFormats.forEach(formatName => {
+        // Register as format so AJV accepts "format": "formatName" in schemas
+        instance.addFormat(formatName, () => true);
+      });
+      console.log(
+        `[Formplayer] Registered ${customTypeFormats.length} custom question type format(s) with AJV`,
+      );
+    }
+
+    // Add extension definitions to AJV for $ref support
+    if (Object.keys(extensionDefinitions).length > 0) {
+      // Add each definition individually so $ref can reference them
+      for (const [key, definition] of Object.entries(extensionDefinitions)) {
+        instance.addSchema(definition, `#/definitions/${key}`);
+      }
+    }
+
+    return instance;
+  }, [extensionDefinitions, customTypeFormats]);
+
   // Set up event listeners for navigation and finalization
   useEffect(() => {
     const handleNavigateToError = (event: CustomEvent) => {
@@ -790,7 +945,16 @@ function App() {
       }
     };
 
+    const handleShowValidation = () => {
+      // Idempotent: once shown, stays shown for the session.
+      setValidationMode(prev =>
+        prev === 'ValidateAndHide' ? 'ValidateAndShow' : prev,
+      );
+    };
+
     const handleFinalizeForm = (event: Event) => {
+      // Reaching finalize is a meaningful checkpoint: ensure validation is shown.
+      handleShowValidation();
       // Prefer the payload from the FinalizeRenderer if available
       const customEvent = event as CustomEvent<{
         formInitData?: FormInitData;
@@ -798,7 +962,6 @@ function App() {
       }>;
       const payloadFormInit = customEvent.detail?.formInitData || formInitData;
       const rawPayload = customEvent.detail?.data || data;
-      const payloadData = dataMatchingSchemaRoot(rawPayload, schema);
 
       if (!payloadFormInit) {
         console.error(
@@ -806,6 +969,23 @@ function App() {
         );
         setSubmitError(
           'Cannot submit form because initialization data is missing.',
+        );
+        return;
+      }
+
+      const rootPayload = dataMatchingSchemaRoot(rawPayload, schema);
+      const { errors: finalizeValidatorErrors, data: payloadData } =
+        runCustomValidatorsAndRefreshData(
+          uischema ?? undefined,
+          schema ?? undefined,
+          rootPayload as Record<string, unknown>,
+          ajv,
+        );
+
+      if (finalizeValidatorErrors.length > 0) {
+        setCustomValidatorErrors(finalizeValidatorErrors);
+        setSubmitError(
+          'Cannot submit form until custom validation errors are resolved.',
         );
         return;
       }
@@ -825,6 +1005,20 @@ function App() {
               draftSessionKey,
             );
           }
+          // Persist sticky field values for next new observation of this form.
+          if (!isSubObservationSession(payloadFormInit) && uischema) {
+            const formVersion = (schema as { version?: string } | null)
+              ?.version;
+            const stickyPaths = collectStickyFieldPaths(uischema);
+            const stickyValues = extractStickyValues(payloadData, stickyPaths);
+            if (Object.keys(stickyValues).length > 0) {
+              stickyService.saveStickyValues(
+                payloadFormInit.formType,
+                formVersion,
+                stickyValues,
+              );
+            }
+          }
           setSubmitError(null);
           setShowFinalizeMessage(true);
         })
@@ -842,6 +1036,10 @@ function App() {
       'finalizeForm',
       handleFinalizeForm as EventListener,
     );
+    window.addEventListener(
+      'formShowValidation',
+      handleShowValidation as EventListener,
+    );
 
     return () => {
       window.removeEventListener(
@@ -852,8 +1050,12 @@ function App() {
         'finalizeForm',
         handleFinalizeForm as EventListener,
       );
+      window.removeEventListener(
+        'formShowValidation',
+        handleShowValidation as EventListener,
+      );
     };
-  }, [data, formInitData, draftSessionKey, uischema, schema]); // Include all dependencies
+  }, [data, formInitData, draftSessionKey, uischema, schema, ajv]); // Include all dependencies
 
   // Handler for resuming a draft
   const handleResumeDraft = useCallback(
@@ -892,97 +1094,26 @@ function App() {
     }
   }, [pendingFormInit, initializeForm]);
 
-  // Create AJV instance with extension definitions support
-  const ajv = useMemo(() => {
-    const instance = new Ajv({
-      allErrors: true,
-      strict: false, // Allow custom keywords like x-formulus-validation
-      $data: true,
-    });
-    addErrors(instance);
-    addFormats(instance);
-
-    // Add custom format validators
-    instance.addFormat('photo', () => true); // Accept any value for photo format
-    instance.addFormat('qrcode', () => true); // Accept any value for qrcode format
-    instance.addFormat('signature', () => true); // Accept any value for signature format
-    instance.addFormat('select_file', () => true); // Accept any value for file selection format
-    instance.addFormat('audio', () => true); // Accept any value for audio format
-    instance.addFormat('gps', () => true); // Accept any value for GPS format
-    instance.addFormat('video', () => true); // Accept any value for video format
-    instance.addFormat('adate', (data: any) => {
-      // Allow null, undefined, or empty string (for optional fields)
-      if (data === null || data === undefined || data === '') {
-        return true;
-      }
-      // Validate YYYY-MM-DD format (may contain ?? for unknown parts)
-      const dateRegex = /^(\d{4}|\?\?\?\?)-(\d{2}|\?\?)-(\d{2}|\?\?)$/;
-      return typeof data === 'string' && dateRegex.test(data);
-    });
-
-    // Register custom question type formats with AJV
-    // Custom question types use "format": "formatName" in schemas (not "type")
-    // This is required because JSON Schema only allows standard types in the "type" field
-    if (customTypeFormats.length > 0) {
-      customTypeFormats.forEach(formatName => {
-        // Register as format so AJV accepts "format": "formatName" in schemas
-        instance.addFormat(formatName, () => true);
-      });
-      console.log(
-        `[Formplayer] Registered ${customTypeFormats.length} custom question type format(s) with AJV`,
-      );
-    }
-
-    // Add extension definitions to AJV for $ref support
-    if (Object.keys(extensionDefinitions).length > 0) {
-      // Add each definition individually so $ref can reference them
-      for (const [key, definition] of Object.entries(extensionDefinitions)) {
-        instance.addSchema(definition, `#/definitions/${key}`);
-      }
-    }
-
-    return instance;
-  }, [extensionDefinitions, customTypeFormats]);
-
   const handleDataChange = useCallback(
     ({ data: newData }: { data: FormData }) => {
-      setData(newData);
+      const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
+        uischema ?? undefined,
+        schema ?? undefined,
+        newData as Record<string, unknown>,
+        ajv,
+      );
 
-      // Save draft data whenever form data changes
-      if (formInitData) {
+      setData(refreshedData);
+      setCustomValidatorErrors(errors);
+
+      // Save draft data whenever form data changes (skip embedded sub-observation sessions)
+      if (formInitData && !isSubObservationSession(formInitData)) {
         draftService.saveDraft(
           formInitData.formType,
-          newData,
+          refreshedData,
           formInitData,
           draftSessionKey,
         );
-      }
-
-      // Execute custom validators when data changes
-      if (uischema && schema) {
-        try {
-          const customErrors = executeAllCustomValidators(
-            uischema,
-            schema,
-            newData,
-            ajv,
-          );
-
-          // Flatten errors map to array
-          const allCustomErrors: ErrorObject[] = [];
-          for (const fieldErrors of customErrors.values()) {
-            allCustomErrors.push(...fieldErrors);
-          }
-
-          setCustomValidatorErrors(allCustomErrors);
-        } catch (error) {
-          console.error(
-            '[Formplayer] Error executing custom validators:',
-            error,
-          );
-          // Graceful failure: clear errors on execution failure
-          setCustomValidatorErrors([]);
-        }
       }
     },
     [formInitData, draftSessionKey, uischema, schema, ajv],
@@ -1043,7 +1174,7 @@ function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100dvh',
+          height: '100%',
         }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
@@ -1067,7 +1198,7 @@ function App() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            height: '100dvh',
+            height: '100%',
             p: 3,
             backgroundColor: 'background.paper',
           }}>
@@ -1099,7 +1230,7 @@ function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          height: '100dvh',
+          height: '100%',
         }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
@@ -1125,7 +1256,7 @@ function App() {
           className="App"
           style={{
             display: 'flex',
-            height: '100dvh', // Use dynamic viewport height for mobile keyboard support
+            height: '100%', // Fill WebView; host resizes for keyboard (adjustResize)
             width: '100%',
             backgroundColor: currentTheme.palette.background.default, // Ensure dark background
             color: currentTheme.palette.text.primary,
@@ -1174,7 +1305,7 @@ function App() {
                       ]}
                       cells={materialCells}
                       onChange={handleDataChange}
-                      validationMode="ValidateAndShow"
+                      validationMode={validationMode}
                       ajv={ajv}
                       additionalErrors={customValidatorErrors}
                     />

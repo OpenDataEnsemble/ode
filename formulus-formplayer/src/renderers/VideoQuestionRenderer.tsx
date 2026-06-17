@@ -1,5 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { rankWith, ControlProps, formatIs } from '@jsonforms/core';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from 'react';
+import {
+  rankWith,
+  ControlProps,
+  schemaTypeIs,
+  and,
+  schemaMatches,
+} from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import { tokens } from '../theme/tokens-adapter';
 import {
@@ -8,15 +20,9 @@ import {
   Card,
   CardContent,
   Chip,
-  Grid,
   Divider,
   IconButton,
 } from '@mui/material';
-
-// Helper to parse pixel values from tokens
-const parsePx = (value: string): number => {
-  return parseInt(value.replace('px', ''), 10);
-};
 import {
   Videocam as VideocamIcon,
   PlayArrow as PlayIcon,
@@ -27,63 +33,209 @@ import {
   VideoFile as VideoFileIcon,
 } from '@mui/icons-material';
 import QuestionShell from '../components/QuestionShell';
-// Note: The shared Formulus interface v1.1.0 no longer exposes a
-// requestVideo() API. This renderer therefore does not actively
-// trigger native video recording anymore. It can still display
-// existing video metadata if present in the form data.
+import FormulusClient from '../services/FormulusInterface';
+import {
+  VideoResult,
+  VideoResultData,
+} from '../types/FormulusInterfaceDefinition';
+import {
+  attachmentBasenameFromFilename,
+  attachmentBasenameFromObservation,
+} from '../utils/attachmentBasename';
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface VideoQuestionRendererProps extends ControlProps {
-  // Additional props if needed
-}
+const parsePx = (value: string): number =>
+  parseInt(value.replace('px', ''), 10);
 
-interface VideoDisplayData {
-  filename: string;
-  uri: string;
-  timestamp: string;
-  metadata: {
-    duration: number;
-    format: string;
-    size: number;
-    width?: number;
-    height?: number;
+type VideoObservationMetadata = Pick<
+  VideoResultData['metadata'],
+  'duration' | 'format' | 'size' | 'width' | 'height'
+>;
+
+function observationVideoMetadataFromBridge(
+  m: VideoResultData['metadata'],
+): VideoObservationMetadata {
+  const out: VideoObservationMetadata = {
+    duration: m.duration,
+    format: m.format,
+    size: m.size,
   };
+  if (m.width != null) {
+    out.width = m.width;
+  }
+  if (m.height != null) {
+    out.height = m.height;
+  }
+  return out;
 }
 
-const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
-  const { data, handleChange, path, errors, schema, enabled } = props;
+export const videoQuestionTester = rankWith(
+  10,
+  and(
+    schemaTypeIs('object'),
+    schemaMatches(schema => schema.format === 'video'),
+  ),
+);
 
-  const [videoData, setVideoData] = useState<VideoDisplayData | null>(null);
+function legacyVideoPlayableUrl(
+  data: Record<string, unknown> | null,
+): string | null {
+  if (!data) {
+    return null;
+  }
+  const url = data.url;
+  if (typeof url === 'string' && /^https?:\/\//i.test(url.trim())) {
+    return url.trim();
+  }
+  const uri = data.uri;
+  if (typeof uri === 'string') {
+    const u = uri.trim();
+    if (
+      /^https?:\/\//i.test(u) ||
+      u.startsWith('blob:') ||
+      u.startsWith('data:')
+    ) {
+      return u;
+    }
+  }
+  return null;
+}
+
+const VideoQuestionRenderer: React.FC<ControlProps> = ({
+  data,
+  handleChange,
+  path,
+  errors,
+  schema,
+  uischema,
+  enabled = true,
+  visible = true,
+}) => {
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
+  const formulusClient = useRef(FormulusClient.getInstance());
 
-  // Parse existing video data if present
-  useEffect(() => {
-    if (data && typeof data === 'string') {
-      try {
-        const parsed = JSON.parse(data);
-        if (parsed && parsed.filename && parsed.uri) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setVideoData(parsed);
-        }
-      } catch (e) {
-        console.warn('Failed to parse existing video data:', e);
+  const setSafeError = useCallback((errorMessage: string | null) => {
+    if (errorMessage === null || errorMessage === undefined) {
+      setError(null);
+    } else if (typeof errorMessage === 'string' && errorMessage.length > 0) {
+      setError(errorMessage);
+    } else {
+      setError('An unknown error occurred');
+    }
+  }, []);
+
+  const fieldId = path.replace(/\//g, '_').replace(/^_/, '') || 'video_field';
+
+  const currentVideoData = useMemo(() => {
+    if (data && typeof data === 'object') {
+      const r = data as Record<string, unknown>;
+      if (r.type === 'video') {
+        return r;
       }
     }
+    if (typeof data === 'string') {
+      try {
+        const parsed = JSON.parse(data) as unknown;
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          (parsed as { type?: string }).type === 'video'
+        ) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        /* legacy string payloads ignored */
+      }
+    }
+    return null;
   }, [data]);
 
-  const handleRecordVideo = async () => {
-    // The current Formulus interface version does not provide a
-    // requestVideo() API. Surface a clear message so users are not
-    // confused when pressing the button.
-    setError('Video recording is not supported in this version of the app.');
-  };
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const base = attachmentBasenameFromObservation(currentVideoData);
+      let resolved: string | null = null;
+      if (base) {
+        const r = await formulusClient.current.getAttachmentUri(base);
+        resolved = r != null && r.trim() !== '' ? r.trim() : null;
+      }
+      if (!resolved) {
+        resolved = legacyVideoPlayableUrl(currentVideoData);
+      }
+      if (!cancelled) {
+        setMediaUrl(resolved);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentVideoData]);
+
+  const handleRecordVideo = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
+    setSafeError(null);
+    setIsLoading(true);
+
+    try {
+      const result: VideoResult =
+        await formulusClient.current.requestVideo(fieldId);
+
+      if (result.status === 'success' && result.data) {
+        const storedBasename = attachmentBasenameFromFilename(
+          result.data.filename,
+        );
+        if (!storedBasename) {
+          setSafeError('Invalid video filename from recorder.');
+          return;
+        }
+
+        handleChange(path, {
+          type: 'video' as const,
+          filename: storedBasename,
+          timestamp: result.data.timestamp,
+          metadata: observationVideoMetadataFromBridge(result.data.metadata),
+        });
+        setSafeError(null);
+      } else if (result.status === 'cancelled') {
+        setSafeError(null);
+      } else {
+        setSafeError(result.message || 'Video recording failed');
+      }
+    } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'status' in err &&
+        (err as VideoResult).status === 'cancelled'
+      ) {
+        setSafeError(null);
+      } else {
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'object' &&
+                err !== null &&
+                'message' in err &&
+                typeof (err as { message?: string }).message === 'string'
+              ? (err as { message: string }).message
+              : 'Failed to record video';
+        setSafeError(msg);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [enabled, fieldId, handleChange, path, setSafeError]);
 
   const handleDeleteVideo = () => {
-    setVideoData(null);
-    setError(null);
+    setSafeError(null);
     setIsPlaying(false);
+    setMediaUrl(null);
     if (videoElementRef.current) {
       videoElementRef.current.pause();
       videoElementRef.current.currentTime = 0;
@@ -92,31 +244,42 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
   };
 
   const handlePlayPause = () => {
-    if (!videoElementRef.current || !videoData) return;
+    const el = videoElementRef.current;
+    if (!el || !currentVideoData) {
+      return;
+    }
 
     if (isPlaying) {
-      videoElementRef.current.pause();
+      el.pause();
       setIsPlaying(false);
     } else {
-      videoElementRef.current.play();
-      setIsPlaying(true);
+      void el
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {
+          setSafeError('Failed to play video');
+        });
     }
   };
 
   const handleStop = () => {
-    if (!videoElementRef.current) return;
-
-    videoElementRef.current.pause();
-    videoElementRef.current.currentTime = 0;
+    const el = videoElementRef.current;
+    if (!el) {
+      return;
+    }
+    el.pause();
+    el.currentTime = 0;
     setIsPlaying(false);
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) {
+      return '0 Bytes';
+    }
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   };
 
   const formatDuration = (seconds: number): string => {
@@ -133,28 +296,55 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
     }
   };
 
+  const displayBasename = attachmentBasenameFromObservation(currentVideoData);
+
+  const meta = currentVideoData?.metadata as
+    | VideoObservationMetadata
+    | undefined;
+
   const hasValidationErrors = errors && errors.length > 0;
-  const isDisabled = !enabled;
+  const validationError = hasValidationErrors
+    ? Array.isArray(errors)
+      ? errors
+          .map((e: { message?: string } | string) =>
+            typeof e === 'object' && e && 'message' in e && e.message
+              ? String(e.message)
+              : String(e),
+          )
+          .join(', ')
+      : String(errors)
+    : null;
+
+  const label =
+    (uischema as { label?: string })?.label ||
+    schema.title ||
+    'Video Recording';
+  const description = schema.description;
+  const isRequired = Boolean(
+    (uischema as { options?: { required?: boolean } })?.options?.required ??
+    (schema as { options?: { required?: boolean } })?.options?.required ??
+    false,
+  );
+
+  const hasVideo =
+    !!displayBasename &&
+    !!currentVideoData &&
+    typeof meta?.duration === 'number';
+
+  if (visible === false) return null;
 
   return (
     <QuestionShell
-      title={schema.title || 'Video Recording'}
-      description={schema.description}
-      required={Boolean(
-        (props.uischema as any)?.options?.required ??
-        (schema as any)?.options?.required,
-      )}
-      error={
-        error ||
-        (hasValidationErrors
-          ? Array.isArray(errors)
-            ? errors
-                .map((error: any) => error.message || String(error))
-                .join(', ')
-            : errors
-          : null)
+      block
+      title={label}
+      description={description}
+      required={isRequired}
+      error={error || validationError}
+      helperText={
+        displayBasename
+          ? `File: ${displayBasename}`
+          : 'Capture a video if required.'
       }
-      helperText="Capture a video if required. Current app version may not support recording."
       metadata={
         process.env.NODE_ENV === 'development' ? (
           <Box
@@ -165,23 +355,22 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
               borderRadius: `${parsePx(tokens.border.radius.md)}px`,
             }}>
             <Typography variant="caption" color="text.secondary">
-              Debug - Path: {path} | Data: {JSON.stringify(data)}
+              Debug — path: {path} | mediaUrl: {mediaUrl ?? 'null'}
             </Typography>
           </Box>
         ) : undefined
       }>
-      {/* Video Display or Record Button */}
-      {videoData ? (
+      {hasVideo ? (
         <Card variant="outlined">
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <VideoFileIcon color="primary" sx={{ mr: 1 }} />
               <Typography variant="h6" component="div">
-                Video Recorded
+                Video recorded
               </Typography>
               <Box sx={{ ml: 'auto' }}>
                 <Chip
-                  label={videoData.metadata.format.toUpperCase()}
+                  label={(meta?.format ?? 'video').toUpperCase()}
                   color="success"
                   size="small"
                   icon={<VideocamIcon />}
@@ -189,36 +378,29 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
               </Box>
             </Box>
 
-            {/* Video Player */}
             <Box sx={{ mb: 2, textAlign: 'center' }}>
               <video
                 ref={videoElementRef}
-                src={videoData.uri}
+                src={mediaUrl ?? undefined}
                 style={{
                   width: '100%',
-                  maxWidth: `${parsePx((tokens as any).spacing?.[5] ?? '20px') * 20}px`,
+                  maxWidth: 560,
                   height: 'auto',
-                  borderRadius: tokens.border.radius.md, // Match button border radius
+                  borderRadius: tokens.border.radius.md,
                   backgroundColor: tokens.color.neutral.black,
                 }}
                 onEnded={() => setIsPlaying(false)}
-                onLoadedMetadata={() => {
-                  // Video loaded successfully
-                }}
                 onError={() => {
-                  console.warn(
-                    'Video playback error - this is expected in development with mock URIs',
-                  );
+                  setSafeError('Failed to load video');
                 }}
               />
             </Box>
 
-            {/* Video Controls */}
             <Box
               sx={{ display: 'flex', justifyContent: 'center', gap: 1, mb: 2 }}>
               <IconButton
                 onClick={handlePlayPause}
-                disabled={isDisabled}
+                disabled={!enabled || !mediaUrl}
                 color="primary"
                 size="small"
                 aria-label={isPlaying ? 'Pause' : 'Play'}>
@@ -226,68 +408,73 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
               </IconButton>
               <IconButton
                 onClick={handleStop}
-                disabled={isDisabled}
+                disabled={!enabled}
                 size="small"
                 aria-label="Stop">
                 <StopIcon />
               </IconButton>
             </Box>
 
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                gap: 2,
+              }}>
+              <Box>
                 <Typography variant="body2" color="text.secondary">
                   Filename
                 </Typography>
                 <Typography
                   variant="body1"
                   sx={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>
-                  {videoData.filename}
+                  {displayBasename}
                 </Typography>
-              </Grid>
+              </Box>
 
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Box>
                 <Typography variant="body2" color="text.secondary">
                   Duration
                 </Typography>
                 <Typography variant="body1">
-                  {formatDuration(videoData.metadata.duration)}
+                  {formatDuration(meta?.duration ?? 0)}
                 </Typography>
-              </Grid>
+              </Box>
 
-              <Grid size={{ xs: 12, sm: 6 }}>
+              <Box>
                 <Typography variant="body2" color="text.secondary">
-                  File Size
+                  File size
                 </Typography>
                 <Typography variant="body1">
-                  {formatFileSize(videoData.metadata.size)}
+                  {meta?.size != null ? formatFileSize(meta.size) : '—'}
                 </Typography>
-              </Grid>
+              </Box>
 
-              {videoData.metadata.width && videoData.metadata.height && (
-                <Grid size={{ xs: 12, sm: 6 }}>
+              {meta?.width != null && meta?.height != null && (
+                <Box>
                   <Typography variant="body2" color="text.secondary">
                     Resolution
                   </Typography>
                   <Typography variant="body1">
-                    {videoData.metadata.width} × {videoData.metadata.height}
+                    {meta.width} × {meta.height}
                   </Typography>
-                </Grid>
+                </Box>
               )}
+            </Box>
 
-              <Grid size={12}>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="body2" color="text.secondary">
-                  Recorded at: {formatTimestamp(videoData.timestamp)}
-                </Typography>
-              </Grid>
-            </Grid>
+            <Divider sx={{ my: 2 }} />
+            <Typography variant="body2" color="text.secondary">
+              Recorded at:{' '}
+              {typeof currentVideoData?.timestamp === 'string'
+                ? formatTimestamp(currentVideoData.timestamp)
+                : '—'}
+            </Typography>
 
-            {/* Action Buttons */}
             <Box
               sx={{ mt: 2, display: 'flex', gap: 1, justifyContent: 'center' }}>
               <IconButton
                 onClick={handleRecordVideo}
-                disabled={isDisabled}
+                disabled={!enabled || isLoading}
                 color="primary"
                 size="small"
                 aria-label="Re-record">
@@ -295,7 +482,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
               </IconButton>
               <IconButton
                 onClick={handleDeleteVideo}
-                disabled={isDisabled}
+                disabled={!enabled}
                 color="error"
                 size="small"
                 aria-label="Delete">
@@ -316,7 +503,7 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
           }}>
           <IconButton
             onClick={handleRecordVideo}
-            disabled={isDisabled}
+            disabled={!enabled || isLoading}
             color="primary"
             size="large"
             sx={{
@@ -339,18 +526,12 @@ const VideoQuestionRenderer: React.FC<VideoQuestionRendererProps> = props => {
             variant="body2"
             color="text.secondary"
             sx={{ mt: 2, textAlign: 'center' }}>
-            Tap to record video
+            {isLoading ? 'Opening camera...' : 'Tap to record video'}
           </Typography>
         </Box>
       )}
     </QuestionShell>
   );
 };
-
-// Tester function to determine when this renderer should be used
-export const videoQuestionTester = rankWith(
-  10, // Priority - higher than default string renderer
-  formatIs('video'),
-);
 
 export default withJsonFormsControlProps(VideoQuestionRenderer);

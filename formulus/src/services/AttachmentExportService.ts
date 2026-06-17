@@ -18,9 +18,10 @@ async function directoryHasAnyFile(dirPath: string): Promise<boolean> {
 }
 
 /**
- * Zips the device-local `attachments` tree (including `pending_upload` and
- * GUID-based filenames) and opens the system Save-as dialog so the user can
- * store the archive (e.g. Downloads). Does not modify app data.
+ * Zips the device-local `attachments` tree (including `synced/`, `pending/`,
+ * and `draft/` subfolders and GUID-based filenames) and opens the system
+ * Save-as dialog so the user can store the archive (e.g. Downloads). Does
+ * not modify app data.
  */
 export const attachmentExportService = {
   async exportDeviceLocalAttachmentsZip(): Promise<void> {

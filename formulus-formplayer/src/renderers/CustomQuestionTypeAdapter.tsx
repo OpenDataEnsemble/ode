@@ -124,6 +124,7 @@ export function createCustomQuestionTypeRenderer(
     label,
     description,
     required,
+    visible,
   }) => {
     // Build the simplified props for the custom component
     const hasErrors =
@@ -211,11 +212,21 @@ export function createCustomQuestionTypeRenderer(
         message: errorMessage,
       },
       enabled: enabled ?? true,
+      visible: visible ?? true,
       fieldPath: path,
       label: label ?? '',
       description: description,
       jsonFormsContext,
     };
+
+    // Honor JSON Forms visibility rules (SHOW/HIDE). The dispatcher renders a
+    // matched control regardless of its rule outcome, so each renderer must
+    // hide itself when `visible === false`; otherwise custom question types
+    // would always render and ignore relevance rules (matches the built-in
+    // renderers, e.g. QrcodeQuestionRenderer/AdateQuestionRenderer).
+    if (visible === false) {
+      return null;
+    }
 
     return (
       <QuestionShell

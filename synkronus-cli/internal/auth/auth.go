@@ -1,22 +1,22 @@
 package auth
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
-	"net/http"
-	"strings"
 	"time"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
+	"github.com/OpenDataEnsemble/ode/synkronus-cli/pkg/client/generated"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/viper"
 )
 
-// normalizeBaseURL trims trailing slashes to avoid double slashes when joining paths.
-func normalizeBaseURL(base string) string {
-	return strings.TrimRight(base, "/")
+func apiVersion() (string, error) {
+	version := viper.GetString("api.version")
+	if version == "" {
+		return "", fmt.Errorf("api.version is required")
+	}
+	return version, nil
 }
 
 // TokenResponse represents the response from the authentication endpoint
@@ -35,55 +35,35 @@ type Claims struct {
 
 // Login authenticates with the Synkronus API and returns a token
 func Login(username, password string) (*TokenResponse, error) {
-	apiURL := normalizeBaseURL(utils.EnsureScheme(viper.GetString("api.url")))
-	loginURL := fmt.Sprintf("%s/api/auth/login", apiURL)
-
-	// Prepare login request
-	loginData := map[string]string{
-		"username": username,
-		"password": password,
-	}
-	jsonData, err := json.Marshal(loginData)
+	baseURL := utils.OriginURL(viper.GetString("api.url"))
+	version, err := apiVersion()
 	if err != nil {
-		return nil, fmt.Errorf("error marshaling login data: %w", err)
+		return nil, err
 	}
 
-	// Create request with headers
-	req, err := http.NewRequest("POST", loginURL, bytes.NewBuffer(jsonData))
+	api, err := generated.NewClientWithResponses(baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("error creating login request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	// Add x-formulus-version header (required by some servers)
-	apiVersion := viper.GetString("api.version")
-	if apiVersion != "" {
-		req.Header.Set("x-formulus-version", apiVersion)
+		return nil, fmt.Errorf("error creating generated client: %w", err)
 	}
 
-	// Send login request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := api.LoginWithResponse(
+		context.Background(),
+		&generated.LoginParams{XOdeVersion: version},
+		generated.LoginJSONRequestBody{
+			Username: username,
+			Password: password,
+		},
+	)
 	if err != nil {
-		return nil, fmt.Errorf("login request failed for endpoint %s: %w", loginURL, err)
+		return nil, fmt.Errorf("login request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	// Check response status
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("login failed for endpoint %s with status %d: %s", loginURL, resp.StatusCode, string(body))
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("login failed with status %d: %s", resp.StatusCode(), string(resp.Body))
 	}
-
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %w", err)
-	}
-
-	// Parse response
-	var tokenResp TokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("error parsing login response: %w\nResponse body: %s", err, string(body))
+	tokenResp := &TokenResponse{
+		Token:        resp.JSON200.Token,
+		RefreshToken: resp.JSON200.RefreshToken,
+		ExpiresAt:    resp.JSON200.ExpiresAt,
 	}
 
 	// Save token to viper config
@@ -92,60 +72,38 @@ func Login(username, password string) (*TokenResponse, error) {
 	viper.Set("auth.expires_at", tokenResp.ExpiresAt)
 	viper.WriteConfig()
 
-	return &tokenResp, nil
+	return tokenResp, nil
 }
 
 // RefreshToken refreshes the JWT token
 func RefreshToken() (*TokenResponse, error) {
-	apiURL := normalizeBaseURL(utils.EnsureScheme(viper.GetString("api.url")))
-	refreshURL := fmt.Sprintf("%s/api/auth/refresh", apiURL)
+	baseURL := utils.OriginURL(viper.GetString("api.url"))
 	refreshToken := viper.GetString("auth.refresh_token")
-
-	// Prepare refresh request
-	refreshData := map[string]string{
-		"refreshToken": refreshToken, // Updated to match API expectations
-	}
-	jsonData, err := json.Marshal(refreshData)
+	version, err := apiVersion()
 	if err != nil {
-		return nil, fmt.Errorf("error marshaling refresh data: %w", err)
+		return nil, err
 	}
 
-	// Create request with headers
-	req, err := http.NewRequest("POST", refreshURL, bytes.NewBuffer(jsonData))
+	api, err := generated.NewClientWithResponses(baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("error creating refresh request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	// Add x-formulus-version header (required by some servers)
-	apiVersion := viper.GetString("api.version")
-	if apiVersion != "" {
-		req.Header.Set("x-formulus-version", apiVersion)
+		return nil, fmt.Errorf("error creating generated client: %w", err)
 	}
 
-	// Send refresh request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := api.RefreshTokenWithResponse(
+		context.Background(),
+		&generated.RefreshTokenParams{XOdeVersion: version},
+		generated.RefreshTokenJSONRequestBody{RefreshToken: refreshToken},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("refresh request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	// Check response status
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("token refresh failed with status %d: %s", resp.StatusCode, string(body))
+	if resp.JSON200 == nil {
+		return nil, fmt.Errorf("token refresh failed with status %d: %s", resp.StatusCode(), string(resp.Body))
 	}
-
-	// Read the response body for debugging
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %w", err)
-	}
-
-	// Parse response
-	var tokenResp TokenResponse
-	if err := json.Unmarshal(body, &tokenResp); err != nil {
-		return nil, fmt.Errorf("error parsing refresh response: %w\nResponse body: %s", err, string(body))
+	tokenResp := &TokenResponse{
+		Token:        resp.JSON200.Token,
+		RefreshToken: resp.JSON200.RefreshToken,
+		ExpiresAt:    resp.JSON200.ExpiresAt,
 	}
 
 	// Save token to viper config
@@ -154,7 +112,7 @@ func RefreshToken() (*TokenResponse, error) {
 	viper.Set("auth.expires_at", tokenResp.ExpiresAt)
 	viper.WriteConfig()
 
-	return &tokenResp, nil
+	return tokenResp, nil
 }
 
 // GetToken returns the current token, refreshing it if necessary

@@ -1,6 +1,7 @@
 import { synkronusApi } from './index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
+import { ODE_VERSION } from '../../version';
 
 export type UserRole = 'read-only' | 'read-write' | 'admin';
 
@@ -40,6 +41,7 @@ import {
   VersionMismatchError,
   isVersionMismatchError,
 } from '../../errors/VersionMismatchError';
+import { isRepositoryResetRequiredError } from '../../errors/RepositoryResetRequiredError';
 
 export { VersionMismatchError, isVersionMismatchError };
 
@@ -104,6 +106,7 @@ export const login = async (
   synkronusApi.clearTokenCache();
 
   const res = await api.login({
+    xOdeVersion: ODE_VERSION,
     loginRequest: { username, password },
   });
 
@@ -169,6 +172,7 @@ export const getApiAuthToken = async (): Promise<string | undefined> => {
 export const refreshToken = async () => {
   const api = await synkronusApi.getApi();
   const res = await api.refreshToken({
+    xOdeVersion: ODE_VERSION,
     refreshTokenRequest: {
       refreshToken: (await AsyncStorage.getItem('@refreshToken')) ?? '',
     },
@@ -309,6 +313,9 @@ export const isNotFoundError = (error: unknown): boolean => {
  */
 export const getUserFacingSyncErrorMessage = (error: unknown): string => {
   if (isVersionMismatchError(error)) {
+    return (error as Error).message;
+  }
+  if (isRepositoryResetRequiredError(error)) {
     return (error as Error).message;
   }
   if (isForbiddenError(error)) {

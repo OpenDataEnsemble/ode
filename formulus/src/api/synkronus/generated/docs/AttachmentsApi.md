@@ -20,12 +20,16 @@ import { AttachmentsApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new AttachmentsApi(configuration);
 
-const { status, data } = await apiInstance.getAttachmentsExportZip();
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+
+const { status, data } = await apiInstance.getAttachmentsExportZip(xOdeVersion);
 ```
 
 ### Parameters
 
-This endpoint does not have any parameters.
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -45,9 +49,9 @@ This endpoint does not have any parameters.
 | Status code | Description                         | Response headers |
 | ----------- | ----------------------------------- | ---------------- |
 | **200**     | ZIP archive stream                  | -                |
-| **401**     |                                     | -                |
-| **403**     |                                     | -                |
-| **500**     |                                     | -                |
+| **401**     | Unauthorized                        | -                |
+| **403**     | Forbidden                           | -                |
+| **500**     | Internal server error               | -                |
 | **503**     | Attachment storage is not available | -                |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

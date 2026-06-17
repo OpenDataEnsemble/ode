@@ -1,0 +1,75 @@
+# ODE end-to-end test harness — Compose overlay.
+#
+# This file is intentionally a SKELETON. It is layered on top of the
+# production `docker-compose.yml` at the repo root:
+#
+#   docker compose -f docker-compose.yml \
+#                  -f e2e/docker-compose.e2e.yml \
+#                  --profile e2e up --build --wait
+#
+# It deliberately:
+#   - binds ports high enough not to collide with a running dev stack;
+#   - uses test-only credentials (NEVER reuse these anywhere else);
+#   - declares a `seed` one-shot service so tests can depend on a
+#     known-good dataset;
+#   - scopes everything to the `e2e` Compose profile so a plain
+#     `docker compose up` never starts the test rig by accident.
+#
+# No test containers are defined yet. `contracts`, `headless`, and
+# `rn` services will be added alongside the code they drive (see
+# e2e/README.md).
+
+services:
+  postgres:
+    # Inherit image/healthcheck from the root compose; override credentials
+    # and volume so the test run is hermetic.
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: e2e-postgres-password
+      POSTGRES_DB: synkronus_e2e
+    volumes:
+      - postgres-data-e2e:/var/lib/postgresql/data
+    profiles: ["e2e"]
+
+  synkronus:
+    environment:
+      DB_CONNECTION: "postgres://postgres:e2e-postgres-password@postgres:5432/synkronus_e2e?sslmode=disable"
+      JWT_SECRET: "e2e-only-jwt-secret-minimum-32-characters-long"
+      LOG_LEVEL: "debug"
+      # Deterministic attachment base URL so manifest tests can assert on it.
+      SYNKRONUS_PUBLIC_BASE_URL: "http://synkronus"
+    ports:
+      - "${SYNKRONUS_HOST_PORT:-18080}:80"
+    volumes:
+      - app-bundles-e2e:/app/data/app-bundles
+    profiles: ["e2e"]
+
+  # One-shot: waits for Synkronus, creates an admin + sync user, uploads
+  # a minimal custom-app bundle, then exits 0. Tests should wait on
+  # `condition: service_completed_successfully`.
+  #
+  # Intentionally left un-implemented — the scripts it will invoke
+  # (`scripts/wait-for-synkronus.sh`, `scripts/seed.sh`) do not exist yet.
+  seed:
+    image: alpine:3
+    working_dir: /work
+    volumes:
+      - ./scripts:/work/scripts:ro
+      - ./fixtures:/work/fixtures:ro
+    environment:
+      SYNKRONUS_URL: "http://synkronus"
+      ADMIN_PASSWORD: "e2e-admin-password"
+      SYNC_USER_PASSWORD: "e2e-sync-password"
+    entrypoint: ["sh", "-c"]
+    # TODO: replace the `true` no-op with: ./scripts/wait-for-synkronus.sh && ./scripts/seed.sh
+    command: ["true"]
+    depends_on:
+      synkronus:
+        condition: service_healthy
+    profiles: ["e2e"]
+
+volumes:
+  postgres-data-e2e:
+    driver: local
+  app-bundles-e2e:
+    driver: local

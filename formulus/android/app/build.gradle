@@ -1,3 +1,9 @@
+// F-Droid metadata uses gradleprops abiFilters=arm64-v8a; React Native builds native code from reactNativeArchitectures.
+def fdroidAbiFilter = findProperty("abiFilters")
+if (fdroidAbiFilter) {
+    project.ext.set("reactNativeArchitectures", fdroidAbiFilter.toString())
+}
+
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
@@ -81,6 +87,11 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+def perAbiVersionCode(int baseVersionCode, String abi) {
+    def offsets = ['armeabi-v7a': 1, 'arm64-v8a': 2, 'x86': 3, 'x86_64': 4]
+    return baseVersionCode + offsets.get(abi, 0) - 1
+}
+
 android {
     ndkVersion = rootProject.ext.ndkVersion
     buildToolsVersion = rootProject.ext.buildToolsVersion
@@ -92,12 +103,27 @@ android {
         applicationId = "org.opendataensemble.formulus"
         minSdk = rootProject.ext.minSdkVersion
         targetSdk = rootProject.ext.targetSdkVersion
-        versionCode = 1
-        versionName = "1.0.0"
-        
-        // Enable VisionCamera code scanner
+        versionCode = 4
+        versionName = "1.1.0"
+
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", (findProperty("newArchEnabled") ?: "false").toString()
-        buildConfigField "boolean", "VISION_CAMERA_ENABLE_CODE_SCANNER", "true"
+
+        if (fdroidAbiFilter) {
+            ndk {
+                abiFilters fdroidAbiFilter.toString()
+            }
+        }
+    }
+
+    if (!fdroidAbiFilter) {
+        splits {
+            abi {
+                enable true
+                reset()
+                include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
+                universalApk false
+            }
+        }
     }
 
     signingConfigs {
@@ -129,16 +155,29 @@ android {
         }
     }
 
-    // Custom APK naming
+    // Per-ABI versionCode when building split APKs (F-Droid uses explicit versionCode per gradleprops build).
+    if (!fdroidAbiFilter) {
+        applicationVariants.configureEach { variant ->
+            variant.outputs.each { output ->
+                def abi = output.getFilter(com.android.build.OutputFile.ABI)
+                if (abi != null) {
+                    output.versionCodeOverride = perAbiVersionCode(defaultConfig.versionCode, abi)
+                }
+            }
+        }
+    }
+
+    // Custom APK naming (local builds; F-Droid metadata strips this block in prebuild).
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
             def versionName = variant.versionName
-            def versionCode = variant.versionCode
+            def versionCode = output.versionCode
             def buildType = variant.buildType.name
             def date = new Date().format('yyyyMMdd')
-            
-            // Format: formulus-v1.0-1-release-20251006.apk
-            outputFileName = "formulus-v${versionName}-${versionCode}-${buildType}-${date}.apk"
+            def abi = output.getFilter(com.android.build.OutputFile.ABI)
+            def abiSuffix = abi != null ? "-${abi}" : ""
+
+            outputFileName = "formulus-v${versionName}-${versionCode}${abiSuffix}-${buildType}-${date}.apk"
         }
     }
 
@@ -149,6 +188,11 @@ android {
 
     packagingOptions {
         pickFirst '**/libc++_shared.so' // for watermelondb JSI fastness
+    }
+
+    dependenciesInfo {
+        includeInApk false
+        includeInBundle false
     }
 }
 

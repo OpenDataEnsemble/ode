@@ -17,6 +17,9 @@ const dest = path.join(repoRoot, 'third_party', 'notifee');
 const NOTIFEE_COMMIT = 'f00a8e2702ea980455362ac18f84080093dcf32d';
 const REMOTE = 'https://github.com/invertase/notifee.git';
 
+/** Keep only the Android library tree; full monorepo triggers F-Droid scanner errors. */
+const VENDOR_KEEP_TOP_LEVEL = new Set(['android', '.git']);
+
 function sh(cmd, opts = {}) {
   execSync(cmd, { stdio: 'inherit', ...opts });
 }
@@ -52,7 +55,73 @@ function patchNotifeeAndroidReleaseMinify() {
     `$1// [formulus] notifee_core release: keep minify off (R8 made InitProvider.onCreate final → LinkageError in NotifeeInitProvider)\n      minifyEnabled false`,
   );
   fs.writeFileSync(gradle, s);
-  console.log('Patched notifee android/build.gradle (release minifyEnabled false).');
+  console.log(
+    'Patched notifee android/build.gradle (release minifyEnabled false).',
+  );
+}
+
+/** Publishing block references packages/react-native/android/libs (proprietary); not used when building :notifee_core. */
+function patchNotifeeAndroidPublishing() {
+  const gradle = path.join(dest, 'android', 'build.gradle');
+  if (!fs.existsSync(gradle)) return;
+  let s = fs.readFileSync(gradle, 'utf8');
+  if (s.includes('[formulus] F-Droid: no maven-publish')) return;
+
+  const publishStart = s.indexOf("\napply plugin: 'maven-publish'");
+  if (publishStart !== -1) {
+    s =
+      s.slice(0, publishStart) +
+      '\n// [formulus] F-Droid: no maven-publish (local libs repo is non-free / unused for :notifee_core)\n';
+    fs.writeFileSync(gradle, s);
+    console.log('Removed notifee android/build.gradle maven-publish block.');
+    return;
+  }
+
+  if (s.includes('packages/react-native/android/libs')) {
+    console.warn(
+      'vendor-notifee-core: unexpected publishing layout in android/build.gradle',
+    );
+  }
+}
+
+/** Drop Flutter/RN examples and tests from the shallow clone — only :notifee_core android/ is used. */
+function pruneNotifeeMonorepo() {
+  if (!fs.existsSync(dest)) return;
+  let removed = 0;
+  for (const name of fs.readdirSync(dest)) {
+    if (VENDOR_KEEP_TOP_LEVEL.has(name)) continue;
+    fs.rmSync(path.join(dest, name), { recursive: true, force: true });
+    removed += 1;
+  }
+  if (removed > 0) {
+    console.log(
+      `Pruned ${removed} top-level path(s) from third_party/notifee (kept android/ only).`,
+    );
+  }
+}
+
+/** Prebuilt app.notifee:core AAR in npm; F-Droid requires :notifee_core from source only. */
+function removeProprietaryNotifeeLibs() {
+  const libsDir = path.join(
+    repoRoot,
+    'node_modules',
+    '@notifee',
+    'react-native',
+    'android',
+    'libs',
+  );
+  if (!fs.existsSync(libsDir)) {
+    return;
+  }
+  fs.rmSync(libsDir, { recursive: true, force: true });
+  console.log('Removed @notifee/react-native/android/libs (proprietary AAR).');
+}
+
+function finalizeVendor() {
+  patchNotifeeAndroidReleaseMinify();
+  patchNotifeeAndroidPublishing();
+  pruneNotifeeMonorepo();
+  removeProprietaryNotifeeLibs();
 }
 
 if (!fs.existsSync(path.join(dest, 'android', 'build.gradle'))) {
@@ -64,14 +133,14 @@ if (!fs.existsSync(path.join(dest, 'android', 'build.gradle'))) {
   console.log(`Fetching notifee@${NOTIFEE_COMMIT} ...`);
   sh(`git fetch --depth 1 origin ${NOTIFEE_COMMIT}`, { cwd: dest });
   sh('git checkout FETCH_HEAD', { cwd: dest });
-  patchNotifeeAndroidReleaseMinify();
+  finalizeVendor();
   console.log('notifee core ready.');
   process.exit(0);
 }
 
 const head = headAt(dest);
 if (head === NOTIFEE_COMMIT) {
-  patchNotifeeAndroidReleaseMinify();
+  finalizeVendor();
   console.log(`notifee core already at ${NOTIFEE_COMMIT}`);
   process.exit(0);
 }
@@ -79,5 +148,5 @@ if (head === NOTIFEE_COMMIT) {
 console.log(`Updating notifee ${head || '(unknown)'} → ${NOTIFEE_COMMIT} ...`);
 sh(`git fetch --depth 1 origin ${NOTIFEE_COMMIT}`, { cwd: dest });
 sh('git checkout FETCH_HEAD', { cwd: dest });
-patchNotifeeAndroidReleaseMinify();
+finalizeVendor();
 console.log('notifee core ready.');

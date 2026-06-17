@@ -1,43 +1,41 @@
 import React, { ReactNode } from 'react';
-import { Box, Typography, Alert, Stack, Divider } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Alert,
+  Stack,
+  Divider,
+  useTheme,
+  alpha,
+} from '@mui/material';
 import ErrorOutline from '@mui/icons-material/ErrorOutline';
+import { useFormDensity } from '../context/FormDensityContext';
+import { tokens } from '../theme/tokens-adapter';
 
 /**
  * Simple HTML sanitizer that removes dangerous tags and attributes.
- * This is a lightweight alternative that doesn't require external dependencies.
  */
 const sanitizeHtml = (html: string): string => {
-  // Remove script tags and their content
   let sanitized = html.replace(
     /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
     '',
   );
-  // Remove style tags and their content
   sanitized = sanitized.replace(
     /<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi,
     '',
   );
-  // Remove event handlers (onclick, onerror, etc.)
   sanitized = sanitized.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '');
   sanitized = sanitized.replace(/\s*on\w+\s*=\s*[^\s>]+/gi, '');
-  // Remove javascript: URLs
   sanitized = sanitized.replace(/javascript:/gi, '');
-  // Remove data: URLs in href/src (potential XSS vector)
   sanitized = sanitized.replace(/\s*href\s*=\s*["']?\s*data:/gi, ' href="');
   sanitized = sanitized.replace(/\s*src\s*=\s*["']?\s*data:/gi, ' src="');
 
   return sanitized;
 };
 
-/**
- * Renders content with basic HTML support.
- * Detects HTML tags and renders them safely using dangerouslySetInnerHTML.
- * Falls back to plain text for non-HTML content.
- */
 const renderHtmlContent = (content: string | undefined): React.ReactNode => {
   if (!content) return null;
 
-  // Check for HTML tags - looks for < followed by a letter (tag start)
   const htmlTagPattern = /<[a-z][a-z0-9]*(\s+[^>]*)?>/i;
   const hasHtmlTags = htmlTagPattern.test(content);
 
@@ -46,13 +44,11 @@ const renderHtmlContent = (content: string | undefined): React.ReactNode => {
       const sanitized = sanitizeHtml(content);
       return <span dangerouslySetInnerHTML={{ __html: sanitized }} />;
     } catch (error) {
-      // If sanitization fails, strip all HTML tags
       console.error('Error rendering HTML content:', error);
       return content.replace(/<[^>]*>/g, '');
     }
   }
 
-  // No HTML tags detected, render as plain text
   return content;
 };
 
@@ -64,6 +60,10 @@ export interface QuestionShellProps {
   helperText?: ReactNode;
   actions?: ReactNode;
   metadata?: ReactNode;
+  /** Full-width layout (colspan 2) for large/media controls. */
+  block?: boolean;
+  /** Per-instance layout override from control `options.labelLayout`. */
+  labelLayout?: 'inline' | 'stacked';
   children: ReactNode;
 }
 
@@ -75,6 +75,35 @@ const normalizeError = (error?: string | string[] | null): string | null => {
   return error;
 };
 
+/** Shared typography for inline label + plain value text (computed read-only, etc.). */
+const INLINE_TEXT_SX = {
+  fontSize: '1rem',
+  lineHeight: 1.375,
+  m: 0,
+  p: 0,
+} as const;
+
+/** Vertical padding inside each inline row — keeps content clear of row dividers. */
+const INLINE_ROW_PY = 1.5;
+
+/** Label column band — CSS Grid `minmax(min, max)` on the first track. */
+const INLINE_LABEL_MIN_WIDTH = '28%';
+const INLINE_LABEL_MAX_WIDTH = '48%';
+
+/** Reset theme field margins inside inline value cells. */
+const inlineValueCellSx = {
+  minWidth: 0,
+  py: INLINE_ROW_PY,
+  '& .MuiFormControl-root, & .MuiTextField-root': {
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  '& .MuiToggleButtonGroup-root': {
+    marginTop: 0,
+    marginBottom: 0,
+  },
+} as const;
+
 const QuestionShell: React.FC<QuestionShellProps> = ({
   title,
   description,
@@ -83,9 +112,64 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
   helperText,
   actions,
   metadata,
+  block = false,
+  labelLayout,
   children,
 }) => {
+  const theme = useTheme();
+  const { labelLayout: contextLayout } = useFormDensity();
   const normalizedError = normalizeError(error);
+  const isDark = theme.palette.mode === 'dark';
+  const subtitleColor = isDark
+    ? tokens.color.neutral[400]
+    : tokens.color.neutral[600];
+
+  const effectiveLayout = labelLayout ?? contextLayout;
+  const useInline = !block && effectiveLayout === 'inline' && Boolean(title);
+  const labelVerticalAlign = description ? 'top' : 'middle';
+
+  const rowDividerColor = isDark
+    ? tokens.color.neutral[600]
+    : tokens.color.neutral[300];
+
+  const titleBlock = (title || description) && (
+    <Stack spacing={0.5}>
+      {title && (
+        <Typography
+          component="div"
+          variant="subtitle1"
+          sx={{ ...INLINE_TEXT_SX, fontWeight: 700 }}>
+          {renderHtmlContent(title)}
+          {required && (
+            <Box component="span" sx={{ color: 'error.main', ml: 0.5 }}>
+              *
+            </Box>
+          )}
+        </Typography>
+      )}
+      {description && (
+        <Typography
+          component="div"
+          variant="body2"
+          sx={{ color: subtitleColor, lineHeight: 1.4, m: 0 }}>
+          {renderHtmlContent(description)}
+        </Typography>
+      )}
+    </Stack>
+  );
+
+  const stackedInputBlock = (
+    <Box
+      sx={{
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+        minWidth: 0,
+      }}>
+      {children}
+    </Box>
+  );
 
   return (
     <Box
@@ -93,26 +177,46 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: 1.5,
+        gap: 1,
+        ...(useInline && {
+          position: 'relative',
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: '1px',
+            background: `linear-gradient(90deg, transparent 0%, ${alpha(rowDividerColor, isDark ? 0.45 : 0.65)} 18%, ${alpha(rowDividerColor, isDark ? 0.45 : 0.65)} 82%, transparent 100%)`,
+            pointerEvents: 'none',
+          },
+        }),
       }}>
-      {(title || description) && (
-        <Stack spacing={0.5}>
-          {title && (
-            <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
-              {renderHtmlContent(title)}
-              {required && (
-                <Box component="span" sx={{ color: 'error.main', ml: 0.5 }}>
-                  *
-                </Box>
-              )}
-            </Typography>
-          )}
-          {description && (
-            <Typography variant="body1" color="text.secondary">
-              {renderHtmlContent(description)}
-            </Typography>
-          )}
-        </Stack>
+      {useInline ? (
+        <Box
+          sx={{
+            display: { xs: 'flex', sm: 'grid' },
+            flexDirection: { xs: 'column', sm: 'unset' },
+            width: '100%',
+            gridTemplateColumns: {
+              sm: `minmax(${INLINE_LABEL_MIN_WIDTH}, ${INLINE_LABEL_MAX_WIDTH}) minmax(0, 1fr)`,
+            },
+            columnGap: { sm: 2 },
+            rowGap: { xs: 1 },
+            alignItems: {
+              sm: labelVerticalAlign === 'top' ? 'start' : 'center',
+            },
+          }}>
+          <Box sx={{ minWidth: 0, py: INLINE_ROW_PY, pr: { sm: 2 } }}>
+            {titleBlock}
+          </Box>
+          <Box sx={inlineValueCellSx}>{children}</Box>
+        </Box>
+      ) : (
+        <>
+          {titleBlock}
+          {stackedInputBlock}
+        </>
       )}
 
       {normalizedError && (
@@ -130,20 +234,10 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
         </Alert>
       )}
 
-      <Box
-        sx={{
-          width: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-        }}>
-        {children}
-      </Box>
-
       {(helperText || actions) && (
         <Stack spacing={1}>
           {helperText && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: subtitleColor }}>
               {typeof helperText === 'string'
                 ? renderHtmlContent(helperText)
                 : helperText}
@@ -164,3 +258,4 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
 };
 
 export default QuestionShell;
+export { INLINE_TEXT_SX };

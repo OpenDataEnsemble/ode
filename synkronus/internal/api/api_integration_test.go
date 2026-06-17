@@ -50,6 +50,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		mockVersionService,
 		mockAttachmentManifestService,
 		mockDataExportService,
+		nil,
 	)
 
 	// Create a new router with the handler

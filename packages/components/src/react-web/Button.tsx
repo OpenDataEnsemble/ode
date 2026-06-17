@@ -65,7 +65,7 @@ const Button: React.FC<WebButtonProps> = ({
   // Listen for dark mode changes (both system preference and MUI theme)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     // Check for MUI theme changes via MutationObserver
     const observer = new MutationObserver(() => {
       const muiThemeMode = document.documentElement.getAttribute('data-mui-color-scheme');
@@ -93,7 +93,7 @@ const Button: React.FC<WebButtonProps> = ({
         mediaQuery.removeEventListener('change', handleChange);
       };
     }
-    
+
     return () => observer.disconnect();
   }, []);
 
@@ -157,16 +157,12 @@ const Button: React.FC<WebButtonProps> = ({
   const hoverBg = actualVariant === 'danger' ? 'transparent' : borderColor;
   const activeBorderColor =
     actualVariant === 'danger'
-      ? dangerDefaultBorder 
+      ? dangerDefaultBorder
       : isActiveOrHovered
         ? 'transparent'
         : borderColor;
   const activeTextColor =
-    actualVariant === 'danger'
-      ? dangerDefaultText 
-      : isActiveOrHovered
-        ? textOnFill
-        : borderColor;
+    actualVariant === 'danger' ? dangerDefaultText : isActiveOrHovered ? textOnFill : borderColor;
   const activeBg =
     actualVariant === 'danger'
       ? isHovered

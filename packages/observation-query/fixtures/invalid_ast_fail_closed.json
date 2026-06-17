@@ -1,0 +1,13 @@
+{
+  "name": "invalid_ast_fail_closed",
+  "jsonColumn": "payload",
+  "formType": "household",
+  "includeDeleted": false,
+  "indexKeys": [],
+  "filter": {
+    "op": "and",
+    "conditions": []
+  },
+  "expectError": true,
+  "expectedErrorCode": "EMPTY_LOGICAL"
+}

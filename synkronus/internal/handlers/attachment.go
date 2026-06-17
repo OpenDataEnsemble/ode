@@ -4,32 +4,39 @@ import (
 	"context"
 	"errors"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/attachment"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
+	"github.com/opendataensemble/synkronus/pkg/sync"
 )
 
 type AttachmentHandler struct {
-	service  attachment.Service
-	manifest attachment.ManifestService
-	log      *logger.Logger
+	service     attachment.Service
+	manifest    attachment.ManifestService
+	syncService sync.ServiceInterface
+	log         *logger.Logger
 }
+
+const maxAttachmentUploadBytes = 32 << 20
 
 func NewAttachmentHandler(
 	log *logger.Logger,
 	service attachment.Service,
 	manifest attachment.ManifestService,
+	syncService sync.ServiceInterface,
 ) *AttachmentHandler {
 	return &AttachmentHandler{
-		service:  service,
-		manifest: manifest,
-		log:      log,
+		service:     service,
+		manifest:    manifest,
+		syncService: syncService,
+		log:         log,
 	}
 }
 
@@ -98,8 +105,24 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	clientGen, clientGenSent := sync.ParseClientRepositoryGenerationSent(r, nil)
+	serverGen, err := h.syncService.GetRepositoryGeneration(r.Context())
+	if err != nil {
+		h.log.Error("Failed to read repository generation", "error", err)
+		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to verify repository generation")
+		return
+	}
+	// Fresh install (no header): adopt server generation — see Pull handler.
+	if clientGenSent && clientGen != serverGen {
+		w.Header().Set(sync.HeaderRepositoryGeneration, strconv.FormatInt(serverGen, 10))
+		SendErrorResponseWithCode(w, http.StatusConflict, sync.ErrRepositoryGenerationMismatch,
+			"Client repository_generation does not match the server; align generation before uploading attachments.",
+			CodeRepositoryResetRequired)
+		return
+	}
+
 	// Parse the multipart form
-	err := r.ParseMultipartForm(32 << 20) // 32MB max memory
+	err = r.ParseMultipartForm(maxAttachmentUploadBytes)
 	if err != nil {
 		SendErrorResponse(w, http.StatusBadRequest, err, "Failed to parse multipart form")
 		return
@@ -117,8 +140,13 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 	}
 	defer file.Close()
 
-	// Save the attachment
-	err = h.service.Save(r.Context(), attachmentID, file)
+	data, err := readAllWithLimit(file, maxAttachmentUploadBytes)
+	if err != nil {
+		SendErrorResponse(w, http.StatusRequestEntityTooLarge, err, "Attachment exceeds upload size limit")
+		return
+	}
+
+	saveResult, err := h.service.SaveUpload(r.Context(), attachmentID, data, header.Header.Get("Content-Type"))
 	if err != nil {
 		if os.IsExist(err) {
 			SendErrorResponse(w, http.StatusConflict, err, "Attachment already exists")
@@ -130,7 +158,7 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 
 	// Record manifest operation so other clients receive a download op in /attachments/manifest.
 	// client_id empty => NULL, meaning all clients (see migration comment on attachment_operations).
-	if err := h.recordAttachmentCreate(r.Context(), attachmentID, header); err != nil {
+	if err := h.recordAttachmentCreate(r.Context(), attachmentID, saveResult.ServedSize, saveResult.ServedContentType); err != nil {
 		h.log.Error("Failed to record attachment manifest operation", "attachmentId", attachmentID, "error", err)
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to register attachment for sync")
 		return
@@ -142,19 +170,17 @@ func (h *AttachmentHandler) UploadAttachment(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-func (h *AttachmentHandler) recordAttachmentCreate(ctx context.Context, attachmentID string, header *multipart.FileHeader) error {
+func (h *AttachmentHandler) recordAttachmentCreate(ctx context.Context, attachmentID string, size int, contentType string) error {
 	var sizePtr *int
-	if header != nil && header.Size > 0 {
-		s := int(header.Size)
+	if size > 0 {
+		s := size
 		sizePtr = &s
 	}
-	var contentType *string
-	if header != nil {
-		if ct := header.Header.Get("Content-Type"); ct != "" {
-			contentType = &ct
-		}
+	var contentTypePtr *string
+	if ct := strings.TrimSpace(contentType); ct != "" {
+		contentTypePtr = &ct
 	}
-	return h.manifest.RecordOperation(ctx, attachmentID, "create", "", sizePtr, contentType)
+	return h.manifest.RecordOperation(ctx, attachmentID, "create", "", sizePtr, contentTypePtr)
 }
 
 // DownloadAttachment handles GET /attachments/{attachment_id}
@@ -166,8 +192,10 @@ func (h *AttachmentHandler) DownloadAttachment(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	preferOriginal := preferOriginalAttachment(r)
+
 	// Check if attachment exists
-	exists, err := h.service.Exists(r.Context(), attachmentID)
+	exists, err := h.service.ExistsForDownload(r.Context(), attachmentID, preferOriginal)
 	if err != nil {
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to check attachment existence")
 		return
@@ -178,7 +206,7 @@ func (h *AttachmentHandler) DownloadAttachment(w http.ResponseWriter, r *http.Re
 	}
 
 	// Get the attachment
-	file, err := h.service.Get(r.Context(), attachmentID)
+	file, err := h.service.OpenForDownload(r.Context(), attachmentID, preferOriginal)
 	if err != nil {
 		SendErrorResponse(w, http.StatusInternalServerError, err, "Failed to get attachment")
 		return
@@ -208,7 +236,7 @@ func (h *AttachmentHandler) CheckAttachment(w http.ResponseWriter, r *http.Reque
 	}
 
 	// Check if attachment exists
-	exists, err := h.service.Exists(r.Context(), attachmentID)
+	exists, err := h.service.ExistsForDownload(r.Context(), attachmentID, preferOriginalAttachment(r))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -221,4 +249,30 @@ func (h *AttachmentHandler) CheckAttachment(w http.ResponseWriter, r *http.Reque
 
 	// Return 200 OK if file exists
 	w.WriteHeader(http.StatusOK)
+}
+
+func preferOriginalAttachment(r *http.Request) bool {
+	raw := strings.TrimSpace(r.URL.Query().Get("original"))
+	if raw == "" {
+		return false
+	}
+	switch strings.ToLower(raw) {
+	case "1", "true", "yes":
+		return true
+	default:
+		parsed, err := strconv.ParseBool(raw)
+		return err == nil && parsed
+	}
+}
+
+func readAllWithLimit(r io.Reader, maxBytes int64) ([]byte, error) {
+	limited := io.LimitReader(r, maxBytes+1)
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxBytes {
+		return nil, errors.New("attachment too large")
+	}
+	return data, nil
 }

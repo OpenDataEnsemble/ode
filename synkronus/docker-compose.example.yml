@@ -54,6 +54,11 @@ services:
       JWT_SECRET: "CHANGE_THIS_TO_RANDOM_32_CHAR_STRING"
       ADMIN_USERNAME: "admin"
       ADMIN_PASSWORD: "CHANGE_THIS_ADMIN_PASSWORD"
+      # Emergency recovery flow (optional):
+      # If both values are set, Synkronus creates/overwrites this admin user at startup.
+      # Remove after recovery so credentials are not reset on restart.
+      # SYNKRONUS_RECOVERY_CREATE_USER: "admin"
+      # SYNKRONUS_RECOVERY_CREATE_PASS: "TEMPORARY_RECOVERY_PASSWORD"
       MAX_VERSIONS_KEPT: "5"
     volumes:
       - synkronus_data:/app/data

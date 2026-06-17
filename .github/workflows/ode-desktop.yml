@@ -1,0 +1,465 @@
+name: ODE Desktop
+
+on:
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'formulus-formplayer/**'
+      - 'packages/tokens/**'
+      - 'packages/components/**'
+      - 'formulus/src/webview/FormulusInterfaceDefinition.ts'
+      - '.github/workflows/ode-desktop.yml'
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'desktop/**'
+      - 'formulus-formplayer/**'
+      - 'packages/tokens/**'
+      - 'packages/components/**'
+      - 'formulus/src/webview/FormulusInterfaceDefinition.ts'
+      - '.github/workflows/ode-desktop.yml'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '24'
+  # Frontend only: formplayer assets are supplied by desktop-formplayer-dist (avoids rebuilding on every OS).
+  TAURI_BEFORE_BUILD: '{"build":{"beforeBuildCommand":"pnpm build"}}'
+
+jobs:
+  desktop:
+    name: Lint, test, and Rust checks
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: ESLint
+        run: pnpm lint
+
+      - name: Prettier
+        run: pnpm format:check
+
+      - name: Vitest
+        run: pnpm test
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Regenerate Synkronus TypeScript client
+        run: pnpm codegen:synk-client
+
+      - name: Verify generated client matches repository
+        working-directory: ${{ github.workspace }}
+        run: git diff --exit-code -- desktop/src/generated
+
+      - name: Install Linux dependencies (Tauri prerequisites)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config \
+            xdg-utils
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cargo fmt, clippy, test
+        working-directory: desktop/src-tauri
+        run: |
+          cargo fmt --check
+          cargo clippy -- -D warnings
+          cargo test
+
+  desktop-formplayer-dist:
+    name: Build embedded formplayer assets
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: formulus-formplayer/pnpm-lock.yaml
+
+      - name: Install and build @ode/tokens
+        working-directory: packages/tokens
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      - name: Install formplayer dependencies
+        working-directory: formulus-formplayer
+        run: pnpm install --frozen-lockfile
+
+      - name: Build formplayer
+        working-directory: formulus-formplayer
+        run: pnpm run build
+
+      - name: Stage formplayer for desktop
+        run: |
+          set -euo pipefail
+          rm -rf desktop/public/formplayer_dist
+          mkdir -p desktop/public/formplayer_dist
+          cp -a formulus-formplayer/build/. desktop/public/formplayer_dist/
+
+      - name: Upload formplayer dist
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-formplayer-dist
+          path: desktop/public/formplayer_dist
+          retention-days: 7
+          if-no-files-found: error
+
+  build-desktop-bundles:
+    name: Package ODE Desktop (${{ matrix.platform }})
+    if: github.event_name != 'release'
+    needs: desktop-formplayer-dist
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-amd64
+            runner: ubuntu-24.04
+            rust_target: x86_64-unknown-linux-gnu
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+          - platform: windows-amd64
+            runner: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+          - platform: windows-arm64
+            runner: windows-11-arm
+            rust_target: aarch64-pc-windows-msvc
+          - platform: darwin-amd64
+            runner: macos-14
+            rust_target: x86_64-apple-darwin
+          - platform: darwin-arm64
+            runner: macos-latest
+            rust_target: aarch64-apple-darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download embedded formplayer
+        uses: actions/download-artifact@v7
+        with:
+          name: desktop-formplayer-dist
+          path: desktop/public/formplayer_dist
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Linux dependencies (Tauri prerequisites)
+        if: ${{ startsWith(matrix.runner, 'ubuntu') }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config \
+            xdg-utils
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+          shared-key: ode-desktop-${{ matrix.platform }}
+
+      - name: Build Tauri bundles
+        working-directory: desktop
+        env:
+          CI: 'true'
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: |
+          set -euo pipefail
+          if [[ "${RUNNER_OS}" == "macOS" ]]; then
+            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+          fi
+          if ! pnpm exec tauri build --verbose --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'; then
+            if [[ "${RUNNER_OS}" != "macOS" ]]; then
+              exit 1
+            fi
+            echo "::warning::Tauri build failed; retrying DMG bundle on macOS"
+            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+            pnpm exec tauri build --verbose --bundles dmg --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'
+          fi
+
+      - name: Collect installers for upload
+        working-directory: desktop
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: |
+          set -euo pipefail
+          rm -rf dist-ci
+          mkdir -p dist-ci
+          bundle_dir="src-tauri/target/${RUST_TARGET}/release/bundle"
+          if [[ ! -d "$bundle_dir" ]]; then
+            echo "::error::Missing bundle dir: $bundle_dir"
+            find src-tauri/target -maxdepth 4 -type d 2>/dev/null || true
+            exit 1
+          fi
+          count=0
+          while IFS= read -r -d '' f; do
+            base=$(basename "$f")
+            cp "$f" "dist-ci/ode-desktop-${PLATFORM}-${base}"
+            count=$((count + 1))
+          done < <(find "$bundle_dir" -type f \( \
+            -name '*.AppImage' -o -name '*.deb' -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.rpm' -o -name '*.app.zip' \
+          \) -print0)
+          if [[ "$count" -eq 0 && "${RUNNER_OS}" == "macOS" ]]; then
+            app_path=$(find "$bundle_dir/macos" -maxdepth 1 -name '*.app' -print -quit)
+            if [[ -n "$app_path" ]]; then
+              zip_out="dist-ci/ode-desktop-${PLATFORM}-$(basename "$app_path").zip"
+              ditto -c -k --keepParent "$app_path" "$zip_out"
+              count=1
+              echo "::warning::DMG missing; uploaded .app zip fallback: $zip_out"
+            fi
+          fi
+          if [[ "$count" -eq 0 ]]; then
+            echo "::error::No bundle files matched in $bundle_dir"
+            find "$bundle_dir" -type f || true
+            exit 1
+          fi
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ode-desktop-${{ matrix.platform }}
+          path: desktop/dist-ci/*
+          if-no-files-found: error
+
+  release-desktop-bundles:
+    name: Publish ODE Desktop (${{ matrix.platform }})
+    if: github.event_name == 'release'
+    needs: desktop-formplayer-dist
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        shell: bash
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-amd64
+            runner: ubuntu-24.04
+            rust_target: x86_64-unknown-linux-gnu
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+          - platform: windows-amd64
+            runner: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+          - platform: windows-arm64
+            runner: windows-11-arm
+            rust_target: aarch64-pc-windows-msvc
+          - platform: darwin-amd64
+            runner: macos-14
+            rust_target: x86_64-apple-darwin
+          - platform: darwin-arm64
+            runner: macos-latest
+            rust_target: aarch64-apple-darwin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download embedded formplayer
+        uses: actions/download-artifact@v7
+        with:
+          name: desktop-formplayer-dist
+          path: desktop/public/formplayer_dist
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: desktop
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Linux dependencies (Tauri prerequisites)
+        if: ${{ startsWith(matrix.runner, 'ubuntu') }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            pkg-config \
+            xdg-utils
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+          shared-key: ode-desktop-release-${{ matrix.platform }}
+
+      - name: Build Tauri bundles
+        working-directory: desktop
+        env:
+          CI: 'true'
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: |
+          set -euo pipefail
+          if [[ "${RUNNER_OS}" == "macOS" ]]; then
+            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+          fi
+          if ! pnpm exec tauri build --verbose --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'; then
+            if [[ "${RUNNER_OS}" != "macOS" ]]; then
+              exit 1
+            fi
+            echo "::warning::Tauri build failed; retrying DMG bundle on macOS"
+            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+            pnpm exec tauri build --verbose --bundles dmg --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'
+          fi
+
+      - name: Collect installers for GitHub Release
+        working-directory: desktop
+        env:
+          PLATFORM: ${{ matrix.platform }}
+          RUST_TARGET: ${{ matrix.rust_target }}
+        run: |
+          set -euo pipefail
+          rm -rf dist-release
+          mkdir -p dist-release
+          bundle_dir="src-tauri/target/${RUST_TARGET}/release/bundle"
+          if [[ ! -d "$bundle_dir" ]]; then
+            echo "::error::Missing bundle dir: $bundle_dir"
+            find src-tauri/target -maxdepth 4 -type d 2>/dev/null || true
+            exit 1
+          fi
+          count=0
+          while IFS= read -r -d '' f; do
+            base=$(basename "$f")
+            cp "$f" "dist-release/ode-desktop-${PLATFORM}-${base}"
+            count=$((count + 1))
+          done < <(find "$bundle_dir" -type f \( \
+            -name '*.AppImage' -o -name '*.deb' -o -name '*.dmg' -o -name '*.msi' -o -name '*.exe' -o -name '*.rpm' -o -name '*.app.zip' \
+          \) -print0)
+          if [[ "$count" -eq 0 && "${RUNNER_OS}" == "macOS" ]]; then
+            app_path=$(find "$bundle_dir/macos" -maxdepth 1 -name '*.app' -print -quit)
+            if [[ -n "$app_path" ]]; then
+              zip_out="dist-release/ode-desktop-${PLATFORM}-$(basename "$app_path").zip"
+              ditto -c -k --keepParent "$app_path" "$zip_out"
+              count=1
+              echo "::warning::DMG missing; uploaded .app zip fallback: $zip_out"
+            fi
+          fi
+          if [[ "$count" -eq 0 ]]; then
+            echo "::error::No bundle files matched in $bundle_dir"
+            find "$bundle_dir" -type f || true
+            exit 1
+          fi
+
+      - name: Attach installers to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: desktop/dist-release/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

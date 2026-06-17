@@ -2,48 +2,44 @@
 # Stage 1: Build the React application (Portal)
 FROM node:24-alpine AS portal-builder
 
+# OpenAPI Generator CLI invokes Java during synkronus-portal prebuild (not installed in node:alpine)
+RUN apk add --no-cache openjdk21-jre-headless
+
+RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+
 WORKDIR /app
 
-# Copy package files for all packages (monorepo structure)
-COPY packages/tokens/package*.json ./packages/tokens/
-COPY packages/tokens/package-lock.json ./packages/tokens/
+COPY packages/tokens/package.json packages/tokens/pnpm-lock.yaml ./packages/tokens/
 COPY packages/tokens/style-dictionary.config.js ./packages/tokens/
 COPY packages/tokens/config.json ./packages/tokens/
 COPY packages/tokens/scripts ./packages/tokens/scripts
 COPY packages/tokens/src ./packages/tokens/src
-COPY packages/components/package*.json ./packages/components/
-COPY synkronus-portal/package*.json ./synkronus-portal/
-COPY synkronus-portal/package-lock.json ./synkronus-portal/
+COPY packages/components/package.json packages/components/pnpm-lock.yaml ./packages/components/
+COPY synkronus-portal/package.json synkronus-portal/pnpm-lock.yaml ./synkronus-portal/
 
-# Install dependencies for tokens
 WORKDIR /app/packages/tokens
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
-# Install dependencies for components
 WORKDIR /app/packages/components
-RUN npm install
+RUN pnpm install --frozen-lockfile
 
-# Install dependencies for portal
 WORKDIR /app/synkronus-portal
-RUN npm ci
+RUN pnpm install --frozen-lockfile
 
-# Copy source code for all packages
 WORKDIR /app
 COPY packages/tokens ./packages/tokens
 COPY packages/components ./packages/components
 COPY synkronus-portal ./synkronus-portal
+COPY synkronus/openapi ./synkronus/openapi
 
-# Build tokens first (if needed)
 WORKDIR /app/packages/tokens
-RUN npm run build || true
+RUN pnpm run build || true
 
-# Build components (if needed)
 WORKDIR /app/packages/components
-RUN npm run build || true
+RUN pnpm run build || true
 
-# Build the portal application
 WORKDIR /app/synkronus-portal
-RUN npm run build
+RUN pnpm run build
 
 # Stage 2: Build the Go application (Synkronus) with embedded portal
 FROM golang:1.26.0-alpine AS synkronus-builder
@@ -52,19 +48,13 @@ RUN apk add --no-cache git
 
 WORKDIR /build
 
-# Copy go mod files and download dependencies
 COPY synkronus/go.mod synkronus/go.sum ./
 RUN go mod download
 
-# Copy Synkronus source
 COPY synkronus/ ./
 
-# Embed the portal build into the binary (must exist at go build time)
 COPY --from=portal-builder /app/synkronus-portal/dist ./portal/dist
 
-# Build the application with version from build arg
-# Version is automatically derived from git tags in CI and passed as build arg
-# Defaults to "1.0.0" so server version validation works (must be valid semantic version)
 ARG SYNKRONUS_VERSION=1.0.0
 ENV CGO_ENABLED=0 GOOS=linux
 RUN echo "Building Synkronus with version: ${SYNKRONUS_VERSION}" && \
@@ -75,24 +65,20 @@ FROM alpine:3.23
 
 RUN apk --no-cache add ca-certificates tzdata wget
 
-# Non-root user
 RUN addgroup -g 1000 synkronus && \
     adduser -D -u 1000 -G synkronus synkronus
 
 WORKDIR /app
 
-# Binary and assets (portal is embedded in the binary)
 COPY --from=synkronus-builder /build/synkronus /app/synkronus
 COPY --from=synkronus-builder /build/openapi /app/openapi
 COPY --from=synkronus-builder /build/static /app/static
 
-# Mutable data: <binary-dir>/data → /app/data (mount one volume here). See Synkronus docs.
 RUN mkdir -p /app/data/app-bundle/active /app/data/app-bundle/versions /app/data/attachments && \
     chown -R synkronus:synkronus /app
 
 USER synkronus
 
-# Go server listens on 80 so existing port mapping 8080:80 still works
 ENV PORT=80
 
 EXPOSE 80

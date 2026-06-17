@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { api } from '../services/api';
 import { Button, Input } from '@ode/components/react-web';
 
-import odeLogo from '../assets/ode-logo-round.png';
+import portalLogo from '../assets/portal.png';
 import dashboardBackgroundDark from '../assets/dashboard-background.png';
 import dashboardBackgroundLight from '../assets/dashboard-background-light.png';
 import './Login.css';
@@ -24,59 +25,29 @@ export function Login() {
       : dashboardBackgroundDark;
 
   useEffect(() => {
-    // Fetch server version on component mount.
-    // REST API lives under /api; /health stays at the server root (see synkronus router).
-    const backendUrl = (path: string) => {
-      const base = import.meta.env.VITE_API_URL || '/api';
-      if (base.startsWith('http')) {
-        const origin = base.replace(/\/$/, '');
-        if (path === '/health') return `${origin}/health`;
-        return `${origin}/api${path}`;
-      }
-      if (path === '/health') return '/health';
-      return `${base}${path}`;
-    };
-
     const fetchVersion = async () => {
       try {
-        // Try version endpoint first
-        let response = await fetch(backendUrl('/version'), {
-          headers: {
-            'x-formulus-version': '1.0.0'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setServerVersion(data.server?.version || data.version || 'Unknown');
+        const data = await api.getVersion();
+        const version = data.server?.version || data.version;
+        if (version) {
+          setServerVersion(version);
           return;
         }
-        
-        // If version fails, try health endpoint (might have version info)
-        response = await fetch(backendUrl('/health'));
-        if (response.ok) {
-          const text = await response.text();
-          // Health endpoint might return JSON with version info
-          try {
-            const healthData = JSON.parse(text);
-            if (healthData.version) {
-              setServerVersion(healthData.version);
-              return;
-            }
-          } catch {
-            // Health returns plain text, use default
-            setServerVersion('1.0.0');
-            return;
-          }
-        }
-        
-        // Set a default version if both fail
-        setServerVersion('1.0.0');
-      } catch (err) {
-        // Silently fail - version is optional, set default
-        console.debug('Failed to fetch server version:', err);
-        setServerVersion('1.0.0');
+      } catch {
+        // Continue to health fallback below.
       }
+
+      try {
+        const health = await api.getHealth();
+        if (typeof health?.version === 'string') {
+          setServerVersion(health.version);
+          return;
+        }
+      } catch (err) {
+        console.debug('Failed to fetch server version:', err);
+      }
+
+      setServerVersion('Unknown');
     };
 
     fetchVersion();
@@ -106,7 +77,11 @@ export function Login() {
       }>
       <div className="login-card">
         <div className="login-logo-section">
-          <img src={odeLogo} alt="ODE Logo" className="login-logo" />
+          <img
+            src={portalLogo}
+            alt="Synkronus Portal Logo"
+            className="login-logo"
+          />
           <h1>Synkronus Portal</h1>
         </div>
         <h2>Sign In</h2>
@@ -147,10 +122,12 @@ export function Login() {
             Sign In
           </Button>
         </form>
-        
+
         {serverVersion && (
           <div className="server-version">
-            <span className="version-text">Server v{serverVersion}</span>
+            <span className="version-text">
+              Server v{serverVersion.replace(/^v+/i, '')}
+            </span>
           </div>
         )}
       </div>

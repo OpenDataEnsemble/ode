@@ -41,7 +41,9 @@ class ServerSwitchService {
       throw new Error(`Failed to delete attachments directory: ${error}`);
     }
     await RNFS.mkdir(attachmentsDirectory);
-    await RNFS.mkdir(`${attachmentsDirectory}/pending_upload`);
+    await RNFS.mkdir(`${attachmentsDirectory}/synced`);
+    await RNFS.mkdir(`${attachmentsDirectory}/pending`);
+    await RNFS.mkdir(`${attachmentsDirectory}/draft`);
 
     // 2) Clear app bundle and forms (fail fast)
     await synkronusApi.removeAppBundleFiles();

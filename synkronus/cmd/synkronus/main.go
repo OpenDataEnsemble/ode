@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -22,6 +23,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/dataexport"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/migrations"
+	"github.com/opendataensemble/synkronus/pkg/presence"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 	"github.com/opendataensemble/synkronus/pkg/user"
 	"github.com/opendataensemble/synkronus/pkg/version"
@@ -41,6 +43,27 @@ func redactPassword(dsn string) string {
 
 	return u.String()
 }
+
+func firstNonEmptyEnv(keys ...string) string {
+	for _, key := range keys {
+		if value := os.Getenv(key); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func readForceAdminRecoveryEnv() (string, string, error) {
+	username := firstNonEmptyEnv("SYNKRONUS_RECOVERY_CREATE_USER", "synkronus_recovery_create_user")
+	password := firstNonEmptyEnv("SYNKRONUS_RECOVERY_CREATE_PASS", "synkronus_recovery_create_pass")
+
+	if (username == "" && password != "") || (username != "" && password == "") {
+		return "", "", errors.New("both SYNKRONUS_RECOVERY_CREATE_USER and SYNKRONUS_RECOVERY_CREATE_PASS must be set together")
+	}
+
+	return username, password, nil
+}
+
 func main() {
 	// Temporary logger for configuration loading
 	preLog := logger.NewLogger(
@@ -78,7 +101,13 @@ func main() {
 	log.Info("Starting Synkronus API server", "version", version.BuildVersion())
 	log.Info("Configuration loaded from", "source", cfg.Source)
 	log.Debug("Configuration details", "port", cfg.Port, "logLevel", cfg.LogLevel,
-		"dataDir", cfg.DataDir, "appBundlePath", cfg.AppBundlePath, "appBundleVersionsPath", cfg.AppBundleVersionsPath)
+		"dataDir", cfg.DataDir,
+		"appBundlePath", cfg.AppBundlePath,
+		"appBundleVersionsPath", cfg.AppBundleVersionsPath,
+		"imageCompressionLevel", cfg.ImageCompressionLevel,
+		"imageMaxWidthPx", cfg.ImageMaxWidthPx,
+		"imageMaxHeightPx", cfg.ImageMaxHeightPx,
+		"imageApplyExifOrientation", cfg.ImageApplyExifOrientation)
 
 	// Initialize database
 	dbConfig := database.DefaultConfig()
@@ -106,6 +135,8 @@ func main() {
 
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(db, log)
+	presenceRepo := repository.NewPresenceRepository(db, log)
+	presenceRecorder := presence.NewRecorder(presenceRepo, log, presence.DefaultConfig())
 
 	// Initialize auth service
 	authConfig := auth.DefaultConfig()
@@ -119,6 +150,14 @@ func main() {
 	if adminPassword := os.Getenv("ADMIN_PASSWORD"); adminPassword != "" {
 		authConfig.AdminPassword = adminPassword
 	}
+	forceAdminUsername, forceAdminPassword, err := readForceAdminRecoveryEnv()
+	if err != nil {
+		log.Error("Invalid startup admin recovery configuration", "error", err)
+		log.Info("Exiting due to invalid auth configuration")
+		return
+	}
+	authConfig.ForceCreateAdminUser = forceAdminUsername
+	authConfig.ForceCreateAdminPassword = forceAdminPassword
 
 	authService := auth.NewService(authConfig, userRepo, log)
 
@@ -160,7 +199,7 @@ func main() {
 	}
 
 	// Initialize user service
-	userService := user.NewService(userRepo, authService, log)
+	userService := user.NewService(userRepo, presenceRepo, authService, log)
 
 	// Initialize version service
 	versionService := version.NewService(db.DB())
@@ -196,6 +235,7 @@ func main() {
 		versionService,
 		attachmentManifestService,
 		dataExportService,
+		presenceRecorder,
 	)
 
 	// Create the API router with handlers
@@ -238,6 +278,8 @@ func main() {
 	// Create a deadline to wait for current operations to complete
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+
+	presenceRecorder.Shutdown(shutdownCtx)
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Error("Server forced to shutdown", "error", err.Error())

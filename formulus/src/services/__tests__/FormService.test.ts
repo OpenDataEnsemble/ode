@@ -79,6 +79,7 @@ jest.mock(
 // Mock databaseService and its LocalRepo
 const mockGetObservationsByFormId = jest.fn();
 const mockGetObservationsByFormType = jest.fn();
+const mockQueryObservations = jest.fn();
 const mockDeleteObservation = jest.fn();
 const mockSaveObservation = jest.fn();
 const mockGetObservationsCount = jest.fn(); // Assuming this might be useful or part of a fuller repo mock
@@ -90,6 +91,7 @@ jest.mock('../../database/DatabaseService', () => ({
     getLocalRepo: jest.fn(() => ({
       getObservationsByFormId: mockGetObservationsByFormId,
       getObservationsByFormType: mockGetObservationsByFormType,
+      queryObservations: mockQueryObservations,
       deleteObservation: mockDeleteObservation,
       saveObservation: mockSaveObservation,
       getObservationsCount: mockGetObservationsCount,
@@ -101,7 +103,17 @@ describe('FormService', () => {
   let formServiceInstance: FormServiceType;
   let ActualFormServiceClass: typeof FormServiceType;
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   beforeEach(async () => {
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'info').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'debug').mockImplementation(() => {});
+
     // Reset modules to ensure a fresh instance of FormService for each test,
     // as it's a singleton and we are also resetting its internal state (formTypes) via API.
     jest.resetModules();

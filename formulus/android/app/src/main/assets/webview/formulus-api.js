@@ -5,7 +5,7 @@
  * that's available in the WebView context as `globalThis.formulus`.
  *
  * This file is auto-generated from FormulusInterfaceDefinition.ts
- * Last generated: 2026-01-23T01:15:01.676Z
+ * Last generated: 2026-05-16T12:40:24.252Z
  *
  * @example
  * // In your JavaScript file:
@@ -50,7 +50,7 @@ const FormulusAPI = {
    * @param {Object} savedData - Previously saved form data (for editing)
    * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
-  openFormplayer: function (formType, params, savedData) {},
+  openFormplayer: function (formType, params, savedData, options) {},
 
   /**
    * Get observations for a specific form
@@ -59,6 +59,15 @@ const FormulusAPI = {
    * @returns {Promise<FormObservation[]>} Array of form observations
    */
   getObservations: function (formType, isDraft, includeDeleted) {},
+
+  /**
+   * Get observations with optional WHERE clause filtering (for dynamic choice lists).
+   * Supports format: data.field = 'value' AND data.other = 'value'
+   * Age filtering via age_from_dob(data.dob) is handled client-side in formplayer.
+   * /
+   * @returns {Promise<FormObservation[]>} Array of filtered observations
+   */
+  getObservationsByQuery: function (options) {},
 
   /**
    * Submit a completed form
@@ -88,10 +97,10 @@ const FormulusAPI = {
   requestCamera: function (fieldId) {},
 
   /**
-   * Request location for a field
+   * Request location for a field (captures into the form GPS field).
    * /
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<LocationResult>} Promise that resolves with location result or rejects on error
    */
   requestLocation: function (fieldId) {},
 
@@ -131,12 +140,12 @@ const FormulusAPI = {
   requestAudio: function (fieldId) {},
 
   /**
-   * Request signature for a field
+   * Request video recording for a field (camera / picker — host-defined).
    * /
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<SignatureResult>} Promise that resolves with signature result or rejects on error/cancellation
+   * @returns {Promise<VideoResult>} Promise that resolves with video result or rejects on error/cancellation
    */
-  requestSignature: function (fieldId) {},
+  requestVideo: function (fieldId) {},
 
   /**
    * Request QR code scanning for a field
@@ -179,17 +188,62 @@ const FormulusAPI = {
   runLocalModel: function (fieldId, modelId, input) {},
 
   /**
-   * Get information about the currently authenticated user
+   * Get information about the currently authenticated user.
+   * When no one is logged in, resolves with `{ username: '' }` (does not reject).
    * /
-   * @returns {Promise<{username: string, displayName?: string}
+   * @returns {Promise<{username: string, displayName?: string, role?: 'read-only' | 'read-write' | 'admin'}
    */
   getCurrentUser: function () {},
 
   /**
    * Get the current theme mode (System / Light / Dark) so custom apps can match the host app.
+   * /
    * @returns {Promise<'light' | 'dark' | 'system'>} Current theme mode; 'system' means follow device preference.
    */
   getThemeMode: function () {},
+
+  /**
+   * Resolve an attachment to a WebView-loadable URL (`file://`, `http(s):`, or host-specific).
+   * **String `fileName`:** basename only (e.g. `photo.filename`). Lookup order, first hit wins:
+   * 1. `attachments/draft/<name>`   — unsaved capture (formplayer preview)
+   * 2. `attachments/synced/<name>`  — canonical committed / downloaded copy
+   * 3. `attachments/pending/<name>` — queued for upload (fallback only)
+   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`) are also checked.
+   * Path segments and ".." are rejected.
+   * **`AttachmentDisplayDescriptor`:** `{ filename }` basename only (same lookup as a string argument).
+   * /
+   * @returns {Promise<string | null>} Display URL, or `null` if none
+   */
+  getAttachmentUri: function (fileName) {},
+
+  /**
+   * Base `file://` URL for the canonical attachments directory (trailing slash).
+   * Returns the `synced/` subfolder — only committed/downloaded files are
+   * iterable from here. Drafts and the upload queue are excluded by design so
+   * custom apps can safely list this directory.
+   * **Breaking change (v2 layout):** this used to return the `attachments/`
+   * parent directory, which mixed committed files with `draft/` and
+   * `pending_upload/` subfolders. Custom apps that iterate this URL will now
+   * see only fully-committed attachments.
+   * /
+   * @returns {Promise<string>} e.g. `file:///.../attachments/synced/`
+   */
+  getAttachmentsUri: function () {},
+
+  /**
+   * Base `file://` URL for the custom app bundle root (`DocumentDirectory/app/`, trailing slash).
+   * /
+   * @returns {Promise<string>} App directory URL for extensions, question_types, etc.
+   */
+  getCustomAppUri: function () {},
+
+  /**
+   * Primary `file://` URL for downloaded form specs (`DocumentDirectory/forms/`, trailing slash).
+   * Some bundles also use files under the custom app `forms/` subdirectory.
+   * /
+   * @returns {Promise<string>} Forms directory URL
+   */
+  getFormSpecsUri: function () {},
 };
 
 // Make the API available globally in browser environments

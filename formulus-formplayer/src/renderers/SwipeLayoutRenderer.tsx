@@ -12,7 +12,9 @@ import {
   useJsonForms,
 } from '@jsonforms/react';
 import {
+  ControlElement,
   ControlProps,
+  createAjv,
   rankWith,
   uiTypeIs,
   RankedTester,
@@ -25,78 +27,15 @@ import { primaryKeyboardEnterKeyHint } from '../utils/keyboardEnterKeyHint';
 import { draftService } from '../services/DraftService';
 import FormProgressBar from '../components/FormProgressBar';
 import FormLayout from '../components/FormLayout';
-
-// ---------------------------------------------------------------------------
-// Page visibility helpers
-// ---------------------------------------------------------------------------
-
-/** Resolve a data value from a JSON Pointer scope (e.g. "#/properties/sexo"). */
-const resolveDataValue = (scope: string, data: any): any => {
-  if (!scope || !data) return undefined;
-  const parts = scope.replace(/^#\/properties\//, '').split('/');
-  let value = data;
-  for (const part of parts) {
-    if (value != null && typeof value === 'object') {
-      value = value[part];
-    } else {
-      return undefined;
-    }
-  }
-  return value;
-};
-
-/** Evaluate a JSON Schema condition object against a concrete value. */
-const evaluateConditionSchema = (schema: any, value: any): boolean => {
-  if (!schema) return true;
-
-  if ('const' in schema) return value === schema.const;
-  if ('enum' in schema)
-    return Array.isArray(schema.enum) && schema.enum.includes(value);
-  if ('not' in schema) return !evaluateConditionSchema(schema.not, value);
-  if ('pattern' in schema && typeof value === 'string')
-    return new RegExp(schema.pattern).test(value);
-  if ('minimum' in schema && typeof value === 'number')
-    return value >= schema.minimum;
-  if ('maximum' in schema && typeof value === 'number')
-    return value <= schema.maximum;
-
-  return true;
-};
-
-/** Check whether a single UI‑schema element is visible given current data. */
-const isElementVisible = (element: any, data: any): boolean => {
-  if (!element?.rule) return true;
-
-  const { effect, condition } = element.rule;
-  if (!condition?.scope || !condition?.schema) return true;
-
-  const value = resolveDataValue(condition.scope, data);
-  const conditionMet = evaluateConditionSchema(condition.schema, value);
-
-  if (effect === 'SHOW') return conditionMet;
-  if (effect === 'HIDE') return !conditionMet;
-  // ENABLE / DISABLE do not affect visibility
-  return true;
-};
-
-/**
- * Determine whether a page (typically a VerticalLayout) has any visible
- * content.  A page is hidden only when **every** child element is hidden by a
- * rule.  Finalize pages and pages without children are always visible.
- */
-const isPageVisible = (page: any, data: any): boolean => {
-  if (!page) return false;
-  if (page.type === 'Finalize') return true;
-
-  // The page itself may carry a rule
-  if (page.rule && !isElementVisible(page, data)) return false;
-
-  // Pages without child elements (e.g. a bare Control) are always visible
-  if (!page.elements || page.elements.length === 0) return true;
-
-  // Visible if at least one child is visible
-  return page.elements.some((el: any) => isElementVisible(el, data));
-};
+import {
+  FormDensityContext,
+  type LabelLayout,
+} from '../context/FormDensityContext';
+import {
+  collectVisibleControlsInSubtree,
+  pageIsVisibleInSwipe,
+  visiblePageIndicesFromLayouts,
+} from './swipeLayoutVisibility';
 
 // ---------------------------------------------------------------------------
 // Testers
@@ -153,6 +92,7 @@ const SwipeLayoutRenderer = ({
   renderers,
   cells,
   enabled,
+  visible,
   currentPage,
   onPageChange,
 }: SwipeLayoutProps) => {
@@ -163,9 +103,12 @@ const SwipeLayoutRenderer = ({
     null,
   );
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
-  const { core } = useJsonForms();
+  const { core, config } = useJsonForms();
   const parentFormContext = useFormContext();
   const { formInitData } = parentFormContext;
+
+  const fallbackAjv = useMemo(() => createAjv(), []);
+  const ajv = core?.ajv ?? fallbackAjv;
 
   const uiType = (uischema as any).type;
   const isExplicitSwipeLayout = uiType === 'SwipeLayout';
@@ -195,6 +138,12 @@ const SwipeLayoutRenderer = ({
     }, [uischema]);
 
   const autoFocusFirstInput = swipeOptions.autoFocusFirstInput !== false;
+  const labelLayout: LabelLayout =
+    swipeOptions.labelLayout === 'stacked' ? 'stacked' : 'inline';
+  const showInnerTitle = swipeOptions.showInnerTitle === true;
+  const skipFinalize = Boolean(
+    (formInitData as { skipFinalize?: boolean } | null)?.skipFinalize,
+  );
 
   const swipeScreenRef = useRef<HTMLDivElement>(null);
 
@@ -223,10 +172,14 @@ const SwipeLayoutRenderer = ({
 
   /** Indices of pages that are currently visible given the form data. */
   const visiblePageIndices = useMemo(() => {
-    return layouts
-      .map((_: any, idx: number) => idx)
-      .filter((idx: number) => isPageVisible(layouts[idx], data));
-  }, [layouts, data]);
+    return visiblePageIndicesFromLayouts(
+      layouts,
+      data,
+      path ?? '',
+      ajv,
+      config,
+    );
+  }, [layouts, data, path, ajv, config]);
 
   /** Next visible page after `currentPage`, or null. */
   const nextVisiblePage = useMemo((): number | null => {
@@ -258,7 +211,11 @@ const SwipeLayoutRenderer = ({
   // prior page), jump to the nearest visible page.
   useEffect(() => {
     if (layouts.length === 0) return;
-    if (isPageVisible(layouts[currentPage], data)) return;
+    if (
+      pageIsVisibleInSwipe(layouts[currentPage], data, path ?? '', ajv, config)
+    ) {
+      return;
+    }
 
     // Prefer advancing forward, fall back to going backward
     const next = visiblePageIndices.find((i: number) => i > currentPage);
@@ -270,7 +227,16 @@ const SwipeLayoutRenderer = ({
     if (prev !== undefined) {
       onPageChange(prev);
     }
-  }, [currentPage, data, layouts, visiblePageIndices, onPageChange]);
+  }, [
+    currentPage,
+    data,
+    layouts,
+    visiblePageIndices,
+    onPageChange,
+    path,
+    ajv,
+    config,
+  ]);
 
   // ----- Required-field validation -----
 
@@ -307,28 +273,19 @@ const SwipeLayoutRenderer = ({
       return false;
     };
 
-    const getPageControls = (element: any): any[] => {
-      const controls: any[] = [];
-      if (element.type === 'Control' && element.scope) {
-        controls.push(element);
-      }
-      if (element.elements && Array.isArray(element.elements)) {
-        element.elements.forEach((el: any) => {
-          controls.push(...getPageControls(el));
-        });
-      }
-      return controls;
-    };
-
-    // Only validate controls that are actually visible
-    const pageControls = getPageControls(currentPageElement).filter(control =>
-      isElementVisible(control, data),
+    const pageControls = collectVisibleControlsInSubtree(
+      currentPageElement,
+      data,
+      path ?? '',
+      ajv,
+      config,
     );
 
     pageControls.forEach(control => {
-      if (!control.scope) return;
+      const c = control as ControlElement;
+      if (!c.scope) return;
 
-      const fieldPath = control.scope;
+      const fieldPath = c.scope;
       const fieldSchema = getFieldSchema(fieldPath);
       if (!fieldSchema) return;
 
@@ -377,7 +334,7 @@ const SwipeLayoutRenderer = ({
     });
 
     return missingFields;
-  }, [core, data, layouts, currentPage]);
+  }, [core, data, layouts, currentPage, path, ajv, config]);
 
   // ----- Navigation -----
 
@@ -401,6 +358,13 @@ const SwipeLayoutRenderer = ({
 
       const isNavigatingForward = newPage > currentPage;
       const isOnFinalize = layouts[currentPage]?.type === 'Finalize';
+
+      // Deferred validation: once the enumerator moves forward, surface
+      // validation so empty/invalid required fields they are leaving behind are
+      // highlighted. App.tsx listens and switches JsonForms to ValidateAndShow.
+      if (isNavigatingForward) {
+        window.dispatchEvent(new CustomEvent('formShowValidation'));
+      }
 
       if (isNavigatingForward && !isOnFinalize) {
         const missingFields = getMissingRequiredFieldsOnPage();
@@ -459,19 +423,32 @@ const SwipeLayoutRenderer = ({
     return layouts[currentPage]?.type === 'Finalize';
   }, [layouts, currentPage]);
 
+  const isLastContentPage = nextVisiblePage === null && !isOnFinalizePage;
+
+  const trySubmitForm = useCallback(() => {
+    if (!formInitData) return;
+    window.dispatchEvent(new CustomEvent('formShowValidation'));
+    const errorCount = core?.errors?.length ?? 0;
+    if (errorCount > 0) return;
+    window.dispatchEvent(
+      new CustomEvent('finalizeForm', {
+        detail: { formInitData, data },
+      }),
+    );
+  }, [formInitData, data, core?.errors]);
+
   const keyboardSubmitAction = useMemo(() => {
     const errorCount = core?.errors?.length ?? 0;
     if (isOnFinalizePage) {
       return {
-        onTrigger: () => {
-          if (errorCount > 0 || !formInitData) return;
-          window.dispatchEvent(
-            new CustomEvent('finalizeForm', {
-              detail: { formInitData, data },
-            }),
-          );
-        },
-        disabled: errorCount > 0 || !formInitData,
+        onTrigger: trySubmitForm,
+        disabled: errorCount > 0 || !formInitData || isNavigating,
+      };
+    }
+    if (skipFinalize && isLastContentPage) {
+      return {
+        onTrigger: trySubmitForm,
+        disabled: errorCount > 0 || !formInitData || isNavigating,
       };
     }
     if (nextVisiblePage !== null) {
@@ -488,7 +465,9 @@ const SwipeLayoutRenderer = ({
     isNavigating,
     core?.errors,
     formInitData,
-    data,
+    trySubmitForm,
+    skipFinalize,
+    isLastContentPage,
   ]);
 
   const keyboardEnterKeyHint = useMemo(
@@ -545,196 +524,216 @@ const SwipeLayoutRenderer = ({
     swipeOptions.headerTitle || (schema as any)?.title || undefined;
   const headerFields: string[] = (swipeOptions.headerFields || []).slice(0, 2);
 
+  const densityContextValue = useMemo(() => ({ labelLayout }), [labelLayout]);
+
+  if (visible === false) {
+    return null;
+  }
+
   // ----- Render -----
 
   return (
-    <FormContext.Provider value={formContextForSwipe}>
-      <FormLayout
-        keyboardSubmitAction={keyboardSubmitAction}
-        header={
-          <>
-            {/* Author-configured form title and sticky fields */}
-            {(headerTitle || headerFields.length > 0) && (
-              <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
-                {headerTitle && (
-                  <Typography
-                    variant="subtitle2"
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: '1.125rem',
-                      lineHeight: 1.3,
-                      color: 'text.primary',
-                      mb: headerFields.length > 0 ? 0.5 : 0,
-                      textAlign: 'left',
-                    }}>
-                    {headerTitle}
-                  </Typography>
-                )}
-                {headerFields.length > 0 && (
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 0.5,
-                      pb: 0.5,
-                    }}>
-                    {headerFields.map((fieldKey: string) => {
-                      const fieldSchema = (schema as any)?.properties?.[
-                        fieldKey
-                      ];
-                      const label = fieldSchema?.title || fieldKey;
-                      const value = data?.[fieldKey];
-                      const displayValue =
-                        value != null && value !== '' ? String(value) : '—';
-                      return (
-                        <Typography
-                          key={fieldKey}
-                          variant="caption"
-                          sx={{
-                            px: 1,
-                            py: 0.25,
-                            borderRadius: 1,
-                            backgroundColor: 'action.hover',
-                            fontSize: '0.75rem',
-                            color:
-                              displayValue === '—'
-                                ? 'text.disabled'
-                                : 'text.primary',
-                            fontWeight: displayValue === '—' ? 400 : 600,
-                            textAlign: 'left',
-                          }}>
-                          {label}: {displayValue}
-                        </Typography>
-                      );
-                    })}
-                  </Box>
-                )}
-              </Box>
+    <FormDensityContext.Provider value={densityContextValue}>
+      <FormContext.Provider value={formContextForSwipe}>
+        <FormLayout
+          keyboardSubmitAction={keyboardSubmitAction}
+          header={
+            <>
+              {/* Author-configured form title and sticky fields */}
+              {((showInnerTitle && headerTitle) || headerFields.length > 0) && (
+                <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
+                  {showInnerTitle && headerTitle && (
+                    <Typography
+                      variant="subtitle2"
+                      sx={{
+                        fontWeight: 700,
+                        fontSize: '1.125rem',
+                        lineHeight: 1.3,
+                        color: 'text.primary',
+                        mb: headerFields.length > 0 ? 0.5 : 0,
+                        textAlign: 'left',
+                      }}>
+                      {headerTitle}
+                    </Typography>
+                  )}
+                  {headerFields.length > 0 && (
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 0.5,
+                        pb: 0.5,
+                      }}>
+                      {headerFields.map((fieldKey: string) => {
+                        const fieldSchema = (schema as any)?.properties?.[
+                          fieldKey
+                        ];
+                        const label = fieldSchema?.title || fieldKey;
+                        const value = data?.[fieldKey];
+                        const displayValue =
+                          value != null && value !== '' ? String(value) : '—';
+                        return (
+                          <Typography
+                            key={fieldKey}
+                            variant="caption"
+                            sx={{
+                              px: 1,
+                              py: 0.25,
+                              borderRadius: 1,
+                              backgroundColor: 'action.hover',
+                              fontSize: '0.75rem',
+                              color:
+                                displayValue === '—'
+                                  ? 'text.disabled'
+                                  : 'text.primary',
+                              fontWeight: displayValue === '—' ? 400 : 600,
+                              textAlign: 'left',
+                            }}>
+                            {label}: {displayValue}
+                          </Typography>
+                        );
+                      })}
+                    </Box>
+                  )}
+                </Box>
+              )}
+              <FormProgressBar
+                currentPage={visiblePosition}
+                totalScreens={totalVisibleScreens}
+                data={data}
+                schema={schema}
+                uischema={uischema}
+                mode="screens"
+                isOnFinalizePage={isOnFinalizePage}
+                onNavigatePrevious={
+                  prevVisiblePage !== null
+                    ? () => navigateToPage(prevVisiblePage)
+                    : undefined
+                }
+                onNavigateNext={
+                  nextVisiblePage !== null
+                    ? () => navigateToPage(nextVisiblePage)
+                    : undefined
+                }
+                navigationDisabled={isNavigating}
+              />
+            </>
+          }
+          previousButton={
+            prevVisiblePage !== null
+              ? {
+                  onClick: () => navigateToPage(prevVisiblePage),
+                  disabled: isNavigating,
+                }
+              : undefined
+          }
+          nextButton={
+            skipFinalize && isLastContentPage
+              ? {
+                  onClick: trySubmitForm,
+                  disabled:
+                    isNavigating ||
+                    !formInitData ||
+                    (core?.errors?.length ?? 0) > 0,
+                  label: finalizeButtonLabelOption ?? 'Done',
+                }
+              : nextVisiblePage !== null
+                ? {
+                    onClick: () => navigateToPage(nextVisiblePage),
+                    disabled: isNavigating,
+                    label: nextButtonLabelOption,
+                  }
+                : undefined
+          }
+          contentBottomPadding={24}
+          showNavigation={true}>
+          <div
+            ref={mergedSwipeScreenRef}
+            {...swipeHandlers}
+            className="swipelayout_screen">
+            {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
+            {layouts.length > 0 && layouts[currentPage] && (
+              <JsonFormsDispatch
+                schema={schema}
+                uischema={layouts[currentPage]}
+                path={path}
+                enabled={enabled}
+                renderers={renderers}
+                cells={cells}
+              />
             )}
-            <FormProgressBar
-              currentPage={visiblePosition}
-              totalScreens={totalVisibleScreens}
-              data={data}
-              schema={schema}
-              uischema={uischema}
-              mode="screens"
-              isOnFinalizePage={isOnFinalizePage}
-              onNavigatePrevious={
-                prevVisiblePage !== null
-                  ? () => navigateToPage(prevVisiblePage)
-                  : undefined
-              }
-              onNavigateNext={
-                nextVisiblePage !== null
-                  ? () => navigateToPage(nextVisiblePage)
-                  : undefined
-              }
-              navigationDisabled={isNavigating}
-            />
-          </>
-        }
-        previousButton={
-          prevVisiblePage !== null
-            ? {
-                onClick: () => navigateToPage(prevVisiblePage),
-                disabled: isNavigating,
-              }
-            : undefined
-        }
-        nextButton={
-          nextVisiblePage !== null
-            ? {
-                onClick: () => navigateToPage(nextVisiblePage),
-                disabled: isNavigating,
-                label: nextButtonLabelOption,
-              }
-            : undefined
-        }
-        contentBottomPadding={80}
-        showNavigation={true}>
-        <div
-          ref={mergedSwipeScreenRef}
-          {...swipeHandlers}
-          className="swipelayout_screen">
-          {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
-          {layouts.length > 0 && layouts[currentPage] && (
-            <JsonFormsDispatch
-              schema={schema}
-              uischema={layouts[currentPage]}
-              path={path}
-              enabled={enabled}
-              renderers={renderers}
-              cells={cells}
-            />
-          )}
-        </div>
+          </div>
 
-        {snackbarOpen &&
-          typeof document !== 'undefined' &&
-          createPortal(
-            <Box
-              sx={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                minHeight: '100dvh',
-                height: '100%',
-                zIndex: 99,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 4,
-                backgroundColor: 'transparent',
-              }}>
+          {snackbarOpen &&
+            typeof document !== 'undefined' &&
+            createPortal(
               <Box
                 sx={{
-                  width: '100%',
-                  maxWidth: 340,
-                  borderRadius: CONFIRM_CARD_RADIUS,
-                  border: `${CONFIRM_BORDER_WIDTH}px solid`,
-                  borderColor: 'divider',
-                  padding: `${CONFIRM_CARD_PADDING}px`,
-                  backgroundColor: theme.palette.background.paper,
-                  overflow: 'hidden',
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  minHeight: '100%',
+                  height: '100%',
+                  zIndex: 99,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 4,
+                  backgroundColor: 'transparent',
                 }}>
-                <Typography
-                  variant="h6"
-                  sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
-                  Missing required fields
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ textAlign: 'center', mb: 3 }}>
-                  {snackbarMessage ||
-                    'Some required fields are missing. Any unsaved changes will be available as a draft when you return.'}
-                </Typography>
                 <Box
                   sx={{
-                    flexDirection: 'row',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    gap: 2,
-                    flexWrap: 'wrap',
+                    width: '100%',
+                    maxWidth: 340,
+                    borderRadius: CONFIRM_CARD_RADIUS,
+                    border: `${CONFIRM_BORDER_WIDTH}px solid`,
+                    borderColor: 'divider',
+                    padding: `${CONFIRM_CARD_PADDING}px`,
+                    backgroundColor: theme.palette.background.paper,
+                    overflow: 'hidden',
                   }}>
-                  <Button
-                    variant="neutral"
-                    size="medium"
-                    onPress={handleSnackbarClose}>
-                    Stay here
-                  </Button>
-                  <Button variant="danger" size="medium" onPress={handleGoBack}>
-                    Go back
-                  </Button>
+                  <Typography
+                    variant="h6"
+                    sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
+                    Missing required fields
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ textAlign: 'center', mb: 3 }}>
+                    {snackbarMessage ||
+                      'Some required fields are missing. Any unsaved changes will be available as a draft when you return.'}
+                  </Typography>
+                  <Box
+                    sx={{
+                      flexDirection: 'row',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: 2,
+                      flexWrap: 'wrap',
+                    }}>
+                    <Button
+                      variant="neutral"
+                      size="medium"
+                      onPress={handleSnackbarClose}>
+                      Stay here
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="medium"
+                      onPress={handleGoBack}>
+                      Go back
+                    </Button>
+                  </Box>
                 </Box>
-              </Box>
-            </Box>,
-            document.body,
-          )}
-      </FormLayout>
-    </FormContext.Provider>
+              </Box>,
+              document.body,
+            )}
+        </FormLayout>
+      </FormContext.Provider>
+    </FormDensityContext.Provider>
   );
 };
 

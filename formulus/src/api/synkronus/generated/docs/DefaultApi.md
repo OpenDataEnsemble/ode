@@ -2,28 +2,86 @@
 
 All URIs are relative to _http://localhost_
 
-| Method                                                | HTTP request                              | Description                                               |
-| ----------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------- |
-| [**changePassword**](#changepassword)                 | **POST** /api/users/change-password       | Change user password (authenticated user)\&#39;s password |
-| [**checkAttachmentExists**](#checkattachmentexists)   | **HEAD** /api/attachments/{attachment_id} | Check if an attachment exists                             |
-| [**createUser**](#createuser)                         | **POST** /api/users/create                | Create a new user (admin only)                            |
-| [**deleteUser**](#deleteuser)                         | **DELETE** /api/users/{username}          | Delete a user (admin only)                                |
-| [**downloadAppBundleFile**](#downloadappbundlefile)   | **GET** /api/app-bundle/download/{path}   | Download a specific file from the app bundle              |
-| [**downloadAttachment**](#downloadattachment)         | **GET** /api/attachments/{attachment_id}  | Download an attachment by ID                              |
-| [**getAppBundleChanges**](#getappbundlechanges)       | **GET** /api/app-bundle/changes           | Get changes between two app bundle versions               |
-| [**getAppBundleManifest**](#getappbundlemanifest)     | **GET** /api/app-bundle/manifest          | Get the current custom app bundle manifest                |
-| [**getAppBundleVersions**](#getappbundleversions)     | **GET** /api/app-bundle/versions          | Get a list of available app bundle versions               |
-| [**getAttachmentManifest**](#getattachmentmanifest)   | **POST** /api/attachments/manifest        | Get attachment manifest for incremental sync              |
-| [**getVersion**](#getversion)                         | **GET** /api/version                      | Get server version and system information                 |
-| [**listUsers**](#listusers)                           | **GET** /api/users                        | List all users (admin only)                               |
-| [**login**](#login)                                   | **POST** /api/auth/login                  | Authenticate user and return JWT tokens                   |
-| [**pushAppBundle**](#pushappbundle)                   | **POST** /api/app-bundle/push             | Upload a new app bundle (admin only)                      |
-| [**refreshToken**](#refreshtoken)                     | **POST** /api/auth/refresh                | Refresh JWT token                                         |
-| [**resetUserPassword**](#resetuserpassword)           | **POST** /api/users/reset-password        | Reset user password (admin only)                          |
-| [**switchAppBundleVersion**](#switchappbundleversion) | **POST** /api/app-bundle/switch/{version} | Switch to a specific app bundle version (admin only)      |
-| [**syncPull**](#syncpull)                             | **POST** /api/sync/pull                   | Pull updated records since last sync                      |
-| [**syncPush**](#syncpush)                             | **POST** /api/sync/push                   | Push new or updated records to the server                 |
-| [**uploadAttachment**](#uploadattachment)             | **PUT** /api/attachments/{attachment_id}  | Upload a new attachment with specified ID                 |
+| Method                                                | HTTP request                              | Description                                                                |
+| ----------------------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------- |
+| [**adminRepositoryReset**](#adminrepositoryreset)     | **POST** /api/admin/repository/reset      | Irreversibly wipe server observation and attachment sync data (admin only) |
+| [**changePassword**](#changepassword)                 | **POST** /api/users/change-password       | Change user password (authenticated user)\&#39;s password                  |
+| [**checkAttachmentExists**](#checkattachmentexists)   | **HEAD** /api/attachments/{attachment_id} | Check if an attachment exists                                              |
+| [**createUser**](#createuser)                         | **POST** /api/users/create                | Create a new user (admin only)                                             |
+| [**deleteUser**](#deleteuser)                         | **DELETE** /api/users/{username}          | Delete a user (admin only)                                                 |
+| [**downloadAppBundleFile**](#downloadappbundlefile)   | **GET** /api/app-bundle/download/{path}   | Download a specific file from the app bundle                               |
+| [**downloadAppBundleZip**](#downloadappbundlezip)     | **GET** /api/app-bundle/download-zip      | Download the active app bundle as a single ZIP                             |
+| [**downloadAttachment**](#downloadattachment)         | **GET** /api/attachments/{attachment_id}  | Download an attachment by ID                                               |
+| [**getAPIVersions**](#getapiversions)                 | **GET** /api/versions                     | List supported API contract versions                                       |
+| [**getAppBundleChanges**](#getappbundlechanges)       | **GET** /api/app-bundle/changes           | Get changes between two app bundle versions                                |
+| [**getAppBundleManifest**](#getappbundlemanifest)     | **GET** /api/app-bundle/manifest          | Get the current custom app bundle manifest                                 |
+| [**getAppBundleVersions**](#getappbundleversions)     | **GET** /api/app-bundle/versions          | Get a list of available app bundle versions                                |
+| [**getAttachmentManifest**](#getattachmentmanifest)   | **POST** /api/attachments/manifest        | Get attachment manifest for incremental sync                               |
+| [**getVersion**](#getversion)                         | **GET** /api/version                      | Get server version and system information                                  |
+| [**listUsers**](#listusers)                           | **GET** /api/users                        | List all users (admin only)                                                |
+| [**login**](#login)                                   | **POST** /api/auth/login                  | Authenticate user and return JWT tokens                                    |
+| [**pushAppBundle**](#pushappbundle)                   | **POST** /api/app-bundle/push             | Upload a new app bundle (admin only)                                       |
+| [**refreshToken**](#refreshtoken)                     | **POST** /api/auth/refresh                | Refresh JWT token                                                          |
+| [**resetUserPassword**](#resetuserpassword)           | **POST** /api/users/reset-password        | Reset user password (admin only)                                           |
+| [**switchAppBundleVersion**](#switchappbundleversion) | **POST** /api/app-bundle/switch/{version} | Switch to a specific app bundle version (admin only)                       |
+| [**syncPull**](#syncpull)                             | **POST** /api/sync/pull                   | Pull updated records since last sync                                       |
+| [**syncPush**](#syncpush)                             | **POST** /api/sync/push                   | Push new or updated records to the server                                  |
+| [**uploadAttachment**](#uploadattachment)             | **PUT** /api/attachments/{attachment_id}  | Upload a new attachment with specified ID                                  |
+
+# **adminRepositoryReset**
+
+> RepositoryResetResponse adminRepositoryReset(repositoryResetRequest)
+
+Destructive operation: deletes all observations and attachment manifest rows, resets the observation stream cursor, increments repository_generation, and clears attachment files on disk. App bundles are not removed. Requires body `{ \"confirm\": \"RESET_REPOSITORY\" }`.
+
+### Example
+
+```typescript
+import { DefaultApi, Configuration, RepositoryResetRequest } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+let repositoryResetRequest: RepositoryResetRequest; //
+
+const { status, data } = await apiInstance.adminRepositoryReset(
+  xOdeVersion,
+  repositoryResetRequest,
+);
+```
+
+### Parameters
+
+| Name                       | Type                       | Description                                                                                                                                                          | Notes                 |
+| -------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **repositoryResetRequest** | **RepositoryResetRequest** |                                                                                                                                                                      |                       |
+| **xOdeVersion**            | [**string**]               | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
+
+### Return type
+
+**RepositoryResetResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: application/json
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description               | Response headers                  |
+| ----------- | ------------------------- | --------------------------------- |
+| **200**     | Reset completed           | \* x-repository-generation - <br> |
+| **400**     | Invalid confirmation body | -                                 |
+| **401**     | Unauthorized              | -                                 |
+| **403**     | Forbidden (non-admin)     | -                                 |
+| **500**     | Internal server error     | -                                 |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **changePassword**
 
@@ -39,21 +97,21 @@ import { DefaultApi, Configuration, ChangePasswordRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let changePasswordRequest: ChangePasswordRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.changePassword(
+  xOdeVersion,
   changePasswordRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                      | Type                      | Description                                                               | Notes                            |
-| ------------------------- | ------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **changePasswordRequest** | **ChangePasswordRequest** |                                                                           |                                  |
-| **xApiVersion**           | [**string**]              | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                      | Type                      | Description                                                                                                                                                          | Notes                 |
+| ------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **changePasswordRequest** | **ChangePasswordRequest** |                                                                                                                                                                      |                       |
+| **xOdeVersion**           | [**string**]              | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -82,6 +140,8 @@ const { status, data } = await apiInstance.changePassword(
 
 > checkAttachmentExists()
 
+Checks whether the attachment is available for download. If `original=true` (or `1` / `yes`), existence is checked against the original file first, with fallback to the processed file.
+
 ### Example
 
 ```typescript
@@ -91,15 +151,23 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let attachmentId: string; // (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+let original: string; //Prefer the original (uncompressed) attachment when available. Truthy values: `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no original exists.  (optional) (default to undefined)
 
-const { status, data } = await apiInstance.checkAttachmentExists(attachmentId);
+const { status, data } = await apiInstance.checkAttachmentExists(
+  attachmentId,
+  xOdeVersion,
+  original,
+);
 ```
 
 ### Parameters
 
-| Name             | Type         | Description | Notes                 |
-| ---------------- | ------------ | ----------- | --------------------- |
-| **attachmentId** | [**string**] |             | defaults to undefined |
+| Name             | Type         | Description                                                                                                                                                                                             | Notes                            |
+| ---------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **attachmentId** | [**string**] |                                                                                                                                                                                                         | defaults to undefined            |
+| **xOdeVersion**  | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).                                    | defaults to undefined            |
+| **original**     | [**string**] | Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists. | (optional) defaults to undefined |
 
 ### Return type
 
@@ -138,21 +206,21 @@ import { DefaultApi, Configuration, CreateUserRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let createUserRequest: CreateUserRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.createUser(
+  xOdeVersion,
   createUserRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                  | Type                  | Description                                                               | Notes                            |
-| --------------------- | --------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **createUserRequest** | **CreateUserRequest** |                                                                           |                                  |
-| **xApiVersion**       | [**string**]          | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                  | Type                  | Description                                                                                                                                                          | Notes                 |
+| --------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **createUserRequest** | **CreateUserRequest** |                                                                                                                                                                      |                       |
+| **xOdeVersion**       | [**string**]          | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -194,17 +262,17 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let username: string; //Username of the user to delete (default to undefined)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 
-const { status, data } = await apiInstance.deleteUser(username, xApiVersion);
+const { status, data } = await apiInstance.deleteUser(username, xOdeVersion);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **username**    | [**string**] | Username of the user to delete                                            | defaults to undefined            |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **username**    | [**string**] | Username of the user to delete                                                                                                                                       | defaults to undefined |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -244,26 +312,26 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let path: string; // (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let preview: boolean; //If true, returns the file from the latest version including unreleased changes (optional) (default to false)
 let ifNoneMatch: string; // (optional) (default to undefined)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.downloadAppBundleFile(
   path,
+  xOdeVersion,
   preview,
   ifNoneMatch,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name            | Type          | Description                                                                    | Notes                            |
-| --------------- | ------------- | ------------------------------------------------------------------------------ | -------------------------------- |
-| **path**        | [**string**]  |                                                                                | defaults to undefined            |
-| **preview**     | [**boolean**] | If true, returns the file from the latest version including unreleased changes | (optional) defaults to false     |
-| **ifNoneMatch** | [**string**]  |                                                                                | (optional) defaults to undefined |
-| **xApiVersion** | [**string**]  | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH)      | (optional) defaults to undefined |
+| Name            | Type          | Description                                                                                                                                                          | Notes                            |
+| --------------- | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **path**        | [**string**]  |                                                                                                                                                                      | defaults to undefined            |
+| **xOdeVersion** | [**string**]  | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined            |
+| **preview**     | [**boolean**] | If true, returns the file from the latest version including unreleased changes                                                                                       | (optional) defaults to false     |
+| **ifNoneMatch** | [**string**]  |                                                                                                                                                                      | (optional) defaults to undefined |
 
 ### Return type
 
@@ -287,9 +355,60 @@ const { status, data } = await apiInstance.downloadAppBundleFile(
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **downloadAppBundleZip**
+
+> File downloadAppBundleZip()
+
+Returns the full custom app bundle archive for the active version as `application/zip`.
+
+### Example
+
+```typescript
+import { DefaultApi, Configuration } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+
+const { status, data } = await apiInstance.downloadAppBundleZip(xOdeVersion);
+```
+
+### Parameters
+
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
+
+### Return type
+
+**File**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/zip, application/json
+
+### HTTP response details
+
+| Status code | Description                   | Response headers |
+| ----------- | ----------------------------- | ---------------- |
+| **200**     | ZIP archive of the app bundle | -                |
+| **401**     | Unauthorized                  | -                |
+| **404**     | Bundle zip not available      | -                |
+| **500**     | Internal server error         | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **downloadAttachment**
 
 > File downloadAttachment()
+
+Downloads the processed attachment by default. If `original=true` (or `1` / `yes`) and an uncompressed sibling exists, the original file is returned. If no original exists, the endpoint falls back to the processed attachment.
 
 ### Example
 
@@ -300,15 +419,23 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let attachmentId: string; // (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+let original: string; //Prefer the original (uncompressed) attachment when available. Truthy values: `true`, `1`, `yes` (case-insensitive). Falls back to processed file when no original exists.  (optional) (default to undefined)
 
-const { status, data } = await apiInstance.downloadAttachment(attachmentId);
+const { status, data } = await apiInstance.downloadAttachment(
+  attachmentId,
+  xOdeVersion,
+  original,
+);
 ```
 
 ### Parameters
 
-| Name             | Type         | Description | Notes                 |
-| ---------------- | ------------ | ----------- | --------------------- |
-| **attachmentId** | [**string**] |             | defaults to undefined |
+| Name             | Type         | Description                                                                                                                                                                                             | Notes                            |
+| ---------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **attachmentId** | [**string**] |                                                                                                                                                                                                         | defaults to undefined            |
+| **xOdeVersion**  | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).                                    | defaults to undefined            |
+| **original**     | [**string**] | Prefer the original (uncompressed) attachment when available. Truthy values: &#x60;true&#x60;, &#x60;1&#x60;, &#x60;yes&#x60; (case-insensitive). Falls back to processed file when no original exists. | (optional) defaults to undefined |
 
 ### Return type
 
@@ -333,6 +460,53 @@ const { status, data } = await apiInstance.downloadAttachment(attachmentId);
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
+# **getAPIVersions**
+
+> APIVersionsResponse getAPIVersions()
+
+Returns version metadata for the public HTTP API (compatibility hints for clients).
+
+### Example
+
+```typescript
+import { DefaultApi, Configuration } from './api';
+
+const configuration = new Configuration();
+const apiInstance = new DefaultApi(configuration);
+
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+
+const { status, data } = await apiInstance.getAPIVersions(xOdeVersion);
+```
+
+### Parameters
+
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
+
+### Return type
+
+**APIVersionsResponse**
+
+### Authorization
+
+[bearerAuth](../README.md#bearerAuth)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+
+| Status code | Description      | Response headers |
+| ----------- | ---------------- | ---------------- |
+| **200**     | API version list | -                |
+| **401**     | Unauthorized     | -                |
+
+[[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
+
 # **getAppBundleChanges**
 
 > ChangeLog getAppBundleChanges()
@@ -347,24 +521,24 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let current: string; //The current version (defaults to latest) (optional) (default to undefined)
 let target: string; //The target version to compare against (defaults to previous version) (optional) (default to undefined)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.getAppBundleChanges(
+  xOdeVersion,
   current,
   target,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **current**     | [**string**] | The current version (defaults to latest)                                  | (optional) defaults to undefined |
-| **target**      | [**string**] | The target version to compare against (defaults to previous version)      | (optional) defaults to undefined |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                                                          | Notes                            |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined            |
+| **current**     | [**string**] | The current version (defaults to latest)                                                                                                                             | (optional) defaults to undefined |
+| **target**      | [**string**] | The target version to compare against (defaults to previous version)                                                                                                 | (optional) defaults to undefined |
 
 ### Return type
 
@@ -402,16 +576,21 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+let xOdeClientId: string; //Optional client instance id for correlating app bundle checks with presence. (optional) (default to undefined)
 
-const { status, data } = await apiInstance.getAppBundleManifest(xApiVersion);
+const { status, data } = await apiInstance.getAppBundleManifest(
+  xOdeVersion,
+  xOdeClientId,
+);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name             | Type         | Description                                                                                                                                                          | Notes                            |
+| ---------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **xOdeVersion**  | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined            |
+| **xOdeClientId** | [**string**] | Optional client instance id for correlating app bundle checks with presence.                                                                                         | (optional) defaults to undefined |
 
 ### Return type
 
@@ -446,16 +625,16 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 
-const { status, data } = await apiInstance.getAppBundleVersions(xApiVersion);
+const { status, data } = await apiInstance.getAppBundleVersions(xOdeVersion);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -492,21 +671,24 @@ import { DefaultApi, Configuration, AttachmentManifestRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let attachmentManifestRequest: AttachmentManifestRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xRepositoryGeneration: number; //Client repository epoch; must match the server. Omitted or invalid values are treated as 1. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.getAttachmentManifest(
+  xOdeVersion,
   attachmentManifestRequest,
-  xApiVersion,
+  xRepositoryGeneration,
 );
 ```
 
 ### Parameters
 
-| Name                          | Type                          | Description                                                               | Notes                            |
-| ----------------------------- | ----------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **attachmentManifestRequest** | **AttachmentManifestRequest** |                                                                           |                                  |
-| **xApiVersion**               | [**string**]                  | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                          | Type                          | Description                                                                                                                                                          | Notes                            |
+| ----------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **attachmentManifestRequest** | **AttachmentManifestRequest** |                                                                                                                                                                      |                                  |
+| **xOdeVersion**               | [**string**]                  | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined            |
+| **xRepositoryGeneration**     | [**number**]                  | Client repository epoch; must match the server. Omitted or invalid values are treated as 1.                                                                          | (optional) defaults to undefined |
 
 ### Return type
 
@@ -523,12 +705,13 @@ const { status, data } = await apiInstance.getAttachmentManifest(
 
 ### HTTP response details
 
-| Status code | Description                                              | Response headers |
-| ----------- | -------------------------------------------------------- | ---------------- |
-| **200**     | Attachment manifest with changes since specified version | -                |
-| **400**     | Invalid request parameters                               | -                |
-| **401**     | Unauthorized                                             | -                |
-| **500**     | Internal server error                                    | -                |
+| Status code | Description                                              | Response headers                  |
+| ----------- | -------------------------------------------------------- | --------------------------------- |
+| **200**     | Attachment manifest with changes since specified version | -                                 |
+| **409**     | Repository epoch mismatch                                | \* x-repository-generation - <br> |
+| **400**     | Invalid request parameters                               | -                                 |
+| **401**     | Unauthorized                                             | -                                 |
+| **500**     | Internal server error                                    | -                                 |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -546,12 +729,16 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-const { status, data } = await apiInstance.getVersion();
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+
+const { status, data } = await apiInstance.getVersion(xOdeVersion);
 ```
 
 ### Parameters
 
-This endpoint does not have any parameters.
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -559,7 +746,7 @@ This endpoint does not have any parameters.
 
 ### Authorization
 
-No authorization required
+[bearerAuth](../README.md#bearerAuth)
 
 ### HTTP request headers
 
@@ -571,15 +758,16 @@ No authorization required
 | Status code | Description                                  | Response headers |
 | ----------- | -------------------------------------------- | ---------------- |
 | **200**     | Successful response with version information | -                |
+| **401**     | Unauthorized                                 | -                |
 | **500**     | Internal server error                        | -                |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
 # **listUsers**
 
-> Array<UserResponse> listUsers()
+> Array<UserListItem> listUsers()
 
-Retrieve a list of all users in the system. Admin access required.
+Retrieve a list of all users in the system. Admin access required. Each item may include optional `presence` (last-seen per client, bundle/Ode hints) when the server has recorded activity.
 
 ### Example
 
@@ -589,20 +777,22 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
+let xOdeClientId: string; //Optional client instance id (browser/CLI); used for presence when sent with authenticated requests. (optional) (default to undefined)
 
-const { status, data } = await apiInstance.listUsers(xApiVersion);
+const { status, data } = await apiInstance.listUsers(xOdeVersion, xOdeClientId);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name             | Type         | Description                                                                                                                                                          | Notes                            |
+| ---------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **xOdeVersion**  | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined            |
+| **xOdeClientId** | [**string**] | Optional client instance id (browser/CLI); used for presence when sent with authenticated requests.                                                                  | (optional) defaults to undefined |
 
 ### Return type
 
-**Array<UserResponse>**
+**Array<UserListItem>**
 
 ### Authorization
 
@@ -637,18 +827,18 @@ import { DefaultApi, Configuration, LoginRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let loginRequest: LoginRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
-const { status, data } = await apiInstance.login(loginRequest, xApiVersion);
+const { status, data } = await apiInstance.login(xOdeVersion, loginRequest);
 ```
 
 ### Parameters
 
-| Name             | Type             | Description                                                               | Notes                            |
-| ---------------- | ---------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **loginRequest** | **LoginRequest** |                                                                           |                                  |
-| **xApiVersion**  | [**string**]     | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name             | Type             | Description                                                                                                                                                          | Notes                 |
+| ---------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **loginRequest** | **LoginRequest** |                                                                                                                                                                      |                       |
+| **xOdeVersion**  | [**string**]     | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -685,18 +875,18 @@ import { DefaultApi, Configuration } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let bundle: File; //ZIP file containing the new app bundle (optional) (default to undefined)
 
-const { status, data } = await apiInstance.pushAppBundle(xApiVersion, bundle);
+const { status, data } = await apiInstance.pushAppBundle(xOdeVersion, bundle);
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
-| **bundle**      | [**File**]   | ZIP file containing the new app bundle                                    | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                                                          | Notes                            |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined            |
+| **bundle**      | [**File**]   | ZIP file containing the new app bundle                                                                                                                               | (optional) defaults to undefined |
 
 ### Return type
 
@@ -737,21 +927,21 @@ import { DefaultApi, Configuration, RefreshTokenRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let refreshTokenRequest: RefreshTokenRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.refreshToken(
+  xOdeVersion,
   refreshTokenRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                    | Type                    | Description                                                               | Notes                            |
-| ----------------------- | ----------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **refreshTokenRequest** | **RefreshTokenRequest** |                                                                           |                                  |
-| **xApiVersion**         | [**string**]            | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                    | Type                    | Description                                                                                                                                                          | Notes                 |
+| ----------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **refreshTokenRequest** | **RefreshTokenRequest** |                                                                                                                                                                      |                       |
+| **xOdeVersion**         | [**string**]            | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -790,21 +980,21 @@ import { DefaultApi, Configuration, ResetUserPasswordRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let resetUserPasswordRequest: ResetUserPasswordRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
 
 const { status, data } = await apiInstance.resetUserPassword(
+  xOdeVersion,
   resetUserPasswordRequest,
-  xApiVersion,
 );
 ```
 
 ### Parameters
 
-| Name                         | Type                         | Description                                                               | Notes                            |
-| ---------------------------- | ---------------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **resetUserPasswordRequest** | **ResetUserPasswordRequest** |                                                                           |                                  |
-| **xApiVersion**              | [**string**]                 | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                         | Type                         | Description                                                                                                                                                          | Notes                 |
+| ---------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **resetUserPasswordRequest** | **ResetUserPasswordRequest** |                                                                                                                                                                      |                       |
+| **xOdeVersion**              | [**string**]                 | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -844,20 +1034,20 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let version: string; //Version identifier to switch to (default to undefined)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 
 const { status, data } = await apiInstance.switchAppBundleVersion(
   version,
-  xApiVersion,
+  xOdeVersion,
 );
 ```
 
 ### Parameters
 
-| Name            | Type         | Description                                                               | Notes                            |
-| --------------- | ------------ | ------------------------------------------------------------------------- | -------------------------------- |
-| **version**     | [**string**] | Version identifier to switch to                                           | defaults to undefined            |
-| **xApiVersion** | [**string**] | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name            | Type         | Description                                                                                                                                                          | Notes                 |
+| --------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- |
+| **version**     | [**string**] | Version identifier to switch to                                                                                                                                      | defaults to undefined |
+| **xOdeVersion** | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined |
 
 ### Return type
 
@@ -898,27 +1088,33 @@ import { DefaultApi, Configuration, SyncPullRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let syncPullRequest: SyncPullRequest; //
 let schemaType: string; //Filter by schemaType (optional) (default to undefined)
 let limit: number; //Maximum number of records to return (optional) (default to 50)
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeClientId: string; //Optional client instance id; improves per-device presence when combined with sync body `client_id`. (optional) (default to undefined)
+let xRepositoryGeneration: number; //Client repository epoch; must match the server. Omitted or invalid values are treated as 1. Successful responses include the current epoch in JSON and in this header. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.syncPull(
+  xOdeVersion,
   syncPullRequest,
   schemaType,
   limit,
-  xApiVersion,
+  xOdeClientId,
+  xRepositoryGeneration,
 );
 ```
 
 ### Parameters
 
-| Name                | Type                | Description                                                               | Notes                            |
-| ------------------- | ------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **syncPullRequest** | **SyncPullRequest** |                                                                           |                                  |
-| **schemaType**      | [**string**]        | Filter by schemaType                                                      | (optional) defaults to undefined |
-| **limit**           | [**number**]        | Maximum number of records to return                                       | (optional) defaults to 50        |
-| **xApiVersion**     | [**string**]        | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                      | Type                | Description                                                                                                                                                            | Notes                            |
+| ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **syncPullRequest**       | **SyncPullRequest** |                                                                                                                                                                        |                                  |
+| **xOdeVersion**           | [**string**]        | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).   | defaults to undefined            |
+| **schemaType**            | [**string**]        | Filter by schemaType                                                                                                                                                   | (optional) defaults to undefined |
+| **limit**                 | [**number**]        | Maximum number of records to return                                                                                                                                    | (optional) defaults to 50        |
+| **xOdeClientId**          | [**string**]        | Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.                                                          | (optional) defaults to undefined |
+| **xRepositoryGeneration** | [**number**]        | Client repository epoch; must match the server. Omitted or invalid values are treated as 1. Successful responses include the current epoch in JSON and in this header. | (optional) defaults to undefined |
 
 ### Return type
 
@@ -935,9 +1131,10 @@ const { status, data } = await apiInstance.syncPull(
 
 ### HTTP response details
 
-| Status code | Description | Response headers |
-| ----------- | ----------- | ---------------- |
-| **200**     | Sync data   | -                |
+| Status code | Description                                                                                                      | Response headers                  |
+| ----------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **200**     | Sync data                                                                                                        | \* x-repository-generation - <br> |
+| **409**     | Repository epoch mismatch (e.g. after admin hard reset). Client must align repository_generation before pulling. | \* x-repository-generation - <br> |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -953,21 +1150,27 @@ import { DefaultApi, Configuration, SyncPushRequest } from './api';
 const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let syncPushRequest: SyncPushRequest; //
-let xApiVersion: string; //Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) (optional) (default to undefined)
+let xOdeClientId: string; //Optional client instance id; improves per-device presence when combined with sync body `client_id`. (optional) (default to undefined)
+let xRepositoryGeneration: number; //Client repository epoch; must match the server. Omitted or invalid values are treated as 1. (optional) (default to undefined)
 
 const { status, data } = await apiInstance.syncPush(
+  xOdeVersion,
   syncPushRequest,
-  xApiVersion,
+  xOdeClientId,
+  xRepositoryGeneration,
 );
 ```
 
 ### Parameters
 
-| Name                | Type                | Description                                                               | Notes                            |
-| ------------------- | ------------------- | ------------------------------------------------------------------------- | -------------------------------- |
-| **syncPushRequest** | **SyncPushRequest** |                                                                           |                                  |
-| **xApiVersion**     | [**string**]        | Optional API version header using semantic versioning (MAJOR.MINOR.PATCH) | (optional) defaults to undefined |
+| Name                      | Type                | Description                                                                                                                                                          | Notes                            |
+| ------------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **syncPushRequest**       | **SyncPushRequest** |                                                                                                                                                                      |                                  |
+| **xOdeVersion**           | [**string**]        | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined            |
+| **xOdeClientId**          | [**string**]        | Optional client instance id; improves per-device presence when combined with sync body &#x60;client_id&#x60;.                                                        | (optional) defaults to undefined |
+| **xRepositoryGeneration** | [**number**]        | Client repository epoch; must match the server. Omitted or invalid values are treated as 1.                                                                          | (optional) defaults to undefined |
 
 ### Return type
 
@@ -984,9 +1187,10 @@ const { status, data } = await apiInstance.syncPush(
 
 ### HTTP response details
 
-| Status code | Description | Response headers |
-| ----------- | ----------- | ---------------- |
-| **200**     | Sync result | -                |
+| Status code | Description                                                                                                                             | Response headers                  |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| **200**     | Sync result                                                                                                                             | \* x-repository-generation - <br> |
+| **409**     | Repository epoch mismatch (e.g. after admin hard reset). Client must pull current state and align repository_generation before pushing. | \* x-repository-generation - <br> |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)
 
@@ -1003,17 +1207,26 @@ const configuration = new Configuration();
 const apiInstance = new DefaultApi(configuration);
 
 let attachmentId: string; // (default to undefined)
+let xOdeVersion: string; //Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). (default to undefined)
 let file: File; //The binary file to upload (default to undefined)
+let xRepositoryGeneration: number; //Client repository epoch; must match the server. Omitted or invalid values are treated as 1. (optional) (default to undefined)
 
-const { status, data } = await apiInstance.uploadAttachment(attachmentId, file);
+const { status, data } = await apiInstance.uploadAttachment(
+  attachmentId,
+  xOdeVersion,
+  file,
+  xRepositoryGeneration,
+);
 ```
 
 ### Parameters
 
-| Name             | Type         | Description               | Notes                 |
-| ---------------- | ------------ | ------------------------- | --------------------- |
-| **attachmentId** | [**string**] |                           | defaults to undefined |
-| **file**         | [**File**]   | The binary file to upload | defaults to undefined |
+| Name                      | Type         | Description                                                                                                                                                          | Notes                            |
+| ------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| **attachmentId**          | [**string**] |                                                                                                                                                                      | defaults to undefined            |
+| **xOdeVersion**           | [**string**] | Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus). | defaults to undefined            |
+| **file**                  | [**File**]   | The binary file to upload                                                                                                                                            | defaults to undefined            |
+| **xRepositoryGeneration** | [**number**] | Client repository epoch; must match the server. Omitted or invalid values are treated as 1.                                                                          | (optional) defaults to undefined |
 
 ### Return type
 
@@ -1030,11 +1243,11 @@ const { status, data } = await apiInstance.uploadAttachment(attachmentId, file);
 
 ### HTTP response details
 
-| Status code | Description                                                    | Response headers |
-| ----------- | -------------------------------------------------------------- | ---------------- |
-| **200**     | Successful upload                                              | -                |
-| **400**     | Bad request (missing or invalid file)                          | -                |
-| **401**     | Unauthorized                                                   | -                |
-| **409**     | Conflict (attachment already exists and cannot be overwritten) | -                |
+| Status code | Description                                                                                          | Response headers |
+| ----------- | ---------------------------------------------------------------------------------------------------- | ---------------- |
+| **200**     | Successful upload                                                                                    | -                |
+| **400**     | Bad request (missing or invalid file)                                                                | -                |
+| **401**     | Unauthorized                                                                                         | -                |
+| **409**     | Conflict — attachment already exists, or repository_generation mismatch (epoch; align before upload) | -                |
 
 [[Back to top]](#) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to Model list]](../README.md#documentation-for-models) [[Back to README]](../README.md)

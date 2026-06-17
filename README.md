@@ -1,6 +1,24 @@
 # Open Data Ensemble (ODE) 🎼
 
-Welcome to the **Open Data Ensemble** - a comprehensive platform for mobile data collection and synchronization! 
+<!-- Build & CI status -->
+[![CI](https://github.com/OpenDataEnsemble/ode/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/ci.yml)
+[![Synkronus Docker](https://github.com/OpenDataEnsemble/ode/actions/workflows/synkronus-docker.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/synkronus-docker.yml)
+[![Synkronus CLI](https://github.com/OpenDataEnsemble/ode/actions/workflows/synkronus-cli.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/synkronus-cli.yml)
+[![Formulus Android](https://github.com/OpenDataEnsemble/ode/actions/workflows/formulus-android.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/formulus-android.yml)
+[![ODE Desktop](https://github.com/OpenDataEnsemble/ode/actions/workflows/ode-desktop.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/ode-desktop.yml)
+[![E2E attachments](https://github.com/OpenDataEnsemble/ode/actions/workflows/e2e-attachments.yml/badge.svg?branch=main)](https://github.com/OpenDataEnsemble/ode/actions/workflows/e2e-attachments.yml)
+
+<!-- Release & distribution -->
+[![Latest release](https://img.shields.io/github/v/release/OpenDataEnsemble/ode?include_prereleases&sort=semver)](https://github.com/OpenDataEnsemble/ode/releases)
+[![Synkronus image](https://img.shields.io/badge/ghcr.io-synkronus-blue?logo=docker)](https://github.com/OpenDataEnsemble/ode/pkgs/container/synkronus)
+<!-- F-Droid badge: enable once Formulus is published to F-Droid -->
+<!-- [![F-Droid](https://img.shields.io/f-droid/v/org.opendataensemble.formulus.svg)](https://f-droid.org/packages/org.opendataensemble.formulus) -->
+
+<!-- Project meta -->
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](#-contributing)
+
+Welcome to the **Open Data Ensemble** - a comprehensive platform for mobile data collection and synchronization!
 
 ## About ODE
 
@@ -14,7 +32,7 @@ This repository houses four main components:
 A React Native project containing the code for Android and iOS apps. This is your mobile data collection companion, designed for field work and offline-first data gathering.
 
 ### **formulus-formplayer**
-A React web application responsible for rendering JSON forms and communicating with the Formulus mobile app. It provides the dynamic form interface that powers your data collection workflows.
+A React web application responsible for rendering JSON forms and communicating with the Formulus mobile app. It provides the dynamic form interface that powers your data collection workflows, including built-in controls such as **`format: sub-observation`** (embedded child rows). Author-facing documentation: [Custom extensions](https://opendataensemble.org/docs/guides/custom-extensions) on opendataensemble.org.
 
 ### **synkronus**
 The server component written in Go. This handles data synchronization, storage, and provides the backbone for all data operations across the platform.
@@ -77,26 +95,26 @@ ODE enforces consistent formatting and linting for the frontend projects both **
 
 ### Formulus (React Native)
 
-- **Run linting**: `cd formulus && npm run lint`
-- **Run linting with auto-fix**: `cd formulus && npm run lint:fix`
-- **Format code**: `cd formulus && npm run format`
-- **Check formatting (no writes)**: `cd formulus && npm run format:check`
+- **Run linting**: `cd formulus && pnpm run lint`
+- **Run linting with auto-fix**: `cd formulus && pnpm run lint:fix`
+- **Format code**: `cd formulus && pnpm run format`
+- **Check formatting (no writes)**: `cd formulus && pnpm run format:check`
 
 ### Formulus Formplayer (React Web)
 
-- **Run linting**: `cd formulus-formplayer && npm run lint`
-- **Run linting with auto-fix**: `cd formulus-formplayer && npm run lint:fix`
-- **Format code**: `cd formulus-formplayer && npm run format`
-- **Check formatting (no writes)**: `cd formulus-formplayer && npm run format:check`
+- **Run linting**: `cd formulus-formplayer && pnpm run lint`
+- **Run linting with auto-fix**: `cd formulus-formplayer && pnpm run lint:fix`
+- **Format code**: `cd formulus-formplayer && pnpm run format`
+- **Check formatting (no writes)**: `cd formulus-formplayer && pnpm run format:check`
 
 ### What CI Enforces
 
 In the main CI workflow:
 
 - For `formulus`:
-  - Runs `npm run format:check` and `npm run lint` after install and before tests.
+  - Runs `pnpm run lint` after install and before tests.
 - For `formulus-formplayer`:
-  - Runs `npm run lint`, `npm run format:check`, then tests and build.
+  - Runs `pnpm run lint`, `pnpm run format:check`, then tests and build.
 
 CI will **fail** if:
 

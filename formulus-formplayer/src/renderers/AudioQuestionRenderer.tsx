@@ -1,6 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react';
 import { withJsonFormsControlProps } from '@jsonforms/react';
-import { ControlProps, rankWith, formatIs } from '@jsonforms/core';
+import {
+  ControlProps,
+  rankWith,
+  schemaTypeIs,
+  and,
+  schemaMatches,
+} from '@jsonforms/core';
 import {
   Box,
   Typography,
@@ -18,55 +30,118 @@ import {
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import FormulusClient from '../services/FormulusInterface';
-import { AudioResult } from '../types/FormulusInterfaceDefinition';
+import {
+  AudioResult,
+  AudioResultData,
+} from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
+import {
+  attachmentBasenameFromFilename,
+  attachmentBasenameFromObservation,
+} from '../utils/attachmentBasename';
 
-// Helper to parse pixel values from tokens
-const parsePx = (value: string): number => {
-  return parseInt(value.replace('px', ''), 10);
-};
+const parsePx = (value: string): number =>
+  parseInt(value.replace('px', ''), 10);
 
-interface AudioQuestionRendererProps extends ControlProps {
-  data: any;
-  handleChange(path: string, value: any): void;
-  path: string;
-}
+type AudioObservationMetadata = Pick<
+  AudioResultData['metadata'],
+  'duration' | 'format' | 'size' | 'sampleRate' | 'channels'
+>;
 
-interface AudioData {
-  type: 'audio';
-  filename: string;
-  uri: string;
-  timestamp: string;
-  metadata: {
-    duration: number;
-    format: string;
-    size: number;
+function observationAudioMetadataFromBridge(
+  m: AudioResultData['metadata'],
+): AudioObservationMetadata {
+  const out: AudioObservationMetadata = {
+    duration: m.duration,
+    format: m.format,
+    size: m.size,
   };
+  if (m.sampleRate != null) {
+    out.sampleRate = m.sampleRate;
+  }
+  if (m.channels != null) {
+    out.channels = m.channels;
+  }
+  return out;
 }
 
-const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
+export const audioQuestionTester = rankWith(
+  10,
+  and(
+    schemaTypeIs('object'),
+    schemaMatches(schema => schema.format === 'audio'),
+  ),
+);
+
+function legacyPlayableUrl(
+  data: Record<string, unknown> | null,
+): string | null {
+  if (!data) {
+    return null;
+  }
+  const url = data.url;
+  if (typeof url === 'string' && /^https?:\/\//i.test(url.trim())) {
+    return url.trim();
+  }
+  const uri = data.uri;
+  if (typeof uri === 'string') {
+    const u = uri.trim();
+    if (
+      /^https?:\/\//i.test(u) ||
+      u.startsWith('blob:') ||
+      u.startsWith('data:')
+    ) {
+      return u;
+    }
+  }
+  return null;
+}
+
+const AudioQuestionRenderer: React.FC<ControlProps> = ({
   data,
   handleChange,
   path,
   schema,
   uischema,
   errors,
+  enabled = true,
+  visible = true,
 }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+
+  const setSafeError = useCallback((errorMessage: string | null) => {
+    if (errorMessage === null || errorMessage === undefined) {
+      setError(null);
+    } else if (typeof errorMessage === 'string' && errorMessage.length > 0) {
+      setError(errorMessage);
+    } else {
+      setError('An unknown error occurred');
+    }
+  }, []);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const formulusClient = useRef(FormulusClient.getInstance());
 
-  const audioData: AudioData | null =
-    data && typeof data === 'object' && data.type === 'audio' ? data : null;
-  const hasAudio = !!audioData;
+  const fieldId = path.replace(/\//g, '_').replace(/^_/, '') || 'audio_field';
 
-  // Clean up intervals on unmount
+  const currentAudioData = useMemo(() => {
+    if (
+      data &&
+      typeof data === 'object' &&
+      (data as { type?: string }).type === 'audio'
+    ) {
+      return data as Record<string, unknown>;
+    }
+    return null;
+  }, [data]);
+
   useEffect(() => {
     return () => {
       if (progressInterval.current) {
@@ -75,10 +150,33 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
     };
   }, []);
 
-  // Handle audio element events
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const base = attachmentBasenameFromObservation(currentAudioData);
+      let resolved: string | null = null;
+      if (base) {
+        const r = await formulusClient.current.getAttachmentUri(base);
+        resolved = r != null && r.trim() !== '' ? r.trim() : null;
+      }
+      if (!resolved) {
+        resolved = legacyPlayableUrl(currentAudioData);
+      }
+      if (!cancelled) {
+        setMediaUrl(resolved);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentAudioData]);
+
   useEffect(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio) {
+      return;
+    }
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
@@ -97,60 +195,88 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
       }
     };
 
-    const handleError = () => {
-      setError('Failed to load audio file');
+    const handleAudioError = () => {
+      setSafeError('Failed to load audio');
       setIsPlaying(false);
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('ended', handleEnded);
-    audio.addEventListener('error', handleError);
+    audio.addEventListener('error', handleAudioError);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('ended', handleEnded);
-      audio.removeEventListener('error', handleError);
+      audio.removeEventListener('error', handleAudioError);
     };
-  }, [audioData]);
+  }, [currentAudioData, mediaUrl, setSafeError]);
 
-  const handleRecord = async () => {
-    setError(null);
+  const handleRecord = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
+    setSafeError(null);
     setIsLoading(true);
 
     try {
-      const fieldId = path.replace(/\./g, '_');
-      console.log('Requesting audio recording for field:', fieldId);
-
       const result: AudioResult =
-        await FormulusClient.getInstance().requestAudio(fieldId);
+        await formulusClient.current.requestAudio(fieldId);
 
       if (result.status === 'success' && result.data) {
-        console.log('Audio recording successful:', result);
-        handleChange(path, result.data);
+        const storedBasename = attachmentBasenameFromFilename(
+          result.data.filename,
+        );
+        if (!storedBasename) {
+          setSafeError('Invalid audio filename from recorder.');
+          return;
+        }
+
+        const audioPayload = {
+          type: 'audio' as const,
+          filename: storedBasename,
+          timestamp: result.data.timestamp,
+          metadata: observationAudioMetadataFromBridge(result.data.metadata),
+        };
+
+        handleChange(path, audioPayload);
+        setSafeError(null);
       } else if (result.status === 'cancelled') {
-        console.log('Audio recording cancelled');
-        // Don't show error for cancellation
+        setSafeError(null);
       } else {
-        console.error('Audio recording failed:', result);
-        setError(result.message || 'Audio recording failed');
+        setSafeError(result.message || 'Audio recording failed');
       }
-    } catch (error: any) {
-      console.error('Audio recording error:', error);
-      if (error.status === 'cancelled') {
-        // Don't show error for cancellation
+    } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === 'object' &&
+        'status' in err &&
+        (err as AudioResult).status === 'cancelled'
+      ) {
+        setSafeError(null);
       } else {
-        setError(error.message || 'Failed to record audio');
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'object' &&
+                err !== null &&
+                'message' in err &&
+                typeof (err as { message?: string }).message === 'string'
+              ? (err as { message: string }).message
+              : 'Failed to record audio';
+        setSafeError(msg);
       }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [enabled, fieldId, handleChange, path, setSafeError]);
 
   const handlePlay = () => {
     const audio = audioRef.current;
-    if (!audio || !audioData) return;
+    if (!audio || !currentAudioData) {
+      return;
+    }
 
     if (isPlaying) {
       audio.pause();
@@ -164,21 +290,21 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
         .play()
         .then(() => {
           setIsPlaying(true);
-          // Update progress more frequently for smoother UI
           progressInterval.current = setInterval(() => {
             setCurrentTime(audio.currentTime);
           }, 100);
         })
-        .catch(error => {
-          console.error('Failed to play audio:', error);
-          setError('Failed to play audio');
+        .catch(() => {
+          setSafeError('Failed to play audio');
         });
     }
   };
 
   const handleStop = () => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio) {
+      return;
+    }
 
     audio.pause();
     audio.currentTime = 0;
@@ -191,11 +317,12 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
   };
 
   const handleDelete = () => {
-    handleChange(path, null);
+    handleChange(path, undefined);
     setCurrentTime(0);
     setDuration(0);
     setIsPlaying(false);
-    setError(null);
+    setSafeError(null);
+    setMediaUrl(null);
     if (progressInterval.current) {
       clearInterval(progressInterval.current);
       progressInterval.current = null;
@@ -209,37 +336,68 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
   };
 
   const getFileSizeString = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  const displayBasename = attachmentBasenameFromObservation(currentAudioData);
+
   const validationError =
     errors && Array.isArray(errors) && errors.length > 0
-      ? errors.map((error: any) => error.message || String(error)).join(', ')
+      ? errors
+          .map((e: { message?: string } | string) =>
+            typeof e === 'object' && e?.message ? e.message : String(e),
+          )
+          .join(', ')
       : null;
+
+  const meta = currentAudioData?.metadata as
+    | AudioObservationMetadata
+    | undefined;
+
+  const label =
+    (uischema as { label?: string })?.label || schema.title || 'Audio';
+  const description = schema.description;
+  const isRequired = Boolean(
+    (uischema as { options?: { required?: boolean } })?.options?.required ??
+    (schema as { options?: { required?: boolean } })?.options?.required ??
+    false,
+  );
+
+  const hasAudio =
+    !!displayBasename &&
+    !!currentAudioData &&
+    typeof meta?.duration === 'number';
+
+  if (visible === false) return null;
 
   return (
     <QuestionShell
-      title={schema.title}
-      description={schema.description}
-      required={Boolean(
-        (uischema as any)?.options?.required ??
-        (schema as any)?.options?.required,
-      )}
+      block
+      title={label}
+      description={description}
+      required={isRequired}
       error={error || validationError}
-      helperText="Record clear audio. You can re-record or delete as needed.">
+      helperText={
+        displayBasename
+          ? `File: ${displayBasename}`
+          : 'Record clear audio. You can re-record or delete as needed.'
+      }>
       <Paper
         variant="outlined"
         sx={{
           p: 3,
-          borderRadius: `${parsePx(tokens.border.radius.md)}px`, // Match button border radius
+          borderRadius: `${parsePx(tokens.border.radius.md)}px`,
           backgroundColor: hasAudio ? 'background.paper' : 'grey.50',
         }}>
         {!hasAudio ? (
-          // Recording State
           <Box
             sx={{
               display: 'flex',
@@ -251,7 +409,7 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
             }}>
             <IconButton
               onClick={handleRecord}
-              disabled={isLoading}
+              disabled={!enabled || isLoading}
               color="primary"
               size="large"
               sx={{
@@ -285,37 +443,39 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
             )}
           </Box>
         ) : (
-          // Playback State
           <Box>
-            {/* Audio element (hidden) */}
-            <audio ref={audioRef} src={audioData.uri} preload="metadata" />
+            <audio
+              ref={audioRef}
+              src={mediaUrl ?? undefined}
+              preload="metadata"
+            />
 
-            {/* Audio Info */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="h6" sx={{ mb: 1 }}>
-                🎵 {audioData.filename}
+                {displayBasename}
               </Typography>
 
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
                 <Chip
-                  label={`${formatTime(audioData.metadata.duration)}`}
+                  label={`${formatTime(meta?.duration ?? 0)}`}
                   size="small"
                   variant="outlined"
                 />
                 <Chip
-                  label={audioData.metadata.format.toUpperCase()}
+                  label={(meta?.format ?? 'audio').toUpperCase()}
                   size="small"
                   variant="outlined"
                 />
-                <Chip
-                  label={getFileSizeString(audioData.metadata.size)}
-                  size="small"
-                  variant="outlined"
-                />
+                {meta?.size != null && (
+                  <Chip
+                    label={getFileSizeString(meta.size)}
+                    size="small"
+                    variant="outlined"
+                  />
+                )}
               </Box>
             </Box>
 
-            {/* Progress Bar */}
             <Box sx={{ mb: 2 }}>
               <LinearProgress
                 variant="determinate"
@@ -332,16 +492,16 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
                   {formatTime(currentTime)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {formatTime(duration || audioData.metadata.duration)}
+                  {formatTime(duration || (meta?.duration ?? 0))}
                 </Typography>
               </Box>
             </Box>
 
-            {/* Control Buttons */}
             <Box
               sx={{ display: 'flex', gap: 1, justifyContent: 'center', mb: 2 }}>
               <IconButton
                 onClick={handlePlay}
+                disabled={!enabled || !mediaUrl}
                 sx={{
                   backgroundColor: 'primary.main',
                   color: 'white',
@@ -352,7 +512,7 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
 
               <IconButton
                 onClick={handleStop}
-                disabled={!isPlaying && currentTime === 0}
+                disabled={!enabled || (!isPlaying && currentTime === 0)}
                 sx={{
                   backgroundColor: 'grey.600',
                   color: 'white',
@@ -366,11 +526,10 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
               </IconButton>
             </Box>
 
-            {/* Action Buttons */}
             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
               <IconButton
                 onClick={handleRecord}
-                disabled={isLoading}
+                disabled={!enabled || isLoading}
                 color="primary"
                 size="small"
                 aria-label="Re-record">
@@ -378,6 +537,7 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
               </IconButton>
               <IconButton
                 onClick={handleDelete}
+                disabled={!enabled}
                 color="error"
                 size="small"
                 aria-label="Delete">
@@ -385,7 +545,6 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
               </IconButton>
             </Box>
 
-            {/* Development Info */}
             {process.env.NODE_ENV === 'development' && (
               <Box
                 sx={{
@@ -395,7 +554,7 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
                   borderRadius: `${parsePx(tokens.border.radius.md)}px`,
                 }}>
                 <Typography variant="caption" color="text.secondary">
-                  <strong>Dev Info:</strong> {audioData.uri}
+                  <strong>Dev:</strong> mediaUrl={mediaUrl ?? 'null'}
                 </Typography>
               </Box>
             )}
@@ -405,11 +564,5 @@ const AudioQuestionRenderer: React.FC<AudioQuestionRendererProps> = ({
     </QuestionShell>
   );
 };
-
-// Tester function to determine when this renderer should be used
-export const audioQuestionTester = rankWith(
-  10, // High priority
-  formatIs('audio'),
-);
 
 export default withJsonFormsControlProps(AudioQuestionRenderer);

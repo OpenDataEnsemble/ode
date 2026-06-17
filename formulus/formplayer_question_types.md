@@ -102,16 +102,7 @@ Allows users to scan QR codes or enter QR code data manually.
 
 **Supported Barcode Formats:**
 
-- **QR Code** - Quick Response codes (most common)
-- **Code 128** - Linear barcode used for product identification
-- **Code 39** - Alphanumeric barcode standard
-- **EAN-13** - European Article Number (product barcodes)
-- **EAN-8** - Short version of EAN-13
-- **UPC-A** - Universal Product Code (North American products)
-- **UPC-E** - Compressed version of UPC-A
-- **Data Matrix** - 2D barcode for small items
-- **PDF417** - Stacked linear barcode (driver's licenses, ID cards)
-- **Aztec** - 2D barcode used for transport tickets
+- **QR Code** - Quick Response codes
 
 **Data Structure:**
 The QR code field stores a simple string value:
@@ -193,16 +184,16 @@ Signatures are stored as objects containing:
 
 ### 4. File Selection Question
 
-The File Selection question type allows users to select files from their device using native file picker dialogs. This question type is designed to handle file URIs efficiently without base64 encoding, making it suitable for large files.
+The File Selection question type allows users to pick files from device storage via the native document picker. On Formulus, the picked file is copied into **`attachments/draft/`** with a stable basename; observation JSON stores **basename + portable metadata** (same attachment model as photos).
 
-**Schema Definition:**
+**Schema Definition:** JSON Forms in Formplayer expects **`type: object`** with **`format: select_file`** on the property schema.
 
 ```json
 {
   "type": "object",
   "properties": {
     "documentUpload": {
-      "type": "string",
+      "type": "object",
       "format": "select_file",
       "title": "Upload Document",
       "description": "Select a document to upload"
@@ -211,46 +202,36 @@ The File Selection question type allows users to select files from their device 
 }
 ```
 
-**UI Schema:**
-
-```json
-{
-  "documentUpload": {
-    "ui:widget": "file",
-    "ui:options": {
-      "accept": "*/*",
-      "multiple": false
-    }
-  }
-}
-```
+**UI Schema:** JSON Forms — use a **Control** whose `scope` points at the property (see [ODE form specifications](https://opendataensemble.org/docs/reference/form-specifications)).
 
 **Features:**
 
-- Native File Picker: Uses platform-specific file selection dialogs
-- URI-Based Storage: Files are stored as URIs, not base64 encoded data
-- File Metadata: Captures filename, size, MIME type, and timestamp
-- Error Handling: Supports cancellation and error states
-- File Preview: Shows selected file information with replace/delete options
-- Mock Support: Interactive simulation for development testing
+- Native file picker (`@react-native-documents/picker`)
+- Attachment storage under app **`attachments/`** (draft copy with generated basename)
+- Observation JSON: **`filename`** (basename only), **`timestamp`**, **`metadata`** (`mimeType`, `size`, `extension`, optional **`originalFileName`** for display)
+- UI shows **filename only** (no inline preview); replace / delete supported
+- Error handling: cancellation vs errors
+- Mock support in formplayer dev (`webview-mock`)
 
-**Data Structure:**
-When a file is selected, the field value becomes a structured object:
+**Persisted field value (example):**
 
 ```json
 {
-  "filename": "document.pdf",
-  "uri": "file:///path/to/cached/document.pdf",
-  "size": 1024000,
-  "mimeType": "application/pdf",
   "type": "file",
-  "timestamp": "2024-01-15T10:30:00.000Z"
+  "filename": "a1b2c3d4-eeee-4fff-aaaa-bbbbbbbbbbbb.pdf",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "metadata": {
+    "mimeType": "application/pdf",
+    "size": 1024000,
+    "extension": "pdf",
+    "originalFileName": "Quarterly-report.pdf"
+  }
 }
 ```
 
 **Dependencies:**
 
-- `react-native-document-picker`: For native file selection functionality
+- `@react-native-documents/picker`: Native document picker used by Formulus `onRequestFile`
 
 ### 5. Audio Recording Question
 
@@ -1234,7 +1215,7 @@ The Formplayer includes a comprehensive mock environment for development:
 
 **Testing Your Question Types:**
 
-1. Start the development server: `npm start`
+1. Start the development server: `pnpm start`
 2. Open http://localhost:3000 in your browser
 3. Use the mock popups to simulate user interactions
 4. Check the browser console for debug information

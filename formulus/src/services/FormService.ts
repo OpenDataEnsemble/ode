@@ -5,6 +5,11 @@ import {
   UpdateObservationInput,
 } from '../database/models/Observation';
 import RNFS from 'react-native-fs';
+import {
+  resolveSharedChoiceRefs,
+  SHARED_CHOICE_SCHEMA_ID,
+  type SharedChoiceSchemaDoc,
+} from '../utils/sharedChoiceSchema';
 
 /**
  * Interface representing a form type
@@ -27,6 +32,10 @@ export class FormService {
   private formSpecs: FormSpec[] = [];
   private static initializationPromise: Promise<void> | null = null;
   private cacheInvalidationCallbacks: Set<() => void> = new Set();
+  private sharedChoiceSchemaByDir = new Map<
+    string,
+    SharedChoiceSchemaDoc | null
+  >();
 
   private constructor() {
     console.log(
@@ -51,8 +60,49 @@ export class FormService {
     }
   }
 
+  private async loadSharedChoiceSchema(
+    formsDir: string,
+  ): Promise<SharedChoiceSchemaDoc | null> {
+    if (this.sharedChoiceSchemaByDir.has(formsDir)) {
+      return this.sharedChoiceSchemaByDir.get(formsDir) ?? null;
+    }
+    const filePath = `${formsDir}/shared-choice-defs.schema.json`;
+    try {
+      const exists = await RNFS.exists(filePath);
+      if (!exists) {
+        this.sharedChoiceSchemaByDir.set(formsDir, null);
+        return null;
+      }
+      const raw = await RNFS.readFile(filePath, 'utf8');
+      const doc = JSON.parse(raw) as SharedChoiceSchemaDoc;
+      if (!doc.$defs || typeof doc.$defs !== 'object') {
+        console.warn(
+          'FormService: shared-choice-defs.schema.json missing $defs',
+        );
+        this.sharedChoiceSchemaByDir.set(formsDir, null);
+        return null;
+      }
+      if (!doc.$id) {
+        doc.$id = SHARED_CHOICE_SCHEMA_ID;
+      }
+      this.sharedChoiceSchemaByDir.set(formsDir, doc);
+      console.log(
+        `FormService: loaded shared choice defs (${Object.keys(doc.$defs).length} lists) from ${filePath}`,
+      );
+      return doc;
+    } catch (error) {
+      console.warn(
+        'FormService: failed to load shared-choice-defs.schema.json',
+        error,
+      );
+      this.sharedChoiceSchemaByDir.set(formsDir, null);
+      return null;
+    }
+  }
+
   private async loadFormspec(
     formDir: RNFS.ReadDirItem,
+    formsParentDir: string,
   ): Promise<FormSpec | null> {
     if (!formDir.isDirectory()) {
       console.log('Skipping non-directory:', formDir.name);
@@ -71,6 +121,23 @@ export class FormService {
         error,
       );
       return null;
+    }
+
+    const sharedChoice = await this.loadSharedChoiceSchema(formsParentDir);
+    if (sharedChoice && schema && typeof schema === 'object') {
+      try {
+        schema = resolveSharedChoiceRefs(
+          schema as Record<string, unknown>,
+          sharedChoice,
+        );
+      } catch (resolveError) {
+        console.error(
+          'Failed to resolve shared choice refs for form:',
+          formDir.name,
+          resolveError,
+        );
+        return null;
+      }
     }
     let uiSchema: unknown;
     try {
@@ -127,7 +194,7 @@ export class FormService {
 
         for (const formDir of formDirs) {
           if (seenIds.has(formDir.name)) continue;
-          const spec = await this.loadFormspec(formDir);
+          const spec = await this.loadFormspec(formDir, formSpecsDir);
           if (spec) {
             allFormSpecs.push(spec);
             seenIds.add(spec.id);
@@ -273,116 +340,29 @@ export class FormService {
     formType: string;
     isDraft?: boolean;
     includeDeleted?: boolean;
+    filter?: import('@ode/observation-query').ObservationFilter;
+    /** @deprecated Use structured `filter` instead */
     whereClause?: string | null;
   }): Promise<Observation[]> {
     const localRepo = databaseService.getLocalRepo();
-    let observations = await localRepo.getObservationsByFormType(
-      options.formType,
-    );
 
-    if (!options.includeDeleted) {
-      observations = observations.filter(o => !o.deleted);
+    if (options.filter) {
+      return localRepo.queryObservations({
+        formType: options.formType,
+        includeDeleted: options.includeDeleted,
+        filter: options.filter,
+      });
     }
 
-    if (options.whereClause && options.whereClause.trim()) {
-      observations = this.filterObservationsByWhereClause(
-        observations,
-        options.whereClause,
+    if (options.whereClause?.trim()) {
+      console.warn(
+        '[FormService] whereClause is deprecated; migrate to structured filter',
       );
     }
 
-    return observations;
-  }
-
-  /**
-   * Filter observations by WHERE clause.
-   * Supports both formats (for compatibility with builtinExtensions and queryHelpers):
-   * - data.field = 'value' (builtinExtensions)
-   * - json_extract(data, '$.field') = 'value' (queryHelpers / AnthroCollect)
-   * Skips age_from_dob() conditions (handled in formplayer).
-   */
-  private filterObservationsByWhereClause(
-    observations: Observation[],
-    whereClause: string,
-  ): Observation[] {
-    type Cond = { field: string; operator: string; value: string };
-    const conditions: Cond[] = [];
-
-    // Pattern 1: data.field = 'value' or data.field != 'value' (builtinExtensions)
-    const dataFieldRegex =
-      /data\.(\w+)\s*(=|!=|<>|>=|<=|>|<)\s*'([^']*)'|data\.(\w+)\s*(=|!=|<>|>=|<=|>|<)\s*"([^"]*)"|data\.(\w+)\s*(=|!=|<>|>=|<=|>|<)\s*(\d+)/gi;
-    let match;
-    while ((match = dataFieldRegex.exec(whereClause)) !== null) {
-      const field = match[1] || match[4] || match[7];
-      const operator = (match[2] || match[5] || match[8]).replace(/<>/g, '!=');
-      const value = (match[3] || match[6] || match[9] || '').replace(
-        /''/g,
-        "'",
-      );
-      if (field) conditions.push({ field, operator, value });
-    }
-
-    // Pattern 2: json_extract(data, '$.field') = 'value' (queryHelpers)
-    const jsonExtractRegex =
-      /json_extract\s*\(\s*data\s*,\s*'\$\.(\w+)'\s*\)\s*(=|!=|<>|>=|<=|>|<)\s*'([^']*)'|json_extract\s*\(\s*data\s*,\s*'\$\.(\w+)'\s*\)\s*(=|!=|<>|>=|<=|>|<)\s*"([^"]*)"|json_extract\s*\(\s*data\s*,\s*'\$\.(\w+)'\s*\)\s*(=|!=|<>|>=|<=|>|<)\s*(\d+)/gi;
-    while ((match = jsonExtractRegex.exec(whereClause)) !== null) {
-      const field = match[1] || match[4] || match[7];
-      const operator = (match[2] || match[5] || match[8]).replace(/<>/g, '!=');
-      const value = (match[3] || match[6] || match[9] || '').replace(
-        /''/g,
-        "'",
-      );
-      if (field) conditions.push({ field, operator, value });
-    }
-
-    if (conditions.length === 0) return observations;
-
-    return observations.filter(obs => {
-      for (const cond of conditions) {
-        const obsValue = (obs.data as Record<string, unknown>)?.[cond.field];
-        const numVal = Number(obsValue);
-        const strVal = String(obsValue ?? '');
-        const condNum = Number(cond.value);
-        const isNumeric = !Number.isNaN(numVal) && !Number.isNaN(condNum);
-        let matches: boolean;
-        if (isNumeric) {
-          switch (cond.operator) {
-            case '=':
-              matches = numVal === condNum;
-              break;
-            case '!=':
-              matches = numVal !== condNum;
-              break;
-            case '>=':
-              matches = numVal >= condNum;
-              break;
-            case '<=':
-              matches = numVal <= condNum;
-              break;
-            case '>':
-              matches = numVal > condNum;
-              break;
-            case '<':
-              matches = numVal < condNum;
-              break;
-            default:
-              matches = strVal === cond.value;
-          }
-        } else {
-          switch (cond.operator) {
-            case '=':
-              matches = strVal === cond.value;
-              break;
-            case '!=':
-              matches = strVal !== cond.value;
-              break;
-            default:
-              matches = false;
-          }
-        }
-        if (!matches) return false;
-      }
-      return true;
+    return localRepo.queryObservations({
+      formType: options.formType,
+      includeDeleted: options.includeDeleted,
     });
   }
 

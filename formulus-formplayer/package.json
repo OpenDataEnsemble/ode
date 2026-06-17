@@ -1,6 +1,7 @@
 {
   "name": "formulus-formplayer",
   "version": "0.0.3",
+  "packageManager": "pnpm@10.33.2",
   "type": "module",
   "private": true,
   "license": "MIT",
@@ -16,6 +17,7 @@
     "@mui/material": "^7.3.7",
     "@mui/x-date-pickers": "^8.26.0",
     "@ode/components": "file:../packages/components",
+    "@ode/observation-query": "file:../packages/observation-query",
     "@ode/tokens": "file:../packages/tokens",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -36,17 +38,17 @@
   "scripts": {
     "start": "vite",
     "sync-interface": "node scripts/sync-interface.js",
-    "build": "npm run sync-interface && tsc && vite build",
+    "build": "pnpm run sync-interface && tsc && vite build",
     "preview": "vite preview",
-    "upload:android": "npm run build:rn",
-    "build:rn": "npm run build && npm run copy-to-rn",
+    "upload:android": "pnpm run build:copy",
+    "build:copy": "pnpm run build && pnpm run copy-to-rn && node ../desktop/scripts/copy-formplayer-to-desktop.mjs",
     "clean-rn-assets": "node scripts/clean-rn-assets.js",
     "copy-to-rn": "node scripts/copy-to-rn.js",
     "test": "vitest",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
-    "format:check": "prettier \"src/**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
+    "format": "prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --write",
+    "format:check": "prettier \"**/*.{js,jsx,ts,tsx,json,css,md}\" --check",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build"
   },
@@ -81,6 +83,11 @@
       "last 1 chrome version",
       "last 1 firefox version",
       "last 1 safari version"
+    ]
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
     ]
   }
 }

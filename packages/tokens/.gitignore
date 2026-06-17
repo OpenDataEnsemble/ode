@@ -1,8 +1,8 @@
 # Dependencies
 node_modules/
 
-# Build outputs
-dist/
+# Build outputs (committed for F-Droid and CI compatibility)
+# dist/
 
 # Logs
 *.log

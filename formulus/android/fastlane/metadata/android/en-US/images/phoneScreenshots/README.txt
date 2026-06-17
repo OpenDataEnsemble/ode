@@ -1,3 +1,0 @@
-Place your phone screenshots for F-Droid / Fastlane here.
-Recommended filenames: 01.png, 02.png, 03.png, ...
-

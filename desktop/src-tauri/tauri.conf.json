@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ODE Desktop",
+  "version": "1.0.1",
+  "identifier": "org.opendataensemble.custodian",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build:tauri",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ODE Desktop",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 640,
+        "dragDropEnabled": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' http://tauri.localhost https://tauri.localhost; connect-src 'self' http://localhost:* https://* http://ipc.localhost https://ipc.localhost http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost; img-src 'self' data: blob: https://* http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; font-src 'self' https://fonts.gstatic.com http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; media-src 'self' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; worker-src 'self' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; frame-src 'self' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:; child-src 'self' blob: http://asset.localhost https://asset.localhost http://tauri.localhost https://tauri.localhost asset:;",
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$HOME/**",
+          "$DOCUMENT/**",
+          "$DESKTOP/**",
+          "$DOWNLOAD/**",
+          "$DATA/**",
+          "$LOCALDATA/**",
+          "$TEMP/**",
+          "/media/**",
+          "/mnt/**",
+          "/opt/**",
+          "/srv/**",
+          "/tmp/**",
+          "**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

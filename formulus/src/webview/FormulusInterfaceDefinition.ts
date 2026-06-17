@@ -8,7 +8,7 @@
  * If you've checked out the monorepo use:
  * cp ..\formulus\src\webview\FormulusInterfaceDefinition.ts .\src\FormulusInterfaceDefinition.ts
  *
- * Current Version: 1.0.18
+ * Interface version: see `FORMULUS_INTERFACE_VERSION` below (single source of truth).
  */
 
 /**
@@ -56,6 +56,12 @@ export interface FormInitData {
   formSchema?: unknown;
   uiSchema?: unknown;
   operationId?: string;
+  /** Sub-observation session: embedded child form returns JSON to parent; do not persist as a top-level observation. */
+  subObservationMode?: boolean;
+  /** Skip the Finalize page and submit from the last content page (sub-observation fast path). */
+  skipFinalize?: boolean;
+  /** Skip DraftSelector when the host orchestrates the session (e.g. programmatic open). */
+  skipDraftSelection?: boolean;
   extensions?: ExtensionMetadata;
   customQuestionTypes?: {
     custom_types: Record<string, { source: string }>;
@@ -78,11 +84,16 @@ export interface ActionResult<T = unknown> {
 }
 
 /**
- * Camera-specific result data
- * @property {'image'} type - Always 'image' for camera results
- * @property {string} filename - Generated filename for the image
- * @property {string} timestamp - ISO timestamp when image was captured
- * @property {object} metadata - Image metadata (dimensions, size, etc.)
+ * Camera-specific result data (immediate bridge payload after capture).
+ *
+ * **Observation JSON:** persist only portable fields — {@link id}, {@link type},
+ * {@link filename} (basename only, e.g. `<guid>.jpg`), {@link timestamp}, and {@link metadata}.
+ * Do **not** persist {@link uri} or {@link url}; resolve thumbnails and playback URLs with
+ * {@link FormulusInterface.getAttachmentUri}.
+ *
+ * @property {string} filename - Stable attachment basename, not a directory path.
+ * @property {string} uri - Native absolute filesystem path on the host (debugging / RN use); ephemeral.
+ * @property {string} url - Transient `file://` (or similar) for the same file as {@link uri}; ephemeral.
  */
 export interface CameraResultData {
   type: 'image';
@@ -105,26 +116,59 @@ export interface CameraResultData {
 }
 
 /**
- * Audio-specific result data
- * @property {'audio'} type - Always 'audio' for audio results
- * @property {string} filename - Generated filename for the audio
- * @property {string} base64 - Base64 encoded audio data
- * @property {string} url - Data URL for the audio
- * @property {string} timestamp - ISO timestamp when audio was recorded
- * @property {object} metadata - Audio metadata (duration, format, etc.)
+ * Attachment reference for {@link FormulusInterface.getAttachmentUri} when not passing a basename string.
+ * Use `filename` only (observation JSON must not store file paths or `uri` — resolve display URLs via this API).
+ */
+export interface AttachmentDisplayDescriptor {
+  filename?: string;
+}
+
+/**
+ * Audio-specific bridge payload after recording.
+ *
+ * **Observation JSON:** persist only **`type`**, **`filename`** (basename),
+ * **`timestamp`**, and **`metadata`** (portable subset). Do **not** persist **`uri`**,
+ * **`url`**, or **`base64`**; resolve playback URLs with {@link FormulusInterface.getAttachmentUri}.
+ *
+ * @property {string} uri - Native path or `file://` URL — ephemeral.
+ * @property {string} [base64] - Optional (e.g. browser mocks).
+ * @property {string} [url] - Optional data/http URL — ephemeral.
  */
 export interface AudioResultData {
   type: 'audio';
   filename: string;
-  base64: string;
-  url: string;
+  uri?: string;
+  base64?: string;
+  url?: string;
   timestamp: string;
   metadata: {
     duration: number;
     format: string;
-    sampleRate: number;
-    channels: number;
     size: number;
+    sampleRate?: number;
+    channels?: number;
+  };
+}
+
+/**
+ * Video-specific bridge payload after recording.
+ *
+ * **Observation JSON:** persist only **`type`**, **`filename`** (basename),
+ * **`timestamp`**, and **`metadata`**. Do **not** persist **`uri`** / **`url`**;
+ * resolve playback URLs with {@link FormulusInterface.getAttachmentUri}.
+ */
+export interface VideoResultData {
+  type: 'video';
+  filename: string;
+  uri?: string;
+  url?: string;
+  timestamp: string;
+  metadata: {
+    duration: number;
+    format: string;
+    size: number;
+    width?: number;
+    height?: number;
   };
 }
 
@@ -141,26 +185,47 @@ export interface QrcodeResultData {
 }
 
 /**
- * File selection result data
- * @property {'file'} type - Always 'file' for file selection results
- * @property {string} filename - Original filename of the selected file
- * @property {string} uri - Local file URI (no base64 encoding)
- * @property {string} mimeType - MIME type of the selected file
- * @property {number} size - File size in bytes
- * @property {string} timestamp - ISO timestamp when file was selected
- * @property {object} metadata - File metadata (extension, original path, etc.)
+ * File selection result data from the native document picker (bridge payload).
+ *
+ * **Observation persistence:** store {@link FileResultData.filename} as **basename only**
+ * (draft/synced attachment key), plus portable {@link FileResultData.metadata} fields such as
+ * `mimeType`, `size`, `extension`, and optional **{@link FileResultData.metadata.originalFileName}**
+ * for display. Do **not** persist bridge-only paths: {@link FileResultData.uri},
+ * {@link FileResultData.url}, or {@link FileResultData.metadata.originalPath}.
+ *
+ * @property {'file'} type - Always `file` for file selection results
+ * @property {string} filename - Stable basename under attachments (e.g. uuid.pdf)
+ * @property {string} uri - Ephemeral absolute path of the draft copy (native → WebView)
+ * @property {string} [url] - Ephemeral `file://` URL for the draft copy
  */
 export interface FileResultData {
   type: 'file';
   filename: string;
-  uri: string; // Local file URI (no base64 encoding)
+  uri: string;
+  url?: string;
   mimeType: string;
   size: number;
   timestamp: string;
   metadata: {
     extension: string;
+    /** Original picker display name; safe to persist on observations. */
+    originalFileName?: string;
+    /** Ephemeral native path from the picker; do not persist. */
     originalPath?: string;
   };
+}
+
+/**
+ * GPS / location capture result (in-form field), from native GeolocationService.
+ */
+export interface LocationResultData {
+  type: 'location';
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  altitude?: number | null;
+  altitudeAccuracy?: number | null;
+  timestamp: string;
 }
 
 /**
@@ -168,8 +233,10 @@ export interface FileResultData {
  */
 export type CameraResult = ActionResult<CameraResultData>;
 export type AudioResult = ActionResult<AudioResultData>;
+export type VideoResult = ActionResult<VideoResultData>;
 export type QrcodeResult = ActionResult<QrcodeResultData>;
 export type FileResult = ActionResult<FileResultData>;
+export type LocationResult = ActionResult<LocationResultData>;
 
 /**
  * @deprecated Use ActionResult<CameraResultData> instead
@@ -257,13 +324,56 @@ export interface FormCompletionResult {
 }
 
 /**
+ * Input for {@link FormulusInterface.persistObservation}.
+ * @property formType - Form type id the observation belongs to
+ * @property finalData - Observation JSON to store (must match the form schema)
+ * @property observationId - Provide to update an existing observation; omit/null to create
+ */
+export interface PersistObservationInput {
+  formType: string;
+  finalData: Record<string, unknown>;
+  observationId?: string | null;
+}
+
+/**
+ * Result of {@link FormulusInterface.persistObservation}.
+ * @property observationId - The id of the created/updated observation
+ * @property formData - The stored data (attachment paths normalized to committed locations)
+ */
+export interface PersistObservationResult {
+  observationId: string;
+  formData: Record<string, unknown>;
+}
+
+/**
+ * Result of {@link FormulusInterface.sync}.
+ * @property version - Final repository/data version reported by the server after sync
+ */
+export interface SyncResult {
+  version: number;
+}
+
+/**
+ * Result of {@link FormulusInterface.getConnectivityStatus}.
+ * @property online - Whether the configured Synkronus server answered a `/health` probe
+ * @property serverUrl - The configured server URL, or null if none is set
+ * @property checkedAt - Epoch milliseconds when the probe completed
+ */
+export interface ConnectivityStatus {
+  online: boolean;
+  serverUrl: string | null;
+  checkedAt: number;
+}
+
+/**
  * Interface for the Formulus app methods that will be injected into the WebViews for custom_app and FormPlayer
  * @namespace formulus
  */
 export interface FormulusInterface {
   /**
-   * Get the current version of the Formulus API
-   * @returns {Promise<string>} The API version
+   * Get the current version of the Formulus bridge API (the interface contract
+   * version, e.g. for {@link isCompatibleVersion} checks).
+   * @returns {Promise<string>} The API version (semver)
    */
   getVersion(): Promise<string>;
 
@@ -276,7 +386,13 @@ export interface FormulusInterface {
   /**
    * Open Formplayer with the specified form
    * @param {string} formType - The identifier of the formtype to open
-   * @param {Object} params - Additional parameters for form initialization
+   * @param {Object} params - Additional parameters for form initialization.
+   *   Reserved keys are not treated as observation data:
+   *   `defaultData` (prefill), `theme`/`darkMode`/`themeColors` (theming), and
+   *   `context` — a read-only **session context** object (device role, selected cluster,
+   *   ...) that Formplayer never persists and exposes to extensions as
+   *   `window.formulusSessionContext`. Draft bypass is not a param key — use
+   *   `options.skipDraftSelection` on {@link openFormplayer} (same as `skipFinalize`).
    * @param {Object} savedData - Previously saved form data (for editing)
    * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
@@ -284,6 +400,11 @@ export interface FormulusInterface {
     formType: string,
     params: Record<string, unknown>,
     savedData: Record<string, unknown>,
+    options?: {
+      subObservationMode?: boolean;
+      skipFinalize?: boolean;
+      skipDraftSelection?: boolean;
+    },
   ): Promise<FormCompletionResult>;
 
   /**
@@ -307,13 +428,15 @@ export interface FormulusInterface {
    * @param options.formType - Form type to query
    * @param options.isDraft - Deprecated: drafts handled in formplayer; ignored
    * @param options.includeDeleted - Include deleted (default false)
-   * @param options.whereClause - SQL-like WHERE clause for filtering (e.g. "data.sex = 'male'")
+   * @param options.filter - Structured observation filter AST
+   * @param options.whereClause - Deprecated; use filter
    * @returns {Promise<FormObservation[]>} Array of filtered observations
    */
   getObservationsByQuery(options: {
     formType: string;
     isDraft?: boolean;
     includeDeleted?: boolean;
+    filter?: import('@ode/observation-query').ObservationFilter;
     whereClause?: string | null;
   }): Promise<FormObservation[]>;
 
@@ -349,11 +472,11 @@ export interface FormulusInterface {
   requestCamera(fieldId: string): Promise<CameraResult>;
 
   /**
-   * Request location for a field
+   * Request location for a field (captures into the form GPS field).
    * @param {string} fieldId - The ID of the field
-   * @returns {Promise<void>}
+   * @returns {Promise<LocationResult>} Promise that resolves with location result or rejects on error
    */
-  requestLocation(fieldId: string): Promise<void>;
+  requestLocation(fieldId: string): Promise<LocationResult>;
 
   /**
    * Request file selection for a field
@@ -392,6 +515,13 @@ export interface FormulusInterface {
    * @returns {Promise<AudioResult>} Promise that resolves with audio result or rejects on error/cancellation
    */
   requestAudio(fieldId: string): Promise<AudioResult>;
+
+  /**
+   * Request video recording for a field (camera / picker — host-defined).
+   * @param {string} fieldId - The ID of the field
+   * @returns {Promise<VideoResult>} Promise that resolves with video result or rejects on error/cancellation
+   */
+  requestVideo(fieldId: string): Promise<VideoResult>;
 
   /**
    * Request QR code scanning for a field
@@ -448,6 +578,104 @@ export interface FormulusInterface {
    * @returns {Promise<'light' | 'dark' | 'system'>} Current theme mode; 'system' means follow device preference.
    */
   getThemeMode(): Promise<'light' | 'dark' | 'system'>;
+
+  /**
+   * Resolve an attachment to a WebView-loadable URL (`file://`, `http(s):`, or host-specific).
+   *
+   * **String `fileName`:** basename only (e.g. `photo.filename`). Lookup order, first hit wins:
+   *   1. `attachments/draft/<name>`   — unsaved capture (formplayer preview)
+   *   2. `attachments/synced/<name>`  — canonical committed / downloaded copy
+   *   3. `attachments/pending/<name>` — queued for upload (fallback only)
+   * Legacy locations (`attachments/<name>` and `attachments/pending_upload/<name>`) are also checked.
+   * Path segments and ".." are rejected.
+   *
+   * **`AttachmentDisplayDescriptor`:** `{ filename }` basename only (same lookup as a string argument).
+   *
+   * @param fileName - Basename string, or `{ filename? }` (never a stored `uri` — use this method to resolve URLs)
+   * @returns Display URL, or `null` if none
+   */
+  getAttachmentUri(
+    fileName: string | AttachmentDisplayDescriptor,
+  ): Promise<string | null>;
+
+  /**
+   * Base `file://` URL for the canonical attachments directory (trailing slash).
+   * Returns the `synced/` subfolder — only committed/downloaded files are
+   * iterable from here. Drafts and the upload queue are excluded by design so
+   * custom apps can safely list this directory.
+   *
+   * **Breaking change (v2 layout):** this used to return the `attachments/`
+   * parent directory, which mixed committed files with `draft/` and
+   * `pending_upload/` subfolders. Custom apps that iterate this URL will now
+   * see only fully-committed attachments.
+   *
+   * @returns e.g. `file:///.../attachments/synced/`
+   */
+  getAttachmentsUri(): Promise<string>;
+
+  /**
+   * Base `file://` URL for the custom app bundle root (`DocumentDirectory/app/`, trailing slash).
+   * @returns App directory URL for extensions, question_types, etc.
+   */
+  getCustomAppUri(): Promise<string>;
+
+  /**
+   * Primary `file://` URL for downloaded form specs (`DocumentDirectory/forms/`, trailing slash).
+   * Some bundles also use files under the custom app `forms/` subdirectory.
+   * @returns Forms directory URL
+   */
+  getFormSpecsUri(): Promise<string>;
+
+  /**
+   * Persist an observation **without opening Formplayer** (headless write).
+   *
+   * Intended for custom apps that create or update records programmatically.
+   * Uses the same persistence path as a Formplayer submit, including promotion
+   * of any referenced draft attachments. Provide `observationId` to update an
+   * existing row; omit it to create a new one.
+   *
+   * @since 1.3.0
+   * @param {PersistObservationInput} input - The observation to persist
+   * @returns {Promise<PersistObservationResult>} The stored observation id and data
+   */
+  persistObservation(
+    input: PersistObservationInput,
+  ): Promise<PersistObservationResult>;
+
+  /**
+   * Trigger a synchronization with Synkronus (pull + push).
+   *
+   * Resolves when the sync completes; rejects if a sync is already in progress
+   * or the sync fails. Attachments are excluded by default for speed.
+   *
+   * @since 1.3.0
+   * @param {{ includeAttachments?: boolean }} [options] - Sync options
+   * @returns {Promise<SyncResult>} The final data version after sync
+   */
+  sync(options?: { includeAttachments?: boolean }): Promise<SyncResult>;
+
+  /**
+   * Probe connectivity to the configured Synkronus server (`GET /health`).
+   *
+   * Never rejects for an offline device — returns `{ online: false }` so callers
+   * can branch on connectivity without try/catch. Suitable for the
+   * "verify subject details when online, fall back when offline" pattern.
+   *
+   * @since 1.3.0
+   * @returns {Promise<ConnectivityStatus>} The current connectivity status
+   */
+  getConnectivityStatus(): Promise<ConnectivityStatus>;
+
+  /**
+   * Read the device's last-known Synkronus data revision (`current_version`
+   * from the most recent successful sync). Reflects server-stream alignment
+   * only — not unsynced local edits. Use with periodic polling or after
+   * {@link sync} to detect when another device has pushed changes.
+   *
+   * @since 1.4.0
+   * @returns {Promise<number>} Non-negative revision count (0 if never synced)
+   */
+  getCurrentDataRevisionCount(): Promise<number>;
 }
 
 /**
@@ -466,12 +694,30 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = '1.1.0';
+export const FORMULUS_INTERFACE_VERSION = '1.4.0';
+
+/** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
+function semverSegments(version: string): [number, number, number] {
+  const core = version.split('-')[0].split('+')[0].trim();
+  const parts = core.split('.').map(s => parseInt(s, 10));
+  const major = Number.isFinite(parts[0]) ? parts[0]! : 0;
+  const minor = Number.isFinite(parts[1]) ? parts[1]! : 0;
+  const patch = Number.isFinite(parts[2]) ? parts[2]! : 0;
+  return [major, minor, patch];
+}
+
+function compareSemver(a: string, b: string): number {
+  const [aMaj, aMin, aPat] = semverSegments(a);
+  const [bMaj, bMin, bPat] = semverSegments(b);
+  if (aMaj !== bMaj) return aMaj > bMaj ? 1 : -1;
+  if (aMin !== bMin) return aMin > bMin ? 1 : -1;
+  if (aPat !== bPat) return aPat > bPat ? 1 : -1;
+  return 0;
+}
 
 /**
- * Check if the current interface version is compatible with the required version
+ * Returns true if the running interface version is at least `requiredVersion` (semver major.minor.patch).
  */
 export function isCompatibleVersion(requiredVersion: string): boolean {
-  // Simple version comparison - can be enhanced for semantic versioning
-  return FORMULUS_INTERFACE_VERSION >= requiredVersion;
+  return compareSemver(FORMULUS_INTERFACE_VERSION, requiredVersion) >= 0;
 }

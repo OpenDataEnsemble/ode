@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import { rankWith, ControlProps, formatIs } from '@jsonforms/core';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import {
@@ -20,15 +20,13 @@ import {
 } from '@mui/icons-material';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
+import FormulusClient from '../services/FormulusInterface';
+import type { LocationResult } from '../types/FormulusInterfaceDefinition';
 
 // Helper to parse pixel values from tokens
 const parsePx = (value: string): number => {
   return parseInt(value.replace('px', ''), 10);
 };
-// GPS is now captured automatically by the native app for all forms.
-// This renderer is kept only for backward-compatibility with existing
-// form schemas that still reference the "gps" format. It no longer
-// actively requests location from the native side.
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface GPSQuestionRendererProps extends ControlProps {
@@ -44,43 +42,97 @@ interface LocationDisplayData {
   timestamp: string;
 }
 
+function parseLocationDisplayData(data: unknown): LocationDisplayData | null {
+  if (!data || typeof data !== 'string') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(data);
+    if (
+      parsed &&
+      typeof parsed.latitude === 'number' &&
+      typeof parsed.longitude === 'number'
+    ) {
+      return parsed as LocationDisplayData;
+    }
+  } catch (e) {
+    console.warn('Failed to parse existing location data:', e);
+  }
+  return null;
+}
+
 const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
-  const { data, handleChange, path, errors, schema, enabled } = props;
+  const {
+    data,
+    handleChange,
+    path,
+    errors,
+    schema,
+    enabled,
+    visible = true,
+  } = props;
 
   const [isCapturing, setIsCapturing] = useState(false);
-  const [locationData, setLocationData] = useState<LocationDisplayData | null>(
-    null,
-  );
   const [error, setError] = useState<string | null>(null);
+  const formulusClient = useRef(FormulusClient.getInstance());
 
-  // Parse existing location data if present
-  useEffect(() => {
-    if (data && typeof data === 'string') {
-      try {
-        const parsed = JSON.parse(data);
-        if (parsed && parsed.latitude && parsed.longitude) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setLocationData(parsed);
-        }
-      } catch (e) {
-        console.warn('Failed to parse existing location data:', e);
-      }
-    }
-  }, [data]);
+  const fieldId = path.replace(/\//g, '_').replace(/^_/, '') || 'gps_field';
 
-  const handleCaptureLocation = async () => {
-    // GPS is now handled automatically by the native app and attached to
-    // observations outside of the form. This button is kept only so that
-    // existing forms with a GPS question do not break visually.
+  const locationData = useMemo(() => parseLocationDisplayData(data), [data]);
+
+  const handleCaptureLocation = useCallback(async () => {
+    if (!enabled) return;
+
     setIsCapturing(true);
-    setError(
-      'GPS location is now captured automatically by the app and does not need to be recorded here.',
-    );
-    setTimeout(() => setIsCapturing(false), 500);
-  };
+    setError(null);
+
+    try {
+      const result: LocationResult =
+        await formulusClient.current.requestLocation(fieldId);
+
+      if (result.status === 'success' && result.data) {
+        const stored: LocationDisplayData = {
+          latitude: result.data.latitude,
+          longitude: result.data.longitude,
+          accuracy: result.data.accuracy,
+          altitude: result.data.altitude ?? undefined,
+          altitudeAccuracy: result.data.altitudeAccuracy ?? undefined,
+          timestamp: result.data.timestamp,
+        };
+        handleChange(path, JSON.stringify(stored));
+      } else {
+        const msg =
+          result.message ||
+          (result.status === 'cancelled'
+            ? 'Location capture was cancelled'
+            : 'Could not capture location');
+        throw new Error(msg);
+      }
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'status' in err) {
+        const lr = err as LocationResult;
+        if (lr.status === 'cancelled') {
+          setError(null);
+        } else if (lr.status === 'error') {
+          setError(lr.message || 'Location capture failed');
+        } else {
+          setError('Location capture failed');
+        }
+      } else {
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === 'string'
+              ? err
+              : 'Location capture failed. Check permissions and try again.';
+        setError(msg);
+      }
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [enabled, fieldId, handleChange, path]);
 
   const handleDeleteLocation = () => {
-    setLocationData(null);
     setError(null);
     handleChange(path, undefined);
   };
@@ -103,8 +155,11 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
   const hasValidationErrors = errors && errors.length > 0;
   const isDisabled = !enabled || isCapturing;
 
+  if (visible === false) return null;
+
   return (
     <QuestionShell
+      block
       title={schema.title || 'GPS Location'}
       description={schema.description}
       required={Boolean(
@@ -121,7 +176,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
             : errors
           : null)
       }
-      helperText="GPS is captured automatically; use this only if the form requires manual capture."
+      helperText="Tap to capture this point with the device GPS. The observation may also include a separate location when you submit."
       metadata={
         process.env.NODE_ENV === 'development' ? (
           <Box
