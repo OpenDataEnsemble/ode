@@ -285,7 +285,15 @@ export function FormPreviewPage() {
 
   const beginDeferredNestedOpen = useCallback(
     (payload: FormPreviewDeferOpenSubObservationPayload) => {
-      const { parentIframe, messageId, formType, params, savedData } = payload;
+      const {
+        parentIframe,
+        messageId,
+        formType,
+        params,
+        savedData,
+        skipFinalize,
+        skipDraftSelection,
+      } = payload;
       setNestedSessions(prev => [
         ...prev,
         {
@@ -313,6 +321,8 @@ export function FormPreviewPage() {
             extensions: ext.extensions,
             customQuestionTypes: ext.customQuestionTypes,
             subObservationMode: true,
+            skipFinalize,
+            skipDraftSelection,
           });
           setNestedSessions(prev =>
             prev.map(sess =>

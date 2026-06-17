@@ -14,6 +14,9 @@ export interface FormInitData {
   operationId?: string;
   /** Embedded child form returns JSON to parent; host skips persisting as a top-level observation. */
   subObservationMode?: boolean;
+  skipFinalize?: boolean;
+  /** Skip DraftSelector when the host orchestrates the session. */
+  skipDraftSelection?: boolean;
   extensions?: unknown;
   customQuestionTypes?: unknown;
 }

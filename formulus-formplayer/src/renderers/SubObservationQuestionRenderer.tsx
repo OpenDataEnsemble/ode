@@ -122,9 +122,8 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   const missingKeys = useMemo(() => {
     const m: string[] = [];
     if (!childFormType) m.push('linkedForm');
-    if (!parentKey) m.push('parentKey');
     return m;
-  }, [childFormType, parentKey]);
+  }, [childFormType]);
 
   const formData = useMemo((): Record<string, unknown> => {
     const d = jsonForms.core?.data;

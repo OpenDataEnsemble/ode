@@ -35,9 +35,10 @@ import * as MUI from '@mui/material';
 import FormulusClient from './services/FormulusInterface';
 import { FormInitData } from './types/FormulusInterfaceDefinition';
 import {
-  initialFormDataFromParams,
   applySchemaDefaultTokens,
   dataMatchingSchemaRoot,
+  initialFormDataFromParams,
+  shouldOfferDraftSelector,
 } from './utils/formObservationData';
 import {
   collectStickyFieldPaths,
@@ -98,7 +99,7 @@ import { FormEvaluationProvider } from './FormEvaluationContext';
 import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
 import { loadCustomValidators } from './services/CustomValidatorLoader';
 import { customValidatorRegistry } from './services/CustomValidatorRegistry';
-import { executeAllCustomValidators } from './services/CustomValidatorExecutor';
+import { runCustomValidatorsAndRefreshData } from './services/customValidatorDataRefresh';
 import { newDraftSessionKey } from './utils/draftSessionKey';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
@@ -681,9 +682,17 @@ function App() {
         }
 
         // Check if this is a new form (no savedData) and if drafts exist
-        const hasExistingSavedData =
-          savedData && Object.keys(savedData).length > 0;
-        if (!isSubObservationSession(initData) && !hasExistingSavedData) {
+        if (
+          shouldOfferDraftSelector(
+            {
+              subObservationMode: initData.subObservationMode,
+              skipDraftSelection: initData.skipDraftSelection,
+              returnOnly: (initData as FormInitData & { returnOnly?: boolean })
+                .returnOnly,
+            },
+            savedData,
+          )
+        ) {
           const availableDrafts = draftService.getDraftsForForm(
             receivedFormType,
             (formSchema as any)?.version,
@@ -855,6 +864,59 @@ function App() {
   // Attachment handling is now fully encapsulated within individual components
   // using the Promise-based media/action APIs exposed by Formulus.
 
+  // Create AJV instance with extension definitions support
+  const ajv = useMemo(() => {
+    const instance = new Ajv({
+      allErrors: true,
+      strict: false, // Allow custom keywords like x-formulus-validation
+      $data: true,
+    });
+    addErrors(instance);
+    addFormats(instance);
+
+    // Add custom format validators
+    instance.addFormat('photo', () => true); // Accept any value for photo format
+    instance.addFormat('qrcode', () => true); // Accept any value for qrcode format
+    instance.addFormat('signature', () => true); // Accept any value for signature format
+    instance.addFormat('select_file', () => true); // Accept any value for file selection format
+    instance.addFormat('audio', () => true); // Accept any value for audio format
+    instance.addFormat('gps', () => true); // Accept any value for GPS format
+    instance.addFormat('video', () => true); // Accept any value for video format
+    instance.addFormat('adate', (data: any) => {
+      // Allow null, undefined, or empty string (for optional fields)
+      if (data === null || data === undefined || data === '') {
+        return true;
+      }
+      // Validate YYYY-MM-DD format (may contain ?? for unknown parts)
+      const dateRegex = /^(\d{4}|\?\?\?\?)-(\d{2}|\?\?)-(\d{2}|\?\?)$/;
+      return typeof data === 'string' && dateRegex.test(data);
+    });
+    instance.addFormat('sub-observation', () => true);
+
+    // Register custom question type formats with AJV
+    // Custom question types use "format": "formatName" in schemas (not "type")
+    // This is required because JSON Schema only allows standard types in the "type" field
+    if (customTypeFormats.length > 0) {
+      customTypeFormats.forEach(formatName => {
+        // Register as format so AJV accepts "format": "formatName" in schemas
+        instance.addFormat(formatName, () => true);
+      });
+      console.log(
+        `[Formplayer] Registered ${customTypeFormats.length} custom question type format(s) with AJV`,
+      );
+    }
+
+    // Add extension definitions to AJV for $ref support
+    if (Object.keys(extensionDefinitions).length > 0) {
+      // Add each definition individually so $ref can reference them
+      for (const [key, definition] of Object.entries(extensionDefinitions)) {
+        instance.addSchema(definition, `#/definitions/${key}`);
+      }
+    }
+
+    return instance;
+  }, [extensionDefinitions, customTypeFormats]);
+
   // Set up event listeners for navigation and finalization
   useEffect(() => {
     const handleNavigateToError = (event: CustomEvent) => {
@@ -900,7 +962,6 @@ function App() {
       }>;
       const payloadFormInit = customEvent.detail?.formInitData || formInitData;
       const rawPayload = customEvent.detail?.data || data;
-      const payloadData = dataMatchingSchemaRoot(rawPayload, schema);
 
       if (!payloadFormInit) {
         console.error(
@@ -908,6 +969,23 @@ function App() {
         );
         setSubmitError(
           'Cannot submit form because initialization data is missing.',
+        );
+        return;
+      }
+
+      const rootPayload = dataMatchingSchemaRoot(rawPayload, schema);
+      const { errors: finalizeValidatorErrors, data: payloadData } =
+        runCustomValidatorsAndRefreshData(
+          uischema ?? undefined,
+          schema ?? undefined,
+          rootPayload as Record<string, unknown>,
+          ajv,
+        );
+
+      if (finalizeValidatorErrors.length > 0) {
+        setCustomValidatorErrors(finalizeValidatorErrors);
+        setSubmitError(
+          'Cannot submit form until custom validation errors are resolved.',
         );
         return;
       }
@@ -977,7 +1055,7 @@ function App() {
         handleShowValidation as EventListener,
       );
     };
-  }, [data, formInitData, draftSessionKey, uischema, schema]); // Include all dependencies
+  }, [data, formInitData, draftSessionKey, uischema, schema, ajv]); // Include all dependencies
 
   // Handler for resuming a draft
   const handleResumeDraft = useCallback(
@@ -1016,98 +1094,26 @@ function App() {
     }
   }, [pendingFormInit, initializeForm]);
 
-  // Create AJV instance with extension definitions support
-  const ajv = useMemo(() => {
-    const instance = new Ajv({
-      allErrors: true,
-      strict: false, // Allow custom keywords like x-formulus-validation
-      $data: true,
-    });
-    addErrors(instance);
-    addFormats(instance);
-
-    // Add custom format validators
-    instance.addFormat('photo', () => true); // Accept any value for photo format
-    instance.addFormat('qrcode', () => true); // Accept any value for qrcode format
-    instance.addFormat('signature', () => true); // Accept any value for signature format
-    instance.addFormat('select_file', () => true); // Accept any value for file selection format
-    instance.addFormat('audio', () => true); // Accept any value for audio format
-    instance.addFormat('gps', () => true); // Accept any value for GPS format
-    instance.addFormat('video', () => true); // Accept any value for video format
-    instance.addFormat('adate', (data: any) => {
-      // Allow null, undefined, or empty string (for optional fields)
-      if (data === null || data === undefined || data === '') {
-        return true;
-      }
-      // Validate YYYY-MM-DD format (may contain ?? for unknown parts)
-      const dateRegex = /^(\d{4}|\?\?\?\?)-(\d{2}|\?\?)-(\d{2}|\?\?)$/;
-      return typeof data === 'string' && dateRegex.test(data);
-    });
-    instance.addFormat('sub-observation', () => true);
-
-    // Register custom question type formats with AJV
-    // Custom question types use "format": "formatName" in schemas (not "type")
-    // This is required because JSON Schema only allows standard types in the "type" field
-    if (customTypeFormats.length > 0) {
-      customTypeFormats.forEach(formatName => {
-        // Register as format so AJV accepts "format": "formatName" in schemas
-        instance.addFormat(formatName, () => true);
-      });
-      console.log(
-        `[Formplayer] Registered ${customTypeFormats.length} custom question type format(s) with AJV`,
-      );
-    }
-
-    // Add extension definitions to AJV for $ref support
-    if (Object.keys(extensionDefinitions).length > 0) {
-      // Add each definition individually so $ref can reference them
-      for (const [key, definition] of Object.entries(extensionDefinitions)) {
-        instance.addSchema(definition, `#/definitions/${key}`);
-      }
-    }
-
-    return instance;
-  }, [extensionDefinitions, customTypeFormats]);
-
   const handleDataChange = useCallback(
     ({ data: newData }: { data: FormData }) => {
-      setData(newData);
+      const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
+        uischema ?? undefined,
+        schema ?? undefined,
+        newData as Record<string, unknown>,
+        ajv,
+      );
+
+      setData(refreshedData);
+      setCustomValidatorErrors(errors);
 
       // Save draft data whenever form data changes (skip embedded sub-observation sessions)
       if (formInitData && !isSubObservationSession(formInitData)) {
         draftService.saveDraft(
           formInitData.formType,
-          newData,
+          refreshedData,
           formInitData,
           draftSessionKey,
         );
-      }
-
-      // Execute custom validators when data changes
-      if (uischema && schema) {
-        try {
-          const customErrors = executeAllCustomValidators(
-            uischema,
-            schema,
-            newData,
-            ajv,
-          );
-
-          // Flatten errors map to array
-          const allCustomErrors: ErrorObject[] = [];
-          for (const fieldErrors of customErrors.values()) {
-            allCustomErrors.push(...fieldErrors);
-          }
-
-          setCustomValidatorErrors(allCustomErrors);
-        } catch (error) {
-          console.error(
-            '[Formplayer] Error executing custom validators:',
-            error,
-          );
-          // Graceful failure: clear errors on execution failure
-          setCustomValidatorErrors([]);
-        }
       }
     },
     [formInitData, draftSessionKey, uischema, schema, ajv],

@@ -63,6 +63,7 @@ export interface FormplayerModalHandle {
     operationId: string | null,
     subObservationMode?: boolean,
     skipFinalize?: boolean,
+    skipDraftSelection?: boolean,
   ) => void;
   handleSubmission: (data: {
     formType: string;
@@ -219,6 +220,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       operationId: string | null,
       subObservationMode: boolean = false,
       skipFinalize: boolean = false,
+      skipDraftSelection: boolean = false,
     ) => {
       // Check if WebView is ready, if not log a warning (retry logic will handle it)
       if (!webViewReady) {
@@ -466,6 +468,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         customQuestionTypes,
         subObservationMode,
         skipFinalize,
+        skipDraftSelection,
       } as FormInitData;
 
       if (!webViewRef.current) {

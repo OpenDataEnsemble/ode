@@ -36,8 +36,10 @@
 ## Changing the bridge
 
 1. Edit [`FormulusInterfaceDefinition.ts`](src/webview/FormulusInterfaceDefinition.ts).
-2. Implement **native** handling in the WebView message pipeline.
+2. Implement **native** handling in the WebView message pipeline (`FormulusMessageHandlers.ts`, `FormplayerModal.tsx`, `App.tsx` stack for `openFormplayer`).
 3. **Sync** the formplayer copy and update any consumers (see [formulus-formplayer/AGENTS.md](../formulus-formplayer/AGENTS.md)).
+
+**Custom app APIs (contract highlights):** `openFormplayer` options include `subObservationMode`, `skipFinalize`, and `skipDraftSelection` (bypass draft picker on orchestrated root sessions). `persistObservation` writes observations without opening Formplayer. Regenerate `assets/webview/FormulusInjectionScript.js` after interface changes (`scripts/generateInjectionScript.ts`).
 
 ---
 

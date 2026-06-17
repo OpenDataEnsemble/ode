@@ -86,6 +86,8 @@ export type FormPreviewDeferOpenSubObservationPayload = {
   formType: string;
   params: Record<string, unknown>;
   savedData: Record<string, unknown>;
+  skipFinalize?: boolean;
+  skipDraftSelection?: boolean;
 };
 
 export type FormPreviewBridgeContext = {
@@ -326,7 +328,11 @@ export async function handleFormPreviewBridgeMessage(
         const params = (data.params ?? {}) as Record<string, unknown>;
         const savedData = (data.savedData ?? {}) as Record<string, unknown>;
         const options = data.options as
-          | { subObservationMode?: boolean }
+          | {
+              subObservationMode?: boolean;
+              skipFinalize?: boolean;
+              skipDraftSelection?: boolean;
+            }
           | undefined;
         const subObservationMode = Boolean(options?.subObservationMode);
 
@@ -340,6 +346,8 @@ export async function handleFormPreviewBridgeMessage(
               formType,
               params,
               savedData,
+              skipFinalize: options?.skipFinalize,
+              skipDraftSelection: options?.skipDraftSelection,
             });
             return;
           }

@@ -13,6 +13,36 @@ import { JsonFormsControlWrapper } from './JsonFormsControlWrapper';
 
 const linkedChildFormType = 'story_child_visit';
 
+const parentSchemaEmbeddedOnly = {
+  type: 'object',
+  properties: {
+    sites: {
+      type: 'array',
+      format: 'sub-observation',
+      title: 'Site visits',
+      description:
+        'Embedded repeats without parentKey — hierarchy lives in parent JSON only.',
+      linkedForm: linkedChildFormType,
+      columns: [
+        { key: 'siteName', label: 'Site' },
+        { key: 'visitDate', label: 'Visited' },
+      ],
+      items: { type: 'object' },
+    },
+  },
+};
+
+const parentUischemaEmbeddedOnly = {
+  type: 'VerticalLayout',
+  elements: [
+    {
+      type: 'Control',
+      scope: '#/properties/sites',
+      label: 'Related site visits',
+    },
+  ],
+};
+
 const parentSchemaBase = {
   type: 'object',
   properties: {
@@ -179,6 +209,18 @@ export const Empty: Story = {
     uischema: parentUischema,
     initialData: {
       observationId: 'story-parent-obs-001',
+      sites: [],
+    },
+    renderers,
+  },
+};
+
+/** `linkedForm` only — no `parentKey` injection (embedded repeat model). */
+export const WithoutParentKey: Story = {
+  args: {
+    schema: parentSchemaEmbeddedOnly,
+    uischema: parentUischemaEmbeddedOnly,
+    initialData: {
       sites: [],
     },
     renderers,
