@@ -40,11 +40,7 @@ describe('runCustomValidatorsAndRefreshData', () => {
     });
 
     const input = { foo: 0 };
-    const result = runCustomValidatorsAndRefreshData(
-      uischema,
-      schema,
-      input,
-    );
+    const result = runCustomValidatorsAndRefreshData(uischema, schema, input);
 
     expect(result.mutated).toBe(true);
     expect(result.data).toEqual({ foo: 1 });
@@ -58,11 +54,7 @@ describe('runCustomValidatorsAndRefreshData', () => {
     ]);
 
     const input = { foo: 0 };
-    const result = runCustomValidatorsAndRefreshData(
-      uischema,
-      schema,
-      input,
-    );
+    const result = runCustomValidatorsAndRefreshData(uischema, schema, input);
 
     expect(result.mutated).toBe(false);
     expect(result.data).toBe(input);
@@ -80,11 +72,7 @@ describe('runCustomValidatorsAndRefreshData', () => {
     });
 
     const input = { quartos: [{}] };
-    const result = runCustomValidatorsAndRefreshData(
-      uischema,
-      schema,
-      input,
-    );
+    const result = runCustomValidatorsAndRefreshData(uischema, schema, input);
 
     expect(result.mutated).toBe(true);
     expect(result.data).not.toBe(input);
@@ -94,11 +82,7 @@ describe('runCustomValidatorsAndRefreshData', () => {
 
   it('returns empty errors when uischema or schema is missing', () => {
     const input = { foo: 1 };
-    const result = runCustomValidatorsAndRefreshData(
-      undefined,
-      schema,
-      input,
-    );
+    const result = runCustomValidatorsAndRefreshData(undefined, schema, input);
     expect(result).toEqual({ errors: [], data: input, mutated: false });
   });
 });

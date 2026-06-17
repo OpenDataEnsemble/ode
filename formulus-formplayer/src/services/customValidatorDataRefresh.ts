@@ -56,10 +56,7 @@ export function runCustomValidatorsAndRefreshData(
       mutated,
     };
   } catch (error) {
-    console.error(
-      '[Formplayer] Error executing custom validators:',
-      error,
-    );
+    console.error('[Formplayer] Error executing custom validators:', error);
     return { errors: [], data, mutated: false };
   }
 }
