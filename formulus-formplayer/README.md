@@ -84,6 +84,12 @@ The React Native host passes `FormInitData` into the WebView (including `params`
 
 Custom validators (`ui.json` → `options.customValidators`) may **mutate** `data` in place (e.g. auto-numbering embedded sub-observation rows). After each change and before finalize, Formplayer re-dispatches form state when mutations are detected so sub-observation tables and computed displays update immediately.
 
+**Per-session scope:** Validators run only in the **active** Formplayer session. A validator on the root form does not run when the enumerator adds a row inside an open **child** sub-observation form. For multi-level embedded trees, attach validators on **each** form where rows are added. Author docs: [Custom Extensions — nested sessions](https://opendataensemble.org/docs/guides/custom-extensions#nested-sessions-and-custom-validators).
+
+## Sub-observation `skipFinalize`
+
+`skipFinalize` **omits the Finalize page** only. **Done** on the last content page still runs AJV + that form’s custom validators, then returns `formData` to the parent via `SubObservationQuestionRenderer`. Parent-level validators (denormalized indexes, global numbering) do not run in the child session. See [Custom Extensions — validation and skipFinalize](https://opendataensemble.org/docs/guides/custom-extensions#validation-and-skipfinalize).
+
 ## Sub-observation `parentKey`
 
 `format: "sub-observation"` requires **`linkedForm`** only. **`parentKey`** is optional: when set, the parent value is injected into the child session on add; when omitted, the embedded repeat model relies on data already nested in the parent JSON.

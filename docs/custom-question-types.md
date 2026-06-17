@@ -145,7 +145,9 @@ Your component can return complex objects, arrays, or primitive values back to `
 
 Custom **question types** render UI; custom **validators** (`validators/<name>/index.js` in the app bundle) run on `ui.json` `options.customValidators` and return errors. Validators may also **mutate** the full form `data` object in place (for example assigning sequence numbers on embedded sub-observation arrays). Formplayer detects those mutations and refreshes state so tables and dependent fields update without extra custom question types.
 
-See [Custom Extensions](https://opendataensemble.org/docs/guides/custom-extensions) on opendataensemble.org for validator packaging and sub-observation configuration (`linkedForm` required; `parentKey` optional).
+**Per-session scope:** Validators run only in the **active** Formplayer session. Nested sub-observation child forms need their own validators (or parent snapshot init fields) for numbering and cross-row rules — root-only validators are not enough for deep embedded trees.
+
+See [Custom Extensions](https://opendataensemble.org/docs/guides/custom-extensions) on opendataensemble.org for validator packaging, [nested sessions](https://opendataensemble.org/docs/guides/custom-extensions#nested-sessions-and-custom-validators), [parent context](https://opendataensemble.org/docs/guides/custom-extensions#parent-context-across-nesting-levels), and sub-observation configuration (`linkedForm` required; `parentKey` optional).
 
 ---
 
