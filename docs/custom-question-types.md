@@ -141,6 +141,14 @@ Your component can return complex objects, arrays, or primitive values back to `
 
 ---
 
+## Custom validators (related)
+
+Custom **question types** render UI; custom **validators** (`validators/<name>/index.js` in the app bundle) run on `ui.json` `options.customValidators` and return errors. Validators may also **mutate** the full form `data` object in place (for example assigning sequence numbers on embedded sub-observation arrays). Formplayer detects those mutations and refreshes state so tables and dependent fields update without extra custom question types.
+
+See [Custom Extensions](https://opendataensemble.org/docs/guides/custom-extensions) on opendataensemble.org for validator packaging and sub-observation configuration (`linkedForm` required; `parentKey` optional).
+
+---
+
 ## Error Handling
 
 If your custom component throws an exception or crashes while rendering, Formplayer will catch it and display a red fallback UI in place of your question. This ensures that a bug in one custom question does not break the entire form or block the user from answering other questions.

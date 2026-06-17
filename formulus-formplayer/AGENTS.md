@@ -62,7 +62,11 @@ This file gives AI assistants and developers enough context to work effectively 
 ## Adding or changing behavior
 
 - **New question type (built-in)**  
-  Add a renderer in `src/renderers/` with a **tester** (e.g. `schemaMatches` / `rankWith` on `format`) and component; register it in `App.tsx` (`customRenderers`). Register a matching AJV `addFormat` when the schema uses a non-standard `format` string (see **`sub-observation`** in `SubObservationQuestionRenderer.tsx` + `App.tsx`). Sub-observation schema uses **`linkedForm`**, **`subObservationInitValues`** (optional add prefill), and **`subObservationEditInitValues`** (optional merge-on-edit). Use **`FormulusClient`** in `FormulusInterface.ts` for bridge calls (e.g. `openFormplayer` for nested sessions).
+  Add a renderer in `src/renderers/` with a **tester** (e.g. `schemaMatches` / `rankWith` on `format`) and component; register it in `App.tsx` (`customRenderers`). Register a matching AJV `addFormat` when the schema uses a non-standard `format` string (see **`sub-observation`** in `SubObservationQuestionRenderer.tsx` + `App.tsx`). Sub-observation schema uses **`linkedForm`** (required), optional **`parentKey`** (parent id injection on add), **`subObservationInitValues`** (optional add prefill), and **`subObservationEditInitValues`** (optional merge-on-edit). Use **`FormulusClient`** in `FormulusInterface.ts` for bridge calls (e.g. `openFormplayer` for nested sessions).
+- **Custom validators**  
+  Loaded from bundle `validators/` via `CustomValidatorLoader`. Validators referenced in `ui.json` `options.customValidators` may mutate `data` in place; `runCustomValidatorsAndRefreshData` in `src/services/customValidatorDataRefresh.ts` re-dispatches form state when mutations are detected (`handleDataChange` and `handleFinalizeForm` in `App.tsx`).
+- **Draft selector bypass**  
+  `FormInitData.skipDraftSelection` / `openFormplayer(..., { skipDraftSelection: true })` — see `shouldOfferDraftSelector` in `src/utils/formObservationData.ts`.
 - **New question type (custom / from Synkronus)**  
   Custom types are loaded by `CustomQuestionTypeLoader` from the manifest; they must comply with `CustomQuestionTypeContract.ts` and export a default component. No change in formplayer code needed for new custom types that follow the contract.
 - **New native capability (e.g. new “requestX” from RN)**
