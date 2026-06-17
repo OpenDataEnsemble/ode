@@ -14,8 +14,52 @@ export type ColumnSpec = { key: string; label: string };
 export type SubObservationSchemaConfig = {
   columns?: Array<{ key: string; label?: string }>;
   displayField?: string;
+  itemLabel?: string;
   orderBy?: OrderBySpec;
 };
+
+/** Trimmed singular entity name from schema `itemLabel`, or null when absent. */
+export function resolveItemLabel(
+  config: Pick<SubObservationSchemaConfig, 'itemLabel'> | undefined,
+): string | null {
+  const raw = config?.itemLabel;
+  if (typeof raw !== 'string') return null;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+export type ResolveAddButtonLabelInput = {
+  itemLabel: string | null;
+  addButtonLabel?: unknown;
+  busy: boolean;
+};
+
+/** Add-button text: ui override > composed from itemLabel > legacy default. */
+export function resolveAddButtonLabel(
+  input: ResolveAddButtonLabelInput,
+): string {
+  const override =
+    typeof input.addButtonLabel === 'string' ? input.addButtonLabel.trim() : '';
+  if (override.length > 0) {
+    return input.busy ? 'Adding…' : override;
+  }
+  if (input.itemLabel) {
+    return input.busy
+      ? `Adding ${input.itemLabel}…`
+      : `+ Add ${input.itemLabel}`;
+  }
+  return input.busy ? 'Adding…' : '+ Add observation';
+}
+
+/** Empty-table row text when the embedded array has no items. */
+export function resolveEmptyLabel(itemLabel: string | null): string {
+  return itemLabel ? `No ${itemLabel}` : 'No observations';
+}
+
+/** Delete-confirm fallback when displayField has no value. */
+export function resolveDeleteFallbackLabel(itemLabel: string | null): string {
+  return itemLabel ? `this ${itemLabel}` : 'this sub-observation';
+}
 
 /** Coerce an unknown schema extra (object map) for templated init/edit maps. */
 export function optionalRecordMap(

@@ -22,6 +22,10 @@ import {
   resolveInitialValues,
   sortRows,
   readDataPath,
+  resolveItemLabel,
+  resolveAddButtonLabel,
+  resolveEmptyLabel,
+  resolveDeleteFallbackLabel,
   type OrderBySpec,
 } from './subObservationHelpers';
 
@@ -100,6 +104,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   path,
   errors,
   schema,
+  uischema,
   enabled = true,
   visible = true,
   label,
@@ -196,6 +201,31 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   }, [config.orderBy]);
 
   const columns = useMemo(() => buildColumns(config, rows), [config, rows]);
+
+  const itemLabel = useMemo(() => resolveItemLabel(config), [config]);
+
+  const addButtonLabelOverride = useMemo(() => {
+    const opts = (uischema as { options?: { addButtonLabel?: unknown } })
+      ?.options;
+    return opts?.addButtonLabel;
+  }, [uischema]);
+
+  const addButtonText = useMemo(
+    () =>
+      resolveAddButtonLabel({
+        itemLabel,
+        addButtonLabel: addButtonLabelOverride,
+        busy: busyId === 'add',
+      }),
+    [itemLabel, addButtonLabelOverride, busyId],
+  );
+
+  const emptyLabel = useMemo(() => resolveEmptyLabel(itemLabel), [itemLabel]);
+
+  const deleteFallbackLabel = useMemo(
+    () => resolveDeleteFallbackLabel(itemLabel),
+    [itemLabel],
+  );
 
   const pushSorted = useCallback(
     (next: Record<string, unknown>[]) => {
@@ -322,8 +352,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
           ? config.displayField
           : undefined;
       const v = df ? readDataPath(rowData, df) : undefined;
-      const rowTitle =
-        v != null && v !== '' ? String(v) : 'this sub-observation';
+      const rowTitle = v != null && v !== '' ? String(v) : deleteFallbackLabel;
       if (
         typeof window !== 'undefined' &&
         !window.confirm(`Delete "${rowTitle}"?`)
@@ -338,7 +367,14 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
         );
       }
     },
-    [enabled, allowDelete, config.displayField, rows, pushSorted],
+    [
+      enabled,
+      allowDelete,
+      config.displayField,
+      rows,
+      pushSorted,
+      deleteFallbackLabel,
+    ],
   );
 
   if (!visible) return null;
@@ -368,7 +404,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
               missingKeys.length > 0
             }
             onClick={() => void handleAdd()}>
-            {busyId === 'add' ? 'Adding…' : '+ Add observation'}
+            {addButtonText}
           </Button>
         </Box>
 
@@ -432,7 +468,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
                       verticalAlign: 'middle',
                       fontSize: '0.875rem',
                     }}>
-                    No observations
+                    {emptyLabel}
                   </Box>
                 </Box>
               ) : (

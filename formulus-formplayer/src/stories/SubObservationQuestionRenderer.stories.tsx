@@ -215,6 +215,52 @@ export const Empty: Story = {
   },
 };
 
+/** Optional `itemLabel` customizes add button and empty-table copy. */
+export const WithItemLabel: Story = {
+  args: {
+    schema: {
+      ...parentSchemaBase,
+      properties: {
+        ...parentSchemaBase.properties,
+        sites: {
+          ...parentSchemaBase.properties.sites,
+          itemLabel: 'site visit',
+        },
+      },
+    },
+    uischema: parentUischema,
+    initialData: {
+      observationId: 'story-parent-obs-001',
+      sites: [],
+    },
+    renderers,
+  },
+};
+
+/** `ui.json` `options.addButtonLabel` overrides composed add-button text. */
+export const WithAddButtonLabelOverride: Story = {
+  args: {
+    schema: parentSchemaBase,
+    uischema: {
+      type: 'VerticalLayout',
+      elements: [
+        { type: 'Control', scope: '#/properties/observationId' },
+        {
+          type: 'Control',
+          scope: '#/properties/sites',
+          label: 'Related site visits',
+          options: { addButtonLabel: '+ Adicionar visita' },
+        },
+      ],
+    },
+    initialData: {
+      observationId: 'story-parent-obs-001',
+      sites: [],
+    },
+    renderers,
+  },
+};
+
 /** `linkedForm` only — no `parentKey` injection (embedded repeat model). */
 export const WithoutParentKey: Story = {
   args: {
