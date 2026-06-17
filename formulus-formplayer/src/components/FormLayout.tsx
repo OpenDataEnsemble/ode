@@ -1,6 +1,7 @@
 import React, { ReactNode, useCallback } from 'react';
 import { Box, Paper } from '@mui/material';
 import { Button } from '@ode/components/react-web';
+import { useKeyboardScrollClamp } from '../hooks/useKeyboardScrollClamp';
 
 /** Keeps a submit control in the DOM so mobile keyboards can trigger the primary action (Go / Send / →). */
 const visuallyHiddenSubmitStyle: React.CSSProperties = {
@@ -92,6 +93,8 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   keyboardSubmitAction,
   contentBottomPadding = 0,
 }) => {
+  const scrollRef = useKeyboardScrollClamp<HTMLDivElement>();
+
   const handleFormSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -103,6 +106,8 @@ const FormLayout: React.FC<FormLayoutProps> = ({
 
   const scrollArea = (
     <Box
+      ref={scrollRef}
+      data-testid="formplayer-scroll-area"
       sx={theme => ({
         flex: 1,
         minHeight: 0,
@@ -111,6 +116,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
         overflowY: 'auto',
         overflowX: 'hidden',
         WebkitOverflowScrolling: 'touch',
+        backgroundColor: 'background.default',
         // Base breathing room + caller-provided extra so the last fields can
         // scroll clear of the nav bar / on-screen keyboard.
         paddingBottom: `calc(${theme.spacing(2)} + ${contentBottomPadding}px)`,
