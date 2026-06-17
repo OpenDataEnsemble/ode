@@ -645,7 +645,7 @@ const SwipeLayoutRenderer = ({
                   }
                 : undefined
           }
-          contentBottomPadding={80}
+          contentBottomPadding={24}
           showNavigation={true}>
           <div
             ref={mergedSwipeScreenRef}

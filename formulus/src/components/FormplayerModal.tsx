@@ -713,6 +713,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
               ref={webViewRef}
               appUrl={formplayerUri}
               appName="Formplayer"
+              backgroundColor={themeColors.background as string}
               onLoadEndProp={handleWebViewLoad}
             />
 

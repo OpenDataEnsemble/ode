@@ -25,11 +25,11 @@ body {
   width: 100%;
   min-width: 0;
   /*
-   * Fill the FormLayout scroll area when content is short (more reliable than min-height: 100%,
-   * which depends on percentage height resolution in scroll/flex/WebView).
-   * flex-shrink: 0 keeps long content from being squashed; the scroll parent scrolls instead.
+   * Do not flex-grow to fill the scroll viewport — empty filler below short pages
+   * becomes scrollable when the IME shrinks the host WebView (white gap bug).
    */
-  flex: 1 0 auto;
+  flex: 0 1 auto;
+  min-height: 0;
   box-sizing: border-box;
   overflow: visible; /* Ensure no scrolling happens here - only in FormLayout content area */
 }
