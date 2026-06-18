@@ -13,7 +13,12 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import QuestionShell from '../components/QuestionShell';
 import FormulusClient from '../services/FormulusInterface';
 import type { FormCompletionResult } from '../types/FormulusInterfaceDefinition';
+import { useFormContext } from '../App';
 import { tokens } from '../theme/tokens-adapter';
+import {
+  subObsDataSummary,
+  subObsDebug,
+} from '../utils/subObsDebug';
 import {
   buildColumns,
   coerceSubObservationRows,
@@ -21,6 +26,7 @@ import {
   readSubObservationField,
   sortRows,
   readDataPath,
+  writeDataPath,
   resolveItemLabel,
   resolveAddButtonLabel,
   resolveEmptyLabel,
@@ -112,6 +118,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   required,
 }) => {
   const jsonForms = useJsonForms();
+  const { commitFormData, formInitData } = useFormContext();
   const config = useMemo(() => extractConfig(schema), [schema]);
 
   const childFormType =
@@ -209,10 +216,84 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   const pushSorted = useCallback(
     (next: Record<string, unknown>[]) => {
       const sorted = sortRows(next, config.orderBy as OrderBySpec);
-      handleChange(path, sorted);
-      requestFormRevalidation();
+      const root = jsonForms.core?.data;
+      const rootSummary =
+        root && typeof root === 'object'
+          ? subObsDataSummary(root as Record<string, unknown>)
+          : { keys: [] as string[] };
+      if (
+        commitFormData &&
+        root &&
+        typeof root === 'object' &&
+        path
+      ) {
+        const merged = writeDataPath(
+          root as Record<string, unknown>,
+          path,
+          sorted,
+        );
+        subObsDebug('SubObservation.pushSorted → commitFormData', {
+          path,
+          childFormType,
+          rowCount: sorted.length,
+          mergeMethod: 'commitFormData',
+          rootBefore: rootSummary,
+          rootAfter: subObsDataSummary(merged),
+        });
+        commitFormData(merged);
+      } else {
+        subObsDebug('SubObservation.pushSorted → handleChange', {
+          path,
+          childFormType,
+          rowCount: sorted.length,
+          mergeMethod: 'handleChange',
+          hasCommitFormData: Boolean(commitFormData),
+          hasRoot: Boolean(root),
+          rootBefore: rootSummary,
+        });
+        handleChange(path, sorted);
+        requestFormRevalidation();
+      }
     },
-    [config.orderBy, handleChange, path, requestFormRevalidation],
+    [
+      childFormType,
+      commitFormData,
+      config.orderBy,
+      handleChange,
+      jsonForms.core?.data,
+      path,
+      requestFormRevalidation,
+    ],
+  );
+
+  const mergeSubmittedRow = useCallback(
+    (result: FormCompletionResult) => {
+      if (
+        !result?.formData ||
+        (result.status !== 'form_submitted' &&
+          result.status !== 'form_updated')
+      ) {
+        return false;
+      }
+      const row = result.formData as Record<string, unknown>;
+      const priorRows = getCurrentRows();
+      const next = [...priorRows, row];
+      subObsDebug('SubObservation.mergeSubmittedRow', {
+        path,
+        childFormType,
+        status: result.status,
+        rowKeys: Object.keys(row),
+        priorRowCount: priorRows.length,
+        nextRowCount: next.length,
+        propsDataRowCount: valueRows.length,
+        corePathValue: path
+          ? readDataPath(jsonForms.core?.data, path)
+          : undefined,
+      });
+      pushSorted(next);
+      return true;
+    },
+    [childFormType, getCurrentRows, jsonForms.core?.data, path, pushSorted, valueRows.length],
   );
 
   const handleAdd = useCallback(async () => {
@@ -220,6 +301,12 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     const client = FormulusClient.getInstance();
     try {
       setBusyId('add');
+      subObsDebug('SubObservation.handleAdd → openFormplayer', {
+        path,
+        childFormType,
+        parentFormType: formInitData?.formType,
+        parentData: subObsDataSummary(formData),
+      });
       const pv = resolveParentValue(formData, parentValuePath);
       const openParams = buildSubObservationOpenParams(
         formData,
@@ -239,9 +326,22 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
           skipFinalize: Boolean(config.skipFinalize),
         },
       );
-      if (result?.status === 'form_submitted' && result.formData) {
-        const row = result.formData as Record<string, unknown>;
-        pushSorted([...getCurrentRows(), row]);
+      subObsDebug('SubObservation.handleAdd ← openFormplayer resolved', {
+        path,
+        childFormType,
+        status: result?.status,
+        hasFormData: Boolean(result?.formData),
+        formDataKeys: result?.formData
+          ? Object.keys(result.formData as object)
+          : [],
+      });
+      if (!mergeSubmittedRow(result)) {
+        subObsDebug('SubObservation.handleAdd merge skipped', {
+          path,
+          childFormType,
+          status: result?.status,
+          hasFormData: Boolean(result?.formData),
+        });
       }
     } catch (e) {
       setError(
@@ -258,8 +358,9 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     parentValuePath,
     parentKey,
     config,
-    getCurrentRows,
-    pushSorted,
+    mergeSubmittedRow,
+    path,
+    formInitData?.formType,
   ]);
 
   const handleEdit = useCallback(

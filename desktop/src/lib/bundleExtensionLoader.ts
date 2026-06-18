@@ -1,4 +1,6 @@
-import { bundleFormsRel } from './bundleLayout';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { join } from '@tauri-apps/api/path';
+import { bundleFormsRel, bundleSegment } from './bundleLayout';
 import type { FormInitData } from './formplayerHost';
 import { tauriClient } from './tauriClient';
 
@@ -173,6 +175,27 @@ export async function loadBundleFormplayerExtensions(
   if (hasExtensionContent) {
     const basePath = await tauriClient.getActiveBundleFormsFileBaseUrl();
     extensions = formplayerExtensionsFromMerged(merged, basePath);
+
+    const ws = await tauriClient.getWorkspace();
+    if (ws && extensions?.functions) {
+      const segment = bundleSegment(developerMode);
+      const gbmisAbs = await join(
+        ws,
+        'bundles',
+        segment,
+        'app',
+        'extensions',
+        'gbmis.js',
+      );
+      const gbmisUrl = convertFileSrc(gbmisAbs);
+      for (const fn of Object.values(extensions.functions)) {
+        const meta = fn as Record<string, unknown>;
+        const modulePath = String(meta.module ?? '');
+        if (modulePath.includes('gbmis.js')) {
+          meta.module = gbmisUrl;
+        }
+      }
+    }
   } else {
     extensions = undefined;
   }

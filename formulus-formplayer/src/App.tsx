@@ -107,6 +107,12 @@ import { runCustomValidatorsAndRefreshData } from './services/customValidatorDat
 import { resolveErrorPageIndex } from './utils/errorPageNavigation';
 import { applyAutoSequences } from './utils/autoSequence';
 import { newDraftSessionKey } from './utils/draftSessionKey';
+import {
+  subObsArrayFingerprint,
+  subObsDataSummary,
+  subObsDebug,
+  mergePreservingSubObsArrays,
+} from './utils/subObsDebug';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
 function isSubObservationSession(init: FormInitData): boolean {
@@ -281,12 +287,19 @@ interface FormContextType {
    * Not part of the native bridge.
    */
   draftSessionKey: string | null;
+  /**
+   * Commit a full root data object to App state (auto-sequence + validators).
+   * Used by sub-observation merge so nested rows survive JsonForms controlled-mode
+   * debounce races where `handleChange` alone does not reach `onChange` in time.
+   */
+  commitFormData?: (data: Record<string, unknown>) => void;
 }
 
 export const FormContext = createContext<FormContextType>({
   formInitData: null,
   keyboardEnterKeyHint: undefined,
   draftSessionKey: null,
+  commitFormData: undefined,
 });
 
 export const useFormContext = () => useContext(FormContext);
@@ -334,6 +347,8 @@ function App() {
 
   // State for form data, schema, and UI schema
   const [data, setData] = useState<FormData>({});
+  /** Latest form data — read from event handlers that may run before React re-renders. */
+  const dataRef = useRef<FormData>({});
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [uischema, setUISchema] = useState<FormUISchema | null>(null);
 
@@ -344,6 +359,8 @@ function App() {
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
   /** Local draft identity for new observations only (not sent over the native bridge). */
   const [draftSessionKey, setDraftSessionKey] = useState<string | null>(null);
+  const subObsFingerprintRef = useRef('');
+  const subObsRenderFingerprintRef = useRef('');
   const [showDraftSelector, setShowDraftSelector] = useState(false);
   const [pendingFormInit, setPendingFormInit] = useState<FormInitData | null>(
     null,
@@ -960,6 +977,173 @@ function App() {
     return instance;
   }, [extensionDefinitions, customTypeFormats]);
 
+  // Handler for resuming a draft
+  const handleResumeDraft = useCallback(
+    (draftId: string) => {
+      const draft = draftService.getDraft(draftId);
+      if (draft && pendingFormInit) {
+        console.log('Resuming draft:', draftId, draft);
+
+        // Create new FormInitData with draft data as savedData
+        const initDataWithDraft: FormInitData = {
+          ...pendingFormInit,
+          savedData: draft.data,
+        };
+
+        // Initialize form with draft data (keep the same draft row when saving)
+        initializeForm(
+          initDataWithDraft,
+          draft.draftSessionKey ?? `legacy_${draft.id}`,
+        );
+
+        // Hide draft selector
+        setShowDraftSelector(false);
+        setPendingFormInit(null);
+      }
+    },
+    [pendingFormInit, initializeForm],
+  );
+
+  // Handler for starting a new form (ignoring drafts)
+  const handleStartNewForm = useCallback(() => {
+    if (pendingFormInit) {
+      console.log('Starting new form, ignoring drafts');
+      initializeForm(pendingFormInit, newDraftSessionKey());
+      setShowDraftSelector(false);
+      setPendingFormInit(null);
+    }
+  }, [pendingFormInit, initializeForm]);
+
+  const logSubObsDataTransition = useCallback(
+    (
+      source: 'jsonforms_onChange' | 'sub_obs_commit' | 'refresh_pipeline',
+      before: Record<string, unknown>,
+      after: Record<string, unknown>,
+      extra?: Record<string, unknown>,
+    ) => {
+      const beforeFp = subObsArrayFingerprint(before);
+      const afterFp = subObsArrayFingerprint(after);
+      if (beforeFp === afterFp && source !== 'sub_obs_commit') {
+        return;
+      }
+      subObsDebug(`App.${source}`, {
+        formType: formInitData?.formType,
+        subObservationMode:
+          formInitData != null ? isSubObservationSession(formInitData) : false,
+        fingerprintBefore: beforeFp,
+        fingerprintAfter: afterFp,
+        summaryBefore: subObsDataSummary(before),
+        summaryAfter: subObsDataSummary(after),
+        ...extra,
+      });
+      subObsFingerprintRef.current = afterFp;
+    },
+    [formInitData],
+  );
+
+  const refreshFormData = useCallback(
+    (newData: Record<string, unknown>, source?: string) => {
+      const beforeFp = subObsArrayFingerprint(newData);
+      const autoRuntime = readAutoSequenceRuntime();
+      const { data: sequencedData } = applyAutoSequences(
+        newData,
+        schema ?? undefined,
+        autoRuntime,
+      );
+      const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
+        uischema ?? undefined,
+        schema ?? undefined,
+        sequencedData,
+        ajv,
+      );
+      setCustomValidatorErrors(errors);
+      const afterFp = subObsArrayFingerprint(refreshedData);
+      if (beforeFp !== afterFp || source === 'sub_obs_commit') {
+        logSubObsDataTransition(
+          source === 'sub_obs_commit' ? 'sub_obs_commit' : 'refresh_pipeline',
+          newData,
+          refreshedData,
+          { pipelineSource: source },
+        );
+      }
+      return refreshedData;
+    },
+    [uischema, schema, ajv, logSubObsDataTransition],
+  );
+
+  const persistDraftIfRootSession = useCallback(
+    (refreshedData: Record<string, unknown>) => {
+      if (formInitData && !isSubObservationSession(formInitData)) {
+        draftService.saveDraft(
+          formInitData.formType,
+          refreshedData,
+          formInitData,
+          draftSessionKey,
+        );
+      }
+    },
+    [formInitData, draftSessionKey],
+  );
+
+  const handleDataChange = useCallback(
+    ({ data: newData }: { data: FormData }) => {
+      const incoming = newData as Record<string, unknown>;
+      const baseline = dataRef.current as Record<string, unknown>;
+      const { merged, preserved } = mergePreservingSubObsArrays(
+        baseline,
+        incoming,
+      );
+      if (preserved.length > 0) {
+        subObsDebug('App.handleDataChange preserved sub-obs arrays', {
+          preserved,
+          incoming: subObsDataSummary(incoming),
+          baseline: subObsDataSummary(baseline),
+        });
+      }
+      logSubObsDataTransition('jsonforms_onChange', baseline, merged);
+      const refreshedData = refreshFormData(merged, 'jsonforms_onChange');
+      dataRef.current = refreshedData;
+      setData(refreshedData);
+      persistDraftIfRootSession(refreshedData);
+    },
+    [refreshFormData, persistDraftIfRootSession, logSubObsDataTransition],
+  );
+
+  const commitFormData = useCallback(
+    (newData: Record<string, unknown>) => {
+      subObsDebug('App.commitFormData called', {
+        formType: formInitData?.formType,
+        incoming: subObsDataSummary(newData),
+      });
+      const refreshedData = refreshFormData(newData, 'sub_obs_commit');
+      dataRef.current = refreshedData;
+      setData(refreshedData);
+      subObsDebug('App.commitFormData → setData', {
+        formType: formInitData?.formType,
+        result: subObsDataSummary(refreshedData),
+      });
+      persistDraftIfRootSession(refreshedData);
+    },
+    [formInitData?.formType, refreshFormData, persistDraftIfRootSession],
+  );
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  useEffect(() => {
+    const fp = subObsArrayFingerprint(data as Record<string, unknown>);
+    if (fp === subObsRenderFingerprintRef.current) {
+      return;
+    }
+    subObsRenderFingerprintRef.current = fp;
+    subObsDebug('App.data state after render', {
+      formType: formInitData?.formType,
+      fingerprint: fp,
+      ...subObsDataSummary(data as Record<string, unknown>),
+    });
+  }, [data, formInitData?.formType]);
+
   // Set up event listeners for navigation and finalization
   useEffect(() => {
     const handleNavigateToError = (event: CustomEvent) => {
@@ -979,15 +1163,17 @@ function App() {
     };
 
     const handleRevalidate = () => {
-      if (!data) return;
-      const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
-        uischema ?? undefined,
-        schema ?? undefined,
-        data as Record<string, unknown>,
-        ajv,
-      );
-      setData(structuredClone(refreshedData));
-      setCustomValidatorErrors(errors);
+      const current = dataRef.current as Record<string, unknown>;
+      if (!current || Object.keys(current).length === 0) {
+        return;
+      }
+      subObsDebug('App.formRevalidate', {
+        formType: formInitData?.formType,
+        ...subObsDataSummary(current),
+      });
+      const refreshedData = refreshFormData(current, 'revalidate');
+      dataRef.current = refreshedData;
+      setData(refreshedData);
     };
 
     const handleShowValidation = () => {
@@ -1000,13 +1186,15 @@ function App() {
     const handleFinalizeForm = (event: Event) => {
       // Reaching finalize is a meaningful checkpoint: ensure validation is shown.
       handleShowValidation();
-      // Prefer the payload from the FinalizeRenderer if available
       const customEvent = event as CustomEvent<{
         formInitData?: FormInitData;
         data?: FormData;
       }>;
       const payloadFormInit = customEvent.detail?.formInitData || formInitData;
-      const rawPayload = customEvent.detail?.data || data;
+      const rawPayload =
+        (dataRef.current as Record<string, unknown> | undefined) ??
+        customEvent.detail?.data ??
+        data;
 
       if (!payloadFormInit) {
         console.error(
@@ -1036,6 +1224,15 @@ function App() {
       }
 
       console.log('[App.tsx] Submitting form data:', payloadData);
+      subObsDebug('App.submitObservationWithContext', {
+        formType: payloadFormInit.formType,
+        subObservationMode: isSubObservationSession(payloadFormInit),
+        detailData: subObsDataSummary(
+          customEvent.detail?.data as Record<string, unknown> | undefined,
+        ),
+        dataRef: subObsDataSummary(dataRef.current as Record<string, unknown>),
+        payload: subObsDataSummary(payloadData as Record<string, unknown>),
+      });
       formulusClient.current
         .submitObservationWithContext(payloadFormInit, payloadData)
         .then(() => {
@@ -1108,86 +1305,7 @@ function App() {
         handleRevalidate as EventListener,
       );
     };
-  }, [data, formInitData, draftSessionKey, uischema, schema, ajv]); // Include all dependencies
-
-  // Handler for resuming a draft
-  const handleResumeDraft = useCallback(
-    (draftId: string) => {
-      const draft = draftService.getDraft(draftId);
-      if (draft && pendingFormInit) {
-        console.log('Resuming draft:', draftId, draft);
-
-        // Create new FormInitData with draft data as savedData
-        const initDataWithDraft: FormInitData = {
-          ...pendingFormInit,
-          savedData: draft.data,
-        };
-
-        // Initialize form with draft data (keep the same draft row when saving)
-        initializeForm(
-          initDataWithDraft,
-          draft.draftSessionKey ?? `legacy_${draft.id}`,
-        );
-
-        // Hide draft selector
-        setShowDraftSelector(false);
-        setPendingFormInit(null);
-      }
-    },
-    [pendingFormInit, initializeForm],
-  );
-
-  // Handler for starting a new form (ignoring drafts)
-  const handleStartNewForm = useCallback(() => {
-    if (pendingFormInit) {
-      console.log('Starting new form, ignoring drafts');
-      initializeForm(pendingFormInit, newDraftSessionKey());
-      setShowDraftSelector(false);
-      setPendingFormInit(null);
-    }
-  }, [pendingFormInit, initializeForm]);
-
-  const handleDataChange = useCallback(
-    ({ data: newData }: { data: FormData }) => {
-      const autoRuntime = {
-        subObservationContext: (
-          window as unknown as {
-            formulusSubObservationContext?: Record<string, unknown> | null;
-          }
-        ).formulusSubObservationContext,
-        sessionContext: (
-          window as unknown as {
-            formulusSessionContext?: Record<string, unknown> | null;
-          }
-        ).formulusSessionContext,
-      };
-      const { data: sequencedData, mutated: seqMutated } = applyAutoSequences(
-        newData as Record<string, unknown>,
-        schema ?? undefined,
-        autoRuntime,
-      );
-      const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
-        uischema ?? undefined,
-        schema ?? undefined,
-        sequencedData,
-        ajv,
-      );
-
-      setData(seqMutated ? refreshedData : refreshedData);
-      setCustomValidatorErrors(errors);
-
-      // Save draft data whenever form data changes (skip embedded sub-observation sessions)
-      if (formInitData && !isSubObservationSession(formInitData)) {
-        draftService.saveDraft(
-          formInitData.formType,
-          refreshedData,
-          formInitData,
-          draftSessionKey,
-        );
-      }
-    },
-    [formInitData, draftSessionKey, uischema, schema, ajv],
-  );
+  }, [formInitData, draftSessionKey, uischema, schema, ajv, refreshFormData]);
 
   // Create dynamic theme based on dark mode preference and custom app colors.
   // When a custom app provides themeColors, they override the default palette
@@ -1321,7 +1439,8 @@ function App() {
 
   return (
     <ThemeProvider theme={currentTheme}>
-      <FormContext.Provider value={{ formInitData, draftSessionKey }}>
+      <FormContext.Provider
+        value={{ formInitData, draftSessionKey, commitFormData }}>
         <div
           className="App"
           style={{

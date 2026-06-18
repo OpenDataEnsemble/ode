@@ -235,6 +235,16 @@
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
+        console.warn('[SUBOBS_DEBUG] injection.openFormplayer request', {
+          messageId,
+          formType,
+          subObservationMode: Boolean(options && options.subObservationMode),
+          savedDataKeys:
+            savedData && typeof savedData === 'object'
+              ? Object.keys(savedData)
+              : [],
+        });
+
         // Add response handler for methods that return values
 
         const callback = event => {
@@ -260,6 +270,18 @@
               data.messageId === messageId
             ) {
               window.removeEventListener('message', callback);
+              console.warn('[SUBOBS_DEBUG] injection.openFormplayer response', {
+                messageId,
+                error: data.error,
+                status: data.result && data.result.status,
+                formType: data.result && data.result.formType,
+                formDataKeys:
+                  data.result &&
+                  data.result.formData &&
+                  typeof data.result.formData === 'object'
+                    ? Object.keys(data.result.formData)
+                    : [],
+              });
               if (data.error) {
                 reject(new Error(data.error));
               } else {

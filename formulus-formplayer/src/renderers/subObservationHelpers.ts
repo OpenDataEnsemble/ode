@@ -82,6 +82,35 @@ export function readDataPath(data: unknown, dotPath: string): unknown {
   return cur;
 }
 
+/** Immutable shallow clone along `dotPath`, then set the leaf value. */
+export function writeDataPath(
+  data: Record<string, unknown>,
+  dotPath: string,
+  value: unknown,
+): Record<string, unknown> {
+  if (!dotPath) return data;
+  const keys = dotPath.split('.');
+  if (keys.length === 1) {
+    return { ...data, [dotPath]: value };
+  }
+  const root = { ...data };
+  let cur: Record<string, unknown> = root;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    const next = cur[key];
+    const cloned =
+      next && typeof next === 'object' && !Array.isArray(next)
+        ? { ...(next as Record<string, unknown>) }
+        : Array.isArray(next)
+          ? [...next]
+          : {};
+    cur[key] = cloned;
+    cur = cloned as Record<string, unknown>;
+  }
+  cur[keys[keys.length - 1]] = value;
+  return root;
+}
+
 /** Matches a string that is exactly one `{{ token }}` with no surrounding text. */
 const SINGLE_TOKEN_RE = /^\s*\{\{\s*([^}]+?)\s*\}\}\s*$/;
 

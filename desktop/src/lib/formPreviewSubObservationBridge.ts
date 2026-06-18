@@ -1,0 +1,104 @@
+/**
+ * Tracks deferred `openFormplayer` (subObservationMode) sessions in the ODE Desktop shell.
+ *
+ * Formulus resolves nested completion by injecting `postMessage` into the *parent* WebView.
+ * ODE Desktop uses stacked srcdoc iframes; delivery must target the parent embed's live
+ * `contentWindow` via {@link FormplayerEmbedHandle}, not a captured HTMLIFrameElement ref.
+ */
+
+import type { FormplayerEmbedHandle } from '../components/FormplayerEmbed';
+import { postFormplayerBridgeReply } from './formPreviewBridge';
+import { subObsCompletionSummary, subObsDebug } from './subObsDebug';
+
+export type PendingSubObservationOpen = {
+  parentMessageId: string;
+  parentEmbed: FormplayerEmbedHandle | null;
+  /** Parent iframe `contentWindow` captured when the nested open was deferred. */
+  parentContentWindow: Window | null;
+  formType: string;
+};
+
+const pendingOpens = new Map<string, PendingSubObservationOpen>();
+
+export function registerPendingSubObservationOpen(
+  entry: PendingSubObservationOpen,
+): void {
+  pendingOpens.set(entry.parentMessageId, entry);
+  subObsDebug('Desktop.registerPendingSubObservationOpen', {
+    messageId: entry.parentMessageId,
+    childFormType: entry.formType,
+    hasParentEmbed: Boolean(entry.parentEmbed),
+    hasParentContentWindow: Boolean(entry.parentContentWindow),
+    pendingCount: pendingOpens.size,
+  });
+}
+
+export function dropPendingSubObservationOpen(messageId: string): void {
+  pendingOpens.delete(messageId);
+}
+
+export function deliverSubObservationCompletion(
+  messageId: string,
+  completion: Record<string, unknown>,
+): boolean {
+  const entry = pendingOpens.get(messageId);
+  if (!entry) {
+    subObsDebug('Desktop.deliverSubObservationCompletion — no pending entry', {
+      messageId,
+      completion: subObsCompletionSummary(completion),
+      pendingIds: [...pendingOpens.keys()],
+    });
+    return false;
+  }
+  pendingOpens.delete(messageId);
+
+  const payload = { result: completion };
+
+  subObsDebug('Desktop.deliverSubObservationCompletion', {
+    messageId,
+    childFormType: entry.formType,
+    completion: subObsCompletionSummary(completion),
+    hasParentEmbed: Boolean(entry.parentEmbed),
+    hasParentContentWindow: Boolean(entry.parentContentWindow),
+  });
+
+  entry.parentEmbed?.deliverBridgeResponse(
+    'openFormplayer',
+    messageId,
+    payload,
+  );
+
+  const send = () => {
+    if (entry.parentContentWindow) {
+      postFormplayerBridgeReply(
+        entry.parentEmbed?.getIframe() ?? null,
+        'openFormplayer',
+        messageId,
+        payload,
+        entry.parentContentWindow,
+      );
+    }
+  };
+  send();
+  queueMicrotask(send);
+  requestAnimationFrame(send);
+  window.setTimeout(send, 0);
+  window.setTimeout(send, 50);
+
+  return true;
+}
+
+export function deliverSubObservationCancelled(
+  messageId: string,
+  formType: string,
+): boolean {
+  return deliverSubObservationCompletion(messageId, {
+    status: 'cancelled',
+    formType,
+  });
+}
+
+/** @internal test helper */
+export function clearPendingSubObservationOpensForTests(): void {
+  pendingOpens.clear();
+}

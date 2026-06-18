@@ -503,15 +503,10 @@ const SwipeLayoutRenderer = ({
 
   const formContextForSwipe = useMemo(
     () => ({
-      formInitData: parentFormContext.formInitData,
+      ...parentFormContext,
       keyboardEnterKeyHint,
-      draftSessionKey: parentFormContext.draftSessionKey ?? null,
     }),
-    [
-      parentFormContext.formInitData,
-      parentFormContext.draftSessionKey,
-      keyboardEnterKeyHint,
-    ],
+    [parentFormContext, keyboardEnterKeyHint],
   );
 
   const handleSnackbarClose = useCallback(
@@ -764,12 +759,19 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const { formInitData, draftSessionKey } = useFormContext();
   const { data } = props;
+  const skipDraftPersistence =
+    formInitData != null &&
+    Boolean(
+      (formInitData as { subObservationMode?: boolean; returnOnly?: boolean })
+        .subObservationMode ||
+        (formInitData as { returnOnly?: boolean }).returnOnly,
+    );
 
   // Save partial data whenever the page changes or data changes
   const handlePageChange = useCallback(
     (page: number) => {
       // Save the current form data before changing the page
-      if (data && formInitData) {
+      if (data && formInitData && !skipDraftPersistence) {
         console.log('Saving draft data on page change:', data);
         draftService.saveDraft(
           formInitData.formType,
@@ -780,13 +782,13 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       }
       setCurrentPage(page);
     },
-    [data, formInitData, draftSessionKey],
+    [data, formInitData, draftSessionKey, skipDraftPersistence],
   );
 
   useEffect(() => {
     const handleNavigateToPage = (event: CustomEvent) => {
       // Save the current form data before navigating to a specific page
-      if (data && formInitData) {
+      if (data && formInitData && !skipDraftPersistence) {
         console.log('Saving draft data before navigation event:', data);
         draftService.saveDraft(
           formInitData.formType,
@@ -809,11 +811,11 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
         handleNavigateToPage as EventListener,
       );
     };
-  }, [data, formInitData, draftSessionKey]);
+  }, [data, formInitData, draftSessionKey, skipDraftPersistence]);
 
   // Also save data when it changes (even without page change)
   useEffect(() => {
-    if (data) {
+    if (data && !skipDraftPersistence) {
       // Debounce the save to avoid too many calls
       const debounceTimer = setTimeout(() => {
         if (formInitData) {
@@ -829,7 +831,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
 
       return () => clearTimeout(debounceTimer);
     }
-  }, [data, formInitData, draftSessionKey]);
+  }, [data, formInitData, draftSessionKey, skipDraftPersistence]);
 
   return (
     <SwipeLayoutRenderer

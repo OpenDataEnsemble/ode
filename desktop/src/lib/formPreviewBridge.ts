@@ -31,9 +31,14 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { dirname, join } from '@tauri-apps/api/path';
 import { tauriClient } from './tauriClient';
 import type { ObservationRecord } from '../types/domain';
+import { subObsDebug } from './subObsDebug';
 
 /** Matches `FORMULUS_INTERFACE_VERSION` in formplayer (`FormulusInterfaceDefinition.ts`). */
 export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.2.1';
+
+/** Must match `formplayer-host-stub.js` — delivers `*_response` to pending Formulus promises in iframes. */
+export const FORMPLAYER_BRIDGE_RESPONSE_CHANNEL =
+  'ode-formplayer-bridge-response';
 
 /** Prefix for stub `error` strings so logs and issues are easy to grep. */
 export const DESKTOP_FORM_PREVIEW_PREFIX = 'ODE Desktop form preview';
@@ -82,6 +87,8 @@ export type FinalizeRequest =
 /** Payload when formplayer requests a nested sub-observation session (`openFormplayer` + `subObservationMode`). */
 export type FormPreviewDeferOpenSubObservationPayload = {
   parentIframe: HTMLIFrameElement;
+  /** Parent formplayer `contentWindow` from the bridge message (`event.source`). */
+  parentContentWindow: Window | null;
   messageId: string;
   formType: string;
   params: Record<string, unknown>;
@@ -152,17 +159,60 @@ function resolveBridgeReplyIframe(
   return primary;
 }
 
+function buildBridgeResponseBody(
+  requestType: string,
+  messageId: string,
+  payload: { result?: unknown; error?: string },
+): Record<string, unknown> {
+  return { type: `${requestType}_response`, messageId, ...payload };
+}
+
 export function postFormplayerBridgeReply(
   iframe: HTMLIFrameElement | null,
   requestType: string,
   messageId: string,
   payload: { result?: unknown; error?: string },
+  /** Prefer a window captured on iframe load (srcdoc / WebView2). */
+  targetWindow?: Window | null,
 ): void {
-  const responseType = `${requestType}_response`;
-  iframe?.contentWindow?.postMessage(
-    JSON.stringify({ type: responseType, messageId, ...payload }),
-    '*',
-  );
+  const body = buildBridgeResponseBody(requestType, messageId, payload);
+  const serialized = JSON.stringify(body);
+  const win = targetWindow ?? iframe?.contentWindow ?? null;
+
+  if (win) {
+    try {
+      const deliver = (
+        win as Window & {
+          __odeFormplayerDeliverBridgeResponse?: (
+            requestType: string,
+            messageId: string,
+            payload: { result?: unknown; error?: string },
+          ) => void;
+        }
+      ).__odeFormplayerDeliverBridgeResponse;
+      if (typeof deliver === 'function') {
+        deliver(requestType, messageId, payload);
+      }
+    } catch {
+      // cross-origin or inaccessible — fall back below
+    }
+
+    try {
+      win.postMessage(serialized, '*');
+    } catch {
+      // ignore — BroadcastChannel may still reach the iframe
+    }
+  }
+
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel(FORMPLAYER_BRIDGE_RESPONSE_CHANNEL);
+      channel.postMessage(body);
+      channel.close();
+    }
+  } catch {
+    // optional fallback
+  }
 }
 
 function stubReason(detail: string): { error: string } {
@@ -339,8 +389,18 @@ export async function handleFormPreviewBridgeMessage(
         if (subObservationMode && ctx.onDeferOpenSubObservation) {
           const parentIframe = resolveBridgeReplyIframe(eventSource, ctx);
           if (parentIframe) {
+            subObsDebug('Desktop.formPreviewBridge openFormplayer → defer', {
+              messageId,
+              childFormType: formType,
+              hasParentIframe: Boolean(parentIframe),
+              savedDataKeys: Object.keys(savedData),
+            });
             ctx.onDeferOpenSubObservation({
               parentIframe,
+              parentContentWindow:
+                eventSource != null && typeof eventSource === 'object'
+                  ? (eventSource as Window)
+                  : null,
               messageId,
               formType,
               params,

@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { mergePreservingSubObsArrays } from '../utils/subObsDebug';
 import {
   readDataPath,
+  writeDataPath,
   resolveTemplateValue,
   resolveInitialValues,
   buildColumns,
@@ -15,9 +17,28 @@ import {
 } from './subObservationHelpers';
 
 describe('subObservationHelpers', () => {
+  it('mergePreservingSubObsArrays keeps longer baseline arrays', () => {
+    const baseline = { pessoas: [{ id: 1 }] };
+    const incoming = { validar_cama: '1' };
+    const { merged, preserved } = mergePreservingSubObsArrays(baseline, incoming);
+    expect(preserved).toEqual(['pessoas']);
+    expect(merged.pessoas).toEqual([{ id: 1 }]);
+    expect(merged.validar_cama).toBe('1');
+  });
+
   it('readDataPath resolves dotted paths', () => {
     expect(readDataPath({ a: { b: 3 } }, 'a.b')).toBe(3);
     expect(readDataPath({}, 'x')).toBeUndefined();
+  });
+
+  it('writeDataPath sets top-level and nested paths immutably', () => {
+    const root = { a: { b: 1 }, pessoas: [] as unknown[] };
+    const next = writeDataPath(root, 'pessoas', [{ id: 1 }]);
+    expect(next.pessoas).toEqual([{ id: 1 }]);
+    expect(root.pessoas).toEqual([]);
+    const nested = writeDataPath({ a: { b: 1 } }, 'a.b', 9);
+    expect(nested).toEqual({ a: { b: 9 } });
+    expect(root.a).toEqual({ b: 1 });
   });
 
   it('resolveTemplateValue expands tokens', () => {
