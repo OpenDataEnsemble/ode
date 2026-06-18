@@ -3,6 +3,30 @@
  * Full WebView host wiring is tracked in the ODE Desktop plan.
  */
 
+/** Mirrors `FormulusInterfaceDefinition.ExtensionMetadata`. */
+export interface ExtensionMetadata {
+  definitions?: Record<string, unknown>;
+  functions?: Record<
+    string,
+    {
+      name: string;
+      module: string;
+      export?: string;
+    }
+  >;
+  renderers?: Record<
+    string,
+    {
+      name: string;
+      format: string;
+      module: string;
+      tester?: string;
+      renderer?: string;
+    }
+  >;
+  basePath?: string;
+}
+
 /** Mirrors `FormulusInterfaceDefinition.FormInitData` for the embedded formplayer host. */
 export interface FormInitData {
   formType: string;
@@ -17,7 +41,7 @@ export interface FormInitData {
   skipFinalize?: boolean;
   /** Skip DraftSelector when the host orchestrates the session. */
   skipDraftSelection?: boolean;
-  extensions?: unknown;
+  extensions?: ExtensionMetadata;
   customQuestionTypes?: unknown;
 }
 
