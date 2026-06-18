@@ -36,6 +36,11 @@ import {
   pageIsVisibleInSwipe,
   visiblePageIndicesFromLayouts,
 } from './swipeLayoutVisibility';
+import {
+  findAutoFocusPropertyPath,
+  focusFieldInContainer,
+  focusFirstEnabledTextInput,
+} from '../utils/autofocusHelpers';
 
 // ---------------------------------------------------------------------------
 // Testers
@@ -68,20 +73,6 @@ export const groupAsSwipeLayoutTester: RankedTester = rankWith(
 const CONFIRM_CARD_RADIUS = 0.7;
 const CONFIRM_BORDER_WIDTH = 1;
 const CONFIRM_CARD_PADDING = 16;
-
-/** Focus first text-like input on the screen (keeps mobile keyboard open across page changes). */
-function focusFirstEnabledTextInput(container: HTMLElement | null): void {
-  if (!container) return;
-  const sel =
-    'input:not([disabled]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),textarea:not([disabled])';
-  const el = container.querySelector<HTMLElement>(sel);
-  if (!el || typeof el.focus !== 'function') return;
-  try {
-    el.focus({ preventScroll: true });
-  } catch {
-    el.focus();
-  }
-}
 
 const SwipeLayoutRenderer = ({
   schema,
@@ -137,7 +128,7 @@ const SwipeLayoutRenderer = ({
       };
     }, [uischema]);
 
-  const autoFocusFirstInput = swipeOptions.autoFocusFirstInput !== false;
+  const autoFocusFirstInput = swipeOptions.autoFocusFirstInput === true;
   const labelLayout: LabelLayout =
     swipeOptions.labelLayout === 'stacked' ? 'stacked' : 'inline';
   const showInnerTitle = swipeOptions.showInnerTitle === true;
@@ -148,10 +139,18 @@ const SwipeLayoutRenderer = ({
   const swipeScreenRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!autoFocusFirstInput) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      if (!cancelled) {
+      if (cancelled || !swipeScreenRef.current) return;
+      const pageUi = layouts[currentPage];
+      const propPath = findAutoFocusPropertyPath(pageUi);
+      if (
+        propPath &&
+        focusFieldInContainer(swipeScreenRef.current, propPath)
+      ) {
+        return;
+      }
+      if (autoFocusFirstInput) {
         focusFirstEnabledTextInput(swipeScreenRef.current);
       }
     }, 150);
@@ -159,7 +158,7 @@ const SwipeLayoutRenderer = ({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [currentPage, autoFocusFirstInput]);
+  }, [currentPage, autoFocusFirstInput, layouts]);
 
   if (typeof handleChange !== 'function') {
     console.warn(
@@ -539,64 +538,6 @@ const SwipeLayoutRenderer = ({
           keyboardSubmitAction={keyboardSubmitAction}
           header={
             <>
-              {/* Author-configured form title and sticky fields */}
-              {((showInnerTitle && headerTitle) || headerFields.length > 0) && (
-                <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
-                  {showInnerTitle && headerTitle && (
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        fontWeight: 700,
-                        fontSize: '1.125rem',
-                        lineHeight: 1.3,
-                        color: 'text.primary',
-                        mb: headerFields.length > 0 ? 0.5 : 0,
-                        textAlign: 'left',
-                      }}>
-                      {headerTitle}
-                    </Typography>
-                  )}
-                  {headerFields.length > 0 && (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: 0.5,
-                        pb: 0.5,
-                      }}>
-                      {headerFields.map((fieldKey: string) => {
-                        const fieldSchema = (schema as any)?.properties?.[
-                          fieldKey
-                        ];
-                        const label = fieldSchema?.title || fieldKey;
-                        const value = data?.[fieldKey];
-                        const displayValue =
-                          value != null && value !== '' ? String(value) : '—';
-                        return (
-                          <Typography
-                            key={fieldKey}
-                            variant="caption"
-                            sx={{
-                              px: 1,
-                              py: 0.25,
-                              borderRadius: 1,
-                              backgroundColor: 'action.hover',
-                              fontSize: '0.75rem',
-                              color:
-                                displayValue === '—'
-                                  ? 'text.disabled'
-                                  : 'text.primary',
-                              fontWeight: displayValue === '—' ? 400 : 600,
-                              textAlign: 'left',
-                            }}>
-                            {label}: {displayValue}
-                          </Typography>
-                        );
-                      })}
-                    </Box>
-                  )}
-                </Box>
-              )}
               <FormProgressBar
                 currentPage={visiblePosition}
                 totalScreens={totalVisibleScreens}
@@ -617,6 +558,62 @@ const SwipeLayoutRenderer = ({
                 }
                 navigationDisabled={isNavigating}
               />
+              {headerFields.length > 0 && (
+                <Box
+                  sx={theme => ({
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 0.5,
+                    py: 0.5,
+                    px: { xs: 0.5, sm: 1 },
+                    borderTop: `1px solid ${theme.palette.divider}`,
+                  })}>
+                  {headerFields.map((fieldKey: string) => {
+                    const fieldSchema = (schema as any)?.properties?.[
+                      fieldKey
+                    ];
+                    const label = fieldSchema?.title || fieldKey;
+                    const value = data?.[fieldKey];
+                    const displayValue =
+                      value != null && value !== '' ? String(value) : '—';
+                    return (
+                      <Typography
+                        key={fieldKey}
+                        variant="caption"
+                        sx={{
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: 1,
+                          backgroundColor: 'action.hover',
+                          fontSize: '0.75rem',
+                          color:
+                            displayValue === '—'
+                              ? 'text.disabled'
+                              : 'text.primary',
+                          fontWeight: displayValue === '—' ? 400 : 600,
+                          textAlign: 'left',
+                        }}>
+                        {label}: {displayValue}
+                      </Typography>
+                    );
+                  })}
+                </Box>
+              )}
+              {showInnerTitle && headerTitle && (
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    lineHeight: 1.3,
+                    color: 'text.primary',
+                    px: { xs: 0.5, sm: 1 },
+                    pb: 0.25,
+                    textAlign: 'left',
+                  }}>
+                  {headerTitle}
+                </Typography>
+              )}
             </>
           }
           previousButton={

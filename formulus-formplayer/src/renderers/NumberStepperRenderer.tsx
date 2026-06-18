@@ -55,6 +55,9 @@ const NumberStepperRenderer = ({
     (uischema as { options?: { required?: boolean } })?.options?.required ??
     required,
   );
+  const autoFocus =
+    (uischema as { options?: { autoFocus?: boolean } })?.options?.autoFocus ===
+    true;
 
   const handleAdd = () => {
     const currentValue = numericValue || 0;
@@ -108,7 +111,11 @@ const NumberStepperRenderer = ({
         disabled={!enabled}
         error={Boolean(errorStr)}
         fullWidth
-        inputProps={{ step }}
+        autoFocus={autoFocus}
+        inputProps={{
+          step,
+          ...(autoFocus ? { 'data-formplayer-autofocus': 'true' } : {}),
+        }}
         InputProps={{
           endAdornment: isFocused ? (
             <InputAdornment position="end">
