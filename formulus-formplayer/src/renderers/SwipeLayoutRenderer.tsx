@@ -813,26 +813,6 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
     };
   }, [data, formInitData, draftSessionKey, skipDraftPersistence]);
 
-  // Also save data when it changes (even without page change)
-  useEffect(() => {
-    if (data && !skipDraftPersistence) {
-      // Debounce the save to avoid too many calls
-      const debounceTimer = setTimeout(() => {
-        if (formInitData) {
-          console.log('Saving draft data on data change:', data);
-          draftService.saveDraft(
-            formInitData.formType,
-            data,
-            formInitData,
-            draftSessionKey,
-          );
-        }
-      }, 1000); // 1 second debounce
-
-      return () => clearTimeout(debounceTimer);
-    }
-  }, [data, formInitData, draftSessionKey, skipDraftPersistence]);
-
   return (
     <SwipeLayoutRenderer
       {...props}

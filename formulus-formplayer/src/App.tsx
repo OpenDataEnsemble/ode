@@ -107,7 +107,10 @@ import { runCustomValidatorsAndRefreshData } from './services/customValidatorDat
 import { resolveErrorPageIndex } from './utils/errorPageNavigation';
 import { applyAutoSequences } from './utils/autoSequence';
 import { newDraftSessionKey } from './utils/draftSessionKey';
-import { mergePreservingSubObsArrays } from './renderers/subObservationHelpers';
+import {
+  formDataJsonEqual,
+  mergePreservingSubObsArrays,
+} from './renderers/subObservationHelpers';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
 function isSubObservationSession(init: FormInitData): boolean {
@@ -1047,6 +1050,11 @@ function App() {
       const baseline = dataRef.current as Record<string, unknown>;
       const merged = mergePreservingSubObsArrays(baseline, incoming);
       const refreshedData = refreshFormData(merged);
+      // JsonForms re-emits when we push merged sub-obs arrays back; skip when
+      // nothing actually changed to break the render / draft persistence loop.
+      if (formDataJsonEqual(refreshedData, baseline)) {
+        return;
+      }
       dataRef.current = refreshedData;
       setData(refreshedData);
       persistDraftIfRootSession(refreshedData);

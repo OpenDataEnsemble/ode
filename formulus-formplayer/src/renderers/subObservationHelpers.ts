@@ -111,20 +111,49 @@ export function writeDataPath(
   return root;
 }
 
-const SUB_OBS_ARRAY_KEYS = ['quartos', 'camas', 'pessoas'] as const;
+/** Embedded arrays and derived indexes preserved when JsonForms omits unmounted fields. */
+const PRESERVED_ARRAY_KEYS = [
+  'quartos',
+  'camas',
+  'pessoas',
+  'person_codigos',
+] as const;
 
-/** Keep embedded sub-obs arrays when JsonForms emits stale onChange after a merge. */
+/** Stable JSON comparison for form-data equality checks (avoids render loops). */
+export function formDataJsonEqual(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+): boolean {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Keep embedded sub-obs arrays when JsonForms emits partial onChange payloads.
+ * SwipeLayout only mounts the current page, so controls on other pages (e.g.
+ * `quartos`) are absent from `incoming` even though they still live in our
+ * baseline draft state.
+ */
 export function mergePreservingSubObsArrays(
   baseline: Record<string, unknown>,
   incoming: Record<string, unknown>,
 ): Record<string, unknown> {
   const merged = { ...incoming };
-  for (const key of SUB_OBS_ARRAY_KEYS) {
+  for (const key of PRESERVED_ARRAY_KEYS) {
     const baseArr = baseline[key];
-    const inArr = incoming[key];
+    if (!(key in incoming)) {
+      if (Array.isArray(baseArr)) {
+        merged[key] = baseArr;
+      }
+      continue;
+    }
     if (!Array.isArray(baseArr) || baseArr.length === 0) {
       continue;
     }
+    const inArr = incoming[key];
     if (!Array.isArray(inArr) || inArr.length < baseArr.length) {
       merged[key] = baseArr;
     }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  formDataJsonEqual,
   mergePreservingSubObsArrays,
   readDataPath,
   writeDataPath,
@@ -23,6 +24,24 @@ describe('subObservationHelpers', () => {
     const merged = mergePreservingSubObsArrays(baseline, incoming);
     expect(merged.pessoas).toEqual([{ id: 1 }]);
     expect(merged.validar_cama).toBe('1');
+  });
+
+  it('mergePreservingSubObsArrays restores omitted quartos from baseline', () => {
+    const baseline = {
+      comments: 'old',
+      quartos: [{ quarto_num: 1, camas: [] }],
+      person_codigos: [],
+    };
+    const incoming = { comments: 'new', assistant1: 'AB' };
+    const merged = mergePreservingSubObsArrays(baseline, incoming);
+    expect(merged.comments).toBe('new');
+    expect(merged.quartos).toEqual(baseline.quartos);
+    expect(merged.person_codigos).toEqual([]);
+  });
+
+  it('formDataJsonEqual compares stable JSON snapshots', () => {
+    expect(formDataJsonEqual({ a: 1 }, { a: 1 })).toBe(true);
+    expect(formDataJsonEqual({ a: 1 }, { a: 2 })).toBe(false);
   });
 
   it('readDataPath resolves dotted paths', () => {
