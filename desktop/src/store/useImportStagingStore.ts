@@ -98,8 +98,7 @@ export const useImportStagingStore = create<ImportStagingState>(set => ({
       ),
     })),
 
-  clearStagedFiles: () =>
-    set({ stagedJson: [], stagedAttachments: [] }),
+  clearStagedFiles: () => set({ stagedJson: [], stagedAttachments: [] }),
 
   clearStagingLists: () => set(emptyStagingState()),
 
