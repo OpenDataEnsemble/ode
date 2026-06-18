@@ -20,7 +20,9 @@ interface ImportStagingState {
   addScanEntries: (entries: ImportStagingScanEntry[]) => void;
   removeStagedJson: (nativePath: string) => void;
   removeStagedAttachment: (nativePath: string) => void;
-  /** Clears staged JSON + attachment lists. */
+  /** Clears staged JSON + attachment lists (keeps message/error). */
+  clearStagedFiles: () => void;
+  /** Clears staged files and resets message/error/activity. */
   clearStagingLists: () => void;
   setMessage: (m: string | null) => void;
   setError: (e: string | null) => void;
@@ -95,6 +97,9 @@ export const useImportStagingStore = create<ImportStagingState>(set => ({
         f => f.nativePath !== nativePath,
       ),
     })),
+
+  clearStagedFiles: () =>
+    set({ stagedJson: [], stagedAttachments: [] }),
 
   clearStagingLists: () => set(emptyStagingState()),
 
