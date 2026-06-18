@@ -4,7 +4,7 @@
  * `openFormplayer` with `subObservationMode`.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import { ControlProps, rankWith, schemaMatches } from '@jsonforms/core';
 import { Box, Typography, Button, IconButton, Tooltip } from '@mui/material';
@@ -153,52 +153,23 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     [valueRows, missingKeys, config.orderBy],
   );
 
-  const [rows, setRows] = useState<Record<string, unknown>[]>(sortedFromProps);
+  // JsonForms `data` is the source of truth; pushSorted writes via handleChange only.
+  const rows = sortedFromProps;
+
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [prevSortedFromProps, setPrevSortedFromProps] =
-    useState(sortedFromProps);
 
-  if (sortedFromProps !== prevSortedFromProps) {
-    setPrevSortedFromProps(sortedFromProps);
-    setRows(sortedFromProps);
-  }
-
-  useEffect(() => {
-    function refresh() {
-      setRows(prev => sortRows(prev, config.orderBy as OrderBySpec));
-    }
-    function onVisibility() {
-      if (document.visibilityState === 'visible') refresh();
-    }
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', refresh);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', refresh);
-    };
-  }, [config.orderBy]);
-
-  useEffect(() => {
-    const prev =
-      typeof window !== 'undefined'
-        ? (window as Window & { onReceiveFocus?: () => void }).onReceiveFocus
-        : undefined;
-    const wrapped = () => {
-      if (typeof prev === 'function') prev();
-      setRows(r => sortRows(r, config.orderBy as OrderBySpec));
-    };
-    if (typeof window !== 'undefined') {
-      (window as Window & { onReceiveFocus?: () => void }).onReceiveFocus =
-        wrapped;
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        (window as Window & { onReceiveFocus?: () => void }).onReceiveFocus =
-          prev;
-      }
-    };
-  }, [config.orderBy]);
+  const getCurrentRows = useCallback((): Record<string, unknown>[] => {
+    const root = jsonForms.core?.data;
+    const raw =
+      root && typeof root === 'object' && path
+        ? readDataPath(root as Record<string, unknown>, path)
+        : data;
+    return sortRows(
+      coerceSubObservationRows(raw),
+      config.orderBy as OrderBySpec,
+    ) as Record<string, unknown>[];
+  }, [jsonForms.core?.data, data, path, config.orderBy]);
 
   const columns = useMemo(() => buildColumns(config, rows), [config, rows]);
 
@@ -238,24 +209,15 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   const pushSorted = useCallback(
     (next: Record<string, unknown>[]) => {
       const sorted = sortRows(next, config.orderBy as OrderBySpec);
-      setRows(sorted);
-      setPrevSortedFromProps(sorted);
       handleChange(path, sorted);
       requestFormRevalidation();
     },
     [config.orderBy, handleChange, path, requestFormRevalidation],
   );
 
-  const refreshRowsFromFormData = useCallback(() => {
-    const sorted = sortRows(valueRows, config.orderBy as OrderBySpec);
-    setPrevSortedFromProps(sorted);
-    setRows(sorted as Record<string, unknown>[]);
-  }, [valueRows, config.orderBy]);
-
   const handleAdd = useCallback(async () => {
     if (!enabled || missingKeys.length || !childFormType) return;
     const client = FormulusClient.getInstance();
-    let merged = false;
     try {
       setBusyId('add');
       const pv = resolveParentValue(formData, parentValuePath);
@@ -279,8 +241,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       );
       if (result?.status === 'form_submitted' && result.formData) {
         const row = result.formData as Record<string, unknown>;
-        pushSorted([...rows, row]);
-        merged = true;
+        pushSorted([...getCurrentRows(), row]);
       }
     } catch (e) {
       setError(
@@ -288,11 +249,6 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       );
     } finally {
       setBusyId(null);
-      // After a successful merge, pushSorted already updated local state and
-      // JsonForms data; refreshing from props races and drops the new row.
-      if (!merged) {
-        window.setTimeout(() => refreshRowsFromFormData(), 0);
-      }
     }
   }, [
     enabled,
@@ -302,16 +258,14 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     parentValuePath,
     parentKey,
     config,
-    rows,
+    getCurrentRows,
     pushSorted,
-    refreshRowsFromFormData,
   ]);
 
   const handleEdit = useCallback(
     async (row: Record<string, unknown>, index: number) => {
       if (!enabled || !childFormType || missingKeys.length) return;
       const client = FormulusClient.getInstance();
-      let merged = false;
       try {
         setBusyId(`edit_${index}`);
         const pv = resolveParentValue(formData, parentValuePath);
@@ -344,11 +298,10 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
             result.status === 'form_updated') &&
           result.formData
         ) {
-          const updated = rows.map((r, i) =>
+          const updated = getCurrentRows().map((r, i) =>
             i === index ? (result.formData as Record<string, unknown>) : r,
           );
           pushSorted(updated);
-          merged = true;
         }
       } catch (e) {
         setError(
@@ -356,9 +309,6 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
         );
       } finally {
         setBusyId(null);
-        if (!merged) {
-          window.setTimeout(() => refreshRowsFromFormData(), 0);
-        }
       }
     },
     [
@@ -368,9 +318,8 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       formData,
       parentValuePath,
       config,
-      rows,
+      getCurrentRows,
       pushSorted,
-      refreshRowsFromFormData,
     ],
   );
 
@@ -393,7 +342,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
         return;
       }
       try {
-        pushSorted(rows.filter((_, i) => i !== index));
+        pushSorted(getCurrentRows().filter((_, i) => i !== index));
       } catch (e) {
         setError(
           e instanceof Error ? e.message : 'Unable to delete sub-observation',
@@ -404,7 +353,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       enabled,
       allowDelete,
       config.displayField,
-      rows,
+      getCurrentRows,
       pushSorted,
       deleteFallbackLabel,
     ],

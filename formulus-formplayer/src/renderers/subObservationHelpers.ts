@@ -204,11 +204,14 @@ export function formatCellValue(value: unknown): string {
   return String(value);
 }
 
+/** Stable empty reference — avoid retriggering sub-observation row sync every render. */
+const EMPTY_SUB_OBSERVATION_ROWS: unknown[] = [];
+
 /** Normalizes JsonForms control data into an array of row payloads. */
 export function coerceSubObservationRows(value: unknown): unknown[] {
-  if (value == null) return [];
+  if (value == null) return EMPTY_SUB_OBSERVATION_ROWS;
   if (Array.isArray(value)) return value;
-  return [];
+  return EMPTY_SUB_OBSERVATION_ROWS;
 }
 
 export function readSubObservationField(
@@ -274,7 +277,9 @@ export function sortRows(
     r && typeof r === 'object' ? (r as Record<string, unknown>) : {},
   );
 
-  if (!asRecords.length) return asRecords;
+  if (!asRecords.length) {
+    return EMPTY_SUB_OBSERVATION_ROWS as Record<string, unknown>[];
+  }
 
   let key: string | null = null;
   let direction = 'desc';
