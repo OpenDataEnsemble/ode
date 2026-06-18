@@ -1,6 +1,6 @@
 /**
  * Do not edit directly
- * Generated on Thu, 18 Jun 2026 10:31:25 GMT
+ * Generated on Thu, 18 Jun 2026 18:09:49 GMT
  */
 
 export const ContrastAaLarge = "3:1";
