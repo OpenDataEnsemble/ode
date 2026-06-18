@@ -14,6 +14,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { Platform } from 'react-native';
 import { readFileAssets, MainBundlePath, readFile } from 'react-native-fs';
 import { FormulusWebViewMessageManager } from '../webview/FormulusWebViewHandler';
+import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 import { FormInitData } from '../webview/FormulusInterfaceDefinition';
 import { colors } from '../theme/colors';
 import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
@@ -318,6 +319,33 @@ const CustomAppWebView = forwardRef<
 
       return manager;
     }, [appName]);
+
+    useEffect(() => {
+      const onLocationUpdate = (payload: {
+        fieldId: string;
+        location: Record<string, unknown>;
+      }) => {
+        if (!webViewRef.current) return;
+        webViewRef.current.postMessage(
+          JSON.stringify({
+            type: 'locationWatchUpdate',
+            fieldId: payload.fieldId,
+            result: {
+              fieldId: payload.fieldId,
+              status: 'success',
+              data: payload.location,
+            },
+          }),
+        );
+      };
+      appEvents.addListener('locationWatchUpdate', onLocationUpdate as Listener);
+      return () => {
+        appEvents.removeListener(
+          'locationWatchUpdate',
+          onLocationUpdate as Listener,
+        );
+      };
+    }, []);
 
     const handleNavigationStateChange = useCallback(
       (navState: WebViewNavigation) => {

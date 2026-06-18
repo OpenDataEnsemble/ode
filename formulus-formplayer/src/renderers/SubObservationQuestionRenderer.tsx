@@ -19,13 +19,13 @@ import {
   coerceSubObservationRows,
   optionalRecordMap,
   readSubObservationField,
-  resolveInitialValues,
   sortRows,
   readDataPath,
   resolveItemLabel,
   resolveAddButtonLabel,
   resolveEmptyLabel,
   resolveDeleteFallbackLabel,
+  buildSubObservationOpenParams,
   type OrderBySpec,
 } from './subObservationHelpers';
 
@@ -227,14 +227,23 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     [itemLabel],
   );
 
+  const requestFormRevalidation = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('formRevalidate'));
+      }, 0);
+    }
+  }, []);
+
   const pushSorted = useCallback(
     (next: Record<string, unknown>[]) => {
       const sorted = sortRows(next, config.orderBy as OrderBySpec);
       setRows(sorted);
       setPrevSortedFromProps(sorted);
       handleChange(path, sorted);
+      requestFormRevalidation();
     },
-    [config.orderBy, handleChange, path],
+    [config.orderBy, handleChange, path, requestFormRevalidation],
   );
 
   const refreshRowsFromFormData = useCallback(() => {
@@ -249,17 +258,18 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     try {
       setBusyId('add');
       const pv = resolveParentValue(formData, parentValuePath);
-      let baseValues = resolveInitialValues(
-        optionalRecordMap(config.subObservationInitValues),
+      const openParams = buildSubObservationOpenParams(
         formData,
+        config,
         pv,
+        optionalRecordMap(config.subObservationInitValues),
       );
-      if (parentKey && pv != null && baseValues[parentKey] == null) {
-        baseValues = { ...baseValues, [parentKey]: pv };
+      if (parentKey && pv != null && openParams[parentKey] == null) {
+        openParams[parentKey] = pv;
       }
       const result: FormCompletionResult = await client.openFormplayer(
         childFormType,
-        baseValues,
+        openParams,
         {},
         {
           subObservationMode: true,
@@ -298,21 +308,23 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       try {
         setBusyId(`edit_${index}`);
         const pv = resolveParentValue(formData, parentValuePath);
-        const openValues = resolveInitialValues(
-          optionalRecordMap(config.subObservationEditInitValues),
+        const openParams = buildSubObservationOpenParams(
           formData,
+          config,
           pv,
+          optionalRecordMap(config.subObservationEditInitValues),
         );
+        const { context: _ctx, ...paramDefaults } = openParams;
         const rowData = isObservationWrappedRow(row)
           ? ((row.data ?? {}) as Record<string, unknown>)
           : row;
         const savedData: Record<string, unknown> = {
           ...rowData,
-          ...openValues,
+          ...paramDefaults,
         };
         const result: FormCompletionResult = await client.openFormplayer(
           childFormType,
-          {},
+          openParams,
           savedData,
           {
             subObservationMode: true,

@@ -18,6 +18,7 @@ import {
   rankWith,
   uiTypeIs,
   RankedTester,
+  JsonSchema7,
 } from '@jsonforms/core';
 import { useSwipeable } from 'react-swipeable';
 import { Box, Typography, useTheme } from '@mui/material';
@@ -42,6 +43,7 @@ import {
   focusFirstEnabledTextInput,
 } from '../utils/autofocusHelpers';
 import { navigateToFirstBlockingError } from '../utils/validationNavigation';
+import { formatBlockingErrorSummary } from '../utils/errorPageNavigation';
 
 // ---------------------------------------------------------------------------
 // Testers
@@ -427,6 +429,15 @@ const SwipeLayoutRenderer = ({
 
   const validationErrorCount = core?.errors?.length ?? 0;
 
+  const validationAlertMessage = useMemo(() => {
+    const errors = core?.errors ?? [];
+    if (errors.length === 0) return '';
+    return formatBlockingErrorSummary(
+      errors,
+      (core?.schema ?? schema) as JsonSchema7,
+    );
+  }, [core?.errors, core?.schema, schema]);
+
   const trySubmitForm = useCallback(() => {
     if (!formInitData) return;
     const errors = core?.errors ?? [];
@@ -668,9 +679,7 @@ const SwipeLayoutRenderer = ({
               color="error"
               role="alert"
               sx={{ px: { xs: 1, sm: 1.5 }, pt: 1, pb: 0.5 }}>
-              {validationErrorCount}{' '}
-              {validationErrorCount === 1 ? 'field needs' : 'fields need'}{' '}
-              attention. Tap Done to review.
+              {validationAlertMessage}
             </Typography>
           )}
 

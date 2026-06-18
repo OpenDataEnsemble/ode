@@ -104,6 +104,8 @@ import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
 import { loadCustomValidators } from './services/CustomValidatorLoader';
 import { customValidatorRegistry } from './services/CustomValidatorRegistry';
 import { runCustomValidatorsAndRefreshData } from './services/customValidatorDataRefresh';
+import { resolveErrorPageIndex } from './utils/errorPageNavigation';
+import { applyAutoSequences } from './utils/autoSequence';
 import { newDraftSessionKey } from './utils/draftSessionKey';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
@@ -584,6 +586,12 @@ function App() {
         ];
         (window as unknown as Record<string, unknown>).formulusSessionContext =
           sessionContext ?? null;
+        (window as unknown as Record<string, unknown>).formulusSubObservationContext =
+          sessionContext &&
+          typeof sessionContext === 'object' &&
+          'subObservation' in (sessionContext as Record<string, unknown>)
+            ? (sessionContext as Record<string, unknown>).subObservation
+            : null;
 
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
@@ -927,27 +935,29 @@ function App() {
     const handleNavigateToError = (event: CustomEvent) => {
       if (!uischema) return;
 
-      const path = event.detail.path;
-      const field = path.split('/').pop();
-      const screens = uischema.elements;
+      const path = event.detail?.path;
+      if (!path || typeof path !== 'string') return;
 
-      for (let i = 0; i < screens.length; i++) {
-        const screen = screens[i];
-        // Skip the Finalize screen
-        if (screen.type === 'Finalize') continue;
-
-        // Type guard to ensure elements exists
-        if ('elements' in screen && screen.elements) {
-          if (screen.elements.some((el: any) => el.scope?.includes(field))) {
-            // Dispatch a custom event that SwipeLayoutWrapper will listen for
-            const navigateEvent = new CustomEvent('navigateToPage', {
-              detail: { page: i },
-            });
-            window.dispatchEvent(navigateEvent);
-            break;
-          }
-        }
+      const pageIndex = resolveErrorPageIndex(uischema, path);
+      if (pageIndex !== null) {
+        window.dispatchEvent(
+          new CustomEvent('navigateToPage', {
+            detail: { page: pageIndex },
+          }),
+        );
       }
+    };
+
+    const handleRevalidate = () => {
+      if (!data) return;
+      const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
+        uischema ?? undefined,
+        schema ?? undefined,
+        data as Record<string, unknown>,
+        ajv,
+      );
+      setData(structuredClone(refreshedData));
+      setCustomValidatorErrors(errors);
     };
 
     const handleShowValidation = () => {
@@ -1045,6 +1055,10 @@ function App() {
       'formShowValidation',
       handleShowValidation as EventListener,
     );
+    window.addEventListener(
+      'formRevalidate',
+      handleRevalidate as EventListener,
+    );
 
     return () => {
       window.removeEventListener(
@@ -1058,6 +1072,10 @@ function App() {
       window.removeEventListener(
         'formShowValidation',
         handleShowValidation as EventListener,
+      );
+      window.removeEventListener(
+        'formRevalidate',
+        handleRevalidate as EventListener,
       );
     };
   }, [data, formInitData, draftSessionKey, uischema, schema, ajv]); // Include all dependencies
@@ -1101,14 +1119,31 @@ function App() {
 
   const handleDataChange = useCallback(
     ({ data: newData }: { data: FormData }) => {
+      const autoRuntime = {
+        subObservationContext: (
+          window as unknown as {
+            formulusSubObservationContext?: Record<string, unknown> | null;
+          }
+        ).formulusSubObservationContext,
+        sessionContext: (
+          window as unknown as {
+            formulusSessionContext?: Record<string, unknown> | null;
+          }
+        ).formulusSessionContext,
+      };
+      const { data: sequencedData, mutated: seqMutated } = applyAutoSequences(
+        newData as Record<string, unknown>,
+        schema ?? undefined,
+        autoRuntime,
+      );
       const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
         uischema ?? undefined,
         schema ?? undefined,
-        newData as Record<string, unknown>,
+        sequencedData,
         ajv,
       );
 
-      setData(refreshedData);
+      setData(seqMutated ? refreshedData : refreshedData);
       setCustomValidatorErrors(errors);
 
       // Save draft data whenever form data changes (skip embedded sub-observation sessions)

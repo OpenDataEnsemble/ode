@@ -136,6 +136,66 @@ export function resolveInitialValues(
   return out;
 }
 
+/** Resolve `subObservationContext` templates from the opening form's data. */
+export function resolveSubObservationContext(
+  mapObj: Record<string, unknown> | null | undefined,
+  formData: Record<string, unknown>,
+  parentValue: string | null,
+): Record<string, unknown> {
+  return resolveInitialValues(mapObj, formData, parentValue);
+}
+
+export function buildSubObservationOpenParams(
+  formData: Record<string, unknown>,
+  config: Record<string, unknown>,
+  parentValue: string | null,
+  initMap?: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const parentSessionContext =
+    typeof window !== 'undefined'
+      ? (
+          window as unknown as {
+            formulusSessionContext?: Record<string, unknown> | null;
+          }
+        ).formulusSessionContext
+      : null;
+
+  const resolved = resolveSubObservationContext(
+    optionalRecordMap(config.subObservationContext),
+    formData,
+    parentValue,
+  );
+  const inheritedSubObservation =
+    parentSessionContext &&
+    typeof parentSessionContext === 'object' &&
+    parentSessionContext.subObservation &&
+    typeof parentSessionContext.subObservation === 'object'
+      ? (parentSessionContext.subObservation as Record<string, unknown>)
+      : {};
+
+  const subObservation: Record<string, unknown> = { ...inheritedSubObservation };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (value !== '' && value != null) {
+      subObservation[key] = value;
+    }
+  }
+
+  const initValues = resolveInitialValues(initMap, formData, parentValue);
+  const { household_quartos: _legacySnapshot, ...restInit } = initValues;
+
+  const context = {
+    ...(parentSessionContext && typeof parentSessionContext === 'object'
+      ? parentSessionContext
+      : {}),
+    ...(Object.keys(subObservation).length > 0 ? { subObservation } : {}),
+  };
+
+  return {
+    ...restInit,
+    ...(Object.keys(context).length > 0 ? { context } : {}),
+  };
+}
+
 export function formatCellValue(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'object') return JSON.stringify(value);

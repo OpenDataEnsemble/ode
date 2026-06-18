@@ -95,6 +95,11 @@ const QrcodeQuestionRenderer: React.FC<ControlProps> = ({
         if (qrError.status === 'cancelled') {
           // User cancelled — don't show error
           console.log('QR scan cancelled by user');
+        } else if (
+          qrError.status === 'error' &&
+          qrError.message === 'QR scanner is already open'
+        ) {
+          setError('Scanner is already open. Close it first, then try again.');
         } else if (qrError.status === 'error') {
           setError(qrError.message || 'QR scanner error');
         } else {

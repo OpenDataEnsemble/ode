@@ -208,7 +208,11 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" statusBarTranslucent>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      statusBarTranslucent
+      onRequestClose={handleCancel}>
       <StatusBar barStyle="light-content" backgroundColor="black" />
       <View style={styles.container}>
         <Camera

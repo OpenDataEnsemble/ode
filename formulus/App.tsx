@@ -20,6 +20,7 @@ import FormplayerModal, {
   FormplayerModalHandle,
 } from './src/components/FormplayerModal';
 import QRScannerModal from './src/components/QRScannerModal';
+import { qrcodeRequestCoordinator } from './src/services/QrcodeRequestCoordinator';
 import SignatureCaptureModal from './src/components/SignatureCaptureModal';
 import MainAppNavigator from './src/navigation/MainAppNavigator';
 import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
@@ -286,6 +287,7 @@ function AppInner(): React.JSX.Element {
       <QRScannerModal
         visible={qrScannerVisible}
         onClose={() => {
+          qrcodeRequestCoordinator.cancel(qrScannerData?.fieldId);
           setQrScannerVisible(false);
           setQrScannerData(null);
         }}

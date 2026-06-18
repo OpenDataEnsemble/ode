@@ -3,6 +3,7 @@ This is where the actual implementation of the methods happens on the React Nati
 It handles the messages received from the WebView and executes the corresponding native functionality.
 */
 import { GeolocationService } from '../services/GeolocationService';
+import { qrcodeRequestCoordinator } from '../services/QrcodeRequestCoordinator';
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
 import * as Keychain from 'react-native-keychain';
@@ -529,27 +530,28 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onRequestQrcode: async (fieldId: string): Promise<unknown> => {
       console.log('Request QR code handler called', fieldId);
 
-      return new Promise(resolve => {
-        try {
-          // Emit event to open QR scanner modal
-          appEvents.emit('openQRScanner', {
-            fieldId,
-            onResult: (result: unknown) => {
-              console.log('QR scan result received:', result);
-              resolve(result);
-            },
-          });
-        } catch (error) {
-          console.error('Error in QR code handler:', error);
-          const errorMessage =
-            error instanceof Error ? error.message : 'Unknown error';
-          resolve({
-            fieldId,
-            status: 'error',
-            message: `QR code error: ${errorMessage}`,
-          });
-        }
-      });
+      const promise = qrcodeRequestCoordinator.request(fieldId);
+
+      try {
+        appEvents.emit('openQRScanner', {
+          fieldId,
+          onResult: (result: unknown) => {
+            console.log('QR scan result received:', result);
+            qrcodeRequestCoordinator.settle(result);
+          },
+        });
+      } catch (error) {
+        console.error('Error in QR code handler:', error);
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        qrcodeRequestCoordinator.settle({
+          fieldId,
+          status: 'error',
+          message: `QR code error: ${errorMessage}`,
+        });
+      }
+
+      return promise;
     },
     onRequestSignature: async (fieldId: string): Promise<unknown> => {
       console.log('Request signature handler called', fieldId);
@@ -686,6 +688,71 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         }
       });
     },
+
+    onGetCachedLocation: async (
+      payload: string | { fieldId?: string },
+    ): Promise<unknown> => {
+      const fieldId =
+        typeof payload === 'string'
+          ? payload
+          : typeof payload?.fieldId === 'string'
+            ? payload.fieldId
+            : '';
+      const geolocationService = GeolocationService.getInstance();
+      const position = geolocationService.getCachedLocation();
+      if (!position) return null;
+      return {
+        fieldId,
+        status: 'success' as const,
+        data: {
+          type: 'location' as const,
+          latitude: position.latitude || 0,
+          longitude: position.longitude || 0,
+          accuracy: position.accuracy,
+          altitude: position.altitude,
+          altitudeAccuracy: position.altitude_accuracy,
+          timestamp: position.timestamp ?? new Date().toISOString(),
+        },
+      };
+    },
+
+    onWatchLocation: async (
+      payload: string | { fieldId?: string },
+    ): Promise<unknown> => {
+      const fieldId =
+        typeof payload === 'string'
+          ? payload
+          : typeof payload?.fieldId === 'string'
+            ? payload.fieldId
+            : '';
+      if (!fieldId) {
+        return { status: 'error', message: 'fieldId is required' };
+      }
+      try {
+        GeolocationService.getInstance().startAppLocationWatch(fieldId);
+        return { status: 'started' };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'watchLocation failed';
+        return { status: 'error', message };
+      }
+    },
+
+    onStopWatchLocation: async (
+      payload: string | { fieldId?: string },
+    ): Promise<unknown> => {
+      const fieldId =
+        typeof payload === 'string'
+          ? payload
+          : typeof payload?.fieldId === 'string'
+            ? payload.fieldId
+            : '';
+      GeolocationService.getInstance().stopAppLocationWatch(
+        fieldId || undefined,
+      );
+      return { status: 'stopped' };
+    },
+
     onRequestVideo: async (fieldId: string): Promise<unknown> => {
       return new Promise((resolve, reject) => {
         try {
