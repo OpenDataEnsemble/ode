@@ -172,10 +172,10 @@ flowchart LR
 
 Forms that use a root `SwipeLayout` in `ui.json` support these `options`:
 
-| Option | Default | Description |
-|--------|---------|-------------|
+| Option                | Default | Description                                                                                       |
+| --------------------- | ------- | ------------------------------------------------------------------------------------------------- |
 | `autoFocusFirstInput` | `false` | When `true`, focuses the first text-like field each time the user changes page (legacy behavior). |
-| `headerFields` | `[]` | Up to two field keys shown as context tags below the progress bar. |
-| `headerTitle` | — | Optional inner title below the context bar. |
+| `headerFields`        | `[]`    | Up to two field keys shown as context tags below the progress bar.                                |
+| `headerTitle`         | —       | Optional inner title below the context bar.                                                       |
 
 Per-control focus: set `options.autoFocus: true` on a `Control` to focus that field when its page is shown (takes precedence over `autoFocusFirstInput`).

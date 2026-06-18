@@ -47,7 +47,9 @@ const ShellInputControl = (props: ControlProps) => {
         label={undefined}
         isValid={isValid}
         muiInputProps={{
-          ...(keyboardEnterKeyHint ? { enterKeyHint: keyboardEnterKeyHint } : {}),
+          ...(keyboardEnterKeyHint
+            ? { enterKeyHint: keyboardEnterKeyHint }
+            : {}),
           ...(autoFocus
             ? {
                 autoFocus: true,

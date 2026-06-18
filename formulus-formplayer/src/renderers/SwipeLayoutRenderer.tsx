@@ -144,10 +144,7 @@ const SwipeLayoutRenderer = ({
       if (cancelled || !swipeScreenRef.current) return;
       const pageUi = layouts[currentPage];
       const propPath = findAutoFocusPropertyPath(pageUi);
-      if (
-        propPath &&
-        focusFieldInContainer(swipeScreenRef.current, propPath)
-      ) {
+      if (propPath && focusFieldInContainer(swipeScreenRef.current, propPath)) {
         return;
       }
       if (autoFocusFirstInput) {
@@ -569,9 +566,7 @@ const SwipeLayoutRenderer = ({
                     borderTop: `1px solid ${theme.palette.divider}`,
                   })}>
                   {headerFields.map((fieldKey: string) => {
-                    const fieldSchema = (schema as any)?.properties?.[
-                      fieldKey
-                    ];
+                    const fieldSchema = (schema as any)?.properties?.[fieldKey];
                     const label = fieldSchema?.title || fieldKey;
                     const value = data?.[fieldKey];
                     const displayValue =
