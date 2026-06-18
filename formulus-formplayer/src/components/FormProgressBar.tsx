@@ -191,7 +191,8 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   }, [currentPage, totalScreens, data, schema, mode, isOnFinalizePage]);
 
   const handlePrev = useCallback(() => {
-    if (navigationDisabled || !canNavigatePrevious || !onNavigatePrevious) return;
+    if (navigationDisabled || !canNavigatePrevious || !onNavigatePrevious)
+      return;
     onNavigatePrevious();
   }, [navigationDisabled, canNavigatePrevious, onNavigatePrevious]);
 

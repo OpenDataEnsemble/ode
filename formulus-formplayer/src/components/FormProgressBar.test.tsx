@@ -9,7 +9,9 @@ const theme = createTheme();
 
 afterEach(() => cleanup());
 
-const renderBar = (props: Partial<React.ComponentProps<typeof FormProgressBar>> = {}) =>
+const renderBar = (
+  props: Partial<React.ComponentProps<typeof FormProgressBar>> = {},
+) =>
   render(
     <ThemeProvider theme={theme}>
       <FormProgressBar
@@ -31,13 +33,21 @@ describe('FormProgressBar header navigation', () => {
   });
 
   it('disables previous chevron on first page', () => {
-    renderBar({ currentPage: 0, canNavigatePrevious: false, canNavigateNext: true });
+    renderBar({
+      currentPage: 0,
+      canNavigatePrevious: false,
+      canNavigateNext: true,
+    });
     expect(screen.getByLabelText('Previous screen')).toBeDisabled();
     expect(screen.getByLabelText('Next screen')).not.toBeDisabled();
   });
 
   it('disables next chevron on last page', () => {
-    renderBar({ currentPage: 2, canNavigatePrevious: true, canNavigateNext: false });
+    renderBar({
+      currentPage: 2,
+      canNavigatePrevious: true,
+      canNavigateNext: false,
+    });
     expect(screen.getByLabelText('Previous screen')).not.toBeDisabled();
     expect(screen.getByLabelText('Next screen')).toBeDisabled();
   });

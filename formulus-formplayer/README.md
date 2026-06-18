@@ -194,13 +194,13 @@ Swipe gestures attach to the full scroll area (not only the question panel).
 
 After formplayer changes, verify on a phone WebView (or ODE Desktop form preview with keyboard):
 
-| Scenario | Pass criteria |
-| -------- | ------------- |
-| Multi-page form header | Both chevrons visible; disabled at first/last page |
+| Scenario                                  | Pass criteria                                                |
+| ----------------------------------------- | ------------------------------------------------------------ |
+| Multi-page form header                    | Both chevrons visible; disabled at first/last page           |
 | Group page (e.g. GBMIS Sticker / amostra) | Full-width layout; swipe works on background below questions |
-| GBMIS `censo_milda_pessoa` → Anos | No white scroll gap when typing digits |
-| GBMIS `censo` → IME Next | No gap when moving field-to-field via keyboard Next |
-| `age_years` > 120 | Single validation error via QuestionShell |
+| GBMIS `censo_milda_pessoa` → Anos         | No white scroll gap when typing digits                       |
+| GBMIS `censo` → IME Next                  | No gap when moving field-to-field via keyboard Next          |
+| `age_years` > 120                         | Single validation error via QuestionShell                    |
 
 Rebuild formplayer (`pnpm run build:copy`) before testing in Formulus or Desktop developer mode.
 

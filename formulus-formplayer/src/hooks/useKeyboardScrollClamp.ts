@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import {
-  clampScrollTop,
-  revealFieldIfNeeded,
-} from '../utils/keyboardScroll';
+import { clampScrollTop, revealFieldIfNeeded } from '../utils/keyboardScroll';
 
 /** Input types that should trigger scroll clamp on value change. */
 export function isClampableInputType(type: string | undefined): boolean {

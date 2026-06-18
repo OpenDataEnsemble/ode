@@ -32,10 +32,7 @@ describe('FormLayout keyboard scroll integration', () => {
 
     await new Promise(resolve => setTimeout(resolve, 50));
 
-    const max = Math.max(
-      0,
-      scrollArea.scrollHeight - scrollArea.clientHeight,
-    );
+    const max = Math.max(0, scrollArea.scrollHeight - scrollArea.clientHeight);
     expect(scrollArea.scrollTop).toBeLessThanOrEqual(max);
     expect(container).toBeTruthy();
   });

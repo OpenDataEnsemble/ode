@@ -75,7 +75,12 @@ export function revealFieldIfNeeded(
   const fieldRect = field.getBoundingClientRect();
 
   if (
-    !isFieldObscuredInContainer(containerRect, fieldRect, marginTop, marginBottom)
+    !isFieldObscuredInContainer(
+      containerRect,
+      fieldRect,
+      marginTop,
+      marginBottom,
+    )
   ) {
     return false;
   }

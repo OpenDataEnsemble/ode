@@ -37,7 +37,10 @@ export function CardGroupShell({
   );
 }
 
-export const flatGroupLayoutTester: RankedTester = rankWith(2, uiTypeIs('Group'));
+export const flatGroupLayoutTester: RankedTester = rankWith(
+  2,
+  uiTypeIs('Group'),
+);
 
 const FlatGroupLayoutRenderer = ({
   uischema,
@@ -109,4 +112,6 @@ const FlatGroupLayoutRenderer = ({
   );
 };
 
-export const FlatGroupLayout = withJsonFormsLayoutProps(FlatGroupLayoutRenderer);
+export const FlatGroupLayout = withJsonFormsLayoutProps(
+  FlatGroupLayoutRenderer,
+);
