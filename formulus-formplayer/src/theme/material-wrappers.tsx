@@ -28,7 +28,6 @@ import {
   useTheme,
   FormControl,
   Select,
-  FormHelperText,
   Radio,
   Checkbox,
   FormControlLabel,
@@ -243,7 +242,6 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
             </option>
           ))}
         </Select>
-        {hasError ? <FormHelperText>{errors}</FormHelperText> : null}
       </FormControl>
     </QuestionShell>
   );

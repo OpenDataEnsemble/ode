@@ -12,12 +12,11 @@ import {
   MenuItem,
   Box,
   Typography,
-  Alert,
   Button,
   FormControl,
   InputLabel,
 } from '@mui/material';
-import { CalendarToday, ErrorOutline } from '@mui/icons-material';
+import { CalendarToday } from '@mui/icons-material';
 import QuestionShell from '../components/QuestionShell';
 import {
   adateToStorageFormat,
@@ -356,21 +355,6 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
               Current value: <strong>{displayValue}</strong>
             </Typography>
           </Box>
-        )}
-
-        {/* Validation errors – same as QuestionShell: icon, no background, text color matches icon */}
-        {hasError && (
-          <Alert
-            severity="error"
-            icon={<ErrorOutline />}
-            sx={{
-              mt: 2,
-              backgroundColor: 'transparent',
-              color: 'error.main',
-              '& .MuiAlert-icon': { color: 'error.main' },
-            }}>
-            {Array.isArray(errors) ? errors.join(', ') : String(errors)}
-          </Alert>
         )}
       </Box>
     </QuestionShell>

@@ -36,6 +36,11 @@ const ShellInputControl = (props: ControlProps) => {
     (uischema as { options?: { autoFocus?: boolean } })?.options?.autoFocus ===
     true;
 
+  const cellProps = {
+    ...(props as React.ComponentProps<typeof MuiInputText>),
+  };
+  cellProps.errors = '';
+
   return (
     <QuestionShell
       title={title}
@@ -43,7 +48,7 @@ const ShellInputControl = (props: ControlProps) => {
       required={isRequired}
       error={errorStr}>
       <MuiInputText
-        {...(props as React.ComponentProps<typeof MuiInputText>)}
+        {...cellProps}
         label={undefined}
         isValid={isValid}
         muiInputProps={{

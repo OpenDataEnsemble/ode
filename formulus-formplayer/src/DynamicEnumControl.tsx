@@ -19,6 +19,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
+import QuestionShell from './components/QuestionShell';
 
 /**
  * Interface for x-dynamicEnum configuration
@@ -171,6 +172,14 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
 
   const description = schema.description;
   const hasValidationErrors = errors && errors.length > 0;
+  const validationErrorStr = hasValidationErrors
+    ? Array.isArray(errors)
+      ? errors.filter(Boolean).join(', ')
+      : String(errors)
+    : null;
+  const isRequired = Boolean(
+    (uischema as { options?: { required?: boolean } })?.options?.required,
+  );
 
   // Load choices when component mounts or params change
   const loadChoices = useCallback(async () => {
@@ -305,27 +314,11 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
   }
 
   return (
-    <Box sx={{ mb: 2 }}>
-      {/* Field Label */}
-      <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
-        {label}
-        {schema.required && <span style={{ color: 'red' }}> *</span>}
-      </Typography>
-
-      {/* Description */}
-      {description && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {description}
-        </Typography>
-      )}
-
-      {/* Validation Errors */}
-      {hasValidationErrors && (
-        <Alert severity="error" sx={{ mb: 1 }}>
-          {Array.isArray(errors) ? errors.join(', ') : String(errors)}
-        </Alert>
-      )}
-      {/* Control */}
+    <QuestionShell
+      title={label}
+      description={description}
+      required={isRequired}
+      error={validationErrorStr}>
       {loading ? (
         <Box display="flex" alignItems="center" gap={2} sx={{ mt: 1 }}>
           <CircularProgress size={20} />
@@ -363,19 +356,12 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
             <TextField
               {...params}
               error={!!hasValidationErrors}
-              helperText={
-                hasValidationErrors
-                  ? Array.isArray(errors)
-                    ? errors.join(', ')
-                    : String(errors)
-                  : ''
-              }
               placeholder="Select an option..."
             />
           )}
         />
       )}
-    </Box>
+    </QuestionShell>
   );
 };
 
