@@ -26,11 +26,16 @@ const DEFAULT_JSON = '{}';
  * WebKit / WCO (Tauri): `MessageEvent.source` may not be strictly `===` to
  * `iframe.contentWindow`, and `instanceof Window` can be false for iframe globals.
  * `window.frameElement === iframe` identifies the embedding element reliably for same-origin frames.
+ * Callers may also pass a `contentWindow` captured on iframe `load` (srcdoc embeds).
  */
 function messageSourceMatchesIframe(
   source: Window,
   iframe: HTMLIFrameElement | null | undefined,
+  registeredContentWindow?: Window | null,
 ): boolean {
+  if (registeredContentWindow && source === registeredContentWindow) {
+    return true;
+  }
   if (!iframe) {
     return false;
   }
@@ -82,6 +87,7 @@ export function FormPreviewPage() {
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const rootContentWindowRef = useRef<Window | null>(null);
   const finalizeResolverRef = useRef<
     ((v: { result?: string; error?: string }) => void) | null
   >(null);
@@ -95,6 +101,9 @@ export function FormPreviewPage() {
   const nestedIframeByMessageIdRef = useRef<
     Map<string, HTMLIFrameElement | null>
   >(new Map());
+  const nestedContentWindowByMessageIdRef = useRef<Map<string, Window | null>>(
+    new Map(),
+  );
 
   useEffect(() => {
     nestedSessionsRef.current = nestedSessions;
@@ -279,6 +288,7 @@ export function FormPreviewPage() {
         },
       );
       nestedIframeByMessageIdRef.current.delete(top.parentMessageId);
+      nestedContentWindowByMessageIdRef.current.delete(top.parentMessageId);
       return prev.slice(0, -1);
     });
   }, []);
@@ -338,6 +348,7 @@ export function FormPreviewPage() {
             },
           });
           nestedIframeByMessageIdRef.current.delete(messageId);
+          nestedContentWindowByMessageIdRef.current.delete(messageId);
           setNestedSessions(prev =>
             prev.filter(sess => sess.parentMessageId !== messageId),
           );
@@ -358,7 +369,10 @@ export function FormPreviewPage() {
         return null;
       }
       const topEl = nestedIframeByMessageIdRef.current.get(top.parentMessageId);
-      if (!messageSourceMatchesIframe(eventSource, topEl)) {
+      const topCw = nestedContentWindowByMessageIdRef.current.get(
+        top.parentMessageId,
+      );
+      if (!messageSourceMatchesIframe(eventSource, topEl, topCw)) {
         return null;
       }
 
@@ -387,6 +401,7 @@ export function FormPreviewPage() {
       );
 
       nestedIframeByMessageIdRef.current.delete(top.parentMessageId);
+      nestedContentWindowByMessageIdRef.current.delete(top.parentMessageId);
       setNestedSessions(prev => prev.slice(0, -1));
 
       return { result: syntheticResult };
@@ -395,12 +410,21 @@ export function FormPreviewPage() {
   );
 
   const resolveReplyIframe = useCallback((source: Window) => {
-    if (messageSourceMatchesIframe(source, iframeRef.current)) {
+    if (
+      messageSourceMatchesIframe(
+        source,
+        iframeRef.current,
+        rootContentWindowRef.current,
+      )
+    ) {
       return iframeRef.current;
     }
     for (const s of nestedSessionsRef.current) {
       const el = nestedIframeByMessageIdRef.current.get(s.parentMessageId);
-      if (messageSourceMatchesIframe(source, el)) {
+      const cw = nestedContentWindowByMessageIdRef.current.get(
+        s.parentMessageId,
+      );
+      if (messageSourceMatchesIframe(source, el, cw)) {
         return el ?? null;
       }
     }
@@ -477,6 +501,17 @@ export function FormPreviewPage() {
                       const map = nestedIframeByMessageIdRef.current;
                       if (el) {
                         map.set(session.parentMessageId, el);
+                      } else {
+                        map.delete(session.parentMessageId);
+                        nestedContentWindowByMessageIdRef.current.delete(
+                          session.parentMessageId,
+                        );
+                      }
+                    }}
+                    onContentWindowReady={cw => {
+                      const map = nestedContentWindowByMessageIdRef.current;
+                      if (cw) {
+                        map.set(session.parentMessageId, cw);
                       } else {
                         map.delete(session.parentMessageId);
                       }
@@ -571,6 +606,9 @@ export function FormPreviewPage() {
         <div className="panel panel-form-preview-embed panel-embed-flush">
           <FormplayerEmbed
             ref={iframeRef}
+            onContentWindowReady={cw => {
+              rootContentWindowRef.current = cw;
+            }}
             formInitData={formInitData}
             emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON and click Apply."
           />

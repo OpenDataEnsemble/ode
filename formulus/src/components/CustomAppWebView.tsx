@@ -549,10 +549,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   webViewTransparent: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   webViewContainerTransparent: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
     flex: 1,
   },
 });

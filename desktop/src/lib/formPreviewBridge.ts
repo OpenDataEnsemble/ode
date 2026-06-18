@@ -337,8 +337,7 @@ export async function handleFormPreviewBridgeMessage(
         const subObservationMode = Boolean(options?.subObservationMode);
 
         if (subObservationMode && ctx.onDeferOpenSubObservation) {
-          const parentIframe =
-            resolveBridgeReplyIframe(eventSource, ctx) ?? ctx.iframe;
+          const parentIframe = resolveBridgeReplyIframe(eventSource, ctx);
           if (parentIframe) {
             ctx.onDeferOpenSubObservation({
               parentIframe,
@@ -351,6 +350,13 @@ export async function handleFormPreviewBridgeMessage(
             });
             return;
           }
+          reply(
+            'openFormplayer',
+            stubReason(
+              'Could not identify the parent formplayer iframe for nested sub-observation open.',
+            ),
+          );
+          return;
         }
 
         if (ctx.onOpenFormplayerNavigate) {

@@ -40,6 +40,8 @@ export type FormplayerEmbedProps = {
   /** Full `FormInitData` for the embedded formplayer; `null` shows `emptyMessage` only. */
   formInitData: FormInitData | null;
   emptyMessage?: string;
+  /** Fired when the iframe document loads (used to register `contentWindow` for bridge routing). */
+  onContentWindowReady?: (contentWindow: Window | null) => void;
 };
 
 /**
@@ -54,6 +56,7 @@ export const FormplayerEmbed = forwardRef<
   {
     formInitData,
     emptyMessage = 'Select a form type and apply params/saved JSON to load the preview.',
+    onContentWindowReady,
   },
   ref,
 ) {
@@ -122,6 +125,7 @@ export const FormplayerEmbed = forwardRef<
           window.clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
         }
+        onContentWindowReady?.(el.contentWindow);
         setLoading(false);
       };
       // WebView2 can behave inconsistently with blob: + module scripts in packaged apps.
@@ -135,7 +139,7 @@ export const FormplayerEmbed = forwardRef<
       setError(e instanceof Error ? e.message : String(e));
       setLoading(false);
     }
-  }, [formInitData]);
+  }, [formInitData, onContentWindowReady]);
 
   useEffect(() => {
     void mountBlob();

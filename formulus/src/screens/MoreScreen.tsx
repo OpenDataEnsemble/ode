@@ -12,6 +12,7 @@ import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import MenuDrawer from '../components/MenuDrawer';
 import { logout } from '../api/synkronus/Auth';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
+import colors from '../theme/colors';
 
 type MoreScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -104,7 +105,7 @@ const MoreScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
 });
 

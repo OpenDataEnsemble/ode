@@ -282,7 +282,7 @@ const SettingsScreen = () => {
         return false;
       }
     },
-    [initialServerUrl],
+    [initialServerUrl, showConfirm],
   );
 
   const handleLogin = useCallback(async () => {
@@ -411,7 +411,10 @@ const SettingsScreen = () => {
   return (
     <View style={shellStyle}>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}
+        style={[
+          styles.container,
+          { backgroundColor: colors.neutral.transparent },
+        ]}
         edges={['top']}>
         <View
           style={[
@@ -436,7 +439,7 @@ const SettingsScreen = () => {
         </View>
 
         <ScrollView
-          style={[styles.card, { backgroundColor: 'transparent' }]}
+          style={[styles.card, { backgroundColor: colors.neutral.transparent }]}
           contentContainerStyle={styles.cardContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
@@ -621,12 +624,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   logo: {
     width: 40,
     height: 40,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   brandName: {
     fontSize: odeTypography.screenTitle,
