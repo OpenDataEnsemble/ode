@@ -114,6 +114,31 @@ function isSubObservationSession(init: FormInitData): boolean {
   return Boolean(i.subObservationMode || i.returnOnly);
 }
 
+function readAutoSequenceRuntime() {
+  const w = window as unknown as {
+    formulusSubObservationContext?: Record<string, unknown> | null;
+    formulusSessionContext?: Record<string, unknown> | null;
+  };
+  return {
+    subObservationContext: w.formulusSubObservationContext ?? null,
+    sessionContext: w.formulusSessionContext ?? null,
+  };
+}
+
+/** Root observation data aligned to schema, with platform `x-autoSequence` applied on open. */
+function prepareInitialFormData(
+  raw: Record<string, unknown>,
+  formSchema: unknown,
+): Record<string, unknown> {
+  const root = prepareRootObservationData(raw, formSchema);
+  const { data } = applyAutoSequences(
+    root,
+    formSchema as JsonSchema7 | undefined,
+    readAutoSequenceRuntime(),
+  );
+  return data;
+}
+
 // Mock and DevTestbed are loaded only in development via dynamic import (see index.tsx).
 // This keeps ~2000+ lines of mock code out of production bundles.
 function isMockActive(): boolean {
@@ -586,7 +611,9 @@ function App() {
         ];
         (window as unknown as Record<string, unknown>).formulusSessionContext =
           sessionContext ?? null;
-        (window as unknown as Record<string, unknown>).formulusSubObservationContext =
+        (
+          window as unknown as Record<string, unknown>
+        ).formulusSubObservationContext =
           sessionContext &&
           typeof sessionContext === 'object' &&
           'subObservation' in (sessionContext as Record<string, unknown>)
@@ -596,7 +623,10 @@ function App() {
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
           setData(
-            prepareRootObservationData(savedData as FormData, formSchemaTyped),
+            prepareInitialFormData(
+              savedData as Record<string, unknown>,
+              formSchemaTyped,
+            ),
           );
         } else if (!isSubObservationSession(initData)) {
           const formVersion = (formSchemaTyped as { version?: string })
@@ -617,14 +647,14 @@ function App() {
           );
           const withSticky = applyStickyDefaults(withTokens, relevantSticky);
           console.log('Preloading initialization form values:', withSticky);
-          setData(prepareRootObservationData(withSticky, formSchemaTyped));
+          setData(prepareInitialFormData(withSticky, formSchemaTyped));
         } else {
           const defaultData = applySchemaDefaultTokens(
             initialFormDataFromParams(params),
             formSchemaTyped,
           );
           console.log('Preloading initialization form values:', defaultData);
-          setData(prepareRootObservationData(defaultData, formSchemaTyped));
+          setData(prepareInitialFormData(defaultData, formSchemaTyped));
         }
 
         console.log('Form params (if any, beyond schemas/data):', params);

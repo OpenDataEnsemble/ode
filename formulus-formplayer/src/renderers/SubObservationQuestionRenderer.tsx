@@ -255,6 +255,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   const handleAdd = useCallback(async () => {
     if (!enabled || missingKeys.length || !childFormType) return;
     const client = FormulusClient.getInstance();
+    let merged = false;
     try {
       setBusyId('add');
       const pv = resolveParentValue(formData, parentValuePath);
@@ -279,6 +280,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       if (result?.status === 'form_submitted' && result.formData) {
         const row = result.formData as Record<string, unknown>;
         pushSorted([...rows, row]);
+        merged = true;
       }
     } catch (e) {
       setError(
@@ -286,7 +288,11 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       );
     } finally {
       setBusyId(null);
-      window.setTimeout(() => refreshRowsFromFormData(), 0);
+      // After a successful merge, pushSorted already updated local state and
+      // JsonForms data; refreshing from props races and drops the new row.
+      if (!merged) {
+        window.setTimeout(() => refreshRowsFromFormData(), 0);
+      }
     }
   }, [
     enabled,
@@ -305,6 +311,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     async (row: Record<string, unknown>, index: number) => {
       if (!enabled || !childFormType || missingKeys.length) return;
       const client = FormulusClient.getInstance();
+      let merged = false;
       try {
         setBusyId(`edit_${index}`);
         const pv = resolveParentValue(formData, parentValuePath);
@@ -341,6 +348,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
             i === index ? (result.formData as Record<string, unknown>) : r,
           );
           pushSorted(updated);
+          merged = true;
         }
       } catch (e) {
         setError(
@@ -348,7 +356,9 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
         );
       } finally {
         setBusyId(null);
-        window.setTimeout(() => refreshRowsFromFormData(), 0);
+        if (!merged) {
+          window.setTimeout(() => refreshRowsFromFormData(), 0);
+        }
       }
     },
     [

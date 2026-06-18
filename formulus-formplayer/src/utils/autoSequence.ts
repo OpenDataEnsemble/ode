@@ -116,7 +116,10 @@ function computeNextValue(
     const contextKey = binding.config.contextKey ?? 'quartos';
     const subCtx =
       runtime.subObservationContext ??
-      (runtime.sessionContext?.subObservation as Record<string, unknown> | null);
+      (runtime.sessionContext?.subObservation as Record<
+        string,
+        unknown
+      > | null);
     collectFieldValues(
       subCtx?.[contextKey],
       fieldName,
@@ -124,9 +127,21 @@ function computeNextValue(
       data,
       values,
     );
-    collectFieldValues(data, fieldName, binding.config.contextFilter, data, values);
+    collectFieldValues(
+      data,
+      fieldName,
+      binding.config.contextFilter,
+      data,
+      values,
+    );
   } else {
-    collectFieldValues(data, fieldName, binding.config.contextFilter, data, values);
+    collectFieldValues(
+      data,
+      fieldName,
+      binding.config.contextFilter,
+      data,
+      values,
+    );
   }
 
   return maxFromValues(values) + 1;
@@ -143,7 +158,9 @@ function collectBindings(
   if (props) {
     for (const [name, childSchema] of Object.entries(props)) {
       const child = childSchema as JsonSchema7;
-      const seq = child['x-autoSequence'] as AutoSequenceConfig | undefined;
+      const seq = (child as Record<string, unknown>)['x-autoSequence'] as
+        | AutoSequenceConfig
+        | undefined;
       if (seq && typeof seq === 'object') {
         bindings.push({
           field: name,

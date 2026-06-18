@@ -144,7 +144,10 @@ export class GeolocationService {
     this.cachedAt = 0;
   }
 
-  private emitAppWatchUpdate(fieldId: string, location: ObservationGeolocation): void {
+  private emitAppWatchUpdate(
+    fieldId: string,
+    location: ObservationGeolocation,
+  ): void {
     appEvents.emit('locationWatchUpdate', {
       fieldId,
       location: {

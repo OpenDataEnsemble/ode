@@ -338,7 +338,10 @@ const CustomAppWebView = forwardRef<
           }),
         );
       };
-      appEvents.addListener('locationWatchUpdate', onLocationUpdate as Listener);
+      appEvents.addListener(
+        'locationWatchUpdate',
+        onLocationUpdate as Listener,
+      );
       return () => {
         appEvents.removeListener(
           'locationWatchUpdate',

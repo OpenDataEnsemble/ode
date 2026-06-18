@@ -173,7 +173,9 @@ export function buildSubObservationOpenParams(
       ? (parentSessionContext.subObservation as Record<string, unknown>)
       : {};
 
-  const subObservation: Record<string, unknown> = { ...inheritedSubObservation };
+  const subObservation: Record<string, unknown> = {
+    ...inheritedSubObservation,
+  };
   for (const [key, value] of Object.entries(resolved)) {
     if (value !== '' && value != null) {
       subObservation[key] = value;
