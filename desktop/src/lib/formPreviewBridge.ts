@@ -31,7 +31,6 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { dirname, join } from '@tauri-apps/api/path';
 import { tauriClient } from './tauriClient';
 import type { ObservationRecord } from '../types/domain';
-import { subObsDebug } from './subObsDebug';
 
 /** Matches `FORMULUS_INTERFACE_VERSION` in formplayer (`FormulusInterfaceDefinition.ts`). */
 export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.2.1';
@@ -389,12 +388,6 @@ export async function handleFormPreviewBridgeMessage(
         if (subObservationMode && ctx.onDeferOpenSubObservation) {
           const parentIframe = resolveBridgeReplyIframe(eventSource, ctx);
           if (parentIframe) {
-            subObsDebug('Desktop.formPreviewBridge openFormplayer → defer', {
-              messageId,
-              childFormType: formType,
-              hasParentIframe: Boolean(parentIframe),
-              savedDataKeys: Object.keys(savedData),
-            });
             ctx.onDeferOpenSubObservation({
               parentIframe,
               parentContentWindow:

@@ -107,12 +107,7 @@ import { runCustomValidatorsAndRefreshData } from './services/customValidatorDat
 import { resolveErrorPageIndex } from './utils/errorPageNavigation';
 import { applyAutoSequences } from './utils/autoSequence';
 import { newDraftSessionKey } from './utils/draftSessionKey';
-import {
-  subObsArrayFingerprint,
-  subObsDataSummary,
-  subObsDebug,
-  mergePreservingSubObsArrays,
-} from './utils/subObsDebug';
+import { mergePreservingSubObsArrays } from './renderers/subObservationHelpers';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
 function isSubObservationSession(init: FormInitData): boolean {
@@ -359,8 +354,6 @@ function App() {
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
   /** Local draft identity for new observations only (not sent over the native bridge). */
   const [draftSessionKey, setDraftSessionKey] = useState<string | null>(null);
-  const subObsFingerprintRef = useRef('');
-  const subObsRenderFingerprintRef = useRef('');
   const [showDraftSelector, setShowDraftSelector] = useState(false);
   const [pendingFormInit, setPendingFormInit] = useState<FormInitData | null>(
     null,
@@ -1014,36 +1007,8 @@ function App() {
     }
   }, [pendingFormInit, initializeForm]);
 
-  const logSubObsDataTransition = useCallback(
-    (
-      source: 'jsonforms_onChange' | 'sub_obs_commit' | 'refresh_pipeline',
-      before: Record<string, unknown>,
-      after: Record<string, unknown>,
-      extra?: Record<string, unknown>,
-    ) => {
-      const beforeFp = subObsArrayFingerprint(before);
-      const afterFp = subObsArrayFingerprint(after);
-      if (beforeFp === afterFp && source !== 'sub_obs_commit') {
-        return;
-      }
-      subObsDebug(`App.${source}`, {
-        formType: formInitData?.formType,
-        subObservationMode:
-          formInitData != null ? isSubObservationSession(formInitData) : false,
-        fingerprintBefore: beforeFp,
-        fingerprintAfter: afterFp,
-        summaryBefore: subObsDataSummary(before),
-        summaryAfter: subObsDataSummary(after),
-        ...extra,
-      });
-      subObsFingerprintRef.current = afterFp;
-    },
-    [formInitData],
-  );
-
   const refreshFormData = useCallback(
-    (newData: Record<string, unknown>, source?: string) => {
-      const beforeFp = subObsArrayFingerprint(newData);
+    (newData: Record<string, unknown>) => {
       const autoRuntime = readAutoSequenceRuntime();
       const { data: sequencedData } = applyAutoSequences(
         newData,
@@ -1057,18 +1022,9 @@ function App() {
         ajv,
       );
       setCustomValidatorErrors(errors);
-      const afterFp = subObsArrayFingerprint(refreshedData);
-      if (beforeFp !== afterFp || source === 'sub_obs_commit') {
-        logSubObsDataTransition(
-          source === 'sub_obs_commit' ? 'sub_obs_commit' : 'refresh_pipeline',
-          newData,
-          refreshedData,
-          { pipelineSource: source },
-        );
-      }
       return refreshedData;
     },
-    [uischema, schema, ajv, logSubObsDataTransition],
+    [uischema, schema, ajv],
   );
 
   const persistDraftIfRootSession = useCallback(
@@ -1089,60 +1045,28 @@ function App() {
     ({ data: newData }: { data: FormData }) => {
       const incoming = newData as Record<string, unknown>;
       const baseline = dataRef.current as Record<string, unknown>;
-      const { merged, preserved } = mergePreservingSubObsArrays(
-        baseline,
-        incoming,
-      );
-      if (preserved.length > 0) {
-        subObsDebug('App.handleDataChange preserved sub-obs arrays', {
-          preserved,
-          incoming: subObsDataSummary(incoming),
-          baseline: subObsDataSummary(baseline),
-        });
-      }
-      logSubObsDataTransition('jsonforms_onChange', baseline, merged);
-      const refreshedData = refreshFormData(merged, 'jsonforms_onChange');
+      const merged = mergePreservingSubObsArrays(baseline, incoming);
+      const refreshedData = refreshFormData(merged);
       dataRef.current = refreshedData;
       setData(refreshedData);
       persistDraftIfRootSession(refreshedData);
     },
-    [refreshFormData, persistDraftIfRootSession, logSubObsDataTransition],
+    [refreshFormData, persistDraftIfRootSession],
   );
 
   const commitFormData = useCallback(
     (newData: Record<string, unknown>) => {
-      subObsDebug('App.commitFormData called', {
-        formType: formInitData?.formType,
-        incoming: subObsDataSummary(newData),
-      });
-      const refreshedData = refreshFormData(newData, 'sub_obs_commit');
+      const refreshedData = refreshFormData(newData);
       dataRef.current = refreshedData;
       setData(refreshedData);
-      subObsDebug('App.commitFormData → setData', {
-        formType: formInitData?.formType,
-        result: subObsDataSummary(refreshedData),
-      });
       persistDraftIfRootSession(refreshedData);
     },
-    [formInitData?.formType, refreshFormData, persistDraftIfRootSession],
+    [refreshFormData, persistDraftIfRootSession],
   );
 
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
-
-  useEffect(() => {
-    const fp = subObsArrayFingerprint(data as Record<string, unknown>);
-    if (fp === subObsRenderFingerprintRef.current) {
-      return;
-    }
-    subObsRenderFingerprintRef.current = fp;
-    subObsDebug('App.data state after render', {
-      formType: formInitData?.formType,
-      fingerprint: fp,
-      ...subObsDataSummary(data as Record<string, unknown>),
-    });
-  }, [data, formInitData?.formType]);
 
   // Set up event listeners for navigation and finalization
   useEffect(() => {
@@ -1167,11 +1091,7 @@ function App() {
       if (!current || Object.keys(current).length === 0) {
         return;
       }
-      subObsDebug('App.formRevalidate', {
-        formType: formInitData?.formType,
-        ...subObsDataSummary(current),
-      });
-      const refreshedData = refreshFormData(current, 'revalidate');
+      const refreshedData = refreshFormData(current);
       dataRef.current = refreshedData;
       setData(refreshedData);
     };
@@ -1193,8 +1113,7 @@ function App() {
       const payloadFormInit = customEvent.detail?.formInitData || formInitData;
       const rawPayload =
         (dataRef.current as Record<string, unknown> | undefined) ??
-        customEvent.detail?.data ??
-        data;
+        customEvent.detail?.data;
 
       if (!payloadFormInit) {
         console.error(
@@ -1206,7 +1125,7 @@ function App() {
         return;
       }
 
-      const rootPayload = prepareRootObservationData(rawPayload, schema);
+      const rootPayload = prepareRootObservationData(rawPayload ?? {}, schema);
       const { errors: finalizeValidatorErrors, data: payloadData } =
         runCustomValidatorsAndRefreshData(
           uischema ?? undefined,
@@ -1224,15 +1143,6 @@ function App() {
       }
 
       console.log('[App.tsx] Submitting form data:', payloadData);
-      subObsDebug('App.submitObservationWithContext', {
-        formType: payloadFormInit.formType,
-        subObservationMode: isSubObservationSession(payloadFormInit),
-        detailData: subObsDataSummary(
-          customEvent.detail?.data as Record<string, unknown> | undefined,
-        ),
-        dataRef: subObsDataSummary(dataRef.current as Record<string, unknown>),
-        payload: subObsDataSummary(payloadData as Record<string, unknown>),
-      });
       formulusClient.current
         .submitObservationWithContext(payloadFormInit, payloadData)
         .then(() => {

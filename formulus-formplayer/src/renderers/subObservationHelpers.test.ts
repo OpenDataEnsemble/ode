@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mergePreservingSubObsArrays } from '../utils/subObsDebug';
 import {
+  mergePreservingSubObsArrays,
   readDataPath,
   writeDataPath,
   resolveTemplateValue,
@@ -20,8 +20,7 @@ describe('subObservationHelpers', () => {
   it('mergePreservingSubObsArrays keeps longer baseline arrays', () => {
     const baseline = { pessoas: [{ id: 1 }] };
     const incoming = { validar_cama: '1' };
-    const { merged, preserved } = mergePreservingSubObsArrays(baseline, incoming);
-    expect(preserved).toEqual(['pessoas']);
+    const merged = mergePreservingSubObsArrays(baseline, incoming);
     expect(merged.pessoas).toEqual([{ id: 1 }]);
     expect(merged.validar_cama).toBe('1');
   });

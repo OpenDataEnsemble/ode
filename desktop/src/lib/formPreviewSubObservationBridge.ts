@@ -8,7 +8,6 @@
 
 import type { FormplayerEmbedHandle } from '../components/FormplayerEmbed';
 import { postFormplayerBridgeReply } from './formPreviewBridge';
-import { subObsCompletionSummary, subObsDebug } from './subObsDebug';
 
 export type PendingSubObservationOpen = {
   parentMessageId: string;
@@ -24,13 +23,6 @@ export function registerPendingSubObservationOpen(
   entry: PendingSubObservationOpen,
 ): void {
   pendingOpens.set(entry.parentMessageId, entry);
-  subObsDebug('Desktop.registerPendingSubObservationOpen', {
-    messageId: entry.parentMessageId,
-    childFormType: entry.formType,
-    hasParentEmbed: Boolean(entry.parentEmbed),
-    hasParentContentWindow: Boolean(entry.parentContentWindow),
-    pendingCount: pendingOpens.size,
-  });
 }
 
 export function dropPendingSubObservationOpen(messageId: string): void {
@@ -43,24 +35,11 @@ export function deliverSubObservationCompletion(
 ): boolean {
   const entry = pendingOpens.get(messageId);
   if (!entry) {
-    subObsDebug('Desktop.deliverSubObservationCompletion — no pending entry', {
-      messageId,
-      completion: subObsCompletionSummary(completion),
-      pendingIds: [...pendingOpens.keys()],
-    });
     return false;
   }
   pendingOpens.delete(messageId);
 
   const payload = { result: completion };
-
-  subObsDebug('Desktop.deliverSubObservationCompletion', {
-    messageId,
-    childFormType: entry.formType,
-    completion: subObsCompletionSummary(completion),
-    hasParentEmbed: Boolean(entry.parentEmbed),
-    hasParentContentWindow: Boolean(entry.parentContentWindow),
-  });
 
   entry.parentEmbed?.deliverBridgeResponse(
     'openFormplayer',

@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
-import { FormplayerEmbed, type FormplayerEmbedHandle } from '../components/FormplayerEmbed';
+import {
+  FormplayerEmbed,
+  type FormplayerEmbedHandle,
+} from '../components/FormplayerEmbed';
 import {
   buildFormPreviewInit,
   inferObservationIdFromSavedData,
@@ -25,7 +28,6 @@ import {
   dropPendingSubObservationOpen,
   registerPendingSubObservationOpen,
 } from '../lib/formPreviewSubObservationBridge';
-import { subObsCompletionSummary, subObsDebug } from '../lib/subObsDebug';
 
 const DEFAULT_JSON = '{}';
 
@@ -71,9 +73,9 @@ export function FormPreviewPage() {
 
   const iframeRef = useRef<FormplayerEmbedHandle>(null);
   const rootContentWindowRef = useRef<Window | null>(null);
-  const nestedEmbedByMessageIdRef = useRef<
-    Map<string, FormplayerEmbedHandle>
-  >(new Map());
+  const nestedEmbedByMessageIdRef = useRef<Map<string, FormplayerEmbedHandle>>(
+    new Map(),
+  );
   const finalizeResolverRef = useRef<
     ((v: { result?: string; error?: string }) => void) | null
   >(null);
@@ -121,10 +123,6 @@ export function FormPreviewPage() {
   );
 
   const finishNestedSession = useCallback((parentMessageId: string) => {
-    subObsDebug('Desktop.finishNestedSession', {
-      parentMessageId,
-      remainingBefore: nestedSessionsRef.current.length,
-    });
     dropPendingSubObservationOpen(parentMessageId);
     nestedEmbedByMessageIdRef.current.delete(parentMessageId);
     nestedIframeByMessageIdRef.current.delete(parentMessageId);
@@ -298,8 +296,7 @@ export function FormPreviewPage() {
   }, []);
 
   const dismissTopNestedSession = useCallback(() => {
-    const top =
-      nestedSessionsRef.current[nestedSessionsRef.current.length - 1];
+    const top = nestedSessionsRef.current[nestedSessionsRef.current.length - 1];
     if (!top) {
       return;
     }
@@ -323,15 +320,6 @@ export function FormPreviewPage() {
         parentContentWindow != null
           ? resolveParentEmbed(parentContentWindow)
           : null;
-      const parentMessageId = messageId;
-      subObsDebug('Desktop.beginDeferredNestedOpen', {
-        messageId: parentMessageId,
-        childFormType: formType,
-        hasParentContentWindow: Boolean(parentContentWindow),
-        hasParentEmbed: Boolean(parentEmbed),
-        savedDataKeys: Object.keys(savedData ?? {}),
-        paramsKeys: Object.keys(params ?? {}),
-      });
       registerPendingSubObservationOpen({
         parentMessageId: messageId,
         parentEmbed,
@@ -410,22 +398,9 @@ export function FormPreviewPage() {
         }
       }
       if (matchedIndex < 0) {
-        subObsDebug('Desktop.tryCompleteNestedSubObservationFinalize — no match', {
-          nestedStackDepth: stack.length,
-          finalizeKind: request.kind,
-        });
         return null;
       }
       const matched = stack[matchedIndex];
-
-      subObsDebug('Desktop.tryCompleteNestedSubObservationFinalize', {
-        parentMessageId: matched.parentMessageId,
-        childFormType: matched.formType,
-        finalizeKind: request.kind,
-        finalDataKeys: Object.keys(request.finalData ?? {}),
-        stackDepth: stack.length,
-        matchedIndex,
-      });
 
       const syntheticResult =
         request.kind === 'update' ? request.observationId : crypto.randomUUID();
@@ -444,14 +419,7 @@ export function FormPreviewPage() {
               formData: request.finalData,
             };
 
-      deliverSubObservationCompletion(
-        matched.parentMessageId,
-        completion,
-      );
-      subObsDebug('Desktop.tryCompleteNestedSubObservationFinalize → delivered', {
-        parentMessageId: matched.parentMessageId,
-        completion: subObsCompletionSummary(completion),
-      });
+      deliverSubObservationCompletion(matched.parentMessageId, completion);
       finishNestedSession(matched.parentMessageId);
 
       return { result: syntheticResult };

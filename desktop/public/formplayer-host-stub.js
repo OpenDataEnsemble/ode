@@ -55,20 +55,6 @@
     messageId,
     payload,
   ) {
-    if (requestType === 'openFormplayer') {
-      var result = payload && payload.result;
-      console.warn('[SUBOBS_DEBUG] host-stub.deliverBridgeResponse', {
-        messageId: messageId,
-        status: result && result.status,
-        formType: result && result.formType,
-        formDataKeys:
-          result &&
-          result.formData &&
-          typeof result.formData === 'object'
-            ? Object.keys(result.formData)
-            : [],
-      });
-    }
     var responseType = requestType + '_response';
     var body = { type: responseType, messageId: messageId };
     if (payload && typeof payload === 'object') {

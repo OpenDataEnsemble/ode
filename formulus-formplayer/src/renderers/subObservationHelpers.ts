@@ -111,6 +111,27 @@ export function writeDataPath(
   return root;
 }
 
+const SUB_OBS_ARRAY_KEYS = ['quartos', 'camas', 'pessoas'] as const;
+
+/** Keep embedded sub-obs arrays when JsonForms emits stale onChange after a merge. */
+export function mergePreservingSubObsArrays(
+  baseline: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged = { ...incoming };
+  for (const key of SUB_OBS_ARRAY_KEYS) {
+    const baseArr = baseline[key];
+    const inArr = incoming[key];
+    if (!Array.isArray(baseArr) || baseArr.length === 0) {
+      continue;
+    }
+    if (!Array.isArray(inArr) || inArr.length < baseArr.length) {
+      merged[key] = baseArr;
+    }
+  }
+  return merged;
+}
+
 /** Matches a string that is exactly one `{{ token }}` with no surrounding text. */
 const SINGLE_TOKEN_RE = /^\s*\{\{\s*([^}]+?)\s*\}\}\s*$/;
 

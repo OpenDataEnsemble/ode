@@ -764,7 +764,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
     Boolean(
       (formInitData as { subObservationMode?: boolean; returnOnly?: boolean })
         .subObservationMode ||
-        (formInitData as { returnOnly?: boolean }).returnOnly,
+      (formInitData as { returnOnly?: boolean }).returnOnly,
     );
 
   // Save partial data whenever the page changes or data changes
