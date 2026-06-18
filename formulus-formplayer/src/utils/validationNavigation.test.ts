@@ -4,9 +4,7 @@ import {
   coerceSchemaRootIntegers,
   prepareRootObservationData,
 } from './formObservationData';
-import {
-  firstBlockingErrorInstancePath,
-} from './validationNavigation';
+import { firstBlockingErrorInstancePath } from './validationNavigation';
 
 describe('coerceSchemaIntegerValue', () => {
   it('coerces numeric strings to integers', () => {
@@ -46,10 +44,7 @@ describe('prepareRootObservationData', () => {
       },
     };
     expect(
-      prepareRootObservationData(
-        { quarto_num: '1', theme: 'dark' },
-        schema,
-      ),
+      prepareRootObservationData({ quarto_num: '1', theme: 'dark' }, schema),
     ).toEqual({ quarto_num: 1 });
   });
 });
@@ -63,9 +58,7 @@ describe('firstBlockingErrorInstancePath', () => {
 
   it('falls back to custom validator path', () => {
     expect(
-      firstBlockingErrorInstancePath([
-        { path: '#/properties/validar_cama' },
-      ]),
+      firstBlockingErrorInstancePath([{ path: '#/properties/validar_cama' }]),
     ).toBe('#/properties/validar_cama');
   });
 });

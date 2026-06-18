@@ -659,19 +659,17 @@ const SwipeLayoutRenderer = ({
             )}
           </div>
 
-          {skipFinalize &&
-            isLastContentPage &&
-            validationErrorCount > 0 && (
-              <Typography
-                variant="body2"
-                color="error"
-                role="alert"
-                sx={{ px: { xs: 1, sm: 1.5 }, pt: 1, pb: 0.5 }}>
-                {validationErrorCount}{' '}
-                {validationErrorCount === 1 ? 'field needs' : 'fields need'}{' '}
-                attention. Tap Done to review.
-              </Typography>
-            )}
+          {skipFinalize && isLastContentPage && validationErrorCount > 0 && (
+            <Typography
+              variant="body2"
+              color="error"
+              role="alert"
+              sx={{ px: { xs: 1, sm: 1.5 }, pt: 1, pb: 0.5 }}>
+              {validationErrorCount}{' '}
+              {validationErrorCount === 1 ? 'field needs' : 'fields need'}{' '}
+              attention. Tap Done to review.
+            </Typography>
+          )}
 
           {snackbarOpen &&
             typeof document !== 'undefined' &&
