@@ -664,6 +664,182 @@
       });
     },
 
+    // getCachedLocation: fieldId?: string => Promise<LocationResult | null>
+    getCachedLocation: function (fieldId) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data;
+            } else {
+              window.removeEventListener('message', callback);
+              reject(new Error('getCachedLocation: unexpected response'));
+              return;
+            }
+            if (
+              data.type === 'getCachedLocation_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            window.removeEventListener('message', callback);
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'getCachedLocation',
+            messageId,
+            fieldId: fieldId,
+          }),
+        );
+      });
+    },
+
+    // watchLocation: fieldId => Promise<{ status, message? }>
+    watchLocation: function (fieldId) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        const updateHandler = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data;
+            } else {
+              return;
+            }
+            if (
+              data.type === 'locationWatchUpdate' &&
+              data.fieldId === fieldId
+            ) {
+              window.dispatchEvent(
+                new CustomEvent('formulusLocationUpdate', {
+                  detail: { fieldId, result: data.result },
+                }),
+              );
+            }
+          } catch {
+            /* ignore malformed push */
+          }
+        };
+        window.addEventListener('message', updateHandler);
+        if (!globalThis.__formulusLocationWatchHandlers) {
+          globalThis.__formulusLocationWatchHandlers = {};
+        }
+        globalThis.__formulusLocationWatchHandlers[fieldId] = updateHandler;
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data;
+            } else {
+              window.removeEventListener('message', callback);
+              reject(new Error('watchLocation: unexpected response'));
+              return;
+            }
+            if (
+              data.type === 'watchLocation_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                window.removeEventListener('message', updateHandler);
+                delete globalThis.__formulusLocationWatchHandlers[fieldId];
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            window.removeEventListener('message', callback);
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'watchLocation',
+            messageId,
+            fieldId: fieldId,
+          }),
+        );
+      });
+    },
+
+    // stopWatchLocation: fieldId => Promise<void>
+    stopWatchLocation: function (fieldId) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data;
+            } else {
+              window.removeEventListener('message', callback);
+              reject(new Error('stopWatchLocation: unexpected response'));
+              return;
+            }
+            if (
+              data.type === 'stopWatchLocation_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              const handler =
+                globalThis.__formulusLocationWatchHandlers?.[fieldId];
+              if (handler) {
+                window.removeEventListener('message', handler);
+                delete globalThis.__formulusLocationWatchHandlers[fieldId];
+              }
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            window.removeEventListener('message', callback);
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'stopWatchLocation',
+            messageId,
+            fieldId: fieldId,
+          }),
+        );
+      });
+    },
+
     // requestFile: fieldId: string => Promise<FileResult>
     requestFile: function (fieldId) {
       return new Promise((resolve, reject) => {

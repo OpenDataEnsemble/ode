@@ -430,6 +430,7 @@ export const getThemeOptions = (
         styleOverrides: {
           root: {
             fontSize: parsePx(tokens.typography.fontSize.base),
+            scrollMarginBottom: parsePx(tokens.spacing[6]),
             '&.Mui-focused': {
               '& .MuiOutlinedInput-notchedOutline': {
                 borderColor: primaryMain,
@@ -657,6 +658,23 @@ export const getThemeOptions = (
               ? tokens.color.neutral[800]
               : tokens.color.neutral.white, // Dark: #424242 (medium dark for cards), Light: #FFFFFF
             boxShadow: isDark ? getDarkElevationShadow('sm') : tokens.shadow.sm,
+          },
+        },
+      },
+      MuiCardHeader: {
+        styleOverrides: {
+          root: {
+            paddingBottom: parsePx(tokens.spacing[1]),
+          },
+        },
+      },
+      MuiCardContent: {
+        styleOverrides: {
+          root: {
+            paddingTop: 0,
+            '&:last-child': {
+              paddingBottom: parsePx(tokens.spacing[4]),
+            },
           },
         },
       },

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { clampScrollTop, revealFieldIfNeeded } from '../utils/keyboardScroll';
 
 /** Input types that should trigger scroll clamp on value change. */
 export function isClampableInputType(type: string | undefined): boolean {
@@ -28,25 +29,55 @@ export function isFormFieldForScrollClamp(
   return false;
 }
 
-/** Prevent scrolling past the last real content row inside the form scroll area. */
-export function clampScrollTop(el: HTMLElement): void {
-  const max = Math.max(0, el.scrollHeight - el.clientHeight);
-  if (el.scrollTop > max) {
-    el.scrollTop = max;
-  }
-}
+export { clampScrollTop } from '../utils/keyboardScroll';
+
+const KEYBOARD_REVEAL_DELAY_MS = 100;
 
 /**
- * Clamps FormLayout scroll when the IME opens, on field focus, and after value
- * changes (number stepper +/-, numeric keyboard input, layout reflow).
+ * Clamps FormLayout scroll when the IME opens and reveals focused fields only
+ * when obscured after keyboard animation — never scrollIntoView on value change.
  */
 export function useKeyboardScrollClamp<T extends HTMLElement>() {
   const scrollRef = useRef<T | null>(null);
+  const focusedFieldRef = useRef<HTMLElement | null>(null);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clamp = useCallback(() => {
     const el = scrollRef.current;
     if (el) clampScrollTop(el);
   }, []);
+
+  const tryRevealFocused = useCallback(() => {
+    const container = scrollRef.current;
+    const field = focusedFieldRef.current;
+    if (!container || !field || !container.contains(field)) return;
+    revealFieldIfNeeded(container, field, { marginBottom: 24, marginTop: 8 });
+    clamp();
+  }, [clamp]);
+
+  const scheduleReveal = useCallback(() => {
+    if (revealTimerRef.current) {
+      clearTimeout(revealTimerRef.current);
+      revealTimerRef.current = null;
+    }
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        tryRevealFocused();
+        revealTimerRef.current = setTimeout(() => {
+          tryRevealFocused();
+          revealTimerRef.current = null;
+        }, KEYBOARD_REVEAL_DELAY_MS);
+      });
+    });
+  }, [tryRevealFocused]);
+
+  const runClampChain = useCallback(() => {
+    requestAnimationFrame(() => {
+      clamp();
+      requestAnimationFrame(clamp);
+    });
+  }, [clamp]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -55,30 +86,48 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
     const vv = window.visualViewport;
 
     const onViewportChange = () => {
-      requestAnimationFrame(clamp);
+      if (focusedFieldRef.current) {
+        scheduleReveal();
+      } else {
+        requestAnimationFrame(clamp);
+      }
     };
 
     const onFocusIn = (event: FocusEvent) => {
       const target = event.target;
       if (!isFormFieldForScrollClamp(target)) return;
+      if (!(target instanceof HTMLElement)) return;
 
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (target instanceof HTMLElement) {
-            try {
-              target.scrollIntoView({ block: 'nearest', behavior: 'instant' });
-            } catch {
-              target.scrollIntoView({ block: 'nearest' });
-            }
-          }
-          clamp();
-        });
-      });
+      focusedFieldRef.current = target;
+      scheduleReveal();
+    };
+
+    const onFocusOut = (event: FocusEvent) => {
+      const target = event.target;
+      if (!isFormFieldForScrollClamp(target)) return;
+
+      const related = event.relatedTarget;
+      if (
+        related instanceof HTMLElement &&
+        isFormFieldForScrollClamp(related) &&
+        el.contains(related)
+      ) {
+        return;
+      }
+
+      if (focusedFieldRef.current === target) {
+        focusedFieldRef.current = null;
+      }
+      if (revealTimerRef.current) {
+        clearTimeout(revealTimerRef.current);
+        revealTimerRef.current = null;
+      }
+      runClampChain();
     };
 
     const onInputOrChange = (event: Event) => {
       if (!isFormFieldForScrollClamp(event.target)) return;
-      requestAnimationFrame(clamp);
+      runClampChain();
     };
 
     const resizeObserver =
@@ -90,7 +139,10 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
               el.contains(active) &&
               isFormFieldForScrollClamp(active)
             ) {
-              requestAnimationFrame(clamp);
+              focusedFieldRef.current = active;
+              tryRevealFocused();
+            } else {
+              runClampChain();
             }
           })
         : null;
@@ -100,6 +152,7 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
     vv?.addEventListener('resize', onViewportChange);
     vv?.addEventListener('scroll', onViewportChange);
     el.addEventListener('focusin', onFocusIn);
+    el.addEventListener('focusout', onFocusOut);
     el.addEventListener('input', onInputOrChange, true);
     el.addEventListener('change', onInputOrChange, true);
 
@@ -108,10 +161,14 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
       vv?.removeEventListener('resize', onViewportChange);
       vv?.removeEventListener('scroll', onViewportChange);
       el.removeEventListener('focusin', onFocusIn);
+      el.removeEventListener('focusout', onFocusOut);
       el.removeEventListener('input', onInputOrChange, true);
       el.removeEventListener('change', onInputOrChange, true);
+      if (revealTimerRef.current) {
+        clearTimeout(revealTimerRef.current);
+      }
     };
-  }, [clamp]);
+  }, [clamp, runClampChain, scheduleReveal, tryRevealFocused]);
 
   return scrollRef;
 }

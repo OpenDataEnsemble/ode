@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   },
   customTabBarContainer: {
     width: '100%',
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   customTabBarRow: {
     flexDirection: 'row',

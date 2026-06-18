@@ -235,8 +235,6 @@
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
-        // Add response handler for methods that return values
-
         const callback = event => {
           try {
             let data;

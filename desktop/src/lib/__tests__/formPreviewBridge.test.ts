@@ -161,6 +161,7 @@ describe('handleFormPreviewBridgeMessage', () => {
     expect(postPrimary).not.toHaveBeenCalled();
     expect(defer).toHaveBeenCalledWith({
       parentIframe: primaryIframe,
+      parentContentWindow: primaryCw,
       messageId: 'op-def',
       formType: 'child_form',
       params: { a: 1 },
@@ -477,5 +478,31 @@ describe('postFormplayerBridgeReply', () => {
 
     const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
     expect(payload.type).toBe('getThemeMode_response');
+  });
+
+  it('delivers via __odeFormplayerDeliverBridgeResponse and postMessage', () => {
+    const postMessage = vi.fn();
+    const deliver = vi.fn();
+    const cw = {
+      postMessage,
+      __odeFormplayerDeliverBridgeResponse: deliver,
+    } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    postFormplayerBridgeReply(
+      iframe,
+      'openFormplayer',
+      'msg-parent',
+      { result: { status: 'form_submitted', formData: { a: 1 } } },
+      cw,
+    );
+
+    expect(deliver).toHaveBeenCalledWith('openFormplayer', 'msg-parent', {
+      result: { status: 'form_submitted', formData: { a: 1 } },
+    });
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.type).toBe('openFormplayer_response');
+    expect(payload.messageId).toBe('msg-parent');
   });
 });

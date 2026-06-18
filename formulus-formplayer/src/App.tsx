@@ -51,6 +51,10 @@ import SwipeLayoutRenderer, {
   swipeLayoutTester,
   groupAsSwipeLayoutTester,
 } from './renderers/SwipeLayoutRenderer';
+import {
+  FlatGroupLayout,
+  flatGroupLayoutTester,
+} from './renderers/FlatGroupLayout';
 import { finalizeRenderer, finalizeTester } from './renderers/FinalizeRenderer';
 import PhotoQuestionRenderer, {
   photoQuestionTester,
@@ -100,12 +104,43 @@ import { loadCustomQuestionTypes } from './services/CustomQuestionTypeLoader';
 import { loadCustomValidators } from './services/CustomValidatorLoader';
 import { customValidatorRegistry } from './services/CustomValidatorRegistry';
 import { runCustomValidatorsAndRefreshData } from './services/customValidatorDataRefresh';
+import { resolveErrorPageIndex } from './utils/errorPageNavigation';
+import { applyAutoSequences } from './utils/autoSequence';
 import { newDraftSessionKey } from './utils/draftSessionKey';
+import {
+  formDataJsonEqual,
+  mergePreservingSubObsArrays,
+} from './renderers/subObservationHelpers';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
 function isSubObservationSession(init: FormInitData): boolean {
   const i = init as FormInitData & { returnOnly?: boolean };
   return Boolean(i.subObservationMode || i.returnOnly);
+}
+
+function readAutoSequenceRuntime() {
+  const w = window as unknown as {
+    formulusSubObservationContext?: Record<string, unknown> | null;
+    formulusSessionContext?: Record<string, unknown> | null;
+  };
+  return {
+    subObservationContext: w.formulusSubObservationContext ?? null,
+    sessionContext: w.formulusSessionContext ?? null,
+  };
+}
+
+/** Root observation data aligned to schema, with platform `x-autoSequence` applied on open. */
+function prepareInitialFormData(
+  raw: Record<string, unknown>,
+  formSchema: unknown,
+): Record<string, unknown> {
+  const root = prepareRootObservationData(raw, formSchema);
+  const { data } = applyAutoSequences(
+    root,
+    formSchema as JsonSchema7 | undefined,
+    readAutoSequenceRuntime(),
+  );
+  return data;
 }
 
 // Mock and DevTestbed are loaded only in development via dynamic import (see index.tsx).
@@ -250,12 +285,19 @@ interface FormContextType {
    * Not part of the native bridge.
    */
   draftSessionKey: string | null;
+  /**
+   * Commit a full root data object to App state (auto-sequence + validators).
+   * Used by sub-observation merge so nested rows survive JsonForms controlled-mode
+   * debounce races where `handleChange` alone does not reach `onChange` in time.
+   */
+  commitFormData?: (data: Record<string, unknown>) => void;
 }
 
 export const FormContext = createContext<FormContextType>({
   formInitData: null,
   keyboardEnterKeyHint: undefined,
   draftSessionKey: null,
+  commitFormData: undefined,
 });
 
 export const useFormContext = () => useContext(FormContext);
@@ -265,6 +307,7 @@ export const customRenderers = [
     tester: shellInputControlTester,
     renderer: ShellInputControl,
   },
+  { tester: flatGroupLayoutTester, renderer: FlatGroupLayout },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: finalizeTester, renderer: finalizeRenderer.renderer },
@@ -302,6 +345,8 @@ function App() {
 
   // State for form data, schema, and UI schema
   const [data, setData] = useState<FormData>({});
+  /** Latest form data — read from event handlers that may run before React re-renders. */
+  const dataRef = useRef<FormData>({});
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [uischema, setUISchema] = useState<FormUISchema | null>(null);
 
@@ -579,11 +624,22 @@ function App() {
         ];
         (window as unknown as Record<string, unknown>).formulusSessionContext =
           sessionContext ?? null;
+        (
+          window as unknown as Record<string, unknown>
+        ).formulusSubObservationContext =
+          sessionContext &&
+          typeof sessionContext === 'object' &&
+          'subObservation' in (sessionContext as Record<string, unknown>)
+            ? (sessionContext as Record<string, unknown>).subObservation
+            : null;
 
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
           setData(
-            prepareRootObservationData(savedData as FormData, formSchemaTyped),
+            prepareInitialFormData(
+              savedData as Record<string, unknown>,
+              formSchemaTyped,
+            ),
           );
         } else if (!isSubObservationSession(initData)) {
           const formVersion = (formSchemaTyped as { version?: string })
@@ -604,14 +660,14 @@ function App() {
           );
           const withSticky = applyStickyDefaults(withTokens, relevantSticky);
           console.log('Preloading initialization form values:', withSticky);
-          setData(prepareRootObservationData(withSticky, formSchemaTyped));
+          setData(prepareInitialFormData(withSticky, formSchemaTyped));
         } else {
           const defaultData = applySchemaDefaultTokens(
             initialFormDataFromParams(params),
             formSchemaTyped,
           );
           console.log('Preloading initialization form values:', defaultData);
-          setData(prepareRootObservationData(defaultData, formSchemaTyped));
+          setData(prepareInitialFormData(defaultData, formSchemaTyped));
         }
 
         console.log('Form params (if any, beyond schemas/data):', params);
@@ -917,32 +973,135 @@ function App() {
     return instance;
   }, [extensionDefinitions, customTypeFormats]);
 
+  // Handler for resuming a draft
+  const handleResumeDraft = useCallback(
+    (draftId: string) => {
+      const draft = draftService.getDraft(draftId);
+      if (draft && pendingFormInit) {
+        console.log('Resuming draft:', draftId, draft);
+
+        // Create new FormInitData with draft data as savedData
+        const initDataWithDraft: FormInitData = {
+          ...pendingFormInit,
+          savedData: draft.data,
+        };
+
+        // Initialize form with draft data (keep the same draft row when saving)
+        initializeForm(
+          initDataWithDraft,
+          draft.draftSessionKey ?? `legacy_${draft.id}`,
+        );
+
+        // Hide draft selector
+        setShowDraftSelector(false);
+        setPendingFormInit(null);
+      }
+    },
+    [pendingFormInit, initializeForm],
+  );
+
+  // Handler for starting a new form (ignoring drafts)
+  const handleStartNewForm = useCallback(() => {
+    if (pendingFormInit) {
+      console.log('Starting new form, ignoring drafts');
+      initializeForm(pendingFormInit, newDraftSessionKey());
+      setShowDraftSelector(false);
+      setPendingFormInit(null);
+    }
+  }, [pendingFormInit, initializeForm]);
+
+  const refreshFormData = useCallback(
+    (newData: Record<string, unknown>) => {
+      const autoRuntime = readAutoSequenceRuntime();
+      const { data: sequencedData } = applyAutoSequences(
+        newData,
+        schema ?? undefined,
+        autoRuntime,
+      );
+      const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
+        uischema ?? undefined,
+        schema ?? undefined,
+        sequencedData,
+        ajv,
+      );
+      setCustomValidatorErrors(errors);
+      return refreshedData;
+    },
+    [uischema, schema, ajv],
+  );
+
+  const persistDraftIfRootSession = useCallback(
+    (refreshedData: Record<string, unknown>) => {
+      if (formInitData && !isSubObservationSession(formInitData)) {
+        draftService.saveDraft(
+          formInitData.formType,
+          refreshedData,
+          formInitData,
+          draftSessionKey,
+        );
+      }
+    },
+    [formInitData, draftSessionKey],
+  );
+
+  const handleDataChange = useCallback(
+    ({ data: newData }: { data: FormData }) => {
+      const incoming = newData as Record<string, unknown>;
+      const baseline = dataRef.current as Record<string, unknown>;
+      const merged = mergePreservingSubObsArrays(baseline, incoming);
+      const refreshedData = refreshFormData(merged);
+      // JsonForms re-emits when we push merged sub-obs arrays back; skip when
+      // nothing actually changed to break the render / draft persistence loop.
+      if (formDataJsonEqual(refreshedData, baseline)) {
+        return;
+      }
+      dataRef.current = refreshedData;
+      setData(refreshedData);
+      persistDraftIfRootSession(refreshedData);
+    },
+    [refreshFormData, persistDraftIfRootSession],
+  );
+
+  const commitFormData = useCallback(
+    (newData: Record<string, unknown>) => {
+      const refreshedData = refreshFormData(newData);
+      dataRef.current = refreshedData;
+      setData(refreshedData);
+      persistDraftIfRootSession(refreshedData);
+    },
+    [refreshFormData, persistDraftIfRootSession],
+  );
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
   // Set up event listeners for navigation and finalization
   useEffect(() => {
     const handleNavigateToError = (event: CustomEvent) => {
       if (!uischema) return;
 
-      const path = event.detail.path;
-      const field = path.split('/').pop();
-      const screens = uischema.elements;
+      const path = event.detail?.path;
+      if (!path || typeof path !== 'string') return;
 
-      for (let i = 0; i < screens.length; i++) {
-        const screen = screens[i];
-        // Skip the Finalize screen
-        if (screen.type === 'Finalize') continue;
-
-        // Type guard to ensure elements exists
-        if ('elements' in screen && screen.elements) {
-          if (screen.elements.some((el: any) => el.scope?.includes(field))) {
-            // Dispatch a custom event that SwipeLayoutWrapper will listen for
-            const navigateEvent = new CustomEvent('navigateToPage', {
-              detail: { page: i },
-            });
-            window.dispatchEvent(navigateEvent);
-            break;
-          }
-        }
+      const pageIndex = resolveErrorPageIndex(uischema, path);
+      if (pageIndex !== null) {
+        window.dispatchEvent(
+          new CustomEvent('navigateToPage', {
+            detail: { page: pageIndex },
+          }),
+        );
       }
+    };
+
+    const handleRevalidate = () => {
+      const current = dataRef.current as Record<string, unknown>;
+      if (!current || Object.keys(current).length === 0) {
+        return;
+      }
+      const refreshedData = refreshFormData(current);
+      dataRef.current = refreshedData;
+      setData(refreshedData);
     };
 
     const handleShowValidation = () => {
@@ -955,13 +1114,14 @@ function App() {
     const handleFinalizeForm = (event: Event) => {
       // Reaching finalize is a meaningful checkpoint: ensure validation is shown.
       handleShowValidation();
-      // Prefer the payload from the FinalizeRenderer if available
       const customEvent = event as CustomEvent<{
         formInitData?: FormInitData;
         data?: FormData;
       }>;
       const payloadFormInit = customEvent.detail?.formInitData || formInitData;
-      const rawPayload = customEvent.detail?.data || data;
+      const rawPayload =
+        (dataRef.current as Record<string, unknown> | undefined) ??
+        customEvent.detail?.data;
 
       if (!payloadFormInit) {
         console.error(
@@ -973,7 +1133,7 @@ function App() {
         return;
       }
 
-      const rootPayload = prepareRootObservationData(rawPayload, schema);
+      const rootPayload = prepareRootObservationData(rawPayload ?? {}, schema);
       const { errors: finalizeValidatorErrors, data: payloadData } =
         runCustomValidatorsAndRefreshData(
           uischema ?? undefined,
@@ -1040,6 +1200,10 @@ function App() {
       'formShowValidation',
       handleShowValidation as EventListener,
     );
+    window.addEventListener(
+      'formRevalidate',
+      handleRevalidate as EventListener,
+    );
 
     return () => {
       window.removeEventListener(
@@ -1054,70 +1218,12 @@ function App() {
         'formShowValidation',
         handleShowValidation as EventListener,
       );
-    };
-  }, [data, formInitData, draftSessionKey, uischema, schema, ajv]); // Include all dependencies
-
-  // Handler for resuming a draft
-  const handleResumeDraft = useCallback(
-    (draftId: string) => {
-      const draft = draftService.getDraft(draftId);
-      if (draft && pendingFormInit) {
-        console.log('Resuming draft:', draftId, draft);
-
-        // Create new FormInitData with draft data as savedData
-        const initDataWithDraft: FormInitData = {
-          ...pendingFormInit,
-          savedData: draft.data,
-        };
-
-        // Initialize form with draft data (keep the same draft row when saving)
-        initializeForm(
-          initDataWithDraft,
-          draft.draftSessionKey ?? `legacy_${draft.id}`,
-        );
-
-        // Hide draft selector
-        setShowDraftSelector(false);
-        setPendingFormInit(null);
-      }
-    },
-    [pendingFormInit, initializeForm],
-  );
-
-  // Handler for starting a new form (ignoring drafts)
-  const handleStartNewForm = useCallback(() => {
-    if (pendingFormInit) {
-      console.log('Starting new form, ignoring drafts');
-      initializeForm(pendingFormInit, newDraftSessionKey());
-      setShowDraftSelector(false);
-      setPendingFormInit(null);
-    }
-  }, [pendingFormInit, initializeForm]);
-
-  const handleDataChange = useCallback(
-    ({ data: newData }: { data: FormData }) => {
-      const { errors, data: refreshedData } = runCustomValidatorsAndRefreshData(
-        uischema ?? undefined,
-        schema ?? undefined,
-        newData as Record<string, unknown>,
-        ajv,
+      window.removeEventListener(
+        'formRevalidate',
+        handleRevalidate as EventListener,
       );
-
-      setData(refreshedData);
-      setCustomValidatorErrors(errors);
-
-      // Save draft data whenever form data changes (skip embedded sub-observation sessions)
-      if (formInitData && !isSubObservationSession(formInitData)) {
-        draftService.saveDraft(
-          formInitData.formType,
-          refreshedData,
-          formInitData,
-          draftSessionKey,
-        );
-      }
-    },
-    [formInitData, draftSessionKey, uischema, schema, ajv],
-  );
+    };
+  }, [formInitData, draftSessionKey, uischema, schema, ajv, refreshFormData]);
 
   // Create dynamic theme based on dark mode preference and custom app colors.
   // When a custom app provides themeColors, they override the default palette
@@ -1251,7 +1357,8 @@ function App() {
 
   return (
     <ThemeProvider theme={currentTheme}>
-      <FormContext.Provider value={{ formInitData, draftSessionKey }}>
+      <FormContext.Provider
+        value={{ formInitData, draftSessionKey, commitFormData }}>
         <div
           className="App"
           style={{

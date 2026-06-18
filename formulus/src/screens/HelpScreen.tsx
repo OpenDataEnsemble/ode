@@ -79,7 +79,10 @@ const HelpScreen: React.FC = () => {
   return (
     <View style={shellStyle}>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}
+        style={[
+          styles.container,
+          { backgroundColor: colors.neutral.transparent },
+        ]}
         edges={['top']}>
         <View
           style={[
@@ -297,7 +300,7 @@ const HelpScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollTransparent: { backgroundColor: 'transparent' },
+  scrollTransparent: { backgroundColor: colors.neutral.transparent },
   header: {
     padding: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
@@ -330,12 +333,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   logo: {
     width: 40,
     height: 40,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   content: {
     padding: odeSpacing.md,

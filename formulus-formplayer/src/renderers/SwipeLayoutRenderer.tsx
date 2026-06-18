@@ -18,6 +18,7 @@ import {
   rankWith,
   uiTypeIs,
   RankedTester,
+  JsonSchema7,
 } from '@jsonforms/core';
 import { useSwipeable } from 'react-swipeable';
 import { Box, Typography, useTheme } from '@mui/material';
@@ -42,6 +43,7 @@ import {
   focusFirstEnabledTextInput,
 } from '../utils/autofocusHelpers';
 import { navigateToFirstBlockingError } from '../utils/validationNavigation';
+import { formatBlockingErrorSummary } from '../utils/errorPageNavigation';
 
 // ---------------------------------------------------------------------------
 // Testers
@@ -406,15 +408,18 @@ const SwipeLayoutRenderer = ({
 
   const { ref: swipeableRef, ...swipeHandlers } = handlers;
 
-  const mergedSwipeScreenRef = useCallback(
+  const mergeScrollRef = useCallback(
     (el: HTMLDivElement | null) => {
-      swipeScreenRef.current = el;
       if (typeof swipeableRef === 'function') {
         swipeableRef(el);
       }
     },
     [swipeableRef],
   );
+
+  const setSwipeScreenRef = useCallback((el: HTMLDivElement | null) => {
+    swipeScreenRef.current = el;
+  }, []);
 
   const isOnFinalizePage = useMemo(() => {
     return layouts[currentPage]?.type === 'Finalize';
@@ -423,6 +428,15 @@ const SwipeLayoutRenderer = ({
   const isLastContentPage = nextVisiblePage === null && !isOnFinalizePage;
 
   const validationErrorCount = core?.errors?.length ?? 0;
+
+  const validationAlertMessage = useMemo(() => {
+    const errors = core?.errors ?? [];
+    if (errors.length === 0) return '';
+    return formatBlockingErrorSummary(
+      errors,
+      (core?.schema ?? schema) as JsonSchema7,
+    );
+  }, [core?.errors, core?.schema, schema]);
 
   const trySubmitForm = useCallback(() => {
     if (!formInitData) return;
@@ -489,15 +503,10 @@ const SwipeLayoutRenderer = ({
 
   const formContextForSwipe = useMemo(
     () => ({
-      formInitData: parentFormContext.formInitData,
+      ...parentFormContext,
       keyboardEnterKeyHint,
-      draftSessionKey: parentFormContext.draftSessionKey ?? null,
     }),
-    [
-      parentFormContext.formInitData,
-      parentFormContext.draftSessionKey,
-      keyboardEnterKeyHint,
-    ],
+    [parentFormContext, keyboardEnterKeyHint],
   );
 
   const handleSnackbarClose = useCallback(
@@ -526,7 +535,10 @@ const SwipeLayoutRenderer = ({
     swipeOptions.headerTitle || (schema as any)?.title || undefined;
   const headerFields: string[] = (swipeOptions.headerFields || []).slice(0, 2);
 
-  const densityContextValue = useMemo(() => ({ labelLayout }), [labelLayout]);
+  const densityContextValue = useMemo(
+    () => ({ labelLayout, groupVariant: 'flat' as const }),
+    [labelLayout],
+  );
 
   if (visible === false) {
     return null;
@@ -539,6 +551,8 @@ const SwipeLayoutRenderer = ({
       <FormContext.Provider value={formContextForSwipe}>
         <FormLayout
           keyboardSubmitAction={keyboardSubmitAction}
+          scrollRefMerge={mergeScrollRef}
+          scrollHandlers={swipeHandlers}
           header={
             <>
               <FormProgressBar
@@ -549,16 +563,14 @@ const SwipeLayoutRenderer = ({
                 uischema={uischema}
                 mode="screens"
                 isOnFinalizePage={isOnFinalizePage}
-                onNavigatePrevious={
-                  prevVisiblePage !== null
-                    ? () => navigateToPage(prevVisiblePage)
-                    : undefined
-                }
-                onNavigateNext={
-                  nextVisiblePage !== null
-                    ? () => navigateToPage(nextVisiblePage)
-                    : undefined
-                }
+                canNavigatePrevious={prevVisiblePage !== null}
+                canNavigateNext={nextVisiblePage !== null}
+                onNavigatePrevious={() => {
+                  if (prevVisiblePage !== null) navigateToPage(prevVisiblePage);
+                }}
+                onNavigateNext={() => {
+                  if (nextVisiblePage !== null) navigateToPage(nextVisiblePage);
+                }}
                 navigationDisabled={isNavigating}
               />
               {headerFields.length > 0 && (
@@ -642,10 +654,7 @@ const SwipeLayoutRenderer = ({
           }
           contentBottomPadding={24}
           showNavigation={true}>
-          <div
-            ref={mergedSwipeScreenRef}
-            {...swipeHandlers}
-            className="swipelayout_screen">
+          <div ref={setSwipeScreenRef} className="swipelayout_screen">
             {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
             {layouts.length > 0 && layouts[currentPage] && (
               <JsonFormsDispatch
@@ -665,9 +674,7 @@ const SwipeLayoutRenderer = ({
               color="error"
               role="alert"
               sx={{ px: { xs: 1, sm: 1.5 }, pt: 1, pb: 0.5 }}>
-              {validationErrorCount}{' '}
-              {validationErrorCount === 1 ? 'field needs' : 'fields need'}{' '}
-              attention. Tap Done to review.
+              {validationAlertMessage}
             </Typography>
           )}
 
@@ -752,12 +759,19 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const { formInitData, draftSessionKey } = useFormContext();
   const { data } = props;
+  const skipDraftPersistence =
+    formInitData != null &&
+    Boolean(
+      (formInitData as { subObservationMode?: boolean; returnOnly?: boolean })
+        .subObservationMode ||
+      (formInitData as { returnOnly?: boolean }).returnOnly,
+    );
 
   // Save partial data whenever the page changes or data changes
   const handlePageChange = useCallback(
     (page: number) => {
       // Save the current form data before changing the page
-      if (data && formInitData) {
+      if (data && formInitData && !skipDraftPersistence) {
         console.log('Saving draft data on page change:', data);
         draftService.saveDraft(
           formInitData.formType,
@@ -768,13 +782,13 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       }
       setCurrentPage(page);
     },
-    [data, formInitData, draftSessionKey],
+    [data, formInitData, draftSessionKey, skipDraftPersistence],
   );
 
   useEffect(() => {
     const handleNavigateToPage = (event: CustomEvent) => {
       // Save the current form data before navigating to a specific page
-      if (data && formInitData) {
+      if (data && formInitData && !skipDraftPersistence) {
         console.log('Saving draft data before navigation event:', data);
         draftService.saveDraft(
           formInitData.formType,
@@ -797,27 +811,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
         handleNavigateToPage as EventListener,
       );
     };
-  }, [data, formInitData, draftSessionKey]);
-
-  // Also save data when it changes (even without page change)
-  useEffect(() => {
-    if (data) {
-      // Debounce the save to avoid too many calls
-      const debounceTimer = setTimeout(() => {
-        if (formInitData) {
-          console.log('Saving draft data on data change:', data);
-          draftService.saveDraft(
-            formInitData.formType,
-            data,
-            formInitData,
-            draftSessionKey,
-          );
-        }
-      }, 1000); // 1 second debounce
-
-      return () => clearTimeout(debounceTimer);
-    }
-  }, [data, formInitData, draftSessionKey]);
+  }, [data, formInitData, draftSessionKey, skipDraftPersistence]);
 
   return (
     <SwipeLayoutRenderer

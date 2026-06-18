@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
-import { FormplayerEmbed } from '../components/FormplayerEmbed';
+import {
+  FormplayerEmbed,
+  type FormplayerEmbedHandle,
+} from '../components/FormplayerEmbed';
 import {
   buildFormPreviewInit,
   inferObservationIdFromSavedData,
@@ -12,37 +15,21 @@ import { useDeveloperMode } from '../hooks/useDeveloperMode';
 import type { FinalizeRequest } from '../lib/formPreviewBridge';
 import {
   handleFormPreviewBridgeMessage,
-  postFormplayerBridgeReply,
   type FormPreviewDeferOpenSubObservationPayload,
 } from '../lib/formPreviewBridge';
 import type { FormPreviewEditState } from '../lib/formPreviewNavigation';
 import { tauriClient } from '../lib/tauriClient';
 import type { FormInitData } from '../lib/formplayerHost';
 import type { ActiveBundleFormEntry, BundleFormSpec } from '../types/domain';
+import { messageSourceMatchesIframe } from '../lib/iframeMessageSource';
+import {
+  deliverSubObservationCancelled,
+  deliverSubObservationCompletion,
+  dropPendingSubObservationOpen,
+  registerPendingSubObservationOpen,
+} from '../lib/formPreviewSubObservationBridge';
 
 const DEFAULT_JSON = '{}';
-
-/**
- * WebKit / WCO (Tauri): `MessageEvent.source` may not be strictly `===` to
- * `iframe.contentWindow`, and `instanceof Window` can be false for iframe globals.
- * `window.frameElement === iframe` identifies the embedding element reliably for same-origin frames.
- */
-function messageSourceMatchesIframe(
-  source: Window,
-  iframe: HTMLIFrameElement | null | undefined,
-): boolean {
-  if (!iframe) {
-    return false;
-  }
-  try {
-    if (iframe.contentWindow === source) {
-      return true;
-    }
-    return source.frameElement === iframe;
-  } catch {
-    return false;
-  }
-}
 
 type LocationState = {
   formPreviewEdit?: FormPreviewEditState;
@@ -50,6 +37,9 @@ type LocationState = {
 
 type NestedSubObservationSession = {
   parentIframe: HTMLIFrameElement;
+  parentEmbed: FormplayerEmbedHandle | null;
+  /** Parent iframe `contentWindow` captured when the nested open was deferred. */
+  parentContentWindow: Window | null;
   parentMessageId: string;
   formType: string;
   /** Null while bundle init is loading */
@@ -81,7 +71,11 @@ export function FormPreviewPage() {
 
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
 
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeRef = useRef<FormplayerEmbedHandle>(null);
+  const rootContentWindowRef = useRef<Window | null>(null);
+  const nestedEmbedByMessageIdRef = useRef<Map<string, FormplayerEmbedHandle>>(
+    new Map(),
+  );
   const finalizeResolverRef = useRef<
     ((v: { result?: string; error?: string }) => void) | null
   >(null);
@@ -95,10 +89,50 @@ export function FormPreviewPage() {
   const nestedIframeByMessageIdRef = useRef<
     Map<string, HTMLIFrameElement | null>
   >(new Map());
+  const nestedContentWindowByMessageIdRef = useRef<Map<string, Window | null>>(
+    new Map(),
+  );
 
   useEffect(() => {
     nestedSessionsRef.current = nestedSessions;
   }, [nestedSessions]);
+
+  const resolveParentEmbed = useCallback(
+    (source: Window): FormplayerEmbedHandle | null => {
+      const rootHandle = iframeRef.current;
+      const rootIframe = rootHandle?.getIframe() ?? null;
+      if (
+        messageSourceMatchesIframe(
+          source,
+          rootIframe,
+          rootContentWindowRef.current,
+        )
+      ) {
+        return rootHandle;
+      }
+      for (const handle of nestedEmbedByMessageIdRef.current.values()) {
+        const el = handle.getIframe();
+        const cw = el?.contentWindow ?? null;
+        if (messageSourceMatchesIframe(source, el, cw)) {
+          return handle;
+        }
+      }
+      return null;
+    },
+    [],
+  );
+
+  const finishNestedSession = useCallback((parentMessageId: string) => {
+    dropPendingSubObservationOpen(parentMessageId);
+    nestedEmbedByMessageIdRef.current.delete(parentMessageId);
+    nestedIframeByMessageIdRef.current.delete(parentMessageId);
+    nestedContentWindowByMessageIdRef.current.delete(parentMessageId);
+    queueMicrotask(() => {
+      setNestedSessions(prev =>
+        prev.filter(sess => sess.parentMessageId !== parentMessageId),
+      );
+    });
+  }, []);
 
   const loadForms = useCallback(async () => {
     setListLoading(true);
@@ -262,31 +296,19 @@ export function FormPreviewPage() {
   }, []);
 
   const dismissTopNestedSession = useCallback(() => {
-    setNestedSessions(prev => {
-      const top = prev[prev.length - 1];
-      if (!top) {
-        return prev;
-      }
-      postFormplayerBridgeReply(
-        top.parentIframe,
-        'openFormplayer',
-        top.parentMessageId,
-        {
-          result: {
-            status: 'cancelled',
-            formType: top.formType,
-          },
-        },
-      );
-      nestedIframeByMessageIdRef.current.delete(top.parentMessageId);
-      return prev.slice(0, -1);
-    });
-  }, []);
+    const top = nestedSessionsRef.current[nestedSessionsRef.current.length - 1];
+    if (!top) {
+      return;
+    }
+    deliverSubObservationCancelled(top.parentMessageId, top.formType);
+    finishNestedSession(top.parentMessageId);
+  }, [finishNestedSession]);
 
   const beginDeferredNestedOpen = useCallback(
     (payload: FormPreviewDeferOpenSubObservationPayload) => {
       const {
         parentIframe,
+        parentContentWindow,
         messageId,
         formType,
         params,
@@ -294,10 +316,22 @@ export function FormPreviewPage() {
         skipFinalize,
         skipDraftSelection,
       } = payload;
+      const parentEmbed =
+        parentContentWindow != null
+          ? resolveParentEmbed(parentContentWindow)
+          : null;
+      registerPendingSubObservationOpen({
+        parentMessageId: messageId,
+        parentEmbed,
+        parentContentWindow,
+        formType,
+      });
       setNestedSessions(prev => [
         ...prev,
         {
           parentIframe,
+          parentEmbed,
+          parentContentWindow,
           parentMessageId: messageId,
           formType,
           initData: null,
@@ -330,21 +364,16 @@ export function FormPreviewPage() {
             ),
           );
         } catch (e) {
-          postFormplayerBridgeReply(parentIframe, 'openFormplayer', messageId, {
-            result: {
-              status: 'error',
-              formType,
-              message: e instanceof Error ? e.message : String(e),
-            },
+          deliverSubObservationCompletion(messageId, {
+            status: 'error',
+            formType,
+            message: e instanceof Error ? e.message : String(e),
           });
-          nestedIframeByMessageIdRef.current.delete(messageId);
-          setNestedSessions(prev =>
-            prev.filter(sess => sess.parentMessageId !== messageId),
-          );
+          finishNestedSession(messageId);
         }
       })();
     },
-    [developerMode],
+    [developerMode, finishNestedSession, resolveParentEmbed],
   );
 
   const tryCompleteNestedSubObservationFinalize = useCallback(
@@ -353,14 +382,25 @@ export function FormPreviewPage() {
       request: FinalizeRequest,
     ): Promise<{ result?: string; error?: string } | null> => {
       const stack = nestedSessionsRef.current;
-      const top = stack[stack.length - 1];
-      if (!top?.initData) {
+      let matchedIndex = -1;
+      for (let i = stack.length - 1; i >= 0; i -= 1) {
+        const sess = stack[i];
+        if (!sess.initData) {
+          continue;
+        }
+        const el = nestedIframeByMessageIdRef.current.get(sess.parentMessageId);
+        const cw = nestedContentWindowByMessageIdRef.current.get(
+          sess.parentMessageId,
+        );
+        if (messageSourceMatchesIframe(eventSource, el, cw)) {
+          matchedIndex = i;
+          break;
+        }
+      }
+      if (matchedIndex < 0) {
         return null;
       }
-      const topEl = nestedIframeByMessageIdRef.current.get(top.parentMessageId);
-      if (!messageSourceMatchesIframe(eventSource, topEl)) {
-        return null;
-      }
+      const matched = stack[matchedIndex];
 
       const syntheticResult =
         request.kind === 'update' ? request.observationId : crypto.randomUUID();
@@ -369,38 +409,42 @@ export function FormPreviewPage() {
         request.kind === 'update'
           ? {
               status: 'form_updated' as const,
-              formType: top.formType,
+              formType: matched.formType,
               observationId: request.observationId,
               formData: request.finalData,
             }
           : {
               status: 'form_submitted' as const,
-              formType: top.formType,
+              formType: matched.formType,
               formData: request.finalData,
             };
 
-      postFormplayerBridgeReply(
-        top.parentIframe,
-        'openFormplayer',
-        top.parentMessageId,
-        { result: completion },
-      );
-
-      nestedIframeByMessageIdRef.current.delete(top.parentMessageId);
-      setNestedSessions(prev => prev.slice(0, -1));
+      deliverSubObservationCompletion(matched.parentMessageId, completion);
+      finishNestedSession(matched.parentMessageId);
 
       return { result: syntheticResult };
     },
-    [],
+    [finishNestedSession],
   );
 
   const resolveReplyIframe = useCallback((source: Window) => {
-    if (messageSourceMatchesIframe(source, iframeRef.current)) {
-      return iframeRef.current;
+    const rootIframe = iframeRef.current?.getIframe() ?? null;
+    if (
+      messageSourceMatchesIframe(
+        source,
+        rootIframe,
+        rootContentWindowRef.current,
+      )
+    ) {
+      return rootIframe;
     }
-    for (const s of nestedSessionsRef.current) {
+    for (let i = nestedSessionsRef.current.length - 1; i >= 0; i -= 1) {
+      const s = nestedSessionsRef.current[i];
       const el = nestedIframeByMessageIdRef.current.get(s.parentMessageId);
-      if (messageSourceMatchesIframe(source, el)) {
+      const cw = nestedContentWindowByMessageIdRef.current.get(
+        s.parentMessageId,
+      );
+      if (messageSourceMatchesIframe(source, el, cw)) {
         return el ?? null;
       }
     }
@@ -418,7 +462,7 @@ export function FormPreviewPage() {
         return;
       }
       void handleFormPreviewBridgeMessage(e, {
-        iframe: iframeRef.current,
+        iframe: iframeRef.current?.getIframe() ?? null,
         resolveReplyIframe,
         onFinalize,
         onDeferOpenSubObservation: beginDeferredNestedOpen,
@@ -473,10 +517,27 @@ export function FormPreviewPage() {
                 </div>
                 {session.initData ? (
                   <FormplayerEmbed
-                    ref={el => {
-                      const map = nestedIframeByMessageIdRef.current;
-                      if (el) {
-                        map.set(session.parentMessageId, el);
+                    ref={handle => {
+                      const embedMap = nestedEmbedByMessageIdRef.current;
+                      const iframeMap = nestedIframeByMessageIdRef.current;
+                      if (handle) {
+                        embedMap.set(session.parentMessageId, handle);
+                        iframeMap.set(
+                          session.parentMessageId,
+                          handle.getIframe(),
+                        );
+                      } else {
+                        embedMap.delete(session.parentMessageId);
+                        iframeMap.delete(session.parentMessageId);
+                        nestedContentWindowByMessageIdRef.current.delete(
+                          session.parentMessageId,
+                        );
+                      }
+                    }}
+                    onContentWindowReady={cw => {
+                      const map = nestedContentWindowByMessageIdRef.current;
+                      if (cw) {
+                        map.set(session.parentMessageId, cw);
                       } else {
                         map.delete(session.parentMessageId);
                       }
@@ -571,6 +632,9 @@ export function FormPreviewPage() {
         <div className="panel panel-form-preview-embed panel-embed-flush">
           <FormplayerEmbed
             ref={iframeRef}
+            onContentWindowReady={cw => {
+              rootContentWindowRef.current = cw;
+            }}
             formInitData={formInitData}
             emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON and click Apply."
           />

@@ -479,6 +479,23 @@ export interface FormulusInterface {
   requestLocation(fieldId: string): Promise<LocationResult>;
 
   /**
+   * Return the best cached device fix (if any) without forcing a new GPS read.
+   * @param fieldId Optional field id for parity with `requestLocation`
+   */
+  getCachedLocation(fieldId?: string): Promise<LocationResult | null>;
+
+  /**
+   * Subscribe to location updates while the custom app WebView is active.
+   * Updates arrive as `locationWatchUpdate` window messages.
+   */
+  watchLocation(
+    fieldId: string,
+  ): Promise<{ status: 'started' | 'error'; message?: string }>;
+
+  /** Stop a prior `watchLocation` subscription for `fieldId`. */
+  stopWatchLocation(fieldId: string): Promise<void>;
+
+  /**
    * Request file selection for a field
    * @param {string} fieldId - The ID of the field
    * @returns {Promise<FileResult>} Promise that resolves with file result or rejects on error/cancellation

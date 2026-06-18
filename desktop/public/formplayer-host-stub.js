@@ -34,4 +34,43 @@
       }
     },
   };
+
+  /**
+   * ODE Desktop: deliver bridge *_response to pending Formulus promises without
+   * relying on postMessage from the outer shell (unreliable for srcdoc iframes in WebView2).
+   */
+  function deliverBridgeResponseBody(body) {
+    if (!body || !body.type || !body.messageId) {
+      return;
+    }
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: JSON.stringify(body),
+      }),
+    );
+  }
+
+  window.__odeFormplayerDeliverBridgeResponse = function (
+    requestType,
+    messageId,
+    payload,
+  ) {
+    var responseType = requestType + '_response';
+    var body = { type: responseType, messageId: messageId };
+    if (payload && typeof payload === 'object') {
+      if ('result' in payload) body.result = payload.result;
+      if ('error' in payload) body.error = payload.error;
+    }
+    deliverBridgeResponseBody(body);
+  };
+
+  /** Same-origin broadcast fallback when the outer shell cannot postMessage into srcdoc iframes (WebView2). */
+  if (typeof BroadcastChannel !== 'undefined') {
+    var bridgeResponseChannel = new BroadcastChannel(
+      'ode-formplayer-bridge-response',
+    );
+    bridgeResponseChannel.onmessage = function (event) {
+      deliverBridgeResponseBody(event.data);
+    };
+  }
 })();

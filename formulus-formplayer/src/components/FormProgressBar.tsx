@@ -47,6 +47,10 @@ interface FormProgressBarProps {
    */
   onNavigatePrevious?: () => void;
   onNavigateNext?: () => void;
+  /** When false, previous chevron is shown but disabled (multi-page forms). */
+  canNavigatePrevious?: boolean;
+  /** When false, next chevron is shown but disabled (multi-page forms). */
+  canNavigateNext?: boolean;
   /** When true, both header chevrons are disabled (e.g. navigation in flight). */
   navigationDisabled?: boolean;
 }
@@ -130,6 +134,7 @@ const countAnsweredQuestions = (
 const navIconButtonSx = {
   flexShrink: 0,
   p: 0.25,
+  minWidth: 32,
   color: 'text.secondary',
   '&.Mui-disabled': { opacity: 0.35 },
 } as const;
@@ -143,6 +148,8 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   isOnFinalizePage = false,
   onNavigatePrevious,
   onNavigateNext,
+  canNavigatePrevious = false,
+  canNavigateNext = false,
   navigationDisabled = false,
 }) => {
   const progress = useMemo(() => {
@@ -184,20 +191,23 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   }, [currentPage, totalScreens, data, schema, mode, isOnFinalizePage]);
 
   const handlePrev = useCallback(() => {
-    if (navigationDisabled || !onNavigatePrevious) return;
+    if (navigationDisabled || !canNavigatePrevious || !onNavigatePrevious)
+      return;
     onNavigatePrevious();
-  }, [navigationDisabled, onNavigatePrevious]);
+  }, [navigationDisabled, canNavigatePrevious, onNavigatePrevious]);
 
   const handleNext = useCallback(() => {
-    if (navigationDisabled || !onNavigateNext) return;
+    if (navigationDisabled || !canNavigateNext || !onNavigateNext) return;
     onNavigateNext();
-  }, [navigationDisabled, onNavigateNext]);
+  }, [navigationDisabled, canNavigateNext, onNavigateNext]);
 
   if (totalScreens === 0) {
     return null;
   }
 
-  const showHeaderNav = onNavigatePrevious != null || onNavigateNext != null;
+  const showHeaderNav = totalScreens > 1;
+  const prevDisabled = navigationDisabled || !canNavigatePrevious;
+  const nextDisabled = navigationDisabled || !canNavigateNext;
 
   return (
     <Box
@@ -218,7 +228,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
             size="small"
             aria-label="Previous screen"
             onClick={handlePrev}
-            disabled={navigationDisabled || !onNavigatePrevious}
+            disabled={prevDisabled}
             edge="start"
             sx={navIconButtonSx}>
             <ChevronLeft sx={{ fontSize: 22 }} />
@@ -264,7 +274,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
             size="small"
             aria-label="Next screen"
             onClick={handleNext}
-            disabled={navigationDisabled || !onNavigateNext}
+            disabled={nextDisabled}
             edge="end"
             sx={navIconButtonSx}>
             <ChevronRight sx={{ fontSize: 22 }} />

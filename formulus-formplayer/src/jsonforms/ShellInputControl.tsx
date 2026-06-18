@@ -35,6 +35,22 @@ const ShellInputControl = (props: ControlProps) => {
   const autoFocus =
     (uischema as { options?: { autoFocus?: boolean } })?.options?.autoFocus ===
     true;
+  const uiOptions = (
+    uischema as {
+      options?: {
+        multi?: boolean;
+        minRows?: number;
+        rows?: number;
+        maxRows?: number;
+      };
+    }
+  )?.options;
+  const multiline = uiOptions?.multi === true;
+  const minRows =
+    typeof uiOptions?.minRows === 'number' ? uiOptions.minRows : undefined;
+  const rows = typeof uiOptions?.rows === 'number' ? uiOptions.rows : undefined;
+  const maxRows =
+    typeof uiOptions?.maxRows === 'number' ? uiOptions.maxRows : undefined;
 
   const cellProps = {
     ...(props as React.ComponentProps<typeof MuiInputText>),
@@ -52,6 +68,10 @@ const ShellInputControl = (props: ControlProps) => {
         label={undefined}
         isValid={isValid}
         muiInputProps={{
+          ...(multiline ? { multiline: true } : {}),
+          ...(minRows != null ? { minRows } : {}),
+          ...(rows != null ? { rows } : {}),
+          ...(maxRows != null ? { maxRows } : {}),
           ...(keyboardEnterKeyHint
             ? { enterKeyHint: keyboardEnterKeyHint }
             : {}),

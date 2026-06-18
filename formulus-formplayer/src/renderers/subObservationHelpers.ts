@@ -82,6 +82,85 @@ export function readDataPath(data: unknown, dotPath: string): unknown {
   return cur;
 }
 
+/** Immutable shallow clone along `dotPath`, then set the leaf value. */
+export function writeDataPath(
+  data: Record<string, unknown>,
+  dotPath: string,
+  value: unknown,
+): Record<string, unknown> {
+  if (!dotPath) return data;
+  const keys = dotPath.split('.');
+  if (keys.length === 1) {
+    return { ...data, [dotPath]: value };
+  }
+  const root = { ...data };
+  let cur: Record<string, unknown> = root;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    const next = cur[key];
+    const cloned =
+      next && typeof next === 'object' && !Array.isArray(next)
+        ? { ...(next as Record<string, unknown>) }
+        : Array.isArray(next)
+          ? [...next]
+          : {};
+    cur[key] = cloned;
+    cur = cloned as Record<string, unknown>;
+  }
+  cur[keys[keys.length - 1]] = value;
+  return root;
+}
+
+/** Embedded arrays and derived indexes preserved when JsonForms omits unmounted fields. */
+const PRESERVED_ARRAY_KEYS = [
+  'quartos',
+  'camas',
+  'pessoas',
+  'person_codigos',
+] as const;
+
+/** Stable JSON comparison for form-data equality checks (avoids render loops). */
+export function formDataJsonEqual(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+): boolean {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Keep embedded sub-obs arrays when JsonForms emits partial onChange payloads.
+ * SwipeLayout only mounts the current page, so controls on other pages (e.g.
+ * `quartos`) are absent from `incoming` even though they still live in our
+ * baseline draft state.
+ */
+export function mergePreservingSubObsArrays(
+  baseline: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged = { ...incoming };
+  for (const key of PRESERVED_ARRAY_KEYS) {
+    const baseArr = baseline[key];
+    if (!(key in incoming)) {
+      if (Array.isArray(baseArr)) {
+        merged[key] = baseArr;
+      }
+      continue;
+    }
+    if (!Array.isArray(baseArr) || baseArr.length === 0) {
+      continue;
+    }
+    const inArr = incoming[key];
+    if (!Array.isArray(inArr) || inArr.length < baseArr.length) {
+      merged[key] = baseArr;
+    }
+  }
+  return merged;
+}
+
 /** Matches a string that is exactly one `{{ token }}` with no surrounding text. */
 const SINGLE_TOKEN_RE = /^\s*\{\{\s*([^}]+?)\s*\}\}\s*$/;
 
@@ -136,17 +215,82 @@ export function resolveInitialValues(
   return out;
 }
 
+/** Resolve `subObservationContext` templates from the opening form's data. */
+export function resolveSubObservationContext(
+  mapObj: Record<string, unknown> | null | undefined,
+  formData: Record<string, unknown>,
+  parentValue: string | null,
+): Record<string, unknown> {
+  return resolveInitialValues(mapObj, formData, parentValue);
+}
+
+export function buildSubObservationOpenParams(
+  formData: Record<string, unknown>,
+  config: Record<string, unknown>,
+  parentValue: string | null,
+  initMap?: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const parentSessionContext =
+    typeof window !== 'undefined'
+      ? (
+          window as unknown as {
+            formulusSessionContext?: Record<string, unknown> | null;
+          }
+        ).formulusSessionContext
+      : null;
+
+  const resolved = resolveSubObservationContext(
+    optionalRecordMap(config.subObservationContext),
+    formData,
+    parentValue,
+  );
+  const inheritedSubObservation =
+    parentSessionContext &&
+    typeof parentSessionContext === 'object' &&
+    parentSessionContext.subObservation &&
+    typeof parentSessionContext.subObservation === 'object'
+      ? (parentSessionContext.subObservation as Record<string, unknown>)
+      : {};
+
+  const subObservation: Record<string, unknown> = {
+    ...inheritedSubObservation,
+  };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (value !== '' && value != null) {
+      subObservation[key] = value;
+    }
+  }
+
+  const initValues = resolveInitialValues(initMap, formData, parentValue);
+  const { household_quartos: _legacySnapshot, ...restInit } = initValues;
+
+  const context = {
+    ...(parentSessionContext && typeof parentSessionContext === 'object'
+      ? parentSessionContext
+      : {}),
+    ...(Object.keys(subObservation).length > 0 ? { subObservation } : {}),
+  };
+
+  return {
+    ...restInit,
+    ...(Object.keys(context).length > 0 ? { context } : {}),
+  };
+}
+
 export function formatCellValue(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
 
+/** Stable empty reference — avoid retriggering sub-observation row sync every render. */
+const EMPTY_SUB_OBSERVATION_ROWS: unknown[] = [];
+
 /** Normalizes JsonForms control data into an array of row payloads. */
 export function coerceSubObservationRows(value: unknown): unknown[] {
-  if (value == null) return [];
+  if (value == null) return EMPTY_SUB_OBSERVATION_ROWS;
   if (Array.isArray(value)) return value;
-  return [];
+  return EMPTY_SUB_OBSERVATION_ROWS;
 }
 
 export function readSubObservationField(
@@ -212,7 +356,9 @@ export function sortRows(
     r && typeof r === 'object' ? (r as Record<string, unknown>) : {},
   );
 
-  if (!asRecords.length) return asRecords;
+  if (!asRecords.length) {
+    return EMPTY_SUB_OBSERVATION_ROWS as Record<string, unknown>[];
+  }
 
   let key: string | null = null;
   let direction = 'desc';

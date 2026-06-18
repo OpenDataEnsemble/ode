@@ -212,7 +212,10 @@ const ObservationsScreen: React.FC = () => {
     return (
       <View style={shellStyle}>
         <SafeAreaView
-          style={[styles.container, { backgroundColor: 'transparent' }]}>
+          style={[
+            styles.container,
+            { backgroundColor: colors.neutral.transparent },
+          ]}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
             <Text
@@ -229,7 +232,10 @@ const ObservationsScreen: React.FC = () => {
     return (
       <View style={shellStyle}>
         <SafeAreaView
-          style={[styles.container, { backgroundColor: 'transparent' }]}>
+          style={[
+            styles.container,
+            { backgroundColor: colors.neutral.transparent },
+          ]}>
           <EmptyState
             icon="alert-circle-outline"
             title="Error Loading Observations"
@@ -245,7 +251,10 @@ const ObservationsScreen: React.FC = () => {
   return (
     <View style={shellStyle}>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}
+        style={[
+          styles.container,
+          { backgroundColor: colors.neutral.transparent },
+        ]}
         edges={['top']}>
         <View
           style={[
@@ -376,7 +385,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listTransparent: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   header: {
     flexDirection: 'row',
