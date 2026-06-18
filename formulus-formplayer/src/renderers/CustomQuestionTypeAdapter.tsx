@@ -11,6 +11,7 @@ import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import type { ControlProps } from '@jsonforms/core';
 import QuestionShell from '../components/QuestionShell';
 import type { CustomQuestionTypeProps } from '../types/CustomQuestionTypeContract';
+import { formatControlErrors } from '../utils/formatControlErrors';
 
 // ---------------------------------------------------------------------------
 // Error Boundary — catches crashes in custom components
@@ -129,11 +130,18 @@ export function createCustomQuestionTypeRenderer(
     // Build the simplified props for the custom component
     const hasErrors =
       errors && (Array.isArray(errors) ? errors.length > 0 : true);
-    const errorMessage = hasErrors
-      ? Array.isArray(errors)
-        ? errors.map((e: any) => e.message || String(e)).join(', ')
-        : String(errors)
-      : '';
+    const errorMessage =
+      formatControlErrors(
+        hasErrors
+          ? Array.isArray(errors)
+            ? errors.map((e: { message?: string } | string) =>
+                typeof e === 'object' && e && 'message' in e && e.message
+                  ? String(e.message)
+                  : String(e),
+              )
+            : errors
+          : null,
+      ) ?? '';
 
     // Extract all schema properties (except reserved ones) as config
     // This allows parameters alongside "format" to be passed to the renderer
@@ -209,7 +217,9 @@ export function createCustomQuestionTypeRenderer(
       onChange: (newValue: unknown) => handleChange(path, newValue),
       validation: {
         error: Boolean(hasErrors),
-        message: errorMessage,
+        // QuestionShell shows errorMessage; omit copy here so legacy/custom
+        // widgets do not duplicate text via helperText / Typography.
+        message: '',
       },
       enabled: enabled ?? true,
       visible: visible ?? true,
@@ -233,7 +243,7 @@ export function createCustomQuestionTypeRenderer(
         title={label}
         description={description}
         required={required}
-        error={errors}>
+        error={errorMessage || null}>
         <CustomQuestionErrorBoundary formatName={formatName}>
           <CustomComponent {...customProps} />
         </CustomQuestionErrorBoundary>

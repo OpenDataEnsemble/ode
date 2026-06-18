@@ -258,15 +258,14 @@ const FormLayout: React.FC<FormLayoutProps> = ({
             width: '100%',
             boxSizing: 'border-box',
             backgroundColor: 'background.default',
-            paddingTop: `max(${theme.spacing(2)}, env(safe-area-inset-top, 0px))`,
-            paddingRight: theme.spacing(2),
-            paddingBottom: theme.spacing(2),
-            paddingLeft: theme.spacing(2),
+            paddingTop: `max(${theme.spacing(0.5)}, env(safe-area-inset-top, 0px))`,
+            paddingRight: theme.spacing(1.5),
+            paddingBottom: theme.spacing(0.5),
+            paddingLeft: theme.spacing(1.5),
             overflow: 'visible',
             borderBottom: `1px solid ${theme.palette.divider}`,
             borderRadius: 0,
             boxShadow: 'none',
-            minHeight: 82,
           })}>
           {header}
         </Box>

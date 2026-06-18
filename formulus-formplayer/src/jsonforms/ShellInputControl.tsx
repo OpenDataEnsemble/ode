@@ -32,6 +32,14 @@ const ShellInputControl = (props: ControlProps) => {
     ? errors.filter(Boolean).join(', ')
     : errors || null;
   const isValid = !errorStr;
+  const autoFocus =
+    (uischema as { options?: { autoFocus?: boolean } })?.options?.autoFocus ===
+    true;
+
+  const cellProps = {
+    ...(props as React.ComponentProps<typeof MuiInputText>),
+    errors: '',
+  };
 
   return (
     <QuestionShell
@@ -40,14 +48,20 @@ const ShellInputControl = (props: ControlProps) => {
       required={isRequired}
       error={errorStr}>
       <MuiInputText
-        {...(props as React.ComponentProps<typeof MuiInputText>)}
+        {...cellProps}
         label={undefined}
         isValid={isValid}
-        muiInputProps={
-          keyboardEnterKeyHint
+        muiInputProps={{
+          ...(keyboardEnterKeyHint
             ? { enterKeyHint: keyboardEnterKeyHint }
-            : undefined
-        }
+            : {}),
+          ...(autoFocus
+            ? {
+                autoFocus: true,
+                'data-formplayer-autofocus': 'true',
+              }
+            : {}),
+        }}
       />
     </QuestionShell>
   );

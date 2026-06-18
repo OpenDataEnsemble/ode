@@ -95,4 +95,14 @@ pnpm typecheck
 cd src-tauri && cargo test
 ```
 
+**Pre-flight before a PR** (from `desktop/`):
+
+```bash
+pnpm run lint
+pnpm run format
+pnpm run format:check
+pnpm test
+pnpm typecheck
+```
+
 Conventional Commits; see root [AGENTS.md](../AGENTS.md) and [.github/CICD.md](../.github/CICD.md).

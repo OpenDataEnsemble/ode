@@ -203,7 +203,6 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
     <Box
       sx={{
         width: '100%',
-        mb: 1,
         px: 0,
       }}>
       <Box
@@ -211,7 +210,6 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
           display: 'flex',
           alignItems: 'center',
           gap: { xs: 0.25, sm: 0.5 },
-          mb: 0.5,
           px: { xs: 0.5, sm: 1 },
         }}>
         {showHeaderNav ? (

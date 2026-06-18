@@ -88,6 +88,7 @@ Run from **`formulus-formplayer/`** (CI runs the same steps):
 
 ```bash
 pnpm run lint
+pnpm run format
 pnpm run format:check
 pnpm run test run
 pnpm run build
@@ -102,7 +103,7 @@ If the PR also touches **Formulus** (`../formulus/`), run `pnpm run lint` there 
 ## Commit and pull request workflow
 
 - **Commit messages** must follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat(scope): add X`, `fix(scope): resolve Y`).
-- **Before opening a PR**, run `pnpm run format` so Prettier has formatted the files.
+- **Before opening a PR**, run the pre-flight block above (including `pnpm run format` so CI `format:check` does not fail on unformatted files).
 - **PRs** should use the following template:
 
 ---

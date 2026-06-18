@@ -167,3 +167,21 @@ flowchart LR
   FP -->|postMessage events| SM
   CA -->|postMessage commands| SM
 ```
+
+## SwipeLayout options (keyboard & header)
+
+Forms that use a root `SwipeLayout` in `ui.json` support these `options`:
+
+| Option                | Default | Description                                                                                       |
+| --------------------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `autoFocusFirstInput` | `false` | When `true`, focuses the first text-like field each time the user changes page (legacy behavior). |
+| `headerFields`        | `[]`    | Up to two field keys shown as context tags below the progress bar.                                |
+| `headerTitle`         | —       | Optional inner title below the context bar.                                                       |
+
+Per-control focus: set `options.autoFocus: true` on a `Control` to focus that field when its page is shown (takes precedence over `autoFocusFirstInput`).
+
+## Validation error display
+
+Built-in controls and custom question types wrapped by `CustomQuestionTypeAdapter` show validation messages **once** in `QuestionShell` (error alert with icon below the field). Child widgets should use `error` / `validation.error` for red borders only — do not also render `validation.message` as `helperText` or inline copy.
+
+**Manual check (device):** trigger a required-field error on a shared `$ref` dropdown (e.g. GBMIS `censo_milda` → Iniciais do inquiridor), a plain string, and a custom `int` / `count_stepper` field — each should show **one** message with the exclamation icon, not duplicate text at the control.

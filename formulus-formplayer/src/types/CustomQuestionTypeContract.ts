@@ -31,9 +31,12 @@ export interface CustomQuestionTypeProps {
 
   /** Current validation state for this field */
   validation: {
-    /** Whether the field currently has a validation error */
+    /** Whether the field currently has a validation error (use for red border / `error` prop only) */
     error: boolean;
-    /** The validation error message (empty string if no error) */
+    /**
+     * Always empty when rendered via `CustomQuestionTypeAdapter` — error copy is shown
+     * only in `QuestionShell`. Do not render this string in custom widgets.
+     */
     message: string;
   };
 
