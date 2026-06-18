@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { clampScrollTop, isClampableInputType } from './useKeyboardScrollClamp';
+import {
+  clampScrollTop,
+  isClampableInputType,
+} from './useKeyboardScrollClamp';
 
 describe('clampScrollTop', () => {
   it('does not change scrollTop when within range', () => {

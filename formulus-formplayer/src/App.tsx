@@ -51,6 +51,10 @@ import SwipeLayoutRenderer, {
   swipeLayoutTester,
   groupAsSwipeLayoutTester,
 } from './renderers/SwipeLayoutRenderer';
+import {
+  FlatGroupLayout,
+  flatGroupLayoutTester,
+} from './renderers/FlatGroupLayout';
 import { finalizeRenderer, finalizeTester } from './renderers/FinalizeRenderer';
 import PhotoQuestionRenderer, {
   photoQuestionTester,
@@ -265,6 +269,7 @@ export const customRenderers = [
     tester: shellInputControlTester,
     renderer: ShellInputControl,
   },
+  { tester: flatGroupLayoutTester, renderer: FlatGroupLayout },
   { tester: swipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: groupAsSwipeLayoutTester, renderer: SwipeLayoutRenderer },
   { tester: finalizeTester, renderer: finalizeRenderer.renderer },

@@ -406,15 +406,18 @@ const SwipeLayoutRenderer = ({
 
   const { ref: swipeableRef, ...swipeHandlers } = handlers;
 
-  const mergedSwipeScreenRef = useCallback(
+  const mergeScrollRef = useCallback(
     (el: HTMLDivElement | null) => {
-      swipeScreenRef.current = el;
       if (typeof swipeableRef === 'function') {
         swipeableRef(el);
       }
     },
     [swipeableRef],
   );
+
+  const setSwipeScreenRef = useCallback((el: HTMLDivElement | null) => {
+    swipeScreenRef.current = el;
+  }, []);
 
   const isOnFinalizePage = useMemo(() => {
     return layouts[currentPage]?.type === 'Finalize';
@@ -526,7 +529,10 @@ const SwipeLayoutRenderer = ({
     swipeOptions.headerTitle || (schema as any)?.title || undefined;
   const headerFields: string[] = (swipeOptions.headerFields || []).slice(0, 2);
 
-  const densityContextValue = useMemo(() => ({ labelLayout }), [labelLayout]);
+  const densityContextValue = useMemo(
+    () => ({ labelLayout, groupVariant: 'flat' as const }),
+    [labelLayout],
+  );
 
   if (visible === false) {
     return null;
@@ -539,6 +545,8 @@ const SwipeLayoutRenderer = ({
       <FormContext.Provider value={formContextForSwipe}>
         <FormLayout
           keyboardSubmitAction={keyboardSubmitAction}
+          scrollRefMerge={mergeScrollRef}
+          scrollHandlers={swipeHandlers}
           header={
             <>
               <FormProgressBar
@@ -549,16 +557,14 @@ const SwipeLayoutRenderer = ({
                 uischema={uischema}
                 mode="screens"
                 isOnFinalizePage={isOnFinalizePage}
-                onNavigatePrevious={
-                  prevVisiblePage !== null
-                    ? () => navigateToPage(prevVisiblePage)
-                    : undefined
-                }
-                onNavigateNext={
-                  nextVisiblePage !== null
-                    ? () => navigateToPage(nextVisiblePage)
-                    : undefined
-                }
+                canNavigatePrevious={prevVisiblePage !== null}
+                canNavigateNext={nextVisiblePage !== null}
+                onNavigatePrevious={() => {
+                  if (prevVisiblePage !== null) navigateToPage(prevVisiblePage);
+                }}
+                onNavigateNext={() => {
+                  if (nextVisiblePage !== null) navigateToPage(nextVisiblePage);
+                }}
                 navigationDisabled={isNavigating}
               />
               {headerFields.length > 0 && (
@@ -642,10 +648,7 @@ const SwipeLayoutRenderer = ({
           }
           contentBottomPadding={24}
           showNavigation={true}>
-          <div
-            ref={mergedSwipeScreenRef}
-            {...swipeHandlers}
-            className="swipelayout_screen">
+          <div ref={setSwipeScreenRef} className="swipelayout_screen">
             {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
             {layouts.length > 0 && layouts[currentPage] && (
               <JsonFormsDispatch

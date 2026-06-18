@@ -66,6 +66,15 @@ interface FormLayoutProps {
     onTrigger: () => void;
     disabled?: boolean;
   };
+
+  /**
+   * Optional ref callback merged with the internal keyboard scroll ref
+   * (e.g. react-swipeable on the scroll area).
+   */
+  scrollRefMerge?: (el: HTMLDivElement | null) => void;
+
+  /** Extra props spread onto the scroll area (e.g. swipe gesture handlers). */
+  scrollHandlers?: Record<string, unknown>;
 }
 
 /**
@@ -92,8 +101,18 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   showNavigation = true,
   keyboardSubmitAction,
   contentBottomPadding = 0,
+  scrollRefMerge,
+  scrollHandlers,
 }) => {
   const scrollRef = useKeyboardScrollClamp<HTMLDivElement>();
+
+  const mergedScrollRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      scrollRef.current = el;
+      scrollRefMerge?.(el);
+    },
+    [scrollRef, scrollRefMerge],
+  );
 
   const handleFormSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
@@ -106,8 +125,9 @@ const FormLayout: React.FC<FormLayoutProps> = ({
 
   const scrollArea = (
     <Box
-      ref={scrollRef}
+      ref={mergedScrollRef}
       data-testid="formplayer-scroll-area"
+      {...scrollHandlers}
       sx={theme => ({
         flex: 1,
         minHeight: 0,

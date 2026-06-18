@@ -180,6 +180,30 @@ Forms that use a root `SwipeLayout` in `ui.json` support these `options`:
 
 Per-control focus: set `options.autoFocus: true` on a `Control` to focus that field when its page is shown (takes precedence over `autoFocusFirstInput`).
 
+### Header progress chevrons
+
+On multi-page SwipeLayout forms, **Previous** / **Next** chevron buttons flank the progress bar (disabled on first/last page). They use the same navigation callbacks as the bottom bar.
+
+### Group layout inside SwipeLayout
+
+`Group` pages inside SwipeLayout render **flat** (no card panel) by default. Opt back into a card: `"options": { "variant": "card" }` on the Group.
+
+Swipe gestures attach to the full scroll area (not only the question panel).
+
+### Manual device regression matrix
+
+After formplayer changes, verify on a phone WebView (or ODE Desktop form preview with keyboard):
+
+| Scenario | Pass criteria |
+| -------- | ------------- |
+| Multi-page form header | Both chevrons visible; disabled at first/last page |
+| Group page (e.g. GBMIS Sticker / amostra) | Full-width layout; swipe works on background below questions |
+| GBMIS `censo_milda_pessoa` → Anos | No white scroll gap when typing digits |
+| GBMIS `censo` → IME Next | No gap when moving field-to-field via keyboard Next |
+| `age_years` > 120 | Single validation error via QuestionShell |
+
+Rebuild formplayer (`pnpm run build:copy`) before testing in Formulus or Desktop developer mode.
+
 ## Validation error display
 
 Built-in controls and custom question types wrapped by `CustomQuestionTypeAdapter` show validation messages **once** in `QuestionShell` (error alert with icon below the field). Child widgets should use `error` / `validation.error` for red borders only — do not also render `validation.message` as `helperText` or inline copy.
