@@ -36,8 +36,8 @@ import FormulusClient from './services/FormulusInterface';
 import { FormInitData } from './types/FormulusInterfaceDefinition';
 import {
   applySchemaDefaultTokens,
-  dataMatchingSchemaRoot,
   initialFormDataFromParams,
+  prepareRootObservationData,
   shouldOfferDraftSelector,
 } from './utils/formObservationData';
 import {
@@ -583,7 +583,7 @@ function App() {
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
           setData(
-            dataMatchingSchemaRoot(savedData as FormData, formSchemaTyped),
+            prepareRootObservationData(savedData as FormData, formSchemaTyped),
           );
         } else if (!isSubObservationSession(initData)) {
           const formVersion = (formSchemaTyped as { version?: string })
@@ -604,14 +604,14 @@ function App() {
           );
           const withSticky = applyStickyDefaults(withTokens, relevantSticky);
           console.log('Preloading initialization form values:', withSticky);
-          setData(dataMatchingSchemaRoot(withSticky, formSchemaTyped));
+          setData(prepareRootObservationData(withSticky, formSchemaTyped));
         } else {
           const defaultData = applySchemaDefaultTokens(
             initialFormDataFromParams(params),
             formSchemaTyped,
           );
           console.log('Preloading initialization form values:', defaultData);
-          setData(dataMatchingSchemaRoot(defaultData, formSchemaTyped));
+          setData(prepareRootObservationData(defaultData, formSchemaTyped));
         }
 
         console.log('Form params (if any, beyond schemas/data):', params);
@@ -973,7 +973,7 @@ function App() {
         return;
       }
 
-      const rootPayload = dataMatchingSchemaRoot(rawPayload, schema);
+      const rootPayload = prepareRootObservationData(rawPayload, schema);
       const { errors: finalizeValidatorErrors, data: payloadData } =
         runCustomValidatorsAndRefreshData(
           uischema ?? undefined,

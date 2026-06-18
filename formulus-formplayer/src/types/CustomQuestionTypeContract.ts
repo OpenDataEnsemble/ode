@@ -34,9 +34,8 @@ export interface CustomQuestionTypeProps {
     /** Whether the field currently has a validation error (use for red border / `error` prop only) */
     error: boolean;
     /**
-     * The validation error message from JSON Forms. **Do not render this as visible
-     * text** in custom question types — `CustomQuestionTypeAdapter` shows it in
-     * `QuestionShell` below the control.
+     * Always empty when rendered via `CustomQuestionTypeAdapter` — error copy is shown
+     * only in `QuestionShell`. Do not render this string in custom widgets.
      */
     message: string;
   };

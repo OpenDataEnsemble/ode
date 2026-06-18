@@ -217,7 +217,9 @@ export function createCustomQuestionTypeRenderer(
       onChange: (newValue: unknown) => handleChange(path, newValue),
       validation: {
         error: Boolean(hasErrors),
-        message: errorMessage,
+        // QuestionShell shows errorMessage; omit copy here so legacy/custom
+        // widgets do not duplicate text via helperText / Typography.
+        message: '',
       },
       enabled: enabled ?? true,
       visible: visible ?? true,

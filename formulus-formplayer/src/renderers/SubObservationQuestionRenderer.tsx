@@ -231,10 +231,17 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     (next: Record<string, unknown>[]) => {
       const sorted = sortRows(next, config.orderBy as OrderBySpec);
       setRows(sorted);
+      setPrevSortedFromProps(sorted);
       handleChange(path, sorted);
     },
     [config.orderBy, handleChange, path],
   );
+
+  const refreshRowsFromFormData = useCallback(() => {
+    const sorted = sortRows(valueRows, config.orderBy as OrderBySpec);
+    setPrevSortedFromProps(sorted);
+    setRows(sorted as Record<string, unknown>[]);
+  }, [valueRows, config.orderBy]);
 
   const handleAdd = useCallback(async () => {
     if (!enabled || missingKeys.length || !childFormType) return;
@@ -269,6 +276,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       );
     } finally {
       setBusyId(null);
+      window.setTimeout(() => refreshRowsFromFormData(), 0);
     }
   }, [
     enabled,
@@ -280,6 +288,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     config,
     rows,
     pushSorted,
+    refreshRowsFromFormData,
   ]);
 
   const handleEdit = useCallback(
@@ -327,6 +336,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
         );
       } finally {
         setBusyId(null);
+        window.setTimeout(() => refreshRowsFromFormData(), 0);
       }
     },
     [
@@ -338,6 +348,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       config,
       rows,
       pushSorted,
+      refreshRowsFromFormData,
     ],
   );
 

@@ -38,8 +38,8 @@ const ShellInputControl = (props: ControlProps) => {
 
   const cellProps = {
     ...(props as React.ComponentProps<typeof MuiInputText>),
+    errors: '',
   };
-  cellProps.errors = '';
 
   return (
     <QuestionShell

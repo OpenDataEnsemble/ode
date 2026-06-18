@@ -41,6 +41,7 @@ import {
   focusFieldInContainer,
   focusFirstEnabledTextInput,
 } from '../utils/autofocusHelpers';
+import { navigateToFirstBlockingError } from '../utils/validationNavigation';
 
 // ---------------------------------------------------------------------------
 // Testers
@@ -421,11 +422,16 @@ const SwipeLayoutRenderer = ({
 
   const isLastContentPage = nextVisiblePage === null && !isOnFinalizePage;
 
+  const validationErrorCount = core?.errors?.length ?? 0;
+
   const trySubmitForm = useCallback(() => {
     if (!formInitData) return;
+    const errors = core?.errors ?? [];
+    if (errors.length > 0) {
+      navigateToFirstBlockingError(errors);
+      return;
+    }
     window.dispatchEvent(new CustomEvent('formShowValidation'));
-    const errorCount = core?.errors?.length ?? 0;
-    if (errorCount > 0) return;
     window.dispatchEvent(
       new CustomEvent('finalizeForm', {
         detail: { formInitData, data },
@@ -444,7 +450,7 @@ const SwipeLayoutRenderer = ({
     if (skipFinalize && isLastContentPage) {
       return {
         onTrigger: trySubmitForm,
-        disabled: errorCount > 0 || !formInitData || isNavigating,
+        disabled: !formInitData || isNavigating,
       };
     }
     if (nextVisiblePage !== null) {
@@ -623,10 +629,7 @@ const SwipeLayoutRenderer = ({
             skipFinalize && isLastContentPage
               ? {
                   onClick: trySubmitForm,
-                  disabled:
-                    isNavigating ||
-                    !formInitData ||
-                    (core?.errors?.length ?? 0) > 0,
+                  disabled: isNavigating || !formInitData,
                   label: finalizeButtonLabelOption ?? 'Done',
                 }
               : nextVisiblePage !== null
@@ -655,6 +658,20 @@ const SwipeLayoutRenderer = ({
               />
             )}
           </div>
+
+          {skipFinalize &&
+            isLastContentPage &&
+            validationErrorCount > 0 && (
+              <Typography
+                variant="body2"
+                color="error"
+                role="alert"
+                sx={{ px: { xs: 1, sm: 1.5 }, pt: 1, pb: 0.5 }}>
+                {validationErrorCount}{' '}
+                {validationErrorCount === 1 ? 'field needs' : 'fields need'}{' '}
+                attention. Tap Done to review.
+              </Typography>
+            )}
 
           {snackbarOpen &&
             typeof document !== 'undefined' &&

@@ -351,7 +351,7 @@ const EnumArrayShellControl = (
 //   options.display:
 //     single-select (enum / oneOf): "radio" | "buttons"
 //     multi-select  (array enum):   "checkboxes" | "buttons"
-//   options.orientation: "vertical" (default) | "horizontal" | "flow" (wrap)
+//   options.orientation: "vertical" (default) | "horizontal" | "flow" (wrap in inline layout)
 //   options.buttonGroup: "segmented" (default) | "separated"
 //
 // Single-select radio/buttons support tap-the-selected-option-to-clear.
@@ -483,8 +483,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
       title={label}
       description={description}
       required={required}
-      error={errors}
-      block={orientation === 'flow'}>
+      error={errors}>
       {body}
     </QuestionShell>
   );
@@ -573,8 +572,7 @@ export const MultiChoiceControl = (
       title={label}
       description={description}
       required={required}
-      error={errors}
-      block={orientation === 'flow'}>
+      error={errors}>
       {body}
     </QuestionShell>
   );
