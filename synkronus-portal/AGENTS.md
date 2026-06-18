@@ -25,3 +25,11 @@
 ## Quick commands
 
 From `synkronus-portal/`: `pnpm install`, `pnpm run dev`, `pnpm run lint`, `pnpm run format` — align with root [README.md](../README.md) and CI.
+
+**Pre-flight before a PR** (from `synkronus-portal/`):
+
+```bash
+pnpm run lint
+pnpm run format
+pnpm run format:check
+```

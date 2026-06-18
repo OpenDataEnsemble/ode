@@ -53,6 +53,8 @@ From **`formulus/`**:
 
 ```bash
 pnpm run lint
+pnpm run format
+pnpm run format:check
 pnpm run test --ci --watchAll=false
 ```
 
