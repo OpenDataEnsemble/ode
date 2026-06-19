@@ -386,9 +386,16 @@ export async function handleFormPreviewBridgeMessage(
             : typeof data.payload === 'string'
               ? data.payload
               : '';
+        // Injection sends options nested under `options`; fall back to flat
+        // top-level fields for back-compat with older callers.
+        const opts = (
+          data.options && typeof data.options === 'object'
+            ? (data.options as Record<string, unknown>)
+            : data
+        ) as { startAt?: unknown; peek?: unknown };
         const startAt =
-          typeof data.startAt === 'number' ? data.startAt : undefined;
-        const peek = Boolean(data.peek);
+          typeof opts.startAt === 'number' ? opts.startAt : undefined;
+        const peek = Boolean(opts.peek);
         const result = previewAllocateSequence(scopeKey, { startAt, peek });
         reply('allocateSequence', { result });
         return;

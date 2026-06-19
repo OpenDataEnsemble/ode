@@ -474,11 +474,22 @@ function extractMethods(sourceFile: ts.SourceFile): MethodInfo[] {
               jsDocText.end,
             );
 
-            // Parse the JSDoc to extract the description and tags
+            // Parse the JSDoc to extract the description and tags.
+            // Strip the comment delimiters up-front so single-line comments
+            // (`/** text */`) and inline closings don't leak into the parsed
+            // description — otherwise we emit nested/duplicated `*/`, producing
+            // malformed (and sometimes unparseable) generated JSDoc.
             const lines = rawJsDoc
+              .replace(/^\s*\/\*\*+/, '') // opening /** (or /***)
+              .replace(/\*+\/\s*$/, '') // closing */
               .split('\n')
-              .map(line => line.trim().replace(/^\* ?/, '').trim())
-              .filter(line => line !== '/**' && line !== '*/');
+              .map(line =>
+                line
+                  .trim()
+                  .replace(/^\*+ ?/, '')
+                  .trim(),
+              )
+              .filter(line => line.length > 0);
 
             const description: string[] = [];
             const tags: JSDocTag[] = [];

@@ -724,6 +724,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             scopeKey?: string;
             startAt?: number;
             peek?: boolean;
+            options?: { startAt?: number; peek?: boolean };
           },
     ): Promise<number> => {
       const scopeKey =
@@ -732,14 +733,14 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           : typeof payload?.scopeKey === 'string'
             ? payload.scopeKey
             : '';
-      const startAt =
+      // The WebView injection nests options under `options`; fall back to flat
+      // top-level fields for back-compat with older/string callers.
+      const opts =
         typeof payload === 'object' && payload != null
-          ? payload.startAt
+          ? (payload.options ?? payload)
           : undefined;
-      const peek =
-        typeof payload === 'object' && payload != null
-          ? payload.peek
-          : undefined;
+      const startAt = opts?.startAt;
+      const peek = opts?.peek;
       return sequenceCounterService.allocate(scopeKey, { startAt, peek });
     },
 
