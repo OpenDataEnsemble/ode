@@ -3,6 +3,7 @@ This is where the actual implementation of the methods happens on the React Nati
 It handles the messages received from the WebView and executes the corresponding native functionality.
 */
 import { GeolocationService } from '../services/GeolocationService';
+import { sequenceCounterService } from '../services/SequenceCounterService';
 import { qrcodeRequestCoordinator } from '../services/QrcodeRequestCoordinator';
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
@@ -714,6 +715,32 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           timestamp: position.timestamp ?? new Date().toISOString(),
         },
       };
+    },
+
+    onAllocateSequence: async (
+      payload:
+        | string
+        | {
+            scopeKey?: string;
+            startAt?: number;
+            peek?: boolean;
+          },
+    ): Promise<number> => {
+      const scopeKey =
+        typeof payload === 'string'
+          ? payload
+          : typeof payload?.scopeKey === 'string'
+            ? payload.scopeKey
+            : '';
+      const startAt =
+        typeof payload === 'object' && payload != null
+          ? payload.startAt
+          : undefined;
+      const peek =
+        typeof payload === 'object' && payload != null
+          ? payload.peek
+          : undefined;
+      return sequenceCounterService.allocate(scopeKey, { startAt, peek });
     },
 
     onWatchLocation: async (

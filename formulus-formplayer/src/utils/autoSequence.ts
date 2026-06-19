@@ -3,14 +3,19 @@
  */
 
 import type { JsonSchema7 } from '@jsonforms/core';
+import { resolveTemplateValue } from '../renderers/subObservationHelpers';
+import FormulusClient from '../services/FormulusInterface';
 
 export type AutoSequenceConfig = {
   assign?: 'max+1';
+  allocator?: 'native' | 'declarative';
   immutable?: boolean;
   scope?: 'sibling' | 'tree' | 'contextTree';
   contextKey?: string;
   contextFilter?: Record<string, string>;
   field?: string;
+  /** App-authored suffix; Formulus prepends `device:{deviceId}:`. */
+  scopeKey?: string;
 };
 
 export type AutoSequenceRuntimeContext = {
@@ -23,6 +28,7 @@ type Binding = {
   config: AutoSequenceConfig;
   /** Path to parent object; `*` = each array index */
   parentSegments: string[];
+  valueKind: 'string' | 'number';
 };
 
 function isBlankSequenceValue(value: unknown): boolean {
@@ -46,6 +52,14 @@ function resolveFilterToken(
   return data[token];
 }
 
+function filterValuesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const aNum = toPosInt(a);
+  const bNum = toPosInt(b);
+  if (aNum != null && bNum != null) return aNum === bNum;
+  return String(a ?? '') === String(b ?? '');
+}
+
 function nodeMatchesFilter(
   node: Record<string, unknown>,
   filter: Record<string, string> | undefined,
@@ -53,7 +67,9 @@ function nodeMatchesFilter(
 ): boolean {
   if (!filter) return true;
   for (const [nodeKey, token] of Object.entries(filter)) {
-    if (node[nodeKey] !== resolveFilterToken(token, data)) return false;
+    if (!filterValuesEqual(node[nodeKey], resolveFilterToken(token, data))) {
+      return false;
+    }
   }
   return true;
 }
@@ -165,6 +181,7 @@ function collectBindings(
         bindings.push({
           field: name,
           parentSegments,
+          valueKind: child.type === 'string' ? 'string' : 'number',
           config: {
             assign: 'max+1',
             immutable: true,
@@ -228,12 +245,46 @@ function enumerateParents(
   return enumerateParents(next as Record<string, unknown>, tail);
 }
 
-/** Apply all `x-autoSequence` rules in `schema` to a shallow-cloned `data` when needed. */
-export function applyAutoSequences(
+function usesNativeAllocator(config: AutoSequenceConfig): boolean {
+  return config.allocator === 'native' && Boolean(config.scopeKey?.trim());
+}
+
+function resolveScopeKeyTemplate(
+  template: string,
+  data: Record<string, unknown>,
+): string {
+  const resolved = resolveTemplateValue(template, data, null);
+  return typeof resolved === 'string' ? resolved.trim() : String(resolved ?? '').trim();
+}
+
+async function computeNextValueAsync(
+  binding: Binding,
+  data: Record<string, unknown>,
+  runtime: AutoSequenceRuntimeContext,
+): Promise<number | string> {
+  if (usesNativeAllocator(binding.config)) {
+    const scopeKey = resolveScopeKeyTemplate(
+      binding.config.scopeKey!.trim(),
+      data,
+    );
+    if (!scopeKey) {
+      throw new Error(
+        `x-autoSequence scopeKey resolved empty for field "${binding.field}"`,
+      );
+    }
+    const client = FormulusClient.getInstance();
+    return client.allocateSequence(scopeKey);
+  }
+  const next = computeNextValue(binding, data, runtime);
+  return binding.valueKind === 'string' ? String(next) : next;
+}
+
+/** Apply all `x-autoSequence` rules in `schema` when fields are blank. */
+export async function applyAutoSequences(
   data: Record<string, unknown>,
   schema: JsonSchema7 | undefined,
   runtime: AutoSequenceRuntimeContext = {},
-): { data: Record<string, unknown>; mutated: boolean } {
+): Promise<{ data: Record<string, unknown>; mutated: boolean }> {
   if (!schema) return { data, mutated: false };
 
   const bindings = collectBindings(schema, []);
@@ -252,7 +303,7 @@ export function applyAutoSequences(
       if (immutable && !isBlankSequenceValue(current)) continue;
       if (!isBlankSequenceValue(current)) continue;
 
-      parent[fieldName] = computeNextValue(binding, working, runtime);
+      parent[fieldName] = await computeNextValueAsync(binding, working, runtime);
       mutated = true;
     }
   }
