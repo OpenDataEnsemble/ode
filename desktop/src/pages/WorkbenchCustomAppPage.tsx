@@ -57,14 +57,20 @@ export function WorkbenchCustomAppPage() {
       formType: string;
       params: Record<string, unknown>;
       savedData: Record<string, unknown>;
+      observationId?: string;
     }) => {
+      const explicitId =
+        typeof payload.observationId === 'string'
+          ? payload.observationId.trim()
+          : '';
       const sd = payload.savedData;
       const observationId =
-        typeof sd.observationId === 'string'
+        explicitId ||
+        (typeof sd.observationId === 'string'
           ? sd.observationId
           : typeof sd.id === 'string'
             ? sd.id
-            : '';
+            : '');
       navigate('/workbench/form-preview', {
         state: {
           formPreviewEdit: {

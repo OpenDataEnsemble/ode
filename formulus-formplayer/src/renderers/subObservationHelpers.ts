@@ -132,16 +132,21 @@ export function formDataJsonEqual(
 }
 
 /**
- * Keep embedded sub-obs arrays when JsonForms emits partial onChange payloads.
- * SwipeLayout only mounts the current page, so controls on other pages (e.g.
- * `quartos`) are absent from `incoming` even though they still live in our
- * baseline draft state.
+ * Keep baseline values when JsonForms emits partial onChange payloads.
+ * SwipeLayout only mounts the current page, so controls on other pages are
+ * absent from `incoming` even though they still live in our baseline draft
+ * state. Starting from `{ ...baseline, ...incoming }` preserves off-page
+ * scalars (host prefills like cluster stamps / obsdate, and directly-used
+ * `x-autoSequence` fields) so they are not dropped and re-allocated. On-page
+ * edits (including clearing a field) still override baseline via `incoming`.
+ * Sub-observation arrays get extra protection below against shorter/partial
+ * payloads.
  */
 export function mergePreservingSubObsArrays(
   baseline: Record<string, unknown>,
   incoming: Record<string, unknown>,
 ): Record<string, unknown> {
-  const merged = { ...incoming };
+  const merged = { ...baseline, ...incoming };
   for (const key of PRESERVED_ARRAY_KEYS) {
     const baseArr = baseline[key];
     if (!(key in incoming)) {

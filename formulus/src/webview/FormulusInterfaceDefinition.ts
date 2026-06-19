@@ -394,6 +394,9 @@ export interface FormulusInterface {
    *   `window.formulusSessionContext`. Draft bypass is not a param key — use
    *   `options.skipDraftSelection` on {@link openFormplayer} (same as `skipFinalize`).
    * @param {Object} savedData - Previously saved form data (for editing)
+   * @param {Object} [options] - Session options (not persisted as observation data)
+   * @param {string|null} [options.observationId] - When set, finalize updates this
+   *   observation instead of creating a new one
    * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
   openFormplayer(
@@ -404,6 +407,7 @@ export interface FormulusInterface {
       subObservationMode?: boolean;
       skipFinalize?: boolean;
       skipDraftSelection?: boolean;
+      observationId?: string | null;
     },
   ): Promise<FormCompletionResult>;
 

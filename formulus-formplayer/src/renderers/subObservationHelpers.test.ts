@@ -40,6 +40,35 @@ describe('subObservationHelpers', () => {
     expect(merged.person_codigos).toEqual([]);
   });
 
+  it('mergePreservingSubObsArrays keeps off-page scalar prefills and autoSequence fields', () => {
+    // SwipeLayout partial payload: only the current page's field is present.
+    const baseline = {
+      obsdate: '2026-06-19',
+      region: 'Bafata',
+      tb: 'TB01',
+      device_role: 'A',
+      num: 7,
+    };
+    const incoming = { nome_chefe: 'Maria' };
+    const merged = mergePreservingSubObsArrays(baseline, incoming);
+    expect(merged.nome_chefe).toBe('Maria');
+    expect(merged.obsdate).toBe('2026-06-19');
+    expect(merged.region).toBe('Bafata');
+    expect(merged.tb).toBe('TB01');
+    expect(merged.device_role).toBe('A');
+    // Critical: a directly-used x-autoSequence value must survive partial
+    // payloads so applyAutoSequences does not re-allocate it.
+    expect(merged.num).toBe(7);
+  });
+
+  it('mergePreservingSubObsArrays lets on-page edits override baseline', () => {
+    const baseline = { nome_chefe: 'Maria', num: 7 };
+    const incoming = { nome_chefe: 'João' };
+    const merged = mergePreservingSubObsArrays(baseline, incoming);
+    expect(merged.nome_chefe).toBe('João');
+    expect(merged.num).toBe(7);
+  });
+
   it('formDataJsonEqual compares stable JSON snapshots', () => {
     expect(formDataJsonEqual({ a: 1 }, { a: 1 })).toBe(true);
     expect(formDataJsonEqual({ a: 1 }, { a: 2 })).toBe(false);

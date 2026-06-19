@@ -208,6 +208,36 @@ describe('handleFormPreviewBridgeMessage', () => {
     expect(payload.result).toBe('nested-synthetic-id');
   });
 
+  it('allocateSequence honors peek (nested in options) without advancing the counter', async () => {
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    const allocate = async (
+      options: Record<string, unknown> | undefined,
+      messageId: string,
+    ) => {
+      await handleFormPreviewBridgeMessage(
+        bridgeMessageFromIframe(iframe, {
+          type: 'allocateSequence',
+          messageId,
+          scopeKey: 'tb:peek-test:role:A:af',
+          options,
+        }),
+        { iframe, onFinalize: async () => ({ error: 'no' }) },
+      );
+      const calls = postMessage.mock.calls;
+      const payload = JSON.parse(calls[calls.length - 1][0] as string);
+      return payload.result as number;
+    };
+
+    // Consume -> 1, peek -> 2 (no advance), consume -> 2.
+    expect(await allocate(undefined, 'seq1')).toBe(1);
+    expect(await allocate({ peek: true }, 'seq2')).toBe(2);
+    expect(await allocate({ peek: true }, 'seq3')).toBe(2);
+    expect(await allocate(undefined, 'seq4')).toBe(2);
+  });
+
   it('stubs requestCamera with prefixed error', async () => {
     const postMessage = vi.fn();
     const cw = { postMessage } as unknown as Window;
