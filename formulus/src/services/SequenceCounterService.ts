@@ -46,7 +46,9 @@ export class SequenceCounterService {
     const raw = await AsyncStorage.getItem(storageKey);
     const current = raw != null ? Number(raw) : startAt - 1;
     const last =
-      Number.isFinite(current) && current >= startAt - 1 ? current : startAt - 1;
+      Number.isFinite(current) && current >= startAt - 1
+        ? current
+        : startAt - 1;
     const next = last + 1;
 
     if (!options.peek) {

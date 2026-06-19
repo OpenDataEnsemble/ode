@@ -254,7 +254,9 @@ function resolveScopeKeyTemplate(
   data: Record<string, unknown>,
 ): string {
   const resolved = resolveTemplateValue(template, data, null);
-  return typeof resolved === 'string' ? resolved.trim() : String(resolved ?? '').trim();
+  return typeof resolved === 'string'
+    ? resolved.trim()
+    : String(resolved ?? '').trim();
 }
 
 async function computeNextValueAsync(
@@ -303,7 +305,11 @@ export async function applyAutoSequences(
       if (immutable && !isBlankSequenceValue(current)) continue;
       if (!isBlankSequenceValue(current)) continue;
 
-      parent[fieldName] = await computeNextValueAsync(binding, working, runtime);
+      parent[fieldName] = await computeNextValueAsync(
+        binding,
+        working,
+        runtime,
+      );
       mutated = true;
     }
   }

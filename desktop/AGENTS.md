@@ -4,6 +4,8 @@
 
 Published docs: [ODE Desktop developer mode](https://opendataensemble.org/docs/guides/ode-desktop-developer-mode) (local custom app iteration).
 
+**Release version bumps:** see [../AGENTS.md#release-version-bump-checklist](../AGENTS.md#release-version-bump-checklist) (`package.json`, `tauri.conf.json`, `Cargo.toml`, `synkConstants.ts` — keep in sync).
+
 ---
 
 ## Layout
