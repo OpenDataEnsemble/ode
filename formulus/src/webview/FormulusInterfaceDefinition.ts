@@ -485,6 +485,17 @@ export interface FormulusInterface {
   getCachedLocation(fieldId?: string): Promise<LocationResult | null>;
 
   /**
+   * Allocate the next monotonic integer in a device-local scope.
+   * Formulus prepends `device:{deviceId}:` to the app-authored `scopeKey` suffix.
+   * @param scopeKey App suffix, e.g. `af:A12:person` (no device prefix).
+   * @param options `startAt` default 1; `peek` returns next without consuming.
+   */
+  allocateSequence(
+    scopeKey: string,
+    options?: { startAt?: number; peek?: boolean },
+  ): Promise<number>;
+
+  /**
    * Subscribe to location updates while the custom app WebView is active.
    * Updates arrive as `locationWatchUpdate` window messages.
    */
@@ -711,7 +722,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = '1.4.0';
+export const FORMULUS_INTERFACE_VERSION = '1.5.0';
 
 /** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
 function semverSegments(version: string): [number, number, number] {

@@ -15,6 +15,7 @@ import {
   resolveAddButtonLabel,
   resolveEmptyLabel,
   resolveDeleteFallbackLabel,
+  mergeSessionIntoSubObservationContext,
 } from './subObservationHelpers';
 
 describe('subObservationHelpers', () => {
@@ -173,5 +174,30 @@ describe('subObservationHelpers', () => {
     expect(resolveEmptyLabel('room')).toBe('No room');
     expect(resolveDeleteFallbackLabel(null)).toBe('this sub-observation');
     expect(resolveDeleteFallbackLabel('room')).toBe('this room');
+  });
+
+  it('mergeSessionIntoSubObservationContext upserts quarto row', () => {
+    const merged = mergeSessionIntoSubObservationContext(
+      { quartos: [] },
+      { quarto_num: 1, camas: [] },
+      { contextKey: 'quartos', matchField: 'quarto_num' },
+    );
+    expect(merged.quartos).toEqual([{ quarto_num: 1, camas: [] }]);
+  });
+
+  it('mergeSessionIntoSubObservationContext patches nested cama row', () => {
+    const merged = mergeSessionIntoSubObservationContext(
+      {
+        quartos: [{ quarto_num: 1, camas: [{ cama_num: 1, pessoas: [] }] }],
+      },
+      { quarto_num: 1, cama_num: 1, pessoas: [{ nopessoa: '1' }] },
+      {
+        contextKey: 'quartos',
+        matchField: 'quarto_num',
+        nestedArrayField: 'camas',
+        nestedMatchField: 'cama_num',
+      },
+    );
+    expect(merged.quartos[0].camas[0].pessoas).toEqual([{ nopessoa: '1' }]);
   });
 });

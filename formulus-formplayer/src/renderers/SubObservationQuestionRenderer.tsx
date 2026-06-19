@@ -28,7 +28,10 @@ import {
   resolveEmptyLabel,
   resolveDeleteFallbackLabel,
   buildSubObservationOpenParams,
+  refreshSubObservationContextFromFormData,
+  writeSubObservationContextToWindow,
   type OrderBySpec,
+  type SubObservationContextMergeConfig,
 } from './subObservationHelpers';
 
 const RESERVED_SCHEMA_KEYS = new Set([
@@ -246,9 +249,43 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       const row = result.formData as Record<string, unknown>;
       const next = [...getCurrentRows(), row];
       pushSorted(next);
+
+      const root = jsonForms.core?.data;
+      if (root && typeof root === 'object' && path) {
+        const parentData = writeDataPath(
+          root as Record<string, unknown>,
+          path,
+          next,
+        );
+        const pv = resolveParentValue(formData, parentValuePath);
+        const contextTemplate = optionalRecordMap(config.subObservationContext);
+        const mergeConfigRaw = config.subObservationContextMerge;
+        const mergeConfig =
+          mergeConfigRaw && typeof mergeConfigRaw === 'object'
+            ? mergeConfigRaw
+            : undefined;
+        if (contextTemplate || mergeConfig) {
+          const refreshed = refreshSubObservationContextFromFormData(
+            parentData,
+            contextTemplate,
+            pv,
+            mergeConfig as SubObservationContextMergeConfig,
+          );
+          writeSubObservationContextToWindow(refreshed);
+        }
+      }
       return true;
     },
-    [getCurrentRows, pushSorted],
+    [
+      getCurrentRows,
+      pushSorted,
+      jsonForms.core?.data,
+      path,
+      formData,
+      parentValuePath,
+      config.subObservationContext,
+      config.subObservationContextMerge,
+    ],
   );
 
   const handleAdd = useCallback(async () => {
@@ -334,6 +371,31 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
             i === index ? (result.formData as Record<string, unknown>) : r,
           );
           pushSorted(updated);
+          const root = jsonForms.core?.data;
+          if (root && typeof root === 'object' && path) {
+            const parentData = writeDataPath(
+              root as Record<string, unknown>,
+              path,
+              updated,
+            );
+            const contextTemplate = optionalRecordMap(
+              config.subObservationContext,
+            );
+            const mergeConfigRaw = config.subObservationContextMerge;
+            const mergeConfig =
+              mergeConfigRaw && typeof mergeConfigRaw === 'object'
+                ? mergeConfigRaw
+                : undefined;
+            if (contextTemplate || mergeConfig) {
+              const refreshed = refreshSubObservationContextFromFormData(
+                parentData,
+                contextTemplate,
+                pv,
+                mergeConfig as SubObservationContextMergeConfig,
+              );
+              writeSubObservationContextToWindow(refreshed);
+            }
+          }
         }
       } catch (e) {
         setError(

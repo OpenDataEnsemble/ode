@@ -32,6 +32,23 @@ import { dirname, join } from '@tauri-apps/api/path';
 import { tauriClient } from './tauriClient';
 import type { ObservationRecord } from '../types/domain';
 
+/** Preview-local sequence counters (device id stub + app scope suffix). */
+const previewSequenceCounters = new Map<string, number>();
+
+function previewAllocateSequence(
+  scopeKey: string,
+  options?: { startAt?: number; peek?: boolean },
+): number {
+  const key = `device:desktop-preview:${scopeKey.trim()}`;
+  const startAt = options?.startAt ?? 1;
+  const last = previewSequenceCounters.get(key) ?? startAt - 1;
+  const next = last + 1;
+  if (!options?.peek) {
+    previewSequenceCounters.set(key, next);
+  }
+  return next;
+}
+
 /** Matches `FORMULUS_INTERFACE_VERSION` in formplayer (`FormulusInterfaceDefinition.ts`). */
 export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.2.1';
 
@@ -72,6 +89,7 @@ export const FORMULUS_INJECTION_REQUEST_TYPES = [
   'getAttachmentsUri',
   'getCustomAppUri',
   'getFormSpecsUri',
+  'allocateSequence',
 ] as const;
 
 export type FinalizeRequest =
@@ -358,6 +376,21 @@ export async function handleFormPreviewBridgeMessage(
           result: FORM_PREVIEW_FORMULUS_INTERFACE_VERSION,
         });
         return;
+
+      case 'allocateSequence': {
+        const scopeKey =
+          typeof data.scopeKey === 'string'
+            ? data.scopeKey
+            : typeof data.payload === 'string'
+              ? data.payload
+              : '';
+        const startAt =
+          typeof data.startAt === 'number' ? data.startAt : undefined;
+        const peek = Boolean(data.peek);
+        const result = previewAllocateSequence(scopeKey, { startAt, peek });
+        reply('allocateSequence', { result });
+        return;
+      }
 
       case 'getAvailableForms': {
         const rows = await tauriClient.listActiveBundleForms();

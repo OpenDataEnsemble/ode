@@ -224,6 +224,154 @@ export function resolveSubObservationContext(
   return resolveInitialValues(mapObj, formData, parentValue);
 }
 
+export type SubObservationContextMergeConfig = {
+  contextKey?: string;
+  matchField: string;
+  /** Nested array on matched row (e.g. `camas` under a quarto). */
+  nestedArrayField?: string;
+  nestedMatchField?: string;
+};
+
+function toPosIntForMerge(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+}
+
+/** Upsert the opening session row into an inherited sub-observation context tree. */
+export function mergeSessionIntoSubObservationContext(
+  inherited: Record<string, unknown>,
+  sessionData: Record<string, unknown>,
+  mergeConfig: SubObservationContextMergeConfig | undefined,
+): Record<string, unknown> {
+  if (!mergeConfig || typeof mergeConfig !== 'object') {
+    return inherited;
+  }
+
+  const contextKey = mergeConfig.contextKey ?? 'quartos';
+  const matchField = mergeConfig.matchField;
+  const matchVal = toPosIntForMerge(sessionData[matchField]);
+  if (matchVal == null) return inherited;
+
+  const next = { ...inherited };
+  const snapshot = Array.isArray(next[contextKey])
+    ? [...(next[contextKey] as unknown[])]
+    : [];
+
+  const patch = { ...sessionData };
+  delete patch.household_quartos;
+
+  if (mergeConfig.nestedArrayField && mergeConfig.nestedMatchField) {
+    const nestedField = mergeConfig.nestedArrayField;
+    const nestedMatch = mergeConfig.nestedMatchField;
+    const nestedVal = toPosIntForMerge(sessionData[nestedMatch]);
+    if (nestedVal == null) return inherited;
+
+    let quartoFound = false;
+    const mergedSnapshot = snapshot.map(item => {
+      if (!item || typeof item !== 'object') return item;
+      const row = item as Record<string, unknown>;
+      if (toPosIntForMerge(row[matchField]) !== matchVal) return item;
+      quartoFound = true;
+      const camas = Array.isArray(row[nestedField])
+        ? [...(row[nestedField] as unknown[])]
+        : [];
+      let camaFound = false;
+      const nextCamas = camas.map(cama => {
+        if (!cama || typeof cama !== 'object') return cama;
+        const c = cama as Record<string, unknown>;
+        if (toPosIntForMerge(c[nestedMatch]) !== nestedVal) return cama;
+        camaFound = true;
+        return { ...c, ...patch };
+      });
+      if (!camaFound) {
+        nextCamas.push(patch);
+      }
+      return { ...row, [nestedField]: nextCamas };
+    });
+    if (!quartoFound) {
+      mergedSnapshot.push({
+        [matchField]: matchVal,
+        [nestedField]: [patch],
+      });
+    }
+    next[contextKey] = mergedSnapshot;
+    return next;
+  }
+
+  let found = false;
+  const mergedSnapshot = snapshot.map(item => {
+    if (!item || typeof item !== 'object') return item;
+    const row = item as Record<string, unknown>;
+    if (toPosIntForMerge(row[matchField]) !== matchVal) return item;
+    found = true;
+    return { ...row, ...patch };
+  });
+  if (!found) {
+    mergedSnapshot.push(patch);
+  }
+  next[contextKey] = mergedSnapshot;
+  return next;
+}
+
+export function writeSubObservationContextToWindow(
+  subObservation: Record<string, unknown>,
+): void {
+  if (typeof window === 'undefined') return;
+  const w = window as unknown as {
+    formulusSessionContext?: Record<string, unknown> | null;
+    formulusSubObservationContext?: Record<string, unknown> | null;
+  };
+  const sessionContext =
+    w.formulusSessionContext && typeof w.formulusSessionContext === 'object'
+      ? { ...w.formulusSessionContext }
+      : {};
+  sessionContext.subObservation = subObservation;
+  w.formulusSessionContext = sessionContext;
+  w.formulusSubObservationContext = subObservation;
+}
+
+/** Re-resolve `subObservationContext` templates from live parent form data. */
+export function refreshSubObservationContextFromFormData(
+  formData: Record<string, unknown>,
+  contextTemplate: Record<string, unknown> | null | undefined,
+  parentValue: string | null,
+  mergeConfig?: SubObservationContextMergeConfig,
+): Record<string, unknown> {
+  const w =
+    typeof window !== 'undefined'
+      ? (window as unknown as {
+          formulusSessionContext?: Record<string, unknown> | null;
+        })
+      : null;
+  const inherited =
+    w?.formulusSessionContext &&
+    typeof w.formulusSessionContext === 'object' &&
+    w.formulusSessionContext.subObservation &&
+    typeof w.formulusSessionContext.subObservation === 'object'
+      ? (w.formulusSessionContext.subObservation as Record<string, unknown>)
+      : {};
+
+  const mergedInherited = mergeSessionIntoSubObservationContext(
+    inherited,
+    formData,
+    mergeConfig,
+  );
+
+  const resolved = resolveSubObservationContext(
+    contextTemplate,
+    formData,
+    parentValue,
+  );
+
+  const subObservation: Record<string, unknown> = { ...mergedInherited };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (value !== '' && value != null) {
+      subObservation[key] = value;
+    }
+  }
+  return subObservation;
+}
+
 export function buildSubObservationOpenParams(
   formData: Record<string, unknown>,
   config: Record<string, unknown>,
@@ -252,8 +400,20 @@ export function buildSubObservationOpenParams(
       ? (parentSessionContext.subObservation as Record<string, unknown>)
       : {};
 
+  const mergeConfigRaw = config.subObservationContextMerge;
+  const mergeConfig =
+    mergeConfigRaw && typeof mergeConfigRaw === 'object'
+      ? (mergeConfigRaw as SubObservationContextMergeConfig)
+      : undefined;
+
+  const mergedInherited = mergeSessionIntoSubObservationContext(
+    inheritedSubObservation,
+    formData,
+    mergeConfig,
+  );
+
   const subObservation: Record<string, unknown> = {
-    ...inheritedSubObservation,
+    ...mergedInherited,
   };
   for (const [key, value] of Object.entries(resolved)) {
     if (value !== '' && value != null) {

@@ -169,6 +169,64 @@
       });
     },
 
+    // allocateSequence: scopeKey, options?: { startAt?, peek? } => Promise<number>
+    allocateSequence: function (scopeKey, options) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data;
+            } else {
+              window.removeEventListener('message', callback);
+              reject(
+                new Error(
+                  'allocateSequence callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
+              return;
+            }
+            if (
+              data.type === 'allocateSequence_response' &&
+              data.messageId === messageId
+            ) {
+              window.removeEventListener('message', callback);
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            console.error(
+              "'allocateSequence' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback);
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'allocateSequence',
+            messageId,
+            scopeKey,
+            options,
+          }),
+        );
+      });
+    },
+
     // getAvailableForms:  => Promise<FormInfo[]>
     getAvailableForms: function () {
       return new Promise((resolve, reject) => {

@@ -130,12 +130,12 @@ function readAutoSequenceRuntime() {
 }
 
 /** Root observation data aligned to schema, with platform `x-autoSequence` applied on open. */
-function prepareInitialFormData(
+async function prepareInitialFormData(
   raw: Record<string, unknown>,
   formSchema: unknown,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const root = prepareRootObservationData(raw, formSchema);
-  const { data } = applyAutoSequences(
+  const { data } = await applyAutoSequences(
     root,
     formSchema as JsonSchema7 | undefined,
     readAutoSequenceRuntime(),
@@ -636,7 +636,7 @@ function App() {
         if (savedData && Object.keys(savedData).length > 0) {
           console.log('Preloading saved data:', savedData);
           setData(
-            prepareInitialFormData(
+            await prepareInitialFormData(
               savedData as Record<string, unknown>,
               formSchemaTyped,
             ),
@@ -660,14 +660,14 @@ function App() {
           );
           const withSticky = applyStickyDefaults(withTokens, relevantSticky);
           console.log('Preloading initialization form values:', withSticky);
-          setData(prepareInitialFormData(withSticky, formSchemaTyped));
+          setData(await prepareInitialFormData(withSticky, formSchemaTyped));
         } else {
           const defaultData = applySchemaDefaultTokens(
             initialFormDataFromParams(params),
             formSchemaTyped,
           );
           console.log('Preloading initialization form values:', defaultData);
-          setData(prepareInitialFormData(defaultData, formSchemaTyped));
+          setData(await prepareInitialFormData(defaultData, formSchemaTyped));
         }
 
         console.log('Form params (if any, beyond schemas/data):', params);
@@ -1011,9 +1011,9 @@ function App() {
   }, [pendingFormInit, initializeForm]);
 
   const refreshFormData = useCallback(
-    (newData: Record<string, unknown>) => {
+    async (newData: Record<string, unknown>) => {
       const autoRuntime = readAutoSequenceRuntime();
-      const { data: sequencedData } = applyAutoSequences(
+      const { data: sequencedData } = await applyAutoSequences(
         newData,
         schema ?? undefined,
         autoRuntime,
@@ -1049,25 +1049,27 @@ function App() {
       const incoming = newData as Record<string, unknown>;
       const baseline = dataRef.current as Record<string, unknown>;
       const merged = mergePreservingSubObsArrays(baseline, incoming);
-      const refreshedData = refreshFormData(merged);
-      // JsonForms re-emits when we push merged sub-obs arrays back; skip when
-      // nothing actually changed to break the render / draft persistence loop.
-      if (formDataJsonEqual(refreshedData, baseline)) {
-        return;
-      }
-      dataRef.current = refreshedData;
-      setData(refreshedData);
-      persistDraftIfRootSession(refreshedData);
+      void (async () => {
+        const refreshedData = await refreshFormData(merged);
+        if (formDataJsonEqual(refreshedData, baseline)) {
+          return;
+        }
+        dataRef.current = refreshedData;
+        setData(refreshedData);
+        persistDraftIfRootSession(refreshedData);
+      })();
     },
     [refreshFormData, persistDraftIfRootSession],
   );
 
   const commitFormData = useCallback(
     (newData: Record<string, unknown>) => {
-      const refreshedData = refreshFormData(newData);
-      dataRef.current = refreshedData;
-      setData(refreshedData);
-      persistDraftIfRootSession(refreshedData);
+      void (async () => {
+        const refreshedData = await refreshFormData(newData);
+        dataRef.current = refreshedData;
+        setData(refreshedData);
+        persistDraftIfRootSession(refreshedData);
+      })();
     },
     [refreshFormData, persistDraftIfRootSession],
   );
@@ -1099,9 +1101,11 @@ function App() {
       if (!current || Object.keys(current).length === 0) {
         return;
       }
-      const refreshedData = refreshFormData(current);
-      dataRef.current = refreshedData;
-      setData(refreshedData);
+      void (async () => {
+        const refreshedData = await refreshFormData(current);
+        dataRef.current = refreshedData;
+        setData(refreshedData);
+      })();
     };
 
     const handleShowValidation = () => {

@@ -60,6 +60,71 @@ Do not assume custom app authors have local checkouts of **ODE** or internal exa
 
 ---
 
+## Release version bump checklist
+
+Use this when preparing a new ODE release (pre-release or stable). Full tagging and CI behaviour: [RELEASE.md](RELEASE.md). Android Play/F-Droid `versionCode` rules: [formulus/android/ANDROID_RELEASE.md](formulus/android/ANDROID_RELEASE.md).
+
+### Pre-release vs stable
+
+| Layer | Pre-release (e.g. `v1.1.1-alpha.3`) | Stable (e.g. `v1.1.1`) |
+|-------|--------------------------------------|-------------------------|
+| Client manifests (`package.json`, `versionName`, CLI, Desktop, Portal) | Target semver **without** suffix (`1.1.1`) | Same (`1.1.1`) |
+| Git tag + GitHub release | `v1.1.1-alpha.3` (mark **pre-release**) | `v1.1.1` |
+| Synkronus Docker / server `BuildVersion()` | From release tag via CI ldflags | From release tag |
+
+For stable, you usually **do not** re-bump client manifests if they already match the target version; bump Android `versionCode` only when shipping a new Play build.
+
+### What to edit
+
+| File | Field | Purpose |
+|------|-------|---------|
+| `formulus/package.json` | `version` | Source for `ODE_VERSION` / `x-ode-version` ([`formulus/src/version.ts`](formulus/src/version.ts)) |
+| `formulus/android/app/build.gradle` | `versionCode`, `versionName` | Google Play; run `pnpm run sync:version` from `formulus/` after `package.json` bump for `versionName` |
+| `formulus/ios/Formulus.xcodeproj/project.pbxproj` | `MARKETING_VERSION`, `CURRENT_PROJECT_VERSION` | iOS display + build number (align `CURRENT_PROJECT_VERSION` with Android `versionCode`) |
+| `synkronus-cli/internal/cmd/version.go` | `Version` | `synk version` output |
+| `synkronus-cli/versioninfo.json` | Windows file/product version | Windows binary metadata |
+| `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml` | `version` | ODE Desktop app version (keep all three in sync) |
+| `desktop/src/lib/synkConstants.ts` | `SYNKRONUS_CLIENT_VERSION` | Desktop `x-ode-version` header |
+| `synkronus-portal/package.json` | `version` | Portal `x-ode-version` ([`synkronus-portal/src/version.ts`](synkronus-portal/src/version.ts)) |
+
+**Synkronus server** version is **not** edited in source for releases — CI injects it from the git tag ([`.github/workflows/synkronus-docker.yml`](.github/workflows/synkronus-docker.yml)).
+
+### Increment rules
+
+- **Semver:** bump `MAJOR.MINOR.PATCH` in client manifests to match the release line (e.g. `1.1.1`).
+- **Android `versionCode`:** must increase monotonically for Google Play (+10 per release is a common convention; +1 per shipped alpha build is also fine).
+- **In-app version display:** Formulus About/Settings use native `versionName` + `versionCode` via [`AppVersionService`](formulus/src/services/AppVersionService.ts); Desktop About uses Tauri `getVersion()`.
+
+### Commands
+
+```bash
+# After bumping formulus/package.json
+cd formulus && pnpm run sync:version
+
+# Pre-flight on touched JS packages
+cd formulus-formplayer && pnpm run lint && pnpm run format:check
+cd formulus && pnpm run lint && pnpm run format:check
+cd desktop && pnpm run lint && pnpm run format:check && pnpm run typecheck && pnpm test
+cd synkronus-cli && go build ./cmd/synkronus && ./synk version   # or synkronus-cli.exe on Windows
+```
+
+### Do not bump
+
+- `FORMULUS_INTERFACE_VERSION` in [`formulus/src/webview/FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts) — WebView bridge API contract, not app release version
+- `formulus-formplayer/package.json` — embedded library semver
+- OpenAPI document version comments in generated API clients
+- `synkronus-cli/internal/config/config.go` default `api.version` — Synkronus **API contract** major version for compatibility checks, not CLI display version
+
+### Tag and publish
+
+```bash
+git tag v1.1.1-alpha.3    # or v1.1.1 for stable
+git push origin v1.1.1-alpha.3
+# GitHub → Releases → publish (pre-release checkbox for alpha/rc tags)
+```
+
+---
+
 ## Cross-cutting contracts
 
 - **Formulus ↔ WebView (custom apps + formplayer):** [`formulus/src/webview/FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts) is the **source of truth** for the injected JavaScript API. Formplayer copies a synced TypeScript snapshot via `pnpm run sync-interface` in `formulus-formplayer` (see [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md)).

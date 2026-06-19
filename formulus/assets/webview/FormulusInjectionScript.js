@@ -1,6 +1,6 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-05-16T12:40:22.983Z
+// Last generated: 2026-06-19T12:32:54.430Z
 
 (function () {
   // Enhanced API availability detection and recovery
@@ -229,7 +229,7 @@
       });
     },
 
-    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown>, options: { subObservationMode?: boolean; } => Promise<FormCompletionResult>
+    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown>, options: { subObservationMode?: boolean; skipFinalize?: boolean; skipDraftSelection?: boolean; } => Promise<FormCompletionResult>
     openFormplayer: function (formType, params, savedData, options) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -664,11 +664,13 @@
       });
     },
 
-    // getCachedLocation: fieldId?: string => Promise<LocationResult | null>
+    // getCachedLocation: fieldId: string => Promise<LocationResult>
     getCachedLocation: function (fieldId) {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        // Add response handler for methods that return values
 
         const callback = event => {
           try {
@@ -676,10 +678,16 @@
             if (typeof event.data === 'string') {
               data = JSON.parse(event.data);
             } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data;
+              data = event.data; // Already an object
             } else {
-              window.removeEventListener('message', callback);
-              reject(new Error('getCachedLocation: unexpected response'));
+              // console.warn('getCachedLocation callback: Received response with unexpected data type:', typeof event.data, event.data);
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'getCachedLocation callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
               return;
             }
             if (
@@ -694,12 +702,19 @@
               }
             }
           } catch (e) {
-            window.removeEventListener('message', callback);
+            console.error(
+              "'getCachedLocation' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
             reject(e);
           }
         };
         window.addEventListener('message', callback);
 
+        // Send the message to React Native
         globalThis.ReactNativeWebView.postMessage(
           JSON.stringify({
             type: 'getCachedLocation',
@@ -710,41 +725,13 @@
       });
     },
 
-    // watchLocation: fieldId => Promise<{ status, message? }>
-    watchLocation: function (fieldId) {
+    // allocateSequence: scopeKey: string, options: { startAt?: number; peek?: boolean; } => Promise<number>
+    allocateSequence: function (scopeKey, options) {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
-        const updateHandler = event => {
-          try {
-            let data;
-            if (typeof event.data === 'string') {
-              data = JSON.parse(event.data);
-            } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data;
-            } else {
-              return;
-            }
-            if (
-              data.type === 'locationWatchUpdate' &&
-              data.fieldId === fieldId
-            ) {
-              window.dispatchEvent(
-                new CustomEvent('formulusLocationUpdate', {
-                  detail: { fieldId, result: data.result },
-                }),
-              );
-            }
-          } catch {
-            /* ignore malformed push */
-          }
-        };
-        window.addEventListener('message', updateHandler);
-        if (!globalThis.__formulusLocationWatchHandlers) {
-          globalThis.__formulusLocationWatchHandlers = {};
-        }
-        globalThis.__formulusLocationWatchHandlers[fieldId] = updateHandler;
+        // Add response handler for methods that return values
 
         const callback = event => {
           try {
@@ -752,10 +739,78 @@
             if (typeof event.data === 'string') {
               data = JSON.parse(event.data);
             } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data;
+              data = event.data; // Already an object
             } else {
+              // console.warn('allocateSequence callback: Received response with unexpected data type:', typeof event.data, event.data);
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'allocateSequence callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
+              return;
+            }
+            if (
+              data.type === 'allocateSequence_response' &&
+              data.messageId === messageId
+            ) {
               window.removeEventListener('message', callback);
-              reject(new Error('watchLocation: unexpected response'));
+              if (data.error) {
+                reject(new Error(data.error));
+              } else {
+                resolve(data.result);
+              }
+            }
+          } catch (e) {
+            console.error(
+              "'allocateSequence' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
+            reject(e);
+          }
+        };
+        window.addEventListener('message', callback);
+
+        // Send the message to React Native
+        globalThis.ReactNativeWebView.postMessage(
+          JSON.stringify({
+            type: 'allocateSequence',
+            messageId,
+            scopeKey: scopeKey,
+            options: options,
+          }),
+        );
+      });
+    },
+
+    // watchLocation: fieldId: string => Promise<{ status: "started" | "error"; message?: string; }>
+    watchLocation: function (fieldId) {
+      return new Promise((resolve, reject) => {
+        const messageId =
+          'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        // Add response handler for methods that return values
+
+        const callback = event => {
+          try {
+            let data;
+            if (typeof event.data === 'string') {
+              data = JSON.parse(event.data);
+            } else if (typeof event.data === 'object' && event.data !== null) {
+              data = event.data; // Already an object
+            } else {
+              // console.warn('watchLocation callback: Received response with unexpected data type:', typeof event.data, event.data);
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'watchLocation callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
               return;
             }
             if (
@@ -764,20 +819,25 @@
             ) {
               window.removeEventListener('message', callback);
               if (data.error) {
-                window.removeEventListener('message', updateHandler);
-                delete globalThis.__formulusLocationWatchHandlers[fieldId];
                 reject(new Error(data.error));
               } else {
                 resolve(data.result);
               }
             }
           } catch (e) {
-            window.removeEventListener('message', callback);
+            console.error(
+              "'watchLocation' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
             reject(e);
           }
         };
         window.addEventListener('message', callback);
 
+        // Send the message to React Native
         globalThis.ReactNativeWebView.postMessage(
           JSON.stringify({
             type: 'watchLocation',
@@ -788,11 +848,13 @@
       });
     },
 
-    // stopWatchLocation: fieldId => Promise<void>
+    // stopWatchLocation: fieldId: string => Promise<void>
     stopWatchLocation: function (fieldId) {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        // Add response handler for methods that return values
 
         const callback = event => {
           try {
@@ -800,10 +862,16 @@
             if (typeof event.data === 'string') {
               data = JSON.parse(event.data);
             } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data;
+              data = event.data; // Already an object
             } else {
-              window.removeEventListener('message', callback);
-              reject(new Error('stopWatchLocation: unexpected response'));
+              // console.warn('stopWatchLocation callback: Received response with unexpected data type:', typeof event.data, event.data);
+              window.removeEventListener('message', callback); // Clean up listener
+              reject(
+                new Error(
+                  'stopWatchLocation callback: Received response with unexpected data type. Raw: ' +
+                    String(event.data),
+                ),
+              );
               return;
             }
             if (
@@ -811,12 +879,6 @@
               data.messageId === messageId
             ) {
               window.removeEventListener('message', callback);
-              const handler =
-                globalThis.__formulusLocationWatchHandlers?.[fieldId];
-              if (handler) {
-                window.removeEventListener('message', handler);
-                delete globalThis.__formulusLocationWatchHandlers[fieldId];
-              }
               if (data.error) {
                 reject(new Error(data.error));
               } else {
@@ -824,12 +886,19 @@
               }
             }
           } catch (e) {
-            window.removeEventListener('message', callback);
+            console.error(
+              "'stopWatchLocation' callback: Error processing response:",
+              e,
+              'Raw event.data:',
+              event.data,
+            );
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
             reject(e);
           }
         };
         window.addEventListener('message', callback);
 
+        // Send the message to React Native
         globalThis.ReactNativeWebView.postMessage(
           JSON.stringify({
             type: 'stopWatchLocation',
@@ -1820,6 +1889,8 @@
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
+        // Add response handler for methods that return values
+
         const callback = event => {
           try {
             let data;
@@ -1828,6 +1899,7 @@
             } else if (typeof event.data === 'object' && event.data !== null) {
               data = event.data; // Already an object
             } else {
+              // console.warn('persistObservation callback: Received response with unexpected data type:', typeof event.data, event.data);
               window.removeEventListener('message', callback); // Clean up listener
               reject(
                 new Error(
@@ -1872,11 +1944,13 @@
       });
     },
 
-    // sync: options: { includeAttachments?: boolean } => Promise<SyncResult>
+    // sync: options: { includeAttachments?: boolean; } => Promise<SyncResult>
     sync: function (options) {
       return new Promise((resolve, reject) => {
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+
+        // Add response handler for methods that return values
 
         const callback = event => {
           try {
@@ -1886,6 +1960,7 @@
             } else if (typeof event.data === 'object' && event.data !== null) {
               data = event.data; // Already an object
             } else {
+              // console.warn('sync callback: Received response with unexpected data type:', typeof event.data, event.data);
               window.removeEventListener('message', callback); // Clean up listener
               reject(
                 new Error(
@@ -1933,6 +2008,8 @@
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
+        // Add response handler for methods that return values
+
         const callback = event => {
           try {
             let data;
@@ -1941,6 +2018,7 @@
             } else if (typeof event.data === 'object' && event.data !== null) {
               data = event.data; // Already an object
             } else {
+              // console.warn('getConnectivityStatus callback: Received response with unexpected data type:', typeof event.data, event.data);
               window.removeEventListener('message', callback); // Clean up listener
               reject(
                 new Error(
@@ -1990,15 +2068,18 @@
         const messageId =
           'msg_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
 
+        // Add response handler for methods that return values
+
         const callback = event => {
           try {
             let data;
             if (typeof event.data === 'string') {
               data = JSON.parse(event.data);
             } else if (typeof event.data === 'object' && event.data !== null) {
-              data = event.data;
+              data = event.data; // Already an object
             } else {
-              window.removeEventListener('message', callback);
+              // console.warn('getCurrentDataRevisionCount callback: Received response with unexpected data type:', typeof event.data, event.data);
+              window.removeEventListener('message', callback); // Clean up listener
               reject(
                 new Error(
                   'getCurrentDataRevisionCount callback: Received response with unexpected data type. Raw: ' +
@@ -2025,12 +2106,13 @@
               'Raw event.data:',
               event.data,
             );
-            window.removeEventListener('message', callback);
+            window.removeEventListener('message', callback); // Ensure listener is removed on error too
             reject(e);
           }
         };
         window.addEventListener('message', callback);
 
+        // Send the message to React Native
         globalThis.ReactNativeWebView.postMessage(
           JSON.stringify({
             type: 'getCurrentDataRevisionCount',

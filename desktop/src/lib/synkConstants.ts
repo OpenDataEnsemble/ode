@@ -1,2 +1,2 @@
 /** Must match Synkronus OpenAPI `x-ode-version` (semver). */
-export const SYNKRONUS_CLIENT_VERSION = '1.0.0';
+export const SYNKRONUS_CLIENT_VERSION = '1.1.1';

@@ -1,4 +1,8 @@
+import { useEffect, useState } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
+import { isTauri } from '@tauri-apps/api/core';
 import brandMarkUrl from '../assets/custodian.png';
+import packageJson from '../../package.json';
 
 const LINKS = [
   { href: 'https://opendataensemble.org', label: 'Website' },
@@ -11,6 +15,23 @@ const LINKS = [
 ] as const;
 
 export function AboutPage() {
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        if (isTauri()) {
+          setVersion(await getVersion());
+        } else {
+          setVersion(packageJson.version?.trim() ?? '');
+        }
+      } catch {
+        setVersion('');
+      }
+    };
+    void load();
+  }, []);
+
   return (
     <section className="page page-about">
       <img
@@ -21,6 +42,7 @@ export function AboutPage() {
         height={256}
       />
       <h2>ODE Desktop</h2>
+      {version ? <p className="about-version">v{version}</p> : null}
       <p>
         Open Data Ensemble is an offline-first ecosystem for field data
         collection, synchronization, and stewardship. ODE Desktop helps you
