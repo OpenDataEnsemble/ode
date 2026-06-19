@@ -1425,6 +1425,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           subObservationMode?: boolean;
           skipFinalize?: boolean;
           skipDraftSelection?: boolean;
+          observationId?: string | null;
           returnOnly?: boolean;
         };
         /** @deprecated Legacy key; prefer subObservationMode */
@@ -1443,11 +1444,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       const skipDraftSelection = Boolean(
         data.options?.skipDraftSelection || data.skipDraftSelection,
       );
+      const observationId =
+        data.observationId ?? data.options?.observationId ?? null;
       return startFormplayerOperation(
         data.formType,
         data.params,
         data.savedData,
-        data.observationId ?? null,
+        observationId,
         subObservationMode,
         skipFinalize,
         skipDraftSelection,

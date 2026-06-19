@@ -134,6 +134,7 @@ export type FormPreviewBridgeContext = {
     formType: string;
     params: Record<string, unknown>;
     savedData: Record<string, unknown>;
+    observationId?: string;
   }) => void;
   /**
    * Form preview: defer `openFormplayer_response` until nested finalize/cancel.
@@ -423,9 +424,14 @@ export async function handleFormPreviewBridgeMessage(
               subObservationMode?: boolean;
               skipFinalize?: boolean;
               skipDraftSelection?: boolean;
+              observationId?: string | null;
             }
           | undefined;
         const subObservationMode = Boolean(options?.subObservationMode);
+        const observationId =
+          typeof options?.observationId === 'string'
+            ? options.observationId.trim()
+            : '';
 
         if (subObservationMode && ctx.onDeferOpenSubObservation) {
           const parentIframe = resolveBridgeReplyIframe(eventSource, ctx);
@@ -455,7 +461,12 @@ export async function handleFormPreviewBridgeMessage(
         }
 
         if (ctx.onOpenFormplayerNavigate) {
-          ctx.onOpenFormplayerNavigate({ formType, params, savedData });
+          ctx.onOpenFormplayerNavigate({
+            formType,
+            params,
+            savedData,
+            ...(observationId ? { observationId } : {}),
+          });
           reply('openFormplayer', {
             result: {
               status: 'cancelled',
