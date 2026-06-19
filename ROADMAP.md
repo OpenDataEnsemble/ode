@@ -37,6 +37,8 @@ Same Synkronus API as everything else. Form behaviour should match **Formulus** 
 
 Detailed requirements live in the **ODE Desktop** project plan ([`desktop/`](desktop/) in this repo). Implementation is modular, not phased.
 
+**Backlog:** [Custom data-management apps](desktop/docs/CUSTOM_DATA_APPS.md) — optional Workbench mini-apps shipped in the bundle for choice-list admin, randomization, cleaning, etc.
+
 ---
 
 ## Product map

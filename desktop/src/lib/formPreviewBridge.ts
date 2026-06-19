@@ -11,6 +11,7 @@
  * | `getObservations` | Local SQLite via `listObservationsPage`. |
  * | `getObservationsByQuery` | `query_observations` with structured `filter` AST. |
  * | `submitObservation` / `updateObservation` | Finalize dialog (JSON export or DB). |
+ * | `persistObservation` | Headless create/update via `saveObservation` (no finalize dialog). |
  * | `requestCamera` / `requestLocation` / `requestFile` / `requestAudio` / `requestVideo` / `requestQrcode` / `requestBiometric` | **Stub** — no device bridge in preview. |
  * | `launchIntent` / `callSubform` | **Stub** — not supported in preview. |
  * | `requestConnectivityStatus` / `requestSyncStatus` | **No-op** success (`result` omitted) so callers resolve. |
@@ -50,7 +51,7 @@ function previewAllocateSequence(
 }
 
 /** Matches `FORMULUS_INTERFACE_VERSION` in formplayer (`FormulusInterfaceDefinition.ts`). */
-export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.2.1';
+export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.5.0';
 
 /** Must match `formplayer-host-stub.js` — delivers `*_response` to pending Formulus promises in iframes. */
 export const FORMPLAYER_BRIDGE_RESPONSE_CHANNEL =
@@ -90,6 +91,7 @@ export const FORMULUS_INJECTION_REQUEST_TYPES = [
   'getCustomAppUri',
   'getFormSpecsUri',
   'allocateSequence',
+  'persistObservation',
 ] as const;
 
 export type FinalizeRequest =
@@ -759,6 +761,45 @@ export async function handleFormPreviewBridgeMessage(
             error: e instanceof Error ? e.message : String(e),
           });
         }
+        return;
+      }
+
+      case 'persistObservation': {
+        const input = (data.input ?? data) as {
+          formType?: string;
+          finalData?: Record<string, unknown>;
+          observationId?: string | null;
+        };
+        const formType = String(input.formType ?? '').trim();
+        if (!formType) {
+          reply('persistObservation', {
+            error: 'persistObservation: formType is required',
+          });
+          return;
+        }
+        if (
+          !input.finalData ||
+          typeof input.finalData !== 'object' ||
+          Array.isArray(input.finalData)
+        ) {
+          reply('persistObservation', {
+            error: 'persistObservation: finalData object is required',
+          });
+          return;
+        }
+        const existingId =
+          typeof input.observationId === 'string'
+            ? input.observationId.trim()
+            : '';
+        const id = existingId || crypto.randomUUID();
+        await tauriClient.saveObservation({
+          id,
+          formType,
+          payload: input.finalData,
+        });
+        reply('persistObservation', {
+          result: { observationId: id, formData: input.finalData },
+        });
         return;
       }
 
