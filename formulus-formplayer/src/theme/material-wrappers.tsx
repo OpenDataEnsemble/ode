@@ -38,6 +38,13 @@ import {
 import QuestionShell from '../components/QuestionShell';
 import { isControlHidden } from '../jsonforms/visibleGuard';
 import { tokens } from './tokens-adapter';
+import {
+  parseChoiceLayout,
+  choiceListSx,
+  toggleButtonListSx,
+  toggleButtonOrientation,
+} from './choiceLayout';
+import { ChoiceOptionList } from './ChoiceOptionList';
 
 const parsePx = (value: string): number =>
   parseInt(String(value).replace('px', ''), 10) || 1;
@@ -326,7 +333,7 @@ const EnumArrayShellControl = (
       description={description}
       required={required}
       error={errors}>
-      <FormGroup sx={choiceListSx('vertical')}>
+      <FormGroup sx={choiceListSx({ mode: 'vertical' })}>
         {options.map(opt => (
           <FormControlLabel
             key={String(opt.value)}
@@ -351,7 +358,7 @@ const EnumArrayShellControl = (
 //   options.display:
 //     single-select (enum / oneOf): "radio" | "buttons"
 //     multi-select  (array enum):   "checkboxes" | "buttons"
-//   options.orientation: "vertical" (default) | "horizontal" | "flow" (wrap in inline layout)
+//   options.orientation: "vertical" (default) | "horizontal" | "flow" | "cols-2" … "cols-5"
 //   options.buttonGroup: "segmented" (default) | "separated"
 //
 // Single-select radio/buttons support tap-the-selected-option-to-clear.
@@ -368,39 +375,12 @@ const deriveChoiceOptions = (schema: any): ChoiceOption[] =>
     label: o.title ?? String(o.const ?? o),
   })) || (schema.enum || []).map((v: any) => ({ value: v, label: String(v) }));
 
-type ChoiceOrientation = 'vertical' | 'horizontal' | 'flow';
-
 const readChoiceLayout = (uischema: any) => {
   const o = uischema?.options ?? {};
-  const orientation: ChoiceOrientation =
-    o.orientation === 'horizontal' || o.orientation === 'flow'
-      ? o.orientation
-      : 'vertical';
+  const layout = parseChoiceLayout(o);
   const separated = o.buttonGroup === 'separated';
-  return { orientation, separated };
+  return { layout, separated };
 };
-
-const choiceListSx = (orientation: ChoiceOrientation) => ({
-  display: 'flex',
-  flexDirection: orientation === 'vertical' ? 'column' : 'row',
-  flexWrap: orientation === 'flow' ? 'wrap' : 'nowrap',
-  gap: orientation === 'vertical' ? 0 : 0.5,
-});
-
-const toggleGroupSx = (orientation: ChoiceOrientation, separated: boolean) => ({
-  flexWrap: orientation === 'flow' ? 'wrap' : 'nowrap',
-  ...(separated
-    ? {
-        gap: 1,
-        '& .MuiToggleButtonGroup-grouped': {
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: 1,
-          '&:not(:first-of-type)': { marginLeft: 0 },
-        },
-      }
-    : {}),
-});
 
 export const choiceControlTester: RankedTester = rankWith(
   7,
@@ -430,7 +410,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
     (uischema as any)?.options?.required ?? (schema as any)?.options?.required,
   );
   const display = (uischema as any)?.options?.display;
-  const { orientation, separated } = readChoiceLayout(uischema);
+  const { layout, separated } = readChoiceLayout(uischema);
   const options = deriveChoiceOptions(schema);
 
   const body =
@@ -438,7 +418,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
       <ToggleButtonGroup
         exclusive
         disabled={!enabled}
-        orientation={orientation === 'vertical' ? 'vertical' : 'horizontal'}
+        orientation={toggleButtonOrientation(layout)}
         value={data ?? null}
         onChange={(_e, val) => {
           if (!enabled) return;
@@ -446,7 +426,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
           // which gives tap-to-clear for free.
           handleChange(path, val == null ? undefined : val);
         }}
-        sx={toggleGroupSx(orientation, separated)}>
+        sx={toggleButtonListSx(layout, separated)}>
         {options.map(opt => (
           <ToggleButton key={String(opt.value)} value={opt.value as any}>
             {opt.label}
@@ -454,7 +434,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
         ))}
       </ToggleButtonGroup>
     ) : (
-      <Box role="radiogroup" sx={choiceListSx(orientation)}>
+      <ChoiceOptionList layout={layout} role="radiogroup">
         {options.map(opt => {
           const selected = data === opt.value;
           return (
@@ -475,7 +455,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
             />
           );
         })}
-      </Box>
+      </ChoiceOptionList>
     );
 
   return (
@@ -518,7 +498,7 @@ export const MultiChoiceControl = (
   const description = schema.description;
   const required = Boolean((uischema as any)?.options?.required);
   const display = (uischema as any)?.options?.display;
-  const { orientation, separated } = readChoiceLayout(uischema);
+  const { layout, separated } = readChoiceLayout(uischema);
   const selected: unknown[] = Array.isArray(data) ? data : [];
   const isSelected = (v: unknown) => selected.includes(v);
   const toggle = (v: unknown) => {
@@ -531,7 +511,7 @@ export const MultiChoiceControl = (
     display === 'buttons' ? (
       <ToggleButtonGroup
         disabled={!enabled}
-        orientation={orientation === 'vertical' ? 'vertical' : 'horizontal'}
+        orientation={toggleButtonOrientation(layout)}
         value={selected as any}
         onChange={(_e, newVals: unknown[]) => {
           if (!enabled) return;
@@ -542,7 +522,7 @@ export const MultiChoiceControl = (
             .filter(v => !newVals.includes(v))
             .forEach(v => removeItem?.(path, v));
         }}
-        sx={toggleGroupSx(orientation, separated)}>
+        sx={toggleButtonListSx(layout, separated)}>
         {options.map(opt => (
           <ToggleButton key={String(opt.value)} value={opt.value as any}>
             {opt.label}
@@ -550,7 +530,7 @@ export const MultiChoiceControl = (
         ))}
       </ToggleButtonGroup>
     ) : (
-      <FormGroup sx={choiceListSx(orientation)}>
+      <ChoiceOptionList layout={layout}>
         {options.map(opt => (
           <FormControlLabel
             key={String(opt.value)}
@@ -564,7 +544,7 @@ export const MultiChoiceControl = (
             label={opt.label}
           />
         ))}
-      </FormGroup>
+      </ChoiceOptionList>
     );
 
   return (

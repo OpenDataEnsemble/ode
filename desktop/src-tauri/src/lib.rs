@@ -1021,6 +1021,21 @@ fn mirror_custom_app_dev_folder(ws: &Path, source: &Path) -> Result<u64, Custodi
         let mirror_forms = dev_local.join("forms");
         copy_dir_recursive_counting(&forms_src, &mirror_forms, &mut copied_files)?;
     }
+    let mirror_qt = mirror_app.join("question_types");
+    if !mirror_qt.is_dir() {
+        let qt_candidates = [
+            source.join("question_types"),
+            source.join("public").join("question_types"),
+            source.join("..").join("public").join("question_types"),
+            source.join("..").join("..").join("question_types"),
+        ];
+        for qt_src in qt_candidates {
+            if qt_src.is_dir() {
+                copy_dir_recursive_counting(&qt_src, &mirror_qt, &mut copied_files)?;
+                break;
+            }
+        }
+    }
     Ok(copied_files)
 }
 
