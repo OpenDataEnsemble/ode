@@ -249,20 +249,28 @@ jobs:
         env:
           CI: 'true'
           RUST_TARGET: ${{ matrix.rust_target }}
+          CARGO_NET_RETRY: '10'
+          CARGO_HTTP_MULTIPLEXING: 'false'
         run: |
           set -euo pipefail
           if [[ "${RUNNER_OS}" == "macOS" ]]; then
             hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
             find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
           fi
-          if ! pnpm exec tauri build --verbose --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'; then
-            if [[ "${RUNNER_OS}" != "macOS" ]]; then
-              exit 1
+          build_tauri() {
+            pnpm exec tauri build --verbose --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}' "$@"
+          }
+          if ! build_tauri; then
+            if [[ "${RUNNER_OS}" == "macOS" ]]; then
+              echo "::warning::Tauri build failed; retrying DMG bundle on macOS"
+              hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+              find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+              build_tauri --bundles dmg
+            else
+              echo "::warning::Tauri build failed; retrying after crates.io network glitch"
+              sleep 15
+              build_tauri
             fi
-            echo "::warning::Tauri build failed; retrying DMG bundle on macOS"
-            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
-            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
-            pnpm exec tauri build --verbose --bundles dmg --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'
           fi
 
       - name: Collect installers for upload
@@ -402,20 +410,28 @@ jobs:
         env:
           CI: 'true'
           RUST_TARGET: ${{ matrix.rust_target }}
+          CARGO_NET_RETRY: '10'
+          CARGO_HTTP_MULTIPLEXING: 'false'
         run: |
           set -euo pipefail
           if [[ "${RUNNER_OS}" == "macOS" ]]; then
             hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
             find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
           fi
-          if ! pnpm exec tauri build --verbose --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'; then
-            if [[ "${RUNNER_OS}" != "macOS" ]]; then
-              exit 1
+          build_tauri() {
+            pnpm exec tauri build --verbose --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}' "$@"
+          }
+          if ! build_tauri; then
+            if [[ "${RUNNER_OS}" == "macOS" ]]; then
+              echo "::warning::Tauri build failed; retrying DMG bundle on macOS"
+              hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
+              find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
+              build_tauri --bundles dmg
+            else
+              echo "::warning::Tauri build failed; retrying after crates.io network glitch"
+              sleep 15
+              build_tauri
             fi
-            echo "::warning::Tauri build failed; retrying DMG bundle on macOS"
-            hdiutil detach "/Volumes/ODE Desktop" 2>/dev/null || true
-            find "src-tauri/target/${RUST_TARGET}/release/bundle" -name 'rw.*.dmg' -delete 2>/dev/null || true
-            pnpm exec tauri build --verbose --bundles dmg --target "${RUST_TARGET}" -c '${{ env.TAURI_BEFORE_BUILD }}'
           fi
 
       - name: Collect installers for GitHub Release
