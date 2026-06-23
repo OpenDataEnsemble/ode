@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"syscall"
 	"time"
 
@@ -17,7 +18,9 @@ func init() {
 	loginCmd := &cobra.Command{
 		Use:   "login",
 		Short: "Login to the Synkronus API",
-		Long:  `Authenticate with the Synkronus API using your username and password.`,
+		Long: `Authenticate with the Synkronus API using your username and password.
+
+For CI and scripting, pass --password or set SYNK_PASSWORD instead of typing interactively.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			username, err := cmd.Flags().GetString("username")
 			if err != nil {
@@ -29,14 +32,10 @@ func init() {
 				fmt.Scanln(&username)
 			}
 
-			fmt.Print("Password: ")
-			passwordBytes, err := term.ReadPassword(int(syscall.Stdin))
+			password, err := resolveLoginPassword(cmd)
 			if err != nil {
-				return fmt.Errorf("error reading password: %w", err)
+				return err
 			}
-			fmt.Println() // Add newline after password input
-
-			password := string(passwordBytes)
 			tokenResp, err := auth.Login(username, password)
 			if err != nil {
 				return fmt.Errorf("login failed: %w", err)
@@ -54,6 +53,7 @@ func init() {
 	}
 
 	loginCmd.Flags().StringP("username", "u", "", "Username for authentication")
+	loginCmd.Flags().String("password", "", "Password for authentication (or set SYNK_PASSWORD)")
 	rootCmd.AddCommand(loginCmd)
 
 	// Logout command
@@ -101,4 +101,25 @@ func init() {
 		},
 	}
 	rootCmd.AddCommand(statusCmd)
+}
+
+func resolveLoginPassword(cmd *cobra.Command) (string, error) {
+	password, err := cmd.Flags().GetString("password")
+	if err != nil {
+		return "", err
+	}
+	if password == "" {
+		password = os.Getenv("SYNK_PASSWORD")
+	}
+	if password != "" {
+		return password, nil
+	}
+
+	fmt.Print("Password: ")
+	passwordBytes, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", fmt.Errorf("error reading password: %w", err)
+	}
+	fmt.Println()
+	return string(passwordBytes), nil
 }

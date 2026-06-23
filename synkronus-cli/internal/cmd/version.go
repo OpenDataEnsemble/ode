@@ -11,7 +11,7 @@ import (
 
 var (
 	// Version is the CLI version, set during build
-	Version = "1.1.1"
+	Version = "1.1.2"
 	// BuildDate is the date when the CLI was built
 	BuildDate = "unknown"
 	// CommitHash is the git commit hash

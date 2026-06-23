@@ -89,6 +89,8 @@ For stable, you usually **do not** re-bump client manifests if they already matc
 
 **Synkronus server** version is **not** edited in source for releases — CI injects it from the git tag ([`.github/workflows/synkronus-docker.yml`](.github/workflows/synkronus-docker.yml)).
 
+**Synkronus CLI** Docker image (`ghcr.io/opendataensemble/synkronus-cli`) is published by [`.github/workflows/synkronus-cli-docker.yml`](.github/workflows/synkronus-cli-docker.yml) on release; confirm GHCR tags alongside GitHub Release CLI binaries.
+
 ### Increment rules
 
 - **Semver:** bump `MAJOR.MINOR.PATCH` in client manifests to match the release line (e.g. `1.1.1`).

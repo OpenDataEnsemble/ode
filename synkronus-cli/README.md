@@ -120,8 +120,12 @@ Add-Content -Path $PROFILE -Value "synk completion powershell | Out-String | Inv
 ### Authentication
 
 ```bash
-# Login to the API
+# Login to the API (interactive password prompt)
 synk login --username your-username
+
+# Login for CI/scripts (non-interactive)
+synk login --username your-username --password "$SYNK_PASSWORD"
+# or: SYNK_PASSWORD=secret synk login -u your-username
 
 # Check authentication status
 synk status
