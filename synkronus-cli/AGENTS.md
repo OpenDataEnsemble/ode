@@ -29,4 +29,6 @@ The CLI may be **GPL-2.0-or-later** until the QR dependency cleanup described in
 
 ## Install / build
 
-From [README.md](README.md): `go install`, or build from source. Installation scripts are linked from the root [README.md](../README.md).
+From [README.md](README.md): `go install`, release binaries from GitHub, or `ghcr.io/opendataensemble/synkronus-cli`. Installation scripts: [`scripts/install-synkronus-cli.sh`](../scripts/install-synkronus-cli.sh).
+
+CI login: `synk login -u USER --password "$SYNK_PASSWORD"` (or `SYNK_PASSWORD` env when stdin is not a TTY).
