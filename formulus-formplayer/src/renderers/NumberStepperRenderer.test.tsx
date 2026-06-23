@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import React, { useState } from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  cleanup,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { JsonForms } from '@jsonforms/react';
@@ -73,9 +79,7 @@ function readCommittedData(): Record<string, unknown> {
 
 describe('NumberStepperRenderer', () => {
   it('uses text input with decimal inputMode and enterKeyHint', () => {
-    render(
-      <NumericTestHarness schema={hbSchema} uischema={hbUischema} />,
-    );
+    render(<NumericTestHarness schema={hbSchema} uischema={hbUischema} />);
     const input = screen.getByRole('textbox');
     expect(input).toHaveAttribute('type', 'text');
     expect(input).toHaveAttribute('inputmode', 'decimal');
@@ -162,9 +166,7 @@ describe('NumberStepperRenderer', () => {
     };
     const decimalUi = { type: 'Control', scope: '#/properties/value' };
 
-    render(
-      <NumericTestHarness schema={decimalSchema} uischema={decimalUi} />,
-    );
+    render(<NumericTestHarness schema={decimalSchema} uischema={decimalUi} />);
 
     const input = screen.getByRole('textbox');
     await user.click(input);

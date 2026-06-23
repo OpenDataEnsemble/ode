@@ -106,9 +106,7 @@ export function useNumericDraftInput({
   );
 
   const displayValue =
-    isFocused && draftText !== null
-      ? draftText
-      : formatNumericDisplay(data);
+    isFocused && draftText !== null ? draftText : formatNumericDisplay(data);
 
   const onFocus = useCallback(() => {
     if (!enabled) return;
