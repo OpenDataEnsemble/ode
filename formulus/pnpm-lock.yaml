@@ -152,8 +152,8 @@ importers:
         specifier: 20.1.3
         version: 20.1.3(typescript@5.9.3)
       '@react-native-community/cli-platform-android':
-        specifier: 20.1.2
-        version: 20.1.2
+        specifier: 20.1.3
+        version: 20.1.3
       '@react-native-community/cli-platform-ios':
         specifier: 20.1.2
         version: 20.1.2
@@ -1706,9 +1706,6 @@ packages:
   '@react-native-community/cli-clean@20.1.3':
     resolution: {integrity: sha512-sFLdLzapfC0scjgzBJJWYDY2RhHPjuuPkA5r6q0gc/UQH/izXpMpLrhh1DW84cMDraNACK0U62tU7ebNaQ1LMQ==}
 
-  '@react-native-community/cli-config-android@20.1.2':
-    resolution: {integrity: sha512-W0Qx+lW8pbQMz8x3Rlf/H7D2j2u8O+u9HnrZnKzDl1DaXgaOQqL484lTZlMEQofjq7eLXdmzWxuZdqS6K1QfmQ==}
-
   '@react-native-community/cli-config-android@20.1.3':
     resolution: {integrity: sha512-DNHDP+OWLyhKShGciBqPcxhxfp1Z/7GQcb4F+TGyCeKQAr+JdnUjRXN3X+YCU/v+g2kbYYyRJKlGabzkVvdrAw==}
 
@@ -1723,9 +1720,6 @@ packages:
 
   '@react-native-community/cli-doctor@20.1.3':
     resolution: {integrity: sha512-EI+mAPWn255/WZ4CQohy1I049yiaxVr41C3BeQ2BCyhxODIDR8XRsLzYb1t9MfqK/C3ZncUN2mPSRXFeKPPI1w==}
-
-  '@react-native-community/cli-platform-android@20.1.2':
-    resolution: {integrity: sha512-1iHB8cTTJpMyEKhxWTRYsxhBBsiOq3tVguGX/HtBdHRzhlCeDpanE6U+aKxWfMFetMcFL+HLe5nQPcJXf9EtKg==}
 
   '@react-native-community/cli-platform-android@20.1.3':
     resolution: {integrity: sha512-bzB9ELPOISuqgtDZXFPQlkuxx1YFkNx3cNgslc5ElCrk+5LeCLQLIBh/dmIuK8rwUrPcrramjeBj++Noc+TaAA==}
@@ -7050,13 +7044,6 @@ snapshots:
       fast-glob: 3.3.3
       picocolors: 1.1.1
 
-  '@react-native-community/cli-config-android@20.1.2':
-    dependencies:
-      '@react-native-community/cli-tools': 20.1.2
-      fast-glob: 3.3.3
-      fast-xml-parser: 5.8.0
-      picocolors: 1.1.1
-
   '@react-native-community/cli-config-android@20.1.3':
     dependencies:
       '@react-native-community/cli-tools': 20.1.3
@@ -7108,14 +7095,6 @@ snapshots:
       yaml: 2.9.0
     transitivePeerDependencies:
       - typescript
-
-  '@react-native-community/cli-platform-android@20.1.2':
-    dependencies:
-      '@react-native-community/cli-config-android': 20.1.2
-      '@react-native-community/cli-tools': 20.1.2
-      execa: 5.1.1
-      logkitty: 0.7.1
-      picocolors: 1.1.1
 
   '@react-native-community/cli-platform-android@20.1.3':
     dependencies:
