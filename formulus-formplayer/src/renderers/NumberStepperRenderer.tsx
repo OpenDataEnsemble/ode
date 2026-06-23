@@ -3,9 +3,12 @@
  *
  * Custom renderer for number/integer fields that adds simple +/- buttons
  * via Material-UI's InputAdornment. Uses QuestionShell for unified layout.
+ *
+ * Numeric input policy: draft text while focused; observation JSON stores
+ * numbers only; never clamp to schema bounds while typing.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ControlProps,
   RankedTester,
@@ -17,6 +20,11 @@ import { withJsonFormsControlProps } from '@jsonforms/react';
 import { TextField, InputAdornment, IconButton } from '@mui/material';
 import { Add, Remove } from '@mui/icons-material';
 import QuestionShell from '../components/QuestionShell';
+import { useFormContext } from '../App';
+import {
+  useNumericDraftInput,
+  type NumericSchemaKind,
+} from '../hooks/useNumericDraftInput';
 
 const isNumberControl: RankedTester = rankWith(
   5,
@@ -25,6 +33,12 @@ const isNumberControl: RankedTester = rankWith(
     return type === 'number' || type === 'integer';
   }),
 );
+
+function committedNumeric(data: unknown): number | undefined {
+  if (data === undefined || data === null || data === '') return undefined;
+  const n = typeof data === 'number' ? data : Number(data);
+  return Number.isNaN(n) ? undefined : n;
+}
 
 const NumberStepperRenderer = ({
   data,
@@ -38,12 +52,29 @@ const NumberStepperRenderer = ({
   visible,
   required,
 }: ControlProps) => {
-  const [isFocused, setIsFocused] = useState(false);
+  const { keyboardEnterKeyHint } = useFormContext();
+  const schemaKind: NumericSchemaKind =
+    schema.type === 'integer' ? 'integer' : 'number';
+
+  const {
+    isFocused,
+    displayValue,
+    onFocus,
+    onBlur,
+    onChange,
+    syncDraftFromData,
+    inputProps,
+  } = useNumericDraftInput({
+    data,
+    path,
+    handleChange,
+    schemaKind,
+    enterKeyHint: keyboardEnterKeyHint,
+    enabled,
+  });
 
   if (visible === false) return null;
 
-  const numericValue =
-    data !== undefined && data !== null && data !== '' ? Number(data) : 0;
   const min = schema.minimum ?? (schema as { minimum?: number }).minimum;
   const max = schema.maximum ?? (schema as { maximum?: number }).maximum;
   const step = schema.multipleOf ?? (schema as { step?: number }).step ?? 1;
@@ -59,36 +90,27 @@ const NumberStepperRenderer = ({
     (uischema as { options?: { autoFocus?: boolean } })?.options?.autoFocus ===
     true;
 
+  const currentValue = committedNumeric(data) ?? 0;
+
+  const applyStepperValue = (newValue: number) => {
+    handleChange(path, newValue);
+    syncDraftFromData(newValue);
+  };
+
   const handleAdd = () => {
-    const currentValue = numericValue || 0;
     const newValue = currentValue + step;
     if (max === undefined || newValue <= max) {
-      handleChange(path, newValue);
+      applyStepperValue(newValue);
     }
   };
 
   const handleSubtract = () => {
-    const currentValue = numericValue || 0;
     const newValue = currentValue - step;
     if (min === undefined || newValue >= min) {
-      handleChange(path, newValue);
+      applyStepperValue(newValue);
     }
   };
 
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = event.target.value;
-    if (value === '') {
-      handleChange(path, undefined);
-      return;
-    }
-    const numValue = Number(value);
-    if (!isNaN(numValue)) {
-      // Do not clamp while typing — validation surfaces out-of-range values.
-      handleChange(path, numValue);
-    }
-  };
-
-  const currentValue = numericValue || 0;
   const addDisabled = max !== undefined && currentValue >= max;
   const subtractDisabled = min !== undefined && currentValue <= min;
 
@@ -103,17 +125,16 @@ const NumberStepperRenderer = ({
       required={isRequired}
       error={errorStr}>
       <TextField
-        type="number"
-        value={numericValue === 0 && data === undefined ? '' : numericValue}
-        onChange={handleInputChange}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
+        value={displayValue}
+        onChange={onChange}
+        onFocus={onFocus}
+        onBlur={onBlur}
         disabled={!enabled}
         error={Boolean(errorStr)}
         fullWidth
         autoFocus={autoFocus}
         inputProps={{
-          step,
+          ...inputProps,
           ...(autoFocus ? { 'data-formplayer-autofocus': 'true' } : {}),
         }}
         InputProps={{
@@ -140,20 +161,7 @@ const NumberStepperRenderer = ({
             </InputAdornment>
           ) : null,
         }}
-        sx={{
-          width: '100%',
-          '& input[type="number"]': {
-            MozAppearance: 'textfield',
-            '&::-webkit-outer-spin-button': {
-              WebkitAppearance: 'none',
-              margin: 0,
-            },
-            '&::-webkit-inner-spin-button': {
-              WebkitAppearance: 'none',
-              margin: 0,
-            },
-          },
-        }}
+        sx={{ width: '100%' }}
       />
     </QuestionShell>
   );

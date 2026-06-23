@@ -58,6 +58,7 @@ This file gives AI assistants and developers enough context to work effectively 
 3. **Custom question types**: Loaded from a **manifest** (source strings) from the RN app, evaluated in a sandbox with `React` and `MaterialUI` on `window`. They use **format** in the schema (e.g. `"format": "signature"`), not only `type`. Contract: `src/types/CustomQuestionTypeContract.ts`.
 4. **Design tokens**: Use `@ode/tokens` via `src/theme/tokens-adapter.ts` and the theme in `src/theme/theme.ts`; avoid hardcoding colors/spacing that exist in tokens.
 5. **Attachment-backed builtins** (`photo`, `audio`, `video`, `select_file`): Observation JSON stores **basename-only** `filename` plus portable metadata; RN writes files under **`attachments/draft/`** (etc.). Resolve previews with **`getAttachmentUri`** where applicable. **`select_file`** shows the chosen **name** only—no file preview.
+6. **Numeric inputs** (`type: integer` / `type: number`): Built-in control is **`NumberStepperRenderer`** (`src/renderers/NumberStepperRenderer.tsx`) backed by **`useNumericDraftInput`** (`src/hooks/useNumericDraftInput.ts`). Policy: **draft text while focused** (`type="text"` + `inputMode` + `enterKeyHint` from `FormContext`); observation JSON stores **JSON numbers only** (parse on commit, never strings); **never clamp** to `minimum`/`maximum` while typing—surface AJV errors instead. Custom numeric question types must follow the same contract (see `CustomQuestionTypeContract.ts`).
 
 ## Adding or changing behavior
 

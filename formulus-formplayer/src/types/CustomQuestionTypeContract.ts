@@ -26,7 +26,14 @@ export interface CustomQuestionTypeProps {
    */
   config: Record<string, unknown>;
 
-  /** Callback to update the field value. Call with the new value. */
+  /**
+   * Callback to update the field value. Call with a JSON number/boolean/string/etc. —
+   * never a display string for numeric schema types.
+   *
+   * **Numeric fields:** While focused, keep draft text locally; do not clamp to
+   * `minimum`/`maximum` on each keystroke. Commit typed numbers (including
+   * temporarily out-of-range values) and let AJV show validation errors.
+   */
   onChange: (newValue: unknown) => void;
 
   /** Current validation state for this field */
