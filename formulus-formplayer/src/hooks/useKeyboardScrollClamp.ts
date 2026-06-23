@@ -130,20 +130,12 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
       runClampChain();
     };
 
+    // Clamp only on content resize (e.g. value change re-render). Re-revealing here
+    // caused a scroll gap above the keyboard on first keystroke in number fields.
     const resizeObserver =
       typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(() => {
-            const active = document.activeElement;
-            if (
-              active &&
-              el.contains(active) &&
-              isFormFieldForScrollClamp(active)
-            ) {
-              focusedFieldRef.current = active;
-              tryRevealFocused();
-            } else {
-              runClampChain();
-            }
+            runClampChain();
           })
         : null;
 
