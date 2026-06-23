@@ -11,6 +11,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@mui/material/styles';
 import { JsonForms } from '@jsonforms/react';
+import type { JsonSchema7, UISchemaElement } from '@jsonforms/core';
 import Ajv from 'ajv';
 import { theme } from '../theme/theme';
 import { FormContext } from '../App';
@@ -18,7 +19,7 @@ import { numberStepperRenderer } from './NumberStepperRenderer';
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
-const hbSchema = {
+const hbSchema: JsonSchema7 = {
   type: 'object',
   properties: {
     hb_resultado: {
@@ -30,7 +31,7 @@ const hbSchema = {
   },
 };
 
-const hbUischema = {
+const hbUischema: UISchemaElement = {
   type: 'Control',
   scope: '#/properties/hb_resultado',
 };
@@ -41,8 +42,8 @@ function NumericTestHarness({
   initialData = {},
   validationMode = 'ValidateAndShow' as const,
 }: {
-  schema: object;
-  uischema: object;
+  schema: JsonSchema7;
+  uischema: UISchemaElement;
   initialData?: Record<string, unknown>;
   validationMode?: 'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation';
 }) {
@@ -158,13 +159,16 @@ describe('NumberStepperRenderer', () => {
 
   it('commits decimal values for type number', async () => {
     const user = userEvent.setup();
-    const decimalSchema = {
+    const decimalSchema: JsonSchema7 = {
       type: 'object',
       properties: {
         value: { type: 'number', multipleOf: 0.1 },
       },
     };
-    const decimalUi = { type: 'Control', scope: '#/properties/value' };
+    const decimalUi: UISchemaElement = {
+      type: 'Control',
+      scope: '#/properties/value',
+    };
 
     render(<NumericTestHarness schema={decimalSchema} uischema={decimalUi} />);
 
