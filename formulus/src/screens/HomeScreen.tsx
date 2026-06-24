@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   BackHandler,
   StyleSheet,
@@ -65,7 +65,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     }, [showConfirm]),
   );
 
-  const checkAndSetAppUri = async () => {
+  const checkAndSetAppUri = useCallback(async () => {
     try {
       const filePath = `${RNFS.DocumentDirectoryPath}/app/index.html`;
       const fileExists = await RNFS.exists(filePath);
@@ -85,13 +85,13 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     } catch (err) {
       console.warn('[HomeScreen] Failed to setup app URI:', err);
     }
-  };
+  }, [reloadTheme]);
 
   useEffect(() => {
     Promise.resolve().then(() => {
       checkAndSetAppUri();
     });
-  }, []);
+  }, [checkAndSetAppUri]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
@@ -100,7 +100,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
       });
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, checkAndSetAppUri]);
 
   useEffect(() => {
     const onBundleUpdated: Listener = () => {
@@ -109,7 +109,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
     };
     appEvents.addListener('bundleUpdated', onBundleUpdated);
     return () => appEvents.removeListener('bundleUpdated', onBundleUpdated);
-  }, []);
+  }, [checkAndSetAppUri]);
 
   useEffect(() => {
     if (localUri) {

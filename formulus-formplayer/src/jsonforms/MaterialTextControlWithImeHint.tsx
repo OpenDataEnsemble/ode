@@ -26,15 +26,23 @@ const MaterialInputControlUntyped = MaterialInputControl as React.FC<
  */
 const MaterialTextControlWithImeHint = (props: ControlProps) => {
   const { keyboardEnterKeyHint } = useFormContext();
+  const { uischema } = props;
+  const autoFocus =
+    (uischema as { options?: { autoFocus?: boolean } })?.options?.autoFocus ===
+    true;
 
   return (
     <MaterialInputControlUntyped
       {...props}
-      muiInputProps={
-        keyboardEnterKeyHint
-          ? { enterKeyHint: keyboardEnterKeyHint }
-          : undefined
-      }
+      muiInputProps={{
+        ...(keyboardEnterKeyHint ? { enterKeyHint: keyboardEnterKeyHint } : {}),
+        ...(autoFocus
+          ? {
+              autoFocus: true,
+              'data-formplayer-autofocus': 'true',
+            }
+          : {}),
+      }}
       input={MuiInputText}
     />
   );

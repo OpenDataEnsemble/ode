@@ -18,6 +18,7 @@ import {
   rankWith,
   uiTypeIs,
   RankedTester,
+  JsonSchema7,
 } from '@jsonforms/core';
 import { useSwipeable } from 'react-swipeable';
 import { Box, Typography, useTheme } from '@mui/material';
@@ -36,6 +37,13 @@ import {
   pageIsVisibleInSwipe,
   visiblePageIndicesFromLayouts,
 } from './swipeLayoutVisibility';
+import {
+  findAutoFocusPropertyPath,
+  focusFieldInContainer,
+  focusFirstEnabledTextInput,
+} from '../utils/autofocusHelpers';
+import { navigateToFirstBlockingError } from '../utils/validationNavigation';
+import { formatBlockingErrorSummary } from '../utils/errorPageNavigation';
 
 // ---------------------------------------------------------------------------
 // Testers
@@ -68,20 +76,6 @@ export const groupAsSwipeLayoutTester: RankedTester = rankWith(
 const CONFIRM_CARD_RADIUS = 0.7;
 const CONFIRM_BORDER_WIDTH = 1;
 const CONFIRM_CARD_PADDING = 16;
-
-/** Focus first text-like input on the screen (keeps mobile keyboard open across page changes). */
-function focusFirstEnabledTextInput(container: HTMLElement | null): void {
-  if (!container) return;
-  const sel =
-    'input:not([disabled]):not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),textarea:not([disabled])';
-  const el = container.querySelector<HTMLElement>(sel);
-  if (!el || typeof el.focus !== 'function') return;
-  try {
-    el.focus({ preventScroll: true });
-  } catch {
-    el.focus();
-  }
-}
 
 const SwipeLayoutRenderer = ({
   schema,
@@ -137,7 +131,7 @@ const SwipeLayoutRenderer = ({
       };
     }, [uischema]);
 
-  const autoFocusFirstInput = swipeOptions.autoFocusFirstInput !== false;
+  const autoFocusFirstInput = swipeOptions.autoFocusFirstInput === true;
   const labelLayout: LabelLayout =
     swipeOptions.labelLayout === 'stacked' ? 'stacked' : 'inline';
   const showInnerTitle = swipeOptions.showInnerTitle === true;
@@ -148,10 +142,15 @@ const SwipeLayoutRenderer = ({
   const swipeScreenRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!autoFocusFirstInput) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      if (!cancelled) {
+      if (cancelled || !swipeScreenRef.current) return;
+      const pageUi = layouts[currentPage];
+      const propPath = findAutoFocusPropertyPath(pageUi);
+      if (propPath && focusFieldInContainer(swipeScreenRef.current, propPath)) {
+        return;
+      }
+      if (autoFocusFirstInput) {
         focusFirstEnabledTextInput(swipeScreenRef.current);
       }
     }, 150);
@@ -159,7 +158,7 @@ const SwipeLayoutRenderer = ({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [currentPage, autoFocusFirstInput]);
+  }, [currentPage, autoFocusFirstInput, layouts]);
 
   if (typeof handleChange !== 'function') {
     console.warn(
@@ -409,9 +408,8 @@ const SwipeLayoutRenderer = ({
 
   const { ref: swipeableRef, ...swipeHandlers } = handlers;
 
-  const mergedSwipeScreenRef = useCallback(
+  const mergeScrollRef = useCallback(
     (el: HTMLDivElement | null) => {
-      swipeScreenRef.current = el;
       if (typeof swipeableRef === 'function') {
         swipeableRef(el);
       }
@@ -419,17 +417,35 @@ const SwipeLayoutRenderer = ({
     [swipeableRef],
   );
 
+  const setSwipeScreenRef = useCallback((el: HTMLDivElement | null) => {
+    swipeScreenRef.current = el;
+  }, []);
+
   const isOnFinalizePage = useMemo(() => {
     return layouts[currentPage]?.type === 'Finalize';
   }, [layouts, currentPage]);
 
   const isLastContentPage = nextVisiblePage === null && !isOnFinalizePage;
 
+  const validationErrorCount = core?.errors?.length ?? 0;
+
+  const validationAlertMessage = useMemo(() => {
+    const errors = core?.errors ?? [];
+    if (errors.length === 0) return '';
+    return formatBlockingErrorSummary(
+      errors,
+      (core?.schema ?? schema) as JsonSchema7,
+    );
+  }, [core?.errors, core?.schema, schema]);
+
   const trySubmitForm = useCallback(() => {
     if (!formInitData) return;
+    const errors = core?.errors ?? [];
+    if (errors.length > 0) {
+      navigateToFirstBlockingError(errors);
+      return;
+    }
     window.dispatchEvent(new CustomEvent('formShowValidation'));
-    const errorCount = core?.errors?.length ?? 0;
-    if (errorCount > 0) return;
     window.dispatchEvent(
       new CustomEvent('finalizeForm', {
         detail: { formInitData, data },
@@ -448,7 +464,7 @@ const SwipeLayoutRenderer = ({
     if (skipFinalize && isLastContentPage) {
       return {
         onTrigger: trySubmitForm,
-        disabled: errorCount > 0 || !formInitData || isNavigating,
+        disabled: !formInitData || isNavigating,
       };
     }
     if (nextVisiblePage !== null) {
@@ -487,15 +503,10 @@ const SwipeLayoutRenderer = ({
 
   const formContextForSwipe = useMemo(
     () => ({
-      formInitData: parentFormContext.formInitData,
+      ...parentFormContext,
       keyboardEnterKeyHint,
-      draftSessionKey: parentFormContext.draftSessionKey ?? null,
     }),
-    [
-      parentFormContext.formInitData,
-      parentFormContext.draftSessionKey,
-      keyboardEnterKeyHint,
-    ],
+    [parentFormContext, keyboardEnterKeyHint],
   );
 
   const handleSnackbarClose = useCallback(
@@ -524,7 +535,10 @@ const SwipeLayoutRenderer = ({
     swipeOptions.headerTitle || (schema as any)?.title || undefined;
   const headerFields: string[] = (swipeOptions.headerFields || []).slice(0, 2);
 
-  const densityContextValue = useMemo(() => ({ labelLayout }), [labelLayout]);
+  const densityContextValue = useMemo(
+    () => ({ labelLayout, groupVariant: 'flat' as const }),
+    [labelLayout],
+  );
 
   if (visible === false) {
     return null;
@@ -537,66 +551,10 @@ const SwipeLayoutRenderer = ({
       <FormContext.Provider value={formContextForSwipe}>
         <FormLayout
           keyboardSubmitAction={keyboardSubmitAction}
+          scrollRefMerge={mergeScrollRef}
+          scrollHandlers={swipeHandlers}
           header={
             <>
-              {/* Author-configured form title and sticky fields */}
-              {((showInnerTitle && headerTitle) || headerFields.length > 0) && (
-                <Box sx={{ pb: headerFields.length > 0 ? 0 : 0.25 }}>
-                  {showInnerTitle && headerTitle && (
-                    <Typography
-                      variant="subtitle2"
-                      sx={{
-                        fontWeight: 700,
-                        fontSize: '1.125rem',
-                        lineHeight: 1.3,
-                        color: 'text.primary',
-                        mb: headerFields.length > 0 ? 0.5 : 0,
-                        textAlign: 'left',
-                      }}>
-                      {headerTitle}
-                    </Typography>
-                  )}
-                  {headerFields.length > 0 && (
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: 0.5,
-                        pb: 0.5,
-                      }}>
-                      {headerFields.map((fieldKey: string) => {
-                        const fieldSchema = (schema as any)?.properties?.[
-                          fieldKey
-                        ];
-                        const label = fieldSchema?.title || fieldKey;
-                        const value = data?.[fieldKey];
-                        const displayValue =
-                          value != null && value !== '' ? String(value) : '—';
-                        return (
-                          <Typography
-                            key={fieldKey}
-                            variant="caption"
-                            sx={{
-                              px: 1,
-                              py: 0.25,
-                              borderRadius: 1,
-                              backgroundColor: 'action.hover',
-                              fontSize: '0.75rem',
-                              color:
-                                displayValue === '—'
-                                  ? 'text.disabled'
-                                  : 'text.primary',
-                              fontWeight: displayValue === '—' ? 400 : 600,
-                              textAlign: 'left',
-                            }}>
-                            {label}: {displayValue}
-                          </Typography>
-                        );
-                      })}
-                    </Box>
-                  )}
-                </Box>
-              )}
               <FormProgressBar
                 currentPage={visiblePosition}
                 totalScreens={totalVisibleScreens}
@@ -605,18 +563,70 @@ const SwipeLayoutRenderer = ({
                 uischema={uischema}
                 mode="screens"
                 isOnFinalizePage={isOnFinalizePage}
-                onNavigatePrevious={
-                  prevVisiblePage !== null
-                    ? () => navigateToPage(prevVisiblePage)
-                    : undefined
-                }
-                onNavigateNext={
-                  nextVisiblePage !== null
-                    ? () => navigateToPage(nextVisiblePage)
-                    : undefined
-                }
+                canNavigatePrevious={prevVisiblePage !== null}
+                canNavigateNext={nextVisiblePage !== null}
+                onNavigatePrevious={() => {
+                  if (prevVisiblePage !== null) navigateToPage(prevVisiblePage);
+                }}
+                onNavigateNext={() => {
+                  if (nextVisiblePage !== null) navigateToPage(nextVisiblePage);
+                }}
                 navigationDisabled={isNavigating}
               />
+              {headerFields.length > 0 && (
+                <Box
+                  sx={theme => ({
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: 0.5,
+                    py: 0.5,
+                    px: { xs: 0.5, sm: 1 },
+                    borderTop: `1px solid ${theme.palette.divider}`,
+                  })}>
+                  {headerFields.map((fieldKey: string) => {
+                    const fieldSchema = (schema as any)?.properties?.[fieldKey];
+                    const label = fieldSchema?.title || fieldKey;
+                    const value = data?.[fieldKey];
+                    const displayValue =
+                      value != null && value !== '' ? String(value) : '—';
+                    return (
+                      <Typography
+                        key={fieldKey}
+                        variant="caption"
+                        sx={{
+                          px: 1,
+                          py: 0.25,
+                          borderRadius: 1,
+                          backgroundColor: 'action.hover',
+                          fontSize: '0.75rem',
+                          color:
+                            displayValue === '—'
+                              ? 'text.disabled'
+                              : 'text.primary',
+                          fontWeight: displayValue === '—' ? 400 : 600,
+                          textAlign: 'left',
+                        }}>
+                        {label}: {displayValue}
+                      </Typography>
+                    );
+                  })}
+                </Box>
+              )}
+              {showInnerTitle && headerTitle && (
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '1rem',
+                    lineHeight: 1.3,
+                    color: 'text.primary',
+                    px: { xs: 0.5, sm: 1 },
+                    pb: 0.25,
+                    textAlign: 'left',
+                  }}>
+                  {headerTitle}
+                </Typography>
+              )}
             </>
           }
           previousButton={
@@ -631,10 +641,7 @@ const SwipeLayoutRenderer = ({
             skipFinalize && isLastContentPage
               ? {
                   onClick: trySubmitForm,
-                  disabled:
-                    isNavigating ||
-                    !formInitData ||
-                    (core?.errors?.length ?? 0) > 0,
+                  disabled: isNavigating || !formInitData,
                   label: finalizeButtonLabelOption ?? 'Done',
                 }
               : nextVisiblePage !== null
@@ -647,10 +654,7 @@ const SwipeLayoutRenderer = ({
           }
           contentBottomPadding={24}
           showNavigation={true}>
-          <div
-            ref={mergedSwipeScreenRef}
-            {...swipeHandlers}
-            className="swipelayout_screen">
+          <div ref={setSwipeScreenRef} className="swipelayout_screen">
             {(uischema as any)?.label && <h1>{(uischema as any).label}</h1>}
             {layouts.length > 0 && layouts[currentPage] && (
               <JsonFormsDispatch
@@ -663,6 +667,16 @@ const SwipeLayoutRenderer = ({
               />
             )}
           </div>
+
+          {skipFinalize && isLastContentPage && validationErrorCount > 0 && (
+            <Typography
+              variant="body2"
+              color="error"
+              role="alert"
+              sx={{ px: { xs: 1, sm: 1.5 }, pt: 1, pb: 0.5 }}>
+              {validationAlertMessage}
+            </Typography>
+          )}
 
           {snackbarOpen &&
             typeof document !== 'undefined' &&
@@ -745,12 +759,19 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
   const [currentPage, setCurrentPage] = useState(0);
   const { formInitData, draftSessionKey } = useFormContext();
   const { data } = props;
+  const skipDraftPersistence =
+    formInitData != null &&
+    Boolean(
+      (formInitData as { subObservationMode?: boolean; returnOnly?: boolean })
+        .subObservationMode ||
+      (formInitData as { returnOnly?: boolean }).returnOnly,
+    );
 
   // Save partial data whenever the page changes or data changes
   const handlePageChange = useCallback(
     (page: number) => {
       // Save the current form data before changing the page
-      if (data && formInitData) {
+      if (data && formInitData && !skipDraftPersistence) {
         console.log('Saving draft data on page change:', data);
         draftService.saveDraft(
           formInitData.formType,
@@ -761,13 +782,13 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
       }
       setCurrentPage(page);
     },
-    [data, formInitData, draftSessionKey],
+    [data, formInitData, draftSessionKey, skipDraftPersistence],
   );
 
   useEffect(() => {
     const handleNavigateToPage = (event: CustomEvent) => {
       // Save the current form data before navigating to a specific page
-      if (data && formInitData) {
+      if (data && formInitData && !skipDraftPersistence) {
         console.log('Saving draft data before navigation event:', data);
         draftService.saveDraft(
           formInitData.formType,
@@ -790,27 +811,7 @@ const SwipeLayoutWrapper = (props: ControlProps) => {
         handleNavigateToPage as EventListener,
       );
     };
-  }, [data, formInitData, draftSessionKey]);
-
-  // Also save data when it changes (even without page change)
-  useEffect(() => {
-    if (data) {
-      // Debounce the save to avoid too many calls
-      const debounceTimer = setTimeout(() => {
-        if (formInitData) {
-          console.log('Saving draft data on data change:', data);
-          draftService.saveDraft(
-            formInitData.formType,
-            data,
-            formInitData,
-            draftSessionKey,
-          );
-        }
-      }, 1000); // 1 second debounce
-
-      return () => clearTimeout(debounceTimer);
-    }
-  }, [data, formInitData, draftSessionKey]);
+  }, [data, formInitData, draftSessionKey, skipDraftPersistence]);
 
   return (
     <SwipeLayoutRenderer

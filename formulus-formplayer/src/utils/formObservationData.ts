@@ -167,3 +167,53 @@ export function dataMatchingSchemaRoot(
   }
   return out;
 }
+
+/** Coerce a single value to a JSON integer when schema expects integer / format int. */
+export function coerceSchemaIntegerValue(value: unknown): unknown {
+  if (value === undefined || value === null || value === '') return value;
+  if (typeof value === 'number' && Number.isInteger(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) {
+    return parseInt(value.trim(), 10);
+  }
+  return value;
+}
+
+/**
+ * Coerce root-level integer fields copied via params / subObservationInitValues
+ * so AJV `type: integer` passes even when no Control runs format:int coercion.
+ */
+export function coerceSchemaRootIntegers(
+  data: FormObservationData,
+  formSchema: unknown,
+): FormObservationData {
+  const props = (formSchema as { properties?: unknown } | null)?.properties;
+  if (!props || typeof props !== 'object' || Array.isArray(props)) {
+    return { ...data };
+  }
+  const out: FormObservationData = { ...data };
+  for (const [key, prop] of Object.entries(props as Record<string, unknown>)) {
+    if (!Object.prototype.hasOwnProperty.call(out, key)) continue;
+    const schemaProp = prop as { type?: string; format?: string };
+    if (schemaProp.type === 'integer' || schemaProp.format === 'int') {
+      const coerced = coerceSchemaIntegerValue(out[key]);
+      if (coerced !== out[key]) {
+        out[key] = coerced;
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Align observation JSON with schema root keys, then coerce integer fields.
+ */
+export function prepareRootObservationData(
+  data: FormObservationData,
+  formSchema: unknown,
+  extraRootKeys: string[] = ['locale'],
+): FormObservationData {
+  return coerceSchemaRootIntegers(
+    dataMatchingSchemaRoot(data, formSchema, extraRootKeys),
+    formSchema,
+  );
+}

@@ -4,7 +4,7 @@
  * `openFormplayer` with `subObservationMode`.
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import { ControlProps, rankWith, schemaMatches } from '@jsonforms/core';
 import { Box, Typography, Button, IconButton, Tooltip } from '@mui/material';
@@ -13,20 +13,25 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import QuestionShell from '../components/QuestionShell';
 import FormulusClient from '../services/FormulusInterface';
 import type { FormCompletionResult } from '../types/FormulusInterfaceDefinition';
+import { useFormContext } from '../App';
 import { tokens } from '../theme/tokens-adapter';
 import {
   buildColumns,
   coerceSubObservationRows,
   optionalRecordMap,
   readSubObservationField,
-  resolveInitialValues,
   sortRows,
   readDataPath,
+  writeDataPath,
   resolveItemLabel,
   resolveAddButtonLabel,
   resolveEmptyLabel,
   resolveDeleteFallbackLabel,
+  buildSubObservationOpenParams,
+  refreshSubObservationContextFromFormData,
+  writeSubObservationContextToWindow,
   type OrderBySpec,
+  type SubObservationContextMergeConfig,
 } from './subObservationHelpers';
 
 const RESERVED_SCHEMA_KEYS = new Set([
@@ -112,6 +117,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   required,
 }) => {
   const jsonForms = useJsonForms();
+  const { commitFormData } = useFormContext();
   const config = useMemo(() => extractConfig(schema), [schema]);
 
   const childFormType =
@@ -153,52 +159,23 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     [valueRows, missingKeys, config.orderBy],
   );
 
-  const [rows, setRows] = useState<Record<string, unknown>[]>(sortedFromProps);
+  // JsonForms `data` is the source of truth; pushSorted writes via handleChange only.
+  const rows = sortedFromProps;
+
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [prevSortedFromProps, setPrevSortedFromProps] =
-    useState(sortedFromProps);
 
-  if (sortedFromProps !== prevSortedFromProps) {
-    setPrevSortedFromProps(sortedFromProps);
-    setRows(sortedFromProps);
-  }
-
-  useEffect(() => {
-    function refresh() {
-      setRows(prev => sortRows(prev, config.orderBy as OrderBySpec));
-    }
-    function onVisibility() {
-      if (document.visibilityState === 'visible') refresh();
-    }
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('focus', refresh);
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('focus', refresh);
-    };
-  }, [config.orderBy]);
-
-  useEffect(() => {
-    const prev =
-      typeof window !== 'undefined'
-        ? (window as Window & { onReceiveFocus?: () => void }).onReceiveFocus
-        : undefined;
-    const wrapped = () => {
-      if (typeof prev === 'function') prev();
-      setRows(r => sortRows(r, config.orderBy as OrderBySpec));
-    };
-    if (typeof window !== 'undefined') {
-      (window as Window & { onReceiveFocus?: () => void }).onReceiveFocus =
-        wrapped;
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        (window as Window & { onReceiveFocus?: () => void }).onReceiveFocus =
-          prev;
-      }
-    };
-  }, [config.orderBy]);
+  const getCurrentRows = useCallback((): Record<string, unknown>[] => {
+    const root = jsonForms.core?.data;
+    const raw =
+      root && typeof root === 'object' && path
+        ? readDataPath(root as Record<string, unknown>, path)
+        : data;
+    return sortRows(
+      coerceSubObservationRows(raw),
+      config.orderBy as OrderBySpec,
+    ) as Record<string, unknown>[];
+  }, [jsonForms.core?.data, data, path, config.orderBy]);
 
   const columns = useMemo(() => buildColumns(config, rows), [config, rows]);
 
@@ -227,13 +204,91 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     [itemLabel],
   );
 
+  const requestFormRevalidation = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('formRevalidate'));
+      }, 0);
+    }
+  }, []);
+
   const pushSorted = useCallback(
     (next: Record<string, unknown>[]) => {
       const sorted = sortRows(next, config.orderBy as OrderBySpec);
-      setRows(sorted);
-      handleChange(path, sorted);
+      const root = jsonForms.core?.data;
+      if (commitFormData && root && typeof root === 'object' && path) {
+        const merged = writeDataPath(
+          root as Record<string, unknown>,
+          path,
+          sorted,
+        );
+        commitFormData(merged);
+      } else {
+        handleChange(path, sorted);
+        requestFormRevalidation();
+      }
     },
-    [config.orderBy, handleChange, path],
+    [
+      commitFormData,
+      config.orderBy,
+      handleChange,
+      jsonForms.core?.data,
+      path,
+      requestFormRevalidation,
+    ],
+  );
+
+  const refreshSubObservationWindowContext = useCallback(
+    (rows: Record<string, unknown>[]) => {
+      const root = jsonForms.core?.data;
+      if (!root || typeof root !== 'object' || !path) return;
+      const parentData = writeDataPath(
+        root as Record<string, unknown>,
+        path,
+        rows,
+      );
+      const pv = resolveParentValue(formData, parentValuePath);
+      const contextTemplate = optionalRecordMap(config.subObservationContext);
+      const mergeConfigRaw = config.subObservationContextMerge;
+      const mergeConfig =
+        mergeConfigRaw && typeof mergeConfigRaw === 'object'
+          ? mergeConfigRaw
+          : undefined;
+      if (contextTemplate || mergeConfig) {
+        const refreshed = refreshSubObservationContextFromFormData(
+          parentData,
+          contextTemplate,
+          pv,
+          mergeConfig as SubObservationContextMergeConfig,
+        );
+        writeSubObservationContextToWindow(refreshed);
+      }
+    },
+    [
+      jsonForms.core?.data,
+      path,
+      formData,
+      parentValuePath,
+      config.subObservationContext,
+      config.subObservationContextMerge,
+    ],
+  );
+
+  const mergeSubmittedRow = useCallback(
+    (result: FormCompletionResult) => {
+      if (
+        !result?.formData ||
+        (result.status !== 'form_submitted' && result.status !== 'form_updated')
+      ) {
+        return false;
+      }
+      const row = result.formData as Record<string, unknown>;
+      const next = [...getCurrentRows(), row];
+      pushSorted(next);
+      refreshSubObservationWindowContext(next);
+      return true;
+    },
+    [getCurrentRows, pushSorted, refreshSubObservationWindowContext],
   );
 
   const handleAdd = useCallback(async () => {
@@ -242,27 +297,25 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     try {
       setBusyId('add');
       const pv = resolveParentValue(formData, parentValuePath);
-      let baseValues = resolveInitialValues(
-        optionalRecordMap(config.subObservationInitValues),
+      const openParams = buildSubObservationOpenParams(
         formData,
+        config,
         pv,
+        optionalRecordMap(config.subObservationInitValues),
       );
-      if (parentKey && pv != null && baseValues[parentKey] == null) {
-        baseValues = { ...baseValues, [parentKey]: pv };
+      if (parentKey && pv != null && openParams[parentKey] == null) {
+        openParams[parentKey] = pv;
       }
       const result: FormCompletionResult = await client.openFormplayer(
         childFormType,
-        baseValues,
+        openParams,
         {},
         {
           subObservationMode: true,
           skipFinalize: Boolean(config.skipFinalize),
         },
       );
-      if (result?.status === 'form_submitted' && result.formData) {
-        const row = result.formData as Record<string, unknown>;
-        pushSorted([...rows, row]);
-      }
+      mergeSubmittedRow(result);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : 'Unable to add sub-observation',
@@ -278,8 +331,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     parentValuePath,
     parentKey,
     config,
-    rows,
-    pushSorted,
+    mergeSubmittedRow,
   ]);
 
   const handleEdit = useCallback(
@@ -289,21 +341,23 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       try {
         setBusyId(`edit_${index}`);
         const pv = resolveParentValue(formData, parentValuePath);
-        const openValues = resolveInitialValues(
-          optionalRecordMap(config.subObservationEditInitValues),
+        const openParams = buildSubObservationOpenParams(
           formData,
+          config,
           pv,
+          optionalRecordMap(config.subObservationEditInitValues),
         );
+        const { context: _ctx, ...paramDefaults } = openParams;
         const rowData = isObservationWrappedRow(row)
           ? ((row.data ?? {}) as Record<string, unknown>)
           : row;
         const savedData: Record<string, unknown> = {
           ...rowData,
-          ...openValues,
+          ...paramDefaults,
         };
         const result: FormCompletionResult = await client.openFormplayer(
           childFormType,
-          {},
+          openParams,
           savedData,
           {
             subObservationMode: true,
@@ -316,10 +370,11 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
             result.status === 'form_updated') &&
           result.formData
         ) {
-          const updated = rows.map((r, i) =>
+          const updated = getCurrentRows().map((r, i) =>
             i === index ? (result.formData as Record<string, unknown>) : r,
           );
           pushSorted(updated);
+          refreshSubObservationWindowContext(updated);
         }
       } catch (e) {
         setError(
@@ -336,8 +391,9 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       formData,
       parentValuePath,
       config,
-      rows,
+      getCurrentRows,
       pushSorted,
+      refreshSubObservationWindowContext,
     ],
   );
 
@@ -360,7 +416,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
         return;
       }
       try {
-        pushSorted(rows.filter((_, i) => i !== index));
+        pushSorted(getCurrentRows().filter((_, i) => i !== index));
       } catch (e) {
         setError(
           e instanceof Error ? e.message : 'Unable to delete sub-observation',
@@ -371,7 +427,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
       enabled,
       allowDelete,
       config.displayField,
-      rows,
+      getCurrentRows,
       pushSorted,
       deleteFallbackLabel,
     ],

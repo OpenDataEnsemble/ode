@@ -49,6 +49,7 @@ vi.mock('../tauriClient', () => ({
       .fn()
       .mockResolvedValue('file:///tmp/ws/attachments/synced/'),
     workspaceAttachmentFileUrl: vi.fn().mockResolvedValue(null),
+    saveObservation: vi.fn().mockResolvedValue({ id: 'saved-1' }),
   },
 }));
 
@@ -69,6 +70,7 @@ describe('FORMULUS_INJECTION_REQUEST_TYPES', () => {
   it('lists known injection request types', () => {
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('getVersion');
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('submitObservation');
+    expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('persistObservation');
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('requestVideo');
   });
 });
@@ -161,6 +163,7 @@ describe('handleFormPreviewBridgeMessage', () => {
     expect(postPrimary).not.toHaveBeenCalled();
     expect(defer).toHaveBeenCalledWith({
       parentIframe: primaryIframe,
+      parentContentWindow: primaryCw,
       messageId: 'op-def',
       formType: 'child_form',
       params: { a: 1 },
@@ -203,6 +206,36 @@ describe('handleFormPreviewBridgeMessage', () => {
     const payload = JSON.parse(postNested.mock.calls[0][0] as string);
     expect(payload.type).toBe('submitObservation_response');
     expect(payload.result).toBe('nested-synthetic-id');
+  });
+
+  it('allocateSequence honors peek (nested in options) without advancing the counter', async () => {
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    const allocate = async (
+      options: Record<string, unknown> | undefined,
+      messageId: string,
+    ) => {
+      await handleFormPreviewBridgeMessage(
+        bridgeMessageFromIframe(iframe, {
+          type: 'allocateSequence',
+          messageId,
+          scopeKey: 'tb:peek-test:role:A:af',
+          options,
+        }),
+        { iframe, onFinalize: async () => ({ error: 'no' }) },
+      );
+      const calls = postMessage.mock.calls;
+      const payload = JSON.parse(calls[calls.length - 1][0] as string);
+      return payload.result as number;
+    };
+
+    // Consume -> 1, peek -> 2 (no advance), consume -> 2.
+    expect(await allocate(undefined, 'seq1')).toBe(1);
+    expect(await allocate({ peek: true }, 'seq2')).toBe(2);
+    expect(await allocate({ peek: true }, 'seq3')).toBe(2);
+    expect(await allocate(undefined, 'seq4')).toBe(2);
   });
 
   it('stubs requestCamera with prefixed error', async () => {
@@ -477,5 +510,117 @@ describe('postFormplayerBridgeReply', () => {
 
     const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
     expect(payload.type).toBe('getThemeMode_response');
+  });
+
+  it('persistObservation creates observation headlessly', async () => {
+    vi.mocked(tauriClient.saveObservation).mockClear();
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+    const finalData = { region: 'Bafata', released_extras: 1 };
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'persistObservation',
+        messageId: 'po-create',
+        input: { formType: 'inclusion_decision', finalData },
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    expect(tauriClient.saveObservation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        formType: 'inclusion_decision',
+        payload: finalData,
+      }),
+    );
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.type).toBe('persistObservation_response');
+    expect(payload.result.formData).toEqual(finalData);
+    expect(payload.result.observationId).toBeTruthy();
+  });
+
+  it('persistObservation updates when observationId provided', async () => {
+    vi.mocked(tauriClient.saveObservation).mockClear();
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+    const finalData = { released_extras: 2 };
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'persistObservation',
+        messageId: 'po-update',
+        input: {
+          formType: 'inclusion_decision',
+          finalData,
+          observationId: 'existing-id-42',
+        },
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    expect(tauriClient.saveObservation).toHaveBeenCalledWith({
+      id: 'existing-id-42',
+      formType: 'inclusion_decision',
+      payload: finalData,
+    });
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.result.observationId).toBe('existing-id-42');
+  });
+
+  it('persistObservation rejects missing formType', async () => {
+    vi.mocked(tauriClient.saveObservation).mockClear();
+    const postMessage = vi.fn();
+    const cw = { postMessage } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    await handleFormPreviewBridgeMessage(
+      bridgeMessageFromIframe(iframe, {
+        type: 'persistObservation',
+        messageId: 'po-bad',
+        input: { finalData: {} },
+      }),
+      {
+        iframe,
+        onFinalize: async () => ({ error: 'no' }),
+      },
+    );
+
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.error).toContain('formType is required');
+    expect(tauriClient.saveObservation).not.toHaveBeenCalled();
+  });
+
+  it('delivers via __odeFormplayerDeliverBridgeResponse and postMessage', () => {
+    const postMessage = vi.fn();
+    const deliver = vi.fn();
+    const cw = {
+      postMessage,
+      __odeFormplayerDeliverBridgeResponse: deliver,
+    } as unknown as Window;
+    const iframe = { contentWindow: cw } as HTMLIFrameElement;
+
+    postFormplayerBridgeReply(
+      iframe,
+      'openFormplayer',
+      'msg-parent',
+      { result: { status: 'form_submitted', formData: { a: 1 } } },
+      cw,
+    );
+
+    expect(deliver).toHaveBeenCalledWith('openFormplayer', 'msg-parent', {
+      result: { status: 'form_submitted', formData: { a: 1 } },
+    });
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(postMessage.mock.calls[0][0] as string);
+    expect(payload.type).toBe('openFormplayer_response');
+    expect(payload.messageId).toBe('msg-parent');
   });
 });

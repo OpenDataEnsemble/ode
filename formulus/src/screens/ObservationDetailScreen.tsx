@@ -237,7 +237,10 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     return (
       <View style={shellStyle}>
         <SafeAreaView
-          style={[styles.container, { backgroundColor: 'transparent' }]}>
+          style={[
+            styles.container,
+            { backgroundColor: colors.neutral.transparent },
+          ]}>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
             <Text
@@ -254,7 +257,10 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     return (
       <View style={shellStyle}>
         <SafeAreaView
-          style={[styles.container, { backgroundColor: 'transparent' }]}>
+          style={[
+            styles.container,
+            { backgroundColor: colors.neutral.transparent },
+          ]}>
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>Observation not found</Text>
           </View>
@@ -282,7 +288,10 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   return (
     <View style={shellStyle}>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}>
+        style={[
+          styles.container,
+          { backgroundColor: colors.neutral.transparent },
+        ]}>
         <ScrollView
           style={styles.content}
           contentContainerStyle={[

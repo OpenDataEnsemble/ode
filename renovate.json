@@ -4,6 +4,17 @@
     "config:recommended"
   ],
   "labels": ["dependencies"],
+  "lockFileMaintenance": {
+    "enabled": false
+  },
+  "packageRules": [
+    {
+      "description": "formulus: always bump package.json ranges (pnpm + npm lockfiles must stay aligned)",
+      "matchManagers": ["npm"],
+      "matchFileNames": ["formulus/package.json"],
+      "rangeStrategy": "bump"
+    }
+  ],
   "github-actions": {
     "pinDigests": true
   }

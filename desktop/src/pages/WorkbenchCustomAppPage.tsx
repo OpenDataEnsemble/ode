@@ -5,6 +5,7 @@ import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
 import { useDeveloperMode } from '../hooks/useDeveloperMode';
 import type { FinalizeRequest } from '../lib/formPreviewBridge';
 import { handleFormPreviewBridgeMessage } from '../lib/formPreviewBridge';
+import { messageSourceMatchesIframe } from '../lib/iframeMessageSource';
 import { tauriClient } from '../lib/tauriClient';
 import { WORKSPACE_BUNDLE_STATE_FILE } from '../lib/workspacePaths';
 import type { AppBundleState } from '../types/domain';
@@ -12,6 +13,7 @@ import type { AppBundleState } from '../types/domain';
 export function WorkbenchCustomAppPage() {
   const navigate = useNavigate();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const customAppContentWindowRef = useRef<Window | null>(null);
   const finalizeResolverRef = useRef<
     ((v: { result?: string; error?: string }) => void) | null
   >(null);
@@ -55,14 +57,20 @@ export function WorkbenchCustomAppPage() {
       formType: string;
       params: Record<string, unknown>;
       savedData: Record<string, unknown>;
+      observationId?: string;
     }) => {
+      const explicitId =
+        typeof payload.observationId === 'string'
+          ? payload.observationId.trim()
+          : '';
       const sd = payload.savedData;
       const observationId =
-        typeof sd.observationId === 'string'
+        explicitId ||
+        (typeof sd.observationId === 'string'
           ? sd.observationId
           : typeof sd.id === 'string'
             ? sd.id
-            : '';
+            : '');
       navigate('/workbench/form-preview', {
         state: {
           formPreviewEdit: {
@@ -79,7 +87,18 @@ export function WorkbenchCustomAppPage() {
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (e.source !== iframeRef.current?.contentWindow) {
+      const src = e.source;
+      if (src == null || typeof src !== 'object') {
+        return;
+      }
+      const winSrc = src as Window;
+      if (
+        !messageSourceMatchesIframe(
+          winSrc,
+          iframeRef.current,
+          customAppContentWindowRef.current,
+        )
+      ) {
         return;
       }
       void handleFormPreviewBridgeMessage(e, {
@@ -166,6 +185,9 @@ export function WorkbenchCustomAppPage() {
             ref={iframeRef}
             mountKey={mountKey}
             mode={embedMode}
+            onContentWindowReady={cw => {
+              customAppContentWindowRef.current = cw;
+            }}
           />
         ) : developerMode ? (
           <p className="notice warn">

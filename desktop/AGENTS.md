@@ -4,6 +4,8 @@
 
 Published docs: [ODE Desktop developer mode](https://opendataensemble.org/docs/guides/ode-desktop-developer-mode) (local custom app iteration).
 
+**Release version bumps:** see [../AGENTS.md#release-version-bump-checklist](../AGENTS.md#release-version-bump-checklist) (`package.json`, `tauri.conf.json`, `Cargo.toml`, `synkConstants.ts` — keep in sync).
+
 ---
 
 ## Layout
@@ -93,6 +95,16 @@ pnpm tauri dev    # Full app
 pnpm test         # Vitest
 pnpm typecheck
 cd src-tauri && cargo test
+```
+
+**Pre-flight before a PR** (from `desktop/`):
+
+```bash
+pnpm run lint
+pnpm run format
+pnpm run format:check
+pnpm test
+pnpm typecheck
 ```
 
 Conventional Commits; see root [AGENTS.md](../AGENTS.md) and [.github/CICD.md](../.github/CICD.md).

@@ -6,6 +6,8 @@
 
 **User-facing docs:** [Formulus](https://opendataensemble.org/docs/reference/formulus) on [opendataensemble.org](https://opendataensemble.org/).
 
+**Release version bumps:** see [../AGENTS.md#release-version-bump-checklist](../AGENTS.md#release-version-bump-checklist) (Formulus `package.json`, Android `versionCode`, iOS, `pnpm run sync:version`).
+
 ---
 
 ## What this package is
@@ -53,6 +55,8 @@ From **`formulus/`**:
 
 ```bash
 pnpm run lint
+pnpm run format
+pnpm run format:check
 pnpm run test --ci --watchAll=false
 ```
 

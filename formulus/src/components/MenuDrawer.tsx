@@ -157,7 +157,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
             styles.backdrop,
             {
               // Fully transparent backdrop: no visual dimming, but still closes on tap
-              backgroundColor: 'transparent',
+              backgroundColor: colors.neutral.transparent,
               marginBottom: bottomPadding,
             },
           ]}

@@ -72,6 +72,8 @@ export type CustomAppEmbedProps = {
   /** Workspace-relative path to `index.html`; defaults from {@link mode}. */
   indexRelativePath?: string;
   loadingLabel?: string;
+  /** Fired when the iframe document loads (bridge routing in WebView2). */
+  onContentWindowReady?: (contentWindow: Window | null) => void;
 };
 
 function defaultIndexRelativePath(mode: CustomAppEmbedMode): string {
@@ -93,10 +95,12 @@ export const CustomAppEmbed = forwardRef<
   HTMLIFrameElement,
   CustomAppEmbedProps
 >(function CustomAppEmbed(
-  { mountKey, mode, indexRelativePath, loadingLabel },
+  { mountKey, mode, indexRelativePath, loadingLabel, onContentWindowReady },
   ref,
 ) {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
+  const onContentWindowReadyRef = useRef(onContentWindowReady);
+  onContentWindowReadyRef.current = onContentWindowReady;
   const setRefs = useCallback(
     (el: HTMLIFrameElement | null) => {
       (innerRef as MutableRefObject<HTMLIFrameElement | null>).current = el;
@@ -149,6 +153,7 @@ export const CustomAppEmbed = forwardRef<
       // hash for routing (HashRouter or path), so `#ode-…` would break the initial route.
       const url = `${indexAssetUrl}?ode=${Date.now()}`;
       el.onload = () => {
+        onContentWindowReadyRef.current?.(el.contentWindow);
         setLoading(false);
       };
       el.src = url;

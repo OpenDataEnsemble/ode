@@ -47,6 +47,7 @@ type MockGlobalThis = typeof globalThis & {
 class WebViewMock {
   private messageListeners: ((message: any) => void)[] = [];
   private isActive = false;
+  private sequenceCounters = new Map<string, number>();
   private pendingCameraPromises = new Map<
     string,
     {
@@ -237,6 +238,19 @@ class WebViewMock {
       // getVersion is required by formulus-load.js so it accepts this as a valid API.
       mockGlobal.formulus = {
         getVersion: (): Promise<string> => Promise.resolve('mock-dev'),
+        allocateSequence: (
+          scopeKey: string,
+          options?: { startAt?: number; peek?: boolean },
+        ): Promise<number> => {
+          const key = `device:mock-dev:${scopeKey.trim()}`;
+          const startAt = options?.startAt ?? 1;
+          const last = this.sequenceCounters.get(key) ?? startAt - 1;
+          const next = last + 1;
+          if (!options?.peek) {
+            this.sequenceCounters.set(key, next);
+          }
+          return Promise.resolve(next);
+        },
         submitObservation: (
           formType: string,
           data: Record<string, any>,

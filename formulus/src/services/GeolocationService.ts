@@ -9,6 +9,7 @@ import {
   hasLocationPermission,
 } from './LocationPermissions';
 import { RESULTS } from 'react-native-permissions';
+import { appEvents } from '../webview/FormulusMessageHandlers';
 
 /**
  * Geolocation for observations: one "session" per open form in FormplayerModal.
@@ -36,6 +37,10 @@ export class GeolocationService {
   private static readonly CACHE_MAX_AGE_MS = 300_000; // 5 minutes
 
   private activeSessionCleanup: (() => void) | null = null;
+
+  /** Custom-app watch (map tab) — separate from formplayer observation session. */
+  private appWatchFieldId: string | null = null;
+  private appWatchCleanup: (() => void) | null = null;
 
   private constructor() {}
 
@@ -137,6 +142,77 @@ export class GeolocationService {
   public clearCache(): void {
     this.cachedLocation = null;
     this.cachedAt = 0;
+  }
+
+  private emitAppWatchUpdate(
+    fieldId: string,
+    location: ObservationGeolocation,
+  ): void {
+    appEvents.emit('locationWatchUpdate', {
+      fieldId,
+      location: {
+        type: 'location' as const,
+        latitude: location.latitude || 0,
+        longitude: location.longitude || 0,
+        accuracy: location.accuracy,
+        altitude: location.altitude,
+        altitudeAccuracy: location.altitude_accuracy,
+        timestamp: location.timestamp ?? new Date().toISOString(),
+      },
+    });
+  }
+
+  /** Start battery-conscious watch for custom apps; returns cleanup. */
+  public startAppLocationWatch(fieldId: string): () => void {
+    this.stopAppLocationWatch();
+    this.appWatchFieldId = fieldId;
+
+    let cancelled = false;
+    let watchId: number | null = null;
+
+    const push = (loc: ObservationGeolocation | null) => {
+      if (!loc || cancelled || this.appWatchFieldId !== fieldId) return;
+      this.mergeBestCandidate(loc);
+      this.emitAppWatchUpdate(fieldId, loc);
+    };
+
+    void this.getPositionOnce(this.freshConfig).then(push);
+
+    void (async () => {
+      const ok = await hasLocationPermission();
+      if (cancelled || !ok) return;
+      watchId = Geolocation.watchPosition(
+        position => push(this.convertToObservationGeolocation(position)),
+        error => console.warn('App location watch error:', error),
+        { enableHighAccuracy: true, distanceFilter: 20 },
+      );
+    })();
+
+    const cleanup = () => {
+      cancelled = true;
+      if (watchId != null) {
+        Geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      if (this.appWatchFieldId === fieldId) {
+        this.appWatchFieldId = null;
+      }
+      if (this.appWatchCleanup === cleanup) {
+        this.appWatchCleanup = null;
+      }
+    };
+
+    this.appWatchCleanup = cleanup;
+    return cleanup;
+  }
+
+  public stopAppLocationWatch(fieldId?: string): void {
+    if (!this.appWatchCleanup) return;
+    if (fieldId && this.appWatchFieldId !== fieldId) return;
+    const run = this.appWatchCleanup;
+    this.appWatchCleanup = null;
+    this.appWatchFieldId = null;
+    run();
   }
 
   private async getPositionOnce(

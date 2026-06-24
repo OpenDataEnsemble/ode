@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
+  formDataJsonEqual,
+  mergePreservingSubObsArrays,
   readDataPath,
+  writeDataPath,
   resolveTemplateValue,
   resolveInitialValues,
   buildColumns,
@@ -12,12 +15,78 @@ import {
   resolveAddButtonLabel,
   resolveEmptyLabel,
   resolveDeleteFallbackLabel,
+  mergeSessionIntoSubObservationContext,
 } from './subObservationHelpers';
 
 describe('subObservationHelpers', () => {
+  it('mergePreservingSubObsArrays keeps longer baseline arrays', () => {
+    const baseline = { pessoas: [{ id: 1 }] };
+    const incoming = { validar_cama: '1' };
+    const merged = mergePreservingSubObsArrays(baseline, incoming);
+    expect(merged.pessoas).toEqual([{ id: 1 }]);
+    expect(merged.validar_cama).toBe('1');
+  });
+
+  it('mergePreservingSubObsArrays restores omitted quartos from baseline', () => {
+    const baseline = {
+      comments: 'old',
+      quartos: [{ quarto_num: 1, camas: [] }],
+      person_codigos: [],
+    };
+    const incoming = { comments: 'new', assistant1: 'AB' };
+    const merged = mergePreservingSubObsArrays(baseline, incoming);
+    expect(merged.comments).toBe('new');
+    expect(merged.quartos).toEqual(baseline.quartos);
+    expect(merged.person_codigos).toEqual([]);
+  });
+
+  it('mergePreservingSubObsArrays keeps off-page scalar prefills and autoSequence fields', () => {
+    // SwipeLayout partial payload: only the current page's field is present.
+    const baseline = {
+      obsdate: '2026-06-19',
+      region: 'Bafata',
+      tb: 'TB01',
+      device_role: 'A',
+      num: 7,
+    };
+    const incoming = { nome_chefe: 'Maria' };
+    const merged = mergePreservingSubObsArrays(baseline, incoming);
+    expect(merged.nome_chefe).toBe('Maria');
+    expect(merged.obsdate).toBe('2026-06-19');
+    expect(merged.region).toBe('Bafata');
+    expect(merged.tb).toBe('TB01');
+    expect(merged.device_role).toBe('A');
+    // Critical: a directly-used x-autoSequence value must survive partial
+    // payloads so applyAutoSequences does not re-allocate it.
+    expect(merged.num).toBe(7);
+  });
+
+  it('mergePreservingSubObsArrays lets on-page edits override baseline', () => {
+    const baseline = { nome_chefe: 'Maria', num: 7 };
+    const incoming = { nome_chefe: 'João' };
+    const merged = mergePreservingSubObsArrays(baseline, incoming);
+    expect(merged.nome_chefe).toBe('João');
+    expect(merged.num).toBe(7);
+  });
+
+  it('formDataJsonEqual compares stable JSON snapshots', () => {
+    expect(formDataJsonEqual({ a: 1 }, { a: 1 })).toBe(true);
+    expect(formDataJsonEqual({ a: 1 }, { a: 2 })).toBe(false);
+  });
+
   it('readDataPath resolves dotted paths', () => {
     expect(readDataPath({ a: { b: 3 } }, 'a.b')).toBe(3);
     expect(readDataPath({}, 'x')).toBeUndefined();
+  });
+
+  it('writeDataPath sets top-level and nested paths immutably', () => {
+    const root = { a: { b: 1 }, pessoas: [] as unknown[] };
+    const next = writeDataPath(root, 'pessoas', [{ id: 1 }]);
+    expect(next.pessoas).toEqual([{ id: 1 }]);
+    expect(root.pessoas).toEqual([]);
+    const nested = writeDataPath({ a: { b: 1 } }, 'a.b', 9);
+    expect(nested).toEqual({ a: { b: 9 } });
+    expect(root.a).toEqual({ b: 1 });
   });
 
   it('resolveTemplateValue expands tokens', () => {
@@ -134,5 +203,30 @@ describe('subObservationHelpers', () => {
     expect(resolveEmptyLabel('room')).toBe('No room');
     expect(resolveDeleteFallbackLabel(null)).toBe('this sub-observation');
     expect(resolveDeleteFallbackLabel('room')).toBe('this room');
+  });
+
+  it('mergeSessionIntoSubObservationContext upserts quarto row', () => {
+    const merged = mergeSessionIntoSubObservationContext(
+      { quartos: [] },
+      { quarto_num: 1, camas: [] },
+      { contextKey: 'quartos', matchField: 'quarto_num' },
+    );
+    expect(merged.quartos).toEqual([{ quarto_num: 1, camas: [] }]);
+  });
+
+  it('mergeSessionIntoSubObservationContext patches nested cama row', () => {
+    const merged = mergeSessionIntoSubObservationContext(
+      {
+        quartos: [{ quarto_num: 1, camas: [{ cama_num: 1, pessoas: [] }] }],
+      },
+      { quarto_num: 1, cama_num: 1, pessoas: [{ nopessoa: '1' }] },
+      {
+        contextKey: 'quartos',
+        matchField: 'quarto_num',
+        nestedArrayField: 'camas',
+        nestedMatchField: 'cama_num',
+      },
+    );
+    expect(merged.quartos[0].camas[0].pessoas).toEqual([{ nopessoa: '1' }]);
   });
 });

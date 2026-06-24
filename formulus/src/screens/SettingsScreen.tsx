@@ -30,6 +30,7 @@ import {
 import QRScannerModal, {
   ScannerModalResults,
 } from '../components/QRScannerModal';
+import { appVersionService } from '../services/AppVersionService';
 import { QRSettingsService } from '../services/QRSettingsService';
 import { MainTabParamList } from '../types/NavigationTypes';
 import Icon from '@react-native-vector-icons/material-design-icons';
@@ -89,6 +90,7 @@ const SettingsScreen = () => {
   const [isHydrating, setIsHydrating] = useState(() => !initialSnap.ready);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [version, setVersion] = useState('');
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -96,6 +98,17 @@ const SettingsScreen = () => {
     return () => {
       mountedRef.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setVersion(await appVersionService.getFullVersion());
+      } catch {
+        setVersion('');
+      }
+    };
+    load();
   }, []);
 
   useEffect(() => {
@@ -282,7 +295,7 @@ const SettingsScreen = () => {
         return false;
       }
     },
-    [initialServerUrl],
+    [initialServerUrl, showConfirm],
   );
 
   const handleLogin = useCallback(async () => {
@@ -411,7 +424,10 @@ const SettingsScreen = () => {
   return (
     <View style={shellStyle}>
       <SafeAreaView
-        style={[styles.container, { backgroundColor: 'transparent' }]}
+        style={[
+          styles.container,
+          { backgroundColor: colors.neutral.transparent },
+        ]}
         edges={['top']}>
         <View
           style={[
@@ -436,7 +452,7 @@ const SettingsScreen = () => {
         </View>
 
         <ScrollView
-          style={[styles.card, { backgroundColor: 'transparent' }]}
+          style={[styles.card, { backgroundColor: colors.neutral.transparent }]}
           contentContainerStyle={styles.cardContent}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
@@ -571,16 +587,20 @@ const SettingsScreen = () => {
           </View>
 
           <View style={styles.versionContainer}>
-            <Text style={[styles.version, { color: themeColors.onSurface }]}>
-              v1.0.0
-            </Text>
-            <Text
-              style={[
-                styles.versionCodename,
-                { color: themeColors.onSurface },
-              ]}>
-              Young Ossicone
-            </Text>
+            {!!version && (
+              <Text style={[styles.version, { color: themeColors.onSurface }]}>
+                v{version}
+              </Text>
+            )}
+            {!!version && (
+              <Text
+                style={[
+                  styles.versionCodename,
+                  { color: themeColors.onSurface },
+                ]}>
+                Young Ossicone
+              </Text>
+            )}
           </View>
         </ScrollView>
 
@@ -621,12 +641,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   logo: {
     width: 40,
     height: 40,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.neutral.transparent,
   },
   brandName: {
     fontSize: odeTypography.screenTitle,

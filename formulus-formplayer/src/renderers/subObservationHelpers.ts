@@ -82,6 +82,90 @@ export function readDataPath(data: unknown, dotPath: string): unknown {
   return cur;
 }
 
+/** Immutable shallow clone along `dotPath`, then set the leaf value. */
+export function writeDataPath(
+  data: Record<string, unknown>,
+  dotPath: string,
+  value: unknown,
+): Record<string, unknown> {
+  if (!dotPath) return data;
+  const keys = dotPath.split('.');
+  if (keys.length === 1) {
+    return { ...data, [dotPath]: value };
+  }
+  const root = { ...data };
+  let cur: Record<string, unknown> = root;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    const next = cur[key];
+    const cloned =
+      next && typeof next === 'object' && !Array.isArray(next)
+        ? { ...(next as Record<string, unknown>) }
+        : Array.isArray(next)
+          ? [...next]
+          : {};
+    cur[key] = cloned;
+    cur = cloned as Record<string, unknown>;
+  }
+  cur[keys[keys.length - 1]] = value;
+  return root;
+}
+
+/** Embedded arrays and derived indexes preserved when JsonForms omits unmounted fields. */
+const PRESERVED_ARRAY_KEYS = [
+  'quartos',
+  'camas',
+  'pessoas',
+  'person_codigos',
+] as const;
+
+/** Stable JSON comparison for form-data equality checks (avoids render loops). */
+export function formDataJsonEqual(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+): boolean {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Keep baseline values when JsonForms emits partial onChange payloads.
+ * SwipeLayout only mounts the current page, so controls on other pages are
+ * absent from `incoming` even though they still live in our baseline draft
+ * state. Starting from `{ ...baseline, ...incoming }` preserves off-page
+ * scalars (host prefills like cluster stamps / obsdate, and directly-used
+ * `x-autoSequence` fields) so they are not dropped and re-allocated. On-page
+ * edits (including clearing a field) still override baseline via `incoming`.
+ * Sub-observation arrays get extra protection below against shorter/partial
+ * payloads.
+ */
+export function mergePreservingSubObsArrays(
+  baseline: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged = { ...baseline, ...incoming };
+  for (const key of PRESERVED_ARRAY_KEYS) {
+    const baseArr = baseline[key];
+    if (!(key in incoming)) {
+      if (Array.isArray(baseArr)) {
+        merged[key] = baseArr;
+      }
+      continue;
+    }
+    if (!Array.isArray(baseArr) || baseArr.length === 0) {
+      continue;
+    }
+    const inArr = incoming[key];
+    if (!Array.isArray(inArr) || inArr.length < baseArr.length) {
+      merged[key] = baseArr;
+    }
+  }
+  return merged;
+}
+
 /** Matches a string that is exactly one `{{ token }}` with no surrounding text. */
 const SINGLE_TOKEN_RE = /^\s*\{\{\s*([^}]+?)\s*\}\}\s*$/;
 
@@ -136,17 +220,242 @@ export function resolveInitialValues(
   return out;
 }
 
+/** Resolve `subObservationContext` templates from the opening form's data. */
+export function resolveSubObservationContext(
+  mapObj: Record<string, unknown> | null | undefined,
+  formData: Record<string, unknown>,
+  parentValue: string | null,
+): Record<string, unknown> {
+  return resolveInitialValues(mapObj, formData, parentValue);
+}
+
+export type SubObservationContextMergeConfig = {
+  contextKey?: string;
+  matchField: string;
+  /** Nested array on matched row (e.g. `camas` under a quarto). */
+  nestedArrayField?: string;
+  nestedMatchField?: string;
+};
+
+function toPosIntForMerge(value: unknown): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+}
+
+/** Upsert the opening session row into an inherited sub-observation context tree. */
+export function mergeSessionIntoSubObservationContext(
+  inherited: Record<string, unknown>,
+  sessionData: Record<string, unknown>,
+  mergeConfig: SubObservationContextMergeConfig | undefined,
+): Record<string, unknown> {
+  if (!mergeConfig || typeof mergeConfig !== 'object') {
+    return inherited;
+  }
+
+  const contextKey = mergeConfig.contextKey ?? 'quartos';
+  const matchField = mergeConfig.matchField;
+  const matchVal = toPosIntForMerge(sessionData[matchField]);
+  if (matchVal == null) return inherited;
+
+  const next = { ...inherited };
+  const snapshot = Array.isArray(next[contextKey])
+    ? [...(next[contextKey] as unknown[])]
+    : [];
+
+  const patch = { ...sessionData };
+  delete patch.household_quartos;
+
+  if (mergeConfig.nestedArrayField && mergeConfig.nestedMatchField) {
+    const nestedField = mergeConfig.nestedArrayField;
+    const nestedMatch = mergeConfig.nestedMatchField;
+    const nestedVal = toPosIntForMerge(sessionData[nestedMatch]);
+    if (nestedVal == null) return inherited;
+
+    let quartoFound = false;
+    const mergedSnapshot = snapshot.map(item => {
+      if (!item || typeof item !== 'object') return item;
+      const row = item as Record<string, unknown>;
+      if (toPosIntForMerge(row[matchField]) !== matchVal) return item;
+      quartoFound = true;
+      const camas = Array.isArray(row[nestedField])
+        ? [...(row[nestedField] as unknown[])]
+        : [];
+      let camaFound = false;
+      const nextCamas = camas.map(cama => {
+        if (!cama || typeof cama !== 'object') return cama;
+        const c = cama as Record<string, unknown>;
+        if (toPosIntForMerge(c[nestedMatch]) !== nestedVal) return cama;
+        camaFound = true;
+        return { ...c, ...patch };
+      });
+      if (!camaFound) {
+        nextCamas.push(patch);
+      }
+      return { ...row, [nestedField]: nextCamas };
+    });
+    if (!quartoFound) {
+      mergedSnapshot.push({
+        [matchField]: matchVal,
+        [nestedField]: [patch],
+      });
+    }
+    next[contextKey] = mergedSnapshot;
+    return next;
+  }
+
+  let found = false;
+  const mergedSnapshot = snapshot.map(item => {
+    if (!item || typeof item !== 'object') return item;
+    const row = item as Record<string, unknown>;
+    if (toPosIntForMerge(row[matchField]) !== matchVal) return item;
+    found = true;
+    return { ...row, ...patch };
+  });
+  if (!found) {
+    mergedSnapshot.push(patch);
+  }
+  next[contextKey] = mergedSnapshot;
+  return next;
+}
+
+export function writeSubObservationContextToWindow(
+  subObservation: Record<string, unknown>,
+): void {
+  if (typeof window === 'undefined') return;
+  const w = window as unknown as {
+    formulusSessionContext?: Record<string, unknown> | null;
+    formulusSubObservationContext?: Record<string, unknown> | null;
+  };
+  const sessionContext =
+    w.formulusSessionContext && typeof w.formulusSessionContext === 'object'
+      ? { ...w.formulusSessionContext }
+      : {};
+  sessionContext.subObservation = subObservation;
+  w.formulusSessionContext = sessionContext;
+  w.formulusSubObservationContext = subObservation;
+}
+
+/** Re-resolve `subObservationContext` templates from live parent form data. */
+export function refreshSubObservationContextFromFormData(
+  formData: Record<string, unknown>,
+  contextTemplate: Record<string, unknown> | null | undefined,
+  parentValue: string | null,
+  mergeConfig?: SubObservationContextMergeConfig,
+): Record<string, unknown> {
+  const w =
+    typeof window !== 'undefined'
+      ? (window as unknown as {
+          formulusSessionContext?: Record<string, unknown> | null;
+        })
+      : null;
+  const inherited =
+    w?.formulusSessionContext &&
+    typeof w.formulusSessionContext === 'object' &&
+    w.formulusSessionContext.subObservation &&
+    typeof w.formulusSessionContext.subObservation === 'object'
+      ? (w.formulusSessionContext.subObservation as Record<string, unknown>)
+      : {};
+
+  const mergedInherited = mergeSessionIntoSubObservationContext(
+    inherited,
+    formData,
+    mergeConfig,
+  );
+
+  const resolved = resolveSubObservationContext(
+    contextTemplate,
+    formData,
+    parentValue,
+  );
+
+  const subObservation: Record<string, unknown> = { ...mergedInherited };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (value !== '' && value != null) {
+      subObservation[key] = value;
+    }
+  }
+  return subObservation;
+}
+
+export function buildSubObservationOpenParams(
+  formData: Record<string, unknown>,
+  config: Record<string, unknown>,
+  parentValue: string | null,
+  initMap?: Record<string, unknown> | null,
+): Record<string, unknown> {
+  const parentSessionContext =
+    typeof window !== 'undefined'
+      ? (
+          window as unknown as {
+            formulusSessionContext?: Record<string, unknown> | null;
+          }
+        ).formulusSessionContext
+      : null;
+
+  const resolved = resolveSubObservationContext(
+    optionalRecordMap(config.subObservationContext),
+    formData,
+    parentValue,
+  );
+  const inheritedSubObservation =
+    parentSessionContext &&
+    typeof parentSessionContext === 'object' &&
+    parentSessionContext.subObservation &&
+    typeof parentSessionContext.subObservation === 'object'
+      ? (parentSessionContext.subObservation as Record<string, unknown>)
+      : {};
+
+  const mergeConfigRaw = config.subObservationContextMerge;
+  const mergeConfig =
+    mergeConfigRaw && typeof mergeConfigRaw === 'object'
+      ? (mergeConfigRaw as SubObservationContextMergeConfig)
+      : undefined;
+
+  const mergedInherited = mergeSessionIntoSubObservationContext(
+    inheritedSubObservation,
+    formData,
+    mergeConfig,
+  );
+
+  const subObservation: Record<string, unknown> = {
+    ...mergedInherited,
+  };
+  for (const [key, value] of Object.entries(resolved)) {
+    if (value !== '' && value != null) {
+      subObservation[key] = value;
+    }
+  }
+
+  const initValues = resolveInitialValues(initMap, formData, parentValue);
+  const { household_quartos: _legacySnapshot, ...restInit } = initValues;
+
+  const context = {
+    ...(parentSessionContext && typeof parentSessionContext === 'object'
+      ? parentSessionContext
+      : {}),
+    ...(Object.keys(subObservation).length > 0 ? { subObservation } : {}),
+  };
+
+  return {
+    ...restInit,
+    ...(Object.keys(context).length > 0 ? { context } : {}),
+  };
+}
+
 export function formatCellValue(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
 
+/** Stable empty reference — avoid retriggering sub-observation row sync every render. */
+const EMPTY_SUB_OBSERVATION_ROWS: unknown[] = [];
+
 /** Normalizes JsonForms control data into an array of row payloads. */
 export function coerceSubObservationRows(value: unknown): unknown[] {
-  if (value == null) return [];
+  if (value == null) return EMPTY_SUB_OBSERVATION_ROWS;
   if (Array.isArray(value)) return value;
-  return [];
+  return EMPTY_SUB_OBSERVATION_ROWS;
 }
 
 export function readSubObservationField(
@@ -212,7 +521,9 @@ export function sortRows(
     r && typeof r === 'object' ? (r as Record<string, unknown>) : {},
   );
 
-  if (!asRecords.length) return asRecords;
+  if (!asRecords.length) {
+    return EMPTY_SUB_OBSERVATION_ROWS as Record<string, unknown>[];
+  }
 
   let key: string | null = null;
   let direction = 'desc';

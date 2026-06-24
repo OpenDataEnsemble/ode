@@ -1,0 +1,13 @@
+# CI/runtime-only image: expects a pre-built synk binary in the build context.
+# Build context layout: ./synk (static binary)
+
+FROM alpine:3.23
+
+RUN apk --no-cache add ca-certificates
+
+COPY synk /usr/local/bin/synk
+RUN chmod +x /usr/local/bin/synk
+
+WORKDIR /workspace
+
+ENTRYPOINT ["/usr/local/bin/synk"]

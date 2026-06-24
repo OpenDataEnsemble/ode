@@ -360,6 +360,23 @@ class FormulusClient {
   }
 
   /**
+   * Allocate the next value in a device-local sequence scope (Formulus prepends device id).
+   */
+  public async allocateSequence(
+    scopeKey: string,
+    options?: { startAt?: number; peek?: boolean },
+  ): Promise<number> {
+    await this.tryEnsureFormulus();
+    if (this.formulus?.allocateSequence) {
+      return this.formulus.allocateSequence(scopeKey, options);
+    }
+    console.warn('Formulus interface not available for allocateSequence');
+    return Promise.reject(
+      new Error('Formulus interface not available for allocateSequence'),
+    );
+  }
+
+  /**
    * Open Formplayer from within the formplayer WebView (e.g. sub-observation rows).
    * Forwards to the injected Formulus API.
    */

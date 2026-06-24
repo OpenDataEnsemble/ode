@@ -183,6 +183,7 @@ export function ImportPage() {
   const removeStagedAttachment = useImportStagingStore(
     s => s.removeStagedAttachment,
   );
+  const clearStagedFiles = useImportStagingStore(s => s.clearStagedFiles);
   const clearStagingLists = useImportStagingStore(s => s.clearStagingLists);
   const setMessage = useImportStagingStore(s => s.setMessage);
   const setError = useImportStagingStore(s => s.setError);
@@ -472,6 +473,7 @@ export function ImportPage() {
           ? ` Copied ${attachmentsCopied}/${copyItems.length} referenced attachment(s) to queue.${copyErrors.length ? ` Errors: ${copyErrors.slice(0, 5).join('; ')}${copyErrors.length > 5 ? '…' : ''}` : ''}`
           : '';
       setMessage(`${baseMsg}${attMsg}`);
+      clearStagedFiles();
       setPreviewReport(null);
     } catch (e) {
       setError(messageFromUnknown(e, 'Import failed'));
@@ -485,6 +487,7 @@ export function ImportPage() {
     setMessage,
     setError,
     setImportActivity,
+    clearStagedFiles,
     loadObservations,
     loadHealth,
   ]);

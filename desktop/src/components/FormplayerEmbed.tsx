@@ -2,10 +2,11 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useRef,
   useState,
-  type MutableRefObject,
 } from 'react';
+import { postFormplayerBridgeReply } from '../lib/formPreviewBridge';
 import type { FormInitData } from '../lib/formplayerHost';
 
 const FORMSPLAYER_INDEX = `${import.meta.env.BASE_URL}formplayer_dist/index.html`;
@@ -40,6 +41,18 @@ export type FormplayerEmbedProps = {
   /** Full `FormInitData` for the embedded formplayer; `null` shows `emptyMessage` only. */
   formInitData: FormInitData | null;
   emptyMessage?: string;
+  /** Fired when the iframe document loads (used to register `contentWindow` for bridge routing). */
+  onContentWindowReady?: (contentWindow: Window | null) => void;
+};
+
+/** Imperative handle for bridge delivery into the iframe document (WebView2-safe). */
+export type FormplayerEmbedHandle = {
+  getIframe: () => HTMLIFrameElement | null;
+  deliverBridgeResponse: (
+    requestType: string,
+    messageId: string,
+    payload: { result?: unknown; error?: string },
+  ) => void;
 };
 
 /**
@@ -48,27 +61,40 @@ export type FormplayerEmbedProps = {
  * base href) so Finalize / `submitObservation` and extension APIs work.
  */
 export const FormplayerEmbed = forwardRef<
-  HTMLIFrameElement,
+  FormplayerEmbedHandle,
   FormplayerEmbedProps
 >(function FormplayerEmbed(
   {
     formInitData,
     emptyMessage = 'Select a form type and apply params/saved JSON to load the preview.',
+    onContentWindowReady,
   },
   ref,
 ) {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
   const timeoutRef = useRef<number | null>(null);
-  const setRefs = useCallback(
-    (el: HTMLIFrameElement | null) => {
-      (innerRef as MutableRefObject<HTMLIFrameElement | null>).current = el;
-      if (typeof ref === 'function') {
-        ref(el);
-      } else if (ref) {
-        (ref as MutableRefObject<HTMLIFrameElement | null>).current = el;
-      }
-    },
-    [ref],
+  const onContentWindowReadyRef = useRef(onContentWindowReady);
+  onContentWindowReadyRef.current = onContentWindowReady;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getIframe: () => innerRef.current,
+      deliverBridgeResponse: (requestType, messageId, payload) => {
+        const win = innerRef.current?.contentWindow ?? null;
+        if (!win) {
+          return;
+        }
+        postFormplayerBridgeReply(
+          innerRef.current,
+          requestType,
+          messageId,
+          payload,
+          win,
+        );
+      },
+    }),
+    [],
   );
 
   const [error, setError] = useState<string | null>(null);
@@ -122,6 +148,7 @@ export const FormplayerEmbed = forwardRef<
           window.clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
         }
+        onContentWindowReadyRef.current?.(el.contentWindow);
         setLoading(false);
       };
       // WebView2 can behave inconsistently with blob: + module scripts in packaged apps.
@@ -160,7 +187,9 @@ export const FormplayerEmbed = forwardRef<
       {error ? <p className="notice warn">{error}</p> : null}
       {loading && !error ? <p className="muted">Loading formplayer…</p> : null}
       <iframe
-        ref={setRefs}
+        ref={el => {
+          innerRef.current = el;
+        }}
         title="Formplayer preview"
         className="formplayer-embed-frame"
       />

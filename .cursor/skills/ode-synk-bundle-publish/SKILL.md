@@ -21,6 +21,31 @@ description: >-
 3. Store **API URLs and tokens** in CI secrets; never embed production credentials in source.
 4. For bundle structure reminders, see **[CONTEXT_BUNDLE_AND_CI.md](https://github.com/OpenDataEnsemble/custom_app/blob/main/CONTEXT_BUNDLE_AND_CI.md)** in **custom_app** (summary only).
 
+## CI / GitHub Actions (recommended pattern)
+
+Do **not** build synk from source in app repos. Pin an ODE release:
+
+```yaml
+env:
+  SYNK_CLI_VERSION: v1.1.2   # bump intentionally
+
+- name: Install synk
+  run: |
+    curl -fsSL "https://github.com/OpenDataEnsemble/ode/releases/download/${SYNK_CLI_VERSION}/synkronus-cli-linux-amd64.tar.gz" \
+      | tar -xz -C /tmp
+    install -m 0755 /tmp/synkronus-cli-linux-amd64 /usr/local/bin/synk
+```
+
+Deploy steps:
+
+```bash
+synk --config "$CONFIG_FILE" login -u "$USER" --password "$PASS"
+synk --config "$CONFIG_FILE" app-bundle upload bundle-v1.0.0.zip
+synk --config "$CONFIG_FILE" app-bundle switch "$VERSION"
+```
+
+Alternative: `ghcr.io/opendataensemble/synkronus-cli:vX.Y.Z` for Docker-based local tooling.
+
 ## Related
 
 - [App bundles (using)](https://opendataensemble.org/docs/using/app-bundles)

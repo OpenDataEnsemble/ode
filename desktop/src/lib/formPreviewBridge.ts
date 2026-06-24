@@ -11,6 +11,7 @@
  * | `getObservations` | Local SQLite via `listObservationsPage`. |
  * | `getObservationsByQuery` | `query_observations` with structured `filter` AST. |
  * | `submitObservation` / `updateObservation` | Finalize dialog (JSON export or DB). |
+ * | `persistObservation` | Headless create/update via `saveObservation` (no finalize dialog). |
  * | `requestCamera` / `requestLocation` / `requestFile` / `requestAudio` / `requestVideo` / `requestQrcode` / `requestBiometric` | **Stub** — no device bridge in preview. |
  * | `launchIntent` / `callSubform` | **Stub** — not supported in preview. |
  * | `requestConnectivityStatus` / `requestSyncStatus` | **No-op** success (`result` omitted) so callers resolve. |
@@ -32,8 +33,29 @@ import { dirname, join } from '@tauri-apps/api/path';
 import { tauriClient } from './tauriClient';
 import type { ObservationRecord } from '../types/domain';
 
+/** Preview-local sequence counters (device id stub + app scope suffix). */
+const previewSequenceCounters = new Map<string, number>();
+
+function previewAllocateSequence(
+  scopeKey: string,
+  options?: { startAt?: number; peek?: boolean },
+): number {
+  const key = `device:desktop-preview:${scopeKey.trim()}`;
+  const startAt = options?.startAt ?? 1;
+  const last = previewSequenceCounters.get(key) ?? startAt - 1;
+  const next = last + 1;
+  if (!options?.peek) {
+    previewSequenceCounters.set(key, next);
+  }
+  return next;
+}
+
 /** Matches `FORMULUS_INTERFACE_VERSION` in formplayer (`FormulusInterfaceDefinition.ts`). */
-export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.2.1';
+export const FORM_PREVIEW_FORMULUS_INTERFACE_VERSION = '1.5.0';
+
+/** Must match `formplayer-host-stub.js` — delivers `*_response` to pending Formulus promises in iframes. */
+export const FORMPLAYER_BRIDGE_RESPONSE_CHANNEL =
+  'ode-formplayer-bridge-response';
 
 /** Prefix for stub `error` strings so logs and issues are easy to grep. */
 export const DESKTOP_FORM_PREVIEW_PREFIX = 'ODE Desktop form preview';
@@ -68,6 +90,8 @@ export const FORMULUS_INJECTION_REQUEST_TYPES = [
   'getAttachmentsUri',
   'getCustomAppUri',
   'getFormSpecsUri',
+  'allocateSequence',
+  'persistObservation',
 ] as const;
 
 export type FinalizeRequest =
@@ -82,6 +106,8 @@ export type FinalizeRequest =
 /** Payload when formplayer requests a nested sub-observation session (`openFormplayer` + `subObservationMode`). */
 export type FormPreviewDeferOpenSubObservationPayload = {
   parentIframe: HTMLIFrameElement;
+  /** Parent formplayer `contentWindow` from the bridge message (`event.source`). */
+  parentContentWindow: Window | null;
   messageId: string;
   formType: string;
   params: Record<string, unknown>;
@@ -108,6 +134,7 @@ export type FormPreviewBridgeContext = {
     formType: string;
     params: Record<string, unknown>;
     savedData: Record<string, unknown>;
+    observationId?: string;
   }) => void;
   /**
    * Form preview: defer `openFormplayer_response` until nested finalize/cancel.
@@ -152,17 +179,60 @@ function resolveBridgeReplyIframe(
   return primary;
 }
 
+function buildBridgeResponseBody(
+  requestType: string,
+  messageId: string,
+  payload: { result?: unknown; error?: string },
+): Record<string, unknown> {
+  return { type: `${requestType}_response`, messageId, ...payload };
+}
+
 export function postFormplayerBridgeReply(
   iframe: HTMLIFrameElement | null,
   requestType: string,
   messageId: string,
   payload: { result?: unknown; error?: string },
+  /** Prefer a window captured on iframe load (srcdoc / WebView2). */
+  targetWindow?: Window | null,
 ): void {
-  const responseType = `${requestType}_response`;
-  iframe?.contentWindow?.postMessage(
-    JSON.stringify({ type: responseType, messageId, ...payload }),
-    '*',
-  );
+  const body = buildBridgeResponseBody(requestType, messageId, payload);
+  const serialized = JSON.stringify(body);
+  const win = targetWindow ?? iframe?.contentWindow ?? null;
+
+  if (win) {
+    try {
+      const deliver = (
+        win as Window & {
+          __odeFormplayerDeliverBridgeResponse?: (
+            requestType: string,
+            messageId: string,
+            payload: { result?: unknown; error?: string },
+          ) => void;
+        }
+      ).__odeFormplayerDeliverBridgeResponse;
+      if (typeof deliver === 'function') {
+        deliver(requestType, messageId, payload);
+      }
+    } catch {
+      // cross-origin or inaccessible — fall back below
+    }
+
+    try {
+      win.postMessage(serialized, '*');
+    } catch {
+      // ignore — BroadcastChannel may still reach the iframe
+    }
+  }
+
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel(FORMPLAYER_BRIDGE_RESPONSE_CHANNEL);
+      channel.postMessage(body);
+      channel.close();
+    }
+  } catch {
+    // optional fallback
+  }
 }
 
 function stubReason(detail: string): { error: string } {
@@ -310,6 +380,28 @@ export async function handleFormPreviewBridgeMessage(
         });
         return;
 
+      case 'allocateSequence': {
+        const scopeKey =
+          typeof data.scopeKey === 'string'
+            ? data.scopeKey
+            : typeof data.payload === 'string'
+              ? data.payload
+              : '';
+        // Injection sends options nested under `options`; fall back to flat
+        // top-level fields for back-compat with older callers.
+        const opts = (
+          data.options && typeof data.options === 'object'
+            ? (data.options as Record<string, unknown>)
+            : data
+        ) as { startAt?: unknown; peek?: unknown };
+        const startAt =
+          typeof opts.startAt === 'number' ? opts.startAt : undefined;
+        const peek = Boolean(opts.peek);
+        const result = previewAllocateSequence(scopeKey, { startAt, peek });
+        reply('allocateSequence', { result });
+        return;
+      }
+
       case 'getAvailableForms': {
         const rows = await tauriClient.listActiveBundleForms();
         const result = rows.map(r => ({
@@ -332,16 +424,24 @@ export async function handleFormPreviewBridgeMessage(
               subObservationMode?: boolean;
               skipFinalize?: boolean;
               skipDraftSelection?: boolean;
+              observationId?: string | null;
             }
           | undefined;
         const subObservationMode = Boolean(options?.subObservationMode);
+        const observationId =
+          typeof options?.observationId === 'string'
+            ? options.observationId.trim()
+            : '';
 
         if (subObservationMode && ctx.onDeferOpenSubObservation) {
-          const parentIframe =
-            resolveBridgeReplyIframe(eventSource, ctx) ?? ctx.iframe;
+          const parentIframe = resolveBridgeReplyIframe(eventSource, ctx);
           if (parentIframe) {
             ctx.onDeferOpenSubObservation({
               parentIframe,
+              parentContentWindow:
+                eventSource != null && typeof eventSource === 'object'
+                  ? (eventSource as Window)
+                  : null,
               messageId,
               formType,
               params,
@@ -351,10 +451,22 @@ export async function handleFormPreviewBridgeMessage(
             });
             return;
           }
+          reply(
+            'openFormplayer',
+            stubReason(
+              'Could not identify the parent formplayer iframe for nested sub-observation open.',
+            ),
+          );
+          return;
         }
 
         if (ctx.onOpenFormplayerNavigate) {
-          ctx.onOpenFormplayerNavigate({ formType, params, savedData });
+          ctx.onOpenFormplayerNavigate({
+            formType,
+            params,
+            savedData,
+            ...(observationId ? { observationId } : {}),
+          });
           reply('openFormplayer', {
             result: {
               status: 'cancelled',
@@ -667,6 +779,45 @@ export async function handleFormPreviewBridgeMessage(
             error: e instanceof Error ? e.message : String(e),
           });
         }
+        return;
+      }
+
+      case 'persistObservation': {
+        const input = (data.input ?? data) as {
+          formType?: string;
+          finalData?: Record<string, unknown>;
+          observationId?: string | null;
+        };
+        const formType = String(input.formType ?? '').trim();
+        if (!formType) {
+          reply('persistObservation', {
+            error: 'persistObservation: formType is required',
+          });
+          return;
+        }
+        if (
+          !input.finalData ||
+          typeof input.finalData !== 'object' ||
+          Array.isArray(input.finalData)
+        ) {
+          reply('persistObservation', {
+            error: 'persistObservation: finalData object is required',
+          });
+          return;
+        }
+        const existingId =
+          typeof input.observationId === 'string'
+            ? input.observationId.trim()
+            : '';
+        const id = existingId || crypto.randomUUID();
+        await tauriClient.saveObservation({
+          id,
+          formType,
+          payload: input.finalData,
+        });
+        reply('persistObservation', {
+          result: { observationId: id, formData: input.finalData },
+        });
         return;
       }
 

@@ -73,6 +73,32 @@ The workflow requires these permissions:
 
 - `GITHUB_TOKEN` - Automatically provided by GitHub Actions
 
+### Synkronus CLI Docker Build & Publish
+
+**Workflow File**: `.github/workflows/synkronus-cli-docker.yml`
+
+#### Triggers
+
+- **Push to `main` / `dev`** when `synkronus-cli/**` or `Dockerfile.cli.slim` changes
+- **Pull Requests** — build only, no publish
+- **Release published** — versioned tags
+- **Manual dispatch**
+
+#### Image Registry
+
+- Image: `ghcr.io/opendataensemble/synkronus-cli`
+- Dockerfile: `Dockerfile.cli.slim` (pre-built static `synk` binary, Alpine 3.23)
+
+Tagging follows the same strategy as the Synkronus server image (`latest`, `dev`, `main`, `v{X.Y.Z}`, `sha-{short}`, etc.).
+
+#### CLI binaries (primary install path)
+
+**Workflow File**: `.github/workflows/synkronus-cli.yml`
+
+Release assets: `synkronus-cli-{os}-{arch}.tar.gz` attached to GitHub Releases. Custom app CI should pin a release tag via `SYNK_CLI_VERSION` and download `synkronus-cli-linux-amd64.tar.gz`.
+
+Non-interactive CI login: `synk login -u USER --password "$SYNK_PASSWORD"` (v1.1.2+).
+
 ### Formulus Android Build
 
 **Workflow File**: `.github/workflows/formulus-android.yml`

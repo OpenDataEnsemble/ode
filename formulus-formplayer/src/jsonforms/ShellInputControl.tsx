@@ -32,6 +32,30 @@ const ShellInputControl = (props: ControlProps) => {
     ? errors.filter(Boolean).join(', ')
     : errors || null;
   const isValid = !errorStr;
+  const autoFocus =
+    (uischema as { options?: { autoFocus?: boolean } })?.options?.autoFocus ===
+    true;
+  const uiOptions = (
+    uischema as {
+      options?: {
+        multi?: boolean;
+        minRows?: number;
+        rows?: number;
+        maxRows?: number;
+      };
+    }
+  )?.options;
+  const multiline = uiOptions?.multi === true;
+  const minRows =
+    typeof uiOptions?.minRows === 'number' ? uiOptions.minRows : undefined;
+  const rows = typeof uiOptions?.rows === 'number' ? uiOptions.rows : undefined;
+  const maxRows =
+    typeof uiOptions?.maxRows === 'number' ? uiOptions.maxRows : undefined;
+
+  const cellProps = {
+    ...(props as React.ComponentProps<typeof MuiInputText>),
+    errors: '',
+  };
 
   return (
     <QuestionShell
@@ -40,14 +64,24 @@ const ShellInputControl = (props: ControlProps) => {
       required={isRequired}
       error={errorStr}>
       <MuiInputText
-        {...(props as React.ComponentProps<typeof MuiInputText>)}
+        {...cellProps}
         label={undefined}
         isValid={isValid}
-        muiInputProps={
-          keyboardEnterKeyHint
+        muiInputProps={{
+          ...(multiline ? { multiline: true } : {}),
+          ...(minRows != null ? { minRows } : {}),
+          ...(rows != null ? { rows } : {}),
+          ...(maxRows != null ? { maxRows } : {}),
+          ...(keyboardEnterKeyHint
             ? { enterKeyHint: keyboardEnterKeyHint }
-            : undefined
-        }
+            : {}),
+          ...(autoFocus
+            ? {
+                autoFocus: true,
+                'data-formplayer-autofocus': 'true',
+              }
+            : {}),
+        }}
       />
     </QuestionShell>
   );

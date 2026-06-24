@@ -17,6 +17,7 @@ import {
   odeTypography,
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
+import colors from '../theme/colors';
 
 const Stack = createStackNavigator<MainAppStackParamList>();
 
@@ -142,7 +143,7 @@ const MainAppNavigator: React.FC = () => {
         options={{
           title: 'Observation Details',
           headerTransparent: true,
-          headerStyle: { backgroundColor: 'transparent' },
+          headerStyle: { backgroundColor: colors.neutral.transparent },
           header: props => (
             <ObservationDetailHeader
               navigation={props.navigation}

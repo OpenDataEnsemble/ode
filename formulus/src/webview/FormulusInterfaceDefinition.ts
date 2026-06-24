@@ -394,6 +394,9 @@ export interface FormulusInterface {
    *   `window.formulusSessionContext`. Draft bypass is not a param key — use
    *   `options.skipDraftSelection` on {@link openFormplayer} (same as `skipFinalize`).
    * @param {Object} savedData - Previously saved form data (for editing)
+   * @param {Object} [options] - Session options (not persisted as observation data)
+   * @param {string|null} [options.observationId] - When set, finalize updates this
+   *   observation instead of creating a new one
    * @returns {Promise<FormCompletionResult>} Promise that resolves when the form is completed/closed with result details
    */
   openFormplayer(
@@ -404,6 +407,7 @@ export interface FormulusInterface {
       subObservationMode?: boolean;
       skipFinalize?: boolean;
       skipDraftSelection?: boolean;
+      observationId?: string | null;
     },
   ): Promise<FormCompletionResult>;
 
@@ -477,6 +481,34 @@ export interface FormulusInterface {
    * @returns {Promise<LocationResult>} Promise that resolves with location result or rejects on error
    */
   requestLocation(fieldId: string): Promise<LocationResult>;
+
+  /**
+   * Return the best cached device fix (if any) without forcing a new GPS read.
+   * @param fieldId Optional field id for parity with `requestLocation`
+   */
+  getCachedLocation(fieldId?: string): Promise<LocationResult | null>;
+
+  /**
+   * Allocate the next monotonic integer in a device-local scope.
+   * Formulus prepends `device:{deviceId}:` to the app-authored `scopeKey` suffix.
+   * @param scopeKey App suffix, e.g. `af:A12:person` (no device prefix).
+   * @param options `startAt` default 1; `peek` returns next without consuming.
+   */
+  allocateSequence(
+    scopeKey: string,
+    options?: { startAt?: number; peek?: boolean },
+  ): Promise<number>;
+
+  /**
+   * Subscribe to location updates while the custom app WebView is active.
+   * Updates arrive as `locationWatchUpdate` window messages.
+   */
+  watchLocation(
+    fieldId: string,
+  ): Promise<{ status: 'started' | 'error'; message?: string }>;
+
+  /** Stop a prior `watchLocation` subscription for `fieldId`. */
+  stopWatchLocation(fieldId: string): Promise<void>;
 
   /**
    * Request file selection for a field
@@ -694,7 +726,7 @@ export interface FormulusCallbacks {
 /**
  * Current version of the interface
  */
-export const FORMULUS_INTERFACE_VERSION = '1.4.0';
+export const FORMULUS_INTERFACE_VERSION = '1.5.0';
 
 /** Parses major.minor.patch from the start of a version string (ignores prerelease after `-`). */
 function semverSegments(version: string): [number, number, number] {

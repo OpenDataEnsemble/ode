@@ -701,7 +701,8 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                   styles.headerTitle,
                   { color: themeColors.onBackground },
                 ]}
-                numberOfLines={1}>
+                numberOfLines={1}
+                ellipsizeMode="tail">
                 {currentFormDisplayName ||
                   (currentObservationId
                     ? 'Edit Observation'
@@ -742,13 +743,14 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     width: '100%',
-    padding: odeSpacing.md,
+    paddingLeft: 6,
+    paddingRight: odeSpacing.sm,
+    paddingVertical: 2,
     borderBottomWidth: odeBorderWidth.hairline,
     minHeight: odeFormplayerHeaderHeight,
-    paddingVertical: odeSpacing.sm,
     borderTopWidth: 0,
     borderLeftWidth: 0,
     borderRightWidth: 0,
@@ -756,13 +758,15 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   headerTitle: {
-    fontSize: odeTypography.screenTitle,
-    fontWeight: 'bold',
-    marginLeft: 0,
+    fontSize: odeTypography.bodySm,
+    fontWeight: 'normal',
+    marginLeft: 8,
+    flex: 1,
     flexShrink: 1,
   },
   closeButton: {
-    padding: odeSpacing.xs,
+    paddingVertical: 2,
+    paddingHorizontal: 2,
   },
   disabledButton: {
     opacity: 0.5,

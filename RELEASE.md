@@ -67,7 +67,7 @@ Avoid tags like `v.1.2.0` (extra dot after `v`), which are not semver-style and 
 The ODE monorepo contains multiple artefacts that must stay in sync:
 
 - **Synkronus** backend Docker image
-- **Synkronus CLI** (multi-platform binaries)
+- **Synkronus CLI** (multi-platform binaries and GHCR image `ghcr.io/opendataensemble/synkronus-cli`)
 - **Formulus** React Native Android app (signed APK)
 
 All share the same **semantic version tag**:
@@ -77,7 +77,7 @@ All share the same **semantic version tag**:
 
 These tags are used consistently by the GitHub Actions workflows to:
 
-- Build and tag Docker images in GHCR
+- Build and tag Docker images in GHCR (Synkronus server and CLI)
 - Attach CLI binaries to GitHub Releases
 - Attach signed Android APKs to GitHub Releases
 
