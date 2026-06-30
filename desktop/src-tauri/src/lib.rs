@@ -1362,8 +1362,7 @@ fn apply_app_bundle_zip_at_workspace(
     }
     fs::write(
         &state_path,
-        serde_json::to_string_pretty(&state)
-            .map_err(|e| CustodianError::Message(e.to_string()))?,
+        serde_json::to_string_pretty(&state).map_err(|e| CustodianError::Message(e.to_string()))?,
     )?;
     let legacy = bundles.join("app-bundle.zip");
     if legacy.exists() {
@@ -1386,15 +1385,7 @@ fn apply_app_bundle_zip_bytes(
     let state = with_workspace_fs_exclusive(ctx, |ctx| {
         let ws = get_workspace_path(ctx)?;
         emit_bundle_apply_progress(&app_c, &job, "archiving", 1, 1, "Saving archive…", None);
-        emit_bundle_apply_progress(
-            &app_c,
-            &job,
-            "extracting",
-            0,
-            0,
-            "Extracting bundle…",
-            None,
-        );
+        emit_bundle_apply_progress(&app_c, &job, "extracting", 0, 0, "Extracting bundle…", None);
         let mut extract_cb = |done: i64, total: i64, detail: Option<&str>| {
             emit_bundle_apply_progress(
                 &app_c,
@@ -1406,13 +1397,7 @@ fn apply_app_bundle_zip_bytes(
                 detail,
             );
         };
-        apply_app_bundle_zip_at_workspace(
-            &ws,
-            version,
-            hash,
-            zip_bytes,
-            Some(&mut extract_cb),
-        )
+        apply_app_bundle_zip_at_workspace(&ws, version, hash, zip_bytes, Some(&mut extract_cb))
     })?;
     Ok(state)
 }
@@ -1428,7 +1413,8 @@ async fn download_synkronus_app_bundle_zip(
         "{}/api/app-bundle/download-zip",
         base_url.trim().trim_end_matches('/')
     );
-    let parsed = Url::parse(&url).map_err(|e| CustodianError::Message(format!("invalid URL: {e}")))?;
+    let parsed =
+        Url::parse(&url).map_err(|e| CustodianError::Message(format!("invalid URL: {e}")))?;
     let client = reqwest::Client::new();
     let res = client
         .get(parsed)
@@ -1484,7 +1470,10 @@ async fn download_synkronus_app_bundle_zip(
         received,
         total_bytes.max(received),
         "Downloading bundle from server…",
-        Some(&format_byte_progress_mb(received, total_bytes.max(received))),
+        Some(&format_byte_progress_mb(
+            received,
+            total_bytes.max(received),
+        )),
     );
     if buf.is_empty() {
         return Err(CustodianError::Message("zip is empty".to_string()));
@@ -2554,9 +2543,8 @@ async fn rebuild_observation_indexes(
     tauri::async_runtime::spawn_blocking(move || {
         let defs = load_active_index_defs(&ctx);
         let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        let generation =
-            observation_index::rebuild_all_indexes(&conn, &defs, None)
-                .map_err(|err| err.to_string())?;
+        let generation = observation_index::rebuild_all_indexes(&conn, &defs, None)
+            .map_err(|err| err.to_string())?;
         let last_rebuild_at: Option<String> = conn
             .query_row(
                 "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
@@ -3822,30 +3810,23 @@ async fn download_and_apply_app_bundle(
         None,
     );
 
-    let zip_bytes = match download_synkronus_app_bundle_zip(
-        &app,
-        &job_id,
-        base,
-        token,
-        ode_ver,
-    )
-    .await
-    {
-        Ok(b) => b,
-        Err(e) => {
-            let msg = e.to_string();
-            emit_bundle_apply_progress(
-                &app,
-                &job_id,
-                "failed",
-                0,
-                0,
-                "Bundle download failed.",
-                Some(&msg),
-            );
-            return Err(msg);
-        }
-    };
+    let zip_bytes =
+        match download_synkronus_app_bundle_zip(&app, &job_id, base, token, ode_ver).await {
+            Ok(b) => b,
+            Err(e) => {
+                let msg = e.to_string();
+                emit_bundle_apply_progress(
+                    &app,
+                    &job_id,
+                    "failed",
+                    0,
+                    0,
+                    "Bundle download failed.",
+                    Some(&msg),
+                );
+                return Err(msg);
+            }
+        };
 
     let ctx_inner = ctx.inner().clone();
     let state = match apply_app_bundle_zip_bytes(&app, &job_id, &ctx_inner, ver, hash, &zip_bytes) {
@@ -3865,15 +3846,7 @@ async fn download_and_apply_app_bundle(
         }
     };
 
-    emit_bundle_apply_progress(
-        &app,
-        &job_id,
-        "completed",
-        1,
-        1,
-        "Bundle applied.",
-        None,
-    );
+    emit_bundle_apply_progress(&app, &job_id, "completed", 1, 1, "Bundle applied.", None);
 
     let needs_index = bundle_app_config_path(&ctx_inner)
         .ok()
@@ -4542,9 +4515,9 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        apply_app_bundle_zip_at_workspace, bind_query_params, mirror_custom_app_dev_folder,
-        parse_time, resolve_attachment_path, should_mark_conflict,
-        validate_custom_app_dev_source_folder, CompressionMethod, SimpleFileOptions, ZipWriter,
+        CompressionMethod, SimpleFileOptions, ZipWriter, apply_app_bundle_zip_at_workspace,
+        bind_query_params, mirror_custom_app_dev_folder, parse_time, resolve_attachment_path,
+        should_mark_conflict, validate_custom_app_dev_source_folder,
     };
     use crate::observation_query::SqlParam;
     use rusqlite::Connection;
@@ -4667,10 +4640,8 @@ mod tests {
 
     fn minimal_bundle_zip_bytes() -> Vec<u8> {
         use std::io::Write;
-        let base = std::env::temp_dir().join(format!(
-            "ode_bundle_zip_fixture_{}",
-            std::process::id()
-        ));
+        let base =
+            std::env::temp_dir().join(format!("ode_bundle_zip_fixture_{}", std::process::id()));
         let zip_path = base.join("fixture.zip");
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(&base).unwrap();
@@ -4690,10 +4661,8 @@ mod tests {
 
     #[test]
     fn apply_app_bundle_zip_at_workspace_writes_state_and_active() {
-        let base = std::env::temp_dir().join(format!(
-            "ode_bundle_apply_test_{}",
-            std::process::id()
-        ));
+        let base =
+            std::env::temp_dir().join(format!("ode_bundle_apply_test_{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(&base).unwrap();
         let zip_bytes = minimal_bundle_zip_bytes();
