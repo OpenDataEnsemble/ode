@@ -9,6 +9,8 @@ export const FORMPARAMS_NON_DATA_KEYS = new Set([
   'theme',
   'darkMode',
   'themeColors',
+  // UI locale from host — not observation data (distinct from optional schema `locale` field).
+  'locale',
   // Reserved read-only session context channel (see App init): a custom app may
   // pass `params.context` with session info (device role, selected cluster, ...)
   // that must never be persisted as observation data.

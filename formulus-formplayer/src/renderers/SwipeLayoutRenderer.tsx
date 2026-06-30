@@ -44,6 +44,7 @@ import {
 } from '../utils/autofocusHelpers';
 import { navigateToFirstBlockingError } from '../utils/validationNavigation';
 import { formatBlockingErrorSummary } from '../utils/errorPageNavigation';
+import { useOdeT } from '../i18n/useOdeT';
 
 // ---------------------------------------------------------------------------
 // Testers
@@ -98,6 +99,7 @@ const SwipeLayoutRenderer = ({
   );
   const [snackbarMessage, setSnackbarMessage] = useState<string>('');
   const { core, config } = useJsonForms();
+  const t = useOdeT();
   const parentFormContext = useFormContext();
   const { formInitData } = parentFormContext;
 
@@ -369,9 +371,13 @@ const SwipeLayoutRenderer = ({
         const missingFields = getMissingRequiredFieldsOnPage();
 
         if (missingFields.length > 0) {
-          const message = `Missing required ${
-            missingFields.length === 1 ? 'field' : 'fields'
-          }: ${missingFields.slice(0, 2).join(', ')}${missingFields.length > 2 ? '...' : ''}`;
+          const message = t(
+            'validation.missingRequiredFieldsNamed',
+            `Missing required field(s): ${missingFields.slice(0, 2).join(', ')}${missingFields.length > 2 ? '...' : ''}`,
+            {
+              names: `${missingFields.slice(0, 2).join(', ')}${missingFields.length > 2 ? '...' : ''}`,
+            },
+          );
 
           setPendingNavigation(newPage);
           setSnackbarMessage(message);
@@ -491,7 +497,7 @@ const SwipeLayoutRenderer = ({
       primaryKeyboardEnterKeyHint(
         isOnFinalizePage,
         nextVisiblePage !== null ? nextButtonLabelOption : undefined,
-        finalizeButtonLabelOption ?? 'Finalize',
+        finalizeButtonLabelOption ?? t('nav.finalize', 'Finalize'),
       ),
     [
       isOnFinalizePage,
@@ -642,7 +648,7 @@ const SwipeLayoutRenderer = ({
               ? {
                   onClick: trySubmitForm,
                   disabled: isNavigating || !formInitData,
-                  label: finalizeButtonLabelOption ?? 'Done',
+                  label: finalizeButtonLabelOption ?? t('nav.done', 'Done'),
                 }
               : nextVisiblePage !== null
                 ? {
@@ -711,7 +717,10 @@ const SwipeLayoutRenderer = ({
                   <Typography
                     variant="h6"
                     sx={{ fontWeight: 600, textAlign: 'center', mb: 1.5 }}>
-                    Missing required fields
+                    {t(
+                      'validation.missingRequiredFields',
+                      'Missing required fields',
+                    )}
                   </Typography>
                   <Typography
                     variant="body2"
@@ -732,13 +741,13 @@ const SwipeLayoutRenderer = ({
                       variant="neutral"
                       size="medium"
                       onPress={handleSnackbarClose}>
-                      Stay here
+                      {t('validation.stayHere', 'Stay here')}
                     </Button>
                     <Button
                       variant="danger"
                       size="medium"
                       onPress={handleGoBack}>
-                      Go back
+                      {t('validation.goBack', 'Go back')}
                     </Button>
                   </Box>
                 </Box>

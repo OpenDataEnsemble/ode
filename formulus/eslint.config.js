@@ -11,6 +11,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/node_modules/**',
+      'third_party/**',
       '**/android/**',
       '**/ios/**',
       '**/coverage/**',

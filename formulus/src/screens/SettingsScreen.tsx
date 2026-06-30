@@ -58,7 +58,14 @@ import {
 import { Button } from '../components/common';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import Logo from '../../assets/images/logo.png';
-import { Moon, Monitor, Sun } from 'lucide-react-native';
+import { Moon, Monitor, Sun, Languages } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
+import { localeSettingsService } from '../services/LocaleSettingsService';
+import {
+  UI_LOCALE_PREFERENCE_OPTIONS,
+  type UiLocalePreference,
+} from '../lib/locale';
+import { syncFormulusI18nLanguage } from '../i18n';
 
 const HTTP_TRANSPORT_TOAST =
   'HTTP is allowed, but we recommend HTTPS so traffic is encrypted (https://).';
@@ -69,6 +76,7 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 >;
 
 const SettingsScreen = () => {
+  const { t } = useTranslation();
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
   const shellStyle = useScreenShellStyle();
@@ -91,6 +99,8 @@ const SettingsScreen = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [version, setVersion] = useState('');
+  const [uiLocalePreference, setUiLocalePreference] =
+    useState<UiLocalePreference>('auto');
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -110,6 +120,30 @@ const SettingsScreen = () => {
     };
     load();
   }, []);
+
+  useEffect(() => {
+    void localeSettingsService.load().then(() => {
+      if (mountedRef.current) {
+        setUiLocalePreference(localeSettingsService.getPreference());
+      }
+    });
+  }, []);
+
+  const handleLocalePreference = useCallback(
+    async (preference: UiLocalePreference) => {
+      setUiLocalePreference(preference);
+      await localeSettingsService.setPreference(preference);
+      await syncFormulusI18nLanguage();
+    },
+    [],
+  );
+
+  const localeOptionLabels: Record<UiLocalePreference, string> = {
+    auto: t('settings.language.auto'),
+    en: t('settings.language.en'),
+    pt: t('settings.language.pt'),
+    fr: t('settings.language.fr'),
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -534,7 +568,7 @@ const SettingsScreen = () => {
                   styles.appSettingsLabel,
                   { color: themeColors.onSurface },
                 ]}>
-                Theme:
+                {t('settings.theme.label')}
               </Text>
             </View>
 
@@ -583,6 +617,54 @@ const SettingsScreen = () => {
                   }
                 />
               </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.themesInlineRow}>
+            <View style={styles.themesInlineLeft}>
+              <Languages size={22} color={themeColors.onSurface as string} />
+              <Text
+                style={[
+                  styles.appSettingsLabel,
+                  { color: themeColors.onSurface },
+                ]}>
+                {t('settings.language.label')}
+              </Text>
+            </View>
+            <View style={styles.languageOptionsRow}>
+              {UI_LOCALE_PREFERENCE_OPTIONS.map(opt => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[
+                    styles.languageChip,
+                    {
+                      borderColor:
+                        uiLocalePreference === opt.value
+                          ? (themeColors.primary as string)
+                          : (themeColors.divider as string),
+                      backgroundColor:
+                        uiLocalePreference === opt.value
+                          ? (themeColors.primaryLight as string)
+                          : (colors.neutral.transparent as string),
+                    },
+                  ]}
+                  onPress={() => void handleLocalePreference(opt.value)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Language: ${localeOptionLabels[opt.value]}`}>
+                  <Text
+                    style={[
+                      styles.languageChipText,
+                      {
+                        color:
+                          uiLocalePreference === opt.value
+                            ? (themeColors.primary as string)
+                            : (themeColors.onSurface as string),
+                      },
+                    ]}>
+                    {localeOptionLabels[opt.value]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 
@@ -707,6 +789,22 @@ const styles = StyleSheet.create({
   },
   themeIconButton: {
     padding: odeSpacing.xs,
+  },
+  languageOptionsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: odeSpacing.xs,
+    justifyContent: 'flex-end',
+  },
+  languageChip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: odeSpacing.sm,
+    paddingVertical: odeSpacing.xxs,
+  },
+  languageChipText: {
+    fontSize: odeTypography.bodySm,
   },
   inputContainer: {
     marginBottom: 1,

@@ -117,6 +117,11 @@ export interface AppConfig {
   navigation?: NavigationConfig;
   /** Local index definitions for observation queries */
   observationIndexes?: ObservationIndexDef[];
+  /**
+   * Default UI locale when device language is not in ODE catalogs (en, pt, fr).
+   * Used when Formulus Settings language is Auto.
+   */
+  defaultLocale?: string;
 }
 
 // Keep this alias exported so app-config consumers can strongly type

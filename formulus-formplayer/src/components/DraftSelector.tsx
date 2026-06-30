@@ -21,6 +21,7 @@ import {
 import { Button } from '@ode/components/react-web';
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import { draftService, DraftSummary } from '../services/DraftService';
+import { useOdeT } from '../i18n/useOdeT';
 
 interface DraftSelectorProps {
   /** The form type to show drafts for */
@@ -50,6 +51,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   fullScreen = false,
 }) => {
   const theme = useTheme();
+  const t = useOdeT();
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
@@ -153,7 +155,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
                   variant="neutral"
                   size="small"
                   onPress={() => onResumeDraft(draft.id)}>
-                  Resume
+                  {t('draft.resume', 'Resume')}
                 </Button>
                 <IconButton
                   onClick={() => handleDeleteDraft(draft.id)}
@@ -207,7 +209,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
             mb: 0.5,
             textAlign: 'left',
           }}>
-          Resume Draft or Start New
+          {t('draft.title', 'Resume Draft or Start New')}
         </Typography>
         <Typography
           variant="body2"
@@ -246,7 +248,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
                 size="medium"
                 onPress={onStartNew}
                 style={{ minWidth: 180 }}>
-                Start New Form
+                {t('draft.startNew', 'Start New Form')}
               </Button>
             </Box>
           </Box>
@@ -260,7 +262,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
           <Dialog
             open={deleteConfirmOpen}
             onClose={() => setDeleteConfirmOpen(false)}>
-            <DialogTitle>Delete Draft</DialogTitle>
+            <DialogTitle>{t('draft.delete', 'Delete Draft')}</DialogTitle>
             <DialogContent>
               <Typography>
                 Are you sure you want to delete this draft? This action cannot
@@ -271,10 +273,10 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
               <Button
                 variant="neutral"
                 onPress={() => setDeleteConfirmOpen(false)}>
-                Cancel
+                {t('draft.cancel', 'Cancel')}
               </Button>
               <Button variant="danger" onPress={confirmDeleteDraft}>
-                Delete
+                {t('draft.delete', 'Delete')}
               </Button>
             </DialogActions>
           </Dialog>

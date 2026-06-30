@@ -46,6 +46,8 @@ import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { geolocationService } from '../services/GeolocationService';
 import { persistObservationWithAttachments } from '../services/attachmentStorage';
+import { localeSettingsService } from '../services/LocaleSettingsService';
+import { useTranslation } from 'react-i18next';
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -76,6 +78,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showConfirm } = useConfirmModal();
+    const { t } = useTranslation();
 
     // Theme colors & resolved mode from AppThemeContext.
     const { themeColors, resolvedMode } = useAppTheme();
@@ -177,15 +180,14 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       }
 
       showConfirm({
-        title: 'Close form?',
-        message:
-          'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
+        title: t('formplayer.closeTitle'),
+        message: t('formplayer.closeMessage'),
         buttons: [
-          { text: 'Cancel', variant: 'tertiary', onPress: () => {} },
-          { text: 'Close form', variant: 'danger', onPress: performClose },
+          { text: t('common.cancel'), variant: 'tertiary', onPress: () => {} },
+          { text: t('common.close'), variant: 'danger', onPress: performClose },
         ],
       });
-    }, [isClosing, isSubmitting, performClose, showConfirm]);
+    }, [isClosing, isSubmitting, performClose, showConfirm, t]);
 
     // Removed closeFormplayer event listener - now using direct promise-based submission handling
 
@@ -261,12 +263,17 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       // that form UI elements (buttons, inputs, headers) match the branding.
       const isDark = resolvedMode === 'dark';
 
+      const sessionLocale =
+        params && typeof params.locale === 'string' ? params.locale : null;
+      const resolvedLocale =
+        await localeSettingsService.resolveActiveLocale(sessionLocale);
+
       const formParams = {
-        locale: 'en',
         theme: 'default',
         darkMode: isDark,
         themeColors, // ← custom app palette forwarded to Formplayer
         ...params,
+        locale: resolvedLocale,
       };
 
       // Load extensions for this form
@@ -726,7 +733,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                     size="large"
                     color={colors.semantic.info.ios}
                   />
-                  <Text style={styles.loadingText}>Saving form data...</Text>
+                  <Text style={styles.loadingText}>
+                    {t('formplayer.saving')}
+                  </Text>
                 </View>
               </View>
             )}

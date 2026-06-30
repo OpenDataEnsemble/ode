@@ -9,6 +9,7 @@ import { ErrorObject } from 'ajv';
 import { useFormContext } from '../App';
 import EditIcon from '@mui/icons-material/Edit';
 import { displayAdate } from '../utils/adateUtils';
+import { useOdeT } from '../i18n/useOdeT';
 
 interface SummaryItem {
   label: string;
@@ -21,6 +22,7 @@ interface SummaryItem {
 
 const FinalizeRenderer = ({ data }: ControlProps) => {
   const { core } = useJsonForms();
+  const t = useOdeT();
   const errors = core?.errors || [];
   const { formInitData } = useFormContext();
   const fullSchema = core?.schema;
@@ -40,7 +42,7 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
   // Helper function to format field value based on type
   const formatFieldValue = (value: any, fieldSchema: any): string => {
     if (value === null || value === undefined || value === '') {
-      return 'Not provided';
+      return t('finalize.notProvided', 'Not provided');
     }
 
     // Handle special formats
@@ -340,7 +342,10 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           color="success.main"
           gutterBottom
           sx={{ textAlign: 'center' }}>
-          All validations passed! You can now finalize your submission.
+          {t(
+            'finalize.allValid',
+            'All validations passed! You can now finalize your submission.',
+          )}
         </Typography>
       )}
 
@@ -352,7 +357,7 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           disabled={Boolean(hasErrors)}
           className="formplayer-solid-primary"
           style={{ width: '100%' }}>
-          Finalize
+          {t('nav.finalize', 'Finalize')}
         </Button>
       </Box>
 
@@ -371,7 +376,7 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
             variant="h5"
             gutterBottom
             sx={{ fontWeight: 700, textAlign: 'center' }}>
-            FORM SUMMARY
+            {t('finalize.summary', 'FORM SUMMARY')}
           </Typography>
           <Typography
             variant="body2"

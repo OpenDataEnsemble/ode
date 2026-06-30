@@ -120,6 +120,7 @@ export function createCustomQuestionTypeRenderer(
     handleChange,
     path,
     schema,
+    uischema,
     errors,
     enabled,
     label,
@@ -214,6 +215,15 @@ export function createCustomQuestionTypeRenderer(
     const customProps: CustomQuestionTypeProps = {
       value: data,
       config,
+      options:
+        uischema &&
+        typeof uischema === 'object' &&
+        'options' in uischema &&
+        uischema.options &&
+        typeof uischema.options === 'object' &&
+        !Array.isArray(uischema.options)
+          ? (uischema.options as Record<string, unknown>)
+          : undefined,
       onChange: (newValue: unknown) => handleChange(path, newValue),
       validation: {
         error: Boolean(hasErrors),

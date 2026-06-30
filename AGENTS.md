@@ -135,6 +135,7 @@ git push origin v1.1.1-alpha.3
 - **Custom app bridge (v1.1.0+):** `persistObservation` (headless write), `sync`, `getConnectivityStatus`, `getCurrentDataRevisionCount`, and `openFormplayer` options `skipFinalize` / `skipDraftSelection` — contract in [`FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts); run `pnpm run sync-interface` in formplayer after changes.
 - **Sub-observations:** Each nested Formplayer session validates its own schema; `skipFinalize` only skips the Finalize page. Custom validators are per-session — see [Custom Extensions — nested sessions](https://opendataensemble.org/docs/guides/custom-extensions#nested-sessions-and-custom-validators) (docs site).
 - **Shared UI tokens:** Install **tokens** before **components** / **formplayer** where the docs require it (see package READMEs and formplayer AGENTS).
+- **i18n (two layers):** ODE-owned locales (`en`/`pt`/`fr`) for Formulus + Formplayer chrome via Settings → Language; form-owned copy via optional `translations` on `ui.json` elements (preprocessed at form init). See [form translations guide](https://opendataensemble.org/docs/guides/form-translations).
 
 ---
 

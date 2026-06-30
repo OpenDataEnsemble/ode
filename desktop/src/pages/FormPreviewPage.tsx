@@ -28,6 +28,11 @@ import {
   dropPendingSubObservationOpen,
   registerPendingSubObservationOpen,
 } from '../lib/formPreviewSubObservationBridge';
+import {
+  getDesktopLocalePreference,
+  setDesktopLocalePreference,
+  type UiLocalePreference,
+} from '../lib/uiLocale';
 
 const DEFAULT_JSON = '{}';
 
@@ -68,6 +73,8 @@ export function FormPreviewPage() {
   const [previewObservationId, setPreviewObservationId] = useState<
     string | null
   >(null);
+  const [uiLocalePreference, setUiLocalePreference] =
+    useState<UiLocalePreference>(() => getDesktopLocalePreference());
 
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
 
@@ -576,6 +583,39 @@ export function FormPreviewPage() {
               }}>
               <option value="">{listLoading ? 'Loading…' : 'Form type'}</option>
               {formOptions}
+            </select>
+            <label className="form-preview-label" htmlFor="ui-locale-select">
+              UI language
+            </label>
+            <select
+              id="ui-locale-select"
+              className="form-preview-type-select"
+              value={uiLocalePreference}
+              onChange={e => {
+                const v = e.target.value as UiLocalePreference;
+                setUiLocalePreference(v);
+                setDesktopLocalePreference(v);
+                if (spec) {
+                  void (async () => {
+                    const p = parseJsonObject(paramsJson, 'params');
+                    const sv = parseJsonObject(savedJson, 'savedData');
+                    if (p.ok && sv.ok) {
+                      setFormInitData(
+                        await buildInitFromSpec(
+                          spec,
+                          p.value,
+                          sv.value,
+                          previewObservationId,
+                        ),
+                      );
+                    }
+                  })();
+                }
+              }}>
+              <option value="auto">Auto (device)</option>
+              <option value="en">English</option>
+              <option value="pt">Português</option>
+              <option value="fr">Français</option>
             </select>
             {listError ? (
               <p className="notice error">{listError}</p>

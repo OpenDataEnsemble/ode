@@ -1,5 +1,6 @@
 import type { FormInitData } from './formplayerHost';
 import { sanitizePortableAttachmentsInFormData } from './sanitizeFormSavedData';
+import { resolveDesktopUiLocale } from './uiLocale';
 
 /** Infer SQLite observation id from embedded saved row data (matches Workbench navigate-from-custom-app). */
 export function inferObservationIdFromSavedData(
@@ -31,10 +32,14 @@ export function buildFormPreviewInit(args: {
   extensions?: FormInitData['extensions'];
   customQuestionTypes?: FormInitData['customQuestionTypes'];
 }): FormInitData {
+  const locale =
+    typeof args.params.locale === 'string'
+      ? resolveDesktopUiLocale(args.params.locale)
+      : resolveDesktopUiLocale();
   const init: FormInitData = {
     formType: args.formType,
     observationId: args.observationId ?? null,
-    params: args.params,
+    params: { ...args.params, locale },
     savedData: sanitizePortableAttachmentsInFormData(args.savedData),
     formSchema: args.formSchema,
     uiSchema: args.uiSchema,

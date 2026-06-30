@@ -46,6 +46,11 @@ import {
   applyStickyDefaults,
 } from './utils/stickyFieldHelpers';
 import { stickyService } from './services/StickyService';
+import { applyFormUiTranslations } from './i18n/applyFormUiTranslations';
+import { createOdeI18n } from './i18n/createOdeI18n';
+import { odeT } from './i18n/createOdeI18n';
+import { resolveFormplayerLocale, type OdeUiLocale } from './i18n/localeUtils';
+import { FormplayerLocaleContext } from './i18n/FormplayerLocaleContext';
 
 import SwipeLayoutRenderer, {
   swipeLayoutTester,
@@ -391,6 +396,9 @@ function App() {
   const [validationMode, setValidationMode] = useState<
     'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
   >('ValidateAndShow');
+  const [uiLocale, setUiLocale] = useState<OdeUiLocale>('en');
+
+  const odeI18n = useMemo(() => createOdeI18n(uiLocale), [uiLocale]);
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -429,6 +437,11 @@ function App() {
         );
 
         setFormInitData(initData);
+
+        const resolvedLocale = resolveFormplayerLocale(
+          (params as Record<string, unknown> | null)?.locale,
+        );
+        setUiLocale(resolvedLocale);
 
         // Debug: log schema details, especially x-dynamicEnum usage
         try {
@@ -576,21 +589,21 @@ function App() {
           setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
           // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(null);
-          const processedUISchema = processUISchemaWithFinalize(
-            swipeLayoutUISchema,
-            skipFinalize,
+          const withLocale = applyFormUiTranslations(
+            processUISchemaWithFinalize(swipeLayoutUISchema, skipFinalize),
+            resolvedLocale,
           );
-          setUISchema(processedUISchema);
+          setUISchema(withLocale);
         } else {
           setSchema(formSchema as FormSchema);
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
             uiSchema as FormUISchema,
           );
-          const processedUISchema = processUISchemaWithFinalize(
-            swipeLayoutUISchema,
-            skipFinalize,
+          const withLocale = applyFormUiTranslations(
+            processUISchemaWithFinalize(swipeLayoutUISchema, skipFinalize),
+            resolvedLocale,
           );
-          setUISchema(processedUISchema);
+          setUISchema(withLocale);
         }
 
         const formSchemaTyped = formSchema as FormSchema | null;
@@ -1264,13 +1277,15 @@ function App() {
   if (showDraftSelector && pendingFormInit) {
     return (
       <ThemeProvider theme={currentTheme}>
-        <DraftSelector
-          formType={pendingFormInit.formType}
-          formVersion={(pendingFormInit.formSchema as any)?.version}
-          onResumeDraft={handleResumeDraft}
-          onStartNew={handleStartNewForm}
-          fullScreen={true}
-        />
+        <FormplayerLocaleContext.Provider value={uiLocale}>
+          <DraftSelector
+            formType={pendingFormInit.formType}
+            formVersion={(pendingFormInit.formSchema as any)?.version}
+            onResumeDraft={handleResumeDraft}
+            onStartNew={handleStartNewForm}
+            fullScreen={true}
+          />
+        </FormplayerLocaleContext.Provider>
       </ThemeProvider>
     );
   }
@@ -1288,10 +1303,14 @@ function App() {
         }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
-          Loading form...
+          {odeT(uiLocale, 'form.loading', 'Loading form...')}
         </Typography>
         <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-          Waiting for data from Formulus...
+          {odeT(
+            uiLocale,
+            'form.waitingForData',
+            'Waiting for data from Formulus...',
+          )}
         </Typography>
       </Box>
     );
@@ -1316,7 +1335,7 @@ function App() {
             variant="h6"
             color="error"
             sx={{ mb: 2, textAlign: 'center' }}>
-            Error Loading Form
+            {odeT(uiLocale, 'form.errorLoading', 'Error Loading Form')}
           </Typography>
           <Typography
             variant="body2"
@@ -1344,7 +1363,7 @@ function App() {
         }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
-          Loading form...
+          {odeT(uiLocale, 'form.loading', 'Loading form...')}
         </Typography>
       </Box>
     );
@@ -1361,110 +1380,117 @@ function App() {
 
   return (
     <ThemeProvider theme={currentTheme}>
-      <FormContext.Provider
-        value={{ formInitData, draftSessionKey, commitFormData }}>
-        <div
-          className="App"
-          style={{
-            display: 'flex',
-            height: '100%', // Fill WebView; host resizes for keyboard (adjustResize)
-            width: '100%',
-            backgroundColor: currentTheme.palette.background.default, // Ensure dark background
-            color: currentTheme.palette.text.primary,
-          }}>
-          {/* Main app content - 60% width in development mode */}
+      <FormplayerLocaleContext.Provider value={uiLocale}>
+        <FormContext.Provider
+          value={{ formInitData, draftSessionKey, commitFormData }}>
           <div
+            className="App"
             style={{
-              width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
-              overflow: 'hidden', // Prevent outer scrolling - FormLayout handles scrolling internally
-              padding: tokens.spacing[1],
-              boxSizing: 'border-box',
-              height: '100%', // Ensure it takes full height
-              backgroundColor: 'transparent', // Use theme background
+              display: 'flex',
+              height: '100%', // Fill WebView; host resizes for keyboard (adjustResize)
+              width: '100%',
+              backgroundColor: currentTheme.palette.background.default, // Ensure dark background
+              color: currentTheme.palette.text.primary,
             }}>
-            <ErrorBoundary>
-              {loadError ? (
-                <Box
-                  sx={{
-                    padding: tokens.spacing[5],
-                    backgroundColor: 'error.light',
-                    border: `${tokens.border.width.thin} solid`,
-                    borderColor: 'error.main',
-                    borderRadius: tokens.border.radius.md, // Match button border radius
-                    color: 'error.dark',
-                  }}>
-                  <Typography variant="h6" color="error">
-                    Error Loading Form
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    {loadError}
-                  </Typography>
-                </Box>
-              ) : (
-                <>
-                  <FormEvaluationProvider functions={extensionFunctions}>
-                    <JsonForms
-                      schema={schema}
-                      uischema={uischema}
-                      data={data}
-                      renderers={[
-                        ...shellMaterialRenderers,
-                        ...materialRenderers,
-                        ...customRenderers,
-                        ...customTypeRenderers, // Custom question types from custom_app
-                        ...extensionRenderers, // Extension renderers (highest priority)
-                      ]}
-                      cells={materialCells}
-                      onChange={handleDataChange}
-                      validationMode={validationMode}
-                      ajv={ajv}
-                      additionalErrors={customValidatorErrors}
-                    />
-                  </FormEvaluationProvider>
-                  {/* Success Snackbar */}
-                  <Snackbar
-                    open={showFinalizeMessage}
-                    autoHideDuration={6000}
-                    onClose={() => setShowFinalizeMessage(false)}>
-                    <Alert
-                      onClose={() => setShowFinalizeMessage(false)}
-                      severity="info">
-                      Form submitted successfully!
-                    </Alert>
-                  </Snackbar>
-                  {/* Error Snackbar for submit failures */}
-                  <Snackbar
-                    open={Boolean(submitError)}
-                    autoHideDuration={6000}
-                    onClose={() => setSubmitError(null)}>
-                    <Alert
-                      onClose={() => setSubmitError(null)}
-                      severity="error">
-                      {submitError}
-                    </Alert>
-                  </Snackbar>
-                </>
-              )}
-            </ErrorBoundary>
-          </div>
-
-          {/* Development testbed - 40% width in development mode (lazy-loaded, not in production bundle) */}
-          {DevTestbedLazy && (
+            {/* Main app content - 60% width in development mode */}
             <div
               style={{
-                width: '40%',
-                borderLeft: `${tokens.border.width.medium} solid ${tokens.color.neutral[200]}`,
-                backgroundColor: tokens.color.neutral[50],
+                width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
+                overflow: 'hidden', // Prevent outer scrolling - FormLayout handles scrolling internally
+                padding: tokens.spacing[1],
+                boxSizing: 'border-box',
+                height: '100%', // Ensure it takes full height
+                backgroundColor: 'transparent', // Use theme background
               }}>
               <ErrorBoundary>
-                <React.Suspense fallback={null}>
-                  <DevTestbedLazy isVisible={true} />
-                </React.Suspense>
+                {loadError ? (
+                  <Box
+                    sx={{
+                      padding: tokens.spacing[5],
+                      backgroundColor: 'error.light',
+                      border: `${tokens.border.width.thin} solid`,
+                      borderColor: 'error.main',
+                      borderRadius: tokens.border.radius.md, // Match button border radius
+                      color: 'error.dark',
+                    }}>
+                    <Typography variant="h6" color="error">
+                      Error Loading Form
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {loadError}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    <FormEvaluationProvider functions={extensionFunctions}>
+                      <JsonForms
+                        schema={schema}
+                        uischema={uischema}
+                        data={data}
+                        i18n={odeI18n}
+                        renderers={[
+                          ...shellMaterialRenderers,
+                          ...materialRenderers,
+                          ...customRenderers,
+                          ...customTypeRenderers, // Custom question types from custom_app
+                          ...extensionRenderers, // Extension renderers (highest priority)
+                        ]}
+                        cells={materialCells}
+                        onChange={handleDataChange}
+                        validationMode={validationMode}
+                        ajv={ajv}
+                        additionalErrors={customValidatorErrors}
+                      />
+                    </FormEvaluationProvider>
+                    {/* Success Snackbar */}
+                    <Snackbar
+                      open={showFinalizeMessage}
+                      autoHideDuration={6000}
+                      onClose={() => setShowFinalizeMessage(false)}>
+                      <Alert
+                        onClose={() => setShowFinalizeMessage(false)}
+                        severity="info">
+                        {odeT(
+                          uiLocale,
+                          'form.submitSuccess',
+                          'Form submitted successfully!',
+                        )}
+                      </Alert>
+                    </Snackbar>
+                    {/* Error Snackbar for submit failures */}
+                    <Snackbar
+                      open={Boolean(submitError)}
+                      autoHideDuration={6000}
+                      onClose={() => setSubmitError(null)}>
+                      <Alert
+                        onClose={() => setSubmitError(null)}
+                        severity="error">
+                        {submitError}
+                      </Alert>
+                    </Snackbar>
+                  </>
+                )}
               </ErrorBoundary>
             </div>
-          )}
-        </div>
-      </FormContext.Provider>
+
+            {/* Development testbed - 40% width in development mode (lazy-loaded, not in production bundle) */}
+            {DevTestbedLazy && (
+              <div
+                style={{
+                  width: '40%',
+                  borderLeft: `${tokens.border.width.medium} solid ${tokens.color.neutral[200]}`,
+                  backgroundColor: tokens.color.neutral[50],
+                }}>
+                <ErrorBoundary>
+                  <React.Suspense fallback={null}>
+                    <DevTestbedLazy isVisible={true} />
+                  </React.Suspense>
+                </ErrorBoundary>
+              </div>
+            )}
+          </div>
+        </FormContext.Provider>
+      </FormplayerLocaleContext.Provider>
     </ThemeProvider>
   );
 }
