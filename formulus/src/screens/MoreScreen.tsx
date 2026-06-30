@@ -13,6 +13,7 @@ import MenuDrawer from '../components/MenuDrawer';
 import { logout } from '../api/synkronus/Auth';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import colors from '../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 type MoreScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -25,6 +26,7 @@ const MoreScreen: React.FC = () => {
   const route = useRoute();
   const navigation = useNavigation<MoreScreenNavigationProp>();
   const { showConfirm } = useConfirmModal();
+  const { t } = useTranslation();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -65,12 +67,12 @@ const MoreScreen: React.FC = () => {
 
   const handleLogout = () => {
     showConfirm({
-      title: 'Logout',
-      message: 'Are you sure you want to logout?',
+      title: t('auth.logoutTitle'),
+      message: t('auth.logoutMessage'),
       buttons: [
-        { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
+        { text: t('common.cancel'), onPress: () => {}, variant: 'tertiary' },
         {
-          text: 'Logout',
+          text: t('common.logout'),
           variant: 'danger',
           onPress: async () => {
             await logout();

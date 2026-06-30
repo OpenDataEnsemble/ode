@@ -27,6 +27,11 @@ export interface CustomQuestionTypeProps {
   config: Record<string, unknown>;
 
   /**
+   * Display-oriented settings from ui.json Control.options (after locale preprocess).
+   */
+  options?: Record<string, unknown>;
+
+  /**
    * Callback to update the field value. Call with a JSON number/boolean/string/etc. —
    * never a display string for numeric schema types.
    *

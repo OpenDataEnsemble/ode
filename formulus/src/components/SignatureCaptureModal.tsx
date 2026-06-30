@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Signature, { SignatureViewRef } from 'react-native-signature-canvas';
 import { colors } from '../theme/colors';
 import Button from './common/Button';
+import { useTranslation } from 'react-i18next';
 
 interface SignatureCaptureModalProps {
   visible: boolean;
@@ -18,6 +19,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
   onSignatureCapture,
   fieldId,
 }) => {
+  const { t } = useTranslation();
   const [_isCapturing, setIsCapturing] = useState(false);
   const signatureRef = useRef<SignatureViewRef>(null);
   const { width, height } = Dimensions.get('window');
@@ -77,7 +79,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
       onSignatureCapture(signatureResult);
       onClose();
     } else {
-      Alert.alert('Error', 'No signature data captured. Please try again.');
+      Alert.alert(t('common.error'), t('signature.noData'));
     }
   };
 
@@ -140,7 +142,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
             onBegin={handleSignatureBegin}
             onOK={handleSignatureResult}
             onEmpty={() =>
-              Alert.alert('Error', 'Please provide a signature before saving.')
+              Alert.alert(t('common.error'), t('signature.required'))
             }
             descriptionText=""
             clearText="Clear"

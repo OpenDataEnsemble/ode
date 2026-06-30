@@ -31,6 +31,11 @@ If you run `pnpm install` only in formulus-formplayer, the tokens package’s `p
 
 Use `pnpm run build:copy` to build the project and copy the bundle into the Formulus app (Android + iOS) and ODE Desktop (`desktop/public/formplayer_dist/`).
 
+## Internationalization
+
+- **ODE chrome** — `src/locales/{en,pt,fr}.json`, wired via `createOdeI18n()` and JsonForms `i18n`. Host sets `params.locale`.
+- **Form copy** — optional `translations` objects on `ui.json`; merged once at init by `applyFormUiTranslations()`. See [form translations](https://opendataensemble.org/docs/guides/form-translations).
+
 ## Javascript interface
 
 The javascript interface made available to the custom app is as follows:

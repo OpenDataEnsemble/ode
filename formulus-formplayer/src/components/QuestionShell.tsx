@@ -127,6 +127,8 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
   const effectiveLayout = labelLayout ?? contextLayout;
   const useInline = !block && effectiveLayout === 'inline' && Boolean(title);
   const labelVerticalAlign = description ? 'top' : 'middle';
+  /** Block controls (QR, photo, …) among inline rows need matching top inset. */
+  const blockAmongInlineRows = block && effectiveLayout === 'inline';
 
   const rowDividerColor = isDark
     ? tokens.color.neutral[600]
@@ -178,6 +180,7 @@ const QuestionShell: React.FC<QuestionShellProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: 1,
+        ...(blockAmongInlineRows && { pt: INLINE_ROW_PY }),
         ...(useInline && {
           position: 'relative',
           '&::after': {

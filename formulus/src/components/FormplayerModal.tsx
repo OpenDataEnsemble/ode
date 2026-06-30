@@ -39,13 +39,40 @@ import {
   odeBorderWidth,
   odeFormplayerHeaderHeight,
 } from '../theme/odeDesign';
-import { FormSpec } from '../services'; // FormService will be imported directly
+import { FormSpec, FormService } from '../services';
+import { collectLinkedFormIds } from '../utils/collectLinkedFormIds';
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { geolocationService } from '../services/GeolocationService';
 import { persistObservationWithAttachments } from '../services/attachmentStorage';
+import { localeSettingsService } from '../services/LocaleSettingsService';
+import { useTranslation } from 'react-i18next';
+
+async function buildLinkedFormSpecs(
+  schema: unknown,
+): Promise<FormInitData['linkedFormSpecs']> {
+  const linkedIds = collectLinkedFormIds(schema);
+  if (linkedIds.size === 0) return undefined;
+
+  try {
+    const formService = await FormService.getInstance();
+    const specs: NonNullable<FormInitData['linkedFormSpecs']> = {};
+    for (const id of linkedIds) {
+      const spec = formService.getFormSpecById(id);
+      if (!spec?.schema) continue;
+      specs[id] = {
+        schema: spec.schema,
+        uiSchema: spec.uiSchema ?? {},
+      };
+    }
+    return Object.keys(specs).length > 0 ? specs : undefined;
+  } catch (error) {
+    console.warn('[FormplayerModal] Failed to load linked form specs:', error);
+    return undefined;
+  }
+}
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -76,6 +103,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     const webViewRef = useRef<CustomAppWebViewHandle>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const { showConfirm } = useConfirmModal();
+    const { t } = useTranslation();
 
     // Theme colors & resolved mode from AppThemeContext.
     const { themeColors, resolvedMode } = useAppTheme();
@@ -177,15 +205,14 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       }
 
       showConfirm({
-        title: 'Close form?',
-        message:
-          'This will close the current form. Any changes made will not be saved, but will be available as a draft next time you open the form.',
+        title: t('formplayer.closeTitle'),
+        message: t('formplayer.closeMessage'),
         buttons: [
-          { text: 'Cancel', variant: 'tertiary', onPress: () => {} },
-          { text: 'Close form', variant: 'danger', onPress: performClose },
+          { text: t('common.cancel'), variant: 'tertiary', onPress: () => {} },
+          { text: t('common.close'), variant: 'danger', onPress: performClose },
         ],
       });
-    }, [isClosing, isSubmitting, performClose, showConfirm]);
+    }, [isClosing, isSubmitting, performClose, showConfirm, t]);
 
     // Removed closeFormplayer event listener - now using direct promise-based submission handling
 
@@ -261,12 +288,17 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       // that form UI elements (buttons, inputs, headers) match the branding.
       const isDark = resolvedMode === 'dark';
 
+      const sessionLocale =
+        params && typeof params.locale === 'string' ? params.locale : null;
+      const resolvedLocale =
+        await localeSettingsService.resolveActiveLocale(sessionLocale);
+
       const formParams = {
-        locale: 'en',
         theme: 'default',
         darkMode: isDark,
         themeColors, // ← custom app palette forwarded to Formplayer
         ...params,
+        locale: resolvedLocale,
       };
 
       // Load extensions for this form
@@ -338,9 +370,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           formType.id,
         );
         showConfirm({
-          title: 'Form Error',
-          message: `Form "${formType.name}" has no schema. The form may not have loaded correctly from storage. Try syncing again.`,
-          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+          title: t('formplayer.formErrorTitle'),
+          message: t('formplayer.noSchemaMessage', { name: formType.name }),
+          buttons: [
+            { text: t('common.ok'), variant: 'primary', onPress: () => {} },
+          ],
         });
         return;
       }
@@ -468,6 +502,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         subObservationMode,
         skipFinalize,
         skipDraftSelection,
+        linkedFormSpecs: await buildLinkedFormSpecs(formType.schema),
       } as FormInitData;
 
       if (!webViewRef.current) {
@@ -482,10 +517,11 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       } catch (error) {
         console.error('FormplayerModal: Error sending form init data:', error);
         showConfirm({
-          title: 'Error',
-          message:
-            'Failed to initialize the form UI. Please close and try again.',
-          buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+          title: t('common.error'),
+          message: t('formplayer.initFailed'),
+          buttons: [
+            { text: t('common.ok'), variant: 'primary', onPress: () => {} },
+          ],
         });
       }
     };
@@ -564,14 +600,14 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           }
 
           const successMessage = effectiveObservationId
-            ? 'Observation updated successfully!'
-            : 'Form submitted successfully!';
+            ? t('formplayer.submitSuccessUpdated')
+            : t('formplayer.submitSuccessSubmitted');
           showConfirm({
-            title: 'Success',
+            title: t('common.success'),
             message: successMessage,
             buttons: [
               {
-                text: 'OK',
+                text: t('common.ok'),
                 variant: 'primary',
                 onPress: () => {
                   setIsSubmitting(false);
@@ -601,14 +637,16 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
           }
 
           showConfirm({
-            title: 'Error',
-            message: 'Failed to save your form. Please try again.',
-            buttons: [{ text: 'OK', variant: 'primary', onPress: () => {} }],
+            title: t('common.error'),
+            message: t('formplayer.saveFailed'),
+            buttons: [
+              { text: t('common.ok'), variant: 'primary', onPress: () => {} },
+            ],
           });
           throw error;
         }
       },
-      [currentObservationId, currentOperationId, onClose, showConfirm],
+      [currentObservationId, currentOperationId, onClose, showConfirm, t],
     );
 
     // Register/unregister modal with message handlers and reset form state.
@@ -726,7 +764,9 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                     size="large"
                     color={colors.semantic.info.ios}
                   />
-                  <Text style={styles.loadingText}>Saving form data...</Text>
+                  <Text style={styles.loadingText}>
+                    {t('formplayer.saving')}
+                  </Text>
                 </View>
               </View>
             )}

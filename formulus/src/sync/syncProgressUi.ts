@@ -1,25 +1,18 @@
 import type { SyncProgress, SyncProgressPhase } from './syncProgress';
 import { syncProgressPercent, syncProgressPhaseTitle } from './syncProgress';
+import { i18n } from '../i18n/instance';
 
 const ATTACHMENT_PHASES: SyncProgressPhase[] = [
   'pull_attachments',
   'push_attachments',
 ];
 
-/** User-facing details; maps legacy "records" copy to "observations" for pull only. */
+/** User-facing details line (already localized at report time). */
 export function getSyncProgressDetailsForDisplay(
   progress: SyncProgress,
 ): string | undefined {
   const raw = progress.details?.trim();
-  if (!raw) {
-    return undefined;
-  }
-  if (progress.phase === 'pull_observations') {
-    return raw
-      .replace(/\brecords downloaded\b/gi, 'observations downloaded')
-      .replace(/\brecords\b/gi, 'observations');
-  }
-  return raw;
+  return raw || undefined;
 }
 
 export function shouldShowSyncProgressPercent(progress: SyncProgress): boolean {
@@ -54,9 +47,9 @@ export function getSyncProgressCardTitle(
 ): string {
   if (activeOperation === 'sync_then_update') {
     if (progress.phase === 'app_bundle') {
-      return 'Syncing & updating forms';
+      return i18n.t('sync.progress.syncingAndUpdatingForms');
     }
-    return 'Syncing & updating';
+    return i18n.t('sync.progress.syncingAndUpdating');
   }
   if (activeOperation === 'update') {
     return syncProgressPhaseTitle('app_bundle');

@@ -26,8 +26,10 @@ import {
   odeRadius,
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
+import { useTranslation } from 'react-i18next';
 
 const FormsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { themeColors, resolvedMode } = useAppTheme();
   const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
@@ -90,7 +92,7 @@ const FormsScreen: React.FC = () => {
       }
     } catch (err) {
       console.error('Error opening form:', err);
-      Alert.alert('Error', 'Failed to open form. Please try again.');
+      Alert.alert(t('common.error'), t('forms.openError'));
     }
   };
 
@@ -117,7 +119,7 @@ const FormsScreen: React.FC = () => {
             <ActivityIndicator size="large" color={themeColors.primary} />
             <Text
               style={[styles.loadingText, { color: themeColors.onBackground }]}>
-              Loading forms...
+              {t('forms.loading')}
             </Text>
           </View>
         </SafeAreaView>
@@ -135,9 +137,9 @@ const FormsScreen: React.FC = () => {
           ]}>
           <EmptyState
             icon="alert-circle-outline"
-            title="Error Loading Forms"
+            title={t('forms.errorTitle')}
             message={error}
-            actionLabel="Retry"
+            actionLabel={t('forms.retry')}
             onAction={refresh}
           />
         </SafeAreaView>
@@ -170,12 +172,11 @@ const FormsScreen: React.FC = () => {
                   marginBottom: showSubtitle ? 0 : odeSpacing.xs,
                 },
               ]}>
-              Forms
+              {t('forms.title')}
             </Text>
             {showSubtitle && (
               <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
-                {filteredForms.length} form
-                {filteredForms.length !== 1 ? 's' : ''} available
+                {t('forms.available', { count: filteredForms.length })}
               </Text>
             )}
           </View>
@@ -203,7 +204,7 @@ const FormsScreen: React.FC = () => {
               style={styles.searchIcon}
             />
             <ODEInput
-              placeholder="Search forms..."
+              placeholder={t('forms.searchPlaceholder')}
               value={searchQuery}
               onChangeText={setSearchQuery}
               style={styles.searchInput}
@@ -227,19 +228,21 @@ const FormsScreen: React.FC = () => {
         {forms.length === 0 ? (
           <EmptyState
             icon="file-document-outline"
-            title="No Forms Available"
-            message="No forms have been downloaded yet. Go to the Sync screen to download forms from the server."
+            title={t('forms.emptyTitle')}
+            message={t('forms.emptyMessage')}
           />
         ) : filteredForms.length === 0 ? (
           <EmptyState
             icon="file-document-outline"
             title={
-              effectiveSearchQuery ? 'No Forms Found' : 'No Forms Available'
+              effectiveSearchQuery
+                ? t('forms.emptySearchTitle')
+                : t('forms.emptyTitle')
             }
             message={
               effectiveSearchQuery
-                ? 'Try adjusting your search.'
-                : 'No forms have been downloaded yet. Go to the Sync screen to download forms from the server.'
+                ? t('forms.emptySearchMessage')
+                : t('forms.emptyMessage')
             }
           />
         ) : (

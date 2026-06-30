@@ -19,6 +19,7 @@ import {
   isNumericAppBundleVersionString,
   normalizeAppBundleVersion,
 } from '../utils/appBundleVersion';
+import { i18n } from '../i18n/instance';
 type SyncStatusCallback = (status: string) => void;
 type SyncProgressDetailCallback = (progress: SyncProgress) => void;
 
@@ -218,7 +219,7 @@ export class SyncService {
         total: 0,
         phase: 'pull_observations',
         indeterminate: true,
-        details: 'Starting…',
+        details: i18n.t('sync.progress.starting'),
       });
 
       const finalVersion = await this.withAutoLoginRetry(
@@ -240,7 +241,7 @@ export class SyncService {
         current: 1,
         total: 1,
         phase: 'push_observations',
-        details: 'Complete',
+        details: i18n.t('sync.progress.complete'),
       });
       await AsyncStorage.setItem('@last_seen_version', finalVersion.toString());
 
@@ -368,7 +369,7 @@ export class SyncService {
       current: 0,
       total: 100,
       phase: 'app_bundle',
-      details: 'Preparing download…',
+      details: i18n.t('sync.progress.preparingDownload'),
     });
 
     try {
@@ -403,7 +404,7 @@ export class SyncService {
         current: 100,
         total: 100,
         phase: 'app_bundle',
-        details: 'Complete',
+        details: i18n.t('sync.progress.complete'),
       });
 
       appEvents.emit('bundleUpdated');

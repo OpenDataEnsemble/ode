@@ -21,6 +21,7 @@ import colors from '../theme/colors';
 import { Button } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
+import { useTranslation } from 'react-i18next';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
@@ -45,6 +46,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const { themeColors } = useAppTheme();
   const shellStyle = useScreenShellStyle();
   const { showConfirm } = useConfirmModal();
+  const { t } = useTranslation();
   const [observation, setObservation] = useState<Observation | null>(null);
   const [formName, setFormName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -76,7 +78,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       }
 
       if (!foundObservation) {
-        Alert.alert('Error', 'Observation not found');
+        Alert.alert(t('common.error'), t('observations.notFound'));
         navigation.goBack();
         return;
       }
@@ -84,12 +86,12 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
       setObservation(foundObservation);
     } catch (error) {
       console.error('Error loading observation:', error);
-      Alert.alert('Error', 'Failed to load observation');
+      Alert.alert(t('common.error'), t('observations.loadFailed'));
       navigation.goBack();
     } finally {
       setLoading(false);
     }
-  }, [observationId, navigation]);
+  }, [observationId, navigation, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,11 +123,11 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
         result.status === 'form_updated'
       ) {
         await loadObservation();
-        Alert.alert('Success', 'Observation updated successfully');
+        Alert.alert(t('common.success'), t('observations.updateSuccess'));
       }
     } catch (error) {
       console.error('Error editing observation:', error);
-      Alert.alert('Error', 'Failed to edit observation');
+      Alert.alert(t('common.error'), t('observations.editError'));
     }
   };
 
@@ -133,23 +135,22 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     if (!observation) return;
 
     showConfirm({
-      title: 'Delete Observation',
-      message:
-        'Are you sure you want to delete this observation? This action cannot be undone.',
+      title: t('observations.deleteTitle'),
+      message: t('observations.deleteMessage'),
       buttons: [
-        { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
+        { text: t('common.cancel'), onPress: () => {}, variant: 'tertiary' },
         {
-          text: 'Delete',
+          text: t('observations.delete'),
           variant: 'danger',
           onPress: async () => {
             try {
               const formService = await FormService.getInstance();
               await formService.deleteObservation(observation.observationId);
-              Alert.alert('Success', 'Observation deleted successfully');
+              Alert.alert(t('common.success'), t('observations.deleteSuccess'));
               navigation.goBack();
             } catch (error) {
               console.error('Error deleting observation:', error);
-              Alert.alert('Error', 'Failed to delete observation');
+              Alert.alert(t('common.error'), t('observations.deleteError'));
             }
           },
         },

@@ -55,13 +55,14 @@ import {
   getSettingsHydrationSnapshot,
   loadSettingsHydrationFromStorage,
 } from '../services/SettingsHydrationCache';
-import { Button } from '../components/common';
+import { Button, LocalePicker } from '../components/common';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import Logo from '../../assets/images/logo.png';
-import { Moon, Monitor, Sun } from 'lucide-react-native';
-
-const HTTP_TRANSPORT_TOAST =
-  'HTTP is allowed, but we recommend HTTPS so traffic is encrypted (https://).';
+import { Moon, Monitor, Sun, Languages } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
+import { localeSettingsService } from '../services/LocaleSettingsService';
+import { type UiLocalePreference } from '../lib/locale';
+import { syncFormulusI18nLanguage } from '../i18n';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -69,6 +70,7 @@ type SettingsScreenNavigationProp = BottomTabNavigationProp<
 >;
 
 const SettingsScreen = () => {
+  const { t } = useTranslation();
   const navigation = useNavigation<SettingsScreenNavigationProp>();
   const { themeColors, themeMode, setThemeMode, resolvedMode } = useAppTheme();
   const shellStyle = useScreenShellStyle();
@@ -91,6 +93,8 @@ const SettingsScreen = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [version, setVersion] = useState('');
+  const [uiLocalePreference, setUiLocalePreference] =
+    useState<UiLocalePreference>('auto');
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -110,6 +114,23 @@ const SettingsScreen = () => {
     };
     load();
   }, []);
+
+  useEffect(() => {
+    void localeSettingsService.load().then(() => {
+      if (mountedRef.current) {
+        setUiLocalePreference(localeSettingsService.getPreference());
+      }
+    });
+  }, []);
+
+  const handleLocalePreference = useCallback(
+    async (preference: UiLocalePreference) => {
+      setUiLocalePreference(preference);
+      await localeSettingsService.setPreference(preference);
+      await syncFormulusI18nLanguage();
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -187,7 +208,7 @@ const SettingsScreen = () => {
           await serverSwitchService.resetForServerChange(normalizedUrl);
           setInitialServerUrl(normalizedUrl);
           setServerUrl(normalizedUrl);
-          ToastService.showShort('Switched server and cleared local data.');
+          ToastService.showShort(t('settings.switchedServerCleared'));
         };
 
         const syncThenReset = async () => {
@@ -198,7 +219,9 @@ const SettingsScreen = () => {
           } catch (error) {
             console.error('Sync before server switch failed:', error);
             ToastService.showLong(
-              `${getUserFacingSyncErrorMessage(error)}\n\nPlease retry or proceed without syncing.`,
+              t('settings.syncBeforeSwitchFailed', {
+                error: getUserFacingSyncErrorMessage(error),
+              }),
             );
             return false;
           }
@@ -207,13 +230,16 @@ const SettingsScreen = () => {
         return await new Promise<boolean>(resolve => {
           const hasPending = pendingObservations > 0 || pendingAttachments > 0;
           const message = hasPending
-            ? `Unsynced observations: ${pendingObservations}\nUnsynced attachments: ${pendingAttachments}\n\nSync is recommended before switching.`
-            : 'Switching servers will wipe all local data for the previous server.';
+            ? t('settings.switchServerPendingMessage', {
+                observations: pendingObservations,
+                attachments: pendingAttachments,
+              })
+            : t('settings.switchServerWipeMessage');
 
           const buttons = hasPending
             ? [
                 {
-                  text: 'Cancel',
+                  text: t('common.cancel'),
                   variant: 'tertiary' as const,
                   onPress: () => {
                     setServerUrl(trimmedInitial);
@@ -221,7 +247,7 @@ const SettingsScreen = () => {
                   },
                 },
                 {
-                  text: 'Proceed without syncing',
+                  text: t('settings.proceedWithoutSync'),
                   variant: 'danger' as const,
                   onPress: () => {
                     (async () => {
@@ -230,21 +256,19 @@ const SettingsScreen = () => {
                         resolve(true);
                       } catch (error) {
                         console.error('Failed to switch server:', error);
-                        ToastService.showLong(
-                          'Failed to switch server. Please try again.',
-                        );
+                        ToastService.showLong(t('settings.switchServerFailed'));
                         resolve(false);
                       }
                     })();
                   },
                 },
                 {
-                  text: 'Sync then switch',
+                  text: t('settings.syncThenSwitch'),
                   variant: 'primary' as const,
                   onPress: () => {
                     (async () => {
                       if (syncService.getIsSyncing()) {
-                        ToastService.showShort('Sync already in progress...');
+                        ToastService.showShort(t('settings.syncInProgress'));
                         resolve(false);
                         return;
                       }
@@ -256,7 +280,7 @@ const SettingsScreen = () => {
               ]
             : [
                 {
-                  text: 'Cancel',
+                  text: t('common.cancel'),
                   variant: 'tertiary' as const,
                   onPress: () => {
                     setServerUrl(trimmedInitial);
@@ -264,7 +288,7 @@ const SettingsScreen = () => {
                   },
                 },
                 {
-                  text: 'Yes, wipe & switch',
+                  text: t('settings.yesWipeAndSwitch'),
                   variant: 'danger' as const,
                   onPress: () => {
                     (async () => {
@@ -273,9 +297,7 @@ const SettingsScreen = () => {
                         resolve(true);
                       } catch (error) {
                         console.error('Failed to switch server:', error);
-                        ToastService.showLong(
-                          'Failed to switch server. Please try again.',
-                        );
+                        ToastService.showLong(t('settings.switchServerFailed'));
                         resolve(false);
                       }
                     })();
@@ -284,18 +306,18 @@ const SettingsScreen = () => {
               ];
 
           showConfirm({
-            title: 'Switch server?',
+            title: t('settings.switchServerTitle'),
             message,
             buttons,
           });
         });
       } catch (error) {
         console.error('Failed to prepare server switch:', error);
-        ToastService.showLong('Unable to check pending data. Try again.');
+        ToastService.showLong(t('settings.checkPendingFailed'));
         return false;
       }
     },
-    [initialServerUrl, showConfirm],
+    [initialServerUrl, showConfirm, t],
   );
 
   const handleLogin = useCallback(async () => {
@@ -317,7 +339,7 @@ const SettingsScreen = () => {
     }
 
     if (norm.isHttp) {
-      ToastService.showLong(HTTP_TRANSPORT_TOAST);
+      ToastService.showLong(t('settings.httpTransportWarning'));
     }
 
     setServerUrl(norm.href);
@@ -334,13 +356,15 @@ const SettingsScreen = () => {
       await Keychain.setGenericPassword(trimmedUsername, trimmedPassword);
       await login(trimmedUsername, trimmedPassword);
       void loadSettingsHydrationFromStorage();
-      ToastService.showShort('Successfully logged in!');
+      ToastService.showShort(t('settings.loginSuccess'));
       navigation.navigate('Sync');
     } catch (error) {
       console.error('Login failed:', error);
       const message = isVersionMismatchError(error)
         ? error.message
-        : `Login failed: ${error && 'Please check your credentials.'}`;
+        : t('settings.loginFailed', {
+            message: t('settings.loginFailedCredentials'),
+          });
       ToastService.showLong(message);
     } finally {
       setIsLoggingIn(false);
@@ -352,6 +376,7 @@ const SettingsScreen = () => {
     isLoggingIn,
     handleServerSwitchIfNeeded,
     navigation,
+    t,
   ]);
 
   const handleQRResult = async (result: ScannerModalResults) => {
@@ -392,26 +417,28 @@ const SettingsScreen = () => {
           try {
             await login(settings.username, settings.password);
             void loadSettingsHydrationFromStorage();
-            ToastService.showShort('Successfully logged in!');
+            ToastService.showShort(t('settings.loginSuccess'));
             navigation.navigate('Sync');
           } catch (error) {
             console.error('Auto-login failed:', error);
-            const errorMessage =
-              error && 'Failed to login. Please check your credentials.';
-            ToastService.showLong(`Login failed: ${errorMessage}`);
+            ToastService.showLong(
+              t('settings.loginFailed', {
+                message: t('settings.loginFailedCredentials'),
+              }),
+            );
           }
         } else {
           void loadSettingsHydrationFromStorage();
-          ToastService.showShort('Settings updated successfully');
+          ToastService.showShort(t('settings.updated'));
         }
       } catch (error) {
         console.error('Failed to process QR code:', error);
-        const errorMessage =
-          error && 'Invalid QR code format. Please try again.';
-        ToastService.showLong(`QR code error: ${errorMessage}`);
+        ToastService.showLong(
+          t('settings.qrError', { message: t('settings.qrInvalid') }),
+        );
       }
     } else {
-      ToastService.showLong('Failed to scan QR code. Please try again.');
+      ToastService.showLong(t('settings.qrScanFailed'));
     }
   };
 
@@ -446,7 +473,7 @@ const SettingsScreen = () => {
               <Image source={Logo} style={styles.logo} resizeMode="contain" />
             </View>
             <Text style={[styles.brandName, { color: themeColors.onPrimary }]}>
-              Settings
+              {t('settings.title')}
             </Text>
           </View>
         </View>
@@ -462,15 +489,15 @@ const SettingsScreen = () => {
               styles.sectionHeaderFirst,
               { color: sectionHeaderColor },
             ]}>
-            App Settings
+            {t('settings.appSettings')}
           </Text>
           <Text style={[styles.titleSmall, { color: themeColors.onSurface }]}>
-            Please enter the details for your synkronus server
+            {t('settings.subtitle')}
           </Text>
 
           <View style={styles.inputContainer}>
             <ODEInput
-              placeholder="Server URL"
+              placeholder={t('settings.serverUrl')}
               value={serverUrl}
               onChangeText={setServerUrl}
               autoCapitalize="none"
@@ -480,7 +507,7 @@ const SettingsScreen = () => {
                 <TouchableOpacity
                   style={styles.qrButton}
                   onPress={() => setShowQRScanner(true)}
-                  accessibilityLabel="Scan QR code">
+                  accessibilityLabel={t('settings.scanQr')}>
                   <Icon
                     name="qrcode-scan"
                     size={24}
@@ -492,7 +519,7 @@ const SettingsScreen = () => {
           </View>
 
           <ODEInput
-            placeholder="Username"
+            placeholder={t('settings.username')}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="none"
@@ -500,7 +527,7 @@ const SettingsScreen = () => {
           />
 
           <PasswordInput
-            placeholder="Password"
+            placeholder={t('settings.password')}
             value={password}
             onChangeText={setPassword}
             autoCapitalize="none"
@@ -509,7 +536,7 @@ const SettingsScreen = () => {
           />
 
           <Button
-            title={isLoggingIn ? 'Logging in...' : 'Login'}
+            title={isLoggingIn ? t('settings.loggingIn') : t('settings.login')}
             onPress={handleLogin}
             variant="primary"
             size="large"
@@ -534,7 +561,7 @@ const SettingsScreen = () => {
                   styles.appSettingsLabel,
                   { color: themeColors.onSurface },
                 ]}>
-                Theme:
+                {t('settings.theme.label')}
               </Text>
             </View>
 
@@ -583,6 +610,25 @@ const SettingsScreen = () => {
                   }
                 />
               </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.themesInlineRow}>
+            <View style={styles.themesInlineLeft}>
+              <Languages size={22} color={themeColors.onSurface as string} />
+              <Text
+                style={[
+                  styles.appSettingsLabel,
+                  { color: themeColors.onSurface },
+                ]}>
+                {t('settings.language.label')}
+              </Text>
+            </View>
+            <View style={styles.languagePickerWrap}>
+              <LocalePicker
+                value={uiLocalePreference}
+                onChange={pref => void handleLocalePreference(pref)}
+              />
             </View>
           </View>
 
@@ -707,6 +753,26 @@ const styles = StyleSheet.create({
   },
   themeIconButton: {
     padding: odeSpacing.xs,
+  },
+  languageOptionsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: odeSpacing.xs,
+    justifyContent: 'flex-end',
+  },
+  languageChip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: odeSpacing.sm,
+    paddingVertical: odeSpacing.xxs,
+  },
+  languageChipText: {
+    fontSize: odeTypography.bodySm,
+  },
+  languagePickerWrap: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
   inputContainer: {
     marginBottom: 1,

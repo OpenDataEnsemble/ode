@@ -1,5 +1,11 @@
 import type { FormInitData } from './formplayerHost';
 import { sanitizePortableAttachmentsInFormData } from './sanitizeFormSavedData';
+import { resolveDesktopUiLocale } from './uiLocale';
+import {
+  buildLinkedFormSpecs,
+  type LoadLinkedFormSpec,
+} from './buildLinkedFormSpecs';
+import type { BundleFormSpec } from '../types/domain';
 
 /** Infer SQLite observation id from embedded saved row data (matches Workbench navigate-from-custom-app). */
 export function inferObservationIdFromSavedData(
@@ -30,11 +36,16 @@ export function buildFormPreviewInit(args: {
   skipDraftSelection?: boolean;
   extensions?: FormInitData['extensions'];
   customQuestionTypes?: FormInitData['customQuestionTypes'];
+  linkedFormSpecs?: FormInitData['linkedFormSpecs'];
 }): FormInitData {
+  const locale =
+    typeof args.params.locale === 'string'
+      ? resolveDesktopUiLocale(args.params.locale)
+      : resolveDesktopUiLocale();
   const init: FormInitData = {
     formType: args.formType,
     observationId: args.observationId ?? null,
-    params: args.params,
+    params: { ...args.params, locale },
     savedData: sanitizePortableAttachmentsInFormData(args.savedData),
     formSchema: args.formSchema,
     uiSchema: args.uiSchema,
@@ -50,7 +61,45 @@ export function buildFormPreviewInit(args: {
   if (args.skipDraftSelection) {
     init.skipDraftSelection = true;
   }
+  if (args.linkedFormSpecs) {
+    init.linkedFormSpecs = args.linkedFormSpecs;
+  }
   return init;
+}
+
+/**
+ * Build preview init from a bundle form spec, including linked child forms for sub-obs columns.
+ */
+export async function buildFormPreviewInitFromBundleSpec(args: {
+  spec: BundleFormSpec;
+  params: Record<string, unknown>;
+  savedData: Record<string, unknown>;
+  observationId?: string | null;
+  subObservationMode?: boolean;
+  skipFinalize?: boolean;
+  skipDraftSelection?: boolean;
+  extensions?: FormInitData['extensions'];
+  customQuestionTypes?: FormInitData['customQuestionTypes'];
+  loadLinkedFormSpec: LoadLinkedFormSpec;
+}): Promise<FormInitData> {
+  const linkedFormSpecs = await buildLinkedFormSpecs(
+    args.spec.formSchema,
+    args.loadLinkedFormSpec,
+  );
+  return buildFormPreviewInit({
+    formType: args.spec.formType,
+    observationId: args.observationId ?? null,
+    params: args.params,
+    savedData: args.savedData,
+    formSchema: args.spec.formSchema,
+    uiSchema: args.spec.uiSchema,
+    extensions: args.extensions,
+    customQuestionTypes: args.customQuestionTypes,
+    subObservationMode: args.subObservationMode,
+    skipFinalize: args.skipFinalize,
+    skipDraftSelection: args.skipDraftSelection,
+    linkedFormSpecs,
+  });
 }
 
 export function parseJsonObject(

@@ -2,6 +2,7 @@ import React, { ReactNode, useCallback } from 'react';
 import { Box, Paper } from '@mui/material';
 import { Button } from '@ode/components/react-web';
 import { useKeyboardScrollClamp } from '../hooks/useKeyboardScrollClamp';
+import { useOdeT } from '../i18n/useOdeT';
 
 /** Keeps a submit control in the DOM so mobile keyboards can trigger the primary action (Go / Send / →). */
 const visuallyHiddenSubmitStyle: React.CSSProperties = {
@@ -104,6 +105,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
   scrollRefMerge,
   scrollHandlers,
 }) => {
+  const t = useOdeT();
   const scrollRef = useKeyboardScrollClamp<HTMLDivElement>();
 
   const mergedScrollRef = useCallback(
@@ -193,7 +195,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 disabled={previousButton.disabled}
                 size="medium"
                 style={{ width: '100%', maxWidth: '100%' }}>
-                {previousButton.label || 'Previous'}
+                {previousButton.label || t('nav.previous', 'Previous')}
               </Button>
             )}
           </Box>
@@ -213,7 +215,7 @@ const FormLayout: React.FC<FormLayoutProps> = ({
                 size="medium"
                 className="formplayer-solid-primary"
                 style={{ width: '100%', maxWidth: '100%' }}>
-                {nextButton.label || 'Next'}
+                {nextButton.label || t('nav.next', 'Next')}
               </Button>
             )}
           </Box>

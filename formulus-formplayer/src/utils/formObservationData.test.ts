@@ -25,6 +25,7 @@ describe('initialFormDataFromParams', () => {
       theme: 'dark',
       darkMode: true,
       themeColors: { primary: '#000' },
+      locale: 'pt',
       species: 'oak',
     };
     expect(initialFormDataFromParams(params)).toEqual({ species: 'oak' });
