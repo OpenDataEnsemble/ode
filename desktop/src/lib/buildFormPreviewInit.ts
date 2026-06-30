@@ -1,7 +1,10 @@
 import type { FormInitData } from './formplayerHost';
 import { sanitizePortableAttachmentsInFormData } from './sanitizeFormSavedData';
 import { resolveDesktopUiLocale } from './uiLocale';
-import { buildLinkedFormSpecs, type LoadLinkedFormSpec } from './buildLinkedFormSpecs';
+import {
+  buildLinkedFormSpecs,
+  type LoadLinkedFormSpec,
+} from './buildLinkedFormSpecs';
 import type { BundleFormSpec } from '../types/domain';
 
 /** Infer SQLite observation id from embedded saved row data (matches Workbench navigate-from-custom-app). */

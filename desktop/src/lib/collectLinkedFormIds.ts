@@ -11,7 +11,9 @@ export function collectLinkedFormIds(
   }
 
   if (obj.properties && typeof obj.properties === 'object') {
-    for (const val of Object.values(obj.properties as Record<string, unknown>)) {
+    for (const val of Object.values(
+      obj.properties as Record<string, unknown>,
+    )) {
       collectLinkedFormIds(val, out);
     }
   }

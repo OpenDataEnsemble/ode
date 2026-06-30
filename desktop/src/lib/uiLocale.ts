@@ -44,7 +44,9 @@ export function getDesktopLocalePreference(): UiLocalePreference {
   return 'auto';
 }
 
-export function setDesktopLocalePreference(preference: UiLocalePreference): void {
+export function setDesktopLocalePreference(
+  preference: UiLocalePreference,
+): void {
   localStorage.setItem(STORAGE_KEY, preference);
 }
 
