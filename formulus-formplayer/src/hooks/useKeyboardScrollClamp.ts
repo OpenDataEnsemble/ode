@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { clampScrollTop, revealFieldIfNeeded } from '../utils/keyboardScroll';
+import {
+  clampScrollTop,
+  isFieldObscuredInContainer,
+  revealFieldIfNeeded,
+} from '../utils/keyboardScroll';
 
 /** Input types that should trigger scroll clamp on value change. */
 export function isClampableInputType(type: string | undefined): boolean {
@@ -35,27 +39,42 @@ const KEYBOARD_REVEAL_DELAY_MS = 100;
 
 /**
  * Clamps FormLayout scroll when the IME opens and reveals focused fields only
- * when obscured after keyboard animation — never scrollIntoView on value change.
+ * during the initial keyboard-open window — never on value change or caret moves.
  */
 export function useKeyboardScrollClamp<T extends HTMLElement>() {
   const scrollRef = useRef<T | null>(null);
   const focusedFieldRef = useRef<HTMLElement | null>(null);
   const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** True from focus until the IME settle window ends; blocks re-reveal while typing. */
+  const keyboardRevealSessionRef = useRef(false);
 
   const clamp = useCallback(() => {
     const el = scrollRef.current;
     if (el) clampScrollTop(el);
   }, []);
 
+  const endKeyboardRevealSession = useCallback(() => {
+    keyboardRevealSessionRef.current = false;
+  }, []);
+
   const tryRevealFocused = useCallback(() => {
     const container = scrollRef.current;
     const field = focusedFieldRef.current;
     if (!container || !field || !container.contains(field)) return;
+
     revealFieldIfNeeded(container, field, { marginBottom: 24, marginTop: 8 });
     clamp();
-  }, [clamp]);
+
+    const containerRect = container.getBoundingClientRect();
+    const fieldRect = field.getBoundingClientRect();
+    if (!isFieldObscuredInContainer(containerRect, fieldRect, 8, 24)) {
+      endKeyboardRevealSession();
+    }
+  }, [clamp, endKeyboardRevealSession]);
 
   const scheduleReveal = useCallback(() => {
+    if (!keyboardRevealSessionRef.current) return;
+
     if (revealTimerRef.current) {
       clearTimeout(revealTimerRef.current);
       revealTimerRef.current = null;
@@ -66,11 +85,12 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
         tryRevealFocused();
         revealTimerRef.current = setTimeout(() => {
           tryRevealFocused();
+          endKeyboardRevealSession();
           revealTimerRef.current = null;
         }, KEYBOARD_REVEAL_DELAY_MS);
       });
     });
-  }, [tryRevealFocused]);
+  }, [endKeyboardRevealSession, tryRevealFocused]);
 
   const runClampChain = useCallback(() => {
     requestAnimationFrame(() => {
@@ -85,12 +105,17 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
 
     const vv = window.visualViewport;
 
-    const onViewportChange = () => {
-      if (focusedFieldRef.current) {
+    const onViewportResize = () => {
+      if (focusedFieldRef.current && keyboardRevealSessionRef.current) {
         scheduleReveal();
       } else {
-        requestAnimationFrame(clamp);
+        runClampChain();
       }
+    };
+
+    // Caret moves while typing fire visualViewport scroll on Android WebView — clamp only.
+    const onViewportScroll = () => {
+      runClampChain();
     };
 
     const onFocusIn = (event: FocusEvent) => {
@@ -99,6 +124,7 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
       if (!(target instanceof HTMLElement)) return;
 
       focusedFieldRef.current = target;
+      keyboardRevealSessionRef.current = true;
       scheduleReveal();
     };
 
@@ -118,15 +144,11 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
       if (focusedFieldRef.current === target) {
         focusedFieldRef.current = null;
       }
+      endKeyboardRevealSession();
       if (revealTimerRef.current) {
         clearTimeout(revealTimerRef.current);
         revealTimerRef.current = null;
       }
-      runClampChain();
-    };
-
-    const onInputOrChange = (event: Event) => {
-      if (!isFormFieldForScrollClamp(event.target)) return;
       runClampChain();
     };
 
@@ -141,26 +163,28 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
 
     resizeObserver?.observe(el);
 
-    vv?.addEventListener('resize', onViewportChange);
-    vv?.addEventListener('scroll', onViewportChange);
+    vv?.addEventListener('resize', onViewportResize);
+    vv?.addEventListener('scroll', onViewportScroll);
     el.addEventListener('focusin', onFocusIn);
     el.addEventListener('focusout', onFocusOut);
-    el.addEventListener('input', onInputOrChange, true);
-    el.addEventListener('change', onInputOrChange, true);
 
     return () => {
       resizeObserver?.disconnect();
-      vv?.removeEventListener('resize', onViewportChange);
-      vv?.removeEventListener('scroll', onViewportChange);
+      vv?.removeEventListener('resize', onViewportResize);
+      vv?.removeEventListener('scroll', onViewportScroll);
       el.removeEventListener('focusin', onFocusIn);
       el.removeEventListener('focusout', onFocusOut);
-      el.removeEventListener('input', onInputOrChange, true);
-      el.removeEventListener('change', onInputOrChange, true);
       if (revealTimerRef.current) {
         clearTimeout(revealTimerRef.current);
       }
     };
-  }, [clamp, runClampChain, scheduleReveal, tryRevealFocused]);
+  }, [
+    clamp,
+    endKeyboardRevealSession,
+    runClampChain,
+    scheduleReveal,
+    tryRevealFocused,
+  ]);
 
   return scrollRef;
 }
