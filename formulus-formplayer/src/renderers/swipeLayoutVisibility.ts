@@ -25,7 +25,7 @@ export function dispatchPathForLayoutChild(parentDispatchPath: string): string {
   return parentDispatchPath ?? '';
 }
 
-function subtreeHasVisibleInteractiveContent(
+function isVisibleLeafContent(
   element: UISchemaElement,
   rootData: unknown,
   dispatchPath: string,
@@ -38,21 +38,32 @@ function subtreeHasVisibleInteractiveContent(
   if (isControl(element)) {
     return true;
   }
+  if ((element as { type?: string }).type === 'Label') {
+    return true;
+  }
+  return false;
+}
+
+function subtreeHasVisiblePageContent(
+  element: UISchemaElement,
+  rootData: unknown,
+  dispatchPath: string,
+  ajv: Ajv,
+  config: unknown,
+): boolean {
+  if (isVisibleLeafContent(element, rootData, dispatchPath, ajv, config)) {
+    return true;
+  }
+  if (!jsonFormsIsVisible(element, rootData, dispatchPath, ajv, config)) {
+    return false;
+  }
   const children = (element as { elements?: UISchemaElement[] }).elements;
   if (!Array.isArray(children) || children.length === 0) {
     return false;
   }
   const childPath = dispatchPathForLayoutChild(dispatchPath);
   for (const child of children) {
-    if (
-      subtreeHasVisibleInteractiveContent(
-        child,
-        rootData,
-        childPath,
-        ajv,
-        config,
-      )
-    ) {
+    if (subtreeHasVisiblePageContent(child, rootData, childPath, ajv, config)) {
       return true;
     }
   }
@@ -62,7 +73,7 @@ function subtreeHasVisibleInteractiveContent(
 /**
  * Whether a swipe "screen" should participate in next/prev/progress.
  * - Finalize is always included (matches legacy SwipeLayout behavior).
- * - Label-only screens do not count as interactive; nested Groups are walked.
+ * - Label-only screens count as visible page content; nested Groups are walked.
  */
 export function pageIsVisibleInSwipe(
   page: UISchemaElement,
@@ -94,13 +105,7 @@ export function pageIsVisibleInSwipe(
 
   const childPath = dispatchPathForLayoutChild(dispatchPath);
   return typed.elements.some(child =>
-    subtreeHasVisibleInteractiveContent(
-      child,
-      rootData,
-      childPath,
-      ajv,
-      config,
-    ),
+    subtreeHasVisiblePageContent(child, rootData, childPath, ajv, config),
   );
 }
 

@@ -155,6 +155,82 @@ describe('pageIsVisibleInSwipe', () => {
     expect(pageIsVisibleInSwipe(page as any, {}, '', ajv, config)).toBe(true);
   });
 
+  it('returns true for label-only VerticalLayout', () => {
+    const page = {
+      type: 'VerticalLayout',
+      elements: [
+        {
+          type: 'Label',
+          text: 'Visiting: {{data.p_names}}, Date of visit: {{data.obsdate}}',
+          html: false,
+        },
+        {
+          type: 'Label',
+          text: 'Before starting this section: read the response card.',
+          html: false,
+        },
+      ],
+    };
+    expect(pageIsVisibleInSwipe(page as any, {}, '', ajv, config)).toBe(true);
+  });
+
+  it('returns false when all labels are hidden by SHOW rules', () => {
+    const page = {
+      type: 'VerticalLayout',
+      elements: [
+        {
+          type: 'Label',
+          text: 'Only when enabled',
+          rule: {
+            effect: 'SHOW',
+            condition: {
+              scope: '#/properties/on',
+              schema: { const: true },
+            },
+          },
+        },
+      ],
+    };
+    expect(
+      pageIsVisibleInSwipe(page as any, { on: false }, '', ajv, config),
+    ).toBe(false);
+    expect(
+      pageIsVisibleInSwipe(page as any, { on: true }, '', ajv, config),
+    ).toBe(true);
+  });
+
+  it('returns true when only labels are visible but controls are hidden', () => {
+    const page = {
+      type: 'VerticalLayout',
+      elements: [
+        {
+          type: 'Label',
+          text: 'Instructions for this section.',
+        },
+        {
+          type: 'Control',
+          scope: '#/properties/detail',
+          rule: {
+            effect: 'SHOW',
+            condition: {
+              scope: '#/properties/showDetail',
+              schema: { const: true },
+            },
+          },
+        },
+      ],
+    };
+    expect(
+      pageIsVisibleInSwipe(
+        page as any,
+        { showDetail: false, detail: '' },
+        '',
+        ajv,
+        config,
+      ),
+    ).toBe(true);
+  });
+
   it('hides page when VerticalLayout has SHOW rule that fails', () => {
     const page = {
       type: 'VerticalLayout',
@@ -177,6 +253,46 @@ describe('pageIsVisibleInSwipe', () => {
 });
 
 describe('visiblePageIndicesFromLayouts', () => {
+  it('keeps label-only pages while filtering out control-only pages with hidden controls', () => {
+    const layouts = [
+      {
+        type: 'VerticalLayout',
+        elements: [
+          {
+            type: 'Label',
+            text: 'Section intro',
+          },
+        ],
+      },
+      {
+        type: 'VerticalLayout',
+        elements: [
+          {
+            type: 'Control',
+            scope: '#/properties/a',
+            rule: {
+              effect: 'SHOW',
+              condition: {
+                scope: '#/properties/toggle',
+                schema: { const: 'one' },
+              },
+            },
+          },
+        ],
+      },
+      { type: 'Finalize' },
+    ];
+    const dataOne = { toggle: 'one', a: 1 };
+    expect(
+      visiblePageIndicesFromLayouts(layouts as any, dataOne, '', ajv, config),
+    ).toEqual([0, 1, 2]);
+
+    const dataTwo = { toggle: 'two', a: 1 };
+    expect(
+      visiblePageIndicesFromLayouts(layouts as any, dataTwo, '', ajv, config),
+    ).toEqual([0, 2]);
+  });
+
   it('filters out pages with no visible interactive content', () => {
     const layouts = [
       {
