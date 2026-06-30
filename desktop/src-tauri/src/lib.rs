@@ -1258,6 +1258,8 @@ fn emit_bundle_index_rebuild_progress(
     );
 }
 
+type BundleExtractProgress<'a> = dyn FnMut(i64, i64, Option<&str>) + 'a;
+
 #[allow(dead_code)]
 fn extract_zip_to_dir(zip_bytes: &[u8], dest: &Path) -> Result<(), CustodianError> {
     extract_zip_to_dir_with_progress(zip_bytes, dest, None)
@@ -1266,7 +1268,7 @@ fn extract_zip_to_dir(zip_bytes: &[u8], dest: &Path) -> Result<(), CustodianErro
 fn extract_zip_to_dir_with_progress(
     zip_bytes: &[u8],
     dest: &Path,
-    mut on_progress: Option<&mut dyn FnMut(i64, i64, Option<&str>)>,
+    mut on_progress: Option<&mut BundleExtractProgress<'_>>,
 ) -> Result<(), CustodianError> {
     let reader = Cursor::new(zip_bytes);
     let mut archive = ZipArchive::new(reader)
@@ -1311,7 +1313,7 @@ fn apply_app_bundle_zip_at_workspace(
     version: &str,
     hash: &str,
     zip_bytes: &[u8],
-    on_extract_progress: Option<&mut dyn FnMut(i64, i64, Option<&str>)>,
+    on_extract_progress: Option<&mut BundleExtractProgress<'_>>,
 ) -> Result<AppBundleState, CustodianError> {
     let ver = version.trim();
     if ver.is_empty() {

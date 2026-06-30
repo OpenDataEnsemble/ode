@@ -187,10 +187,10 @@ pub fn rebuild_all_indexes(
         let ft = form_type.unwrap_or_default();
         reindex_observation(conn, &id, &ft, &payload, defs, new_gen)?;
         done += 1;
-        if let Some(ref mut cb) = progress {
-            if total == 0 || done == total || done % 50 == 0 {
-                cb(done, total);
-            }
+        if let Some(ref mut cb) = progress
+            && (total == 0 || done == total || done % 50 == 0)
+        {
+            cb(done, total);
         }
     }
 
