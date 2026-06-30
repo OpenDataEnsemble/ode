@@ -17,9 +17,11 @@ import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
+import { useTranslation } from 'react-i18next';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const HomeScreen = ({ navigation }: { navigation: any }) => {
+  const { t } = useTranslation();
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [webViewKey, setWebViewKey] = useState(0);
@@ -42,12 +44,16 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
         }
 
         showConfirm({
-          title: 'Exit app?',
-          message: 'Are you sure you want to exit Formulus?',
+          title: t('home.exitTitle'),
+          message: t('home.exitMessage'),
           buttons: [
-            { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
             {
-              text: 'Exit',
+              text: t('common.cancel'),
+              onPress: () => {},
+              variant: 'tertiary',
+            },
+            {
+              text: t('common.exit'),
               variant: 'danger',
               onPress: () => BackHandler.exitApp(),
             },
@@ -62,7 +68,7 @@ const HomeScreen = ({ navigation }: { navigation: any }) => {
       );
 
       return () => subscription.remove();
-    }, [showConfirm]),
+    }, [showConfirm, t]),
   );
 
   const checkAndSetAppUri = useCallback(async () => {

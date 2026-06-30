@@ -10,6 +10,7 @@ import RNFS from 'react-native-fs';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
+import { i18n } from '../i18n';
 import * as ImagePicker from 'react-native-image-picker';
 import {
   check,
@@ -474,48 +475,55 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           };
 
           // Show action sheet with camera and gallery options
-          Alert.alert('Select Image', 'Choose an option', [
-            {
-              text: 'Camera',
-              onPress: () => {
-                void (async () => {
-                  const perm = await ensureCameraPermission();
-                  if (perm !== RESULTS.GRANTED) {
-                    resolve({
-                      fieldId,
-                      status: 'error',
-                      message:
-                        perm === RESULTS.BLOCKED
-                          ? 'Camera access is blocked. Enable camera permission in system settings.'
-                          : 'Camera permission is required to take a photo.',
-                    });
-                    return;
-                  }
-                  ImagePicker.launchCamera(options, handleImagePickerResponse);
-                })();
+          Alert.alert(
+            i18n.t('media.selectImageTitle'),
+            i18n.t('media.selectImageMessage'),
+            [
+              {
+                text: i18n.t('media.camera'),
+                onPress: () => {
+                  void (async () => {
+                    const perm = await ensureCameraPermission();
+                    if (perm !== RESULTS.GRANTED) {
+                      resolve({
+                        fieldId,
+                        status: 'error',
+                        message:
+                          perm === RESULTS.BLOCKED
+                            ? 'Camera access is blocked. Enable camera permission in system settings.'
+                            : 'Camera permission is required to take a photo.',
+                      });
+                      return;
+                    }
+                    ImagePicker.launchCamera(
+                      options,
+                      handleImagePickerResponse,
+                    );
+                  })();
+                },
               },
-            },
-            {
-              text: 'Gallery',
-              onPress: () => {
-                ImagePicker.launchImageLibrary(
-                  options,
-                  handleImagePickerResponse,
-                );
+              {
+                text: i18n.t('media.gallery'),
+                onPress: () => {
+                  ImagePicker.launchImageLibrary(
+                    options,
+                    handleImagePickerResponse,
+                  );
+                },
               },
-            },
-            {
-              text: 'Cancel',
-              style: 'cancel',
-              onPress: () => {
-                resolve({
-                  fieldId,
-                  status: 'cancelled',
-                  message: 'Image selection cancelled by user',
-                });
+              {
+                text: i18n.t('common.cancel'),
+                style: 'cancel',
+                onPress: () => {
+                  resolve({
+                    fieldId,
+                    status: 'cancelled',
+                    message: 'Image selection cancelled by user',
+                  });
+                },
               },
-            },
-          ]);
+            ],
+          );
         } catch (error) {
           console.error('Error in native camera handler:', error);
           const errorMessage =

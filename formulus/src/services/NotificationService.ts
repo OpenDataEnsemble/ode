@@ -12,6 +12,7 @@ import {
   getSyncProgressDetailsForDisplay,
   shouldShowSyncProgressCurrentItem,
 } from '../sync/syncProgressUi';
+import { i18n } from '../i18n';
 
 class NotificationService {
   private syncNotificationId = 'sync_progress';
@@ -55,7 +56,7 @@ class NotificationService {
       bodyParts.length > 0
         ? bodyParts.join(' · ')
         : indeterminate
-          ? 'In progress…'
+          ? i18n.t('sync.progress.inProgress')
           : percentage != null
             ? `${percentage}%`
             : 'In progress…';

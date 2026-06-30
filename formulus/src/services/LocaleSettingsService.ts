@@ -5,7 +5,7 @@ import {
   type OdeUiLocale,
   type UiLocalePreference,
 } from '../lib/locale';
-import { AppConfigService } from './AppConfigService';
+import AppConfigService from './AppConfigService';
 
 const STORAGE_KEY = '@ode/uiLocale';
 

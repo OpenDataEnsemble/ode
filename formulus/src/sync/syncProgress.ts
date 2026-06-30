@@ -2,6 +2,8 @@
  * Shared sync progress model for observation sync, attachments, and app bundle.
  */
 
+import { i18n } from '../i18n';
+
 export type SyncProgressPhase =
   | 'pull_observations'
   | 'pull_attachments'
@@ -33,7 +35,10 @@ export function formatCountProgress(done: number, total: number): string {
   if (total <= 0) {
     return '';
   }
-  return `${Math.min(done, total)} of ${total}`;
+  return i18n.t('sync.progress.countOf', {
+    current: Math.min(done, total),
+    total,
+  });
 }
 
 export function syncProgressPercent(progress: SyncProgress): number | null {
@@ -48,16 +53,16 @@ export function syncProgressPercent(progress: SyncProgress): number | null {
 export function syncProgressPhaseTitle(phase: SyncProgressPhase): string {
   switch (phase) {
     case 'pull_observations':
-      return 'Syncing observations';
+      return i18n.t('sync.progress.phase.pull_observations');
     case 'pull_attachments':
-      return 'Downloading attachments';
+      return i18n.t('sync.progress.phase.pull_attachments');
     case 'push_attachments':
-      return 'Uploading attachments';
+      return i18n.t('sync.progress.phase.push_attachments');
     case 'push_observations':
-      return 'Uploading changes';
+      return i18n.t('sync.progress.phase.push_observations');
     case 'app_bundle':
-      return 'Updating forms';
+      return i18n.t('sync.progress.phase.app_bundle');
     default:
-      return 'Syncing';
+      return i18n.t('sync.progress.phase.default');
   }
 }

@@ -3,16 +3,21 @@ import {
   shouldShowSyncProgressCurrentItem,
   shouldShowSyncProgressPercent,
 } from '../syncProgressUi';
+import { ensureI18nForTests } from './i18nTestSetup';
+
+beforeAll(async () => {
+  await ensureI18nForTests();
+});
 
 describe('syncProgressUi', () => {
-  it('maps records to observations for pull_observations display only', () => {
+  it('passes through localized details', () => {
     expect(
       getSyncProgressDetailsForDisplay({
         phase: 'pull_observations',
         current: 0,
         total: 0,
         indeterminate: true,
-        details: '1,500 records downloaded',
+        details: '1,500 observations downloaded',
       }),
     ).toBe('1,500 observations downloaded');
   });

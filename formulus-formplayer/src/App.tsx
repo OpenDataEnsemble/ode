@@ -785,8 +785,12 @@ function App() {
             console.log(
               `Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`,
             );
-            // Apply theme from params so draft selector respects light/dark mode
+            // Apply theme and locale from params so draft selector matches the session
             const params = initData.params;
+            const resolvedLocale = resolveFormplayerLocale(
+              (params as Record<string, unknown> | null)?.locale,
+            );
+            setUiLocale(resolvedLocale);
             const isDarkMode = params?.darkMode === true;
             setDarkMode(isDarkMode);
             if (params?.themeColors && typeof params.themeColors === 'object') {
