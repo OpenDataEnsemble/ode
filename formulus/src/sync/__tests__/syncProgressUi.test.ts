@@ -3,7 +3,7 @@ import {
   shouldShowSyncProgressCurrentItem,
   shouldShowSyncProgressPercent,
 } from '../syncProgressUi';
-import { ensureI18nForTests } from './i18nTestSetup';
+import { ensureI18nForTests } from '../../testUtils/i18nTestSetup';
 
 beforeAll(async () => {
   await ensureI18nForTests();

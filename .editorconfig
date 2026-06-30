@@ -1,0 +1,26 @@
+# EditorConfig — https://editorconfig.org
+# Aligns with .gitattributes (LF in repo). Cursor/VS Code apply this on save when
+# the EditorConfig extension is enabled (built into Cursor/VS Code by default).
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.go]
+indent_style = tab
+indent_size = 4
+
+[*.{bat,cmd}]
+end_of_line = crlf
+
+[Makefile]
+indent_style = tab

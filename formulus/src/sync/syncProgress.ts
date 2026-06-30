@@ -2,7 +2,7 @@
  * Shared sync progress model for observation sync, attachments, and app bundle.
  */
 
-import { i18n } from '../i18n';
+import { i18n } from '../i18n/instance';
 
 export type SyncProgressPhase =
   | 'pull_observations'

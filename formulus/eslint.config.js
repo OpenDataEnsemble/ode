@@ -66,4 +66,12 @@ export default tseslint.config(
       },
     },
   },
+  {
+    files: ['src/testUtils/**/*.{js,mjs}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 );

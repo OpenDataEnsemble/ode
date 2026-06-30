@@ -37,7 +37,7 @@ import {
   type SyncProgress,
   type SyncProgressReporter,
 } from '../../sync/syncProgress';
-import { i18n } from '../../i18n';
+import { i18n } from '../../i18n/instance';
 
 const REPOSITORY_GENERATION_STORAGE_KEY = '@repository_generation';
 

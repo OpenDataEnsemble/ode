@@ -3,6 +3,8 @@ export default {
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   moduleNameMapper: {
     '^@babel/runtime/(.*)$': '<rootDir>/node_modules/@babel/runtime/$1',
+    '^react-native-localize$':
+      '<rootDir>/src/testUtils/mocks/reactNativeLocalize.js',
   },
   // Vendored packages ship their own Jest suites; they are not part of this app.
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/third_party/'],

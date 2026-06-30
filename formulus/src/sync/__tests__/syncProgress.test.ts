@@ -3,7 +3,7 @@ import {
   syncProgressPercent,
   syncProgressPhaseTitle,
 } from '../syncProgress';
-import { ensureI18nForTests } from './i18nTestSetup';
+import { ensureI18nForTests } from '../../testUtils/i18nTestSetup';
 
 beforeAll(async () => {
   await ensureI18nForTests();

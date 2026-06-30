@@ -12,7 +12,7 @@ import {
   getSyncProgressDetailsForDisplay,
   shouldShowSyncProgressCurrentItem,
 } from '../sync/syncProgressUi';
-import { i18n } from '../i18n';
+import { i18n } from '../i18n/instance';
 
 class NotificationService {
   private syncNotificationId = 'sync_progress';

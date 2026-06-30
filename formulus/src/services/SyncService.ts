@@ -19,7 +19,7 @@ import {
   isNumericAppBundleVersionString,
   normalizeAppBundleVersion,
 } from '../utils/appBundleVersion';
-import { i18n } from '../i18n';
+import { i18n } from '../i18n/instance';
 type SyncStatusCallback = (status: string) => void;
 type SyncProgressDetailCallback = (progress: SyncProgress) => void;
 

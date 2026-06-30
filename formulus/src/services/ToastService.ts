@@ -1,5 +1,5 @@
 import { ToastAndroid, Platform, Alert } from 'react-native';
-import { i18n } from '../i18n';
+import { i18n } from '../i18n/instance';
 
 /**
  * Cross-platform toast notification service

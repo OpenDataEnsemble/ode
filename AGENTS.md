@@ -142,7 +142,7 @@ git push origin v1.1.1-alpha.3
 ## CI and code quality
 
 - **Pipelines:** [.github/CICD.md](.github/CICD.md).
-- **Lint/format:** Run the relevant scripts in the **package you touch** (see root [README.md](README.md) and each package).
+- **Lint/format:** Run the relevant scripts in the **package you touch** (see root [README.md](README.md) and each package). On Windows, use LF line endings — root [`.editorconfig`](.editorconfig) and [`.gitattributes`](.gitattributes) match Prettier/CI; run `pnpm run format` in the package if you see `Delete ␍` lint errors.
 - **Pre-flight before opening a PR:** each package `AGENTS.md` lists the local `lint` / `format` / `format:check` / `test` / `build` commands that match CI — run them in every package you changed (e.g. [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md#pre-flight-before-a-pr)).
 - **Commits/PRs:** Conventional Commits and PR expectations are documented in [formulus-formplayer/AGENTS.md](formulus-formplayer/AGENTS.md) (project-wide convention).
 

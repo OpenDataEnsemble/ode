@@ -10,7 +10,7 @@ import RNFS from 'react-native-fs';
 import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
-import { i18n } from '../i18n';
+import { i18n } from '../i18n/instance';
 import * as ImagePicker from 'react-native-image-picker';
 import {
   check,
