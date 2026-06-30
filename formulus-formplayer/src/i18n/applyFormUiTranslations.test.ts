@@ -108,6 +108,23 @@ describe('applyFormUiTranslations', () => {
     expect(out.label).toBe('Label wins');
   });
 
+  it('routes addButtonLabel from translation block into options', () => {
+    const ui = {
+      type: 'Control',
+      scope: '#/properties/quartos',
+      label: 'Rooms',
+      translations: {
+        pt: {
+          addButtonLabel: '+ Adicionar quarto',
+        },
+      },
+    };
+    const out = applyFormUiTranslations(ui, 'pt') as {
+      options?: { addButtonLabel?: string };
+    };
+    expect(out.options?.addButtonLabel).toBe('+ Adicionar quarto');
+  });
+
   it('perf smoke: large form with few translations', () => {
     const elements = Array.from({ length: 200 }, (_, i) => ({
       type: 'Control',

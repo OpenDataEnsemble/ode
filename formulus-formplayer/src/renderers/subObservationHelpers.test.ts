@@ -13,6 +13,7 @@ import {
   optionalRecordMap,
   resolveItemLabel,
   resolveAddButtonLabel,
+  DEFAULT_ADD_BUTTON_COPY,
   resolveEmptyLabel,
   resolveDeleteFallbackLabel,
   mergeSessionIntoSubObservationContext,
@@ -170,32 +171,51 @@ describe('subObservationHelpers', () => {
   });
 
   it('resolveAddButtonLabel uses defaults, itemLabel, and ui override', () => {
-    expect(resolveAddButtonLabel({ itemLabel: null, busy: false })).toBe(
+    const copy = DEFAULT_ADD_BUTTON_COPY;
+    expect(resolveAddButtonLabel({ itemLabel: null, busy: false }, copy)).toBe(
       '+ Add observation',
     );
-    expect(resolveAddButtonLabel({ itemLabel: null, busy: true })).toBe(
+    expect(resolveAddButtonLabel({ itemLabel: null, busy: true }, copy)).toBe(
       'Adding…',
     );
-    expect(resolveAddButtonLabel({ itemLabel: 'quarto', busy: false })).toBe(
-      '+ Add quarto',
-    );
-    expect(resolveAddButtonLabel({ itemLabel: 'quarto', busy: true })).toBe(
-      'Adding quarto…',
-    );
     expect(
-      resolveAddButtonLabel({
-        itemLabel: 'quarto',
-        addButtonLabel: '+ Adicionar quarto',
-        busy: false,
-      }),
+      resolveAddButtonLabel({ itemLabel: 'quarto', busy: false }, copy),
+    ).toBe('+ Add quarto');
+    expect(
+      resolveAddButtonLabel({ itemLabel: 'quarto', busy: true }, copy),
+    ).toBe('Adding quarto…');
+    expect(
+      resolveAddButtonLabel(
+        {
+          itemLabel: 'quarto',
+          addButtonLabel: '+ Adicionar quarto',
+          busy: false,
+        },
+        copy,
+      ),
     ).toBe('+ Adicionar quarto');
     expect(
-      resolveAddButtonLabel({
-        itemLabel: 'quarto',
-        addButtonLabel: '+ Adicionar quarto',
-        busy: true,
-      }),
+      resolveAddButtonLabel(
+        {
+          itemLabel: 'quarto',
+          addButtonLabel: '+ Adicionar quarto',
+          busy: true,
+        },
+        copy,
+      ),
     ).toBe('Adding…');
+  });
+
+  it('resolveAddButtonLabel uses localized copy templates', () => {
+    const ptCopy = {
+      addDefault: '+ Adicionar observação',
+      addWithItem: '+ Adicionar {{itemLabel}}',
+      adding: 'A adicionar…',
+      addingWithItem: 'A adicionar {{itemLabel}}…',
+    };
+    expect(
+      resolveAddButtonLabel({ itemLabel: 'quarto', busy: false }, ptCopy),
+    ).toBe('+ Adicionar quarto');
   });
 
   it('resolveEmptyLabel and resolveDeleteFallbackLabel respect itemLabel', () => {

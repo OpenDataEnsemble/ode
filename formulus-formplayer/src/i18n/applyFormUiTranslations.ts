@@ -9,15 +9,16 @@ const TRANSLATABLE_TOP_KEYS = new Set([
   'headerTitle',
   'nextButtonLabel',
   'finalizeButtonLabel',
-  'addButtonLabel',
 ]);
 
-/** Keys that live under options on SwipeLayout / Control. */
+/** Keys that live under `options` on SwipeLayout / Control. */
 const SWIPE_OPTION_KEYS = new Set([
   'headerTitle',
   'nextButtonLabel',
   'finalizeButtonLabel',
 ]);
+
+const CONTROL_OPTION_KEYS = new Set(['addButtonLabel']);
 
 function hasTranslationsSubtree(node: unknown): boolean {
   if (!node || typeof node !== 'object') return false;
@@ -153,6 +154,13 @@ function applyBlockToNode(
       continue;
     }
     if (SWIPE_OPTION_KEYS.has(key)) {
+      out.options = {
+        ...((out.options as Record<string, unknown>) ?? {}),
+        [key]: val,
+      };
+      continue;
+    }
+    if (CONTROL_OPTION_KEYS.has(key)) {
       out.options = {
         ...((out.options as Record<string, unknown>) ?? {}),
         [key]: val,

@@ -4,7 +4,7 @@
  * `openFormplayer` with `subObservationMode`.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useMemo, useState } from 'react';
 import { withJsonFormsControlProps, useJsonForms } from '@jsonforms/react';
 import { ControlProps, rankWith, schemaMatches } from '@jsonforms/core';
 import { Box, Typography, Button, IconButton, Tooltip } from '@mui/material';
@@ -14,6 +14,8 @@ import QuestionShell from '../components/QuestionShell';
 import FormulusClient from '../services/FormulusInterface';
 import type { FormCompletionResult } from '../types/FormulusInterfaceDefinition';
 import { useFormContext } from '../App';
+import { FormplayerLocaleContext } from '../i18n/FormplayerLocaleContext';
+import { odeT } from '../i18n/createOdeI18n';
 import { tokens } from '../theme/tokens-adapter';
 import {
   mergeSubObservationColumnDefs,
@@ -204,6 +206,26 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
 
   const itemLabel = useMemo(() => resolveItemLabel(config), [config]);
 
+  const locale = useContext(FormplayerLocaleContext);
+
+  const addButtonCopy = useMemo(
+    () => ({
+      addDefault: odeT(locale, 'subObservation.add', '+ Add observation'),
+      addWithItem: odeT(
+        locale,
+        'subObservation.addItem',
+        '+ Add {{itemLabel}}',
+      ),
+      adding: odeT(locale, 'subObservation.adding', 'Adding…'),
+      addingWithItem: odeT(
+        locale,
+        'subObservation.addingItem',
+        'Adding {{itemLabel}}…',
+      ),
+    }),
+    [locale],
+  );
+
   const addButtonLabelOverride = useMemo(() => {
     const opts = (uischema as { options?: { addButtonLabel?: unknown } })
       ?.options;
@@ -212,12 +234,15 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
 
   const addButtonText = useMemo(
     () =>
-      resolveAddButtonLabel({
-        itemLabel,
-        addButtonLabel: addButtonLabelOverride,
-        busy: busyId === 'add',
-      }),
-    [itemLabel, addButtonLabelOverride, busyId],
+      resolveAddButtonLabel(
+        {
+          itemLabel,
+          addButtonLabel: addButtonLabelOverride,
+          busy: busyId === 'add',
+        },
+        addButtonCopy,
+      ),
+    [itemLabel, addButtonLabelOverride, busyId, addButtonCopy],
   );
 
   const emptyLabel = useMemo(() => resolveEmptyLabel(itemLabel), [itemLabel]);
@@ -519,17 +544,16 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
                 ))}
                 <Box
                   component="th"
+                  scope="col"
                   sx={{
-                    textAlign: 'left',
                     px: 1.5,
                     py: 1.25,
                     backgroundColor: 'action.hover',
                     borderBottom: `${tokens.border.width.thin} solid`,
                     borderColor: 'divider',
                     width: 140,
-                  }}>
-                  Actions
-                </Box>
+                  }}
+                />
               </Box>
             </Box>
             <Box component="tbody">
