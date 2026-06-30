@@ -75,7 +75,7 @@ vi.mock('./lib/tauriClient', () => ({
       .fn()
       .mockResolvedValue('/tmp/custodian-ws/bundles/app-bundle.zip'),
     getAppBundleState: vi.fn().mockResolvedValue(null),
-    applyAppBundleDownload: vi.fn(),
+    downloadAndApplyAppBundle: vi.fn(),
     listActiveBundleForms: vi.fn().mockResolvedValue([]),
     readBundleFormSpec: vi.fn(),
     removeWorkspaceAttachment: vi.fn(),

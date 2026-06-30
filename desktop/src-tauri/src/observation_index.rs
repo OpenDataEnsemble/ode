@@ -148,6 +148,7 @@ fn scalar_to_columns(val: &Value, value_type: Option<&str>) -> (Option<String>, 
 pub fn rebuild_all_indexes(
     conn: &Connection,
     defs: &[ObservationIndexDef],
+    mut progress: Option<&mut dyn FnMut(i64, i64)>,
 ) -> rusqlite::Result<i64> {
     let active: i64 = conn.query_row(
         "SELECT active_generation FROM observation_index_meta WHERE id = 1",
@@ -166,6 +167,11 @@ pub fn rebuild_all_indexes(
         params![new_gen],
     )?;
 
+    let total: i64 = conn.query_row("SELECT COUNT(*) FROM observations", [], |r| r.get(0))?;
+    if let Some(ref mut cb) = progress {
+        cb(0, total);
+    }
+
     let mut stmt = conn.prepare("SELECT id, form_type, payload FROM observations")?;
     let rows = stmt.query_map([], |row| {
         Ok((
@@ -175,10 +181,17 @@ pub fn rebuild_all_indexes(
         ))
     })?;
 
+    let mut done = 0i64;
     for row in rows {
         let (id, form_type, payload) = row?;
         let ft = form_type.unwrap_or_default();
         reindex_observation(conn, &id, &ft, &payload, defs, new_gen)?;
+        done += 1;
+        if let Some(ref mut cb) = progress {
+            if total == 0 || done == total || done % 50 == 0 {
+                cb(done, total);
+            }
+        }
     }
 
     recreate_sqlite_indexes(conn, defs)?;
@@ -429,7 +442,7 @@ mod tests {
             [],
         )
         .unwrap();
-        let gen1 = rebuild_all_indexes(&conn, &defs).unwrap();
+        let gen1 = rebuild_all_indexes(&conn, &defs, None).unwrap();
         assert_eq!(gen1, 2);
         let active: i64 = active_generation(&conn).unwrap();
         assert_eq!(active, 2);

@@ -218,6 +218,29 @@ export interface AppBundleState {
   archivedVersions: string[];
 }
 
+export interface DownloadAndApplyAppBundleResult {
+  state: AppBundleState;
+  indexRebuildScheduled: boolean;
+}
+
+export type BundleApplyPhase =
+  | 'downloading'
+  | 'archiving'
+  | 'extracting'
+  | 'indexing'
+  | 'completed'
+  | 'failed';
+
+/** Rust `bundle/apply-progress` and `bundle/index-rebuild` payloads. */
+export interface BundleApplyProgressPayload {
+  jobId: string;
+  phase: BundleApplyPhase;
+  done: number;
+  total: number;
+  message: string;
+  detail?: string;
+}
+
 /** One form folder under `bundles/active/forms/` (or `bundles/active/app/forms/`). */
 export interface ActiveBundleFormEntry {
   formType: string;
