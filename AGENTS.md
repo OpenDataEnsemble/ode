@@ -39,7 +39,7 @@ flowchart LR
 | Profile | Typical focus | Where to work |
 |--------|----------------|---------------|
 | **Platform developer** | You are editing **this repo**: RN, Go, React, shared packages, CI. | Package `AGENTS.md` below. |
-| **Custom app author** | You ship an **HTML/JS/CSS** app bundle and JSON forms for Formulus; you may **not** clone this monorepo. | [Custom app template (AI + author context)](https://github.com/OpenDataEnsemble/custom_app) and [documentation](https://opendataensemble.org/docs/). |
+| **Custom app author** | You ship an **HTML/JS/CSS** app bundle and JSON forms for Formulus; you may **not** clone this monorepo. | [Custom app template (AI + author context)](https://github.com/OpenDataEnsemble/custom_app), [documentation](https://opendataensemble.org/docs/), and [FORM_LOCALIZATION_GUIDE.md](FORM_LOCALIZATION_GUIDE.md) for form i18n. |
 
 Do not assume custom app authors have local checkouts of **ODE** or internal example repos.
 
@@ -135,7 +135,7 @@ git push origin v1.1.1-alpha.3
 - **Custom app bridge (v1.1.0+):** `persistObservation` (headless write), `sync`, `getConnectivityStatus`, `getCurrentDataRevisionCount`, and `openFormplayer` options `skipFinalize` / `skipDraftSelection` — contract in [`FormulusInterfaceDefinition.ts`](formulus/src/webview/FormulusInterfaceDefinition.ts); run `pnpm run sync-interface` in formplayer after changes.
 - **Sub-observations:** Each nested Formplayer session validates its own schema; `skipFinalize` only skips the Finalize page. Custom validators are per-session — see [Custom Extensions — nested sessions](https://opendataensemble.org/docs/guides/custom-extensions#nested-sessions-and-custom-validators) (docs site).
 - **Shared UI tokens:** Install **tokens** before **components** / **formplayer** where the docs require it (see package READMEs and formplayer AGENTS).
-- **i18n (two layers):** ODE-owned locales (`en`/`pt`/`fr`) for Formulus + Formplayer chrome via Settings → Language; form-owned copy via optional `translations` on `ui.json` elements (preprocessed at form init). See [form translations guide](https://opendataensemble.org/docs/guides/form-translations).
+- **i18n (two layers):** ODE-owned locales (`en`/`pt`/`fr`) for Formulus + Formplayer chrome via Settings → Language; form-owned copy via optional `translations` on `ui.json` elements (preprocessed at form init). See [FORM_LOCALIZATION_GUIDE.md](FORM_LOCALIZATION_GUIDE.md) (monorepo) and [form translations guide](https://opendataensemble.org/docs/guides/form-translations) (published).
 
 ---
 
@@ -157,5 +157,7 @@ ODE Desktop ships in [`desktop/`](desktop/) (see [desktop/AGENTS.md](desktop/AGE
 ## Custom app authors (pointer)
 
 Authoritative **public** documentation: [opendataensemble.org](https://opendataensemble.org/docs/).
+
+Form localization (embedded `ui.json` translations): [FORM_LOCALIZATION_GUIDE.md](FORM_LOCALIZATION_GUIDE.md).
 
 Optional **AI-focused** context (no ODE clone required): [custom_app](https://github.com/OpenDataEnsemble/custom_app) on GitHub (`README.md`, `AGENTS.md`, `CONTEXT_*.md`).
