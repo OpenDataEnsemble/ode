@@ -8,6 +8,7 @@ import {
   type UISchemaElement,
 } from '@jsonforms/core';
 import type { BlockingValidationError } from './validationNavigation';
+import { resolveFieldLabel } from './controlDisplayText';
 
 function escapeRegex(segment: string): string {
   return segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -185,11 +186,17 @@ function titleAtSchemaPath(
 export function titleForErrorPath(
   errorPath: string,
   schema: JsonSchema7 | undefined,
+  uischema?: UISchemaElement,
 ): string | null {
   const normalized = normalizeErrorInstancePath(errorPath);
   const propertyPath = normalized
     .split('/')
     .filter(segment => segment && !/^\d+$/.test(segment));
+
+  if (uischema && propertyPath.length === 1) {
+    return resolveFieldLabel(schema, uischema, propertyPath[0]!);
+  }
+
   return titleAtSchemaPath(schema, propertyPath);
 }
 
@@ -205,6 +212,7 @@ export function formatBlockingErrorSummary(
   schema: JsonSchema7 | undefined,
   maxTitles = 3,
   t?: OdeTranslateFn,
+  uischema?: UISchemaElement,
 ): string {
   const tr: OdeTranslateFn = t ?? ((_, def) => def ?? '');
   if (errors.length === 0) return '';
@@ -213,7 +221,7 @@ export function formatBlockingErrorSummary(
   for (const err of errors) {
     const path =
       err.instancePath ?? (typeof err.path === 'string' ? err.path : undefined);
-    const title = path ? titleForErrorPath(path, schema) : null;
+    const title = path ? titleForErrorPath(path, schema, uischema) : null;
     const label = title || err.message;
     if (label && !titles.includes(label)) titles.push(label);
     if (titles.length >= maxTitles) break;

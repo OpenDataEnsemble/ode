@@ -29,6 +29,21 @@ describe('buildFormPreviewInit', () => {
     });
     expect(init.subObservationMode).toBe(true);
   });
+
+  it('forwards linkedFormSpecs when provided', () => {
+    const linked = {
+      child: { schema: { type: 'object' }, uiSchema: {} },
+    };
+    const init = buildFormPreviewInit({
+      formType: 'Parent',
+      params: {},
+      savedData: {},
+      formSchema: {},
+      uiSchema: {},
+      linkedFormSpecs: linked,
+    });
+    expect(init.linkedFormSpecs).toEqual(linked);
+  });
 });
 
 describe('inferObservationIdFromSavedData', () => {

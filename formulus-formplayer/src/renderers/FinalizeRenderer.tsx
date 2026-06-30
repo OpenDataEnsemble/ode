@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from 'react';
+import React, { useContext, useMemo, useCallback } from 'react';
 import { Box, List, ListItem, Typography, IconButton } from '@mui/material';
 import { tokens } from '../theme/tokens-adapter';
 import { Button } from '@ode/components/react-web';
@@ -13,6 +13,7 @@ import { useOdeT } from '../i18n/useOdeT';
 import { translateAjvError } from '../i18n/createOdeI18n';
 import { FormplayerLocaleContext } from '../i18n/FormplayerLocaleContext';
 import { titleForErrorPath } from '../utils/errorPageNavigation';
+import { resolveFieldLabel } from '../utils/controlDisplayText';
 import type { JsonSchema7 } from '@jsonforms/core';
 
 interface SummaryItem {
@@ -31,18 +32,25 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
   const errors = core?.errors || [];
   const { formInitData } = useFormContext();
   const fullSchema = core?.schema;
-  const fullUISchema = formInitData?.uiSchema;
+  const localizedUiSchema = core?.uischema;
+  const fullUISchema = localizedUiSchema ?? formInitData?.uiSchema;
 
-  // Helper function to get field label from schema
-  const getFieldLabel = (fieldPath: string, fieldSchema: any): string => {
-    if (!fieldSchema) return fieldPath;
-    return (
-      fieldSchema.title ||
-      fieldSchema.description ||
-      fieldPath.split('/').pop() ||
-      fieldPath
-    );
-  };
+  const getFieldLabel = useCallback(
+    (fullPath: string, fieldSchema: any): string => {
+      const normalized = fullPath.replace(/^#\/properties\//, '');
+      const segments = normalized.split('/').filter(Boolean);
+      const key = segments[segments.length - 1] || normalized;
+      if (segments.length === 1 && key) {
+        return resolveFieldLabel(
+          fullSchema as JsonSchema7 | undefined,
+          localizedUiSchema,
+          key,
+        );
+      }
+      return fieldSchema?.title || fieldSchema?.description || key || fullPath;
+    },
+    [fullSchema, localizedUiSchema],
+  );
 
   // Helper function to format field value based on type
   const formatFieldValue = (value: any, fieldSchema: any): string => {
@@ -258,12 +266,13 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
     extractFields(fullSchema, data);
 
     return items;
-  }, [fullSchema, data, findFieldPageMemo]);
+  }, [fullSchema, data, findFieldPageMemo, getFieldLabel]);
 
   const formatErrorMessage = (error: ErrorObject) => {
     const title = titleForErrorPath(
       error.instancePath,
       fullSchema as JsonSchema7 | undefined,
+      localizedUiSchema,
     );
     const translated = translateAjvError(locale, error);
     return title ? `${title}: ${translated}` : translated;

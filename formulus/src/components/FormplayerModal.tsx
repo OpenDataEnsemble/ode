@@ -39,7 +39,8 @@ import {
   odeBorderWidth,
   odeFormplayerHeaderHeight,
 } from '../theme/odeDesign';
-import { FormSpec } from '../services'; // FormService will be imported directly
+import { FormSpec, FormService } from '../services';
+import { collectLinkedFormIds } from '../utils/collectLinkedFormIds';
 import { ExtensionService } from '../services/ExtensionService';
 import RNFS from 'react-native-fs';
 import { useAppTheme } from '../contexts/AppThemeContext';
@@ -48,6 +49,30 @@ import { geolocationService } from '../services/GeolocationService';
 import { persistObservationWithAttachments } from '../services/attachmentStorage';
 import { localeSettingsService } from '../services/LocaleSettingsService';
 import { useTranslation } from 'react-i18next';
+
+async function buildLinkedFormSpecs(
+  schema: unknown,
+): Promise<FormInitData['linkedFormSpecs']> {
+  const linkedIds = collectLinkedFormIds(schema);
+  if (linkedIds.size === 0) return undefined;
+
+  try {
+    const formService = await FormService.getInstance();
+    const specs: NonNullable<FormInitData['linkedFormSpecs']> = {};
+    for (const id of linkedIds) {
+      const spec = formService.getFormSpecById(id);
+      if (!spec?.schema) continue;
+      specs[id] = {
+        schema: spec.schema,
+        uiSchema: spec.uiSchema ?? {},
+      };
+    }
+    return Object.keys(specs).length > 0 ? specs : undefined;
+  } catch (error) {
+    console.warn('[FormplayerModal] Failed to load linked form specs:', error);
+    return undefined;
+  }
+}
 
 interface FormplayerModalProps {
   visible: boolean;
@@ -477,6 +502,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
         subObservationMode,
         skipFinalize,
         skipDraftSelection,
+        linkedFormSpecs: await buildLinkedFormSpecs(formType.schema),
       } as FormInitData;
 
       if (!webViewRef.current) {

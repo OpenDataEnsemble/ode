@@ -85,7 +85,7 @@ Developer mode on with missing/invalid folder → blocking error in UI; no silen
 ## Bridge and bundles
 
 - **Contract source of truth:** [`formulus/src/webview/FormulusInterfaceDefinition.ts`](../formulus/src/webview/FormulusInterfaceDefinition.ts).
-- **Form preview:** `formPreviewBridge.ts` handles injection `postMessage` types; device APIs stubbed; observations/attachments use Tauri.
+- **Form preview:** `formPreviewBridge.ts` handles injection `postMessage` types; device APIs stubbed; observations/attachments use Tauri. **`linkedFormSpecs`** on `FormInitData` is populated via `buildLinkedFormSpecs` (see `buildFormPreviewInit.ts`) so sub-observation column headers match Formulus.
 - **Extensions:** `bundleExtensionLoader.ts` merges `forms/ext.json` like Formulus `ExtensionService`; pass `developerMode` for path prefix.
 
 ---

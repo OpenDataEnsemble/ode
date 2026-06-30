@@ -14,7 +14,11 @@ import {
   materialRenderers,
   materialCells,
 } from '@jsonforms/material-renderers';
-import { JsonSchema7, JsonFormsRendererRegistryEntry } from '@jsonforms/core';
+import {
+  JsonSchema7,
+  JsonFormsRendererRegistryEntry,
+  UISchemaElement,
+} from '@jsonforms/core';
 import {
   Alert,
   Snackbar,
@@ -47,6 +51,7 @@ import {
 } from './utils/stickyFieldHelpers';
 import { stickyService } from './services/StickyService';
 import { applyFormUiTranslations } from './i18n/applyFormUiTranslations';
+import { LinkedFormSpecsMap } from './utils/controlDisplayText';
 import { createOdeI18n } from './i18n/createOdeI18n';
 import { odeT } from './i18n/createOdeI18n';
 import { resolveFormplayerLocale, type OdeUiLocale } from './i18n/localeUtils';
@@ -156,6 +161,30 @@ function isMockActive(): boolean {
     typeof window !== 'undefined' &&
     (window as any).__FORMULUS_MOCK_ACTIVE__
   );
+}
+
+/** When formplayer runs outside a native WebView (and dev mock is off), fail fast without an effect. */
+function getStandaloneBrowserInitState(): {
+  isLoading: boolean;
+  loadError: string | null;
+} {
+  if (typeof window === 'undefined') {
+    return { isLoading: true, loadError: null };
+  }
+  if (window.ReactNativeWebView?.postMessage) {
+    return { isLoading: true, loadError: null };
+  }
+  if (isMockActive()) {
+    return { isLoading: true, loadError: null };
+  }
+  return {
+    isLoading: false,
+    loadError: odeT(
+      'en',
+      'form.noNativeHost',
+      'Cannot communicate with native host. Formplayer might be running in a standalone browser.',
+    ),
+  };
 }
 const DevTestbedLazy = import.meta.env.DEV
   ? React.lazy(() => import('./mocks/DevTestbed'))
@@ -296,6 +325,27 @@ interface FormContextType {
    * debounce races where `handleChange` alone does not reach `onChange` in time.
    */
   commitFormData?: (data: Record<string, unknown>) => void;
+  /** Localized specs for linked child forms (sub-observation column labels). */
+  linkedFormSpecs?: LinkedFormSpecsMap;
+}
+
+function prepareLinkedFormSpecs(
+  raw: FormInitData['linkedFormSpecs'],
+  locale: string,
+): LinkedFormSpecsMap {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: LinkedFormSpecsMap = {};
+  for (const [id, spec] of Object.entries(raw)) {
+    if (!spec || typeof spec !== 'object') continue;
+    const schema = spec.schema as JsonSchema7 | undefined;
+    const uiRaw = spec.uiSchema as UISchemaElement | undefined;
+    if (!schema || !uiRaw) continue;
+    out[id] = {
+      schema,
+      uiSchema: applyFormUiTranslations(uiRaw, locale) as UISchemaElement,
+    };
+  }
+  return out;
 }
 
 export const FormContext = createContext<FormContextType>({
@@ -303,6 +353,7 @@ export const FormContext = createContext<FormContextType>({
   keyboardEnterKeyHint: undefined,
   draftSessionKey: null,
   commitFormData: undefined,
+  linkedFormSpecs: undefined,
 });
 
 export const useFormContext = () => useContext(FormContext);
@@ -355,8 +406,12 @@ function App() {
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [uischema, setUISchema] = useState<FormUISchema | null>(null);
 
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    () => getStandaloneBrowserInitState().isLoading,
+  );
+  const [loadError, setLoadError] = useState<string | null>(
+    () => getStandaloneBrowserInitState().loadError,
+  );
   const [showFinalizeMessage, setShowFinalizeMessage] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
@@ -397,12 +452,19 @@ function App() {
     'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
   >('ValidateAndShow');
   const [uiLocale, setUiLocale] = useState<OdeUiLocale>('en');
+  const uiLocaleRef = useRef(uiLocale);
+  uiLocaleRef.current = uiLocale;
+  const [linkedFormSpecs, setLinkedFormSpecs] = useState<
+    LinkedFormSpecsMap | undefined
+  >(undefined);
 
   const odeI18n = useMemo(() => createOdeI18n(uiLocale), [uiLocale]);
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
-  const isLoadingRef = useRef<boolean>(true); // Use a ref to track loading state for the timeout
+  const isLoadingRef = useRef<boolean>(
+    getStandaloneBrowserInitState().isLoading,
+  );
 
   // Separate function to handle actual form initialization
   const initializeForm = useCallback(
@@ -442,6 +504,9 @@ function App() {
           (params as Record<string, unknown> | null)?.locale,
         );
         setUiLocale(resolvedLocale);
+        setLinkedFormSpecs(
+          prepareLinkedFormSpecs(initData.linkedFormSpecs, resolvedLocale),
+        );
 
         // Debug: log schema details, especially x-dynamicEnum usage
         try {
@@ -850,9 +915,7 @@ function App() {
 
     globalAny.__formplayerOnInitRegistered = true;
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoading(true);
-    isLoadingRef.current = true;
+    // isLoading / isLoadingRef already start true (see useState/useRef above).
 
     console.log('Registering window.onFormInit handler.');
     globalAny.onFormInit = handleFormInitByNative;
@@ -874,30 +937,10 @@ function App() {
       console.log('Debug - NODE_ENV:', process.env.NODE_ENV);
       console.log('Debug - isMockActive():', isMockActive());
       console.log('Debug - isLoadingRef.current:', isLoadingRef.current);
-
-      // Potentially set an error or handle standalone mode if WebView context isn't available
-      // For example, if running in a standard browser for development
-      if (isLoadingRef.current) {
-        // Avoid setting error if already handled by timeout or success
-        if (isMockActive()) {
-          console.log(
-            'Development mode: WebView mock is active, continuing without error',
-          );
-          // Don't set error in development mode when mock is active
-        } else {
-          console.log(
-            'Setting error message because mock is not active or not in development',
-          );
-          setLoadError(
-            odeT(
-              uiLocale,
-              'form.noNativeHost',
-              'Cannot communicate with native host. Formplayer might be running in a standalone browser.',
-            ),
-          );
-          setIsLoading(false);
-          isLoadingRef.current = false;
-        }
+      if (!isMockActive() && isLoadingRef.current) {
+        console.log(
+          'Standalone browser without native host (load error set at init).',
+        );
       }
     }
 
@@ -923,7 +966,7 @@ function App() {
             );
             setLoadError(
               odeT(
-                uiLocale,
+                uiLocaleRef.current,
                 'form.initTimeout',
                 'Failed to initialize form: No data received from native host. Please try again.',
               ),
@@ -957,7 +1000,7 @@ function App() {
         console.log('Unregistered window.onFormInit handler.');
       }
     };
-  }, [handleFormInitByNative, uiLocale]);
+  }, [handleFormInitByNative]);
 
   // Attachment handling is now fully encapsulated within individual components
   // using the Promise-based media/action APIs exposed by Formulus.
@@ -1433,7 +1476,12 @@ function App() {
     <ThemeProvider theme={currentTheme}>
       <FormplayerLocaleContext.Provider value={uiLocale}>
         <FormContext.Provider
-          value={{ formInitData, draftSessionKey, commitFormData }}>
+          value={{
+            formInitData,
+            draftSessionKey,
+            commitFormData,
+            linkedFormSpecs,
+          }}>
           <div
             className="App"
             style={{

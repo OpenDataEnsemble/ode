@@ -44,6 +44,7 @@ import {
 } from '../utils/autofocusHelpers';
 import { navigateToFirstBlockingError } from '../utils/validationNavigation';
 import { formatBlockingErrorSummary } from '../utils/errorPageNavigation';
+import { resolveFieldLabel } from '../utils/controlDisplayText';
 import { useOdeT } from '../i18n/useOdeT';
 
 // ---------------------------------------------------------------------------
@@ -444,8 +445,9 @@ const SwipeLayoutRenderer = ({
       (core?.schema ?? schema) as JsonSchema7,
       3,
       t,
+      uischema,
     );
-  }, [core?.errors, core?.schema, schema, t]);
+  }, [core?.errors, core?.schema, schema, t, uischema]);
 
   const trySubmitForm = useCallback(() => {
     if (!formInitData) return;
@@ -594,8 +596,11 @@ const SwipeLayoutRenderer = ({
                     borderTop: `1px solid ${theme.palette.divider}`,
                   })}>
                   {headerFields.map((fieldKey: string) => {
-                    const fieldSchema = (schema as any)?.properties?.[fieldKey];
-                    const label = fieldSchema?.title || fieldKey;
+                    const label = resolveFieldLabel(
+                      schema as JsonSchema7 | undefined,
+                      uischema,
+                      fieldKey,
+                    );
                     const value = data?.[fieldKey];
                     const displayValue =
                       value != null && value !== '' ? String(value) : '—';

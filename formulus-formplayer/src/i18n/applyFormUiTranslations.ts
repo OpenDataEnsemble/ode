@@ -137,6 +137,9 @@ function applyBlockToNode(
       : {};
 
   for (const [key, val] of Object.entries(block)) {
+    if (key === 'title') {
+      continue;
+    }
     if (
       key === 'options' &&
       val &&
@@ -159,6 +162,17 @@ function applyBlockToNode(
     if (TRANSLATABLE_TOP_KEYS.has(key)) {
       out[key] = val;
     }
+  }
+
+  const blockLabel = block.label;
+  const blockTitle = block.title;
+  if (typeof blockLabel === 'string') {
+    out.label = blockLabel;
+  } else if (
+    typeof blockTitle === 'string' &&
+    (out.label === undefined || out.label === null)
+  ) {
+    out.label = blockTitle;
   }
 
   return out;

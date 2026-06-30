@@ -9,6 +9,10 @@ import { withJsonFormsControlProps } from '@jsonforms/react';
 import { MuiInputText } from '@jsonforms/material-renderers';
 import QuestionShell from '../components/QuestionShell';
 import { useFormContext } from '../App';
+import {
+  resolveControlDescription,
+  resolveControlLabel,
+} from '../utils/controlDisplayText';
 
 /**
  * String control that renders the stock MuiInputText cell inside QuestionShell
@@ -17,13 +21,12 @@ import { useFormContext } from '../App';
  */
 const ShellInputControl = (props: ControlProps) => {
   const { keyboardEnterKeyHint } = useFormContext();
-  const { uischema, schema, errors, label, visible, required } = props;
+  const { uischema, schema, errors, visible, required } = props;
 
   if (visible === false) return null;
 
-  const title =
-    (uischema as { label?: string })?.label || schema?.title || label;
-  const description = schema?.description;
+  const title = resolveControlLabel(props);
+  const description = resolveControlDescription(props) ?? schema?.description;
   const isRequired = Boolean(
     (uischema as { options?: { required?: boolean } })?.options?.required ??
     required,

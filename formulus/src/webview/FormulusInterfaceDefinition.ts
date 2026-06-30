@@ -67,6 +67,17 @@ export interface FormInitData {
     custom_types: Record<string, { source: string }>;
     validators?: Record<string, { source: string }>;
   };
+  /**
+   * Linked child form specs for sub-observation column label resolution.
+   * Keys are form type ids (`linkedForm` values). Populated by Formulus at open time.
+   */
+  linkedFormSpecs?: Record<
+    string,
+    {
+      schema: unknown;
+      uiSchema: unknown;
+    }
+  >;
 }
 
 /**

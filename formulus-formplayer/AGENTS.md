@@ -70,6 +70,9 @@ Two **independent** layers:
 
 - Host passes `params.locale` (reserved bridge key, not observation data).
 - Custom question types receive localized `options` from `ui.json` via `CustomQuestionTypeAdapter`.
+- Display labels: `src/utils/controlDisplayText.ts` (`resolveControlLabel`, `resolveFieldLabel`) — use in renderers, SwipeLayout `headerFields`, Finalize, and error summaries instead of ad-hoc `uischema.label || schema.title`.
+- `translations.<locale>.title` aliases to `Control.label` when `label` is absent in that block.
+- Sub-observation column headers: `key` in schema; labels resolved from linked child form via `linkedFormSpecs` on `FormInitData` (Formulus loads at open). See `subObservationColumnLabels.ts`.
 - Docs: [form translations](https://opendataensemble.org/docs/guides/form-translations).
 
 6. **Numeric inputs** (`type: integer` / `type: number`): Built-in control is **`NumberStepperRenderer`** (`src/renderers/NumberStepperRenderer.tsx`) backed by **`useNumericDraftInput`** (`src/hooks/useNumericDraftInput.ts`). Policy: **draft text while focused** (`type="text"` + `inputMode` + `enterKeyHint` from `FormContext`); observation JSON stores **JSON numbers only** (parse on commit, never strings); **never clamp** to `minimum`/`maximum` while typing—surface AJV errors instead. Custom numeric question types must follow the same contract (see `CustomQuestionTypeContract.ts`).

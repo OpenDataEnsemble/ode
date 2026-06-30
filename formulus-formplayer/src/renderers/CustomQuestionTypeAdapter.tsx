@@ -12,6 +12,10 @@ import type { ControlProps } from '@jsonforms/core';
 import QuestionShell from '../components/QuestionShell';
 import type { CustomQuestionTypeProps } from '../types/CustomQuestionTypeContract';
 import { formatControlErrors } from '../utils/formatControlErrors';
+import {
+  resolveControlDescription,
+  resolveControlLabel,
+} from '../utils/controlDisplayText';
 import { useOdeT } from '../i18n/useOdeT';
 
 interface ErrorBoundaryLabels {
@@ -120,19 +124,20 @@ export function createCustomQuestionTypeRenderer(
   formatName: string,
   CustomComponent: React.ComponentType<CustomQuestionTypeProps>,
 ): React.ComponentType {
-  const AdapterInner: React.FC<ControlProps> = ({
-    data,
-    handleChange,
-    path,
-    schema,
-    uischema,
-    errors,
-    enabled,
-    label,
-    description,
-    required,
-    visible,
-  }) => {
+  const AdapterInner: React.FC<ControlProps> = props => {
+    const {
+      data,
+      handleChange,
+      path,
+      schema,
+      uischema,
+      errors,
+      enabled,
+      label,
+      description,
+      required,
+      visible,
+    } = props;
     const t = useOdeT();
     const errorBoundaryLabels = {
       title: t('cqt.errorTitle', 'Custom Question Type Error'),
@@ -271,8 +276,8 @@ export function createCustomQuestionTypeRenderer(
 
     return (
       <QuestionShell
-        title={label}
-        description={description}
+        title={resolveControlLabel(props)}
+        description={resolveControlDescription(props)}
         required={required}
         error={errorMessage || null}>
         <CustomQuestionErrorBoundary

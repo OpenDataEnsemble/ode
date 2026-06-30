@@ -86,6 +86,28 @@ describe('applyFormUiTranslations', () => {
     expect(out.text).toBe('Olá');
   });
 
+  it('maps translations.title to label when label absent', () => {
+    const ui = {
+      type: 'Control',
+      scope: '#/properties/codigo',
+      translations: { pt: { title: 'Digitalizar código do envelope' } },
+    };
+    const out = applyFormUiTranslations(ui, 'pt') as { label?: string };
+    expect(out.label).toBe('Digitalizar código do envelope');
+  });
+
+  it('prefers translations.label over translations.title', () => {
+    const ui = {
+      type: 'Control',
+      scope: '#/properties/codigo',
+      translations: {
+        pt: { label: 'Label wins', title: 'Title loses' },
+      },
+    };
+    const out = applyFormUiTranslations(ui, 'pt') as { label?: string };
+    expect(out.label).toBe('Label wins');
+  });
+
   it('perf smoke: large form with few translations', () => {
     const elements = Array.from({ length: 200 }, (_, i) => ({
       type: 'Control',

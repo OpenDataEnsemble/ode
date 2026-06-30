@@ -6,7 +6,7 @@ import {
   type FormplayerEmbedHandle,
 } from '../components/FormplayerEmbed';
 import {
-  buildFormPreviewInit,
+  buildFormPreviewInitFromBundleSpec,
   inferObservationIdFromSavedData,
   parseJsonObject,
 } from '../lib/buildFormPreviewInit';
@@ -155,6 +155,8 @@ export function FormPreviewPage() {
     }
   }, []);
 
+  const prevDevMirrorGenerationRef = useRef(devMirrorGeneration);
+
   useEffect(() => {
     void loadForms();
   }, [loadForms, devMirrorGeneration]);
@@ -170,19 +172,59 @@ export function FormPreviewPage() {
         s.formType,
         developerMode,
       );
-      return buildFormPreviewInit({
-        formType: s.formType,
+      return buildFormPreviewInitFromBundleSpec({
+        spec: s,
         observationId,
         params,
         savedData,
-        formSchema: s.formSchema,
-        uiSchema: s.uiSchema,
         extensions: ext.extensions,
         customQuestionTypes: ext.customQuestionTypes,
+        loadLinkedFormSpec: ft => tauriClient.readBundleFormSpec(ft),
       });
     },
     [developerMode],
   );
+
+  /** Re-read schema/ui/extensions from the (dev) bundle and remount formplayer. */
+  const reloadActivePreview = useCallback(async () => {
+    const formType = selectedFormType.trim();
+    if (!formType) {
+      return;
+    }
+    const p = parseJsonObject(paramsJson, 'params');
+    const sv = parseJsonObject(savedJson, 'savedData');
+    if (!p.ok || !sv.ok) {
+      return;
+    }
+    try {
+      const s = await tauriClient.readBundleFormSpec(formType);
+      setSpec(s);
+      setSpecError(null);
+      setFormInitData(
+        await buildInitFromSpec(s, p.value, sv.value, previewObservationId),
+      );
+    } catch (e) {
+      setSpecError(e instanceof Error ? e.message : String(e));
+    }
+  }, [
+    selectedFormType,
+    paramsJson,
+    savedJson,
+    previewObservationId,
+    buildInitFromSpec,
+  ]);
+
+  useEffect(() => {
+    if (prevDevMirrorGenerationRef.current === devMirrorGeneration) {
+      return;
+    }
+    prevDevMirrorGenerationRef.current = devMirrorGeneration;
+    nestedEmbedByMessageIdRef.current.clear();
+    nestedIframeByMessageIdRef.current.clear();
+    nestedContentWindowByMessageIdRef.current.clear();
+    setNestedSessions([]);
+    void reloadActivePreview();
+  }, [devMirrorGeneration, reloadActivePreview]);
 
   const loadSpec = useCallback(
     async (formType: string) => {
@@ -352,18 +394,17 @@ export function FormPreviewPage() {
             developerMode,
           );
           const observationId = inferObservationIdFromSavedData(savedData);
-          const initData = buildFormPreviewInit({
-            formType,
+          const initData = await buildFormPreviewInitFromBundleSpec({
+            spec: s,
             observationId,
             params,
             savedData,
-            formSchema: s.formSchema,
-            uiSchema: s.uiSchema,
             extensions: ext.extensions,
             customQuestionTypes: ext.customQuestionTypes,
             subObservationMode: true,
             skipFinalize,
             skipDraftSelection,
+            loadLinkedFormSpec: ft => tauriClient.readBundleFormSpec(ft),
           });
           setNestedSessions(prev =>
             prev.map(sess =>
@@ -671,6 +712,7 @@ export function FormPreviewPage() {
 
         <div className="panel panel-form-preview-embed panel-embed-flush">
           <FormplayerEmbed
+            key={`${devMirrorGeneration}-${selectedFormType || 'none'}`}
             ref={iframeRef}
             onContentWindowReady={cw => {
               rootContentWindowRef.current = cw;

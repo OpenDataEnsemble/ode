@@ -16,6 +16,10 @@ import type { FormCompletionResult } from '../types/FormulusInterfaceDefinition'
 import { useFormContext } from '../App';
 import { tokens } from '../theme/tokens-adapter';
 import {
+  mergeSubObservationColumnDefs,
+  resolveSubObservationColumns,
+} from '../utils/subObservationColumnLabels';
+import {
   buildColumns,
   coerceSubObservationRows,
   optionalRecordMap,
@@ -32,6 +36,7 @@ import {
   writeSubObservationContextToWindow,
   type OrderBySpec,
   type SubObservationContextMergeConfig,
+  type SubObservationSchemaConfig,
 } from './subObservationHelpers';
 
 const RESERVED_SCHEMA_KEYS = new Set([
@@ -117,7 +122,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
   required,
 }) => {
   const jsonForms = useJsonForms();
-  const { commitFormData } = useFormContext();
+  const { commitFormData, linkedFormSpecs } = useFormContext();
   const config = useMemo(() => extractConfig(schema), [schema]);
 
   const childFormType =
@@ -177,7 +182,25 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     ) as Record<string, unknown>[];
   }, [jsonForms.core?.data, data, path, config.orderBy]);
 
-  const columns = useMemo(() => buildColumns(config, rows), [config, rows]);
+  const columnDefs = useMemo(
+    () =>
+      mergeSubObservationColumnDefs(
+        (config as SubObservationSchemaConfig).columns,
+        uischema,
+      ),
+    [config, uischema],
+  );
+
+  const columns = useMemo(() => {
+    if (columnDefs.length > 0) {
+      return resolveSubObservationColumns(
+        columnDefs,
+        childFormType,
+        linkedFormSpecs,
+      );
+    }
+    return buildColumns(config, rows);
+  }, [columnDefs, childFormType, linkedFormSpecs, config, rows]);
 
   const itemLabel = useMemo(() => resolveItemLabel(config), [config]);
 
