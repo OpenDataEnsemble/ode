@@ -400,6 +400,7 @@ const SwipeLayoutRenderer = ({
       getMissingRequiredFieldsOnPage,
       performNavigation,
       snackbarOpen,
+      t,
     ],
   );
 
@@ -441,8 +442,10 @@ const SwipeLayoutRenderer = ({
     return formatBlockingErrorSummary(
       errors,
       (core?.schema ?? schema) as JsonSchema7,
+      3,
+      t,
     );
-  }, [core?.errors, core?.schema, schema]);
+  }, [core?.errors, core?.schema, schema, t]);
 
   const trySubmitForm = useCallback(() => {
     if (!formInitData) return;
@@ -504,6 +507,7 @@ const SwipeLayoutRenderer = ({
       nextVisiblePage,
       nextButtonLabelOption,
       finalizeButtonLabelOption,
+      t,
     ],
   );
 
@@ -727,7 +731,10 @@ const SwipeLayoutRenderer = ({
                     color="text.secondary"
                     sx={{ textAlign: 'center', mb: 3 }}>
                     {snackbarMessage ||
-                      'Some required fields are missing. Any unsaved changes will be available as a draft when you return.'}
+                      t(
+                        'validation.draftOnReturn',
+                        'Some required fields are missing. Any unsaved changes will be available as a draft when you return.',
+                      )}
                   </Typography>
                   <Box
                     sx={{

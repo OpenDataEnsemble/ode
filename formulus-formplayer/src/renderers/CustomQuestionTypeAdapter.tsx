@@ -12,14 +12,20 @@ import type { ControlProps } from '@jsonforms/core';
 import QuestionShell from '../components/QuestionShell';
 import type { CustomQuestionTypeProps } from '../types/CustomQuestionTypeContract';
 import { formatControlErrors } from '../utils/formatControlErrors';
+import { useOdeT } from '../i18n/useOdeT';
 
-// ---------------------------------------------------------------------------
-// Error Boundary — catches crashes in custom components
-// ---------------------------------------------------------------------------
+interface ErrorBoundaryLabels {
+  title: string;
+  body: string;
+  details: string;
+  continueMessage: string;
+  unknownError: string;
+}
 
 interface ErrorBoundaryProps {
   formatName: string;
   children: ReactNode;
+  labels: ErrorBoundaryLabels;
 }
 
 interface ErrorBoundaryState {
@@ -58,15 +64,14 @@ class CustomQuestionErrorBoundary extends Component<
             margin: '8px 0',
           }}>
           <strong style={{ display: 'block', marginBottom: '8px' }}>
-            ⚠️ Custom Question Type Error
+            ⚠️ {this.props.labels.title}
           </strong>
           <div style={{ fontSize: '0.9em', marginBottom: '8px' }}>
-            The custom question type <code>"{this.props.formatName}"</code>{' '}
-            encountered an error and could not be rendered.
+            {this.props.labels.body}
           </div>
           <details style={{ fontSize: '0.85em', marginTop: '8px' }}>
             <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
-              Error Details (click to expand)
+              {this.props.labels.details}
             </summary>
             <pre
               style={{
@@ -77,7 +82,7 @@ class CustomQuestionErrorBoundary extends Component<
                 overflow: 'auto',
                 fontSize: '0.8em',
               }}>
-              {this.state.error?.message || 'Unknown error'}
+              {this.state.error?.message || this.props.labels.unknownError}
               {this.state.error?.stack && (
                 <>
                   {'\n\n'}
@@ -92,7 +97,7 @@ class CustomQuestionErrorBoundary extends Component<
               marginTop: '8px',
               fontStyle: 'italic',
             }}>
-            The form will continue to function, but this field cannot be edited.
+            {this.props.labels.continueMessage}
           </div>
         </div>
       );
@@ -128,6 +133,22 @@ export function createCustomQuestionTypeRenderer(
     required,
     visible,
   }) => {
+    const t = useOdeT();
+    const errorBoundaryLabels = {
+      title: t('cqt.errorTitle', 'Custom Question Type Error'),
+      body: t(
+        'cqt.errorBody',
+        'The custom question type "{{format}}" encountered an error and could not be rendered.',
+        { format: formatName },
+      ),
+      details: t('cqt.errorDetails', 'Error Details (click to expand)'),
+      continueMessage: t(
+        'cqt.errorContinue',
+        'The form will continue to function, but this field cannot be edited.',
+      ),
+      unknownError: t('cqt.unknownError', 'Unknown error'),
+    };
+
     // Build the simplified props for the custom component
     const hasErrors =
       errors && (Array.isArray(errors) ? errors.length > 0 : true);
@@ -254,7 +275,9 @@ export function createCustomQuestionTypeRenderer(
         description={description}
         required={required}
         error={errorMessage || null}>
-        <CustomQuestionErrorBoundary formatName={formatName}>
+        <CustomQuestionErrorBoundary
+          formatName={formatName}
+          labels={errorBoundaryLabels}>
           <CustomComponent {...customProps} />
         </CustomQuestionErrorBoundary>
       </QuestionShell>

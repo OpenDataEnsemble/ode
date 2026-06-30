@@ -584,7 +584,11 @@ function App() {
             'formSchema was not provided. Form rendering might fail or be incomplete.',
           );
           setLoadError(
-            'Form schema is missing. Form rendering might fail or be incomplete.',
+            odeT(
+              resolvedLocale,
+              'form.schemaMissing',
+              'Form schema is missing. Form rendering might fail or be incomplete.',
+            ),
           );
           setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
           // First ensure SwipeLayout root, then process to ensure Finalize element is present
@@ -706,7 +710,12 @@ function App() {
           error instanceof Error
             ? error.message
             : 'Unknown error during form initialization';
-        setLoadError(`Error initializing form: ${errorMessage}`);
+        const errorLocale = resolveFormplayerLocale(
+          (initData.params as Record<string, unknown> | null)?.locale,
+        );
+        setLoadError(
+          `${odeT(errorLocale, 'form.errorInitializing', 'Error initializing form')}: ${errorMessage}`,
+        );
         setIsLoading(false);
         isLoadingRef.current = false;
       }
@@ -734,7 +743,13 @@ function App() {
           console.error(
             'formType is crucial and was not provided in onFormInit. Cannot proceed.',
           );
-          setLoadError('Form ID is missing. Cannot initialize form.');
+          setLoadError(
+            odeT(
+              resolveFormplayerLocale(initData.params?.locale),
+              'form.missingFormId',
+              'Form ID is missing. Cannot initialize form.',
+            ),
+          );
           if (
             window.ReactNativeWebView &&
             window.ReactNativeWebView.postMessage
@@ -794,7 +809,9 @@ function App() {
           error instanceof Error
             ? error.message
             : 'Unknown error during form initialization';
-        setLoadError(`Error processing form data: ${errorMessage}`);
+        setLoadError(
+          `${odeT(resolveFormplayerLocale(initData.params?.locale), 'form.errorProcessing', 'Error processing form data')}: ${errorMessage}`,
+        );
         if (
           window.ReactNativeWebView &&
           window.ReactNativeWebView.postMessage
@@ -868,7 +885,11 @@ function App() {
             'Setting error message because mock is not active or not in development',
           );
           setLoadError(
-            'Cannot communicate with native host. Formplayer might be running in a standalone browser.',
+            odeT(
+              uiLocale,
+              'form.noNativeHost',
+              'Cannot communicate with native host. Formplayer might be running in a standalone browser.',
+            ),
           );
           setIsLoading(false);
           isLoadingRef.current = false;
@@ -897,7 +918,11 @@ function App() {
               '[Formplayer] onFormInit timeout: Form failed to initialize after extended wait.',
             );
             setLoadError(
-              'Failed to initialize form: No data received from native host. Please try again.',
+              odeT(
+                uiLocale,
+                'form.initTimeout',
+                'Failed to initialize form: No data received from native host. Please try again.',
+              ),
             );
             setIsLoading(false);
             isLoadingRef.current = false;
@@ -928,7 +953,7 @@ function App() {
         console.log('Unregistered window.onFormInit handler.');
       }
     };
-  }, [handleFormInitByNative]); // Dependency: re-run if handleFormInitByNative changes
+  }, [handleFormInitByNative, uiLocale]);
 
   // Attachment handling is now fully encapsulated within individual components
   // using the Promise-based media/action APIs exposed by Formulus.
@@ -1145,7 +1170,11 @@ function App() {
           '[App.tsx] Cannot finalize form: formInitData is missing',
         );
         setSubmitError(
-          'Cannot submit form because initialization data is missing.',
+          odeT(
+            uiLocale,
+            'form.submitMissingInit',
+            'Cannot submit form because initialization data is missing.',
+          ),
         );
         return;
       }
@@ -1162,7 +1191,11 @@ function App() {
       if (finalizeValidatorErrors.length > 0) {
         setCustomValidatorErrors(finalizeValidatorErrors);
         setSubmitError(
-          'Cannot submit form until custom validation errors are resolved.',
+          odeT(
+            uiLocale,
+            'form.submitValidatorErrors',
+            'Cannot submit form until custom validation errors are resolved.',
+          ),
         );
         return;
       }
@@ -1201,7 +1234,13 @@ function App() {
         })
         .catch(error => {
           console.error('[App.tsx] Error submitting form:', error);
-          setSubmitError('Failed to submit form. Please try again.');
+          setSubmitError(
+            odeT(
+              uiLocale,
+              'form.submitFailed',
+              'Failed to submit form. Please try again.',
+            ),
+          );
         });
     };
 
@@ -1240,7 +1279,15 @@ function App() {
         handleRevalidate as EventListener,
       );
     };
-  }, [formInitData, draftSessionKey, uischema, schema, ajv, refreshFormData]);
+  }, [
+    formInitData,
+    draftSessionKey,
+    uischema,
+    schema,
+    ajv,
+    refreshFormData,
+    uiLocale,
+  ]);
 
   // Create dynamic theme based on dark mode preference and custom app colors.
   // When a custom app provides themeColors, they override the default palette

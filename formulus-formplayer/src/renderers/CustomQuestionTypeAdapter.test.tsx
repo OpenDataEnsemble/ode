@@ -15,11 +15,18 @@ import { applyFormUiTranslations } from '../i18n/applyFormUiTranslations';
 const FORMAT = 'confidence-rating-test';
 const ajv = new Ajv({ allErrors: true, strict: false });
 
-let capturedProps: CustomQuestionTypeProps | null = null;
-
 function SpyCqt(props: CustomQuestionTypeProps) {
-  capturedProps = props;
-  return <div data-testid="spy-cqt" />;
+  return (
+    <div
+      data-testid="spy-cqt"
+      data-options={JSON.stringify(props.options ?? null)}
+    />
+  );
+}
+
+function readCapturedOptions(): Record<string, unknown> | null {
+  const raw = screen.getByTestId('spy-cqt').getAttribute('data-options');
+  return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
 }
 
 const schema: JsonSchema7 = {
@@ -33,7 +40,7 @@ const schema: JsonSchema7 = {
   },
 };
 
-const rawUischema: UISchemaElement = {
+const rawUischema = {
   type: 'Control',
   scope: '#/properties/confidence',
   options: {
@@ -48,7 +55,7 @@ const rawUischema: UISchemaElement = {
       },
     },
   },
-};
+} as UISchemaElement;
 
 function renderWithUischema(uischema: UISchemaElement) {
   const renderers = registerCustomQuestionTypes(new Map([[FORMAT, SpyCqt]]));
@@ -75,7 +82,6 @@ function renderWithUischema(uischema: UISchemaElement) {
 }
 
 afterEach(() => {
-  capturedProps = null;
   cleanup();
 });
 
@@ -89,13 +95,14 @@ describe('CustomQuestionTypeAdapter', () => {
     renderWithUischema(uischema);
 
     expect(screen.getByTestId('spy-cqt')).toBeTruthy();
-    expect(capturedProps?.options).toEqual({
+    expect(readCapturedOptions()).toEqual({
       lowLabel: 'Nada',
       highLabel: 'Completamente',
     });
   });
 
   it('passes default options when locale has no translation block', () => {
+    // rawUischema.translations only defines `pt`; `de` is not in ui.json.
     const uischema = applyFormUiTranslations(
       rawUischema,
       'de',
@@ -103,7 +110,7 @@ describe('CustomQuestionTypeAdapter', () => {
 
     renderWithUischema(uischema);
 
-    expect(capturedProps?.options).toEqual({
+    expect(readCapturedOptions()).toEqual({
       lowLabel: 'Not at all',
       highLabel: 'Completely',
     });

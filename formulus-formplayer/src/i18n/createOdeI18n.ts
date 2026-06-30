@@ -90,7 +90,9 @@ export function createOdeI18n(locale: OdeUiLocale): JsonFormsI18nState {
       if (byMessage) return interpolate(byMessage, vars);
     }
 
-    return ajvMessage ?? 'Validation error';
+    return (
+      ajvMessage ?? catalog['error.Validation error'] ?? 'Validation error'
+    );
   };
 
   return {
@@ -98,4 +100,18 @@ export function createOdeI18n(locale: OdeUiLocale): JsonFormsI18nState {
     translate,
     translateError,
   };
+}
+
+/** Translate a single AJV error for ODE-owned chrome (e.g. Finalize screen). */
+export function translateAjvError(
+  locale: OdeUiLocale,
+  error: ErrorObject,
+): string {
+  const { translate, translateError } = createOdeI18n(locale);
+  if (!translate || !translateError) {
+    return typeof error.message === 'string'
+      ? error.message
+      : odeT(locale, 'error.Validation error', 'Validation error');
+  }
+  return translateError(error, translate);
 }

@@ -1,4 +1,3 @@
-import type { OdeUiLocale } from './localeUtils';
 import { localeLookupCandidates } from './localeUtils';
 
 type UiSchemaNode = Record<string, unknown>;
@@ -46,7 +45,7 @@ function hasTranslationsSubtree(node: unknown): boolean {
 
 function pickLocaleBlock(
   translations: Record<string, unknown>,
-  locale: OdeUiLocale,
+  locale: string,
 ): Record<string, unknown> | null {
   for (const candidate of localeLookupCandidates(locale)) {
     const block = translations[candidate];
@@ -165,7 +164,7 @@ function applyBlockToNode(
   return out;
 }
 
-function processNode(node: unknown, locale: OdeUiLocale): unknown {
+function processNode(node: unknown, locale: string): unknown {
   if (!node || typeof node !== 'object') return node;
   if (Array.isArray(node)) {
     let changed = false;
@@ -243,10 +242,7 @@ function processNode(node: unknown, locale: OdeUiLocale): unknown {
  * Apply embedded ui.json translations for the active locale (once at form init).
  * Returns the same reference when no translations exist in the tree.
  */
-export function applyFormUiTranslations<T>(
-  uischema: T,
-  locale: OdeUiLocale,
-): T {
+export function applyFormUiTranslations<T>(uischema: T, locale: string): T {
   if (!uischema || typeof uischema !== 'object') return uischema;
   if (!hasTranslationsSubtree(uischema)) return uischema;
   return processNode(uischema, locale) as T;

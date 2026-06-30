@@ -194,11 +194,19 @@ export function titleForErrorPath(
 }
 
 /** Human-readable summary for skipFinalize Done alert (field titles, not count only). */
+export type OdeTranslateFn = (
+  key: string,
+  defaultMessage?: string,
+  vars?: Record<string, string | number>,
+) => string;
+
 export function formatBlockingErrorSummary(
   errors: ReadonlyArray<BlockingValidationError & { message?: string }>,
   schema: JsonSchema7 | undefined,
   maxTitles = 3,
+  t?: OdeTranslateFn,
 ): string {
+  const tr: OdeTranslateFn = t ?? ((_, def) => def ?? '');
   if (errors.length === 0) return '';
 
   const titles: string[] = [];
@@ -213,13 +221,20 @@ export function formatBlockingErrorSummary(
 
   const remaining = errors.length - titles.length;
   const joined = titles.join(', ');
-  const suffix = remaining > 0 ? ` (+${remaining} more)` : '';
+  const suffix =
+    remaining > 0
+      ? ` ${tr('validation.moreFields', '(+{{count}} more)', { count: remaining })}`
+      : '';
   const countPhrase =
-    errors.length === 1 ? '1 field needs' : `${errors.length} fields need`;
+    errors.length === 1
+      ? tr('validation.oneFieldAttention', '1 field needs attention')
+      : tr('validation.fieldsAttention', '{{count}} fields need attention', {
+          count: errors.length,
+        });
 
   if (joined) {
-    return `${countPhrase} attention: ${joined}${suffix}. Tap Done to review.`;
+    return `${countPhrase}: ${joined}${suffix}. ${tr('validation.tapDoneToReview', 'Tap Done to review.')}`;
   }
 
-  return `${countPhrase} attention. Tap Done to review.`;
+  return `${countPhrase}. ${tr('validation.tapDoneToReview', 'Tap Done to review.')}`;
 }
