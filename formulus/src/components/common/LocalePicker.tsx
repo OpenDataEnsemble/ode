@@ -13,6 +13,7 @@ import {
   type UiLocalePreference,
 } from '../../lib/locale';
 import { useAppTheme } from '../../contexts/AppThemeContext';
+import colors from '../../theme/colors';
 import { odeSpacing, odeTypography, odeRadius } from '../../theme/odeDesign';
 interface LocalePickerProps {
   value: UiLocalePreference;
@@ -143,7 +144,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.ui.background,
     justifyContent: 'center',
     padding: odeSpacing.lg,
   },
