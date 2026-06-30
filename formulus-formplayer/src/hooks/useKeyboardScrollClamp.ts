@@ -67,9 +67,7 @@ export function useKeyboardScrollClamp<T extends HTMLElement>() {
 
     const containerRect = container.getBoundingClientRect();
     const fieldRect = field.getBoundingClientRect();
-    if (
-      !isFieldObscuredInContainer(containerRect, fieldRect, 8, 24)
-    ) {
+    if (!isFieldObscuredInContainer(containerRect, fieldRect, 8, 24)) {
       endKeyboardRevealSession();
     }
   }, [clamp, endKeyboardRevealSession]);
