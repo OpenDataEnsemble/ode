@@ -20,6 +20,7 @@ import type {
   ServerProfile,
   ActiveBundleFormEntry,
   AppBundleState,
+  DownloadAndApplyAppBundleResult,
   CreateObservationSqliteIndexesResult,
   CustomAppDevMirrorResult,
   BundleFormSpec,
@@ -194,24 +195,31 @@ export const tauriClient = {
   writeWorkspaceFile: (relativePath: string, data: Uint8Array) =>
     invokeSafe<string>('write_workspace_file', {
       relativePath,
-      data: Array.from(data),
+      data,
     }),
   getAppBundleState: () =>
     invokeSafe<AppBundleState | null>('get_app_bundle_state'),
   /** Mirrors profile `customAppLocalFolder` into `bundles/dev-local/app/`. */
   refreshCustomAppDevMirror: () =>
     invokeSafe<CustomAppDevMirrorResult>('refresh_custom_app_dev_mirror'),
-  /** Writes `bundles/archives/{version}.zip`, extracts to `bundles/active/`, updates `state.json`. */
-  applyAppBundleDownload: (args: {
+  /** Native download + apply from Synkronus (no binary IPC). Progress via bundle/* events. */
+  downloadAndApplyAppBundle: (args: {
+    baseUrl: string;
+    bearerToken: string;
+    xOdeVersion: string;
     version: string;
     hash: string;
-    zipBytes: Uint8Array;
   }) =>
-    invokeSafe<AppBundleState>('apply_app_bundle_download', {
-      version: args.version,
-      hash: args.hash,
-      zipBytes: Array.from(args.zipBytes),
-    }),
+    invokeSafe<DownloadAndApplyAppBundleResult>(
+      'download_and_apply_app_bundle',
+      {
+        baseUrl: args.baseUrl,
+        bearerToken: args.bearerToken,
+        xOdeVersion: args.xOdeVersion,
+        version: args.version,
+        hash: args.hash,
+      },
+    ),
   listActiveBundleForms: () =>
     invokeSafe<ActiveBundleFormEntry[]>('list_active_bundle_forms'),
   readBundleFormSpec: (formType: string) =>

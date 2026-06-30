@@ -1,7 +1,13 @@
-import { open, save } from '@tauri-apps/plugin-dialog';
+import { open, save, confirm } from '@tauri-apps/plugin-dialog';
 import { openPath } from '@tauri-apps/plugin-opener';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { isTauri } from '@tauri-apps/api/core';
 import { tauriClient } from '../lib/tauriClient';
+import {
+  baselineFromProfile,
+  isProfileDraftDirty,
+  type ProfileDraftBaseline,
+} from '../lib/profileDraftDirty';
 import {
   workspaceAttachmentsDir,
   workspaceSqlitePath,
@@ -12,6 +18,7 @@ import {
   selectAuthSessionForActiveProfile,
   useCustodianStore,
 } from '../store/useCustodianStore';
+import { useProfileDraftGuardStore } from '../store/useProfileDraftGuardStore';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
 
 function PasswordField({
@@ -92,6 +99,12 @@ export function ProfilesPage() {
   const [profileNoticeTone, setProfileNoticeTone] = useState<
     'warn' | 'success'
   >('warn');
+  const [savedBaseline, setSavedBaseline] =
+    useState<ProfileDraftBaseline | null>(null);
+  const setProfileDraftDirty = useProfileDraftGuardStore(s => s.setIsDirty);
+  const setProfileDraftAttemptLeave = useProfileDraftGuardStore(
+    s => s.setAttemptLeave,
+  );
 
   const syncDraftFromActive = useCallback(async (p: ServerProfile | null) => {
     if (!p) {
@@ -106,16 +119,128 @@ export function ProfilesPage() {
     try {
       const res = await tauriClient.credentialGet(p.id);
       setPasswordStorageAvailable(res.storageAvailable);
-      setPassword(res.password ?? '');
+      const pwd = res.password ?? '';
+      setPassword(pwd);
+      setSavedBaseline(baselineFromProfile(p, pwd));
     } catch {
       setPasswordStorageAvailable(false);
       setPassword('');
+      setSavedBaseline(baselineFromProfile(p, ''));
     }
   }, []);
+
+  const isDirty = useMemo(
+    () =>
+      isProfileDraftDirty(savedBaseline, active?.id, {
+        label,
+        serverUrl,
+        username,
+        password,
+      }),
+    [savedBaseline, active?.id, label, serverUrl, username, password],
+  );
+
+  async function promptUnsavedProfileChanges(): Promise<boolean> {
+    const message = 'Some settings were changed. Save profile?';
+    if (isTauri()) {
+      return confirm(message, {
+        title: 'Unsaved changes',
+        kind: 'warning',
+      });
+    }
+    return window.confirm(message);
+  }
+
+  const saveCurrent = useCallback(async (): Promise<boolean> => {
+    if (!active) {
+      return false;
+    }
+    const ws = workspacePath.trim();
+    if (!ws) {
+      setProfileNotice(
+        'Choose a workspace folder. The app stores sqlite, attachments, and exports under it.',
+      );
+      return false;
+    }
+    setProfileNotice(null);
+    setProfileNoticeTone('warn');
+    const databasePath = workspaceSqlitePath(ws);
+    const profile: ServerProfile = {
+      ...active,
+      label: label.trim() || active.label,
+      serverUrl: serverUrl.trim(),
+      username: username.trim() || null,
+      workspacePath: ws,
+      databasePath,
+      attachmentsPath: null,
+      environment: 'production',
+    };
+    await upsertProfileRemote(profile);
+    if (password.trim()) {
+      const cred = await tauriClient.credentialSet(active.id, password);
+      if (!cred.saved && cred.warning) {
+        setProfileNotice(cred.warning);
+      }
+    } else {
+      const del = await tauriClient.credentialDelete(active.id);
+      if (!del.cleared && del.warning) {
+        setProfileNotice(
+          `Could not clear stored password: ${del.warning}. Other fields were saved.`,
+        );
+      }
+    }
+    await refreshSettings();
+    return true;
+  }, [
+    active,
+    workspacePath,
+    label,
+    serverUrl,
+    username,
+    password,
+    upsertProfileRemote,
+    refreshSettings,
+  ]);
+
+  async function handleProfileSelect(nextId: string) {
+    if (nextId === activeProfileId) {
+      return;
+    }
+    if (isDirty) {
+      const shouldSave = await promptUnsavedProfileChanges();
+      if (shouldSave) {
+        const ok = await saveCurrent();
+        if (!ok) {
+          return;
+        }
+      } else {
+        await syncDraftFromActive(active);
+      }
+    }
+    await selectActiveProfile(nextId);
+  }
 
   useEffect(() => {
     void syncDraftFromActive(active);
   }, [active, syncDraftFromActive]);
+
+  useEffect(() => {
+    setProfileDraftDirty(isDirty);
+    return () => setProfileDraftDirty(false);
+  }, [isDirty, setProfileDraftDirty]);
+
+  useEffect(() => {
+    const attemptLeave = async (): Promise<boolean> => {
+      const shouldSave = await promptUnsavedProfileChanges();
+      if (shouldSave) {
+        return saveCurrent();
+      }
+      await syncDraftFromActive(active);
+      return true;
+    };
+    setProfileDraftAttemptLeave(attemptLeave);
+    return () => setProfileDraftAttemptLeave(null);
+  }, [active, saveCurrent, syncDraftFromActive, setProfileDraftAttemptLeave]);
 
   async function pickDirectory(title: string) {
     const selected = await open({
@@ -209,48 +334,18 @@ export function ProfilesPage() {
     }
   }
 
-  async function saveCurrent() {
-    if (!active) {
-      return;
-    }
-    const ws = workspacePath.trim();
-    if (!ws) {
-      setProfileNotice(
-        'Choose a workspace folder. The app stores sqlite, attachments, and exports under it.',
-      );
-      return;
-    }
-    setProfileNotice(null);
-    setProfileNoticeTone('warn');
-    const databasePath = workspaceSqlitePath(ws);
-    const profile: ServerProfile = {
-      ...active,
-      label: label.trim() || active.label,
-      serverUrl: serverUrl.trim(),
-      username: username.trim() || null,
-      workspacePath: ws,
-      databasePath,
-      attachmentsPath: null,
-      environment: 'production',
-    };
-    await upsertProfileRemote(profile);
-    if (password.trim()) {
-      const cred = await tauriClient.credentialSet(active.id, password);
-      if (!cred.saved && cred.warning) {
-        setProfileNotice(cred.warning);
-      }
-    } else {
-      const del = await tauriClient.credentialDelete(active.id);
-      if (!del.cleared && del.warning) {
-        setProfileNotice(
-          `Could not clear stored password: ${del.warning}. Other fields were saved.`,
-        );
-      }
-    }
-    await refreshSettings();
-  }
-
   async function addProfile() {
+    if (isDirty) {
+      const shouldSave = await promptUnsavedProfileChanges();
+      if (shouldSave) {
+        const ok = await saveCurrent();
+        if (!ok) {
+          return;
+        }
+      } else {
+        await syncDraftFromActive(active);
+      }
+    }
     const p = emptyProfile(
       dataDirectory || (await tauriClient.getSettings()).dataDirectory,
     );
@@ -294,6 +389,10 @@ export function ProfilesPage() {
     }
     setProfileNotice(null);
     setProfileNoticeTone('warn');
+    const saved = await saveCurrent();
+    if (!saved) {
+      return;
+    }
     try {
       let pwd = password;
       if (!pwd.trim()) {
@@ -330,7 +429,7 @@ export function ProfilesPage() {
           <select
             aria-label="Profile"
             value={activeProfileId}
-            onChange={e => void selectActiveProfile(e.target.value)}>
+            onChange={e => void handleProfileSelect(e.target.value)}>
             {profiles.map(p => (
               <option key={p.id} value={p.id}>
                 {p.label || p.id}
