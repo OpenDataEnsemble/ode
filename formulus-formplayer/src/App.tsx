@@ -98,6 +98,13 @@ import SubObservationQuestionRenderer, {
 } from './renderers/SubObservationQuestionRenderer';
 import { shellMaterialRenderers } from './theme/material-wrappers';
 import { numberStepperRenderer } from './renderers/NumberStepperRenderer';
+import LikertScaleQuestionRenderer, {
+  likertScaleQuestionTester,
+} from './renderers/LikertScaleQuestionRenderer';
+import { injectLikertNotApplicable } from './components/likert/likertConfig';
+import DurationQuestionRenderer, {
+  durationQuestionTester,
+} from './renderers/DurationQuestionRenderer';
 import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
 import ShellInputControl, {
   shellInputControlTester,
@@ -374,6 +381,8 @@ export const customRenderers = [
   { tester: gpsQuestionTester, renderer: GPSQuestionRenderer },
   { tester: videoQuestionTester, renderer: VideoQuestionRenderer },
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
+  { tester: likertScaleQuestionTester, renderer: LikertScaleQuestionRenderer },
+  { tester: durationQuestionTester, renderer: DurationQuestionRenderer },
   { tester: htmlLabelTester, renderer: HtmlLabelRenderer },
   { tester: adateQuestionTester, renderer: AdateQuestionRenderer },
   {
@@ -664,7 +673,7 @@ function App() {
           );
           setUISchema(withLocale);
         } else {
-          setSchema(formSchema as FormSchema);
+          setSchema(injectLikertNotApplicable(formSchema) as FormSchema);
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
             uiSchema as FormUISchema,
           );
@@ -1033,6 +1042,8 @@ function App() {
       return typeof data === 'string' && dateRegex.test(data);
     });
     instance.addFormat('sub-observation', () => true);
+    instance.addFormat('likert', () => true);
+    instance.addFormat('duration', () => true);
 
     // Register custom question type formats with AJV
     // Custom question types use "format": "formatName" in schemas (not "type")

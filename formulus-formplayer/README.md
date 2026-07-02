@@ -209,6 +209,15 @@ After formplayer changes, verify on a phone WebView (or ODE Desktop form preview
 
 Rebuild formplayer (`pnpm run build:copy`) before testing in Formulus or Desktop developer mode.
 
+## Built-in question types: Likert scale and duration
+
+`format: "likert"` and `format: "duration"` are **built-in** renderers (same pattern as `photo`, `gps`, `signature`) — not app-bundle `question_types/`.
+
+- Likert: `src/renderers/LikertScaleQuestionRenderer.tsx` + `src/components/likert/`. Storybook: `Question Renderers/LikertScaleQuestionRenderer`.
+- Duration: `src/renderers/DurationQuestionRenderer.tsx` + `src/components/duration/`. Storybook: `Question Renderers/DurationQuestionRenderer`.
+
+Form-author configuration (schema `likert` / `duration` objects, display modes, colour, presets, layout, N/A) is documented on the docs site under **Reference → Form Specifications → Question Types** (`docs/reference/form-specifications.md`). Update that page when adding or changing options.
+
 ## Validation error display
 
 Built-in controls and custom question types wrapped by `CustomQuestionTypeAdapter` show validation messages **once** in `QuestionShell` (error alert with icon below the field). Child widgets should use `error` / `validation.error` for red borders only — do not also render `validation.message` as `helperText` or inline copy.

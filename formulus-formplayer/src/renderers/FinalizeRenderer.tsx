@@ -9,6 +9,7 @@ import { ErrorObject } from 'ajv';
 import { useFormContext } from '../App';
 import EditIcon from '@mui/icons-material/Edit';
 import { displayAdate } from '../utils/adateUtils';
+import { formatDurationHuman } from '../components/duration/durationFormat';
 import { useOdeT } from '../i18n/useOdeT';
 import { translateAjvError } from '../i18n/createOdeI18n';
 import { FormplayerLocaleContext } from '../i18n/FormplayerLocaleContext';
@@ -134,6 +135,23 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           return value;
         case 'adate':
           return displayAdate(value);
+        case 'likert': {
+          if (value === null)
+            return t('finalize.value.notApplicable', 'Not applicable');
+          const oneOf = fieldSchema?.oneOf;
+          if (Array.isArray(oneOf)) {
+            const match = oneOf.find(
+              (o: { const?: unknown; title?: string }) => o.const === value,
+            );
+            if (match?.title) return match.title;
+          }
+          return String(value);
+        }
+        case 'duration':
+          if (typeof value === 'number' && !Number.isNaN(value)) {
+            return formatDurationHuman(value);
+          }
+          return t('finalize.notProvided', 'Not provided');
       }
     }
 
