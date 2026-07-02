@@ -1,32 +1,23 @@
 import type { JsonSchema } from '@jsonforms/core';
+import { parseChoiceLayout } from '../../theme/choiceLayout';
 import { getPresetOptions } from './likertPresets';
 import type {
   LikertConfig,
   LikertDisplay,
+  LikertOneOfEntry,
   LikertOption,
   ResolvedLikertOptions,
 } from './likertTypes';
 import { resolveEffectiveColorMode } from './likertColors';
 
-type OneOfEntry = {
-  const?: unknown;
-  enum?: unknown[];
-  title?: string;
-  emoji?: string;
-};
+type OneOfEntry = LikertOneOfEntry;
 
 function oneOfToOptions(oneOf: OneOfEntry[]): LikertOption[] {
-  return oneOf.map(entry => {
-    const value =
-      entry.const !== undefined
-        ? (entry.const as string | number)
-        : (entry.enum?.[0] as string | number);
-    return {
-      value,
-      label: entry.title ?? String(value),
-      emoji: entry.emoji,
-    };
-  });
+  return oneOf.map(entry => ({
+    value: entry.const,
+    label: entry.title ?? String(entry.const),
+    emoji: entry.emoji,
+  }));
 }
 
 export function parseLikertConfig(schema: JsonSchema): LikertConfig {
@@ -54,8 +45,10 @@ export function resolveLikertOptions(
   const display =
     uiDisplay ?? config.display ?? (options.length > 7 ? 'slider' : 'buttons');
 
-  const orientation =
-    uiOptions.orientation === 'vertical' ? 'vertical' : 'horizontal';
+  const layout =
+    uiOptions.orientation != null
+      ? parseChoiceLayout(uiOptions)
+      : { mode: 'horizontal' as const };
 
   const colorMode = resolveEffectiveColorMode(display, config.colorMode);
 
@@ -72,7 +65,7 @@ export function resolveLikertOptions(
       config.notApplicableValue !== undefined
         ? config.notApplicableValue
         : null,
-    orientation,
+    layout,
   };
 }
 

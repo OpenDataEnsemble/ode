@@ -250,7 +250,24 @@ All variants share one standard look: outlined neutral cells; the selected optio
 
 Presets (when `oneOf` is omitted): `agreement`, `frequency`, `satisfaction`, `importance`, `likelihood`, `numeric_0_10`, `numeric_1_5`, `numeric_1_7`.
 
-UI layout: `ui.json` `options.orientation` (`horizontal` \| `vertical`), `options.display` overrides `likert.display`.
+**Recommended for rating scales:** use `display: "numeric"` and give the first/last `oneOf` entries verbal `title`s (e.g. `0` → "No pain", `10` → "Worst pain"). The control renders the numbers in cells with the words as endpoint anchors below — the highest-reliability, most practitioner-preferred pattern. For opinion questions, word `buttons` are fastest to answer. Emoji always render with their text label to avoid interpretive ambiguity.
+
+**Responsive layout (tablet + phone):** word/button and radio scales lay out as a row on tablets/desktop and automatically stack to one option per row on phones for readability; numeric/emoji cells wrap in an even grid. Set `ui.json` `options.orientation` to `vertical` (stacked), `horizontal`, `flow` (wrap), or `cols-2` … `cols-5` (two-column grid on tablets). Every option is a ≥44px touch target. `options.display` overrides `likert.display`.
+
+**Label guidance (form authors):**
+
+| Display                                | When to use                     | Label pattern                                                    |
+| -------------------------------------- | ------------------------------- | ---------------------------------------------------------------- |
+| `buttons` / `radio`                    | Opinion scales (3–5 options)    | Full label per option (`oneOf[].title`)                          |
+| `numeric`                              | NPS, pain, rating (5+ points)   | Numbers in cells; word labels on first/last `oneOf` entries only |
+| `buttons` + `endpointLabelsOnly: true` | NPS 0–10 in button form         | Digits in cells; endpoint words below                            |
+| `slider`                               | Continuous 0–10 ranges          | Endpoint word anchors below; value badge always visible (`7/10`) |
+| `emoji`                                | Optional sentiment (low-stakes) | Emoji + text label on every option (never emoji-only)            |
+| `stars`                                | 5-point satisfaction            | Star count + selected label beside control                       |
+
+Set `likert.endpointLabelsOnly: true` explicitly for long numeric scales. For 3–4 option scales, omit it so every option shows its full label.
+
+**Not applicable:** set `likert.allowNotApplicable: true` and use `type: ["integer", "null"]`. The N/A option appears inline at the end of button/numeric/emoji rows (dashed pill with ⊘ icon), or below for radio/slider/stars.
 
 Storybook: `Question Renderers/LikertScaleQuestionRenderer`.
 

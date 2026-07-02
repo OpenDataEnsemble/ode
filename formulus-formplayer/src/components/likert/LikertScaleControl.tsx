@@ -1,8 +1,8 @@
 import React, { useCallback } from 'react';
+import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined';
 import {
   alpha,
   Box,
-  Button,
   ButtonBase,
   FormControlLabel,
   Radio,
@@ -10,11 +10,13 @@ import {
   Rating,
   Slider,
   Typography,
+  useMediaQuery,
   useTheme,
 } from '@mui/material';
 import { getSpectrumColor } from './likertColors';
 import type { LikertOption, ResolvedLikertOptions } from './likertTypes';
 import { isNotApplicableValue, valuesEqual } from './likertConfig';
+import { choiceListSx } from '../../theme/choiceLayout';
 
 export interface LikertScaleControlProps {
   value: unknown;
@@ -38,16 +40,37 @@ function EndpointLabels({ options }: { options: LikertOption[] }) {
       sx={{
         display: 'flex',
         justifyContent: 'space-between',
+        gap: 1,
         px: 0.5,
         mt: 0.5,
       }}>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ textAlign: 'left', maxWidth: '48%' }}>
         {options[0].label}
       </Typography>
-      <Typography variant="caption" color="text.secondary">
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ textAlign: 'right', maxWidth: '48%' }}>
         {options[options.length - 1].label}
       </Typography>
     </Box>
+  );
+}
+
+/**
+ * True when the endpoints carry real word labels (not just the numeric
+ * value). Research on survey scales recommends pairing numeric anchors with
+ * verbal endpoint labels, so we surface them under numeric scales.
+ */
+function hasWordEndpoints(options: LikertOption[]): boolean {
+  if (options.length < 2) return false;
+  const first = options[0];
+  const last = options[options.length - 1];
+  return (
+    first.label !== String(first.value) || last.label !== String(last.value)
   );
 }
 
@@ -59,6 +82,7 @@ export default function LikertScaleControl({
   hasError,
 }: LikertScaleControlProps) {
   const theme = useTheme();
+  const isPhone = useMediaQuery(theme.breakpoints.down('sm'));
   const {
     options,
     display,
@@ -68,12 +92,13 @@ export default function LikertScaleControl({
     allowNotApplicable,
     notApplicableLabel,
     notApplicableValue,
-    orientation,
+    layout,
   } = resolved;
 
   const isNa = isNotApplicableValue(value, notApplicableValue);
   const scaleValue = isNa ? null : value;
-  const vertical = orientation === 'vertical';
+  const vertical = layout.mode === 'vertical';
+  const useGrid = layout.mode === 'columns';
 
   const handleSelect = useCallback(
     (newValue: unknown) => {
@@ -107,12 +132,20 @@ export default function LikertScaleControl({
     ? theme.palette.error.main
     : theme.palette.divider;
 
+  type CellWidth = 'word' | 'emoji' | 'compact';
+
   /**
-   * One shared cell style for buttons / numeric / emoji so every Likert
-   * looks the same: outlined neutral cells, tinted accent when selected.
+   * One shared cell style for buttons / numeric / emoji: outlined pills with a
+   * faint fill so options read as tappable (not bare labels). Selected option
+   * gets an accent tint; in review/disabled mode the answer stays prominent
+   * while unselected options fade back.
    */
-  const cellSx = (index: number, selected: boolean) => {
+  const cellSx = (index: number, selected: boolean, width: CellWidth) => {
     const accent = accentFor(index);
+    const unselectedBg =
+      width === 'compact' || width === 'emoji'
+        ? theme.palette.action.hover
+        : alpha(theme.palette.text.primary, 0.04);
     return {
       minHeight: 44,
       px: 1,
@@ -120,7 +153,7 @@ export default function LikertScaleControl({
       borderRadius: 1.5,
       border: '1px solid',
       borderColor: selected ? accent : neutralBorder,
-      backgroundColor: selected ? alpha(accent, 0.1) : 'transparent',
+      backgroundColor: selected ? alpha(accent, 0.12) : unselectedBg,
       color: selected ? accent : theme.palette.text.primary,
       fontWeight: selected ? 600 : 400,
       fontSize: '0.8125rem',
@@ -129,46 +162,126 @@ export default function LikertScaleControl({
       overflowWrap: 'break-word' as const,
       hyphens: 'auto' as const,
       transition: theme.transitions.create(
-        ['border-color', 'background-color', 'color'],
+        ['border-color', 'background-color', 'color', 'opacity'],
         { duration: theme.transitions.duration.shortest },
       ),
-      '&:hover': {
-        backgroundColor: selected
-          ? alpha(accent, 0.14)
-          : theme.palette.action.hover,
-      },
+      '&:hover': enabled
+        ? {
+            backgroundColor: selected
+              ? alpha(accent, 0.16)
+              : theme.palette.action.selected,
+          }
+        : undefined,
       '&.Mui-focusVisible': {
         outline: `2px solid ${alpha(accent, 0.5)}`,
         outlineOffset: 1,
       },
-      '&.Mui-disabled': {
-        color: theme.palette.text.disabled,
-        borderColor: theme.palette.divider,
+      '&.Mui-disabled': selected
+        ? {
+            color: accent,
+            borderColor: accent,
+            backgroundColor: alpha(accent, 0.14),
+            opacity: 1,
+          }
+        : {
+            color: theme.palette.text.disabled,
+            borderColor: theme.palette.divider,
+            backgroundColor: alpha(theme.palette.text.primary, 0.02),
+            opacity: 0.55,
+          },
+    };
+  };
+
+  const naCellSx = () => {
+    const accent = theme.palette.text.secondary;
+    return {
+      minHeight: 44,
+      px: 1.25,
+      py: 0.75,
+      borderRadius: 1.5,
+      border: '1px dashed',
+      borderColor: isNa ? accent : neutralBorder,
+      backgroundColor: isNa ? alpha(accent, 0.12) : theme.palette.action.hover,
+      color: isNa ? accent : theme.palette.text.secondary,
+      fontWeight: isNa ? 600 : 400,
+      fontSize: '0.8125rem',
+      gap: 0.5,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      textTransform: 'none' as const,
+      '&.Mui-focusVisible': {
+        outline: `2px solid ${alpha(accent, 0.4)}`,
+        outlineOffset: 1,
       },
     };
   };
 
-  const cellRowSx = {
-    display: 'flex',
-    flexDirection: vertical ? 'column' : 'row',
-    flexWrap: vertical ? 'nowrap' : 'wrap',
-    gap: 0.75,
-  } as const;
+  const cellRowSx = useGrid
+    ? choiceListSx(layout)
+    : {
+        display: 'flex',
+        flexDirection: vertical ? 'column' : 'row',
+        flexWrap: vertical ? 'nowrap' : 'wrap',
+        gap: 0.75,
+      };
 
   /**
-   * Horizontal sizing per variant:
-   * - labeled cells share the row equally but wrap onto extra rows when a
-   *   cell would drop below a readable width (long labels, narrow screens);
-   * - compact cells (numeric) keep a fixed square-ish footprint and wrap.
+   * Horizontal sizing per variant, tuned for tablets AND phones:
+   * - `word`  : full-width stacked rows on phones (xs), equal columns from
+   *             the sm breakpoint up — the standard mobile survey pattern
+   *             that keeps long labels readable without cramped wrapping;
+   * - `compact`: small fixed cells (numeric/NPS) that wrap when they run out
+   *             of room, staying touch-friendly (44px min) on any screen.
    */
-  const horizontalCellSx = (labelled: boolean) =>
-    labelled
-      ? { flex: '1 1 88px', minWidth: 72 }
-      : { flex: '0 0 auto', minWidth: 48 };
+  const horizontalCellSx = (width: CellWidth) => {
+    switch (width) {
+      case 'word':
+        return useGrid
+          ? { width: '100%' }
+          : {
+              flex: { xs: '1 1 100%', sm: '1 1 96px' },
+              minWidth: { sm: 72 },
+            };
+      case 'emoji':
+        // Even grid that wraps predictably on any width.
+        return { flex: '1 1 72px', minWidth: 64 };
+      case 'compact':
+      default:
+        return { flex: '0 0 auto', minWidth: 48 };
+    }
+  };
+
+  const renderNaCell = (inline: boolean) => {
+    if (!allowNotApplicable) return null;
+    return (
+      <ButtonBase
+        disabled={!enabled}
+        onClick={handleNa}
+        aria-label={notApplicableLabel}
+        aria-pressed={isNa}
+        focusRipple
+        sx={{
+          ...naCellSx(),
+          ...(inline
+            ? { flex: '0 0 auto', minWidth: 48, alignSelf: 'stretch' }
+            : { alignSelf: 'flex-start', mt: inline ? 0 : 0.25 }),
+        }}>
+        <BlockOutlinedIcon sx={{ fontSize: 16 }} />
+        {notApplicableLabel}
+      </ButtonBase>
+    );
+  };
+
+  const inlineNa =
+    allowNotApplicable &&
+    !vertical &&
+    (display === 'buttons' || display === 'numeric' || display === 'emoji');
 
   const renderCells = (
     content: (opt: LikertOption, index: number) => React.ReactNode,
-    labelled: boolean,
+    width: CellWidth,
+    showEndpoints: boolean,
   ) => (
     <Box>
       <Box sx={cellRowSx} role="group">
@@ -183,27 +296,35 @@ export default function LikertScaleControl({
               aria-pressed={selected}
               focusRipple
               sx={{
-                ...cellSx(index, selected),
+                ...cellSx(index, selected, width),
                 ...(vertical
                   ? { justifyContent: 'flex-start', textAlign: 'left', px: 1.5 }
-                  : horizontalCellSx(labelled)),
+                  : horizontalCellSx(width)),
               }}>
               {content(opt, index)}
             </ButtonBase>
           );
         })}
+        {inlineNa && renderNaCell(true)}
       </Box>
-      {endpointLabelsOnly && !vertical && <EndpointLabels options={options} />}
+      {showEndpoints && !vertical && <EndpointLabels options={options} />}
     </Box>
   );
 
   const renderButtons = () =>
     renderCells(
       opt => (endpointLabelsOnly ? String(opt.value) : opt.label),
-      !endpointLabelsOnly,
+      endpointLabelsOnly ? 'compact' : 'word',
+      endpointLabelsOnly,
     );
 
-  const renderNumeric = () => renderCells(opt => String(opt.value), false);
+  const renderNumeric = () =>
+    renderCells(
+      opt => String(opt.value),
+      'compact',
+      // Surface verbal endpoint anchors when the form provides them.
+      hasWordEndpoints(options),
+    );
 
   const renderEmoji = () =>
     renderCells(
@@ -220,68 +341,85 @@ export default function LikertScaleControl({
             sx={{ fontSize: '1.5rem', lineHeight: 1 }}>
             {opt.emoji ?? opt.label.charAt(0)}
           </Typography>
-          {!endpointLabelsOnly && (
-            <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-              {opt.label}
-            </Typography>
-          )}
+          {/* Always pair the emoji with its text label to avoid the
+              cultural/interpretive ambiguity of emoji-only scales. */}
+          <Typography
+            variant="caption"
+            sx={{ fontSize: '0.7rem', textAlign: 'center' }}>
+            {opt.label}
+          </Typography>
         </Box>
       ),
-      true,
+      'emoji',
+      false,
     );
 
-  const renderRadio = () => (
-    <Box>
-      <RadioGroup
-        value={scaleValue ?? ''}
-        onChange={e => {
-          const opt = options.find(o => String(o.value) === e.target.value);
-          if (opt) handleSelect(opt.value);
-        }}>
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: vertical ? 'column' : 'row',
-            flexWrap: vertical ? 'nowrap' : 'wrap',
-            rowGap: vertical ? 0 : 1,
-            width: '100%',
+  const renderRadio = () => {
+    // Phones: stack rows with the label beside each radio — the standard
+    // readable mobile pattern. Tablets/desktop: a row with labels below.
+    const stack = vertical || (isPhone && !endpointLabelsOnly);
+    return (
+      <Box>
+        <RadioGroup
+          value={scaleValue ?? ''}
+          onChange={e => {
+            const opt = options.find(o => String(o.value) === e.target.value);
+            if (opt) handleSelect(opt.value);
           }}>
-          {options.map(opt => (
-            <FormControlLabel
-              key={String(opt.value)}
-              disabled={!enabled}
-              value={String(opt.value)}
-              control={<Radio />}
-              labelPlacement={vertical ? 'end' : 'bottom'}
-              label={
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontSize: vertical ? '0.875rem' : '0.75rem',
-                    textAlign: 'center',
-                    overflowWrap: 'break-word',
-                    hyphens: 'auto',
-                  }}>
-                  {endpointLabelsOnly ? String(opt.value) : opt.label}
-                </Typography>
-              }
-              sx={
-                vertical
-                  ? undefined
-                  : {
-                      flex: endpointLabelsOnly ? '0 1 48px' : '1 1 64px',
-                      m: 0,
-                      minWidth: endpointLabelsOnly ? 40 : 56,
-                      alignItems: 'center',
-                    }
-              }
-            />
-          ))}
-        </Box>
-      </RadioGroup>
-      {endpointLabelsOnly && !vertical && <EndpointLabels options={options} />}
-    </Box>
-  );
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: stack ? 'column' : 'row',
+              flexWrap: stack ? 'nowrap' : 'wrap',
+              rowGap: stack ? 0 : 1,
+              width: '100%',
+            }}>
+            {options.map(opt => (
+              <FormControlLabel
+                key={String(opt.value)}
+                disabled={!enabled}
+                value={String(opt.value)}
+                control={<Radio />}
+                labelPlacement={stack ? 'end' : 'bottom'}
+                label={
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: stack ? '0.875rem' : '0.75rem',
+                      textAlign: stack ? 'left' : 'center',
+                      overflowWrap: 'break-word',
+                      hyphens: 'auto',
+                    }}>
+                    {endpointLabelsOnly ? String(opt.value) : opt.label}
+                  </Typography>
+                }
+                sx={
+                  stack
+                    ? undefined
+                    : endpointLabelsOnly
+                      ? {
+                          flex: '0 1 48px',
+                          m: 0,
+                          minWidth: 40,
+                          alignItems: 'center',
+                        }
+                      : {
+                          flex: '1 1 64px',
+                          m: 0,
+                          minWidth: 56,
+                          alignItems: 'center',
+                        }
+                }
+              />
+            ))}
+          </Box>
+        </RadioGroup>
+        {endpointLabelsOnly && !vertical && (
+          <EndpointLabels options={options} />
+        )}
+      </Box>
+    );
+  };
 
   const renderSlider = () => {
     const nums = numericValues(options);
@@ -306,7 +444,8 @@ export default function LikertScaleControl({
           marks
           value={Number.isNaN(current) ? min : current}
           onChange={(_e, v) => handleSelect(v as number)}
-          valueLabelDisplay="auto"
+          valueLabelDisplay="on"
+          valueLabelFormat={v => `${v}/${max}`}
           sx={
             colorMode === 'spectrum' && currentIndex >= 0
               ? { color: accentFor(currentIndex) }
@@ -376,26 +515,7 @@ export default function LikertScaleControl({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       {renderScale()}
-      {allowNotApplicable && (
-        <Button
-          variant={isNa ? 'contained' : 'outlined'}
-          size="small"
-          color="inherit"
-          disabled={!enabled}
-          onClick={handleNa}
-          sx={{
-            alignSelf: 'flex-start',
-            textTransform: 'none',
-            ...(isNa
-              ? {
-                  backgroundColor: theme.palette.text.secondary,
-                  color: theme.palette.background.paper,
-                }
-              : { color: theme.palette.text.secondary }),
-          }}>
-          {notApplicableLabel}
-        </Button>
-      )}
+      {allowNotApplicable && !inlineNa && renderNaCell(false)}
     </Box>
   );
 }
