@@ -50,6 +50,9 @@ interface CustomQuestionTypeProps {
   // 3. Schema parameters. Any non-standard JSON Schema keys are passed here.
   config: Record<string, any>;
 
+  // 3b. Display strings from ui.json Control.options (after locale preprocess).
+  options?: Record<string, any>;
+
   // 4. Validation state for styling error cases
   validation: {
     error: boolean;
@@ -114,6 +117,29 @@ module.exports = {
   default: MyCustomRenderer,
 };
 ```
+
+---
+
+## Internationalization
+
+Custom question types use the **same** `ui.json` `translations` pattern as built-in controls. Put user-visible strings in `label`, `description`, and `Control.options` — not hardcoded in `renderer.js`:
+
+```json
+{
+  "type": "Control",
+  "scope": "#/properties/rating",
+  "label": "Rate this",
+  "options": { "hint": "Tap a star" },
+  "translations": {
+    "pt": {
+      "label": "Avalie",
+      "options": { "hint": "Toque numa estrela" }
+    }
+  }
+}
+```
+
+The renderer reads `props.options.hint`. Behavioral settings (`maxStars`, filters) stay in `schema.json` as `config`. See [Form translations](https://opendataensemble.org/docs/guides/form-translations).
 
 ---
 

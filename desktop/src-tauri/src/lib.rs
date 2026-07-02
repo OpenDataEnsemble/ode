@@ -6,8 +6,10 @@ use std::{
     path::{Path, PathBuf},
     sync::atomic::{AtomicUsize, Ordering},
     sync::{Arc, Mutex},
-    time::{Instant, UNIX_EPOCH},
+    time::{Duration, Instant, UNIX_EPOCH},
 };
+
+use futures_util::StreamExt;
 
 use chrono::{DateTime, Utc};
 use keyring::Entry;
@@ -65,6 +67,26 @@ pub struct AppBundleState {
     pub active_hash: String,
     pub downloaded_at: String,
     pub archived_versions: Vec<String>,
+}
+
+/// Emitted on `bundle/apply-progress` and `bundle/index-rebuild`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BundleApplyProgressEvent {
+    job_id: String,
+    phase: String,
+    done: i64,
+    total: i64,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadAndApplyAppBundleResult {
+    state: AppBundleState,
+    index_rebuild_scheduled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1183,10 +1205,78 @@ fn sanitize_version_for_filename(version: &str) -> String {
     }
 }
 
+fn format_byte_progress_mb(done: i64, total: i64) -> String {
+    const MB: f64 = 1024.0 * 1024.0;
+    if total > 0 {
+        format!("{:.1} / {:.1} MB", done as f64 / MB, total as f64 / MB)
+    } else {
+        format!("{:.1} MB", done as f64 / MB)
+    }
+}
+
+fn emit_bundle_apply_progress(
+    app: &tauri::AppHandle,
+    job_id: &str,
+    phase: &str,
+    done: i64,
+    total: i64,
+    message: &str,
+    detail: Option<&str>,
+) {
+    let _ = app.emit(
+        "bundle/apply-progress",
+        BundleApplyProgressEvent {
+            job_id: job_id.to_string(),
+            phase: phase.to_string(),
+            done,
+            total,
+            message: message.to_string(),
+            detail: detail.map(|s| s.to_string()),
+        },
+    );
+}
+
+fn emit_bundle_index_rebuild_progress(
+    app: &tauri::AppHandle,
+    job_id: &str,
+    phase: &str,
+    done: i64,
+    total: i64,
+    message: &str,
+    detail: Option<&str>,
+) {
+    let _ = app.emit(
+        "bundle/index-rebuild",
+        BundleApplyProgressEvent {
+            job_id: job_id.to_string(),
+            phase: phase.to_string(),
+            done,
+            total,
+            message: message.to_string(),
+            detail: detail.map(|s| s.to_string()),
+        },
+    );
+}
+
+type BundleExtractProgress<'a> = dyn FnMut(i64, i64, Option<&str>) + 'a;
+
+#[allow(dead_code)]
 fn extract_zip_to_dir(zip_bytes: &[u8], dest: &Path) -> Result<(), CustodianError> {
+    extract_zip_to_dir_with_progress(zip_bytes, dest, None)
+}
+
+fn extract_zip_to_dir_with_progress(
+    zip_bytes: &[u8],
+    dest: &Path,
+    mut on_progress: Option<&mut BundleExtractProgress<'_>>,
+) -> Result<(), CustodianError> {
     let reader = Cursor::new(zip_bytes);
     let mut archive = ZipArchive::new(reader)
         .map_err(|e| CustodianError::Message(format!("invalid zip: {}", e)))?;
+    let total = archive.len() as i64;
+    if let Some(ref mut cb) = on_progress {
+        cb(0, total, None);
+    }
     for i in 0..archive.len() {
         let mut file = archive
             .by_index(i)
@@ -1195,7 +1285,7 @@ fn extract_zip_to_dir(zip_bytes: &[u8], dest: &Path) -> Result<(), CustodianErro
             Some(p) => p.to_owned(),
             None => continue,
         };
-        let outpath = dest.join(rel);
+        let outpath = dest.join(&rel);
         if file.is_dir() || file.name().ends_with('/') {
             fs::create_dir_all(&outpath)?;
         } else {
@@ -1206,8 +1296,262 @@ fn extract_zip_to_dir(zip_bytes: &[u8], dest: &Path) -> Result<(), CustodianErro
             std::io::copy(&mut file, &mut outfile)
                 .map_err(|e| CustodianError::Message(e.to_string()))?;
         }
+        let done = (i + 1) as i64;
+        if let Some(ref mut cb) = on_progress {
+            let emit = done == total || done % 10 == 0;
+            if emit {
+                let detail = rel.to_string_lossy();
+                cb(done, total, Some(detail.as_ref()));
+            }
+        }
     }
     Ok(())
+}
+
+fn apply_app_bundle_zip_at_workspace(
+    ws: &Path,
+    version: &str,
+    hash: &str,
+    zip_bytes: &[u8],
+    on_extract_progress: Option<&mut BundleExtractProgress<'_>>,
+) -> Result<AppBundleState, CustodianError> {
+    let ver = version.trim();
+    if ver.is_empty() {
+        return Err(CustodianError::Message("version is required".to_string()));
+    }
+    let hash = hash.trim();
+    if hash.is_empty() {
+        return Err(CustodianError::Message("hash is required".to_string()));
+    }
+    if zip_bytes.is_empty() {
+        return Err(CustodianError::Message("zip is empty".to_string()));
+    }
+    let bundles = ws.join("bundles");
+    let archives_dir = bundles.join("archives");
+    let active_dir = bundles.join("active");
+    fs::create_dir_all(&archives_dir)?;
+    let prev = read_app_bundle_state_unlocked(&bundles)?;
+    let mut archived = prev
+        .as_ref()
+        .map(|s| s.archived_versions.clone())
+        .unwrap_or_default();
+    if !archived.iter().any(|v| v == ver) {
+        archived.push(ver.to_string());
+    }
+    archived.sort();
+    let sanit = sanitize_version_for_filename(ver);
+    let archive_zip = archives_dir.join(format!("{sanit}.zip"));
+    fs::write(&archive_zip, zip_bytes)?;
+    if active_dir.exists() {
+        fs::remove_dir_all(&active_dir)?;
+    }
+    fs::create_dir_all(&active_dir)?;
+    if let Some(cb) = on_extract_progress {
+        extract_zip_to_dir_with_progress(zip_bytes, &active_dir, Some(cb))?;
+    } else {
+        extract_zip_to_dir_with_progress(zip_bytes, &active_dir, None)?;
+    }
+    let state = AppBundleState {
+        schema_version: 1,
+        active_version: ver.to_string(),
+        active_hash: hash.to_string(),
+        downloaded_at: Utc::now().to_rfc3339(),
+        archived_versions: archived,
+    };
+    let state_path = bundles.join("state.json");
+    if let Some(parent) = state_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(
+        &state_path,
+        serde_json::to_string_pretty(&state).map_err(|e| CustodianError::Message(e.to_string()))?,
+    )?;
+    let legacy = bundles.join("app-bundle.zip");
+    if legacy.exists() {
+        let _ = fs::remove_file(&legacy);
+    }
+    Ok(state)
+}
+
+fn apply_app_bundle_zip_bytes(
+    app: &tauri::AppHandle,
+    job_id: &str,
+    ctx: &AppCtxHandle,
+    version: &str,
+    hash: &str,
+    zip_bytes: &[u8],
+) -> Result<AppBundleState, CustodianError> {
+    emit_bundle_apply_progress(app, job_id, "archiving", 0, 1, "Saving archive…", None);
+    let app_c = app.clone();
+    let job = job_id.to_string();
+    let state = with_workspace_fs_exclusive(ctx, |ctx| {
+        let ws = get_workspace_path(ctx)?;
+        emit_bundle_apply_progress(&app_c, &job, "archiving", 1, 1, "Saving archive…", None);
+        emit_bundle_apply_progress(&app_c, &job, "extracting", 0, 0, "Extracting bundle…", None);
+        let mut extract_cb = |done: i64, total: i64, detail: Option<&str>| {
+            emit_bundle_apply_progress(
+                &app_c,
+                &job,
+                "extracting",
+                done,
+                total,
+                "Extracting bundle…",
+                detail,
+            );
+        };
+        apply_app_bundle_zip_at_workspace(&ws, version, hash, zip_bytes, Some(&mut extract_cb))
+    })?;
+    Ok(state)
+}
+
+async fn download_synkronus_app_bundle_zip(
+    app: &tauri::AppHandle,
+    job_id: &str,
+    base_url: &str,
+    bearer_token: &str,
+    x_ode_version: &str,
+) -> Result<Vec<u8>, CustodianError> {
+    let url = format!(
+        "{}/api/app-bundle/download-zip",
+        base_url.trim().trim_end_matches('/')
+    );
+    let parsed =
+        Url::parse(&url).map_err(|e| CustodianError::Message(format!("invalid URL: {e}")))?;
+    let client = reqwest::Client::new();
+    let res = client
+        .get(parsed)
+        .header(AUTHORIZATION, format!("Bearer {}", bearer_token.trim()))
+        .header("x-ode-version", x_ode_version.trim())
+        .send()
+        .await?;
+    if !res.status().is_success() {
+        return Err(CustodianError::Message(format!(
+            "bundle download failed: HTTP {}",
+            res.status()
+        )));
+    }
+    let total_bytes = res.content_length().map(|n| n as i64).unwrap_or(0);
+    emit_bundle_apply_progress(
+        app,
+        job_id,
+        "downloading",
+        0,
+        total_bytes,
+        "Downloading bundle from server…",
+        None,
+    );
+    let mut buf = Vec::new();
+    let mut received: i64 = 0;
+    let mut last_emit = Instant::now();
+    let mut last_emit_bytes: i64 = 0;
+    let mut stream = res.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk?;
+        received += chunk.len() as i64;
+        buf.extend_from_slice(&chunk);
+        let elapsed = last_emit.elapsed();
+        let bytes_since = received - last_emit_bytes;
+        if elapsed >= Duration::from_millis(250) || bytes_since >= 512 * 1024 {
+            emit_bundle_apply_progress(
+                app,
+                job_id,
+                "downloading",
+                received,
+                total_bytes,
+                "Downloading bundle from server…",
+                Some(&format_byte_progress_mb(received, total_bytes)),
+            );
+            last_emit = Instant::now();
+            last_emit_bytes = received;
+        }
+    }
+    emit_bundle_apply_progress(
+        app,
+        job_id,
+        "downloading",
+        received,
+        total_bytes.max(received),
+        "Downloading bundle from server…",
+        Some(&format_byte_progress_mb(
+            received,
+            total_bytes.max(received),
+        )),
+    );
+    if buf.is_empty() {
+        return Err(CustodianError::Message("zip is empty".to_string()));
+    }
+    Ok(buf)
+}
+
+fn spawn_bundle_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: String) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let app_config = match bundle_app_config_path(&ctx) {
+            Ok(p) if p.exists() => p,
+            _ => return,
+        };
+        let defs = observation_index::load_index_config(&app_config);
+        if defs.is_empty() {
+            return;
+        }
+        emit_bundle_index_rebuild_progress(
+            &app,
+            &job_id,
+            "indexing",
+            0,
+            0,
+            "Rebuilding observation indexes…",
+            None,
+        );
+        let conn = match open_db(&ctx) {
+            Ok(c) => c,
+            Err(err) => {
+                emit_bundle_index_rebuild_progress(
+                    &app,
+                    &job_id,
+                    "failed",
+                    0,
+                    0,
+                    "Rebuilding observation indexes…",
+                    Some(&err.to_string()),
+                );
+                return;
+            }
+        };
+        let total: i64 = conn
+            .query_row("SELECT COUNT(*) FROM observations", [], |r| r.get(0))
+            .unwrap_or(0);
+        let mut progress_cb = |done: i64, tot: i64| {
+            emit_bundle_index_rebuild_progress(
+                &app,
+                &job_id,
+                "indexing",
+                done,
+                tot,
+                "Rebuilding observation indexes…",
+                None,
+            );
+        };
+        match observation_index::rebuild_all_indexes(&conn, &defs, Some(&mut progress_cb)) {
+            Ok(_) => emit_bundle_index_rebuild_progress(
+                &app,
+                &job_id,
+                "completed",
+                total,
+                total.max(1),
+                "Observation indexes rebuilt.",
+                None,
+            ),
+            Err(err) => emit_bundle_index_rebuild_progress(
+                &app,
+                &job_id,
+                "failed",
+                0,
+                0,
+                "Rebuilding observation indexes…",
+                Some(&err.to_string()),
+            ),
+        }
+    });
 }
 
 fn read_app_bundle_state_unlocked(
@@ -2201,8 +2545,8 @@ async fn rebuild_observation_indexes(
     tauri::async_runtime::spawn_blocking(move || {
         let defs = load_active_index_defs(&ctx);
         let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        let generation =
-            observation_index::rebuild_all_indexes(&conn, &defs).map_err(|err| err.to_string())?;
+        let generation = observation_index::rebuild_all_indexes(&conn, &defs, None)
+            .map_err(|err| err.to_string())?;
         let last_rebuild_at: Option<String> = conn
             .query_row(
                 "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
@@ -3424,15 +3768,30 @@ fn get_app_bundle_state(
     read_app_bundle_state_unlocked(&bundles).map_err(|e| e.to_string())
 }
 
-/// Writes `bundles/archives/{version}.zip`, replaces `bundles/active/` with extracted contents,
-/// and updates `bundles/state.json`. Removes legacy `bundles/app-bundle.zip` if present.
+/// Downloads the active app bundle from Synkronus and applies it under `bundles/active/`.
+/// Progress: `bundle/apply-progress` (download/archive/extract) and `bundle/index-rebuild` (background).
 #[tauri::command]
-fn apply_app_bundle_download(
+async fn download_and_apply_app_bundle(
+    app: tauri::AppHandle,
+    base_url: String,
+    bearer_token: String,
+    x_ode_version: String,
     version: String,
     hash: String,
-    zip_bytes: Vec<u8>,
     ctx: tauri::State<'_, AppCtxHandle>,
-) -> Result<AppBundleState, String> {
+) -> Result<DownloadAndApplyAppBundleResult, String> {
+    let base = base_url.trim();
+    if base.is_empty() {
+        return Err("base_url is required".to_string());
+    }
+    let token = bearer_token.trim();
+    if token.is_empty() {
+        return Err("bearer token is required".to_string());
+    }
+    let ode_ver = x_ode_version.trim();
+    if ode_ver.is_empty() {
+        return Err("x_ode_version is required".to_string());
+    }
     let ver = version.trim();
     if ver.is_empty() {
         return Err("version is required".to_string());
@@ -3441,61 +3800,68 @@ fn apply_app_bundle_download(
     if hash.is_empty() {
         return Err("hash is required".to_string());
     }
-    if zip_bytes.is_empty() {
-        return Err("zip is empty".to_string());
-    }
-    with_workspace_fs_exclusive(&ctx, |ctx| {
-        let ws = get_workspace_path(ctx)?;
-        let bundles = ws.join("bundles");
-        let archives_dir = bundles.join("archives");
-        let active_dir = bundles.join("active");
-        fs::create_dir_all(&archives_dir)?;
-        let prev = read_app_bundle_state_unlocked(&bundles)?;
-        let mut archived = prev
-            .as_ref()
-            .map(|s| s.archived_versions.clone())
-            .unwrap_or_default();
-        if !archived.iter().any(|v| v == ver) {
-            archived.push(ver.to_string());
-        }
-        archived.sort();
-        let sanit = sanitize_version_for_filename(ver);
-        let archive_zip = archives_dir.join(format!("{sanit}.zip"));
-        fs::write(&archive_zip, &zip_bytes)?;
-        if active_dir.exists() {
-            fs::remove_dir_all(&active_dir)?;
-        }
-        fs::create_dir_all(&active_dir)?;
-        extract_zip_to_dir(&zip_bytes, &active_dir)?;
-        let state = AppBundleState {
-            schema_version: 1,
-            active_version: ver.to_string(),
-            active_hash: hash.to_string(),
-            downloaded_at: Utc::now().to_rfc3339(),
-            archived_versions: archived,
+
+    let job_id = Uuid::new_v4().to_string();
+    emit_bundle_apply_progress(
+        &app,
+        &job_id,
+        "downloading",
+        0,
+        0,
+        "Downloading bundle from server…",
+        None,
+    );
+
+    let zip_bytes =
+        match download_synkronus_app_bundle_zip(&app, &job_id, base, token, ode_ver).await {
+            Ok(b) => b,
+            Err(e) => {
+                let msg = e.to_string();
+                emit_bundle_apply_progress(
+                    &app,
+                    &job_id,
+                    "failed",
+                    0,
+                    0,
+                    "Bundle download failed.",
+                    Some(&msg),
+                );
+                return Err(msg);
+            }
         };
-        let state_path = bundles.join("state.json");
-        if let Some(parent) = state_path.parent() {
-            fs::create_dir_all(parent)?;
+
+    let ctx_inner = ctx.inner().clone();
+    let state = match apply_app_bundle_zip_bytes(&app, &job_id, &ctx_inner, ver, hash, &zip_bytes) {
+        Ok(s) => s,
+        Err(e) => {
+            let msg = e.to_string();
+            emit_bundle_apply_progress(
+                &app,
+                &job_id,
+                "failed",
+                0,
+                0,
+                "Applying bundle failed.",
+                Some(&msg),
+            );
+            return Err(msg);
         }
-        fs::write(
-            &state_path,
-            serde_json::to_string_pretty(&state)
-                .map_err(|e| CustodianError::Message(e.to_string()))?,
-        )?;
-        let legacy = bundles.join("app-bundle.zip");
-        if legacy.exists() {
-            let _ = fs::remove_file(&legacy);
-        }
-        let app_config = active_dir.join("app/app.config.json");
-        if app_config.exists() {
-            let defs = observation_index::load_index_config(&app_config);
-            let conn = open_db(ctx)?;
-            let _ = observation_index::rebuild_all_indexes(&conn, &defs);
-        }
-        Ok(state)
+    };
+
+    emit_bundle_apply_progress(&app, &job_id, "completed", 1, 1, "Bundle applied.", None);
+
+    let needs_index = bundle_app_config_path(&ctx_inner)
+        .ok()
+        .filter(|p| p.exists())
+        .is_some();
+    if needs_index {
+        spawn_bundle_index_rebuild(app.clone(), ctx_inner.clone(), job_id);
+    }
+
+    Ok(DownloadAndApplyAppBundleResult {
+        state,
+        index_rebuild_scheduled: needs_index,
     })
-    .map_err(|e: CustodianError| e.to_string())
 }
 
 fn reserved_form_dir_name(name: &str) -> bool {
@@ -4116,7 +4482,7 @@ pub fn run() {
             write_workspace_file,
             get_app_bundle_state,
             refresh_custom_app_dev_mirror,
-            apply_app_bundle_download,
+            download_and_apply_app_bundle,
             list_active_bundle_forms,
             read_bundle_form_spec,
             read_workspace_text_file,
@@ -4151,6 +4517,7 @@ mod tests {
     use std::path::Path;
 
     use super::{
+        CompressionMethod, SimpleFileOptions, ZipWriter, apply_app_bundle_zip_at_workspace,
         bind_query_params, mirror_custom_app_dev_folder, parse_time, resolve_attachment_path,
         should_mark_conflict, validate_custom_app_dev_source_folder,
     };
@@ -4271,5 +4638,49 @@ mod tests {
         assert_eq!(a, "household");
         assert_eq!(b, 7);
         assert!(rows.next().unwrap().is_none());
+    }
+
+    fn minimal_bundle_zip_bytes() -> Vec<u8> {
+        use std::io::Write;
+        let base =
+            std::env::temp_dir().join(format!("ode_bundle_zip_fixture_{}", std::process::id()));
+        let zip_path = base.join("fixture.zip");
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        {
+            let file = fs::File::create(&zip_path).unwrap();
+            let mut zip = ZipWriter::new(file);
+            let options =
+                SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
+            zip.start_file("app/index.html", options).unwrap();
+            zip.write_all(b"<html></html>").unwrap();
+            zip.finish().unwrap();
+        }
+        let bytes = fs::read(&zip_path).unwrap();
+        let _ = fs::remove_dir_all(&base);
+        bytes
+    }
+
+    #[test]
+    fn apply_app_bundle_zip_at_workspace_writes_state_and_active() {
+        let base =
+            std::env::temp_dir().join(format!("ode_bundle_apply_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let zip_bytes = minimal_bundle_zip_bytes();
+        let state = apply_app_bundle_zip_at_workspace(
+            Path::new(&base),
+            "1.0.0",
+            "abc123",
+            &zip_bytes,
+            None,
+        )
+        .unwrap();
+        assert_eq!(state.active_version, "1.0.0");
+        assert_eq!(state.active_hash, "abc123");
+        assert!(base.join("bundles/active/app/index.html").is_file());
+        assert!(base.join("bundles/archives/1.0.0.zip").is_file());
+        assert!(base.join("bundles/state.json").is_file());
+        let _ = fs::remove_dir_all(&base);
     }
 }

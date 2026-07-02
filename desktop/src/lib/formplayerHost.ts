@@ -43,6 +43,17 @@ export interface FormInitData {
   skipDraftSelection?: boolean;
   extensions?: ExtensionMetadata;
   customQuestionTypes?: unknown;
+  /**
+   * Linked child form specs for sub-observation column label resolution.
+   * Populated by the host at open time (Formulus / ODE Desktop preview).
+   */
+  linkedFormSpecs?: Record<
+    string,
+    {
+      schema: unknown;
+      uiSchema: unknown;
+    }
+  >;
 }
 
 /** @deprecated Use `FormInitData` */

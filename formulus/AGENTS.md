@@ -33,6 +33,13 @@
 - **Custom apps** are HTML/JS/CSS bundles loaded from Synkronus; they receive the **Formulus** injected API (see interface definition). Authors do not need this monorepo — public docs and [custom_app](https://github.com/OpenDataEnsemble/custom_app) describe usage.
 - **Formplayer** is a sibling package; after changing `FormulusInterfaceDefinition.ts`, run **`pnpm run sync-interface`** (or build) in **formulus-formplayer** so its copy stays aligned.
 
+## UI language (i18n)
+
+- **Settings → Language** (`SettingsScreen`): Auto / `en` / `pt` / `fr`; stored in AsyncStorage (`@ode/uiLocale`) via [`LocaleSettingsService`](src/services/LocaleSettingsService.ts).
+- Resolution: [`src/lib/locale.ts`](src/lib/locale.ts) — preference → device → `app.config.json` `defaultLocale` → `en`.
+- Shell strings: `react-i18next` + [`src/locales/`](src/locales/).
+- Formplayer receives resolved locale as `params.locale` from [`FormplayerModal`](src/components/FormplayerModal.tsx).
+
 ---
 
 ## Changing the bridge

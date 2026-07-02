@@ -51,15 +51,12 @@ import {
   shouldShowSyncProgressCurrentItem,
   shouldShowSyncProgressPercent,
 } from '../sync/syncProgressUi';
+import { useTranslation } from 'react-i18next';
 
 type ActiveOperation = 'sync' | 'update' | 'sync_then_update' | null;
 
-const REPOSITORY_RESET_ALERT_TITLE = 'Server data was reset';
-
-const REPOSITORY_RESET_ALERT_MESSAGE =
-  'The server replaced its observation dataset (a new data generation). To sync again, this device must delete all local observations and all attachment files, including items that have not been uploaded yet.\n\nThis cannot be undone. Erase everything on this device and sync again?';
-
 const SyncScreen = () => {
+  const { t } = useTranslation();
   const { themeColors, resolvedMode } = useAppTheme();
   const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
@@ -225,12 +222,12 @@ const SyncScreen = () => {
         }
 
         Alert.alert(
-          REPOSITORY_RESET_ALERT_TITLE,
-          REPOSITORY_RESET_ALERT_MESSAGE,
+          t('sync.repositoryResetTitle'),
+          t('sync.repositoryResetMessage'),
           [
-            { text: 'Cancel', style: 'cancel' },
+            { text: t('common.cancel'), style: 'cancel' },
             {
-              text: 'Erase and sync',
+              text: t('sync.eraseAndSync'),
               style: 'destructive',
               onPress: () => {
                 void (async () => {
@@ -256,7 +253,7 @@ const SyncScreen = () => {
         );
       })();
     },
-    [startSync, finishSync, localSyncStateIsEmpty],
+    [startSync, finishSync, localSyncStateIsEmpty, t],
   );
 
   const handleSync = useCallback(async () => {
@@ -280,11 +277,11 @@ const SyncScreen = () => {
             await syncService.syncObservations(true);
             await refreshAfterOperation();
           },
-          'Sync failed',
+          t('sync.failed'),
         );
       } else {
         syncError = getUserFacingSyncErrorMessage(error);
-        Alert.alert('Sync Failed', syncError);
+        Alert.alert(t('sync.failed'), syncError);
       }
     } finally {
       finishSync(syncError);
@@ -296,6 +293,7 @@ const SyncScreen = () => {
     finishSync,
     refreshAfterOperation,
     runRepositoryResetRecovery,
+    t,
   ]);
 
   const performAppBundleUpdate = useCallback(async () => {
@@ -315,17 +313,14 @@ const SyncScreen = () => {
       const errorMessage = (error as Error).message;
       finishSync(errorMessage);
       if (errorMessage.includes('401')) {
-        Alert.alert(
-          'Authentication Error',
-          'Your session has expired. Please log in again.',
-        );
+        Alert.alert(t('sync.authErrorTitle'), t('sync.sessionExpired'));
       } else {
-        Alert.alert('Update Failed', errorMessage);
+        Alert.alert(t('sync.updateFailed'), errorMessage);
       }
     } finally {
       setActiveOperation(null);
     }
-  }, [startSync, finishSync, refreshAfterOperation]);
+  }, [startSync, finishSync, refreshAfterOperation, t]);
 
   const performSyncThenUpdate = useCallback(async () => {
     try {
@@ -357,12 +352,12 @@ const SyncScreen = () => {
             const fs = await formService.FormService.getInstance();
             await fs.invalidateCache();
           },
-          'Operation failed',
+          t('sync.operationFailed'),
         );
       } else {
         const errorMessage = getUserFacingSyncErrorMessage(error);
         finishSync(errorMessage);
-        Alert.alert('Operation Failed', errorMessage);
+        Alert.alert(t('sync.operationFailed'), errorMessage);
       }
     } finally {
       setActiveOperation(null);
@@ -372,6 +367,7 @@ const SyncScreen = () => {
     finishSync,
     refreshAfterOperation,
     runRepositoryResetRecovery,
+    t,
   ]);
 
   const handleCustomAppUpdate = useCallback(async () => {
@@ -379,7 +375,7 @@ const SyncScreen = () => {
 
     const userInfo = await getUserInfo();
     if (!userInfo) {
-      Alert.alert('Authentication Error', 'Please log in to update app bundle');
+      Alert.alert(t('sync.authErrorTitle'), t('sync.loginToUpdateBundle'));
       return;
     }
 
@@ -388,12 +384,12 @@ const SyncScreen = () => {
     if (hasPendingData) {
       const pendingCount = pendingObservations + pendingUploads.count;
       Alert.alert(
-        'Unsynchronized Data',
-        `You have ${pendingCount} unsynchronized item${pendingCount !== 1 ? 's' : ''}. Sync your data before updating to avoid data loss.`,
+        t('sync.unsynchronizedDataTitle'),
+        t('sync.unsynchronizedDataMessage', { count: pendingCount }),
         [
-          { text: 'Cancel', style: 'cancel' },
+          { text: t('common.cancel'), style: 'cancel' },
           {
-            text: 'Sync & Update',
+            text: t('sync.syncAndUpdate'),
             onPress: () => performSyncThenUpdate(),
           },
         ],
@@ -408,6 +404,7 @@ const SyncScreen = () => {
     pendingUploads.count,
     performAppBundleUpdate,
     performSyncThenUpdate,
+    t,
   ]);
 
   const checkForUpdates = useCallback(async () => {
@@ -439,13 +436,13 @@ const SyncScreen = () => {
   const getObservationStatusText = (): string => {
     if (isObservationSyncActive) {
       if (activeOperation === 'sync_then_update')
-        return 'Syncing & updating...';
-      return 'Syncing...';
+        return t('sync.syncingAndUpdating');
+      return t('sync.syncing');
     }
-    if (syncState.error) return 'Error';
+    if (syncState.error) return t('sync.error');
     if (pendingObservations > 0 || pendingUploads.count > 0)
-      return 'Pending sync';
-    return 'No pending local changes';
+      return t('sync.pendingSync');
+    return t('sync.noPendingChanges');
   };
 
   const observationStatus = getObservationStatusText();
@@ -570,7 +567,7 @@ const SyncScreen = () => {
         bg: bundleStatusUpdateBg,
         icon: 'arrow-down-circle' as const,
         iconColor: bundleStatusUpdateText,
-        label: 'Update available',
+        label: t('sync.updateAvailable'),
         textColor: bundleStatusUpdateText,
       };
     }
@@ -581,7 +578,7 @@ const SyncScreen = () => {
           : (colors.neutral[100] as string),
         icon: 'information-outline' as const,
         iconColor: mutedForeground,
-        label: 'Could not verify versions',
+        label: t('sync.couldNotVerifyVersions'),
         textColor: themeColors.onSurface as string,
       };
     }
@@ -589,7 +586,7 @@ const SyncScreen = () => {
       bg: bundleStatusOkBg,
       icon: 'check-circle' as const,
       iconColor: bundleSuccessGreen,
-      label: 'Up-to-date',
+      label: t('sync.upToDate'),
       textColor: bundleStatusOkText,
     };
   })();
@@ -597,10 +594,10 @@ const SyncScreen = () => {
   const hasPendingLocalObservationChanges =
     pendingObservations > 0 || pendingUploads.count > 0;
   const syncObservationsButtonLabel = syncState.isActive
-    ? 'Syncing...'
+    ? t('sync.syncing')
     : hasPendingLocalObservationChanges
-      ? 'Sync observations (pull+push)'
-      : 'Sync observations (pull)';
+      ? t('sync.syncObservationsPullPush')
+      : t('sync.syncObservationsPull');
 
   const showObservationProgress =
     syncState.isActive && syncState.progress && activeOperation !== 'update';
@@ -719,7 +716,7 @@ const SyncScreen = () => {
         ) : null}
         {syncState.canCancel && (
           <Button
-            title="Cancel"
+            title={t('common.cancel')}
             onPress={cancelSync}
             variant="danger"
             size="medium"
@@ -746,7 +743,9 @@ const SyncScreen = () => {
               borderBottomColor: themeColors.divider as string,
             },
           ]}>
-          <Text style={[styles.title, { color: titleColor }]}>Sync</Text>
+          <Text style={[styles.title, { color: titleColor }]}>
+            {t('sync.title')}
+          </Text>
         </View>
 
         <ScrollView
@@ -759,7 +758,7 @@ const SyncScreen = () => {
               styles.dataSectionHeading,
               { color: themeColors.onSurface as string },
             ]}>
-            Observations and attachments
+            {t('sync.observationsSection')}
           </Text>
           <View style={styles.statusCardsContainer}>
             <TouchableOpacity
@@ -810,7 +809,7 @@ const SyncScreen = () => {
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Status
+                  {t('sync.status')}
                 </Text>
               </View>
               <Text
@@ -828,7 +827,7 @@ const SyncScreen = () => {
                       styles.statusCardSubtext,
                       { color: themeColors.onSurface as string },
                     ]}>
-                    Tap to sync now
+                    {t('sync.tapToSync')}
                   </Text>
                 )}
             </TouchableOpacity>
@@ -853,7 +852,7 @@ const SyncScreen = () => {
                     styles.statusCardTitle,
                     { color: themeColors.onSurface as string },
                   ]}>
-                  Last Sync
+                  {t('sync.lastSync')}
                 </Text>
               </View>
               <Text
@@ -861,7 +860,7 @@ const SyncScreen = () => {
                   styles.statusCardValue,
                   { color: themeColors.onSurface as string },
                 ]}>
-                {lastSync ? formatRelativeTime(lastSync) : 'Never'}
+                {lastSync ? formatRelativeTime(lastSync) : t('sync.never')}
               </Text>
             </View>
           </View>
@@ -881,7 +880,7 @@ const SyncScreen = () => {
                   styles.sectionTitle,
                   { color: themeColors.onSurface as string },
                 ]}>
-                Pending items
+                {t('sync.pendingItems')}
               </Text>
               {isReadOnly &&
                 (pendingObservations > 0 || pendingUploads.count > 0) && (
@@ -890,8 +889,7 @@ const SyncScreen = () => {
                       styles.readOnlyHint,
                       { color: themeColors.onSurface as string },
                     ]}>
-                    Read-only accounts cannot upload changes. Sync still
-                    downloads updates from the server.
+                    {t('sync.readOnlyHint')}
                   </Text>
                 )}
               {pendingObservations > 0 && (
@@ -907,15 +905,14 @@ const SyncScreen = () => {
                         styles.pendingItemLabel,
                         { color: themeColors.onSurface as string },
                       ]}>
-                      Observations
+                      {t('sync.observations')}
                     </Text>
                     <Text
                       style={[
                         styles.pendingItemValue,
                         { color: themeColors.onSurface as string },
                       ]}>
-                      {pendingObservations} record
-                      {pendingObservations !== 1 ? 's' : ''}
+                      {t('sync.record', { count: pendingObservations })}
                     </Text>
                   </View>
                 </View>
@@ -933,16 +930,17 @@ const SyncScreen = () => {
                         styles.pendingItemLabel,
                         { color: themeColors.onSurface as string },
                       ]}>
-                      Attachments
+                      {t('sync.attachments')}
                     </Text>
                     <Text
                       style={[
                         styles.pendingItemValue,
                         { color: themeColors.onSurface as string },
                       ]}>
-                      {pendingUploads.count} file
-                      {pendingUploads.count !== 1 ? 's' : ''} (
-                      {pendingUploads.sizeMB.toFixed(2)} MB)
+                      {t('sync.file', {
+                        count: pendingUploads.count,
+                        size: pendingUploads.sizeMB.toFixed(2),
+                      })}
                     </Text>
                   </View>
                 </View>
@@ -966,7 +964,7 @@ const SyncScreen = () => {
                   size={20}
                   color={colors.semantic.error.ios as string}
                 />
-                <Text style={styles.errorTitle}>Error</Text>
+                <Text style={styles.errorTitle}>{t('sync.error')}</Text>
               </View>
               <Text
                 style={[
@@ -976,7 +974,7 @@ const SyncScreen = () => {
                 {syncState.error}
               </Text>
               <Button
-                title="Dismiss"
+                title={t('sync.dismiss')}
                 onPress={clearError}
                 variant="danger"
                 size="medium"
@@ -1026,7 +1024,7 @@ const SyncScreen = () => {
               styles.appBundleSectionHeading,
               { color: themeColors.onSurface as string },
             ]}>
-            App bundle
+            {t('sync.appBundle')}
           </Text>
 
           <View
@@ -1041,7 +1039,7 @@ const SyncScreen = () => {
             ]}>
             <Text
               style={[styles.appBundleSubtitle, { color: mutedForeground }]}>
-              Form definitions and custom app assets
+              {t('sync.appBundleSubtitle')}
             </Text>
 
             <View style={styles.bundlePillActionsRow}>
@@ -1068,7 +1066,11 @@ const SyncScreen = () => {
                   <Button
                     variant="primary"
                     size="small"
-                    title={isUpdateButtonActive ? 'Updating...' : 'Update'}
+                    title={
+                      isUpdateButtonActive
+                        ? t('sync.updating')
+                        : t('sync.update')
+                    }
                     onPress={handleCustomAppUpdate}
                     disabled={syncState.isActive || !updateAvailable}
                     loading={isUpdateButtonActive}
@@ -1092,7 +1094,7 @@ const SyncScreen = () => {
                   styles.bundleVersionHeading,
                   { color: mutedForeground },
                 ]}>
-                Version
+                {t('sync.version')}
               </Text>
               <View style={styles.bundleVersionRows}>
                 <View style={styles.bundleVersionRow}>
@@ -1101,7 +1103,7 @@ const SyncScreen = () => {
                       styles.bundleVersionRole,
                       { color: themeColors.onSurface as string },
                     ]}>
-                    Local
+                    {t('sync.local')}
                   </Text>
                   <Text
                     selectable
@@ -1118,7 +1120,7 @@ const SyncScreen = () => {
                       styles.bundleVersionRole,
                       { color: themeColors.onSurface as string },
                     ]}>
-                    Server
+                    {t('sync.server')}
                   </Text>
                   <Text
                     selectable
@@ -1137,10 +1139,10 @@ const SyncScreen = () => {
                 style={[styles.appBundleFootnote, { color: mutedForeground }]}>
                 {serverBundleVersion === 'Unknown' &&
                 appBundleVersion === 'Unknown'
-                  ? 'Could not load bundle version information.'
+                  ? t('sync.bundleVersionUnavailable')
                   : serverBundleVersion === 'Unknown'
-                    ? 'Could not load server bundle version.'
-                    : 'Could not read local bundle version.'}
+                    ? t('sync.serverBundleUnknown')
+                    : t('sync.localBundleUnknown')}
               </Text>
             )}
           </View>

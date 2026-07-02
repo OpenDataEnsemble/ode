@@ -24,12 +24,14 @@ import {
 import logo from '../../assets/images/logo.png';
 import { attachmentExportService } from '../services/AttachmentExportService';
 import { observationExportService } from '../services/ObservationExportService';
+import { useTranslation } from 'react-i18next';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
 const EMAIL_URL = 'mailto:hello@opendataensemble.org';
 const GH_URL = 'https://github.com/OpenDataEnsemble';
 
 const HelpScreen: React.FC = () => {
+  const { t } = useTranslation();
   const [exportingAttachments, setExportingAttachments] = useState(false);
   const [exportingObservations, setExportingObservations] = useState(false);
   const { themeColors, resolvedMode } = useAppTheme();
@@ -56,8 +58,8 @@ const HelpScreen: React.FC = () => {
       await attachmentExportService.exportDeviceLocalAttachmentsZip();
     } catch (e) {
       const message =
-        e instanceof Error ? e.message : 'Could not export attachments.';
-      Alert.alert('Export failed', message);
+        e instanceof Error ? e.message : t('help.exportAttachmentsFailed');
+      Alert.alert(t('help.exportFailed'), message);
     } finally {
       setExportingAttachments(false);
     }
@@ -69,8 +71,8 @@ const HelpScreen: React.FC = () => {
       await observationExportService.exportAllObservationsZip();
     } catch (e) {
       const message =
-        e instanceof Error ? e.message : 'Could not export observations.';
-      Alert.alert('Export failed', message);
+        e instanceof Error ? e.message : t('help.exportObservationsFailed');
+      Alert.alert(t('help.exportFailed'), message);
     } finally {
       setExportingObservations(false);
     }

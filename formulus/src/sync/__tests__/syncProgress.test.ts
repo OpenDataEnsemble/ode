@@ -3,6 +3,11 @@ import {
   syncProgressPercent,
   syncProgressPhaseTitle,
 } from '../syncProgress';
+import { ensureI18nForTests } from '../../testUtils/i18nTestSetup';
+
+beforeAll(async () => {
+  await ensureI18nForTests();
+});
 
 describe('syncProgress', () => {
   it('formats count progress', () => {

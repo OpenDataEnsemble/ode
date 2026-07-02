@@ -18,6 +18,7 @@ import {
   odeRadius,
 } from '../theme/odeDesign';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useTranslation } from 'react-i18next';
 import Button from './common/Button';
 import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
 
@@ -95,6 +96,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onLogout,
   allowClose = true,
 }) => {
+  const { t } = useTranslation();
   const { themeColors, resolvedMode } = useAppTheme();
   const isDark = resolvedMode === 'dark';
   const textColor = isDark
@@ -119,12 +121,12 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
   const menuItems: MenuItem[] = [
     {
       icon: 'information',
-      label: 'About',
+      label: t('common.about'),
       screen: 'About',
     },
     {
       icon: 'help-circle',
-      label: 'Help & Support',
+      label: t('common.help'),
       screen: 'Help',
     },
   ];
@@ -185,7 +187,9 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
         ]}>
         <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
           <View style={styles.header}>
-            <Text style={[styles.headerTitle, { color: textColor }]}>Menu</Text>
+            <Text style={[styles.headerTitle, { color: textColor }]}>
+              {t('menu.title')}
+            </Text>
             {allowClose && (
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                 <Icon name="close" size={24} color={themeColors.onSurface} />
@@ -221,10 +225,10 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                     ]}>
                     <Text style={styles.roleBadgeText}>
                       {userInfo.role === 'admin'
-                        ? 'Admin'
+                        ? t('roles.admin')
                         : userInfo.role === 'read-write'
-                          ? 'Read-write'
-                          : 'Read-only'}
+                          ? t('roles.readWrite')
+                          : t('roles.readOnly')}
                     </Text>
                   </View>
                 </View>
@@ -253,10 +257,10 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                 </View>
                 <View style={styles.userInfo}>
                   <Text style={[styles.userNameInactive, { color: textColor }]}>
-                    Not logged in
+                    {t('menu.notLoggedIn')}
                   </Text>
                   <Text style={[styles.loginHint, { color: textColor }]}>
-                    Click the Login at the bottom
+                    {t('menu.loginHint')}
                   </Text>
                 </View>
               </View>
@@ -275,7 +279,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
               }}>
               <Icon name="cog" size={24} color={textColor} />
               <Text style={[styles.menuLabel, { color: textColor }]}>
-                Settings
+                {t('settings.title')}
               </Text>
             </TouchableOpacity>
             <MenuDivider color={menuModalBorderColor} />
@@ -299,7 +303,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           <View style={[styles.footer, { backgroundColor: sectionBg }]}>
             {userInfo ? (
               <Button
-                title="Logout"
+                title={t('common.logout')}
                 onPress={onLogout}
                 variant="danger"
                 size="medium"
@@ -307,7 +311,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
               />
             ) : (
               <Button
-                title="Login"
+                title={t('common.login')}
                 onPress={() => {
                   onClose();
                   onNavigate('Settings');

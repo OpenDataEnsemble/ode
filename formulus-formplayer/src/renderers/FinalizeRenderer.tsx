@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useContext, useMemo, useCallback } from 'react';
 import { Box, List, ListItem, Typography, IconButton } from '@mui/material';
 import { tokens } from '../theme/tokens-adapter';
 import { Button } from '@ode/components/react-web';
@@ -10,6 +10,12 @@ import { useFormContext } from '../App';
 import EditIcon from '@mui/icons-material/Edit';
 import { displayAdate } from '../utils/adateUtils';
 import { formatDurationHuman } from '../components/duration/durationFormat';
+import { useOdeT } from '../i18n/useOdeT';
+import { translateAjvError } from '../i18n/createOdeI18n';
+import { FormplayerLocaleContext } from '../i18n/FormplayerLocaleContext';
+import { titleForErrorPath } from '../utils/errorPageNavigation';
+import { resolveFieldLabel } from '../utils/controlDisplayText';
+import type { JsonSchema7 } from '@jsonforms/core';
 
 interface SummaryItem {
   label: string;
@@ -22,26 +28,35 @@ interface SummaryItem {
 
 const FinalizeRenderer = ({ data }: ControlProps) => {
   const { core } = useJsonForms();
+  const t = useOdeT();
+  const locale = useContext(FormplayerLocaleContext);
   const errors = core?.errors || [];
   const { formInitData } = useFormContext();
   const fullSchema = core?.schema;
-  const fullUISchema = formInitData?.uiSchema;
+  const localizedUiSchema = core?.uischema;
+  const fullUISchema = localizedUiSchema ?? formInitData?.uiSchema;
 
-  // Helper function to get field label from schema
-  const getFieldLabel = (fieldPath: string, fieldSchema: any): string => {
-    if (!fieldSchema) return fieldPath;
-    return (
-      fieldSchema.title ||
-      fieldSchema.description ||
-      fieldPath.split('/').pop() ||
-      fieldPath
-    );
-  };
+  const getFieldLabel = useCallback(
+    (fullPath: string, fieldSchema: any): string => {
+      const normalized = fullPath.replace(/^#\/properties\//, '');
+      const segments = normalized.split('/').filter(Boolean);
+      const key = segments[segments.length - 1] || normalized;
+      if (segments.length === 1 && key) {
+        return resolveFieldLabel(
+          fullSchema as JsonSchema7 | undefined,
+          localizedUiSchema,
+          key,
+        );
+      }
+      return fieldSchema?.title || fieldSchema?.description || key || fullPath;
+    },
+    [fullSchema, localizedUiSchema],
+  );
 
   // Helper function to format field value based on type
   const formatFieldValue = (value: any, fieldSchema: any): string => {
     if (value === null || value === undefined || value === '') {
-      return 'Not provided';
+      return t('finalize.notProvided', 'Not provided');
     }
 
     // Handle special formats
@@ -49,21 +64,27 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
       switch (fieldSchema.format) {
         case 'photo':
           if (typeof value === 'object' && value.uri) {
-            return `Photo: ${value.filename || 'Captured'}`;
+            return t('finalize.value.photoWithName', 'Photo: {{name}}', {
+              name: value.filename || t('finalize.value.captured', 'Captured'),
+            });
           }
-          return 'Photo captured';
+          return t('finalize.value.photoCaptured', 'Photo captured');
         case 'qrcode':
           if (typeof value === 'object' && value.data) {
-            return `QR Code: ${value.data}`;
+            return t('finalize.value.qrWithData', 'QR Code: {{data}}', {
+              data: String(value.data),
+            });
           }
           return typeof value === 'string'
-            ? `QR Code: ${value}`
-            : 'QR Code scanned';
+            ? t('finalize.value.qrWithData', 'QR Code: {{data}}', {
+                data: value,
+              })
+            : t('finalize.value.qrScanned', 'QR Code scanned');
         case 'signature':
           if (typeof value === 'object' && value.uri) {
-            return 'Signature captured';
+            return t('finalize.value.signatureCaptured', 'Signature captured');
           }
-          return 'Signature provided';
+          return t('finalize.value.signatureProvided', 'Signature provided');
         case 'select_file':
           if (typeof value === 'object' && value.filename) {
             const original =
@@ -72,27 +93,40 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
                 : '';
             const label =
               original.length > 0 ? original : String(value.filename);
-            return `File: ${label}`;
+            return t('finalize.value.fileWithName', 'File: {{name}}', {
+              name: label,
+            });
           }
-          return 'File selected';
+          return t('finalize.value.fileSelected', 'File selected');
         case 'audio':
           if (typeof value === 'object' && value.filename) {
             const duration = value.metadata?.duration
               ? ` (${Math.round(value.metadata.duration)}s)`
               : '';
-            return `Audio: ${value.filename}${duration}`;
+            return t(
+              'finalize.value.audioWithName',
+              'Audio: {{name}}{{duration}}',
+              {
+                name: String(value.filename),
+                duration,
+              },
+            );
           }
-          return 'Audio recorded';
+          return t('finalize.value.audioRecorded', 'Audio recorded');
         case 'gps':
           if (typeof value === 'object' && value.latitude && value.longitude) {
-            return `Location: ${value.latitude.toFixed(6)}, ${value.longitude.toFixed(6)}`;
+            return t('finalize.value.location', 'Location: {{coords}}', {
+              coords: `${value.latitude.toFixed(6)}, ${value.longitude.toFixed(6)}`,
+            });
           }
-          return 'GPS location captured';
+          return t('finalize.value.gpsCaptured', 'GPS location captured');
         case 'video':
           if (typeof value === 'object' && value.filename) {
-            return `Video: ${value.filename}`;
+            return t('finalize.value.videoWithName', 'Video: {{name}}', {
+              name: String(value.filename),
+            });
           }
-          return 'Video captured';
+          return t('finalize.value.videoCaptured', 'Video captured');
         case 'date':
           return new Date(value).toLocaleDateString();
         case 'date-time':
@@ -102,7 +136,8 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
         case 'adate':
           return displayAdate(value);
         case 'likert': {
-          if (value === null) return 'Not applicable';
+          if (value === null)
+            return t('finalize.value.notApplicable', 'Not applicable');
           const oneOf = fieldSchema?.oneOf;
           if (Array.isArray(oneOf)) {
             const match = oneOf.find(
@@ -116,13 +151,13 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           if (typeof value === 'number' && !Number.isNaN(value)) {
             return formatDurationHuman(value);
           }
-          return 'Not provided';
+          return t('finalize.notProvided', 'Not provided');
       }
     }
 
     // Handle arrays
     if (Array.isArray(value)) {
-      if (value.length === 0) return 'None';
+      if (value.length === 0) return t('finalize.none', 'None');
       return value
         .map((item, idx) => {
           if (typeof item === 'object') {
@@ -136,13 +171,13 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
     // Handle objects
     if (typeof value === 'object') {
       // Check if it's a nested object with properties
-      if (Object.keys(value).length === 0) return 'Empty';
+      if (Object.keys(value).length === 0) return t('finalize.empty', 'Empty');
       return JSON.stringify(value, null, 2);
     }
 
     // Handle booleans
     if (typeof value === 'boolean') {
-      return value ? 'Yes' : 'No';
+      return value ? t('finalize.yes', 'Yes') : t('finalize.no', 'No');
     }
 
     // Default: convert to string
@@ -249,29 +284,16 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
     extractFields(fullSchema, data);
 
     return items;
-  }, [fullSchema, data, findFieldPageMemo]);
-
-  const formatErrorPath = (path: string) => {
-    // Remove leading slash and convert to readable format
-    return path.replace(/^\//, '').replace(/\//g, ' > ');
-  };
+  }, [fullSchema, data, findFieldPageMemo, getFieldLabel]);
 
   const formatErrorMessage = (error: ErrorObject) => {
-    const path = formatErrorPath(error.instancePath);
-    // Check if there's a custom error message in the error object
-    const customMessage = (error as any).params?.errorMessage;
-    // Title case the path and add spaces before capitalized letters
-    const formattedPath = path
-      ? path
-          .split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ')
-          .replace(/([A-Z])/g, ' $1')
-          .trim()
-      : '';
-    return formattedPath
-      ? `${formattedPath} ${customMessage || error.message}`
-      : customMessage || error.message;
+    const title = titleForErrorPath(
+      error.instancePath,
+      fullSchema as JsonSchema7 | undefined,
+      localizedUiSchema,
+    );
+    const translated = translateAjvError(locale, error);
+    return title ? `${title}: ${translated}` : translated;
   };
 
   const hasErrors = Array.isArray(errors) && errors.length > 0;
@@ -323,7 +345,10 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
             color="error"
             gutterBottom
             sx={{ textAlign: 'center' }}>
-            Please fix the following errors before finalizing:
+            {t(
+              'finalize.fixErrors',
+              'Please fix the following errors before finalizing:',
+            )}
           </Typography>
           <Box
             sx={{
@@ -357,7 +382,10 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           color="success.main"
           gutterBottom
           sx={{ textAlign: 'center' }}>
-          All validations passed! You can now finalize your submission.
+          {t(
+            'finalize.allValid',
+            'All validations passed! You can now finalize your submission.',
+          )}
         </Typography>
       )}
 
@@ -369,7 +397,7 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           disabled={Boolean(hasErrors)}
           className="formplayer-solid-primary"
           style={{ width: '100%' }}>
-          Finalize
+          {t('nav.finalize', 'Finalize')}
         </Button>
       </Box>
 
@@ -388,14 +416,17 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
             variant="h5"
             gutterBottom
             sx={{ fontWeight: 700, textAlign: 'center' }}>
-            FORM SUMMARY
+            {t('finalize.summary', 'FORM SUMMARY')}
           </Typography>
           <Typography
             variant="body2"
             color="text.secondary"
             gutterBottom
             sx={{ mb: 2, textAlign: 'center' }}>
-            Review all your entered data below. Click on any field to edit it.
+            {t(
+              'finalize.reviewHint',
+              'Review all your entered data below. Click on any field to edit it.',
+            )}
           </Typography>
           <Box
             sx={{
@@ -486,7 +517,7 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
                             },
                             flexShrink: 0,
                           }}
-                          aria-label="Edit field">
+                          aria-label={t('finalize.editField', 'Edit field')}>
                           <EditIcon sx={{ fontSize: 18 }} />
                         </IconButton>
                       )}

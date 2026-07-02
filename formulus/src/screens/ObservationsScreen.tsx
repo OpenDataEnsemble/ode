@@ -38,6 +38,7 @@ import {
   odeRadius,
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
+import { useTranslation } from 'react-i18next';
 
 type ObservationsScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -45,6 +46,7 @@ type ObservationsScreenNavigationProp = StackNavigationProp<
 >;
 
 const ObservationsScreen: React.FC = () => {
+  const { t } = useTranslation();
   const { themeColors, resolvedMode } = useAppTheme();
   const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
@@ -167,19 +169,18 @@ const ObservationsScreen: React.FC = () => {
       }
     } catch (err) {
       console.error('Error editing observation:', err);
-      Alert.alert('Error', 'Failed to edit observation. Please try again.');
+      Alert.alert(t('common.error'), t('observations.editError'));
     }
   };
 
   const handleDeleteObservation = async (observation: Observation) => {
     showConfirm({
-      title: 'Delete Observation',
-      message:
-        'Are you sure you want to delete this observation? This action cannot be undone.',
+      title: t('observations.deleteTitle'),
+      message: t('observations.deleteMessage'),
       buttons: [
-        { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
+        { text: t('common.cancel'), onPress: () => {}, variant: 'tertiary' },
         {
-          text: 'Delete',
+          text: t('observations.delete'),
           variant: 'danger',
           onPress: async () => {
             try {
@@ -188,7 +189,7 @@ const ObservationsScreen: React.FC = () => {
               await refresh();
             } catch (err) {
               console.error('Error deleting observation:', err);
-              Alert.alert('Error', 'Failed to delete observation.');
+              Alert.alert(t('common.error'), t('observations.deleteError'));
             }
           },
         },
@@ -220,7 +221,7 @@ const ObservationsScreen: React.FC = () => {
             <ActivityIndicator size="large" color={themeColors.primary} />
             <Text
               style={[styles.loadingText, { color: themeColors.onBackground }]}>
-              Loading observations...
+              {t('observations.loading')}
             </Text>
           </View>
         </SafeAreaView>
@@ -238,9 +239,9 @@ const ObservationsScreen: React.FC = () => {
           ]}>
           <EmptyState
             icon="alert-circle-outline"
-            title="Error Loading Observations"
+            title={t('observations.errorTitle')}
             message={error}
-            actionLabel="Retry"
+            actionLabel={t('common.retry')}
             onAction={refresh}
           />
         </SafeAreaView>
@@ -275,12 +276,11 @@ const ObservationsScreen: React.FC = () => {
                   marginBottom: showSubtitle ? 0 : odeSpacing.xs,
                 },
               ]}>
-              Observations
+              {t('observations.title')}
             </Text>
             {showSubtitle && (
               <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
-                {finalFiltered.length} observation
-                {finalFiltered.length !== 1 ? 's' : ''}
+                {t('observations.count', { count: finalFiltered.length })}
               </Text>
             )}
           </View>
@@ -304,7 +304,7 @@ const ObservationsScreen: React.FC = () => {
               style={styles.searchIcon}
             />
             <ODEInput
-              placeholder="Search observations..."
+              placeholder={t('observations.searchPlaceholder')}
               value={searchQuery}
               onChangeText={setSearchQuery}
               style={styles.searchInput}
@@ -332,7 +332,7 @@ const ObservationsScreen: React.FC = () => {
                 options={formTypes}
                 selectedId={selectedFormType}
                 onSelect={setSelectedFormType}
-                placeholder="All Forms"
+                placeholder={t('observations.allForms')}
                 style={{ alignSelf: 'stretch', maxWidth: undefined }}
               />
             </View>
@@ -351,13 +351,13 @@ const ObservationsScreen: React.FC = () => {
             icon="clipboard-text-outline"
             title={
               searchQuery || selectedFormType || syncStatus !== 'all'
-                ? 'No Observations Found'
-                : 'No Observations Yet'
+                ? t('observations.emptyFound')
+                : t('observations.emptyYet')
             }
             message={
               searchQuery || selectedFormType || syncStatus !== 'all'
-                ? 'Try adjusting your search or filter criteria.'
-                : 'Start filling out forms to create observations. Your data will appear here once saved.'
+                ? t('observations.emptyFoundMessage')
+                : t('observations.emptyYetMessage')
             }
           />
         ) : (

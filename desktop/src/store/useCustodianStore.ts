@@ -211,6 +211,12 @@ interface CustodianState {
     op: 'pull' | 'push' | 'reset';
     statusText: string;
   } | null;
+  bundleActivity: {
+    jobId: string;
+    statusText: string;
+    done: number;
+    total: number;
+  } | null;
   /** Persisted Rust sync job awaiting resume (transient stall, auth, or cold start). */
   syncPausedJob: SyncJobRowOut | null;
   /** Bumped after each successful `refresh_custom_app_dev_mirror` (Workbench embeds). */
@@ -222,6 +228,8 @@ interface CustodianState {
   indexCreateError: string | null;
   refreshDevMirror: () => Promise<boolean>;
   setDevError: (message: string | null) => void;
+  setBundleActivity: (activity: CustodianState['bundleActivity']) => void;
+  clearBundleActivity: () => void;
   dismissObservationIndexPrompt: () => void;
   createPendingObservationIndexes: () => Promise<boolean>;
   refreshSettings: () => Promise<void>;
@@ -251,6 +259,10 @@ interface CustodianState {
   synkResetServerRepository: (request?: { baseUrl?: string }) => Promise<void>;
   refreshPausedSyncJob: () => Promise<void>;
   resumePausedSyncEngineJob: () => Promise<void>;
+  /** Returns true when the active profile has a bearer token (silent refresh/login if needed). */
+  ensureActiveProfileAuth: () => Promise<boolean>;
+  /** Re-runs refresh-token / saved-password login (e.g. after HTTP 401). */
+  recoverActiveProfileAuth: () => Promise<boolean>;
   syncPauseInFlight: () => Promise<void>;
   syncContinueInFlight: () => Promise<void>;
   syncCancelJob: (jobId?: string | null) => Promise<void>;
@@ -352,6 +364,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   error: null,
   syncMessage: null,
   syncActivity: null,
+  bundleActivity: null,
   syncPausedJob: null,
   devMirrorGeneration: 0,
   devBusy: false,
@@ -361,6 +374,30 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   indexCreateError: null,
 
   setDevError: message => set({ devError: message }),
+
+  setBundleActivity: activity => set({ bundleActivity: activity }),
+  clearBundleActivity: () => set({ bundleActivity: null }),
+
+  ensureActiveProfileAuth: async () => {
+    if (selectAuthSessionForActiveProfile(get())?.token) {
+      return true;
+    }
+    try {
+      await reauthenticateActiveProfile(set, get);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+
+  recoverActiveProfileAuth: async () => {
+    try {
+      await reauthenticateActiveProfile(set, get);
+      return true;
+    } catch {
+      return false;
+    }
+  },
 
   dismissObservationIndexPrompt: () =>
     set({ observationIndexPrompt: null, indexCreateError: null }),
@@ -909,6 +946,10 @@ export function selectAuthSessionForActiveProfile(state: CustodianState) {
 
 export function selectSyncActivity(state: CustodianState) {
   return state.syncActivity;
+}
+
+export function selectBundleActivity(state: CustodianState) {
+  return state.bundleActivity;
 }
 
 export function selectPausedSyncJob(state: CustodianState) {
