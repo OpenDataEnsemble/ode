@@ -13,7 +13,10 @@ import LikertScaleQuestionRenderer, {
   likertScaleQuestionTester,
 } from './LikertScaleQuestionRenderer';
 import LikertScaleControl from '../components/likert/LikertScaleControl';
-import { resolveLikertOptions } from '../components/likert/likertConfig';
+import {
+  resolveLikertOptions,
+  injectLikertNotApplicable,
+} from '../components/likert/likertConfig';
 import type {
   LikertJsonSchema,
   LikertObjectJsonSchema,
@@ -212,6 +215,108 @@ describe('resolveLikertOptions', () => {
       options: { orientation: 'cols-2' },
     });
     expect(resolved.layout).toEqual({ mode: 'columns', columns: 2 });
+  });
+
+  it('overrides option labels from ui.json options.oneOf (translations)', () => {
+    const resolved = resolveLikertOptions(likertFieldSchema, {
+      options: {
+        oneOf: [
+          { const: 1, title: 'Muito insatisfeito' },
+          { const: 5, title: 'Muito satisfeito' },
+        ],
+      },
+    });
+    expect(resolved.options[0].label).toBe('Muito insatisfeito');
+    expect(resolved.options[4].label).toBe('Muito satisfeito');
+    // Untranslated entries keep their schema label.
+    expect(resolved.options[2].label).toBe('Neutral');
+  });
+
+  it('builds options from ui.json options.oneOf when schema omits oneOf', () => {
+    const resolved = resolveLikertOptions(
+      { type: 'integer', format: 'likert' } as LikertJsonSchema,
+      {
+        options: {
+          oneOf: [
+            { const: 1, title: 'Baixo' },
+            { const: 2, title: 'Alto' },
+          ],
+        },
+      },
+    );
+    expect(resolved.options.map(o => o.label)).toEqual(['Baixo', 'Alto']);
+  });
+
+  it('excludes the N/A value from displayed scale options', () => {
+    const resolved = resolveLikertOptions({
+      type: ['integer', 'null'],
+      format: 'likert',
+      oneOf: [
+        { const: 1, title: 'Not important' },
+        { const: 2, title: 'Important' },
+        { const: null, title: 'Not applicable' },
+      ],
+      likert: { allowNotApplicable: true, notApplicableValue: null },
+    } as unknown as LikertJsonSchema);
+    expect(resolved.options.map(o => o.value)).toEqual([1, 2]);
+    expect(resolved.allowNotApplicable).toBe(true);
+  });
+});
+
+describe('injectLikertNotApplicable', () => {
+  const naSchema: LikertObjectJsonSchema = {
+    type: 'object',
+    properties: {
+      importance: {
+        type: ['integer', 'null'],
+        format: 'likert',
+        title: 'How important is this feature?',
+        oneOf: [
+          { const: 1, title: 'Not important' },
+          { const: 5, title: 'Very important' },
+        ],
+        likert: { allowNotApplicable: true, notApplicableValue: null },
+      } as unknown as LikertJsonSchema,
+    },
+  };
+
+  it('adds a matching oneOf branch so the N/A value validates', () => {
+    const validate = new Ajv({ allErrors: true, strict: false });
+    validate.addFormat('likert', () => true);
+
+    // Original schema rejects the N/A (null) value.
+    expect(validate.validate(naSchema, { importance: null })).toBe(false);
+
+    const normalized = injectLikertNotApplicable(naSchema);
+    const validateNormalized = new Ajv({ allErrors: true, strict: false });
+    validateNormalized.addFormat('likert', () => true);
+
+    expect(validateNormalized.validate(normalized, { importance: null })).toBe(
+      true,
+    );
+    expect(validateNormalized.validate(normalized, { importance: 5 })).toBe(
+      true,
+    );
+  });
+
+  it('does not mutate the original schema', () => {
+    const before = JSON.stringify(naSchema);
+    injectLikertNotApplicable(naSchema);
+    expect(JSON.stringify(naSchema)).toBe(before);
+  });
+
+  it('ensures type allows null for preset-based N/A fields without oneOf', () => {
+    const normalized = injectLikertNotApplicable({
+      type: 'object',
+      properties: {
+        freq: {
+          type: 'integer',
+          format: 'likert',
+          likert: { preset: 'frequency', allowNotApplicable: true },
+        },
+      },
+    }) as { properties: { freq: { type: unknown } } };
+    expect(normalized.properties.freq.type).toEqual(['integer', 'null']);
   });
 });
 

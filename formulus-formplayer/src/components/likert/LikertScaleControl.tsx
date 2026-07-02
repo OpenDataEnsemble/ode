@@ -217,35 +217,46 @@ export default function LikertScaleControl({
     };
   };
 
-  const cellRowSx = useGrid
-    ? choiceListSx(layout)
-    : {
-        display: 'flex',
-        flexDirection: vertical ? 'column' : 'row',
-        flexWrap: vertical ? 'nowrap' : 'wrap',
+  /**
+   * Row container per variant. Word scales use an equal-column CSS grid so every
+   * option is the same width and the last one never orphans to a full-width row
+   * (a flex-wrap artifact). Compact/emoji cells wrap in a flex row.
+   */
+  const cellRowSxFor = (width: CellWidth) => {
+    if (useGrid) return choiceListSx(layout);
+    if (vertical) {
+      return { display: 'flex', flexDirection: 'column', gap: 0.75 };
+    }
+    if (width === 'word' || width === 'emoji') {
+      const cols = `repeat(${options.length}, minmax(0, 1fr))`;
+      return {
+        display: 'grid',
+        // Word scales stack on phones; emoji stay in one equal-width row (they
+        // are compact), both use equal columns from the sm breakpoint up.
+        gridTemplateColumns: width === 'word' ? { xs: '1fr', sm: cols } : cols,
         gap: 0.75,
+        alignItems: 'stretch',
       };
+    }
+    return {
+      display: 'flex',
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 0.75,
+    };
+  };
 
   /**
-   * Horizontal sizing per variant, tuned for tablets AND phones:
-   * - `word`  : full-width stacked rows on phones (xs), equal columns from
-   *             the sm breakpoint up — the standard mobile survey pattern
-   *             that keeps long labels readable without cramped wrapping;
-   * - `compact`: small fixed cells (numeric/NPS) that wrap when they run out
-   *             of room, staying touch-friendly (44px min) on any screen.
+   * Horizontal per-item sizing:
+   * - `word` / `emoji` : sizing comes from the equal-column grid; only guard
+   *             against overflow so labels wrap inside the cell (equal widths).
+   * - `compact`: small fixed cells (numeric/NPS), touch-friendly (44px min).
    */
   const horizontalCellSx = (width: CellWidth) => {
     switch (width) {
       case 'word':
-        return useGrid
-          ? { width: '100%' }
-          : {
-              flex: { xs: '1 1 100%', sm: '1 1 96px' },
-              minWidth: { sm: 72 },
-            };
       case 'emoji':
-        // Even grid that wraps predictably on any width.
-        return { flex: '1 1 72px', minWidth: 64 };
+        return useGrid ? { width: '100%' } : { minWidth: 0 };
       case 'compact':
       default:
         return { flex: '0 0 auto', minWidth: 48 };
@@ -273,10 +284,14 @@ export default function LikertScaleControl({
     );
   };
 
+  // Inline N/A only in compact flex rows (numeric / endpoint-only buttons).
+  // Grid-based scales (word buttons, emoji) keep the N/A below so the
+  // equal-column grid stays uniform (no mismatched extra cell).
   const inlineNa =
     allowNotApplicable &&
     !vertical &&
-    (display === 'buttons' || display === 'numeric' || display === 'emoji');
+    (display === 'numeric' ||
+      (display === 'buttons' && endpointLabelsOnly));
 
   const renderCells = (
     content: (opt: LikertOption, index: number) => React.ReactNode,
@@ -284,7 +299,7 @@ export default function LikertScaleControl({
     showEndpoints: boolean,
   ) => (
     <Box>
-      <Box sx={cellRowSx} role="group">
+      <Box sx={cellRowSxFor(width)} role="group">
         {options.map((opt, index) => {
           const selected = valuesEqual(scaleValue, opt.value);
           return (

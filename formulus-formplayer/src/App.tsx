@@ -101,6 +101,7 @@ import { numberStepperRenderer } from './renderers/NumberStepperRenderer';
 import LikertScaleQuestionRenderer, {
   likertScaleQuestionTester,
 } from './renderers/LikertScaleQuestionRenderer';
+import { injectLikertNotApplicable } from './components/likert/likertConfig';
 import DurationQuestionRenderer, {
   durationQuestionTester,
 } from './renderers/DurationQuestionRenderer';
@@ -672,7 +673,9 @@ function App() {
           );
           setUISchema(withLocale);
         } else {
-          setSchema(formSchema as FormSchema);
+          setSchema(
+            injectLikertNotApplicable(formSchema) as FormSchema,
+          );
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
             uiSchema as FormUISchema,
           );

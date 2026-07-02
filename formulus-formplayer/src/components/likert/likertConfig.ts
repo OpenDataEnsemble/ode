@@ -41,6 +41,42 @@ export function resolveLikertOptions(
     options = getPresetOptions(config.preset);
   }
 
+  // Localized option labels: `ui.json` `options.oneOf` (populated per active
+  // locale by the translation merge) overrides titles/emoji by matching
+  // `const`, so scale labels can be translated the same way as custom types.
+  const uiOneOf = Array.isArray(uiOptions.oneOf)
+    ? (uiOptions.oneOf as OneOfEntry[])
+    : undefined;
+  if (uiOneOf && uiOneOf.length > 0) {
+    if (options.length === 0) {
+      options = oneOfToOptions(uiOneOf);
+    } else {
+      const byConst = new Map(
+        uiOneOf.map(entry => [String(entry.const), entry]),
+      );
+      options = options.map(opt => {
+        const override = byConst.get(String(opt.value));
+        if (!override) return opt;
+        return {
+          ...opt,
+          label: override.title ?? opt.label,
+          emoji: override.emoji ?? opt.emoji,
+        };
+      });
+    }
+  }
+
+  const allowNotApplicable = config.allowNotApplicable === true;
+  const notApplicableValue =
+    config.notApplicableValue !== undefined ? config.notApplicableValue : null;
+
+  // The N/A choice is rendered by the control's own pill, so drop any scale
+  // option that matches the N/A value (it may be present because we inject a
+  // matching branch into `oneOf` for validation — see injectLikertNotApplicable).
+  if (allowNotApplicable) {
+    options = options.filter(o => !valuesEqual(o.value, notApplicableValue));
+  }
+
   const uiDisplay = uiOptions.display as LikertDisplay | undefined;
   const display =
     uiDisplay ?? config.display ?? (options.length > 7 ? 'slider' : 'buttons');
@@ -59,12 +95,9 @@ export function resolveLikertOptions(
     endpointLabelsOnly:
       config.endpointLabelsOnly ?? uiOptions.endpointLabelsOnly === true,
     allowClear: config.allowClear !== false,
-    allowNotApplicable: config.allowNotApplicable === true,
+    allowNotApplicable,
     notApplicableLabel: config.notApplicableLabel ?? 'Not applicable',
-    notApplicableValue:
-      config.notApplicableValue !== undefined
-        ? config.notApplicableValue
-        : null,
+    notApplicableValue,
     layout,
   };
 }
@@ -91,4 +124,76 @@ export function isNotApplicableValue(
   if (value === undefined || value === '') return false;
   if (naValue === null) return value === null;
   return valuesEqual(value, naValue);
+}
+
+type MutableSchemaNode = Record<string, unknown> & {
+  type?: unknown;
+  format?: unknown;
+  likert?: {
+    allowNotApplicable?: boolean;
+    notApplicableValue?: null | string | number;
+    notApplicableLabel?: string;
+  };
+  oneOf?: Array<{ const?: unknown; title?: string }>;
+  properties?: Record<string, unknown>;
+  items?: unknown;
+};
+
+function ensureTypeAllowsNull(node: MutableSchemaNode): void {
+  if (node.type === undefined) return;
+  if (Array.isArray(node.type)) {
+    if (!node.type.includes('null')) node.type = [...node.type, 'null'];
+  } else if (typeof node.type === 'string' && node.type !== 'null') {
+    node.type = [node.type, 'null'];
+  }
+}
+
+function normalizeLikertNode(node: MutableSchemaNode): void {
+  if (node.format === 'likert' && node.likert?.allowNotApplicable === true) {
+    const naValue =
+      node.likert.notApplicableValue !== undefined
+        ? node.likert.notApplicableValue
+        : null;
+
+    if (naValue === null) ensureTypeAllowsNull(node);
+
+    if (Array.isArray(node.oneOf)) {
+      const exists = node.oneOf.some(entry => valuesEqual(entry?.const, naValue));
+      if (!exists) {
+        node.oneOf = [
+          ...node.oneOf,
+          {
+            const: naValue as string | number | null,
+            title: node.likert.notApplicableLabel ?? 'Not applicable',
+          },
+        ];
+      }
+    }
+  }
+
+  if (node.properties && typeof node.properties === 'object') {
+    for (const child of Object.values(node.properties)) {
+      if (child && typeof child === 'object') {
+        normalizeLikertNode(child as MutableSchemaNode);
+      }
+    }
+  }
+
+  if (node.items && typeof node.items === 'object') {
+    normalizeLikertNode(node.items as MutableSchemaNode);
+  }
+}
+
+/**
+ * Returns a deep clone of a form schema in which every `format: "likert"` field
+ * with `allowNotApplicable` accepts its N/A value during validation. Without
+ * this, a `null` (N/A) value fails the field's `oneOf`/`type` constraints even
+ * though the control offers the N/A choice. The injected branch is filtered out
+ * of the displayed options by resolveLikertOptions, so no duplicate button shows.
+ */
+export function injectLikertNotApplicable<T>(schema: T): T {
+  if (!schema || typeof schema !== 'object') return schema;
+  const clone = JSON.parse(JSON.stringify(schema)) as MutableSchemaNode;
+  normalizeLikertNode(clone);
+  return clone as unknown as T;
 }
