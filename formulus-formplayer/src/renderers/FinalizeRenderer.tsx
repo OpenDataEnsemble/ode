@@ -9,6 +9,7 @@ import { ErrorObject } from 'ajv';
 import { useFormContext } from '../App';
 import EditIcon from '@mui/icons-material/Edit';
 import { displayAdate } from '../utils/adateUtils';
+import { formatDurationHuman } from '../components/duration/durationFormat';
 
 interface SummaryItem {
   label: string;
@@ -100,6 +101,22 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
           return value;
         case 'adate':
           return displayAdate(value);
+        case 'likert': {
+          if (value === null) return 'Not applicable';
+          const oneOf = fieldSchema?.oneOf;
+          if (Array.isArray(oneOf)) {
+            const match = oneOf.find(
+              (o: { const?: unknown; title?: string }) => o.const === value,
+            );
+            if (match?.title) return match.title;
+          }
+          return String(value);
+        }
+        case 'duration':
+          if (typeof value === 'number' && !Number.isNaN(value)) {
+            return formatDurationHuman(value);
+          }
+          return 'Not provided';
       }
     }
 

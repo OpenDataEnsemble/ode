@@ -204,6 +204,83 @@ After formplayer changes, verify on a phone WebView (or ODE Desktop form preview
 
 Rebuild formplayer (`pnpm run build:copy`) before testing in Formulus or Desktop developer mode.
 
+## Built-in question types: Likert scale and duration
+
+These are **built-in** renderers (same pattern as `photo`, `gps`, `signature`) — not app-bundle `question_types/`.
+
+### Likert scale (`format: "likert"`)
+
+Use for agreement, satisfaction, frequency, and numeric rating scales. Stored value is the selected `oneOf[].const` (typically an integer).
+
+```json
+{
+  "type": "integer",
+  "format": "likert",
+  "title": "How satisfied are you with the service?",
+  "oneOf": [
+    { "const": 1, "title": "Very dissatisfied" },
+    { "const": 5, "title": "Very satisfied" }
+  ],
+  "likert": {
+    "preset": "satisfaction",
+    "display": "buttons",
+    "colorMode": "spectrum",
+    "allowClear": true,
+    "allowNotApplicable": false
+  }
+}
+```
+
+All variants share one standard look: outlined neutral cells; the selected option gets an accent border + tint. Unselected options are never colored.
+
+| `likert.display` | UI                                                 |
+| ---------------- | -------------------------------------------------- |
+| `buttons`        | Equal-width outlined option cells (default)        |
+| `radio`          | Radio row with labels below (classic survey style) |
+| `slider`         | MUI slider with tick marks and endpoint labels     |
+| `numeric`        | Compact number cells (NPS style)                   |
+| `stars`          | MUI `Rating` stars with selected label             |
+| `emoji`          | Emoji per option (`emoji` on each `oneOf` entry)   |
+
+| `likert.colorMode` | Selected-option accent                             |
+| ------------------ | -------------------------------------------------- |
+| `neutral`          | Theme primary (default)                            |
+| `spectrum`         | Semantic red / yellow / green by scale position    |
+| `stars`            | Standard MUI Rating gold (when `display: "stars"`) |
+
+Presets (when `oneOf` is omitted): `agreement`, `frequency`, `satisfaction`, `importance`, `likelihood`, `numeric_0_10`, `numeric_1_5`, `numeric_1_7`.
+
+UI layout: `ui.json` `options.orientation` (`horizontal` \| `vertical`), `options.display` overrides `likert.display`.
+
+Storybook: `Question Renderers/LikertScaleQuestionRenderer`.
+
+### Duration / timer (`format: "duration"`)
+
+Captures elapsed time as **seconds** (JSON number). Commit on explicit **Save** (stopwatch) or manual entry blur.
+
+```json
+{
+  "type": "number",
+  "format": "duration",
+  "title": "Time to complete the task",
+  "duration": {
+    "mode": "stopwatch",
+    "unit": "seconds",
+    "precision": 1,
+    "allowManualEntry": true,
+    "countdownFrom": null
+  }
+}
+```
+
+| `duration.mode` | UI                                     |
+| --------------- | -------------------------------------- |
+| `stopwatch`     | Start / Pause / Resume / Reset / Save  |
+| `countdown`     | Countdown from `countdownFrom` seconds |
+| `manual`        | Numeric seconds field only             |
+
+Storybook: `Question Renderers/DurationQuestionRenderer`.
+
 ## Validation error display
 
 Built-in controls and custom question types wrapped by `CustomQuestionTypeAdapter` show validation messages **once** in `QuestionShell` (error alert with icon below the field). Child widgets should use `error` / `validation.error` for red borders only — do not also render `validation.message` as `helperText` or inline copy.
