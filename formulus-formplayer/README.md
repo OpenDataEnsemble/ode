@@ -211,97 +211,12 @@ Rebuild formplayer (`pnpm run build:copy`) before testing in Formulus or Desktop
 
 ## Built-in question types: Likert scale and duration
 
-These are **built-in** renderers (same pattern as `photo`, `gps`, `signature`) — not app-bundle `question_types/`.
+`format: "likert"` and `format: "duration"` are **built-in** renderers (same pattern as `photo`, `gps`, `signature`) — not app-bundle `question_types/`.
 
-### Likert scale (`format: "likert"`)
+- Likert: `src/renderers/LikertScaleQuestionRenderer.tsx` + `src/components/likert/`. Storybook: `Question Renderers/LikertScaleQuestionRenderer`.
+- Duration: `src/renderers/DurationQuestionRenderer.tsx` + `src/components/duration/`. Storybook: `Question Renderers/DurationQuestionRenderer`.
 
-Use for agreement, satisfaction, frequency, and numeric rating scales. Stored value is the selected `oneOf[].const` (typically an integer).
-
-```json
-{
-  "type": "integer",
-  "format": "likert",
-  "title": "How satisfied are you with the service?",
-  "oneOf": [
-    { "const": 1, "title": "Very dissatisfied" },
-    { "const": 5, "title": "Very satisfied" }
-  ],
-  "likert": {
-    "preset": "satisfaction",
-    "display": "buttons",
-    "colorMode": "spectrum",
-    "allowClear": true,
-    "allowNotApplicable": false
-  }
-}
-```
-
-All variants share one standard look: outlined neutral cells; the selected option gets an accent border + tint. Unselected options are never colored.
-
-| `likert.display` | UI                                                 |
-| ---------------- | -------------------------------------------------- |
-| `buttons`        | Equal-width outlined option cells (default)        |
-| `radio`          | Radio row with labels below (classic survey style) |
-| `slider`         | MUI slider with tick marks and endpoint labels     |
-| `numeric`        | Compact number cells (NPS style)                   |
-| `stars`          | MUI `Rating` stars with selected label             |
-| `emoji`          | Emoji per option (`emoji` on each `oneOf` entry)   |
-
-| `likert.colorMode` | Selected-option accent                             |
-| ------------------ | -------------------------------------------------- |
-| `neutral`          | Theme primary (default)                            |
-| `spectrum`         | Semantic red / yellow / green by scale position    |
-| `stars`            | Standard MUI Rating gold (when `display: "stars"`) |
-
-Presets (when `oneOf` is omitted): `agreement`, `frequency`, `satisfaction`, `importance`, `likelihood`, `numeric_0_10`, `numeric_1_5`, `numeric_1_7`.
-
-**Recommended for rating scales:** use `display: "numeric"` and give the first/last `oneOf` entries verbal `title`s (e.g. `0` → "No pain", `10` → "Worst pain"). The control renders the numbers in cells with the words as endpoint anchors below — the highest-reliability, most practitioner-preferred pattern. For opinion questions, word `buttons` are fastest to answer. Emoji always render with their text label to avoid interpretive ambiguity.
-
-**Responsive layout (tablet + phone):** word/button and radio scales lay out as a row on tablets/desktop and automatically stack to one option per row on phones for readability; numeric/emoji cells wrap in an even grid. Set `ui.json` `options.orientation` to `vertical` (stacked), `horizontal`, `flow` (wrap), or `cols-2` … `cols-5` (two-column grid on tablets). Every option is a ≥44px touch target. `options.display` overrides `likert.display`.
-
-**Label guidance (form authors):**
-
-| Display                                | When to use                     | Label pattern                                                    |
-| -------------------------------------- | ------------------------------- | ---------------------------------------------------------------- |
-| `buttons` / `radio`                    | Opinion scales (3–5 options)    | Full label per option (`oneOf[].title`)                          |
-| `numeric`                              | NPS, pain, rating (5+ points)   | Numbers in cells; word labels on first/last `oneOf` entries only |
-| `buttons` + `endpointLabelsOnly: true` | NPS 0–10 in button form         | Digits in cells; endpoint words below                            |
-| `slider`                               | Continuous 0–10 ranges          | Endpoint word anchors below; value badge always visible (`7/10`) |
-| `emoji`                                | Optional sentiment (low-stakes) | Emoji + text label on every option (never emoji-only)            |
-| `stars`                                | 5-point satisfaction            | Star count + selected label beside control                       |
-
-Set `likert.endpointLabelsOnly: true` explicitly for long numeric scales. For 3–4 option scales, omit it so every option shows its full label.
-
-**Not applicable:** set `likert.allowNotApplicable: true` and use `type: ["integer", "null"]`. The N/A option appears inline at the end of button/numeric/emoji rows (dashed pill with ⊘ icon), or below for radio/slider/stars.
-
-Storybook: `Question Renderers/LikertScaleQuestionRenderer`.
-
-### Duration / timer (`format: "duration"`)
-
-Captures elapsed time as **seconds** (JSON number). Commit on explicit **Save** (stopwatch) or manual entry blur.
-
-```json
-{
-  "type": "number",
-  "format": "duration",
-  "title": "Time to complete the task",
-  "duration": {
-    "mode": "stopwatch",
-    "unit": "seconds",
-    "precision": 1,
-    "allowManualEntry": true,
-    "countdownFrom": null
-  }
-}
-```
-
-| `duration.mode` | UI                                     |
-| --------------- | -------------------------------------- |
-| `stopwatch`     | Start / Pause / Resume / Reset / Save  |
-| `countdown`     | Countdown from `countdownFrom` seconds |
-| `manual`        | Numeric seconds field only             |
-
-Storybook: `Question Renderers/DurationQuestionRenderer`.
+Form-author configuration (schema `likert` / `duration` objects, display modes, colour, presets, layout, N/A) is documented on the docs site under **Reference → Form Specifications → Question Types** (`docs/reference/form-specifications.md`). Update that page when adding or changing options.
 
 ## Validation error display
 
