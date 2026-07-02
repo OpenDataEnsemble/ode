@@ -5,7 +5,10 @@ import LikertScaleQuestionRenderer, {
   likertScaleQuestionTester,
 } from '../renderers/LikertScaleQuestionRenderer';
 import { materialRenderers } from '@jsonforms/material-renderers';
-import type { LikertOneOfEntry } from '../components/likert/likertTypes';
+import type {
+  LikertConfig,
+  LikertOneOfEntry,
+} from '../components/likert/likertTypes';
 import {
   likertField,
   likertObjectSchema,
@@ -49,8 +52,8 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 function satisfactionSchema(
-  likert: Parameters<typeof likertField>[1]['likert'] = {},
-  fieldOverrides: Parameters<typeof likertField>[1] = {},
+  likert: LikertConfig = {},
+  fieldOverrides: Omit<NonNullable<Parameters<typeof likertField>[1]>, 'likert'> = {},
 ) {
   return likertObjectSchema(
     likertField(satisfactionOneOf, {
