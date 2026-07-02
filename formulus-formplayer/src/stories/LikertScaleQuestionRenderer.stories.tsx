@@ -53,7 +53,10 @@ type Story = StoryObj<typeof meta>;
 
 function satisfactionSchema(
   likert: LikertConfig = {},
-  fieldOverrides: Omit<NonNullable<Parameters<typeof likertField>[1]>, 'likert'> = {},
+  fieldOverrides: Omit<
+    NonNullable<Parameters<typeof likertField>[1]>,
+    'likert'
+  > = {},
 ) {
   return likertObjectSchema(
     likertField(satisfactionOneOf, {

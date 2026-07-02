@@ -673,9 +673,7 @@ function App() {
           );
           setUISchema(withLocale);
         } else {
-          setSchema(
-            injectLikertNotApplicable(formSchema) as FormSchema,
-          );
+          setSchema(injectLikertNotApplicable(formSchema) as FormSchema);
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
             uiSchema as FormUISchema,
           );

@@ -290,8 +290,7 @@ export default function LikertScaleControl({
   const inlineNa =
     allowNotApplicable &&
     !vertical &&
-    (display === 'numeric' ||
-      (display === 'buttons' && endpointLabelsOnly));
+    (display === 'numeric' || (display === 'buttons' && endpointLabelsOnly));
 
   const renderCells = (
     content: (opt: LikertOption, index: number) => React.ReactNode,

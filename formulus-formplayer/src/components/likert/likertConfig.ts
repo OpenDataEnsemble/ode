@@ -158,7 +158,9 @@ function normalizeLikertNode(node: MutableSchemaNode): void {
     if (naValue === null) ensureTypeAllowsNull(node);
 
     if (Array.isArray(node.oneOf)) {
-      const exists = node.oneOf.some(entry => valuesEqual(entry?.const, naValue));
+      const exists = node.oneOf.some(entry =>
+        valuesEqual(entry?.const, naValue),
+      );
       if (!exists) {
         node.oneOf = [
           ...node.oneOf,

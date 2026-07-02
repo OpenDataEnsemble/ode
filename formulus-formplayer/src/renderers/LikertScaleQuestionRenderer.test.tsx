@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 import React, { useState } from 'react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
+import {
+  render,
+  screen,
+  cleanup,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
 import { JsonForms } from '@jsonforms/react';
 import type { UISchemaElement } from '@jsonforms/core';
