@@ -1,6 +1,7 @@
 import type { FormInitData } from './formplayerHost';
 import { sanitizePortableAttachmentsInFormData } from './sanitizeFormSavedData';
 import { resolveDesktopUiLocale } from './uiLocale';
+import { resolveDesktopFormLocale } from './formLocale';
 import {
   buildLinkedFormSpecs,
   type LoadLinkedFormSpec,
@@ -42,10 +43,18 @@ export function buildFormPreviewInit(args: {
     typeof args.params.locale === 'string'
       ? resolveDesktopUiLocale(args.params.locale)
       : resolveDesktopUiLocale();
+  const savedFormLocale =
+    typeof args.savedData.formLocale === 'string'
+      ? args.savedData.formLocale
+      : null;
+  const formLocale = resolveDesktopFormLocale(
+    typeof args.params.formLocale === 'string' ? args.params.formLocale : null,
+    savedFormLocale,
+  );
   const init: FormInitData = {
     formType: args.formType,
     observationId: args.observationId ?? null,
-    params: { ...args.params, locale },
+    params: { ...args.params, locale, formLocale },
     savedData: sanitizePortableAttachmentsInFormData(args.savedData),
     formSchema: args.formSchema,
     uiSchema: args.uiSchema,
