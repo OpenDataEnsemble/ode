@@ -6,6 +6,7 @@ import type { SynkronusSyncOptions } from '../sync/syncProgress';
 import { notificationService } from './NotificationService';
 import { getUserFacingAppBundleUpdateErrorMessage } from './appBundleUpdateErrors';
 import { FormService } from './FormService';
+import { formLocaleIndexService } from './FormLocaleIndexService';
 import {
   autoLogin,
   getUserFacingSyncErrorMessage,
@@ -397,8 +398,6 @@ export class SyncService {
       const formService = await FormService.getInstance();
       await formService.invalidateCache();
 
-      const { formLocaleIndexService } =
-        await import('./FormLocaleIndexService');
       await formLocaleIndexService.refreshIndex();
 
       const syncTime = new Date().toLocaleTimeString();
