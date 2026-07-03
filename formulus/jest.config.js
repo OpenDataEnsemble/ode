@@ -17,6 +17,7 @@ export default {
   ],
   // WatermelonDB / Loki can leave handles open in Jest; force exit avoids hung workers.
   forceExit: true,
-  // Set a timeout for the entire test suite
+  // React Native's jest preset still pulls jest-environment-node@29; jest-runtime@30.4+
+  // calls clearMocksOnScope which that mocker lacks. Pin jest to 30.3.x (see package.json).
   testTimeout: 30000,
 };

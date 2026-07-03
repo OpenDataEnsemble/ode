@@ -29,6 +29,13 @@ import {
   registerPendingSubObservationOpen,
 } from '../lib/formPreviewSubObservationBridge';
 import {
+  FORM_LOCALE_DEFAULT,
+  getDesktopFormLocalePreference,
+  scanActiveBundleFormLocales,
+  setDesktopFormLocalePreference,
+  type FormLocalePreference,
+} from '../lib/formLocale';
+import {
   getDesktopLocalePreference,
   setDesktopLocalePreference,
   type UiLocalePreference,
@@ -75,6 +82,9 @@ export function FormPreviewPage() {
   >(null);
   const [uiLocalePreference, setUiLocalePreference] =
     useState<UiLocalePreference>(() => getDesktopLocalePreference());
+  const [formLocalePreference, setFormLocalePreference] =
+    useState<FormLocalePreference>(() => getDesktopFormLocalePreference());
+  const [scannedFormLocales, setScannedFormLocales] = useState<string[]>([]);
 
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
 
@@ -145,11 +155,16 @@ export function FormPreviewPage() {
     setListLoading(true);
     setListError(null);
     try {
-      const rows = await tauriClient.listActiveBundleForms();
+      const [rows, locales] = await Promise.all([
+        tauriClient.listActiveBundleForms(),
+        scanActiveBundleFormLocales(),
+      ]);
       setForms(rows);
+      setScannedFormLocales(locales);
     } catch (e) {
       setListError(e instanceof Error ? e.message : String(e));
       setForms([]);
+      setScannedFormLocales([]);
     } finally {
       setListLoading(false);
     }
@@ -657,6 +672,42 @@ export function FormPreviewPage() {
               <option value="en">English</option>
               <option value="pt">Português</option>
               <option value="fr">Français</option>
+            </select>
+            <label className="form-preview-label" htmlFor="form-locale-select">
+              Form language
+            </label>
+            <select
+              id="form-locale-select"
+              className="form-preview-type-select"
+              value={formLocalePreference}
+              disabled={scannedFormLocales.length === 0}
+              onChange={e => {
+                const v = e.target.value;
+                setFormLocalePreference(v);
+                setDesktopFormLocalePreference(v);
+                if (spec) {
+                  void (async () => {
+                    const p = parseJsonObject(paramsJson, 'params');
+                    const sv = parseJsonObject(savedJson, 'savedData');
+                    if (p.ok && sv.ok) {
+                      setFormInitData(
+                        await buildInitFromSpec(
+                          spec,
+                          { ...p.value, formLocale: v },
+                          sv.value,
+                          previewObservationId,
+                        ),
+                      );
+                    }
+                  })();
+                }
+              }}>
+              <option value={FORM_LOCALE_DEFAULT}>Default</option>
+              {scannedFormLocales.map(code => (
+                <option key={code} value={code}>
+                  {code}
+                </option>
+              ))}
             </select>
             {listError ? (
               <p className="notice error">{listError}</p>

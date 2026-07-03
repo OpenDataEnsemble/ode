@@ -8,29 +8,38 @@ import {
 } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  UI_LOCALE_PREFERENCE_OPTIONS,
-  type UiLocalePreference,
-} from '../../lib/locale';
+import { FORM_LOCALE_DEFAULT } from '../../lib/formLocale';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import colors from '../../theme/colors';
 import { odeSpacing, odeTypography, odeRadius } from '../../theme/odeDesign';
-interface LocalePickerProps {
-  value: UiLocalePreference;
-  onChange: (value: UiLocalePreference) => void;
+
+interface FormLocalePickerProps {
+  value: string;
+  locales: string[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
 }
 
-const LocalePicker: React.FC<LocalePickerProps> = ({ value, onChange }) => {
+const FormLocalePicker: React.FC<FormLocalePickerProps> = ({
+  value,
+  locales,
+  disabled = false,
+  onChange,
+}) => {
   const { t } = useTranslation();
   const { themeColors } = useAppTheme();
   const [open, setOpen] = useState(false);
 
-  const labels: Record<UiLocalePreference, string> = {
-    auto: t('settings.language.auto'),
-    en: t('settings.language.en'),
-    pt: t('settings.language.pt'),
-    fr: t('settings.language.fr'),
-  };
+  const options = [
+    { value: FORM_LOCALE_DEFAULT, label: t('settings.formsLanguage.default') },
+    ...locales.map(code => ({ value: code, label: code })),
+  ];
+
+  const currentLabel =
+    options.find(opt => opt.value === value)?.label ??
+    (value === FORM_LOCALE_DEFAULT
+      ? t('settings.formsLanguage.default')
+      : value);
 
   return (
     <>
@@ -40,18 +49,23 @@ const LocalePicker: React.FC<LocalePickerProps> = ({ value, onChange }) => {
           {
             borderColor: themeColors.divider as string,
             backgroundColor: themeColors.surface as string,
+            opacity: disabled ? 0.55 : 1,
           },
         ]}
-        onPress={() => setOpen(true)}
+        onPress={() => {
+          if (!disabled) setOpen(true);
+        }}
+        disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel={t('settings.appInterface.label')}>
+        accessibilityLabel={t('settings.formsLanguage.label')}
+        accessibilityState={{ disabled }}>
         <Text
           style={[
             styles.triggerText,
             { color: themeColors.onSurface as string },
           ]}
           numberOfLines={1}>
-          {labels[value]}
+          {currentLabel}
         </Text>
         <Icon
           name="chevron-down"
@@ -80,9 +94,9 @@ const LocalePicker: React.FC<LocalePickerProps> = ({ value, onChange }) => {
                 styles.sheetTitle,
                 { color: themeColors.onSurface as string },
               ]}>
-              {t('settings.appInterface.label')}
+              {t('settings.formsLanguage.label')}
             </Text>
-            {UI_LOCALE_PREFERENCE_OPTIONS.map(opt => {
+            {options.map(opt => {
               const selected = value === opt.value;
               return (
                 <TouchableOpacity
@@ -106,7 +120,7 @@ const LocalePicker: React.FC<LocalePickerProps> = ({ value, onChange }) => {
                           : (themeColors.onSurface as string),
                       },
                     ]}>
-                    {labels[opt.value]}
+                    {opt.label}
                   </Text>
                   {selected ? (
                     <Icon
@@ -173,4 +187,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LocalePicker;
+export default FormLocalePicker;

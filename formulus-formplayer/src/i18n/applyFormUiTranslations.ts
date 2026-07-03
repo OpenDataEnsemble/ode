@@ -266,6 +266,8 @@ function processNode(node: unknown, locale: string): unknown {
  */
 export function applyFormUiTranslations<T>(uischema: T, locale: string): T {
   if (!uischema || typeof uischema !== 'object') return uischema;
+  const tag = locale.trim().toLowerCase();
+  if (!tag || tag === 'default') return uischema;
   if (!hasTranslationsSubtree(uischema)) return uischema;
   return processNode(uischema, locale) as T;
 }

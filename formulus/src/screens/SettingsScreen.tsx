@@ -55,14 +55,18 @@ import {
   getSettingsHydrationSnapshot,
   loadSettingsHydrationFromStorage,
 } from '../services/SettingsHydrationCache';
-import { Button, LocalePicker } from '../components/common';
+import { Button, LocalePicker, FormLocalePicker } from '../components/common';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import Logo from '../../assets/images/logo.png';
 import { Moon, Monitor, Sun, Languages } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { localeSettingsService } from '../services/LocaleSettingsService';
+import { formLocaleSettingsService } from '../services/FormLocaleSettingsService';
+import { formLocaleIndexService } from '../services/FormLocaleIndexService';
 import { type UiLocalePreference } from '../lib/locale';
+import { FORM_LOCALE_DEFAULT } from '../lib/formLocale';
 import { syncFormulusI18nLanguage } from '../i18n';
+import { appEvents } from '../webview/FormulusMessageHandlers';
 
 type SettingsScreenNavigationProp = BottomTabNavigationProp<
   MainTabParamList,
@@ -95,6 +99,9 @@ const SettingsScreen = () => {
   const [version, setVersion] = useState('');
   const [uiLocalePreference, setUiLocalePreference] =
     useState<UiLocalePreference>('auto');
+  const [formLocalePreference, setFormLocalePreference] =
+    useState<string>(FORM_LOCALE_DEFAULT);
+  const [scannedFormLocales, setScannedFormLocales] = useState<string[]>([]);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -121,6 +128,33 @@ const SettingsScreen = () => {
         setUiLocalePreference(localeSettingsService.getPreference());
       }
     });
+    void formLocaleSettingsService.load().then(() => {
+      if (mountedRef.current) {
+        setFormLocalePreference(formLocaleSettingsService.getPreference());
+      }
+    });
+    void formLocaleIndexService.getLocales().then(locales => {
+      if (mountedRef.current) {
+        setScannedFormLocales(locales);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    const onBundleUpdated = () => {
+      void formLocaleIndexService.getLocales().then(locales => {
+        if (mountedRef.current) {
+          setScannedFormLocales(locales);
+        }
+      });
+    };
+    appEvents.addListener('bundleUpdated', onBundleUpdated);
+    return () => appEvents.removeListener('bundleUpdated', onBundleUpdated);
+  }, []);
+
+  const handleFormLocalePreference = useCallback(async (preference: string) => {
+    setFormLocalePreference(preference);
+    await formLocaleSettingsService.setPreference(preference);
   }, []);
 
   const handleLocalePreference = useCallback(
@@ -621,13 +655,34 @@ const SettingsScreen = () => {
                   styles.appSettingsLabel,
                   { color: themeColors.onSurface },
                 ]}>
-                {t('settings.language.label')}
+                {t('settings.appInterface.label')}
               </Text>
             </View>
             <View style={styles.languagePickerWrap}>
               <LocalePicker
                 value={uiLocalePreference}
                 onChange={pref => void handleLocalePreference(pref)}
+              />
+            </View>
+          </View>
+
+          <View style={styles.themesInlineRow}>
+            <View style={styles.themesInlineLeft}>
+              <Languages size={22} color={themeColors.onSurface as string} />
+              <Text
+                style={[
+                  styles.appSettingsLabel,
+                  { color: themeColors.onSurface },
+                ]}>
+                {t('settings.formsLanguage.label')}
+              </Text>
+            </View>
+            <View style={styles.languagePickerWrap}>
+              <FormLocalePicker
+                value={formLocalePreference}
+                locales={scannedFormLocales}
+                disabled={scannedFormLocales.length === 0}
+                onChange={pref => void handleFormLocalePreference(pref)}
               />
             </View>
           </View>

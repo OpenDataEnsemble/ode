@@ -48,6 +48,7 @@ import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { geolocationService } from '../services/GeolocationService';
 import { persistObservationWithAttachments } from '../services/attachmentStorage';
 import { localeSettingsService } from '../services/LocaleSettingsService';
+import { formLocaleSettingsService } from '../services/FormLocaleSettingsService';
 import { useTranslation } from 'react-i18next';
 
 async function buildLinkedFormSpecs(
@@ -293,12 +294,28 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       const resolvedLocale =
         await localeSettingsService.resolveActiveLocale(sessionLocale);
 
+      const sessionFormLocale =
+        params && typeof params.formLocale === 'string'
+          ? params.formLocale
+          : null;
+      const savedFormLocale =
+        existingObservationData &&
+        typeof existingObservationData.formLocale === 'string'
+          ? existingObservationData.formLocale
+          : null;
+      const resolvedFormLocale =
+        await formLocaleSettingsService.resolveActiveFormLocale(
+          sessionFormLocale,
+          savedFormLocale,
+        );
+
       const formParams = {
         theme: 'default',
         darkMode: isDark,
         themeColors, // ← custom app palette forwarded to Formplayer
         ...params,
         locale: resolvedLocale,
+        formLocale: resolvedFormLocale,
       };
 
       // Load extensions for this form
