@@ -10,6 +10,16 @@ describe('applyFormUiTranslations', () => {
     expect(applyFormUiTranslations(ui, 'fr')).toBe(ui);
   });
 
+  it('skips merge for default locale even when translations exist', () => {
+    const ui = {
+      type: 'Control',
+      scope: '#/properties/name',
+      label: 'Name',
+      translations: { fr: { label: 'Nom' } },
+    };
+    expect(applyFormUiTranslations(ui, 'default')).toBe(ui);
+  });
+
   it('merges partial control label', () => {
     const ui = {
       type: 'Control',

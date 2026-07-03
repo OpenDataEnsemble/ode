@@ -51,6 +51,10 @@ import {
 } from './utils/stickyFieldHelpers';
 import { stickyService } from './services/StickyService';
 import { applyFormUiTranslations } from './i18n/applyFormUiTranslations';
+import {
+  resolveEffectiveFormLocale,
+  stampFormLocaleOnObservationData,
+} from './i18n/formLocaleUtils';
 import { LinkedFormSpecsMap } from './utils/controlDisplayText';
 import { createOdeI18n } from './i18n/createOdeI18n';
 import { odeT } from './i18n/createOdeI18n';
@@ -338,7 +342,7 @@ interface FormContextType {
 
 function prepareLinkedFormSpecs(
   raw: FormInitData['linkedFormSpecs'],
-  locale: string,
+  formLocale: string,
 ): LinkedFormSpecsMap {
   if (!raw || typeof raw !== 'object') return {};
   const out: LinkedFormSpecsMap = {};
@@ -349,7 +353,7 @@ function prepareLinkedFormSpecs(
     if (!schema || !uiRaw) continue;
     out[id] = {
       schema,
-      uiSchema: applyFormUiTranslations(uiRaw, locale) as UISchemaElement,
+      uiSchema: applyFormUiTranslations(uiRaw, formLocale) as UISchemaElement,
     };
   }
   return out;
@@ -512,9 +516,10 @@ function App() {
         const resolvedLocale = resolveFormplayerLocale(
           (params as Record<string, unknown> | null)?.locale,
         );
+        const resolvedFormLocale = resolveEffectiveFormLocale(params);
         setUiLocale(resolvedLocale);
         setLinkedFormSpecs(
-          prepareLinkedFormSpecs(initData.linkedFormSpecs, resolvedLocale),
+          prepareLinkedFormSpecs(initData.linkedFormSpecs, resolvedFormLocale),
         );
 
         // Debug: log schema details, especially x-dynamicEnum usage
@@ -669,7 +674,7 @@ function App() {
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(null);
           const withLocale = applyFormUiTranslations(
             processUISchemaWithFinalize(swipeLayoutUISchema, skipFinalize),
-            resolvedLocale,
+            resolvedFormLocale,
           );
           setUISchema(withLocale);
         } else {
@@ -679,7 +684,7 @@ function App() {
           );
           const withLocale = applyFormUiTranslations(
             processUISchemaWithFinalize(swipeLayoutUISchema, skipFinalize),
-            resolvedLocale,
+            resolvedFormLocale,
           );
           setUISchema(withLocale);
         }
@@ -1238,11 +1243,17 @@ function App() {
       }
 
       const rootPayload = prepareRootObservationData(rawPayload ?? {}, schema);
+      const effectiveFormLocale = resolveEffectiveFormLocale(
+        payloadFormInit.params,
+      );
       const { errors: finalizeValidatorErrors, data: payloadData } =
         runCustomValidatorsAndRefreshData(
           uischema ?? undefined,
           schema ?? undefined,
-          rootPayload as Record<string, unknown>,
+          stampFormLocaleOnObservationData(
+            rootPayload as Record<string, unknown>,
+            effectiveFormLocale,
+          ),
           ajv,
         );
 
