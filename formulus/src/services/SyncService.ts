@@ -397,6 +397,10 @@ export class SyncService {
       const formService = await FormService.getInstance();
       await formService.invalidateCache();
 
+      const { formLocaleIndexService } =
+        await import('./FormLocaleIndexService');
+      await formLocaleIndexService.refreshIndex();
+
       const syncTime = new Date().toLocaleTimeString();
       await AsyncStorage.setItem('@lastSync', syncTime);
       this.updateStatus('App bundle sync completed');
