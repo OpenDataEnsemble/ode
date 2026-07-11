@@ -22,6 +22,7 @@ import {
   useImportStagingStore,
 } from '../store/useImportStagingStore';
 import { messageFromUnknown } from '../lib/errors';
+import { ensureBundleApplyEventPipeline } from '../lib/bundleTauriEvents';
 import { useCustodianStore } from '../store/useCustodianStore';
 import {
   openSessionFolderDialog,
@@ -357,6 +358,7 @@ export function ImportPage() {
     statusCtl.push('Reading observation JSON…');
 
     try {
+      await ensureBundleApplyEventPipeline();
       const parsed = await parseObservationJsonPathsViaRust(
         stagedJson.map(s => ({ name: s.name, nativePath: s.nativePath })),
         (done, tot) => statusCtl.push(`Reading JSON (${done}/${tot})…`),
@@ -519,11 +521,14 @@ export function ImportPage() {
       await loadHealth();
 
       const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).`;
+      const indexMsg = result.indexRebuildScheduled
+        ? ' Rebuilding observation indexes in the background (see activity banner).'
+        : '';
       const attMsg =
         copyItems.length > 0
           ? ` Copied ${attachmentsCopied}/${copyItems.length} referenced attachment(s) to queue.${copyErrors.length ? ` Errors: ${copyErrors.slice(0, 5).join('; ')}${copyErrors.length > 5 ? '…' : ''}` : ''}`
           : '';
-      setMessage(`${baseMsg}${attMsg}`);
+      setMessage(`${baseMsg}${indexMsg}${attMsg}`);
       clearStagedFiles();
       setPreviewReport(null);
     } catch (e) {

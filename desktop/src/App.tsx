@@ -34,6 +34,10 @@ import {
 } from './store/useImportStagingStore';
 import { guardedProfileNavigation } from './store/useProfileDraftGuardStore';
 import { useToastStore } from './store/useToastStore';
+import {
+  ensureBundleApplyEventPipeline,
+  installGlobalIndexRebuildListener,
+} from './lib/bundleTauriEvents';
 import './App.css';
 
 const DATA_NAV = [
@@ -220,6 +224,17 @@ function Shell() {
   const syncActivity = useCustodianStore(selectSyncActivity);
   const bundleActivity = useCustodianStore(selectBundleActivity);
   const importActivity = useImportStagingStore(selectImportActivity);
+  const setBundleActivity = useCustodianStore(s => s.setBundleActivity);
+  const clearBundleActivity = useCustodianStore(s => s.clearBundleActivity);
+
+  useEffect(() => {
+    void ensureBundleApplyEventPipeline();
+    return installGlobalIndexRebuildListener({
+      setBundleActivity,
+      clearBundleActivity,
+    });
+  }, [setBundleActivity, clearBundleActivity]);
+
   const activityText: string | null =
     syncActivity?.statusText ??
     bundleActivity?.statusText ??

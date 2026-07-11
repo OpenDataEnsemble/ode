@@ -95,6 +95,13 @@ export interface ImportResult {
   attachmentsDownloaded?: number;
   /** Download attempts that failed after a manifest op (e.g. HTTP error). */
   attachmentsFailed?: number;
+  /** Background full index rebuild was scheduled after this import. */
+  indexRebuildScheduled?: boolean;
+}
+
+export interface StartObservationIndexRebuildResult {
+  jobId: string;
+  scheduled: boolean;
 }
 
 /** Result of uploading outbound attachment files before `syncPush`. */

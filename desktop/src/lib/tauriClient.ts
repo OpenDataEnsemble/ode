@@ -18,6 +18,7 @@ import type {
   ObservationRecord,
   WorkspaceAttachmentPresenceEntry,
   SaveObservationRequest,
+  StartObservationIndexRebuildResult,
   ServerProfile,
   ActiveBundleFormEntry,
   AppBundleState,
@@ -96,8 +97,12 @@ export const tauriClient = {
     limit?: number;
   }) => invokeSafe<ObservationRecord[]>('query_observations', { req }),
   rebuildObservationIndexes: () =>
-    invokeSafe<{ generation: number; lastRebuildAt?: string | null }>(
+    invokeSafe<StartObservationIndexRebuildResult>(
       'rebuild_observation_indexes',
+    ),
+  startObservationIndexRebuild: () =>
+    invokeSafe<StartObservationIndexRebuildResult>(
+      'start_observation_index_rebuild',
     ),
   createObservationSqliteIndexes: () =>
     invokeSafe<CreateObservationSqliteIndexesResult>(

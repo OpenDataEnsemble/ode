@@ -622,6 +622,8 @@ struct ImportResult {
     attachments_downloaded: usize,
     #[serde(default)]
     attachments_failed: usize,
+    #[serde(default)]
+    index_rebuild_scheduled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1483,7 +1485,7 @@ async fn download_synkronus_app_bundle_zip(
     Ok(buf)
 }
 
-fn spawn_bundle_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: String) {
+fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: String) {
     tauri::async_runtime::spawn_blocking(move || {
         let app_config = match bundle_app_config_path(&ctx) {
             Ok(p) if p.exists() => p,
@@ -1552,6 +1554,21 @@ fn spawn_bundle_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: 
             ),
         }
     });
+}
+
+/// Starts a background full index rebuild when the active bundle declares indexes.
+fn schedule_observation_index_rebuild(
+    app: &tauri::AppHandle,
+    ctx: &AppCtxHandle,
+) -> Option<String> {
+    let app_config = bundle_app_config_path(ctx).ok().filter(|p| p.exists())?;
+    let defs = observation_index::load_index_config(&app_config);
+    if defs.is_empty() {
+        return None;
+    }
+    let job_id = Uuid::new_v4().to_string();
+    spawn_observation_index_rebuild(app.clone(), ctx.clone(), job_id.clone());
+    Some(job_id)
 }
 
 fn read_app_bundle_state_unlocked(
@@ -2419,9 +2436,9 @@ fn query_param_summary(params: &[observation_query::SqlParam]) -> String {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct RebuildObservationIndexesResult {
-    generation: i64,
-    last_rebuild_at: Option<String>,
+struct StartObservationIndexRebuildResult {
+    job_id: String,
+    scheduled: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2538,29 +2555,29 @@ fn query_observations(
 }
 
 #[tauri::command]
-async fn rebuild_observation_indexes(
+fn start_observation_index_rebuild(
+    app: tauri::AppHandle,
     ctx: tauri::State<'_, AppCtxHandle>,
-) -> Result<RebuildObservationIndexesResult, String> {
+) -> Result<StartObservationIndexRebuildResult, String> {
     let ctx = ctx.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let defs = load_active_index_defs(&ctx);
-        let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        let generation = observation_index::rebuild_all_indexes(&conn, &defs, None)
-            .map_err(|err| err.to_string())?;
-        let last_rebuild_at: Option<String> = conn
-            .query_row(
-                "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
-                [],
-                |r| r.get(0),
-            )
-            .ok();
-        Ok(RebuildObservationIndexesResult {
-            generation,
-            last_rebuild_at,
-        })
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    match schedule_observation_index_rebuild(&app, &ctx) {
+        Some(job_id) => Ok(StartObservationIndexRebuildResult {
+            job_id,
+            scheduled: true,
+        }),
+        None => Ok(StartObservationIndexRebuildResult {
+            job_id: String::new(),
+            scheduled: false,
+        }),
+    }
+}
+
+#[tauri::command]
+fn rebuild_observation_indexes(
+    app: tauri::AppHandle,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<StartObservationIndexRebuildResult, String> {
+    start_observation_index_rebuild(app, ctx)
 }
 
 #[tauri::command]
@@ -3995,7 +4012,7 @@ async fn download_and_apply_app_bundle(
         .filter(|p| p.exists())
         .is_some();
     if needs_index {
-        spawn_bundle_index_rebuild(app.clone(), ctx_inner.clone(), job_id);
+        spawn_observation_index_rebuild(app.clone(), ctx_inner.clone(), job_id);
     }
 
     Ok(DownloadAndApplyAppBundleResult {
@@ -4324,13 +4341,14 @@ fn import_observations_run(
         if !index_defs.is_empty() {
             let payload = serde_json::to_string(&observation.data).map_err(|e| e.to_string())?;
             let form_type = observation.form_type.as_deref().unwrap_or("");
-            let _ = observation_index::incremental_reindex(
+            observation_index::incremental_reindex(
                 &tx,
                 &observation.observation_id,
                 form_type,
                 &payload,
                 &index_defs,
-            );
+            )
+            .map_err(|err| err.to_string())?;
         }
         imported += 1;
     }
@@ -4348,16 +4366,25 @@ fn import_observations_run(
         conflicts,
         attachments_downloaded: 0,
         attachments_failed: 0,
+        index_rebuild_scheduled: false,
     })
 }
 
 #[tauri::command]
 fn import_observations(
+    app: tauri::AppHandle,
     observations: Vec<ApiObservation>,
     mark_pending: Option<bool>,
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<ImportResult, String> {
-    import_observations_run(observations, mark_pending.unwrap_or(false), &ctx)
+    let ctx_inner = ctx.inner().clone();
+    let mut result =
+        import_observations_run(observations, mark_pending.unwrap_or(false), &ctx_inner)?;
+    if result.imported > 0 {
+        result.index_rebuild_scheduled =
+            schedule_observation_index_rebuild(&app, &ctx_inner).is_some();
+    }
+    Ok(result)
 }
 
 #[tauri::command]
@@ -4599,6 +4626,7 @@ pub fn run() {
             list_observations,
             list_observations_page,
             query_observations,
+            start_observation_index_rebuild,
             rebuild_observation_indexes,
             create_observation_sqlite_indexes,
             get_observation_index_status,
