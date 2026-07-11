@@ -2197,8 +2197,20 @@ input:not([type]) {
   font-size: var(--font-size-sm);
 }
 
-.import-staging-section {
+.import-staging-lists {
   margin-top: var(--space-lg);
+  max-height: min(16rem, 40vh);
+  overflow-y: auto;
+  border: 1px solid #2a3a5c;
+  border-radius: var(--panel-radius);
+  padding: var(--space-sm) var(--space-md);
+  background: #0d1424;
+}
+
+.import-staging-lists .import-staging-section + .import-staging-section {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid rgba(45, 52, 73, 0.5);
 }
 
 .import-staging-section h4 {
@@ -2206,6 +2218,11 @@ input:not([type]) {
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-muted);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-xs) 0;
+  background: #0d1424;
 }
 
 .import-staging-row {

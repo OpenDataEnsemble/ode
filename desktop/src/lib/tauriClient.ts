@@ -129,6 +129,8 @@ export const tauriClient = {
     }),
   readHostTextFile: (path: string) =>
     invokeSafe<string>('read_host_text_file', { path }),
+  hostPathIsDirectory: (path: string) =>
+    invokeSafe<boolean>('host_path_is_directory', { path }),
   readHostTextFilesBatch: (paths: string[]) =>
     invokeSafe<HostTextReadResult[]>('read_host_text_files_batch', { paths }),
   parseImportObservationJsonPaths: (paths: string[]) =>

@@ -1,4 +1,8 @@
-import { open, save, confirm } from '@tauri-apps/plugin-dialog';
+import { save, confirm } from '@tauri-apps/plugin-dialog';
+import {
+  openSessionFolderDialog,
+  SESSION_FOLDER_DIALOG_KEYS,
+} from '../lib/sessionFolderDialog';
 import { openPath } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isTauri } from '@tauri-apps/api/core';
@@ -243,12 +247,10 @@ export function ProfilesPage() {
   }, [active, saveCurrent, syncDraftFromActive, setProfileDraftAttemptLeave]);
 
   async function pickDirectory(title: string) {
-    const selected = await open({
-      directory: true,
-      multiple: false,
+    return openSessionFolderDialog({
+      key: SESSION_FOLDER_DIALOG_KEYS.profileWorkspace,
       title,
     });
-    return typeof selected === 'string' ? selected : null;
   }
 
   async function openWorkspaceFolder() {

@@ -3153,6 +3153,12 @@ fn read_host_text_file(path: String) -> Result<String, String> {
     read_host_text_file_inner(p)
 }
 
+/// True when `path` exists and is a directory (for session folder dialog defaults).
+#[tauri::command]
+fn host_path_is_directory(path: String) -> bool {
+    Path::new(path.trim()).is_dir()
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ParsedImportFileResult {
@@ -3346,7 +3352,68 @@ fn copy_one_attachment_to_pending(
     Ok(())
 }
 
-/// Copy many attachments into `attachments/pending/` with `import/attachment-copy-progress` events (fine-grained).
+/// Cap parallel host copies so large imports do not saturate disk I/O.
+const ATTACHMENT_COPY_MAX_PARALLEL: usize = 8;
+
+/// Minimum wall time between progress events forwarded to the WebView.
+const ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(250);
+
+/// Emit a progress event every N files (scaled to batch size).
+fn attachment_copy_progress_step(total: usize) -> usize {
+    if total <= 20 {
+        1
+    } else if total <= 200 {
+        10
+    } else if total <= 2000 {
+        25
+    } else {
+        50
+    }
+}
+
+fn should_emit_attachment_copy_progress(
+    done: usize,
+    total: usize,
+    step: usize,
+    last_emit: Instant,
+) -> bool {
+    if done == 0 {
+        return false;
+    }
+    if done == 1 || done >= total {
+        return true;
+    }
+    if step > 0 && done % step == 0 {
+        return true;
+    }
+    last_emit.elapsed() >= ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL
+}
+
+fn emit_attachment_copy_progress(
+    app: &tauri::AppHandle,
+    done: usize,
+    total: usize,
+    attachment_id: &str,
+    last_emit: &Mutex<Instant>,
+    step: usize,
+) {
+    let mut last = last_emit.lock().unwrap();
+    if !should_emit_attachment_copy_progress(done, total, step, *last) {
+        return;
+    }
+    *last = Instant::now();
+    drop(last);
+    let _ = app.emit(
+        "import/attachment-copy-progress",
+        AttachmentCopyProgressEvent {
+            done,
+            total,
+            attachment_id: attachment_id.trim().to_string(),
+        },
+    );
+}
+
+/// Copy many attachments into `attachments/pending/` with throttled progress events.
 #[tauri::command]
 fn copy_workspace_attachments_batch(
     app: tauri::AppHandle,
@@ -3365,25 +3432,37 @@ fn copy_workspace_attachments_batch(
 
     let done = AtomicUsize::new(0);
     let errors = Mutex::new(Vec::<String>::new());
+    let progress_step = attachment_copy_progress_step(total);
+    let last_emit = Mutex::new(Instant::now() - ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL);
 
-    items.par_iter().for_each(|it| {
-        let r = copy_one_attachment_to_pending(&ws, &it.source_path, &it.attachment_id);
-        let n = done.fetch_add(1, Ordering::Relaxed) + 1;
-        if let Err(e) = r {
-            errors
-                .lock()
-                .unwrap()
-                .push(format!("{}: {e}", it.attachment_id.trim()));
-        }
-        let _ = app.emit(
-            "import/attachment-copy-progress",
-            AttachmentCopyProgressEvent {
-                done: n,
+    let workers = ATTACHMENT_COPY_MAX_PARALLEL.min(total.max(1));
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    pool.install(|| {
+        items.par_iter().for_each(|it| {
+            let r = copy_one_attachment_to_pending(&ws, &it.source_path, &it.attachment_id);
+            let n = done.fetch_add(1, Ordering::Relaxed) + 1;
+            if let Err(e) = r {
+                errors
+                    .lock()
+                    .unwrap()
+                    .push(format!("{}: {e}", it.attachment_id.trim()));
+            }
+            emit_attachment_copy_progress(
+                &app,
+                n,
                 total,
-                attachment_id: it.attachment_id.trim().to_string(),
-            },
-        );
+                &it.attachment_id,
+                &last_emit,
+                progress_step,
+            );
+        });
     });
+
+    emit_attachment_copy_progress(&app, total, total, "", &last_emit, progress_step);
 
     let errs = errors.into_inner().unwrap();
     let failed = errs.len();
@@ -4475,6 +4554,7 @@ pub fn run() {
             parse_import_observation_json_paths,
             copy_workspace_attachments_batch,
             read_host_text_file,
+            host_path_is_directory,
             read_host_text_files_batch,
             download_workspace_attachment_from_url,
             upload_outbound_attachments,
@@ -4518,11 +4598,37 @@ mod tests {
 
     use super::{
         CompressionMethod, SimpleFileOptions, ZipWriter, apply_app_bundle_zip_at_workspace,
-        bind_query_params, mirror_custom_app_dev_folder, parse_time, resolve_attachment_path,
-        should_mark_conflict, validate_custom_app_dev_source_folder,
+        attachment_copy_progress_step, bind_query_params, mirror_custom_app_dev_folder, parse_time,
+        resolve_attachment_path, should_emit_attachment_copy_progress, should_mark_conflict,
+        validate_custom_app_dev_source_folder, ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL,
     };
+    use std::time::Instant;
     use crate::observation_query::SqlParam;
     use rusqlite::Connection;
+
+    #[test]
+    fn attachment_copy_progress_step_scales_with_batch_size() {
+        assert_eq!(attachment_copy_progress_step(5), 1);
+        assert_eq!(attachment_copy_progress_step(100), 10);
+        assert_eq!(attachment_copy_progress_step(1500), 25);
+        assert_eq!(attachment_copy_progress_step(5000), 50);
+    }
+
+    #[test]
+    fn attachment_copy_progress_emit_first_last_and_interval() {
+        let total = 100;
+        let step = attachment_copy_progress_step(total);
+        let old = Instant::now() - ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL;
+        assert!(should_emit_attachment_copy_progress(1, total, step, old));
+        assert!(should_emit_attachment_copy_progress(total, total, step, old));
+        assert!(!should_emit_attachment_copy_progress(2, total, step, Instant::now()));
+        assert!(should_emit_attachment_copy_progress(
+            step,
+            total,
+            step,
+            Instant::now()
+        ));
+    }
 
     #[test]
     fn parse_time_handles_valid_timestamp() {
