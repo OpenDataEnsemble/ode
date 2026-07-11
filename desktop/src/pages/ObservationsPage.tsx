@@ -3,6 +3,7 @@ import { openPath } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
+import { ObservationOverviewTab } from '../components/ObservationOverviewTab';
 import {
   createNewObservationSaveRequest,
   DEFAULT_OBSERVATION_FORM_VERSION,
@@ -27,6 +28,7 @@ import { useToastStore } from '../store/useToastStore';
 import type {
   BundleFormSpec,
   ObservationExtras,
+  ObservationOverviewResult,
   ObservationRecord,
   SaveObservationRequest,
 } from '../types/domain';
@@ -142,7 +144,13 @@ export function ObservationsPage() {
   const [search, setSearch] = useState('');
   const [formTypeFilter, setFormTypeFilter] = useState<string>('');
   const [filter, setFilter] = useState<FilterMode>('all');
-  const [activeTab, setActiveTab] = useState<'list' | string>('list');
+  const [activeTab, setActiveTab] = useState<'overview' | 'list' | string>(
+    'overview',
+  );
+  const [overviewData, setOverviewData] =
+    useState<ObservationOverviewResult | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ObservationEditorDraft>>(
     {},
@@ -154,6 +162,25 @@ export function ObservationsPage() {
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
 
   const formTypeSkipFirst = useRef(true);
+
+  const loadOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    setOverviewError(null);
+    try {
+      const result = await tauriClient.getObservationOverview();
+      setOverviewData(result);
+    } catch (e) {
+      setOverviewError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      void loadOverview();
+    }
+  }, [activeTab, loadOverview]);
 
   useEffect(() => {
     void loadFormTypes();
@@ -891,6 +918,14 @@ export function ObservationsPage() {
         <button
           type="button"
           role="tab"
+          className={`tab${activeTab === 'overview' ? ' tab-active' : ''}`}
+          aria-selected={activeTab === 'overview'}
+          onClick={() => setActiveTab('overview')}>
+          Overview
+        </button>
+        <button
+          type="button"
+          role="tab"
           className={`tab${activeTab === 'list' ? ' tab-active' : ''}`}
           aria-selected={activeTab === 'list'}
           onClick={() => setActiveTab('list')}>
@@ -942,7 +977,18 @@ export function ObservationsPage() {
       </div>
 
       <div className="tab-content" role="tabpanel">
-        {activeTab === 'list' ? renderListTab() : renderEditorTab(activeTab)}
+        {activeTab === 'overview' ? (
+          <ObservationOverviewTab
+            data={overviewData}
+            loading={overviewLoading}
+            error={overviewError}
+            onRefresh={() => void loadOverview()}
+          />
+        ) : activeTab === 'list' ? (
+          renderListTab()
+        ) : (
+          renderEditorTab(activeTab)
+        )}
       </div>
 
       <UnsavedChangesDialog

@@ -130,6 +130,18 @@ export interface ListObservationsPageResult {
   total: number;
 }
 
+export interface ObservationOverviewRow {
+  formType: string;
+  observationCount: number;
+  pendingSyncCount: number;
+}
+
+export interface ObservationOverviewResult {
+  rows: ObservationOverviewRow[];
+  totals: ObservationOverviewRow;
+  computedAt: string;
+}
+
 export interface AppHealth {
   workspacePath?: string | null;
   dbPath: string;

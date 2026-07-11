@@ -2705,6 +2705,67 @@ fn list_form_types(ctx: tauri::State<'_, AppCtxHandle>) -> Result<Vec<String>, S
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct ObservationOverviewRow {
+    form_type: String,
+    observation_count: i64,
+    pending_sync_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ObservationOverviewResult {
+    rows: Vec<ObservationOverviewRow>,
+    totals: ObservationOverviewRow,
+    computed_at: String,
+}
+
+fn build_observation_overview(conn: &Connection) -> Result<ObservationOverviewResult, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT COALESCE(NULLIF(TRIM(form_type), ''), '(no form type)') AS form_type,
+                COUNT(*) AS observation_count,
+                SUM(CASE WHEN dirty = 1 AND sync_status = 'dirty' THEN 1 ELSE 0 END) AS pending_sync_count
+         FROM observations
+         GROUP BY 1
+         ORDER BY 1 COLLATE NOCASE",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(ObservationOverviewRow {
+                form_type: row.get(0)?,
+                observation_count: row.get(1)?,
+                pending_sync_count: row.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut total_observations: i64 = 0;
+    let mut total_pending: i64 = 0;
+    for row in &rows {
+        total_observations += row.observation_count;
+        total_pending += row.pending_sync_count;
+    }
+
+    Ok(ObservationOverviewResult {
+        rows,
+        totals: ObservationOverviewRow {
+            form_type: String::new(),
+            observation_count: total_observations,
+            pending_sync_count: total_pending,
+        },
+        computed_at: now_iso(),
+    })
+}
+
+#[tauri::command]
+fn get_observation_overview(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<ObservationOverviewResult, String> {
+    let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    build_observation_overview(&conn).map_err(|err| err.to_string())
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct SyncStateInfo {
     repository_generation: i64,
     observation_sync_version: i64,
@@ -4543,6 +4604,7 @@ pub fn run() {
             get_observation_index_status,
             list_dirty_observations,
             list_form_types,
+            get_observation_overview,
             get_sync_state,
             set_sync_state,
             archive_workspace_for_repository_generation,
@@ -4597,14 +4659,15 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        CompressionMethod, SimpleFileOptions, ZipWriter, apply_app_bundle_zip_at_workspace,
-        attachment_copy_progress_step, bind_query_params, mirror_custom_app_dev_folder, parse_time,
-        resolve_attachment_path, should_emit_attachment_copy_progress, should_mark_conflict,
+        build_observation_overview, init_db, CompressionMethod, SimpleFileOptions, ZipWriter,
+        apply_app_bundle_zip_at_workspace, attachment_copy_progress_step, bind_query_params,
+        mirror_custom_app_dev_folder, parse_time, resolve_attachment_path,
+        should_emit_attachment_copy_progress, should_mark_conflict,
         validate_custom_app_dev_source_folder, ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL,
     };
     use std::time::Instant;
     use crate::observation_query::SqlParam;
-    use rusqlite::Connection;
+    use rusqlite::{params, Connection};
 
     #[test]
     fn attachment_copy_progress_step_scales_with_batch_size() {
@@ -4724,6 +4787,45 @@ mod tests {
         assert_eq!(p.file_name().unwrap(), "b.jpg");
         assert!(!p.to_string_lossy().contains("synced"));
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn build_observation_overview_groups_by_form_type_and_pending() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        let insert = |id: &str, form_type: &str, dirty: i64, sync_status: &str| {
+            conn.execute(
+                "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at)
+                 VALUES (?1, '{}', ?2, '2026-01-01T00:00:00Z', ?3, ?4, '2026-01-01T00:00:00Z')",
+                params![id, form_type, dirty, sync_status],
+            )
+            .unwrap();
+        };
+        insert("a1", "hh_hut", 1, "dirty");
+        insert("a2", "hh_hut", 0, "clean");
+        insert("b1", "hh_person", 1, "dirty");
+        insert("c1", "", 0, "clean");
+
+        let result = build_observation_overview(&conn).unwrap();
+        assert_eq!(result.rows.len(), 3);
+
+        let hut = result
+            .rows
+            .iter()
+            .find(|r| r.form_type == "hh_hut")
+            .unwrap();
+        assert_eq!(hut.observation_count, 2);
+        assert_eq!(hut.pending_sync_count, 1);
+
+        let no_type = result
+            .rows
+            .iter()
+            .find(|r| r.form_type == "(no form type)")
+            .unwrap();
+        assert_eq!(no_type.observation_count, 1);
+
+        assert_eq!(result.totals.observation_count, 4);
+        assert_eq!(result.totals.pending_sync_count, 2);
     }
 
     #[test]

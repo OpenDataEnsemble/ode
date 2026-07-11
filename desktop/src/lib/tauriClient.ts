@@ -13,6 +13,7 @@ import type {
   AttachmentCopyBatchResult,
   HostTextReadResult,
   ListObservationsPageResult,
+  ObservationOverviewResult,
   OutboundAttachmentUploadResult,
   ObservationRecord,
   WorkspaceAttachmentPresenceEntry,
@@ -110,6 +111,8 @@ export const tauriClient = {
   listDirtyObservations: () =>
     invokeSafe<ObservationRecord[]>('list_dirty_observations'),
   listFormTypes: () => invokeSafe<string[]>('list_form_types'),
+  getObservationOverview: () =>
+    invokeSafe<ObservationOverviewResult>('get_observation_overview'),
   getSyncState: () => invokeSafe<SyncStateInfo>('get_sync_state'),
   setSyncState: (req: SetSyncStateRequest) =>
     invokeSafe<void>('set_sync_state', { req }),

@@ -2415,6 +2415,36 @@ input:not([type]) {
   flex-direction: column;
 }
 
+.observations-overview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.observations-overview-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.observations-overview-updated {
+  font-size: var(--font-size-sm);
+}
+
+.observations-overview-table {
+  width: 100%;
+  max-width: 48rem;
+}
+
+.observations-overview-totals-row th,
+.observations-overview-totals-row td {
+  font-weight: 600;
+  border-top: 2px solid var(--color-border);
+}
+
 .observations-list-scroll {
   flex: 1;
   min-height: 0;
