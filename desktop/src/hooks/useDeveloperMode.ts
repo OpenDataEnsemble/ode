@@ -1,4 +1,3 @@
-import { open } from '@tauri-apps/plugin-dialog';
 import {
   openSessionFolderDialog,
   SESSION_FOLDER_DIALOG_KEYS,

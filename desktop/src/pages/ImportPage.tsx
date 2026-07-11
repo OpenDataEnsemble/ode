@@ -455,11 +455,14 @@ export function ImportPage() {
         });
       }
 
-      let copyErrors: string[] = [];
+      const copyErrors: string[] = [];
       let attachmentsCopied = 0;
       if (copyItems.length > 0) {
         const copyTotal = copyItems.length;
-        const copyStatusCtl = createThrottledImportStatus(setImportActivity, 250);
+        const copyStatusCtl = createThrottledImportStatus(
+          setImportActivity,
+          250,
+        );
         copyStatusCtl.push(formatAttachmentCopyProgress(0, copyTotal));
         const { listen } = await import('@tauri-apps/api/event');
         let unlisten: (() => void) | undefined;

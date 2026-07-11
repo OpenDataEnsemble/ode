@@ -67,7 +67,9 @@ function parentDirPath(path: string): string {
 }
 
 /** Parent shared by all selections, or parent of the first when paths differ. */
-export function browsePathAfterFolderSelection(paths: readonly string[]): string {
+export function browsePathAfterFolderSelection(
+  paths: readonly string[],
+): string {
   const trimmed = paths.map(p => p.trim()).filter(Boolean);
   if (trimmed.length === 0) {
     return '';

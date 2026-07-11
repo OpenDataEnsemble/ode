@@ -32,7 +32,9 @@ describe('sessionFolderDialog', () => {
 
   it('returns undefined when nothing was chosen yet', async () => {
     expect(
-      await sessionFolderDialogDefaultPath(SESSION_FOLDER_DIALOG_KEYS.importFolder),
+      await sessionFolderDialogDefaultPath(
+        SESSION_FOLDER_DIALOG_KEYS.importFolder,
+      ),
     ).toBeUndefined();
   });
 
@@ -43,7 +45,9 @@ describe('sessionFolderDialog', () => {
     );
     vi.mocked(tauriClient.hostPathIsDirectory).mockResolvedValue(true);
     expect(
-      await sessionFolderDialogDefaultPath(SESSION_FOLDER_DIALOG_KEYS.importFolder),
+      await sessionFolderDialogDefaultPath(
+        SESSION_FOLDER_DIALOG_KEYS.importFolder,
+      ),
     ).toBe('/data/import');
   });
 
@@ -54,7 +58,9 @@ describe('sessionFolderDialog', () => {
     );
     vi.mocked(tauriClient.hostPathIsDirectory).mockResolvedValue(false);
     expect(
-      await sessionFolderDialogDefaultPath(SESSION_FOLDER_DIALOG_KEYS.importFolder),
+      await sessionFolderDialogDefaultPath(
+        SESSION_FOLDER_DIALOG_KEYS.importFolder,
+      ),
     ).toBeUndefined();
   });
 
@@ -130,7 +136,9 @@ describe('sessionFolderDialog', () => {
     });
     expect(openMock.mock.calls[0]?.[0]).not.toHaveProperty('recursive');
     expect(
-      await sessionFolderDialogDefaultPath(SESSION_FOLDER_DIALOG_KEYS.importFolder),
+      await sessionFolderDialogDefaultPath(
+        SESSION_FOLDER_DIALOG_KEYS.importFolder,
+      ),
     ).toBe('/data/observations');
   });
 });

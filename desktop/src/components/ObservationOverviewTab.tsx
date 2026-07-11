@@ -34,9 +34,7 @@ export function ObservationOverviewTab({
         ) : null}
       </div>
 
-      {loading && !data ? (
-        <p className="muted">Loading…</p>
-      ) : null}
+      {loading && !data ? <p className="muted">Loading…</p> : null}
 
       {error ? <p className="notice error">{error}</p> : null}
 
