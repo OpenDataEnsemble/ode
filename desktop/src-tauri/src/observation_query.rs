@@ -51,10 +51,8 @@ pub fn compile_observation_query(
     }
 
     if let Some(f) = filter {
-        match compile_filter_node(f, index_keys, &mut params, &mut warnings) {
-            Ok(sql) => where_parts.push(sql),
-            Err(e) => return Err(e),
-        }
+        let sql = compile_filter_node(f, index_keys, &mut params, &mut warnings)?;
+        where_parts.push(sql);
     }
 
     let sql = format!(
