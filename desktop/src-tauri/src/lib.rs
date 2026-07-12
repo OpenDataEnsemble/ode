@@ -3549,7 +3549,11 @@ fn observation_id_from_obj(obj: &serde_json::Map<String, Value>) -> Option<Strin
     None
 }
 
-fn optional_import_str(obj: &serde_json::Map<String, Value>, snake: &str, camel: &str) -> Option<String> {
+fn optional_import_str(
+    obj: &serde_json::Map<String, Value>,
+    snake: &str,
+    camel: &str,
+) -> Option<String> {
     obj.get(snake)
         .or_else(|| obj.get(camel))
         .and_then(|v| v.as_str())
@@ -3565,19 +3569,14 @@ fn optional_import_tags(obj: &serde_json::Map<String, Value>) -> Option<Vec<Stri
                 .collect::<Vec<_>>()
         })
     })?;
-    if tags.is_empty() {
-        None
-    } else {
-        Some(tags)
-    }
+    if tags.is_empty() { None } else { Some(tags) }
 }
 
 /// Synkronus envelope fields outside `data` / `payload` (snake_case or camelCase).
-fn observation_extras_from_import_obj(obj: &serde_json::Map<String, Value>) -> Option<ObservationExtras> {
-    let geolocation = obj
-        .get("geolocation")
-        .filter(|v| !v.is_null())
-        .cloned();
+fn observation_extras_from_import_obj(
+    obj: &serde_json::Map<String, Value>,
+) -> Option<ObservationExtras> {
+    let geolocation = obj.get("geolocation").filter(|v| !v.is_null()).cloned();
     let extras = ObservationExtras {
         form_version: optional_import_str(obj, "form_version", "formVersion"),
         created_at: optional_import_str(obj, "created_at", "createdAt"),
@@ -3596,11 +3595,7 @@ fn observation_extras_from_import_obj(obj: &serde_json::Map<String, Value>) -> O
         || extras.author.is_some()
         || extras.device_id.is_some()
         || extras.tags.is_some();
-    if has_any {
-        Some(extras)
-    } else {
-        None
-    }
+    if has_any { Some(extras) } else { None }
 }
 
 fn extract_observations_from_json_value(
@@ -5317,10 +5312,7 @@ mod tests {
             .unwrap();
         let parsed = parse_observation_extras(extras_raw).unwrap();
         assert_eq!(parsed.author.as_deref(), Some("username:device02"));
-        assert_eq!(
-            parsed.tags.as_deref(),
-            Some(&["migrated".to_string()][..])
-        );
+        assert_eq!(parsed.tags.as_deref(), Some(&["migrated".to_string()][..]));
         assert!(parsed.geolocation.is_some());
     }
 
