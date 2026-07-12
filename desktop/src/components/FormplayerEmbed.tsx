@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react';
 import { postFormplayerBridgeReply } from '../lib/formPreviewBridge';
+import { buildDevicePixelRatioInjectionScript } from '../lib/devicePixelRatioStub';
 import type { FormInitData } from '../lib/formplayerHost';
 
 const FORMSPLAYER_INDEX = `${import.meta.env.BASE_URL}formplayer_dist/index.html`;
@@ -45,6 +46,8 @@ export type FormplayerEmbedProps = {
   onContentWindowReady?: (contentWindow: Window | null) => void;
   /** When true, iframe fills its parent (device frame) instead of flex-growing in the panel. */
   fillFrame?: boolean;
+  /** Simulated `window.devicePixelRatio` inside the iframe (1 = desktop default). */
+  devicePixelRatio?: number;
 };
 
 /** Imperative handle for bridge delivery into the iframe document (WebView2-safe). */
@@ -71,6 +74,7 @@ export const FormplayerEmbed = forwardRef<
     emptyMessage = 'Select a form type and apply params/saved JSON to load the preview.',
     onContentWindowReady,
     fillFrame = false,
+    devicePixelRatio = 1,
   },
   ref,
 ) {
@@ -135,8 +139,9 @@ export const FormplayerEmbed = forwardRef<
       );
       const baseHref = new URL('./', formplayerIndexUrl).toString();
       const initJson = JSON.stringify(formInitData).replace(/</g, '\\u003c');
+      const dprStub = buildDevicePixelRatioInjectionScript(devicePixelRatio);
       const stub = `<!--ode-formplayer-host-stub-->
-<script id="ode-formplayer-init-data" type="application/json">${initJson}</script>
+${dprStub}<script id="ode-formplayer-init-data" type="application/json">${initJson}</script>
 <script src="${HOST_STUB_SCRIPT}"></script>
 <script src="${INJECTION_SCRIPT}"></script>`;
       html = html.replace(
@@ -165,7 +170,7 @@ export const FormplayerEmbed = forwardRef<
       setError(e instanceof Error ? e.message : String(e));
       setLoading(false);
     }
-  }, [formInitData]);
+  }, [formInitData, devicePixelRatio]);
 
   useEffect(() => {
     void mountBlob();

@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeDeviceFitScale,
+  formatDevicePixelRatioLabel,
   getCustomAppDevicePreset,
   loadStoredDeviceViewport,
   resolveDeviceDimensions,
+  resolveDevicePixelRatio,
 } from './customAppDevicePresets';
+import { buildDevicePixelRatioInjectionScript } from './devicePixelRatioStub';
 
 describe('computeDeviceFitScale', () => {
   it('returns 1 when container is smaller than padding', () => {
@@ -25,39 +28,85 @@ describe('computeDeviceFitScale', () => {
 });
 
 describe('resolveDeviceDimensions', () => {
-  it('keeps portrait dimensions when landscape is false', () => {
+  it('uses layout CSS viewport for android presets', () => {
     const preset = getCustomAppDevicePreset('android-compact-phone-high');
     expect(resolveDeviceDimensions(preset, false)).toEqual({
-      width: 1080,
-      height: 2340,
+      width: 360,
+      height: 780,
     });
+    expect(preset.label).toBe('Compact phone 6.1″ · 360×780 · 3×');
   });
 
-  it('scales medium and low DPI from the high reference', () => {
-    expect(
-      resolveDeviceDimensions(
-        getCustomAppDevicePreset('android-compact-phone-medium'),
-        false,
-      ),
-    ).toEqual({ width: 720, height: 1560 });
-    expect(
-      resolveDeviceDimensions(
-        getCustomAppDevicePreset('android-compact-phone-low'),
-        false,
-      ),
-    ).toEqual({ width: 540, height: 1170 });
+  it('keeps layout constant across DPI tiers and varies DPR', () => {
+    const high = getCustomAppDevicePreset('android-compact-phone-high');
+    const medium = getCustomAppDevicePreset('android-compact-phone-medium');
+    const low = getCustomAppDevicePreset('android-compact-phone-low');
+    expect(resolveDeviceDimensions(medium, false)).toEqual({
+      width: 360,
+      height: 780,
+    });
+    expect(resolveDeviceDimensions(low, false)).toEqual({
+      width: 360,
+      height: 780,
+    });
+    expect(high.devicePixelRatio).toBe(3);
+    expect(medium.devicePixelRatio).toBe(2.5);
+    expect(low.devicePixelRatio).toBe(2);
+  });
+
+  it('uses higher DPR for large phone high tier', () => {
+    const preset = getCustomAppDevicePreset('android-large-phone-high');
+    expect(resolveDeviceDimensions(preset, false)).toEqual({
+      width: 412,
+      height: 915,
+    });
+    expect(preset.devicePixelRatio).toBe(3.5);
   });
 
   it('swaps dimensions in landscape', () => {
     const preset = getCustomAppDevicePreset('android-small-tablet-high');
     expect(resolveDeviceDimensions(preset, false)).toEqual({
-      width: 1200,
-      height: 1920,
+      width: 600,
+      height: 960,
     });
     expect(resolveDeviceDimensions(preset, true)).toEqual({
-      width: 1920,
-      height: 1200,
+      width: 960,
+      height: 600,
     });
+  });
+});
+
+describe('resolveDevicePixelRatio', () => {
+  it('returns 1 for responsive preset', () => {
+    expect(
+      resolveDevicePixelRatio(getCustomAppDevicePreset('responsive')),
+    ).toBe(1);
+  });
+
+  it('returns preset DPR for fixed devices', () => {
+    expect(resolveDevicePixelRatio(getCustomAppDevicePreset('iphone-se'))).toBe(
+      2,
+    );
+  });
+});
+
+describe('formatDevicePixelRatioLabel', () => {
+  it('formats integer and fractional multipliers', () => {
+    expect(formatDevicePixelRatioLabel(2)).toBe('2×');
+    expect(formatDevicePixelRatioLabel(2.5)).toBe('2.5×');
+    expect(formatDevicePixelRatioLabel(3.5)).toBe('3.5×');
+  });
+});
+
+describe('buildDevicePixelRatioInjectionScript', () => {
+  it('skips injection when DPR is 1', () => {
+    expect(buildDevicePixelRatioInjectionScript(1)).toBe('');
+  });
+
+  it('emits override script for non-unity DPR', () => {
+    const script = buildDevicePixelRatioInjectionScript(3.5);
+    expect(script).toContain('devicePixelRatio');
+    expect(script).toContain('3.5');
   });
 });
 

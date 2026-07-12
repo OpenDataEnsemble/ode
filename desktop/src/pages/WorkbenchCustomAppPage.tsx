@@ -181,12 +181,13 @@ export function WorkbenchCustomAppPage() {
       <section className="panel panel-embed-flush custom-app-embed-panel">
         {canLoadEmbed ? (
           <CustomAppDeviceViewport>
-            {({ fillFrame }) => (
+            {({ fillFrame, devicePixelRatio }) => (
               <CustomAppEmbed
                 ref={iframeRef}
                 mountKey={mountKey}
                 mode={embedMode}
                 fillFrame={fillFrame}
+                devicePixelRatio={devicePixelRatio}
                 onContentWindowReady={cw => {
                   customAppContentWindowRef.current = cw;
                 }}

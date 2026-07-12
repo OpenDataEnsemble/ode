@@ -9,6 +9,7 @@ import {
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { dirname, join } from '@tauri-apps/api/path';
 import { patchWorkspaceAppBundleAbsolutePaths } from '../lib/patchWorkspaceAppBundleAbsolutePaths';
+import { buildDevicePixelRatioInjectionScript } from '../lib/devicePixelRatioStub';
 import {
   rewriteEmbeddedBundleHtml,
   stripOdeDesktopInjection,
@@ -32,10 +33,12 @@ function shellFormulusInjectionUrl(): string {
  * Injects `ReactNativeWebView` + `formulus-injection.js` (same contract as Formulus mobile).
  * Custom apps do not receive `FormInitData` via `onFormInit` (unlike embedded formplayer).
  */
-function buildHostStub(): string {
+function buildHostStub(devicePixelRatio = 1): string {
   const injectionUrl = shellFormulusInjectionUrl();
   const esc = injectionUrl.replace(/"/g, '&quot;');
+  const dprStub = buildDevicePixelRatioInjectionScript(devicePixelRatio);
   return (
+    dprStub +
     '<script>' +
     '(function(){' +
     'window.ReactNativeWebView={postMessage:function(m){' +
@@ -76,6 +79,8 @@ export type CustomAppEmbedProps = {
   onContentWindowReady?: (contentWindow: Window | null) => void;
   /** When true, iframe fills its parent (device frame) instead of flex-growing in the panel. */
   fillFrame?: boolean;
+  /** Simulated `window.devicePixelRatio` inside the iframe (1 = desktop default). */
+  devicePixelRatio?: number;
 };
 
 function defaultIndexRelativePath(mode: CustomAppEmbedMode): string {
@@ -104,6 +109,7 @@ export const CustomAppEmbed = forwardRef<
     loadingLabel,
     onContentWindowReady,
     fillFrame = false,
+    devicePixelRatio = 1,
   },
   ref,
 ) {
@@ -154,7 +160,7 @@ export const CustomAppEmbed = forwardRef<
       const baseHref = appDirAssetUrl.endsWith('/')
         ? appDirAssetUrl
         : `${appDirAssetUrl}/`;
-      const stub = buildHostStub();
+      const stub = buildHostStub(devicePixelRatio);
       const doc = injectIntoHead(html, stub, baseHref);
       const enc = new TextEncoder();
       await tauriClient.writeWorkspaceFile(indexRel, enc.encode(doc));
@@ -170,7 +176,7 @@ export const CustomAppEmbed = forwardRef<
       setError(e instanceof Error ? e.message : String(e));
       setLoading(false);
     }
-  }, [indexRel, mode]);
+  }, [indexRel, mode, devicePixelRatio]);
 
   useEffect(() => {
     void mountBlob();

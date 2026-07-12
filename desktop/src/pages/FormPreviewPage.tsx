@@ -770,11 +770,12 @@ export function FormPreviewPage() {
               ) : null}
             </div>
           }>
-          {({ fillFrame }) => (
+          {({ fillFrame, devicePixelRatio }) => (
             <FormplayerEmbed
-              key={`${devMirrorGeneration}-${selectedFormType || 'none'}`}
+              key={`${devMirrorGeneration}-${selectedFormType || 'none'}-${devicePixelRatio}`}
               ref={iframeRef}
               fillFrame={fillFrame}
+              devicePixelRatio={devicePixelRatio}
               onContentWindowReady={cw => {
                 rootContentWindowRef.current = cw;
               }}

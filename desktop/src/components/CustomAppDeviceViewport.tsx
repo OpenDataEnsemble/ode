@@ -1,25 +1,26 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   computeDeviceFitScale,
+  formatDevicePixelRatioLabel,
   getCustomAppDevicePreset,
   isResponsiveDevicePreset,
   loadStoredDeviceViewport,
   resolveDeviceDimensions,
+  resolveDevicePixelRatio,
   storeDeviceViewport,
   CUSTOM_APP_DEVICE_PRESETS,
   type CustomAppDevicePresetId,
 } from '../lib/customAppDevicePresets';
 
+export interface CustomAppDeviceViewportContext {
+  fillFrame: boolean;
+  devicePixelRatio: number;
+}
+
 export interface CustomAppDeviceViewportProps {
   /** Optional controls rendered on the left (Form preview: form/locale selectors). */
   toolbarStart?: ReactNode;
-  children: (ctx: { fillFrame: boolean }) => ReactNode;
+  children: (ctx: CustomAppDeviceViewportContext) => ReactNode;
 }
 
 export function CustomAppDeviceViewport({
@@ -31,6 +32,7 @@ export function CustomAppDeviceViewport({
 
   const preset = getCustomAppDevicePreset(presetId);
   const responsive = isResponsiveDevicePreset(preset);
+  const devicePixelRatio = resolveDevicePixelRatio(preset);
   const { width: deviceWidth, height: deviceHeight } = resolveDeviceDimensions(
     preset,
     landscape,
@@ -39,38 +41,30 @@ export function CustomAppDeviceViewport({
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
-  const recomputeScale = useCallback(() => {
+  useEffect(() => {
     if (responsive) {
       setScale(1);
-      return;
+      return undefined;
     }
     const el = viewportRef.current;
     if (!el) {
-      return;
-    }
-    setScale(
-      computeDeviceFitScale(
-        el.clientWidth,
-        el.clientHeight,
-        deviceWidth,
-        deviceHeight,
-      ),
-    );
-  }, [deviceHeight, deviceWidth, responsive]);
-
-  useEffect(() => {
-    recomputeScale();
-  }, [recomputeScale]);
-
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el || responsive) {
       return undefined;
     }
-    const ro = new ResizeObserver(() => recomputeScale());
+    const updateScale = () => {
+      setScale(
+        computeDeviceFitScale(
+          el.clientWidth,
+          el.clientHeight,
+          deviceWidth,
+          deviceHeight,
+        ),
+      );
+    };
+    updateScale();
+    const ro = new ResizeObserver(() => updateScale());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [recomputeScale, responsive]);
+  }, [deviceHeight, deviceWidth, responsive]);
 
   function persist(
     nextPresetId: CustomAppDevicePresetId,
@@ -127,7 +121,9 @@ export function CustomAppDeviceViewport({
       </div>
       {!responsive ? (
         <span className="muted custom-app-device-toolbar-meta">
-          {deviceWidth} × {deviceHeight} · {orientationLabel} · {scaleLabel}
+          {deviceWidth} × {deviceHeight} CSS ·{' '}
+          {formatDevicePixelRatioLabel(devicePixelRatio)} · {orientationLabel} ·{' '}
+          {scaleLabel}
         </span>
       ) : (
         <span className="muted custom-app-device-toolbar-meta">
@@ -151,7 +147,7 @@ export function CustomAppDeviceViewport({
         ref={viewportRef}
         className={`custom-app-device-viewport${responsive ? ' custom-app-device-viewport--responsive' : ''}`}>
         {responsive ? (
-          children({ fillFrame: false })
+          children({ fillFrame: false, devicePixelRatio: 1 })
         ) : (
           <div
             className="custom-app-device-scaler"
@@ -163,7 +159,7 @@ export function CustomAppDeviceViewport({
                 height: deviceHeight,
                 transform: `scale(${scale})`,
               }}>
-              {children({ fillFrame: true })}
+              {children({ fillFrame: true, devicePixelRatio })}
             </div>
           </div>
         )}

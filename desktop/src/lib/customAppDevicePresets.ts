@@ -29,14 +29,16 @@ export type AndroidDeviceDpi = 'high' | 'medium' | 'low';
 export interface CustomAppDevicePreset {
   id: CustomAppDevicePresetId;
   label: string;
+  /** CSS layout viewport width (portrait). */
   width: number;
+  /** CSS layout viewport height (portrait). */
   height: number;
+  devicePixelRatio: number;
 }
 
 interface AndroidDeviceSize {
   key: string;
   label: string;
-  /** Portrait width × height at high DPI (xxhdpi-class reference). */
   width: number;
   height: number;
 }
@@ -45,68 +47,92 @@ const ANDROID_DEVICE_SIZES: AndroidDeviceSize[] = [
   {
     key: 'compact-phone',
     label: 'Compact phone 6.1″',
-    width: 1080,
-    height: 2340,
+    width: 360,
+    height: 780,
   },
   {
     key: 'medium-phone',
     label: 'Medium phone 6.5″',
-    width: 1080,
-    height: 2400,
+    width: 393,
+    height: 852,
   },
   {
     key: 'large-phone',
     label: 'Large phone 6.8″',
-    width: 1440,
-    height: 3120,
+    width: 412,
+    height: 915,
   },
   {
     key: 'small-tablet',
     label: 'Small tablet 8″',
-    width: 1200,
-    height: 1920,
+    width: 600,
+    height: 960,
   },
   {
     key: 'standard-tablet',
     label: 'Standard tablet 10″',
-    width: 1200,
-    height: 2000,
+    width: 800,
+    height: 1280,
   },
   {
     key: 'large-tablet',
     label: 'Large tablet 12″',
-    width: 1600,
-    height: 2560,
+    width: 1024,
+    height: 1366,
   },
 ];
 
-/** Scale high-DPI reference pixels to medium (xhdpi) and low (hdpi) variants. */
-const ANDROID_DPI_SCALE: Record<AndroidDeviceDpi, number> = {
-  high: 1,
-  medium: 2 / 3,
-  low: 0.5,
+/** DPR tiers for the same layout size (simulates sharper vs budget panels). */
+const ANDROID_DPI_TO_DPR: Record<AndroidDeviceDpi, number> = {
+  low: 2,
+  medium: 2.5,
+  high: 3,
 };
 
-const ANDROID_DPI_LABEL: Record<AndroidDeviceDpi, string> = {
-  high: 'High DPI',
-  medium: 'Medium DPI',
-  low: 'Low DPI',
-};
+/** Large flagship phones often report slightly higher DPR than compact devices. */
+const ANDROID_LARGE_PHONE_HIGH_DPR = 3.5;
 
-function scaleDimension(value: number, scale: number): number {
-  return Math.round(value * scale);
+export function formatDevicePixelRatioLabel(devicePixelRatio: number): string {
+  const rounded = Math.round(devicePixelRatio * 10) / 10;
+  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return `${text}×`;
+}
+
+function layoutFirstLabel(
+  deviceLabel: string,
+  width: number,
+  height: number,
+  devicePixelRatio: number,
+): string {
+  return `${deviceLabel} · ${width}×${height} · ${formatDevicePixelRatioLabel(devicePixelRatio)}`;
+}
+
+function androidDpiDevicePixelRatio(
+  sizeKey: string,
+  dpi: AndroidDeviceDpi,
+): number {
+  if (sizeKey === 'large-phone' && dpi === 'high') {
+    return ANDROID_LARGE_PHONE_HIGH_DPR;
+  }
+  return ANDROID_DPI_TO_DPR[dpi];
 }
 
 function buildAndroidPresets(): CustomAppDevicePreset[] {
   const presets: CustomAppDevicePreset[] = [];
   for (const size of ANDROID_DEVICE_SIZES) {
     for (const dpi of ['high', 'medium', 'low'] as const) {
-      const scale = ANDROID_DPI_SCALE[dpi];
+      const devicePixelRatio = androidDpiDevicePixelRatio(size.key, dpi);
       presets.push({
         id: `android-${size.key}-${dpi}` as CustomAppDevicePresetId,
-        label: `${size.label} · ${ANDROID_DPI_LABEL[dpi]}`,
-        width: scaleDimension(size.width, scale),
-        height: scaleDimension(size.height, scale),
+        label: layoutFirstLabel(
+          size.label,
+          size.width,
+          size.height,
+          devicePixelRatio,
+        ),
+        width: size.width,
+        height: size.height,
+        devicePixelRatio,
       });
     }
   }
@@ -114,9 +140,27 @@ function buildAndroidPresets(): CustomAppDevicePreset[] {
 }
 
 export const CUSTOM_APP_DEVICE_PRESETS: CustomAppDevicePreset[] = [
-  { id: 'responsive', label: 'Responsive (fill panel)', width: 0, height: 0 },
-  { id: 'iphone-se', label: 'iPhone SE', width: 375, height: 667 },
-  { id: 'ipad-air', label: 'iPad Air', width: 820, height: 1180 },
+  {
+    id: 'responsive',
+    label: 'Responsive (fill panel)',
+    width: 0,
+    height: 0,
+    devicePixelRatio: 1,
+  },
+  {
+    id: 'iphone-se',
+    label: layoutFirstLabel('iPhone SE', 375, 667, 2),
+    width: 375,
+    height: 667,
+    devicePixelRatio: 2,
+  },
+  {
+    id: 'ipad-air',
+    label: layoutFirstLabel('iPad Air', 820, 1180, 2),
+    width: 820,
+    height: 1180,
+    devicePixelRatio: 2,
+  },
   ...buildAndroidPresets(),
 ];
 
@@ -232,6 +276,13 @@ export function resolveDeviceDimensions(
     return { width: preset.height, height: preset.width };
   }
   return { width: preset.width, height: preset.height };
+}
+
+export function resolveDevicePixelRatio(preset: CustomAppDevicePreset): number {
+  if (isResponsiveDevicePreset(preset)) {
+    return 1;
+  }
+  return preset.devicePixelRatio > 0 ? preset.devicePixelRatio : 1;
 }
 
 /** Scale device frame to fit container while preserving aspect ratio. */
