@@ -43,6 +43,8 @@ export type FormplayerEmbedProps = {
   emptyMessage?: string;
   /** Fired when the iframe document loads (used to register `contentWindow` for bridge routing). */
   onContentWindowReady?: (contentWindow: Window | null) => void;
+  /** When true, iframe fills its parent (device frame) instead of flex-growing in the panel. */
+  fillFrame?: boolean;
 };
 
 /** Imperative handle for bridge delivery into the iframe document (WebView2-safe). */
@@ -68,6 +70,7 @@ export const FormplayerEmbed = forwardRef<
     formInitData,
     emptyMessage = 'Select a form type and apply params/saved JSON to load the preview.',
     onContentWindowReady,
+    fillFrame = false,
   },
   ref,
 ) {
@@ -174,16 +177,18 @@ export const FormplayerEmbed = forwardRef<
     };
   }, [mountBlob]);
 
+  const wrapClass = `formplayer-embed-wrap${fillFrame ? ' custom-app-embed-wrap--fill' : ''}`;
+
   if (formInitData === null) {
     return (
-      <div className="formplayer-embed-wrap">
+      <div className={wrapClass}>
         <p className="muted">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="formplayer-embed-wrap">
+    <div className={wrapClass}>
       {error ? <p className="notice warn">{error}</p> : null}
       {loading && !error ? <p className="muted">Loading formplayer…</p> : null}
       <iframe

@@ -243,6 +243,13 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.page.page-form-preview > .notice {
+  flex-shrink: 0;
+  margin: 0 var(--space-md) var(--space-sm);
 }
 
 .page.page-custom-app {
@@ -255,6 +262,21 @@ body {
 
 .page.page-custom-app > .page-header {
   flex-shrink: 0;
+}
+
+.page.page-custom-app .custom-app-bundle-row {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: 0 var(--space-md) var(--space-sm);
+}
+
+.page.page-custom-app .custom-app-bundle-row .custom-app-bundle-line {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
 }
 
 .page.page-custom-app > .notice,
@@ -536,6 +558,28 @@ body {
   background: #101828;
 }
 
+.custom-app-device-toolbar--split {
+  justify-content: space-between;
+}
+
+.custom-app-device-toolbar-start {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  min-width: 0;
+  flex: 1;
+}
+
+.custom-app-device-toolbar-end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .custom-app-device-toolbar-label {
   display: inline-flex;
   align-items: center;
@@ -560,8 +604,61 @@ body {
   font-size: 1.25rem;
 }
 
-.custom-app-device-toolbar-label select {
+.custom-app-device-toolbar-label select,
+.custom-app-device-toolbar-controls select {
   min-width: 14rem;
+}
+
+.form-preview-toolbar-fields {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.form-preview-toolbar-fields select {
+  min-width: 10rem;
+}
+
+.form-preview-toolbar-status {
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.form-preview-advanced-btn {
+  min-height: var(--control-height);
+  min-width: var(--control-height);
+  padding: 0;
+}
+
+.page.page-form-preview .form-preview-embed-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.form-preview-advanced-dialog {
+  width: min(36rem, 92vw);
+}
+
+.form-preview-advanced-dialog-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.form-preview-advanced-field {
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+}
+
+.form-preview-advanced-field span {
+  flex-shrink: 0;
 }
 
 .custom-app-device-toolbar-meta {
@@ -663,6 +760,7 @@ body {
   align-content: stretch;
 }
 
+/* legacy sidebar layout — kept for reference if nested elsewhere */
 .panel.panel-form-preview-sidebar {
   display: flex;
   flex-direction: column;

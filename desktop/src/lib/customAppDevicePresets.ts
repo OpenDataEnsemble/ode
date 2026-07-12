@@ -2,14 +2,28 @@ export type CustomAppDevicePresetId =
   | 'responsive'
   | 'iphone-se'
   | 'ipad-air'
-  | 'android-compact-phone'
-  | 'android-medium-phone'
-  | 'android-large-phone'
-  | 'android-small-tablet'
-  | 'android-standard-tablet'
-  | 'android-large-tablet';
+  | 'android-compact-phone-high'
+  | 'android-compact-phone-medium'
+  | 'android-compact-phone-low'
+  | 'android-medium-phone-high'
+  | 'android-medium-phone-medium'
+  | 'android-medium-phone-low'
+  | 'android-large-phone-high'
+  | 'android-large-phone-medium'
+  | 'android-large-phone-low'
+  | 'android-small-tablet-high'
+  | 'android-small-tablet-medium'
+  | 'android-small-tablet-low'
+  | 'android-standard-tablet-high'
+  | 'android-standard-tablet-medium'
+  | 'android-standard-tablet-low'
+  | 'android-large-tablet-high'
+  | 'android-large-tablet-medium'
+  | 'android-large-tablet-low';
 
 export type CustomAppDeviceOrientation = 'portrait' | 'landscape';
+
+export type AndroidDeviceDpi = 'high' | 'medium' | 'low';
 
 /** Width × height in portrait (width is the narrow side). */
 export interface CustomAppDevicePreset {
@@ -19,46 +33,91 @@ export interface CustomAppDevicePreset {
   height: number;
 }
 
-export const CUSTOM_APP_DEVICE_PRESETS: CustomAppDevicePreset[] = [
-  { id: 'responsive', label: 'Responsive (fill panel)', width: 0, height: 0 },
-  { id: 'iphone-se', label: 'iPhone SE', width: 375, height: 667 },
-  { id: 'ipad-air', label: 'iPad Air', width: 820, height: 1180 },
+interface AndroidDeviceSize {
+  key: string;
+  label: string;
+  /** Portrait width × height at high DPI (xxhdpi-class reference). */
+  width: number;
+  height: number;
+}
+
+const ANDROID_DEVICE_SIZES: AndroidDeviceSize[] = [
   {
-    id: 'android-compact-phone',
+    key: 'compact-phone',
     label: 'Compact phone 6.1″',
     width: 1080,
     height: 2340,
   },
   {
-    id: 'android-medium-phone',
+    key: 'medium-phone',
     label: 'Medium phone 6.5″',
     width: 1080,
     height: 2400,
   },
   {
-    id: 'android-large-phone',
+    key: 'large-phone',
     label: 'Large phone 6.8″',
     width: 1440,
     height: 3120,
   },
   {
-    id: 'android-small-tablet',
+    key: 'small-tablet',
     label: 'Small tablet 8″',
     width: 1200,
     height: 1920,
   },
   {
-    id: 'android-standard-tablet',
+    key: 'standard-tablet',
     label: 'Standard tablet 10″',
     width: 1200,
     height: 2000,
   },
   {
-    id: 'android-large-tablet',
+    key: 'large-tablet',
     label: 'Large tablet 12″',
     width: 1600,
     height: 2560,
   },
+];
+
+/** Scale high-DPI reference pixels to medium (xhdpi) and low (hdpi) variants. */
+const ANDROID_DPI_SCALE: Record<AndroidDeviceDpi, number> = {
+  high: 1,
+  medium: 2 / 3,
+  low: 0.5,
+};
+
+const ANDROID_DPI_LABEL: Record<AndroidDeviceDpi, string> = {
+  high: 'High DPI',
+  medium: 'Medium DPI',
+  low: 'Low DPI',
+};
+
+function scaleDimension(value: number, scale: number): number {
+  return Math.round(value * scale);
+}
+
+function buildAndroidPresets(): CustomAppDevicePreset[] {
+  const presets: CustomAppDevicePreset[] = [];
+  for (const size of ANDROID_DEVICE_SIZES) {
+    for (const dpi of ['high', 'medium', 'low'] as const) {
+      const scale = ANDROID_DPI_SCALE[dpi];
+      presets.push({
+        id: `android-${size.key}-${dpi}` as CustomAppDevicePresetId,
+        label: `${size.label} · ${ANDROID_DPI_LABEL[dpi]}`,
+        width: scaleDimension(size.width, scale),
+        height: scaleDimension(size.height, scale),
+      });
+    }
+  }
+  return presets;
+}
+
+export const CUSTOM_APP_DEVICE_PRESETS: CustomAppDevicePreset[] = [
+  { id: 'responsive', label: 'Responsive (fill panel)', width: 0, height: 0 },
+  { id: 'iphone-se', label: 'iPhone SE', width: 375, height: 667 },
+  { id: 'ipad-air', label: 'iPad Air', width: 820, height: 1180 },
+  ...buildAndroidPresets(),
 ];
 
 export const CUSTOM_APP_DEVICE_PRESET_STORAGE_KEY =
@@ -76,52 +135,76 @@ const LEGACY_PRESET_ID_MAP: Record<
   'iphone-se-landscape': { id: 'iphone-se', landscape: true },
   'ipad-air-portrait': { id: 'ipad-air', landscape: false },
   'ipad-air-landscape': { id: 'ipad-air', landscape: true },
+  'android-compact-phone': {
+    id: 'android-compact-phone-high',
+    landscape: false,
+  },
   'android-compact-phone-portrait': {
-    id: 'android-compact-phone',
+    id: 'android-compact-phone-high',
     landscape: false,
   },
   'android-compact-phone-landscape': {
-    id: 'android-compact-phone',
+    id: 'android-compact-phone-high',
     landscape: true,
   },
+  'android-medium-phone': {
+    id: 'android-medium-phone-high',
+    landscape: false,
+  },
   'android-medium-phone-portrait': {
-    id: 'android-medium-phone',
+    id: 'android-medium-phone-high',
     landscape: false,
   },
   'android-medium-phone-landscape': {
-    id: 'android-medium-phone',
+    id: 'android-medium-phone-high',
     landscape: true,
   },
+  'android-large-phone': {
+    id: 'android-large-phone-high',
+    landscape: false,
+  },
   'android-large-phone-portrait': {
-    id: 'android-large-phone',
+    id: 'android-large-phone-high',
     landscape: false,
   },
   'android-large-phone-landscape': {
-    id: 'android-large-phone',
+    id: 'android-large-phone-high',
     landscape: true,
   },
+  'android-small-tablet': {
+    id: 'android-small-tablet-high',
+    landscape: false,
+  },
   'android-small-tablet-portrait': {
-    id: 'android-small-tablet',
+    id: 'android-small-tablet-high',
     landscape: false,
   },
   'android-small-tablet-landscape': {
-    id: 'android-small-tablet',
+    id: 'android-small-tablet-high',
     landscape: true,
   },
+  'android-standard-tablet': {
+    id: 'android-standard-tablet-high',
+    landscape: false,
+  },
   'android-standard-tablet-portrait': {
-    id: 'android-standard-tablet',
+    id: 'android-standard-tablet-high',
     landscape: false,
   },
   'android-standard-tablet-landscape': {
-    id: 'android-standard-tablet',
+    id: 'android-standard-tablet-high',
     landscape: true,
   },
+  'android-large-tablet': {
+    id: 'android-large-tablet-high',
+    landscape: false,
+  },
   'android-large-tablet-portrait': {
-    id: 'android-large-tablet',
+    id: 'android-large-tablet-high',
     landscape: false,
   },
   'android-large-tablet-landscape': {
-    id: 'android-large-tablet',
+    id: 'android-large-tablet-high',
     landscape: true,
   },
 };

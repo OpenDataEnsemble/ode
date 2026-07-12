@@ -26,15 +26,30 @@ describe('computeDeviceFitScale', () => {
 
 describe('resolveDeviceDimensions', () => {
   it('keeps portrait dimensions when landscape is false', () => {
-    const preset = getCustomAppDevicePreset('android-compact-phone');
+    const preset = getCustomAppDevicePreset('android-compact-phone-high');
     expect(resolveDeviceDimensions(preset, false)).toEqual({
       width: 1080,
       height: 2340,
     });
   });
 
+  it('scales medium and low DPI from the high reference', () => {
+    expect(
+      resolveDeviceDimensions(
+        getCustomAppDevicePreset('android-compact-phone-medium'),
+        false,
+      ),
+    ).toEqual({ width: 720, height: 1560 });
+    expect(
+      resolveDeviceDimensions(
+        getCustomAppDevicePreset('android-compact-phone-low'),
+        false,
+      ),
+    ).toEqual({ width: 540, height: 1170 });
+  });
+
   it('swaps dimensions in landscape', () => {
-    const preset = getCustomAppDevicePreset('android-small-tablet');
+    const preset = getCustomAppDevicePreset('android-small-tablet-high');
     expect(resolveDeviceDimensions(preset, false)).toEqual({
       width: 1200,
       height: 1920,
@@ -53,8 +68,20 @@ describe('loadStoredDeviceViewport', () => {
       'android-medium-phone-landscape',
     );
     expect(loadStoredDeviceViewport()).toEqual({
-      presetId: 'android-medium-phone',
+      presetId: 'android-medium-phone-high',
       landscape: true,
+    });
+    localStorage.removeItem('ode-desktop.custom-app-device-preset');
+  });
+
+  it('migrates legacy android preset ids without dpi suffix to high', () => {
+    localStorage.setItem(
+      'ode-desktop.custom-app-device-preset',
+      'android-large-phone',
+    );
+    expect(loadStoredDeviceViewport()).toEqual({
+      presetId: 'android-large-phone-high',
+      landscape: false,
     });
     localStorage.removeItem('ode-desktop.custom-app-device-preset');
   });

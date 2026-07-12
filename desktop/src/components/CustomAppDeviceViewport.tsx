@@ -17,10 +17,13 @@ import {
 } from '../lib/customAppDevicePresets';
 
 export interface CustomAppDeviceViewportProps {
+  /** Optional controls rendered on the left (Form preview: form/locale selectors). */
+  toolbarStart?: ReactNode;
   children: (ctx: { fillFrame: boolean }) => ReactNode;
 }
 
 export function CustomAppDeviceViewport({
+  toolbarStart,
   children,
 }: CustomAppDeviceViewportProps) {
   const [viewport, setViewport] = useState(loadStoredDeviceViewport);
@@ -95,45 +98,53 @@ export function CustomAppDeviceViewport({
   const scaleLabel = `${Math.round(scale * 100)}%`;
   const orientationLabel = landscape ? 'Landscape' : 'Portrait';
 
+  const viewportControls = (
+    <>
+      <div className="custom-app-device-toolbar-controls">
+        <select
+          aria-label="Viewport"
+          value={presetId}
+          onChange={e =>
+            onPresetChange(e.target.value as CustomAppDevicePresetId)
+          }>
+          {CUSTOM_APP_DEVICE_PRESETS.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className="secondary btn-icon custom-app-device-orientation-btn"
+          disabled={responsive}
+          aria-label="Switch orientation"
+          title="Switch orientation"
+          onClick={toggleOrientation}>
+          <span className="material-symbols-outlined" aria-hidden>
+            screen_rotation
+          </span>
+        </button>
+      </div>
+      {!responsive ? (
+        <span className="muted custom-app-device-toolbar-meta">
+          {deviceWidth} × {deviceHeight} · {orientationLabel} · {scaleLabel}
+        </span>
+      ) : (
+        <span className="muted custom-app-device-toolbar-meta">
+          Fills available panel space
+        </span>
+      )}
+    </>
+  );
+
   return (
     <div className="custom-app-device-shell">
-      <div className="custom-app-device-toolbar">
-        <div className="custom-app-device-toolbar-controls">
-          <label className="custom-app-device-toolbar-label">
-            <span>Viewport</span>
-            <select
-              value={presetId}
-              onChange={e =>
-                onPresetChange(e.target.value as CustomAppDevicePresetId)
-              }>
-              {CUSTOM_APP_DEVICE_PRESETS.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className="secondary btn-icon custom-app-device-orientation-btn"
-            disabled={responsive}
-            aria-label="Switch orientation"
-            title="Switch orientation"
-            onClick={toggleOrientation}>
-            <span className="material-symbols-outlined" aria-hidden>
-              screen_rotation
-            </span>
-          </button>
-        </div>
-        {!responsive ? (
-          <span className="muted custom-app-device-toolbar-meta">
-            {deviceWidth} × {deviceHeight} · {orientationLabel} · {scaleLabel}
-          </span>
-        ) : (
-          <span className="muted custom-app-device-toolbar-meta">
-            Fills available panel space
-          </span>
-        )}
+      <div
+        className={`custom-app-device-toolbar${toolbarStart ? ' custom-app-device-toolbar--split' : ''}`}>
+        {toolbarStart ? (
+          <div className="custom-app-device-toolbar-start">{toolbarStart}</div>
+        ) : null}
+        <div className="custom-app-device-toolbar-end">{viewportControls}</div>
       </div>
 
       <div
