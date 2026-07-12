@@ -57,6 +57,8 @@ export interface ApiObservation {
   data: unknown;
   formType?: string | null;
   updatedAt?: string | null;
+  /** Envelope fields (geolocation, author, tags, …) — stored as observation_extras locally. */
+  extras?: ObservationExtras | null;
 }
 
 /** One file discovered for import staging (Rust walk of dialog/drop paths). */
@@ -143,9 +145,44 @@ export interface ObservationOverviewRow {
   pendingSyncCount: number;
 }
 
+export interface ObservationTimelineBucket {
+  bucketStart: string;
+  label: string;
+  count: number;
+}
+
+export interface ObservationOverviewTimeline {
+  bucketUnit: 'day' | 'week';
+  rangeStart: string;
+  rangeEnd: string;
+  buckets: ObservationTimelineBucket[];
+  observationsWithoutDate: number;
+}
+
+export interface ObservationGeolocationSummary {
+  withLocation: number;
+  withoutLocation: number;
+}
+
+export interface ObservationMapPoint {
+  id: string;
+  formType: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface ObservationOverviewMap {
+  points: ObservationMapPoint[];
+  truncated: boolean;
+  cap: number;
+}
+
 export interface ObservationOverviewResult {
   rows: ObservationOverviewRow[];
   totals: ObservationOverviewRow;
+  timeline: ObservationOverviewTimeline;
+  geolocationSummary: ObservationGeolocationSummary;
+  map: ObservationOverviewMap;
   computedAt: string;
 }
 

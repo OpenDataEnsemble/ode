@@ -263,14 +263,17 @@ export const tauriClient = {
   /**
    * @param markPending When true (file import), observations are stored as pending push.
    *   When false/omitted, rows match server pull semantics (synced / conflict rules).
+   * @param scheduleIndexRebuild When false, skips the post-import full index rebuild (use on
+   *   intermediate write batches; default true for file import, false for server pull).
    */
   importObservations: (
     observations: ApiObservation[],
-    options?: { markPending?: boolean },
+    options?: { markPending?: boolean; scheduleIndexRebuild?: boolean },
   ) =>
     invokeSafe<ImportResult>('import_observations', {
       observations,
       markPending: options?.markPending ?? false,
+      scheduleIndexRebuild: options?.scheduleIndexRebuild,
     }),
   markObservationsPushed: (ids: string[]) =>
     invokeSafe<void>('mark_observations_pushed', { ids }),

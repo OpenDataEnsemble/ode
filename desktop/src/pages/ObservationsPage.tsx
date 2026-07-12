@@ -135,6 +135,7 @@ export function ObservationsPage() {
     observationsTotal,
     observationListParams,
     formTypes,
+    health,
     loadObservations,
     loadFormTypes,
     saveObservation,
@@ -181,6 +182,22 @@ export function ObservationsPage() {
       void loadOverview();
     }
   }, [activeTab, loadOverview]);
+
+  const overviewHealthKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'overview' || !health) {
+      return;
+    }
+    const key = `${health.totalObservations}:${health.lastSaveAt ?? ''}:${health.lastPullAt ?? ''}:${health.lastPushAt ?? ''}`;
+    if (overviewHealthKeyRef.current === null) {
+      overviewHealthKeyRef.current = key;
+      return;
+    }
+    if (overviewHealthKeyRef.current !== key) {
+      overviewHealthKeyRef.current = key;
+      void loadOverview();
+    }
+  }, [activeTab, health, loadOverview]);
 
   useEffect(() => {
     void loadFormTypes();
@@ -976,7 +993,9 @@ export function ObservationsPage() {
         ) : null}
       </div>
 
-      <div className="tab-content" role="tabpanel">
+      <div
+        className={`tab-content${activeTab === 'overview' ? ' tab-content--overview' : ''}`}
+        role="tabpanel">
         {activeTab === 'overview' ? (
           <ObservationOverviewTab
             data={overviewData}

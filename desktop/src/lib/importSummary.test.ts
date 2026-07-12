@@ -47,6 +47,28 @@ describe('extractObservationsFromJson', () => {
     expect(observations).toHaveLength(2);
   });
 
+  it('parses envelope extras (geolocation, author, tags)', () => {
+    const { observations } = extractObservationsFromJson(
+      {
+        observation_id: 'm1',
+        data: { hh_hut_gps: '{"latitude":1}' },
+        form_type: 'hh_hut',
+        updated_at: '2024-07-03T14:39:06.407Z',
+        geolocation: { latitude: 5.33, longitude: 36.07 },
+        author: 'username:device02',
+        tags: ['migrated'],
+      },
+      'f.json',
+    );
+    expect(observations).toHaveLength(1);
+    expect(observations[0].extras?.geolocation).toEqual({
+      latitude: 5.33,
+      longitude: 36.07,
+    });
+    expect(observations[0].extras?.author).toBe('username:device02');
+    expect(observations[0].extras?.tags).toEqual(['migrated']);
+  });
+
   it('returns error when no ids', () => {
     const { observations, error } = extractObservationsFromJson(
       { foo: 1 },

@@ -1,8 +1,6 @@
-import {
-  formatObservationOverviewCell,
-  formatOverviewUpdatedAt,
-} from '../lib/observationOverviewFormat';
+import { formatOverviewUpdatedAt } from '../lib/observationOverviewFormat';
 import type { ObservationOverviewResult } from '../types/domain';
+import { ObservationOverviewAccordion } from './ObservationOverviewAccordion';
 
 export interface ObservationOverviewTabProps {
   data: ObservationOverviewResult | null;
@@ -38,38 +36,7 @@ export function ObservationOverviewTab({
 
       {error ? <p className="notice error">{error}</p> : null}
 
-      {data ? (
-        <table className="form-table observations-overview-table">
-          <thead>
-            <tr>
-              <th scope="col">Form type</th>
-              <th scope="col">No. of observations (pending sync)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.rows.map(row => (
-              <tr key={row.formType}>
-                <td>{row.formType}</td>
-                <td>
-                  {formatObservationOverviewCell(
-                    row.observationCount,
-                    row.pendingSyncCount,
-                  )}
-                </td>
-              </tr>
-            ))}
-            <tr className="observations-overview-totals-row">
-              <th scope="row">Totals</th>
-              <td>
-                {formatObservationOverviewCell(
-                  data.totals.observationCount,
-                  data.totals.pendingSyncCount,
-                )}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      ) : null}
+      {data ? <ObservationOverviewAccordion data={data} /> : null}
 
       {!loading && !error && data && data.rows.length === 0 ? (
         <p className="muted">No observations in this workspace yet.</p>

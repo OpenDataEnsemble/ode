@@ -34,6 +34,9 @@ const MAX_INDIVIDUAL_FILES = 20;
 /** Host copy batch size — keeps IPC payloads and UI updates manageable. */
 const ATTACHMENT_COPY_CHUNK_SIZE = 400;
 
+/** Observation write batch size — one index rebuild after the final batch only. */
+const IMPORT_WRITE_CHUNK_SIZE = 2000;
+
 function formatAttachmentCopyProgress(done: number, total: number): string {
   if (total <= 0) {
     return 'Copying attachments…';
@@ -423,12 +426,34 @@ export function ImportPage() {
       }
 
       const observations = flattenObservations(report.parsedFiles);
-      statusCtl.push(
-        `Writing ${observations.length} observations to local store…`,
-      );
-      const result = await tauriClient.importObservations(observations, {
-        markPending: true,
-      });
+      const writeTotal = observations.length;
+      let imported = 0;
+      let conflicts = 0;
+      let indexRebuildScheduled = false;
+
+      for (
+        let offset = 0;
+        offset < writeTotal;
+        offset += IMPORT_WRITE_CHUNK_SIZE
+      ) {
+        const chunk = observations.slice(
+          offset,
+          offset + IMPORT_WRITE_CHUNK_SIZE,
+        );
+        const written = Math.min(offset + chunk.length, writeTotal);
+        const isLast = written >= writeTotal;
+        statusCtl.push(`Writing observations (${written}/${writeTotal})…`);
+        const chunkResult = await tauriClient.importObservations(chunk, {
+          markPending: true,
+          scheduleIndexRebuild: isLast,
+        });
+        imported += chunkResult.imported;
+        conflicts += chunkResult.conflicts;
+        indexRebuildScheduled =
+          indexRebuildScheduled || !!chunkResult.indexRebuildScheduled;
+      }
+
+      const result = { imported, conflicts, indexRebuildScheduled };
 
       const stagedNorm = new Map<string, string>();
       for (const s of stagedAttachments) {
