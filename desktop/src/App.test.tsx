@@ -6,6 +6,12 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock('./lib/bundleTauriEvents', () => ({
+  ensureBundleApplyEventPipeline: vi.fn().mockResolvedValue(undefined),
+  installGlobalIndexRebuildListener: vi.fn(() => () => {}),
+  bundleBannerLineFromProgress: vi.fn((p: { message: string }) => p.message),
+}));
+
 import App from './App';
 
 const { defaultSettings } = vi.hoisted(() => ({

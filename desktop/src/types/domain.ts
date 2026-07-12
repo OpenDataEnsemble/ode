@@ -57,6 +57,8 @@ export interface ApiObservation {
   data: unknown;
   formType?: string | null;
   updatedAt?: string | null;
+  /** Envelope fields (geolocation, author, tags, …) — stored as observation_extras locally. */
+  extras?: ObservationExtras | null;
 }
 
 /** One file discovered for import staging (Rust walk of dialog/drop paths). */
@@ -95,6 +97,13 @@ export interface ImportResult {
   attachmentsDownloaded?: number;
   /** Download attempts that failed after a manifest op (e.g. HTTP error). */
   attachmentsFailed?: number;
+  /** Background full index rebuild was scheduled after this import. */
+  indexRebuildScheduled?: boolean;
+}
+
+export interface StartObservationIndexRebuildResult {
+  jobId: string;
+  scheduled: boolean;
 }
 
 /** Result of uploading outbound attachment files before `syncPush`. */
@@ -128,6 +137,53 @@ export interface SetSyncStateRequest {
 export interface ListObservationsPageResult {
   rows: ObservationRecord[];
   total: number;
+}
+
+export interface ObservationOverviewRow {
+  formType: string;
+  observationCount: number;
+  pendingSyncCount: number;
+}
+
+export interface ObservationTimelineBucket {
+  bucketStart: string;
+  label: string;
+  count: number;
+}
+
+export interface ObservationOverviewTimeline {
+  bucketUnit: 'day' | 'week';
+  rangeStart: string;
+  rangeEnd: string;
+  buckets: ObservationTimelineBucket[];
+  observationsWithoutDate: number;
+}
+
+export interface ObservationGeolocationSummary {
+  withLocation: number;
+  withoutLocation: number;
+}
+
+export interface ObservationMapPoint {
+  id: string;
+  formType: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface ObservationOverviewMap {
+  points: ObservationMapPoint[];
+  truncated: boolean;
+  cap: number;
+}
+
+export interface ObservationOverviewResult {
+  rows: ObservationOverviewRow[];
+  totals: ObservationOverviewRow;
+  timeline: ObservationOverviewTimeline;
+  geolocationSummary: ObservationGeolocationSummary;
+  map: ObservationOverviewMap;
+  computedAt: string;
 }
 
 export interface AppHealth {

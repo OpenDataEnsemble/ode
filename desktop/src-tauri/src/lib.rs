@@ -11,7 +11,7 @@ use std::{
 
 use futures_util::StreamExt;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use keyring::Entry;
 use rayon::prelude::*;
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
@@ -503,6 +503,15 @@ struct AppCtx {
     workspace_sqlite_lock: Mutex<()>,
     /// In-memory pause/cancel handles for the active sync worker (job row persists checkpoints).
     active_sync: Mutex<Option<sync_engine::ActiveSyncHandle>>,
+    /// Coalesces overlapping observation-index rebuild jobs into one run (+ optional follow-up).
+    index_rebuild_gate: Mutex<IndexRebuildGate>,
+}
+
+#[derive(Default)]
+struct IndexRebuildGate {
+    running: bool,
+    pending: bool,
+    current_job_id: Option<String>,
 }
 
 pub(crate) type AppCtxHandle = Arc<AppCtx>;
@@ -622,6 +631,8 @@ struct ImportResult {
     attachments_downloaded: usize,
     #[serde(default)]
     attachments_failed: usize,
+    #[serde(default)]
+    index_rebuild_scheduled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1483,25 +1494,20 @@ async fn download_synkronus_app_bundle_zip(
     Ok(buf)
 }
 
-fn spawn_bundle_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: String) {
+fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: String) {
     tauri::async_runtime::spawn_blocking(move || {
         let app_config = match bundle_app_config_path(&ctx) {
             Ok(p) if p.exists() => p,
-            _ => return,
+            _ => {
+                let _ = finish_index_rebuild_gate(&ctx, &app);
+                return;
+            }
         };
         let defs = observation_index::load_index_config(&app_config);
         if defs.is_empty() {
+            let _ = finish_index_rebuild_gate(&ctx, &app);
             return;
         }
-        emit_bundle_index_rebuild_progress(
-            &app,
-            &job_id,
-            "indexing",
-            0,
-            0,
-            "Rebuilding observation indexes…",
-            None,
-        );
         let conn = match open_db(&ctx) {
             Ok(c) => c,
             Err(err) => {
@@ -1514,12 +1520,22 @@ fn spawn_bundle_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: 
                     "Rebuilding observation indexes…",
                     Some(&err.to_string()),
                 );
+                let _ = finish_index_rebuild_gate(&ctx, &app);
                 return;
             }
         };
         let total: i64 = conn
             .query_row("SELECT COUNT(*) FROM observations", [], |r| r.get(0))
             .unwrap_or(0);
+        emit_bundle_index_rebuild_progress(
+            &app,
+            &job_id,
+            "indexing",
+            0,
+            total.max(1),
+            "Rebuilding observation indexes…",
+            None,
+        );
         let mut progress_cb = |done: i64, tot: i64| {
             emit_bundle_index_rebuild_progress(
                 &app,
@@ -1551,7 +1567,62 @@ fn spawn_bundle_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: 
                 Some(&err.to_string()),
             ),
         }
+        let _ = finish_index_rebuild_gate(&ctx, &app);
     });
+}
+
+/// Marks the active rebuild finished; runs one coalesced follow-up if requests arrived mid-flight.
+fn finish_index_rebuild_gate(ctx: &AppCtxHandle, app: &tauri::AppHandle) -> Option<String> {
+    let follow_up = {
+        let mut gate = ctx
+            .index_rebuild_gate
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        gate.running = false;
+        if gate.pending {
+            gate.pending = false;
+            let job_id = Uuid::new_v4().to_string();
+            gate.running = true;
+            gate.current_job_id = Some(job_id.clone());
+            Some(job_id)
+        } else {
+            gate.current_job_id = None;
+            None
+        }
+    };
+    if let Some(job_id) = follow_up {
+        spawn_observation_index_rebuild(app.clone(), ctx.clone(), job_id.clone());
+        Some(job_id)
+    } else {
+        None
+    }
+}
+
+/// Starts a background full index rebuild when the active bundle declares indexes.
+fn schedule_observation_index_rebuild(
+    app: &tauri::AppHandle,
+    ctx: &AppCtxHandle,
+) -> Option<String> {
+    let app_config = bundle_app_config_path(ctx).ok().filter(|p| p.exists())?;
+    let defs = observation_index::load_index_config(&app_config);
+    if defs.is_empty() {
+        return None;
+    }
+    let mut gate = ctx
+        .index_rebuild_gate
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if gate.running {
+        gate.pending = true;
+        return gate.current_job_id.clone();
+    }
+    let job_id = Uuid::new_v4().to_string();
+    gate.running = true;
+    gate.pending = false;
+    gate.current_job_id = Some(job_id.clone());
+    drop(gate);
+    spawn_observation_index_rebuild(app.clone(), ctx.clone(), job_id.clone());
+    Some(job_id)
 }
 
 fn read_app_bundle_state_unlocked(
@@ -1757,6 +1828,7 @@ fn upsert_observation_from_local_import(
         .clone()
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| timestamp.clone());
+    let extras_json = serialize_observation_extras(&incoming.extras)?;
 
     if existing.is_some() {
         conn.execute(
@@ -1767,13 +1839,15 @@ fn upsert_observation_from_local_import(
                 dirty = 1,
                 sync_status = 'dirty',
                 conflict_payload = NULL,
-                last_saved_at = ?4
-             WHERE id = ?5",
+                last_saved_at = ?4,
+                observation_extras = COALESCE(?5, observation_extras)
+             WHERE id = ?6",
             params![
                 payload,
                 incoming.form_type,
                 updated,
                 timestamp,
+                extras_json,
                 incoming.observation_id
             ],
         )?;
@@ -1781,14 +1855,15 @@ fn upsert_observation_from_local_import(
         conn.execute(
             "INSERT INTO observations (
                 id, payload, form_type, updated_at, remote_updated_at,
-                dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at
-             ) VALUES (?1, ?2, ?3, ?4, NULL, 1, 'dirty', NULL, ?5, NULL)",
+                dirty, sync_status, conflict_payload, last_saved_at, last_pushed_at, observation_extras
+             ) VALUES (?1, ?2, ?3, ?4, NULL, 1, 'dirty', NULL, ?5, NULL, ?6)",
             params![
                 incoming.observation_id,
                 payload,
                 incoming.form_type,
                 updated,
-                timestamp
+                timestamp,
+                extras_json
             ],
         )?;
     }
@@ -2419,9 +2494,9 @@ fn query_param_summary(params: &[observation_query::SqlParam]) -> String {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct RebuildObservationIndexesResult {
-    generation: i64,
-    last_rebuild_at: Option<String>,
+struct StartObservationIndexRebuildResult {
+    job_id: String,
+    scheduled: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -2538,29 +2613,29 @@ fn query_observations(
 }
 
 #[tauri::command]
-async fn rebuild_observation_indexes(
+fn start_observation_index_rebuild(
+    app: tauri::AppHandle,
     ctx: tauri::State<'_, AppCtxHandle>,
-) -> Result<RebuildObservationIndexesResult, String> {
+) -> Result<StartObservationIndexRebuildResult, String> {
     let ctx = ctx.inner().clone();
-    tauri::async_runtime::spawn_blocking(move || {
-        let defs = load_active_index_defs(&ctx);
-        let conn = open_db(&ctx).map_err(|err| err.to_string())?;
-        let generation = observation_index::rebuild_all_indexes(&conn, &defs, None)
-            .map_err(|err| err.to_string())?;
-        let last_rebuild_at: Option<String> = conn
-            .query_row(
-                "SELECT last_rebuild_at FROM observation_index_meta WHERE id = 1",
-                [],
-                |r| r.get(0),
-            )
-            .ok();
-        Ok(RebuildObservationIndexesResult {
-            generation,
-            last_rebuild_at,
-        })
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    match schedule_observation_index_rebuild(&app, &ctx) {
+        Some(job_id) => Ok(StartObservationIndexRebuildResult {
+            job_id,
+            scheduled: true,
+        }),
+        None => Ok(StartObservationIndexRebuildResult {
+            job_id: String::new(),
+            scheduled: false,
+        }),
+    }
+}
+
+#[tauri::command]
+fn rebuild_observation_indexes(
+    app: tauri::AppHandle,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<StartObservationIndexRebuildResult, String> {
+    start_observation_index_rebuild(app, ctx)
 }
 
 #[tauri::command]
@@ -2701,6 +2776,300 @@ fn list_form_types(ctx: tauri::State<'_, AppCtxHandle>) -> Result<Vec<String>, S
         out.push(r.map_err(|err| err.to_string())?);
     }
     Ok(out)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ObservationTimelineBucket {
+    bucket_start: String,
+    label: String,
+    count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ObservationOverviewTimeline {
+    bucket_unit: String,
+    range_start: String,
+    range_end: String,
+    buckets: Vec<ObservationTimelineBucket>,
+    observations_without_date: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ObservationGeolocationSummary {
+    with_location: i64,
+    without_location: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ObservationMapPoint {
+    id: String,
+    form_type: String,
+    latitude: f64,
+    longitude: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ObservationOverviewMap {
+    points: Vec<ObservationMapPoint>,
+    truncated: bool,
+    cap: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ObservationOverviewRow {
+    form_type: String,
+    observation_count: i64,
+    pending_sync_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ObservationOverviewResult {
+    rows: Vec<ObservationOverviewRow>,
+    totals: ObservationOverviewRow,
+    timeline: ObservationOverviewTimeline,
+    geolocation_summary: ObservationGeolocationSummary,
+    map: ObservationOverviewMap,
+    computed_at: String,
+}
+
+const OVERVIEW_MAP_POINT_CAP: i64 = 5000;
+
+fn parse_iso_to_naive_date(raw: &str) -> Option<NaiveDate> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Ok(dt) = DateTime::parse_from_rfc3339(trimmed) {
+        return Some(dt.date_naive());
+    }
+    if let Ok(dt) = trimmed.parse::<DateTime<Utc>>() {
+        return Some(dt.date_naive());
+    }
+    NaiveDate::parse_from_str(&trimmed[..trimmed.len().min(10)], "%Y-%m-%d").ok()
+}
+
+fn resolve_observation_created_at(
+    extras_raw: Option<&str>,
+    updated_at: Option<&str>,
+    last_saved_at: &str,
+) -> Option<NaiveDate> {
+    if let Some(raw) = extras_raw
+        && let Ok(extras) = serde_json::from_str::<ObservationExtras>(raw)
+        && let Some(ref created) = extras.created_at
+        && let Some(d) = parse_iso_to_naive_date(created)
+    {
+        return Some(d);
+    }
+    updated_at
+        .and_then(parse_iso_to_naive_date)
+        .or_else(|| parse_iso_to_naive_date(last_saved_at))
+}
+
+fn geolocation_from_extras_raw(extras_raw: Option<&str>) -> Option<(f64, f64)> {
+    let raw = extras_raw?;
+    let extras: ObservationExtras = serde_json::from_str(raw).ok()?;
+    let geo = extras.geolocation?;
+    let lat = geo.get("latitude")?.as_f64()?;
+    let lng = geo.get("longitude")?.as_f64()?;
+    if lat.is_finite() && lng.is_finite() && lat.abs() <= 90.0 && lng.abs() <= 180.0 {
+        Some((lat, lng))
+    } else {
+        None
+    }
+}
+
+fn week_start(date: NaiveDate) -> NaiveDate {
+    date - chrono::Duration::days(date.weekday().num_days_from_monday() as i64)
+}
+
+fn format_day_label(date: NaiveDate) -> String {
+    format!("{} {}", date.format("%b"), date.day())
+}
+
+fn format_week_label(date: NaiveDate) -> String {
+    format!("{} {}", date.format("%b"), date.day())
+}
+
+fn build_observation_timeline(
+    dates: &[NaiveDate],
+    without_date: i64,
+) -> ObservationOverviewTimeline {
+    if dates.is_empty() {
+        return ObservationOverviewTimeline {
+            bucket_unit: "day".to_string(),
+            range_start: String::new(),
+            range_end: String::new(),
+            buckets: Vec::new(),
+            observations_without_date: without_date,
+        };
+    }
+
+    let min_date = *dates.iter().min().unwrap();
+    let max_date = *dates.iter().max().unwrap();
+    let span_days = (max_date - min_date).num_days();
+    let use_weeks = span_days >= 365;
+
+    let mut counts: HashMap<NaiveDate, i64> = HashMap::new();
+    for date in dates {
+        let bucket = if use_weeks { week_start(*date) } else { *date };
+        *counts.entry(bucket).or_insert(0) += 1;
+    }
+
+    let (range_start, range_end) = if use_weeks {
+        (week_start(min_date), week_start(max_date))
+    } else {
+        (min_date, max_date)
+    };
+
+    let step = if use_weeks { 7 } else { 1 };
+    let mut buckets = Vec::new();
+    let mut cursor = range_start;
+    while cursor <= range_end {
+        let count = counts.get(&cursor).copied().unwrap_or(0);
+        buckets.push(ObservationTimelineBucket {
+            bucket_start: cursor.format("%Y-%m-%d").to_string(),
+            label: if use_weeks {
+                format_week_label(cursor)
+            } else {
+                format_day_label(cursor)
+            },
+            count,
+        });
+        cursor += chrono::Duration::days(step);
+    }
+
+    ObservationOverviewTimeline {
+        bucket_unit: if use_weeks {
+            "week".to_string()
+        } else {
+            "day".to_string()
+        },
+        range_start: range_start.format("%Y-%m-%d").to_string(),
+        range_end: range_end.format("%Y-%m-%d").to_string(),
+        buckets,
+        observations_without_date: without_date,
+    }
+}
+
+fn build_observation_overview(
+    conn: &Connection,
+) -> Result<ObservationOverviewResult, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT COALESCE(NULLIF(TRIM(form_type), ''), '(no form type)') AS form_type,
+                COUNT(*) AS observation_count,
+                SUM(CASE WHEN dirty = 1 AND sync_status = 'dirty' THEN 1 ELSE 0 END) AS pending_sync_count
+         FROM observations
+         GROUP BY 1
+         ORDER BY 1 COLLATE NOCASE",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(ObservationOverviewRow {
+                form_type: row.get(0)?,
+                observation_count: row.get(1)?,
+                pending_sync_count: row.get(2)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut total_observations: i64 = 0;
+    let mut total_pending: i64 = 0;
+    for row in &rows {
+        total_observations += row.observation_count;
+        total_pending += row.pending_sync_count;
+    }
+
+    let mut scan_stmt = conn.prepare(
+        "SELECT id,
+                COALESCE(NULLIF(TRIM(form_type), ''), '(no form type)') AS form_type,
+                observation_extras,
+                updated_at,
+                last_saved_at
+         FROM observations",
+    )?;
+
+    let mut dates: Vec<NaiveDate> = Vec::new();
+    let mut without_date: i64 = 0;
+    let mut with_location: i64 = 0;
+    let mut without_location: i64 = 0;
+    let mut map_points: Vec<ObservationMapPoint> = Vec::new();
+    let mut map_truncated = false;
+
+    let scan_rows = scan_stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, Option<String>>(2)?,
+            row.get::<_, Option<String>>(3)?,
+            row.get::<_, String>(4)?,
+        ))
+    })?;
+
+    for row in scan_rows {
+        let (id, form_type, extras_raw, updated_at, last_saved_at) = row?;
+        if let Some(d) = resolve_observation_created_at(
+            extras_raw.as_deref(),
+            updated_at.as_deref(),
+            &last_saved_at,
+        ) {
+            dates.push(d);
+        } else {
+            without_date += 1;
+        }
+
+        if let Some((lat, lng)) = geolocation_from_extras_raw(extras_raw.as_deref()) {
+            with_location += 1;
+            if (map_points.len() as i64) < OVERVIEW_MAP_POINT_CAP {
+                map_points.push(ObservationMapPoint {
+                    id,
+                    form_type,
+                    latitude: lat,
+                    longitude: lng,
+                });
+            } else {
+                map_truncated = true;
+            }
+        } else {
+            without_location += 1;
+        }
+    }
+
+    let timeline = build_observation_timeline(&dates, without_date);
+
+    Ok(ObservationOverviewResult {
+        rows,
+        totals: ObservationOverviewRow {
+            form_type: String::new(),
+            observation_count: total_observations,
+            pending_sync_count: total_pending,
+        },
+        timeline,
+        geolocation_summary: ObservationGeolocationSummary {
+            with_location,
+            without_location,
+        },
+        map: ObservationOverviewMap {
+            points: map_points,
+            truncated: map_truncated,
+            cap: OVERVIEW_MAP_POINT_CAP,
+        },
+        computed_at: now_iso(),
+    })
+}
+
+#[tauri::command]
+fn get_observation_overview(
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<ObservationOverviewResult, String> {
+    let conn = open_db(&ctx).map_err(|err| err.to_string())?;
+    build_observation_overview(&conn).map_err(|err| err.to_string())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -3153,6 +3522,12 @@ fn read_host_text_file(path: String) -> Result<String, String> {
     read_host_text_file_inner(p)
 }
 
+/// True when `path` exists and is a directory (for session folder dialog defaults).
+#[tauri::command]
+fn host_path_is_directory(path: String) -> bool {
+    Path::new(path.trim()).is_dir()
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ParsedImportFileResult {
@@ -3172,6 +3547,55 @@ fn observation_id_from_obj(obj: &serde_json::Map<String, Value>) -> Option<Strin
         }
     }
     None
+}
+
+fn optional_import_str(
+    obj: &serde_json::Map<String, Value>,
+    snake: &str,
+    camel: &str,
+) -> Option<String> {
+    obj.get(snake)
+        .or_else(|| obj.get(camel))
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+fn optional_import_tags(obj: &serde_json::Map<String, Value>) -> Option<Vec<String>> {
+    let tags = obj.get("tags").and_then(|t| {
+        t.as_array().map(|arr| {
+            arr.iter()
+                .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                .collect::<Vec<_>>()
+        })
+    })?;
+    if tags.is_empty() { None } else { Some(tags) }
+}
+
+/// Synkronus envelope fields outside `data` / `payload` (snake_case or camelCase).
+fn observation_extras_from_import_obj(
+    obj: &serde_json::Map<String, Value>,
+) -> Option<ObservationExtras> {
+    let geolocation = obj.get("geolocation").filter(|v| !v.is_null()).cloned();
+    let extras = ObservationExtras {
+        form_version: optional_import_str(obj, "form_version", "formVersion"),
+        created_at: optional_import_str(obj, "created_at", "createdAt"),
+        deleted: obj.get("deleted").and_then(|v| v.as_bool()),
+        synced_at: optional_import_str(obj, "synced_at", "syncedAt"),
+        geolocation,
+        author: optional_import_str(obj, "author", "author"),
+        device_id: optional_import_str(obj, "device_id", "deviceId"),
+        tags: optional_import_tags(obj),
+    };
+    let has_any = extras.form_version.is_some()
+        || extras.created_at.is_some()
+        || extras.deleted.is_some()
+        || extras.synced_at.is_some()
+        || extras.geolocation.is_some()
+        || extras.author.is_some()
+        || extras.device_id.is_some()
+        || extras.tags.is_some();
+    if has_any { Some(extras) } else { None }
 }
 
 fn extract_observations_from_json_value(
@@ -3224,7 +3648,7 @@ fn extract_observations_from_json_value(
             data,
             form_type,
             updated_at,
-            extras: None,
+            extras: observation_extras_from_import_obj(obj),
         });
     }
 
@@ -3346,7 +3770,68 @@ fn copy_one_attachment_to_pending(
     Ok(())
 }
 
-/// Copy many attachments into `attachments/pending/` with `import/attachment-copy-progress` events (fine-grained).
+/// Cap parallel host copies so large imports do not saturate disk I/O.
+const ATTACHMENT_COPY_MAX_PARALLEL: usize = 8;
+
+/// Minimum wall time between progress events forwarded to the WebView.
+const ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(250);
+
+/// Emit a progress event every N files (scaled to batch size).
+fn attachment_copy_progress_step(total: usize) -> usize {
+    if total <= 20 {
+        1
+    } else if total <= 200 {
+        10
+    } else if total <= 2000 {
+        25
+    } else {
+        50
+    }
+}
+
+fn should_emit_attachment_copy_progress(
+    done: usize,
+    total: usize,
+    step: usize,
+    last_emit: Instant,
+) -> bool {
+    if done == 0 {
+        return false;
+    }
+    if done == 1 || done >= total {
+        return true;
+    }
+    if step > 0 && done.is_multiple_of(step) {
+        return true;
+    }
+    last_emit.elapsed() >= ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL
+}
+
+fn emit_attachment_copy_progress(
+    app: &tauri::AppHandle,
+    done: usize,
+    total: usize,
+    attachment_id: &str,
+    last_emit: &Mutex<Instant>,
+    step: usize,
+) {
+    let mut last = last_emit.lock().unwrap();
+    if !should_emit_attachment_copy_progress(done, total, step, *last) {
+        return;
+    }
+    *last = Instant::now();
+    drop(last);
+    let _ = app.emit(
+        "import/attachment-copy-progress",
+        AttachmentCopyProgressEvent {
+            done,
+            total,
+            attachment_id: attachment_id.trim().to_string(),
+        },
+    );
+}
+
+/// Copy many attachments into `attachments/pending/` with throttled progress events.
 #[tauri::command]
 fn copy_workspace_attachments_batch(
     app: tauri::AppHandle,
@@ -3365,25 +3850,37 @@ fn copy_workspace_attachments_batch(
 
     let done = AtomicUsize::new(0);
     let errors = Mutex::new(Vec::<String>::new());
+    let progress_step = attachment_copy_progress_step(total);
+    let last_emit = Mutex::new(Instant::now() - ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL);
 
-    items.par_iter().for_each(|it| {
-        let r = copy_one_attachment_to_pending(&ws, &it.source_path, &it.attachment_id);
-        let n = done.fetch_add(1, Ordering::Relaxed) + 1;
-        if let Err(e) = r {
-            errors
-                .lock()
-                .unwrap()
-                .push(format!("{}: {e}", it.attachment_id.trim()));
-        }
-        let _ = app.emit(
-            "import/attachment-copy-progress",
-            AttachmentCopyProgressEvent {
-                done: n,
+    let workers = ATTACHMENT_COPY_MAX_PARALLEL.min(total.max(1));
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(workers)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    pool.install(|| {
+        items.par_iter().for_each(|it| {
+            let r = copy_one_attachment_to_pending(&ws, &it.source_path, &it.attachment_id);
+            let n = done.fetch_add(1, Ordering::Relaxed) + 1;
+            if let Err(e) = r {
+                errors
+                    .lock()
+                    .unwrap()
+                    .push(format!("{}: {e}", it.attachment_id.trim()));
+            }
+            emit_attachment_copy_progress(
+                &app,
+                n,
                 total,
-                attachment_id: it.attachment_id.trim().to_string(),
-            },
-        );
+                &it.attachment_id,
+                &last_emit,
+                progress_step,
+            );
+        });
     });
+
+    emit_attachment_copy_progress(&app, total, total, "", &last_emit, progress_step);
 
     let errs = errors.into_inner().unwrap();
     let failed = errs.len();
@@ -3855,7 +4352,7 @@ async fn download_and_apply_app_bundle(
         .filter(|p| p.exists())
         .is_some();
     if needs_index {
-        spawn_bundle_index_rebuild(app.clone(), ctx_inner.clone(), job_id);
+        spawn_observation_index_rebuild(app.clone(), ctx_inner.clone(), job_id);
     }
 
     Ok(DownloadAndApplyAppBundleResult {
@@ -4181,16 +4678,20 @@ fn import_observations_run(
                 conflicts += 1;
             }
         }
-        if !index_defs.is_empty() {
+        if !index_defs.is_empty() && !mark_pending {
+            // Sync pull: update indexes incrementally per page (no full rebuild follows).
+            // Local file import: skip here — `import_observations` schedules one background
+            // full rebuild after the batch commit (incremental work would be discarded).
             let payload = serde_json::to_string(&observation.data).map_err(|e| e.to_string())?;
             let form_type = observation.form_type.as_deref().unwrap_or("");
-            let _ = observation_index::incremental_reindex(
+            observation_index::incremental_reindex(
                 &tx,
                 &observation.observation_id,
                 form_type,
                 &payload,
                 &index_defs,
-            );
+            )
+            .map_err(|err| err.to_string())?;
         }
         imported += 1;
     }
@@ -4208,16 +4709,27 @@ fn import_observations_run(
         conflicts,
         attachments_downloaded: 0,
         attachments_failed: 0,
+        index_rebuild_scheduled: false,
     })
 }
 
 #[tauri::command]
 fn import_observations(
+    app: tauri::AppHandle,
     observations: Vec<ApiObservation>,
     mark_pending: Option<bool>,
+    schedule_index_rebuild: Option<bool>,
     ctx: tauri::State<'_, AppCtxHandle>,
 ) -> Result<ImportResult, String> {
-    import_observations_run(observations, mark_pending.unwrap_or(false), &ctx)
+    let ctx_inner = ctx.inner().clone();
+    let mark = mark_pending.unwrap_or(false);
+    let mut result = import_observations_run(observations, mark, &ctx_inner)?;
+    let should_schedule = schedule_index_rebuild.unwrap_or(mark) && result.imported > 0;
+    if should_schedule {
+        result.index_rebuild_scheduled =
+            schedule_observation_index_rebuild(&app, &ctx_inner).is_some();
+    }
+    Ok(result)
 }
 
 #[tauri::command]
@@ -4432,6 +4944,7 @@ pub fn run() {
                 auth: Mutex::new(None),
                 workspace_sqlite_lock: Mutex::new(()),
                 active_sync: Mutex::new(None),
+                index_rebuild_gate: Mutex::new(IndexRebuildGate::default()),
             });
             persist_config(&ctx).map_err(|err| err.to_string())?;
             ensure_active_workspace_dirs(&ctx).map_err(|err| err.to_string())?;
@@ -4459,11 +4972,13 @@ pub fn run() {
             list_observations,
             list_observations_page,
             query_observations,
+            start_observation_index_rebuild,
             rebuild_observation_indexes,
             create_observation_sqlite_indexes,
             get_observation_index_status,
             list_dirty_observations,
             list_form_types,
+            get_observation_overview,
             get_sync_state,
             set_sync_state,
             archive_workspace_for_repository_generation,
@@ -4475,6 +4990,7 @@ pub fn run() {
             parse_import_observation_json_paths,
             copy_workspace_attachments_batch,
             read_host_text_file,
+            host_path_is_directory,
             read_host_text_files_batch,
             download_workspace_attachment_from_url,
             upload_outbound_attachments,
@@ -4517,12 +5033,49 @@ mod tests {
     use std::path::Path;
 
     use super::{
-        CompressionMethod, SimpleFileOptions, ZipWriter, apply_app_bundle_zip_at_workspace,
-        bind_query_params, mirror_custom_app_dev_folder, parse_time, resolve_attachment_path,
-        should_mark_conflict, validate_custom_app_dev_source_folder,
+        ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL, ApiObservation, CompressionMethod,
+        ObservationExtras, SimpleFileOptions, ZipWriter, apply_app_bundle_zip_at_workspace,
+        attachment_copy_progress_step, bind_query_params, build_observation_overview,
+        extract_observations_from_json_value, init_db, mirror_custom_app_dev_folder,
+        parse_observation_extras, parse_time, resolve_attachment_path,
+        should_emit_attachment_copy_progress, should_mark_conflict,
+        upsert_observation_from_local_import, validate_custom_app_dev_source_folder,
     };
     use crate::observation_query::SqlParam;
-    use rusqlite::Connection;
+    use rusqlite::{Connection, params};
+    use serde_json::Value;
+    use std::time::Instant;
+
+    #[test]
+    fn attachment_copy_progress_step_scales_with_batch_size() {
+        assert_eq!(attachment_copy_progress_step(5), 1);
+        assert_eq!(attachment_copy_progress_step(100), 10);
+        assert_eq!(attachment_copy_progress_step(1500), 25);
+        assert_eq!(attachment_copy_progress_step(5000), 50);
+    }
+
+    #[test]
+    fn attachment_copy_progress_emit_first_last_and_interval() {
+        let total = 100;
+        let step = attachment_copy_progress_step(total);
+        let old = Instant::now() - ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL;
+        assert!(should_emit_attachment_copy_progress(1, total, step, old));
+        assert!(should_emit_attachment_copy_progress(
+            total, total, step, old
+        ));
+        assert!(!should_emit_attachment_copy_progress(
+            2,
+            total,
+            step,
+            Instant::now()
+        ));
+        assert!(should_emit_attachment_copy_progress(
+            step,
+            total,
+            step,
+            Instant::now()
+        ));
+    }
 
     #[test]
     fn parse_time_handles_valid_timestamp() {
@@ -4618,6 +5171,149 @@ mod tests {
         assert_eq!(p.file_name().unwrap(), "b.jpg");
         assert!(!p.to_string_lossy().contains("synced"));
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn build_observation_overview_groups_by_form_type_and_pending() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        let insert = |id: &str, form_type: &str, dirty: i64, sync_status: &str| {
+            conn.execute(
+                "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at)
+                 VALUES (?1, '{}', ?2, '2026-01-01T00:00:00Z', ?3, ?4, '2026-01-01T00:00:00Z')",
+                params![id, form_type, dirty, sync_status],
+            )
+            .unwrap();
+        };
+        insert("a1", "hh_hut", 1, "dirty");
+        insert("a2", "hh_hut", 0, "clean");
+        insert("b1", "hh_person", 1, "dirty");
+        insert("c1", "", 0, "clean");
+
+        let result = build_observation_overview(&conn).unwrap();
+        assert_eq!(result.rows.len(), 3);
+
+        let hut = result
+            .rows
+            .iter()
+            .find(|r| r.form_type == "hh_hut")
+            .unwrap();
+        assert_eq!(hut.observation_count, 2);
+        assert_eq!(hut.pending_sync_count, 1);
+
+        let no_type = result
+            .rows
+            .iter()
+            .find(|r| r.form_type == "(no form type)")
+            .unwrap();
+        assert_eq!(no_type.observation_count, 1);
+
+        assert_eq!(result.totals.observation_count, 4);
+        assert_eq!(result.totals.pending_sync_count, 2);
+        assert_eq!(result.geolocation_summary.with_location, 0);
+        assert_eq!(result.geolocation_summary.without_location, 4);
+        assert_eq!(result.map.points.len(), 0);
+    }
+
+    #[test]
+    fn build_observation_overview_timeline_uses_day_buckets_under_one_year() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        let insert = |id: &str, created_at: &str| {
+            let extras = format!(r#"{{"createdAt":"{created_at}"}}"#);
+            conn.execute(
+                "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at, observation_extras)
+                 VALUES (?1, '{}', 'hh_hut', ?2, 0, 'clean', ?2, ?3)",
+                params![id, created_at, extras],
+            )
+            .unwrap();
+        };
+        insert("a", "2026-01-01T10:00:00Z");
+        insert("b", "2026-01-01T12:00:00Z");
+        insert("c", "2026-01-03T12:00:00Z");
+
+        let result = build_observation_overview(&conn).unwrap();
+        assert_eq!(result.timeline.bucket_unit, "day");
+        assert_eq!(result.timeline.buckets.len(), 3);
+        assert_eq!(result.timeline.buckets[0].count, 2);
+        assert_eq!(result.timeline.buckets[1].count, 0);
+        assert_eq!(result.timeline.buckets[2].count, 1);
+        assert_eq!(result.timeline.observations_without_date, 0);
+    }
+
+    #[test]
+    fn build_observation_overview_extracts_geolocation_and_map_points() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        let extras = r#"{"createdAt":"2026-01-01T10:00:00Z","geolocation":{"latitude":1.23,"longitude":4.56}}"#;
+        conn.execute(
+            "INSERT INTO observations (id, payload, form_type, updated_at, dirty, sync_status, last_saved_at, observation_extras)
+             VALUES ('obs-1', '{}', 'hh_hut', '2026-01-01T10:00:00Z', 0, 'clean', '2026-01-01T10:00:00Z', ?1)",
+            params![extras],
+        )
+        .unwrap();
+
+        let result = build_observation_overview(&conn).unwrap();
+        assert_eq!(result.geolocation_summary.with_location, 1);
+        assert_eq!(result.geolocation_summary.without_location, 0);
+        assert_eq!(result.map.points.len(), 1);
+        assert!((result.map.points[0].latitude - 1.23).abs() < f64::EPSILON);
+        assert_eq!(result.map.points[0].form_type, "hh_hut");
+    }
+
+    #[test]
+    fn extract_observations_from_json_value_preserves_envelope_extras() {
+        let root: Value = serde_json::from_str(
+            r#"{
+              "observation_id": "uuid:test",
+              "form_type": "hh_hut",
+              "data": { "hh_hut_gps": "{\"latitude\":1}" },
+              "updated_at": "2024-07-03T14:39:06.407Z",
+              "geolocation": { "latitude": 5.33, "longitude": 36.07 },
+              "author": "username:device02",
+              "tags": ["migrated"]
+            }"#,
+        )
+        .unwrap();
+        let obs = extract_observations_from_json_value(&root, "f.json").unwrap();
+        assert_eq!(obs.len(), 1);
+        let extras = obs[0].extras.as_ref().unwrap();
+        assert_eq!(extras.author.as_deref(), Some("username:device02"));
+        assert_eq!(extras.tags.as_deref(), Some(&["migrated".to_string()][..]));
+        assert!(extras.geolocation.is_some());
+    }
+
+    #[test]
+    fn upsert_observation_from_local_import_persists_extras() {
+        let conn = Connection::open_in_memory().unwrap();
+        init_db(&conn).unwrap();
+        let incoming = ApiObservation {
+            observation_id: "uuid:import-1".to_string(),
+            data: serde_json::json!({ "x": 1 }),
+            form_type: Some("hh_hut".to_string()),
+            updated_at: Some("2024-07-03T14:39:06.407Z".to_string()),
+            extras: Some(ObservationExtras {
+                author: Some("username:device02".to_string()),
+                tags: Some(vec!["migrated".to_string()]),
+                geolocation: Some(serde_json::json!({
+                    "latitude": 5.33,
+                    "longitude": 36.07
+                })),
+                ..Default::default()
+            }),
+        };
+        upsert_observation_from_local_import(&conn, &incoming).unwrap();
+        let extras_raw: Option<String> = conn
+            .query_row(
+                "SELECT observation_extras FROM observations WHERE id = ?1",
+                params!["uuid:import-1"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let parsed = parse_observation_extras(extras_raw).unwrap();
+        assert_eq!(parsed.author.as_deref(), Some("username:device02"));
+        assert_eq!(parsed.tags.as_deref(), Some(&["migrated".to_string()][..]));
+        assert!(parsed.geolocation.is_some());
     }
 
     #[test]

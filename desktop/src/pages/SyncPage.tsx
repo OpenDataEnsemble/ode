@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ForcePushMissingAttachmentsDialog } from '../components/ForcePushMissingAttachmentsDialog';
 import { tauriClient } from '../lib/tauriClient';
@@ -13,10 +13,12 @@ import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
   selectAuthSessionForActiveProfile,
+  selectBundleActivity,
   selectPausedSyncJob,
   selectSyncActivity,
   useCustodianStore,
 } from '../store/useCustodianStore';
+import { ensureBundleApplyEventPipeline } from '../lib/bundleTauriEvents';
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -29,6 +31,7 @@ export function SyncPage() {
   const authSession = useCustodianStore(selectAuthSessionForActiveProfile);
   const syncActivity = useCustodianStore(selectSyncActivity);
   const syncPausedJob = useCustodianStore(selectPausedSyncJob);
+  const bundleActivity = useCustodianStore(selectBundleActivity);
   const {
     synkPull,
     synkPush,
@@ -59,7 +62,15 @@ export function SyncPage() {
     activeGeneration: number;
     lastRebuildAt?: string | null;
   } | null>(null);
-  const [indexRebuildBusy, setIndexRebuildBusy] = useState(false);
+
+  const indexRebuildBusy = bundleActivity !== null;
+
+  const refreshIndexStatus = useCallback(() => {
+    void tauriClient
+      .getObservationIndexStatus()
+      .then(setIndexStatus)
+      .catch(() => setIndexStatus(null));
+  }, []);
 
   useEffect(() => {
     void (async () => {
@@ -73,11 +84,15 @@ export function SyncPage() {
   useEffect(() => {
     void loadHealth();
     void refreshPausedSyncJob();
-    void tauriClient
-      .getObservationIndexStatus()
-      .then(setIndexStatus)
-      .catch(() => setIndexStatus(null));
-  }, [loadHealth, refreshPausedSyncJob]);
+    refreshIndexStatus();
+  }, [loadHealth, refreshPausedSyncJob, refreshIndexStatus]);
+
+  useEffect(() => {
+    if (bundleActivity !== null) {
+      return;
+    }
+    refreshIndexStatus();
+  }, [bundleActivity, refreshIndexStatus]);
 
   async function ensureAuth(): Promise<boolean> {
     if (authSession?.token) {
@@ -93,15 +108,11 @@ export function SyncPage() {
   }
 
   async function recreateObservationIndexes() {
-    setIndexRebuildBusy(true);
+    await ensureBundleApplyEventPipeline();
     try {
-      const result = await tauriClient.rebuildObservationIndexes();
-      setIndexStatus({
-        activeGeneration: result.generation,
-        lastRebuildAt: result.lastRebuildAt ?? null,
-      });
-    } finally {
-      setIndexRebuildBusy(false);
+      await tauriClient.startObservationIndexRebuild();
+    } catch {
+      /* store error if we wire one later */
     }
   }
 

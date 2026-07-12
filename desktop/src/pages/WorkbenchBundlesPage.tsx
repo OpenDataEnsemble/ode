@@ -12,7 +12,6 @@ import {
   bundleBannerLineFromProgress,
   ensureBundleApplyEventPipeline,
   setBundleApplyProgressHandler,
-  setBundleIndexRebuildHandler,
 } from '../lib/bundleTauriEvents';
 import { readBundleCache, writeBundleCache } from '../lib/bundleCacheMeta';
 import { isUnauthorizedSynkError } from '../lib/synkAuthErrors';
@@ -227,26 +226,6 @@ export function WorkbenchBundlesPage() {
       setApplyProgress(null);
       await ensureBundleApplyEventPipeline();
       setBundleApplyProgressHandler(updateBundleActivity);
-      setBundleIndexRebuildHandler(p => {
-        if (p.phase === 'indexing') {
-          updateBundleActivity({ ...p, phase: 'indexing' });
-          return;
-        }
-        if (p.phase === 'completed') {
-          clearBundleActivity();
-          setBundleIndexRebuildHandler(null);
-          return;
-        }
-        if (p.phase === 'failed') {
-          setBundleActivity({
-            jobId: p.jobId,
-            statusText: bundleBannerLineFromProgress(p),
-            done: p.done,
-            total: p.total,
-          });
-          setBundleIndexRebuildHandler(null);
-        }
-      });
       try {
         const result = await tauriClient.downloadAndApplyAppBundle({
           baseUrl,
@@ -262,19 +241,17 @@ export function WorkbenchBundlesPage() {
         }));
         if (!result.indexRebuildScheduled) {
           clearBundleActivity();
-          setBundleIndexRebuildHandler(null);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
         clearBundleActivity();
-        setBundleIndexRebuildHandler(null);
       } finally {
         setZipLoading(false);
         setApplyProgress(null);
         setBundleApplyProgressHandler(null);
       }
     },
-    [baseUrl, clearBundleActivity, setBundleActivity, updateBundleActivity],
+    [baseUrl, clearBundleActivity, updateBundleActivity],
   );
 
   async function checkForUpdatedBundle() {

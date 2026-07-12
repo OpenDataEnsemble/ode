@@ -9,6 +9,52 @@ export type BundleApplyProgressHandler = (
 let applyProgressHandler: BundleApplyProgressHandler | null = null;
 let indexRebuildHandler: BundleApplyProgressHandler | null = null;
 
+export type IndexRebuildStoreCallbacks = {
+  setBundleActivity: (activity: {
+    jobId: string;
+    statusText: string;
+    done: number;
+    total: number;
+  }) => void;
+  clearBundleActivity: () => void;
+  onCompleted?: () => void;
+};
+
+export function createIndexRebuildStoreHandler(
+  callbacks: IndexRebuildStoreCallbacks,
+): BundleApplyProgressHandler {
+  const { setBundleActivity, clearBundleActivity, onCompleted } = callbacks;
+  return p => {
+    if (p.phase === 'completed') {
+      onCompleted?.();
+      clearBundleActivity();
+      return;
+    }
+    if (p.phase === 'failed') {
+      setBundleActivity({
+        jobId: p.jobId,
+        statusText: bundleBannerLineFromProgress(p),
+        done: p.done,
+        total: p.total,
+      });
+      return;
+    }
+    setBundleActivity({
+      jobId: p.jobId,
+      statusText: bundleBannerLineFromProgress(p),
+      done: p.done,
+      total: p.total,
+    });
+  };
+}
+
+export function installGlobalIndexRebuildListener(
+  callbacks: IndexRebuildStoreCallbacks,
+): () => void {
+  setBundleIndexRebuildHandler(createIndexRebuildStoreHandler(callbacks));
+  return () => setBundleIndexRebuildHandler(null);
+}
+
 export function setBundleApplyProgressHandler(
   handler: BundleApplyProgressHandler | null,
 ) {
