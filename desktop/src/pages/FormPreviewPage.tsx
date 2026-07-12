@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
+import { FormPreviewAdvancedParamsDialog } from '../components/FormPreviewAdvancedParamsDialog';
+import { CustomAppDeviceViewport } from '../components/CustomAppDeviceViewport';
 import {
   FormplayerEmbed,
   type FormplayerEmbedHandle,
@@ -87,6 +89,12 @@ export function FormPreviewPage() {
   const [scannedFormLocales, setScannedFormLocales] = useState<string[]>([]);
 
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedDraftParams, setAdvancedDraftParams] = useState(DEFAULT_JSON);
+  const [advancedDraftSaved, setAdvancedDraftSaved] = useState(DEFAULT_JSON);
+  const [advancedParseError, setAdvancedParseError] = useState<string | null>(
+    null,
+  );
 
   const iframeRef = useRef<FormplayerEmbedHandle>(null);
   const rootContentWindowRef = useRef<Window | null>(null);
@@ -332,25 +340,43 @@ export function FormPreviewPage() {
     };
   }, [buildInitFromSpec, location.pathname, location.state, navigate]);
 
-  const applyJsonToPreview = useCallback(async () => {
-    if (!spec) {
-      return;
-    }
-    const p = parseJsonObject(paramsJson, 'params');
-    const sv = parseJsonObject(savedJson, 'savedData');
+  const openAdvancedDialog = useCallback(() => {
+    setAdvancedDraftParams(paramsJson);
+    setAdvancedDraftSaved(savedJson);
+    setAdvancedParseError(null);
+    setAdvancedOpen(true);
+  }, [paramsJson, savedJson]);
+
+  const applyAdvancedDialog = useCallback(async () => {
+    const p = parseJsonObject(advancedDraftParams, 'params');
+    const sv = parseJsonObject(advancedDraftSaved, 'savedData');
     if (!p.ok) {
-      setParseError(p.error);
+      setAdvancedParseError(p.error);
       return;
     }
     if (!sv.ok) {
-      setParseError(sv.error);
+      setAdvancedParseError(sv.error);
       return;
     }
+    setAdvancedParseError(null);
+    setParamsJson(advancedDraftParams);
+    setSavedJson(advancedDraftSaved);
     setParseError(null);
+    if (!spec) {
+      setAdvancedOpen(false);
+      return;
+    }
     setFormInitData(
       await buildInitFromSpec(spec, p.value, sv.value, previewObservationId),
     );
-  }, [paramsJson, savedJson, spec, buildInitFromSpec, previewObservationId]);
+    setAdvancedOpen(false);
+  }, [
+    advancedDraftParams,
+    advancedDraftSaved,
+    spec,
+    buildInitFromSpec,
+    previewObservationId,
+  ]);
 
   const onFinalize = useCallback((request: FinalizeRequest) => {
     return new Promise<{ result?: string; error?: string }>(resolve => {
@@ -619,160 +645,146 @@ export function FormPreviewPage() {
         </div>
       ) : null}
 
-      <header className="page-header">
-        <h2>Form preview</h2>
-      </header>
+      <FormPreviewAdvancedParamsDialog
+        open={advancedOpen}
+        paramsJson={advancedDraftParams}
+        savedJson={advancedDraftSaved}
+        parseError={advancedParseError}
+        disabled={!selectedFormType}
+        onParamsChange={setAdvancedDraftParams}
+        onSavedChange={setAdvancedDraftSaved}
+        onApply={() => void applyAdvancedDialog()}
+        onCancel={() => setAdvancedOpen(false)}
+      />
 
-      <div className="split split-form-preview">
-        <aside className="panel panel-form-preview-sidebar card">
-          <div className="form-preview-controls">
-            <select
-              id="form-type-select"
-              className="form-preview-type-select"
-              aria-label="Form type"
-              value={selectedFormType}
-              disabled={listLoading}
-              onChange={e => {
-                const v = e.target.value;
-                setSelectedFormType(v);
-                void loadSpec(v);
-              }}>
-              <option value="">{listLoading ? 'Loading…' : 'Form type'}</option>
-              {formOptions}
-            </select>
-            <label className="form-preview-label" htmlFor="ui-locale-select">
-              UI language
-            </label>
-            <select
-              id="ui-locale-select"
-              className="form-preview-type-select"
-              value={uiLocalePreference}
-              onChange={e => {
-                const v = e.target.value as UiLocalePreference;
-                setUiLocalePreference(v);
-                setDesktopLocalePreference(v);
-                if (spec) {
-                  void (async () => {
-                    const p = parseJsonObject(paramsJson, 'params');
-                    const sv = parseJsonObject(savedJson, 'savedData');
-                    if (p.ok && sv.ok) {
-                      setFormInitData(
-                        await buildInitFromSpec(
-                          spec,
-                          p.value,
-                          sv.value,
-                          previewObservationId,
-                        ),
-                      );
-                    }
-                  })();
-                }
-              }}>
-              <option value="auto">Auto (device)</option>
-              <option value="en">English</option>
-              <option value="pt">Português</option>
-              <option value="fr">Français</option>
-            </select>
-            <label className="form-preview-label" htmlFor="form-locale-select">
-              Form language
-            </label>
-            <select
-              id="form-locale-select"
-              className="form-preview-type-select"
-              value={formLocalePreference}
-              disabled={scannedFormLocales.length === 0}
-              onChange={e => {
-                const v = e.target.value;
-                setFormLocalePreference(v);
-                setDesktopFormLocalePreference(v);
-                if (spec) {
-                  void (async () => {
-                    const p = parseJsonObject(paramsJson, 'params');
-                    const sv = parseJsonObject(savedJson, 'savedData');
-                    if (p.ok && sv.ok) {
-                      setFormInitData(
-                        await buildInitFromSpec(
-                          spec,
-                          { ...p.value, formLocale: v },
-                          sv.value,
-                          previewObservationId,
-                        ),
-                      );
-                    }
-                  })();
-                }
-              }}>
-              <option value={FORM_LOCALE_DEFAULT}>Default</option>
-              {scannedFormLocales.map(code => (
-                <option key={code} value={code}>
-                  {code}
+      {listError ? <p className="notice error">{listError}</p> : null}
+      {specError ? <p className="notice error">{specError}</p> : null}
+      {parseError && !advancedOpen ? (
+        <p className="notice error">{parseError}</p>
+      ) : null}
+
+      <section className="panel panel-embed-flush form-preview-embed-panel">
+        <CustomAppDeviceViewport
+          toolbarStart={
+            <div className="form-preview-toolbar-fields">
+              <select
+                id="form-type-select"
+                aria-label="Form type"
+                value={selectedFormType}
+                disabled={listLoading}
+                onChange={e => {
+                  const v = e.target.value;
+                  setSelectedFormType(v);
+                  void loadSpec(v);
+                }}>
+                <option value="">
+                  {listLoading ? 'Loading…' : 'Form type'}
                 </option>
-              ))}
-            </select>
-            {listError ? (
-              <p className="notice error">{listError}</p>
-            ) : forms.length === 0 && !listLoading ? (
-              <p className="muted">No forms in bundle.</p>
-            ) : null}
-
-            {specLoading ? <p className="muted">Loading form spec…</p> : null}
-            {specError ? <p className="notice error">{specError}</p> : null}
-
-            <details className="form-preview-advanced">
-              <summary>Advanced params</summary>
-              <div className="form-preview-row form-preview-row-stacked">
-                <label className="form-preview-label" htmlFor="params-json">
-                  params
-                </label>
-                <textarea
-                  id="params-json"
-                  className="form-preview-json"
-                  spellCheck={false}
-                  disabled={!selectedFormType}
-                  value={paramsJson}
-                  onChange={e => setParamsJson(e.target.value)}
-                  rows={5}
-                />
-              </div>
-              <div className="form-preview-row form-preview-row-stacked">
-                <label className="form-preview-label" htmlFor="saved-json">
-                  savedData
-                </label>
-                <textarea
-                  id="saved-json"
-                  className="form-preview-json"
-                  spellCheck={false}
-                  disabled={!selectedFormType}
-                  value={savedJson}
-                  onChange={e => setSavedJson(e.target.value)}
-                  rows={5}
-                />
-              </div>
-              {parseError ? <p className="notice error">{parseError}</p> : null}
-              <div className="button-row">
-                <button
-                  type="button"
-                  disabled={!spec}
-                  onClick={() => void applyJsonToPreview()}>
-                  Apply
-                </button>
-              </div>
-            </details>
-          </div>
-        </aside>
-
-        <div className="panel panel-form-preview-embed panel-embed-flush">
-          <FormplayerEmbed
-            key={`${devMirrorGeneration}-${selectedFormType || 'none'}`}
-            ref={iframeRef}
-            onContentWindowReady={cw => {
-              rootContentWindowRef.current = cw;
-            }}
-            formInitData={formInitData}
-            emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON and click Apply."
-          />
-        </div>
-      </div>
+                {formOptions}
+              </select>
+              <select
+                id="ui-locale-select"
+                aria-label="UI language"
+                value={uiLocalePreference}
+                onChange={e => {
+                  const v = e.target.value as UiLocalePreference;
+                  setUiLocalePreference(v);
+                  setDesktopLocalePreference(v);
+                  if (spec) {
+                    void (async () => {
+                      const p = parseJsonObject(paramsJson, 'params');
+                      const sv = parseJsonObject(savedJson, 'savedData');
+                      if (p.ok && sv.ok) {
+                        setFormInitData(
+                          await buildInitFromSpec(
+                            spec,
+                            p.value,
+                            sv.value,
+                            previewObservationId,
+                          ),
+                        );
+                      }
+                    })();
+                  }
+                }}>
+                <option value="auto">UI Language (auto)</option>
+                <option value="en">English</option>
+                <option value="pt">Português</option>
+                <option value="fr">Français</option>
+              </select>
+              <select
+                id="form-locale-select"
+                aria-label="Form language"
+                value={formLocalePreference}
+                disabled={scannedFormLocales.length === 0}
+                onChange={e => {
+                  const v = e.target.value;
+                  setFormLocalePreference(v);
+                  setDesktopFormLocalePreference(v);
+                  if (spec) {
+                    void (async () => {
+                      const p = parseJsonObject(paramsJson, 'params');
+                      const sv = parseJsonObject(savedJson, 'savedData');
+                      if (p.ok && sv.ok) {
+                        setFormInitData(
+                          await buildInitFromSpec(
+                            spec,
+                            { ...p.value, formLocale: v },
+                            sv.value,
+                            previewObservationId,
+                          ),
+                        );
+                      }
+                    })();
+                  }
+                }}>
+                <option value={FORM_LOCALE_DEFAULT}>
+                  Form language (default)
+                </option>
+                {scannedFormLocales.map(code => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="secondary btn-icon form-preview-advanced-btn"
+                disabled={!selectedFormType}
+                aria-label="Advanced params"
+                title="Advanced params"
+                onClick={openAdvancedDialog}>
+                <span className="material-symbols-outlined" aria-hidden>
+                  data_object
+                </span>
+              </button>
+              {specLoading ? (
+                <span className="muted form-preview-toolbar-status">
+                  Loading form spec…
+                </span>
+              ) : null}
+              {!listLoading && forms.length === 0 ? (
+                <span className="muted form-preview-toolbar-status">
+                  No forms in bundle.
+                </span>
+              ) : null}
+            </div>
+          }>
+          {({ fillFrame, devicePixelRatio }) => (
+            <FormplayerEmbed
+              key={`${devMirrorGeneration}-${selectedFormType || 'none'}-${devicePixelRatio}`}
+              ref={iframeRef}
+              fillFrame={fillFrame}
+              devicePixelRatio={devicePixelRatio}
+              onContentWindowReady={cw => {
+                rootContentWindowRef.current = cw;
+              }}
+              formInitData={formInitData}
+              emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON in Advanced params."
+            />
+          )}
+        </CustomAppDeviceViewport>
+      </section>
     </div>
   );
 }

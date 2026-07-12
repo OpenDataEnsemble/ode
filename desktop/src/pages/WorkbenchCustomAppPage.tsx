@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CustomAppDeviceViewport } from '../components/CustomAppDeviceViewport';
 import { CustomAppEmbed } from '../components/CustomAppEmbed';
 import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
 import { useDeveloperMode } from '../hooks/useDeveloperMode';
@@ -132,12 +133,32 @@ export function WorkbenchCustomAppPage() {
           setFinalizeRequest(null);
         }}
       />
-      <header className="page-header page-header-inline">
-        <div>
-          <h2>Custom app</h2>
-        </div>
-        {!developerMode ? (
-          <div className="button-row">
+      {devError ? <p className="notice error">{devError}</p> : null}
+      {bundleError ? (
+        <p className="notice error">{bundleError}</p>
+      ) : bundleState ? (
+        <div className="custom-app-bundle-row">
+          <p className="muted custom-app-bundle-line">
+            {developerMode ? (
+              <>
+                Developer mirror active — downloaded bundle{' '}
+                <strong>{bundleState.activeVersion}</strong> (hash{' '}
+                <code className="custom-app-hash">
+                  {bundleState.activeHash}
+                </code>
+                ) remains on disk for sync.
+              </>
+            ) : (
+              <>
+                Active bundle <strong>{bundleState.activeVersion}</strong> (hash{' '}
+                <code className="custom-app-hash">
+                  {bundleState.activeHash}
+                </code>
+                ) — state file <code>{WORKSPACE_BUNDLE_STATE_FILE}</code>
+              </>
+            )}
+          </p>
+          {!developerMode ? (
             <button
               type="button"
               className="secondary"
@@ -145,30 +166,8 @@ export function WorkbenchCustomAppPage() {
               onClick={() => setReloadToken(t => t + 1)}>
               Reload app
             </button>
-          </div>
-        ) : null}
-      </header>
-
-      {devError ? <p className="notice error">{devError}</p> : null}
-      {bundleError ? (
-        <p className="notice error">{bundleError}</p>
-      ) : bundleState ? (
-        <p className="muted custom-app-bundle-line">
-          {developerMode ? (
-            <>
-              Developer mirror active — downloaded bundle{' '}
-              <strong>{bundleState.activeVersion}</strong> (hash{' '}
-              <code className="custom-app-hash">{bundleState.activeHash}</code>)
-              remains on disk for sync.
-            </>
-          ) : (
-            <>
-              Active bundle <strong>{bundleState.activeVersion}</strong> (hash{' '}
-              <code className="custom-app-hash">{bundleState.activeHash}</code>)
-              — state file <code>{WORKSPACE_BUNDLE_STATE_FILE}</code>
-            </>
-          )}
-        </p>
+          ) : null}
+        </div>
       ) : !developerMode ? (
         <p className="muted">
           No local bundle state yet. Download an app bundle on the Bundles page.
@@ -181,14 +180,20 @@ export function WorkbenchCustomAppPage() {
 
       <section className="panel panel-embed-flush custom-app-embed-panel">
         {canLoadEmbed ? (
-          <CustomAppEmbed
-            ref={iframeRef}
-            mountKey={mountKey}
-            mode={embedMode}
-            onContentWindowReady={cw => {
-              customAppContentWindowRef.current = cw;
-            }}
-          />
+          <CustomAppDeviceViewport>
+            {({ fillFrame, devicePixelRatio }) => (
+              <CustomAppEmbed
+                ref={iframeRef}
+                mountKey={mountKey}
+                mode={embedMode}
+                fillFrame={fillFrame}
+                devicePixelRatio={devicePixelRatio}
+                onContentWindowReady={cw => {
+                  customAppContentWindowRef.current = cw;
+                }}
+              />
+            )}
+          </CustomAppDeviceViewport>
         ) : developerMode ? (
           <p className="notice warn">
             Configure developer mode on the Bundles page, then use Refresh app
