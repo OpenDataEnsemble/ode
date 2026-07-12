@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CustomAppDeviceViewport } from '../components/CustomAppDeviceViewport';
 import { CustomAppEmbed } from '../components/CustomAppEmbed';
 import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
 import { useDeveloperMode } from '../hooks/useDeveloperMode';
@@ -181,14 +182,19 @@ export function WorkbenchCustomAppPage() {
 
       <section className="panel panel-embed-flush custom-app-embed-panel">
         {canLoadEmbed ? (
-          <CustomAppEmbed
-            ref={iframeRef}
-            mountKey={mountKey}
-            mode={embedMode}
-            onContentWindowReady={cw => {
-              customAppContentWindowRef.current = cw;
-            }}
-          />
+          <CustomAppDeviceViewport>
+            {({ fillFrame }) => (
+              <CustomAppEmbed
+                ref={iframeRef}
+                mountKey={mountKey}
+                mode={embedMode}
+                fillFrame={fillFrame}
+                onContentWindowReady={cw => {
+                  customAppContentWindowRef.current = cw;
+                }}
+              />
+            )}
+          </CustomAppDeviceViewport>
         ) : developerMode ? (
           <p className="notice warn">
             Configure developer mode on the Bundles page, then use Refresh app

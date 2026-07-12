@@ -74,6 +74,8 @@ export type CustomAppEmbedProps = {
   loadingLabel?: string;
   /** Fired when the iframe document loads (bridge routing in WebView2). */
   onContentWindowReady?: (contentWindow: Window | null) => void;
+  /** When true, iframe fills its parent (device frame) instead of flex-growing in the panel. */
+  fillFrame?: boolean;
 };
 
 function defaultIndexRelativePath(mode: CustomAppEmbedMode): string {
@@ -95,7 +97,14 @@ export const CustomAppEmbed = forwardRef<
   HTMLIFrameElement,
   CustomAppEmbedProps
 >(function CustomAppEmbed(
-  { mountKey, mode, indexRelativePath, loadingLabel, onContentWindowReady },
+  {
+    mountKey,
+    mode,
+    indexRelativePath,
+    loadingLabel,
+    onContentWindowReady,
+    fillFrame = false,
+  },
   ref,
 ) {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
@@ -173,7 +182,8 @@ export const CustomAppEmbed = forwardRef<
       : 'Loading custom app from active bundle…';
 
   return (
-    <div className="formplayer-embed-wrap custom-app-embed-wrap">
+    <div
+      className={`formplayer-embed-wrap custom-app-embed-wrap${fillFrame ? ' custom-app-embed-wrap--fill' : ''}`}>
       {error ? <p className="notice warn">{error}</p> : null}
       {loading && !error ? (
         <p className="muted">{loadingLabel ?? defaultLoadingLabel}</p>

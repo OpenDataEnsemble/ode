@@ -517,6 +517,142 @@ body {
   overflow: hidden;
 }
 
+.custom-app-device-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.custom-app-device-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: #101828;
+}
+
+.custom-app-device-toolbar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: #90a3cb;
+}
+
+.custom-app-device-toolbar-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.custom-app-device-orientation-btn {
+  min-height: var(--control-height);
+  min-width: var(--control-height);
+  padding: 0;
+}
+
+.custom-app-device-orientation-btn .material-symbols-outlined {
+  font-size: 1.25rem;
+}
+
+.custom-app-device-toolbar-label select {
+  min-width: 14rem;
+}
+
+.custom-app-device-toolbar-meta {
+  font-size: var(--font-size-sm);
+}
+
+.custom-app-device-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-md);
+  background:
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(107, 138, 232, 0.06),
+      transparent 55%
+    ),
+    #0b1326;
+}
+
+.custom-app-device-viewport--responsive {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.custom-app-device-viewport--responsive .formplayer-embed-wrap,
+.custom-app-device-viewport--responsive .custom-app-embed-wrap {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.custom-app-device-viewport--responsive .formplayer-embed-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.custom-app-device-scaler {
+  flex-shrink: 0;
+  position: relative;
+}
+
+.custom-app-device-frame {
+  transform-origin: top left;
+  overflow: hidden;
+  border: 1px solid #455070;
+  border-radius: 0.75rem;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 12px 40px rgba(0, 0, 0, 0.45);
+  background: #0b1326;
+}
+
+.custom-app-embed-wrap--fill {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  gap: 0;
+}
+
+.custom-app-embed-wrap--fill > .notice,
+.custom-app-embed-wrap--fill > .muted {
+  position: absolute;
+  z-index: 2;
+  left: var(--space-md);
+  right: var(--space-md);
+  top: var(--space-md);
+  margin: 0;
+}
+
+.custom-app-embed-wrap--fill .formplayer-embed-frame {
+  position: absolute;
+  inset: 0;
+  flex: none;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: none;
+  border-radius: 0;
+}
+
 .split.split-form-preview {
   flex: 1;
   min-height: 0;
