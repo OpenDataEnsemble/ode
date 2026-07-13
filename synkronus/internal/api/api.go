@@ -143,6 +143,8 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 				// Support both POST /api/users and POST /api/users/create for compatibility
 				r.With(auth.RequireRole(models.RoleAdmin)).Post("/", h.CreateUserHandler)
 				r.With(auth.RequireRole(models.RoleAdmin)).Post("/create", h.CreateUserHandler)
+				// OpenAPI: DELETE /api/users/{username}. Keep /delete/{username} for older clients (CLI).
+				r.With(auth.RequireRole(models.RoleAdmin)).Delete("/{username}", h.DeleteUserHandler)
 				r.With(auth.RequireRole(models.RoleAdmin)).Delete("/delete/{username}", h.DeleteUserHandler)
 				r.With(auth.RequireRole(models.RoleAdmin)).Post("/reset-password", h.ResetPasswordHandler)
 				r.With(auth.RequireRole(models.RoleAdmin)).Get("/", h.ListUsersHandler)

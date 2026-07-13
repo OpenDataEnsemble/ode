@@ -100,6 +100,7 @@ func TestProtectedEndpoints(t *testing.T) {
 
 			r.Route("/users", func(r chi.Router) {
 				r.With(authmw.RequireRole(models.RoleAdmin)).Post("/create", mockHandler.CreateUserHandler)
+				r.With(authmw.RequireRole(models.RoleAdmin)).Delete("/{username}", mockHandler.DeleteUserHandler)
 				r.With(authmw.RequireRole(models.RoleAdmin)).Delete("/delete/{username}", mockHandler.DeleteUserHandler)
 				r.With(authmw.RequireRole(models.RoleAdmin)).Post("/reset-password", mockHandler.ResetPasswordHandler)
 				r.With(authmw.RequireRole(models.RoleAdmin)).Get("/list", mockHandler.ListUsersHandler)
