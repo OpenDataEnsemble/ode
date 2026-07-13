@@ -111,6 +111,50 @@ export async function buildFormPreviewInitFromBundleSpec(args: {
   });
 }
 
+/** Merge toolbar / advanced-dialog overrides; `undefined` values remove keys. */
+export function mergePreviewParams(
+  base: Record<string, unknown>,
+  override: Record<string, unknown | undefined>,
+): Record<string, unknown> {
+  const merged = { ...base, ...override };
+  for (const [key, value] of Object.entries(override)) {
+    if (value === undefined) {
+      delete merged[key];
+    }
+  }
+  return merged;
+}
+
+export function formatPreviewParamsJson(
+  params: Record<string, unknown>,
+): string {
+  if (Object.keys(params).length === 0) {
+    return '{}';
+  }
+  return JSON.stringify(params, null, 2);
+}
+
+export function previewParamsFromLocalePrefs(args: {
+  uiLocalePreference: string;
+  formLocalePreference: string;
+  formLocaleDefault?: string;
+}): Record<string, unknown> {
+  const formLocaleDefault = args.formLocaleDefault ?? 'default';
+  return mergePreviewParams(
+    {},
+    {
+      locale:
+        args.uiLocalePreference === 'auto'
+          ? undefined
+          : args.uiLocalePreference,
+      formLocale:
+        args.formLocalePreference === formLocaleDefault
+          ? undefined
+          : args.formLocalePreference,
+    },
+  );
+}
+
 export function parseJsonObject(
   text: string,
   label: string,
