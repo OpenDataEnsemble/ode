@@ -125,7 +125,9 @@ export function mergePreviewParams(
   return merged;
 }
 
-export function formatPreviewParamsJson(params: Record<string, unknown>): string {
+export function formatPreviewParamsJson(
+  params: Record<string, unknown>,
+): string {
   if (Object.keys(params).length === 0) {
     return '{}';
   }
@@ -138,14 +140,19 @@ export function previewParamsFromLocalePrefs(args: {
   formLocaleDefault?: string;
 }): Record<string, unknown> {
   const formLocaleDefault = args.formLocaleDefault ?? 'default';
-  return mergePreviewParams({}, {
-    locale:
-      args.uiLocalePreference === 'auto' ? undefined : args.uiLocalePreference,
-    formLocale:
-      args.formLocalePreference === formLocaleDefault
-        ? undefined
-        : args.formLocalePreference,
-  });
+  return mergePreviewParams(
+    {},
+    {
+      locale:
+        args.uiLocalePreference === 'auto'
+          ? undefined
+          : args.uiLocalePreference,
+      formLocale:
+        args.formLocalePreference === formLocaleDefault
+          ? undefined
+          : args.formLocalePreference,
+    },
+  );
 }
 
 export function parseJsonObject(

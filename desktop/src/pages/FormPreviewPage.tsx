@@ -377,13 +377,7 @@ export function FormPreviewPage() {
         ),
       );
     },
-    [
-      spec,
-      paramsJson,
-      savedJson,
-      previewObservationId,
-      buildInitFromSpec,
-    ],
+    [spec, paramsJson, savedJson, previewObservationId, buildInitFromSpec],
   );
 
   const applyAdvancedDialog = useCallback(async () => {
@@ -734,9 +728,7 @@ export function FormPreviewPage() {
                   setUiLocalePreference(v);
                   setDesktopLocalePreference(v);
                   const paramsOverride =
-                    v === 'auto'
-                      ? { locale: undefined }
-                      : { locale: v };
+                    v === 'auto' ? { locale: undefined } : { locale: v };
                   void rebuildPreviewFromJson(paramsOverride);
                 }}>
                 <option value="auto">UI Language (auto)</option>
@@ -754,8 +746,7 @@ export function FormPreviewPage() {
                   setFormLocalePreference(v);
                   setDesktopFormLocalePreference(v);
                   void rebuildPreviewFromJson({
-                    formLocale:
-                      v === FORM_LOCALE_DEFAULT ? undefined : v,
+                    formLocale: v === FORM_LOCALE_DEFAULT ? undefined : v,
                   });
                 }}>
                 <option value={FORM_LOCALE_DEFAULT}>

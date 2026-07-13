@@ -107,15 +107,21 @@ describe('parseJsonObject', () => {
 describe('mergePreviewParams', () => {
   it('merges overrides and removes keys set to undefined', () => {
     expect(
-      mergePreviewParams({ locale: 'en', defaultData: { a: 1 } }, {
-        locale: 'pt',
-      }),
+      mergePreviewParams(
+        { locale: 'en', defaultData: { a: 1 } },
+        {
+          locale: 'pt',
+        },
+      ),
     ).toEqual({ locale: 'pt', defaultData: { a: 1 } });
 
     expect(
-      mergePreviewParams({ locale: 'en', defaultData: { a: 1 } }, {
-        locale: undefined,
-      }),
+      mergePreviewParams(
+        { locale: 'en', defaultData: { a: 1 } },
+        {
+          locale: undefined,
+        },
+      ),
     ).toEqual({ defaultData: { a: 1 } });
   });
 });
