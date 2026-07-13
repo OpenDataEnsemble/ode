@@ -9,8 +9,11 @@ import {
 } from '../components/FormplayerEmbed';
 import {
   buildFormPreviewInitFromBundleSpec,
+  formatPreviewParamsJson,
   inferObservationIdFromSavedData,
+  mergePreviewParams,
   parseJsonObject,
+  previewParamsFromLocalePrefs,
 } from '../lib/buildFormPreviewInit';
 import { loadBundleFormplayerExtensions } from '../lib/bundleExtensionLoader';
 import { useDeveloperMode } from '../hooks/useDeveloperMode';
@@ -249,6 +252,14 @@ export function FormPreviewPage() {
     void reloadActivePreview();
   }, [devMirrorGeneration, reloadActivePreview]);
 
+  const seedParamsFromLocalePrefs = useCallback(() => {
+    return previewParamsFromLocalePrefs({
+      uiLocalePreference,
+      formLocalePreference,
+      formLocaleDefault: FORM_LOCALE_DEFAULT,
+    });
+  }, [uiLocalePreference, formLocalePreference]);
+
   const loadSpec = useCallback(
     async (formType: string) => {
       if (!formType.trim()) {
@@ -264,22 +275,19 @@ export function FormPreviewPage() {
       try {
         const s = await tauriClient.readBundleFormSpec(formType);
         setSpec(s);
-        setParamsJson(DEFAULT_JSON);
+        const seededParams = seedParamsFromLocalePrefs();
+        setParamsJson(formatPreviewParamsJson(seededParams));
         setSavedJson(DEFAULT_JSON);
         setParseError(null);
-        const p = parseJsonObject(DEFAULT_JSON, 'params');
         const sv = parseJsonObject(DEFAULT_JSON, 'savedData');
-        if (!p.ok) {
-          setParseError(p.error);
-          setFormInitData(null);
-          return;
-        }
         if (!sv.ok) {
           setParseError(sv.error);
           setFormInitData(null);
           return;
         }
-        setFormInitData(await buildInitFromSpec(s, p.value, sv.value, null));
+        setFormInitData(
+          await buildInitFromSpec(s, seededParams, sv.value, null),
+        );
       } catch (e) {
         setSpec(null);
         setFormInitData(null);
@@ -288,7 +296,7 @@ export function FormPreviewPage() {
         setSpecLoading(false);
       }
     },
-    [buildInitFromSpec],
+    [buildInitFromSpec, seedParamsFromLocalePrefs],
   );
 
   useEffect(() => {
@@ -346,6 +354,37 @@ export function FormPreviewPage() {
     setAdvancedParseError(null);
     setAdvancedOpen(true);
   }, [paramsJson, savedJson]);
+
+  const rebuildPreviewFromJson = useCallback(
+    async (paramsOverride: Record<string, unknown | undefined>) => {
+      if (!spec) {
+        return;
+      }
+      const p = parseJsonObject(paramsJson, 'params');
+      const sv = parseJsonObject(savedJson, 'savedData');
+      if (!p.ok || !sv.ok) {
+        return;
+      }
+      const mergedParams = mergePreviewParams(p.value, paramsOverride);
+      setParamsJson(formatPreviewParamsJson(mergedParams));
+      setParseError(null);
+      setFormInitData(
+        await buildInitFromSpec(
+          spec,
+          mergedParams,
+          sv.value,
+          previewObservationId,
+        ),
+      );
+    },
+    [
+      spec,
+      paramsJson,
+      savedJson,
+      previewObservationId,
+      buildInitFromSpec,
+    ],
+  );
 
   const applyAdvancedDialog = useCallback(async () => {
     const p = parseJsonObject(advancedDraftParams, 'params');
@@ -573,6 +612,10 @@ export function FormPreviewPage() {
     </option>
   ));
 
+  const previewLocaleKey = formInitData
+    ? `${String(formInitData.params?.locale ?? 'auto')}:${String(formInitData.params?.formLocale ?? FORM_LOCALE_DEFAULT)}`
+    : 'none';
+
   return (
     <div className="page workbench-page page-form-preview">
       <FormFinalizeDialog
@@ -690,22 +733,11 @@ export function FormPreviewPage() {
                   const v = e.target.value as UiLocalePreference;
                   setUiLocalePreference(v);
                   setDesktopLocalePreference(v);
-                  if (spec) {
-                    void (async () => {
-                      const p = parseJsonObject(paramsJson, 'params');
-                      const sv = parseJsonObject(savedJson, 'savedData');
-                      if (p.ok && sv.ok) {
-                        setFormInitData(
-                          await buildInitFromSpec(
-                            spec,
-                            p.value,
-                            sv.value,
-                            previewObservationId,
-                          ),
-                        );
-                      }
-                    })();
-                  }
+                  const paramsOverride =
+                    v === 'auto'
+                      ? { locale: undefined }
+                      : { locale: v };
+                  void rebuildPreviewFromJson(paramsOverride);
                 }}>
                 <option value="auto">UI Language (auto)</option>
                 <option value="en">English</option>
@@ -721,22 +753,10 @@ export function FormPreviewPage() {
                   const v = e.target.value;
                   setFormLocalePreference(v);
                   setDesktopFormLocalePreference(v);
-                  if (spec) {
-                    void (async () => {
-                      const p = parseJsonObject(paramsJson, 'params');
-                      const sv = parseJsonObject(savedJson, 'savedData');
-                      if (p.ok && sv.ok) {
-                        setFormInitData(
-                          await buildInitFromSpec(
-                            spec,
-                            { ...p.value, formLocale: v },
-                            sv.value,
-                            previewObservationId,
-                          ),
-                        );
-                      }
-                    })();
-                  }
+                  void rebuildPreviewFromJson({
+                    formLocale:
+                      v === FORM_LOCALE_DEFAULT ? undefined : v,
+                  });
                 }}>
                 <option value={FORM_LOCALE_DEFAULT}>
                   Form language (default)
@@ -772,7 +792,7 @@ export function FormPreviewPage() {
           }>
           {({ fillFrame, devicePixelRatio }) => (
             <FormplayerEmbed
-              key={`${devMirrorGeneration}-${selectedFormType || 'none'}-${devicePixelRatio}`}
+              key={`${devMirrorGeneration}-${selectedFormType || 'none'}-${devicePixelRatio}-${previewLocaleKey}`}
               ref={iframeRef}
               fillFrame={fillFrame}
               devicePixelRatio={devicePixelRatio}

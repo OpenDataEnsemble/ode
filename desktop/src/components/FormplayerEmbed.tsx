@@ -80,6 +80,7 @@ export const FormplayerEmbed = forwardRef<
 ) {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
   const timeoutRef = useRef<number | null>(null);
+  const mountGenerationRef = useRef(0);
   const onContentWindowReadyRef = useRef(onContentWindowReady);
   onContentWindowReadyRef.current = onContentWindowReady;
 
@@ -119,6 +120,7 @@ export const FormplayerEmbed = forwardRef<
       el.removeAttribute('src');
       return;
     }
+    const generation = ++mountGenerationRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -126,12 +128,18 @@ export const FormplayerEmbed = forwardRef<
         window.clearTimeout(timeoutRef.current);
       }
       const res = await fetch(FORMSPLAYER_INDEX);
+      if (generation !== mountGenerationRef.current) {
+        return;
+      }
       if (!res.ok) {
         throw new Error(
           `Missing formplayer build (${res.status}). Run: pnpm copy:formplayer`,
         );
       }
       let html = await res.text();
+      if (generation !== mountGenerationRef.current) {
+        return;
+      }
       assertFormplayerIndexHtml(html);
       const formplayerIndexUrl = new URL(
         FORMSPLAYER_INDEX,
@@ -151,6 +159,9 @@ ${dprStub}<script id="ode-formplayer-init-data" type="application/json">${initJs
       if (!html.includes('ode-formplayer-host-stub')) {
         throw new Error('Failed to inject host bridge into formplayer HTML.');
       }
+      if (generation !== mountGenerationRef.current) {
+        return;
+      }
       el.onload = () => {
         if (timeoutRef.current !== null) {
           window.clearTimeout(timeoutRef.current);
@@ -163,6 +174,9 @@ ${dprStub}<script id="ode-formplayer-init-data" type="application/json">${initJs
       // srcdoc avoids blob navigation while preserving our injected bridge + base href.
       el.srcdoc = html;
     } catch (e) {
+      if (generation !== mountGenerationRef.current) {
+        return;
+      }
       if (timeoutRef.current !== null) {
         window.clearTimeout(timeoutRef.current);
         timeoutRef.current = null;
