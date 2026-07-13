@@ -919,7 +919,7 @@ body {
 .panel.panel-observations-editor .observation-form {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .form-type-filter-label {
@@ -2192,6 +2192,11 @@ input:not([type]) {
   padding-right: var(--space-sm);
 }
 
+.observation-form.observation-form-editor {
+  overflow: hidden;
+  padding-right: 0;
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -2643,6 +2648,50 @@ input:not([type]) {
 
 .page-observations-tabs .tab-content--overview {
   overflow: hidden;
+}
+
+.page-observations-tabs .tab-content--editor {
+  overflow: hidden;
+}
+
+.observation-form-editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.observation-form-editor .editor-header,
+.observation-form-editor .notice {
+  flex-shrink: 0;
+}
+
+.observation-editor-accordion {
+  flex: 1;
+  min-height: 0;
+}
+
+.observation-editor-subheading {
+  margin-top: 0;
+}
+
+.observation-editor-subheading + .form-table {
+  margin-bottom: var(--space-md);
+}
+
+.observation-editor-data-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: var(--space-md);
+}
+
+.observation-editor-data-textarea {
+  flex: 1;
+  min-height: 12rem;
+  width: 100%;
+  resize: none;
+  box-sizing: border-box;
 }
 
 .observations-list-full {

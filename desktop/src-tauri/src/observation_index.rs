@@ -145,10 +145,12 @@ fn scalar_to_columns(val: &Value, value_type: Option<&str>) -> (Option<String>, 
     (Some(val.to_string()), None)
 }
 
+type RebuildProgressCallback<'a> = dyn FnMut(i64, i64, Option<&str>) + 'a;
+
 pub fn rebuild_all_indexes(
     conn: &Connection,
     defs: &[ObservationIndexDef],
-    mut progress: Option<&mut dyn FnMut(i64, i64)>,
+    mut progress: Option<&mut RebuildProgressCallback<'_>>,
 ) -> rusqlite::Result<i64> {
     let active: i64 = conn.query_row(
         "SELECT active_generation FROM observation_index_meta WHERE id = 1",
@@ -169,7 +171,7 @@ pub fn rebuild_all_indexes(
 
     let total: i64 = conn.query_row("SELECT COUNT(*) FROM observations", [], |r| r.get(0))?;
     if let Some(ref mut cb) = progress {
-        cb(0, total);
+        cb(0, total, Some("Indexing observations…"));
     }
 
     let mut stmt = conn.prepare("SELECT id, form_type, payload FROM observations")?;
@@ -181,6 +183,14 @@ pub fn rebuild_all_indexes(
         ))
     })?;
 
+    let progress_interval = if total < 50 {
+        1
+    } else if total < 500 {
+        10
+    } else {
+        50
+    };
+
     let mut done = 0i64;
     for row in rows {
         let (id, form_type, payload) = row?;
@@ -188,10 +198,14 @@ pub fn rebuild_all_indexes(
         reindex_observation(conn, &id, &ft, &payload, defs, new_gen)?;
         done += 1;
         if let Some(ref mut cb) = progress
-            && (total == 0 || done == total || done % 50 == 0)
+            && (total == 0 || done == total || done % progress_interval == 0)
         {
-            cb(done, total);
+            cb(done, total, Some("Indexing observations…"));
         }
+    }
+
+    if let Some(ref mut cb) = progress {
+        cb(done, total, Some("Creating SQLite indexes…"));
     }
 
     recreate_sqlite_indexes(conn, defs)?;
