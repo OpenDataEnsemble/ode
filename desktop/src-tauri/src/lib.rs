@@ -1495,17 +1495,41 @@ async fn download_synkronus_app_bundle_zip(
 }
 
 fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: String) {
+    {
+        let gate = ctx
+            .index_rebuild_gate
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let is_active = gate.running && gate.current_job_id.as_deref() == Some(job_id.as_str());
+        if !is_active {
+            eprintln!("[observation_index] skip rebuild spawn for inactive job_id={job_id}");
+            return;
+        }
+    }
+
     tauri::async_runtime::spawn_blocking(move || {
+        struct IndexRebuildRunGuard {
+            ctx: AppCtxHandle,
+            app: tauri::AppHandle,
+        }
+
+        impl Drop for IndexRebuildRunGuard {
+            fn drop(&mut self) {
+                let _ = finish_index_rebuild_gate(&self.ctx, &self.app);
+            }
+        }
+
+        let _run_guard = IndexRebuildRunGuard {
+            ctx: ctx.clone(),
+            app: app.clone(),
+        };
+
         let app_config = match bundle_app_config_path(&ctx) {
             Ok(p) if p.exists() => p,
-            _ => {
-                let _ = finish_index_rebuild_gate(&ctx, &app);
-                return;
-            }
+            _ => return,
         };
         let defs = observation_index::load_index_config(&app_config);
         if defs.is_empty() {
-            let _ = finish_index_rebuild_gate(&ctx, &app);
             return;
         }
         let conn = match open_db(&ctx) {
@@ -1520,7 +1544,6 @@ fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job
                     "Rebuilding observation indexes…",
                     Some(&err.to_string()),
                 );
-                let _ = finish_index_rebuild_gate(&ctx, &app);
                 return;
             }
         };
@@ -1533,17 +1556,17 @@ fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job
             "indexing",
             0,
             total.max(1),
-            "Rebuilding observation indexes…",
+            "Indexing observations…",
             None,
         );
-        let mut progress_cb = |done: i64, tot: i64| {
+        let mut progress_cb = |done: i64, tot: i64, phase: Option<&str>| {
             emit_bundle_index_rebuild_progress(
                 &app,
                 &job_id,
                 "indexing",
                 done,
                 tot,
-                "Rebuilding observation indexes…",
+                phase.unwrap_or("Indexing observations…"),
                 None,
             );
         };
@@ -1567,7 +1590,6 @@ fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job
                 Some(&err.to_string()),
             ),
         }
-        let _ = finish_index_rebuild_gate(&ctx, &app);
     });
 }
 
@@ -4351,13 +4373,15 @@ async fn download_and_apply_app_bundle(
         .ok()
         .filter(|p| p.exists())
         .is_some();
-    if needs_index {
-        spawn_observation_index_rebuild(app.clone(), ctx_inner.clone(), job_id);
-    }
+    let index_rebuild_scheduled = if needs_index {
+        schedule_observation_index_rebuild(&app, &ctx_inner).is_some()
+    } else {
+        false
+    };
 
     Ok(DownloadAndApplyAppBundleResult {
         state,
-        index_rebuild_scheduled: needs_index,
+        index_rebuild_scheduled,
     })
 }
 

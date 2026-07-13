@@ -3,6 +3,7 @@ import { openPath } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
+import { ObservationEditorAccordion } from '../components/ObservationEditorAccordion';
 import { ObservationOverviewTab } from '../components/ObservationOverviewTab';
 import {
   createNewObservationSaveRequest,
@@ -577,45 +578,9 @@ export function ObservationsPage() {
         ? [...referencedNamesForObservation(spec?.formSchema, dataObj)]
         : [];
 
-    return (
-      <div className="observation-form">
-        <div className="button-row editor-header">
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={() => void saveTab(id)}>
-            <span className="material-symbols-outlined" aria-hidden>
-              save
-            </span>
-            Save
-          </button>
-          <button
-            type="button"
-            className="secondary danger btn-icon"
-            disabled={draft.deleted}
-            onClick={() => void deleteTab(id)}>
-            <span className="material-symbols-outlined" aria-hidden>
-              delete
-            </span>
-            Delete
-          </button>
-          <button
-            type="button"
-            className="secondary btn-icon"
-            disabled={!ft}
-            onClick={() => editInFormplayer(id)}>
-            <span className="material-symbols-outlined" aria-hidden>
-              edit
-            </span>
-            Edit in formplayer
-          </button>
-        </div>
-
-        {draft.validationSummary ? (
-          <p className="notice warn">{draft.validationSummary}</p>
-        ) : null}
-
-        <div className="section-heading">
+    const metadataPanel = (
+      <>
+        <div className="section-heading observation-editor-subheading">
           <h4>Repository</h4>
           <hr />
         </div>
@@ -650,8 +615,8 @@ export function ObservationsPage() {
           </tbody>
         </table>
 
-        <div className="section-heading">
-          <h4>Metadata</h4>
+        <div className="section-heading observation-editor-subheading">
+          <h4>Envelope</h4>
           <hr />
         </div>
         <table className="form-table">
@@ -788,15 +753,58 @@ export function ObservationsPage() {
             </tr>
           </tbody>
         </table>
+      </>
+    );
 
-        <div className="section-heading">
-          <h4>data</h4>
-          <hr />
+    return (
+      <div className="observation-form observation-form-editor">
+        <div className="button-row editor-header">
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => void saveTab(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              save
+            </span>
+            Save
+          </button>
+          <button
+            type="button"
+            className="secondary danger btn-icon"
+            disabled={draft.deleted}
+            onClick={() => void deleteTab(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              delete
+            </span>
+            Delete
+          </button>
+          <button
+            type="button"
+            className="secondary btn-icon"
+            disabled={!ft}
+            onClick={() => editInFormplayer(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              edit
+            </span>
+            Edit in formplayer
+          </button>
         </div>
-        <textarea
-          className="editor"
-          value={draft.data}
-          onChange={e => updateDraft(id, { data: e.target.value })}
+
+        {draft.validationSummary ? (
+          <p className="notice warn">{draft.validationSummary}</p>
+        ) : null}
+
+        <ObservationEditorAccordion
+          formTypeLabel={ft || undefined}
+          metadata={metadataPanel}
+          dataEditor={
+            <textarea
+              id={`obs-data-${id}`}
+              className="editor observation-editor-data-textarea"
+              value={draft.data}
+              onChange={e => updateDraft(id, { data: e.target.value })}
+            />
+          }
         />
       </div>
     );
@@ -994,7 +1002,7 @@ export function ObservationsPage() {
       </div>
 
       <div
-        className={`tab-content${activeTab === 'overview' ? ' tab-content--overview' : ''}`}
+        className={`tab-content${activeTab === 'overview' ? ' tab-content--overview' : ''}${activeTab !== 'overview' && activeTab !== 'list' ? ' tab-content--editor' : ''}`}
         role="tabpanel">
         {activeTab === 'overview' ? (
           <ObservationOverviewTab
