@@ -50,7 +50,7 @@ func (h *Handler) CreateUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteUserHandler handles DELETE /users/{username} (and legacy /users/delete/{username}) (admin only)
+// DeleteUserHandler handles DELETE /users/delete/{username} (admin only)
 func (h *Handler) DeleteUserHandler(w http.ResponseWriter, r *http.Request) {
 	username := chi.URLParam(r, "username")
 	if username == "" {

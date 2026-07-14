@@ -242,15 +242,10 @@ export const api = {
   },
 
   async deleteUser(username: string): Promise<{ message: string }> {
-    try {
-      const res = await defaultApi.deleteUser({
-        username,
-        xOdeVersion: ODE_VERSION,
-      });
-      return res.data as { message: string };
-    } catch (error) {
-      throw toApiError(error);
-    }
+    return requestJson<{ message: string }>(
+      `/users/delete/${encodeURIComponent(username)}`,
+      'DELETE',
+    );
   },
 
   async resetPassword(data: {
