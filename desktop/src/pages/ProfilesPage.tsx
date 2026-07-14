@@ -72,7 +72,6 @@ function emptyProfile(dataDirectory: string): ServerProfile {
     workspacePath,
     databasePath,
     attachmentsPath: null,
-    environment: 'production',
     defaultAppMode: 'data_management',
   };
 }
@@ -177,7 +176,6 @@ export function ProfilesPage() {
       workspacePath: ws,
       databasePath,
       attachmentsPath: null,
-      environment: 'production',
     };
     await upsertProfileRemote(profile);
     if (password.trim()) {

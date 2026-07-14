@@ -18,27 +18,25 @@ export async function confirmDestructiveAction(
   detail: string,
 ): Promise<boolean> {
   const title = describeAction(kind);
-  const dialogTitle = `${title} — PRODUCTION`;
-  const messageBody = `${detail}\n\nType OK only if this is intentional.`;
 
   if (isTauri()) {
-    return await tauriConfirm(messageBody, {
-      title: dialogTitle,
+    return await tauriConfirm(detail, {
+      title,
       kind: 'warning',
     });
   }
 
-  return window.confirm(`${dialogTitle}\n\n${messageBody}`);
+  return window.confirm(`${title}\n\n${detail}`);
 }
 
 function describeAction(kind: DestructiveActionKind): string {
   switch (kind) {
     case 'push':
-      return 'Push local changes to Synkronus';
+      return 'Push observations';
     case 'bundle_push':
-      return 'Upload / replace app bundle on server';
+      return 'Upload app bundle';
     case 'bulk_delete':
-      return 'Delete multiple items';
+      return 'Delete observations';
     case 'profile_delete':
       return 'Delete profile';
     case 'server_reset':
@@ -46,6 +44,6 @@ function describeAction(kind: DestructiveActionKind): string {
     case 'local_reset':
       return 'Reset local data';
     default:
-      return 'Destructive action';
+      return 'Confirm action';
   }
 }

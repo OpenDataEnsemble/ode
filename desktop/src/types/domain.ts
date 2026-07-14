@@ -212,9 +212,6 @@ export interface AuthSession {
   expiresAt?: number;
 }
 
-/** Client-side server tier for confirmation strictness (mirrors Rust `ProfileEnvironment`). */
-export type ProfileEnvironment = 'production' | 'staging' | 'development';
-
 /** Default sidebar mode when opening the app or switching profiles (mirrors Rust `DefaultAppMode`). */
 export type DefaultAppMode = 'data_management' | 'workbench';
 
@@ -227,8 +224,6 @@ export interface ServerProfile {
   workspacePath?: string | null;
   databasePath: string;
   attachmentsPath?: string | null;
-  /** Client-only guardrail; not sent to Synkronus as an API mode. */
-  environment?: ProfileEnvironment | null;
   /** Which mode subtree to open by default for this profile. */
   defaultAppMode?: DefaultAppMode | null;
   /** When true, Workbench custom app loads from a mirrored local folder instead of `bundles/active`. */

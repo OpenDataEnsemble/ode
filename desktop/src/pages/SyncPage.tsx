@@ -8,7 +8,7 @@ import {
   auditPendingPushMissingAttachments,
   type MissingAttachmentIssue,
 } from '../lib/pushAttachmentAudit';
-import { productionPushConfirmDetail } from '../lib/syncUiCopy';
+import { pushConfirmMessage } from '../lib/syncUiCopy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
@@ -167,7 +167,7 @@ export function SyncPage() {
     if (
       !(await confirmDestructiveAction(
         'push',
-        productionPushConfirmDetail(dirtyCount),
+        pushConfirmMessage(dirtyCount, profileLabel),
       ))
     ) {
       return;
