@@ -4,6 +4,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import { api } from '../services/api';
 import { Button, Input, Badge } from '@ode/components/react-web';
 import { ThemeSwitcher } from '../components/ThemeSwitcher';
+import {
+  FormulusOnboardingModal,
+  type FormulusOnboardingCredentials,
+} from '../components/FormulusOnboardingModal';
+import { getFormulusServerUrl } from '../utils/formulusServerUrl';
+import { generateStrongPassword } from '../utils/password';
 
 import {
   HiOutlineCube,
@@ -23,6 +29,8 @@ import {
   HiPlus,
   HiXMark,
   HiChartBar,
+  HiEye,
+  HiEyeSlash,
 } from 'react-icons/hi2';
 import { ColorBrandPrimary500 } from '@ode/tokens';
 import portalLogo from '../assets/portal.png';
@@ -90,10 +98,17 @@ export function Dashboard() {
   // User management modals
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [showResetPasswordConfirm, setShowResetPasswordConfirm] =
+    useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(
     null,
   );
+  /** One-time Formulus QR handoff; cleared on dismiss — never persisted. */
+  const [formulusOnboarding, setFormulusOnboarding] =
+    useState<FormulusOnboardingCredentials | null>(null);
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [showResetPasswordValue, setShowResetPasswordValue] = useState(false);
 
   // Form states
   const [createUserForm, setCreateUserForm] = useState({
@@ -109,15 +124,25 @@ export function Dashboard() {
 
   // Clear form when modal opens/closes
   const handleOpenCreateUserModal = () => {
-    setCreateUserForm({ username: '', password: '', role: 'read-only' });
+    setCreateUserForm({
+      username: '',
+      password: generateStrongPassword(),
+      role: 'read-only',
+    });
+    setShowCreatePassword(false);
     setRoleDropdownOpen(false);
     setShowCreateUserModal(true);
   };
 
   const handleCloseCreateUserModal = () => {
     setCreateUserForm({ username: '', password: '', role: 'read-only' });
+    setShowCreatePassword(false);
     setRoleDropdownOpen(false);
     setShowCreateUserModal(false);
+  };
+
+  const handleCloseFormulusOnboarding = () => {
+    setFormulusOnboarding(null);
   };
 
   const handleRoleSelect = (role: string) => {
@@ -450,15 +475,22 @@ export function Dashboard() {
       setError('Username and password are required');
       return;
     }
+    const createdUsername = createUserForm.username;
+    const createdPassword = createUserForm.password;
     setLoading(true);
     setError(null);
     setSuccess(null);
     try {
       await api.createUser(createUserForm);
       setSuccess('User created successfully!');
-      // Clear form immediately
+      // Clear form immediately (plaintext kept only in one-time QR modal state)
       setCreateUserForm({ username: '', password: '', role: 'read-only' });
       setShowCreateUserModal(false);
+      setFormulusOnboarding({
+        username: createdUsername,
+        password: createdPassword,
+        serverUrl: getFormulusServerUrl(),
+      });
       await loadUsers();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create user');
@@ -484,33 +516,62 @@ export function Dashboard() {
     }
   };
 
-  const handleResetPassword = async (e: React.FormEvent) => {
+  const handleResetPassword = (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetPasswordForm.username || !resetPasswordForm.newPassword) {
       setError('Username and new password are required');
       return;
     }
+    setError(null);
+    setShowResetPasswordConfirm(true);
+  };
+
+  const handleCloseResetPasswordModal = () => {
+    setResetPasswordForm({ username: '', newPassword: '' });
+    setShowResetPasswordValue(false);
+    setShowResetPasswordConfirm(false);
+    setShowResetPasswordModal(false);
+  };
+
+  const handleOpenResetPasswordModal = (username = '') => {
+    setResetPasswordForm({
+      username,
+      newPassword: generateStrongPassword(),
+    });
+    setShowResetPasswordValue(false);
+    setShowResetPasswordConfirm(false);
+    setShowResetPasswordModal(true);
+  };
+
+  const handleConfirmResetPassword = async () => {
+    if (!resetPasswordForm.username || !resetPasswordForm.newPassword) {
+      setShowResetPasswordConfirm(false);
+      setError('Username and new password are required');
+      return;
+    }
+    const resetUsername = resetPasswordForm.username;
+    const resetPassword = resetPasswordForm.newPassword;
     setLoading(true);
     setError(null);
     setSuccess(null);
     try {
       await api.resetPassword(resetPasswordForm);
-      setSuccess(
-        `Password reset successfully for ${resetPasswordForm.username}!`,
-      );
-      // Clear form immediately
+      setSuccess(`Password reset successfully for ${resetUsername}!`);
       setResetPasswordForm({ username: '', newPassword: '' });
+      setShowResetPasswordValue(false);
+      setShowResetPasswordConfirm(false);
       setShowResetPasswordModal(false);
+      setFormulusOnboarding({
+        username: resetUsername,
+        password: resetPassword,
+        serverUrl: getFormulusServerUrl(),
+      });
     } catch (err) {
+      setShowResetPasswordConfirm(false);
       setError(err instanceof Error ? err.message : 'Failed to reset password');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleCloseResetPasswordModal = () => {
-    setResetPasswordForm({ username: '', newPassword: '' });
-    setShowResetPasswordModal(false);
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -1160,13 +1221,9 @@ export function Dashboard() {
                                   <div className="table-actions">
                                     <Button
                                       variant="neutral"
-                                      onPress={() => {
-                                        setResetPasswordForm({
-                                          username: u.username,
-                                          newPassword: '',
-                                        });
-                                        setShowResetPasswordModal(true);
-                                      }}
+                                      onPress={() =>
+                                        handleOpenResetPasswordModal(u.username)
+                                      }
                                       position="left"
                                       className="table-action-btn reset-password-btn"
                                       accessibilityLabel="Reset Password">
@@ -1438,17 +1495,48 @@ export function Dashboard() {
                 />
               </div>
               <div className="form-group">
-                <Input
-                  label="Password"
-                  type="password"
-                  value={createUserForm.password}
-                  onChangeText={(text: string) =>
-                    setCreateUserForm({ ...createUserForm, password: text })
-                  }
-                  required
-                  disabled={loading}
-                  className="modal-input"
-                />
+                <div className="password-field">
+                  <Input
+                    label="Password"
+                    type={showCreatePassword ? 'text' : 'password'}
+                    value={createUserForm.password}
+                    onChangeText={(text: string) =>
+                      setCreateUserForm({ ...createUserForm, password: text })
+                    }
+                    required
+                    disabled={loading}
+                    className="modal-input"
+                  />
+                  <button
+                    type="button"
+                    className="password-field-toggle"
+                    disabled={loading}
+                    onClick={() => setShowCreatePassword(v => !v)}
+                    aria-label={
+                      showCreatePassword ? 'Hide password' : 'Show password'
+                    }>
+                    {showCreatePassword ? <HiEyeSlash /> : <HiEye />}
+                  </button>
+                </div>
+                <div className="password-field-meta">
+                  <p className="password-field-hint">
+                    A strong password was suggested. Edit it, or generate a new
+                    one.
+                  </p>
+                  <button
+                    type="button"
+                    className="suggest-password-btn"
+                    disabled={loading}
+                    onClick={() => {
+                      setCreateUserForm({
+                        ...createUserForm,
+                        password: generateStrongPassword(),
+                      });
+                      setShowCreatePassword(true);
+                    }}>
+                    <HiArrowPath /> Generate new
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label htmlFor="role">Role</label>
@@ -1524,15 +1612,13 @@ export function Dashboard() {
 
       {/* Reset Password Modal */}
       {showResetPasswordModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowResetPasswordModal(false)}>
+        <div className="modal-overlay" onClick={handleCloseResetPasswordModal}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Reset Password</h2>
               <button
                 className="modal-close"
-                onClick={() => setShowResetPasswordModal(false)}>
+                onClick={handleCloseResetPasswordModal}>
                 ×
               </button>
             </div>
@@ -1557,20 +1643,51 @@ export function Dashboard() {
                 />
               </div>
               <div className="form-group">
-                <Input
-                  label="New Password"
-                  type="password"
-                  value={resetPasswordForm.newPassword}
-                  onChangeText={(text: string) =>
-                    setResetPasswordForm({
-                      ...resetPasswordForm,
-                      newPassword: text,
-                    })
-                  }
-                  required
-                  disabled={loading}
-                  className="modal-input"
-                />
+                <div className="password-field">
+                  <Input
+                    label="New password"
+                    type={showResetPasswordValue ? 'text' : 'password'}
+                    value={resetPasswordForm.newPassword}
+                    onChangeText={(text: string) =>
+                      setResetPasswordForm({
+                        ...resetPasswordForm,
+                        newPassword: text,
+                      })
+                    }
+                    required
+                    disabled={loading}
+                    className="modal-input"
+                  />
+                  <button
+                    type="button"
+                    className="password-field-toggle"
+                    disabled={loading}
+                    onClick={() => setShowResetPasswordValue(v => !v)}
+                    aria-label={
+                      showResetPasswordValue ? 'Hide password' : 'Show password'
+                    }>
+                    {showResetPasswordValue ? <HiEyeSlash /> : <HiEye />}
+                  </button>
+                </div>
+                <div className="password-field-meta">
+                  <p className="password-field-hint">
+                    A strong password was suggested. Edit it, or generate a new
+                    one.
+                  </p>
+                  <button
+                    type="button"
+                    className="suggest-password-btn"
+                    disabled={loading}
+                    onClick={() => {
+                      setResetPasswordForm({
+                        ...resetPasswordForm,
+                        newPassword: generateStrongPassword(),
+                      });
+                      setShowResetPasswordValue(true);
+                    }}>
+                    <HiArrowPath /> Generate new
+                  </button>
+                </div>
               </div>
               <div className="modal-actions">
                 <Button
@@ -1594,6 +1711,13 @@ export function Dashboard() {
             </form>
           </div>
         </div>
+      )}
+
+      {formulusOnboarding && (
+        <FormulusOnboardingModal
+          credentials={formulusOnboarding}
+          onClose={handleCloseFormulusOnboarding}
+        />
       )}
 
       {/* Change Password Modal */}
@@ -1684,25 +1808,65 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
+      {/* Reset Password Confirmation */}
+      {showResetPasswordConfirm && (
         <div
           className="modal-overlay"
-          onClick={() => setShowDeleteConfirm(null)}>
+          onClick={() => !loading && setShowResetPasswordConfirm(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Delete User</h2>
+              <h2>Confirm reset</h2>
               <button
                 className="modal-close"
-                onClick={() => setShowDeleteConfirm(null)}>
+                onClick={() => setShowResetPasswordConfirm(false)}
+                disabled={loading}>
                 ×
               </button>
             </div>
             <div className="modal-body">
               <p>
-                Are you sure you want to delete user{' '}
-                <strong>{showDeleteConfirm}</strong>? This action cannot be
-                undone.
+                Are you sure you want to reset the password for{' '}
+                <strong>{resetPasswordForm.username}</strong>?
+              </p>
+            </div>
+            <div className="modal-actions">
+              <Button
+                variant="neutral"
+                onPress={() => setShowResetPasswordConfirm(false)}
+                disabled={loading}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onPress={handleConfirmResetPassword}
+                disabled={loading}
+                loading={loading}>
+                Reset Password
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div
+          className="modal-overlay"
+          onClick={() => !loading && setShowDeleteConfirm(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Confirm delete</h2>
+              <button
+                className="modal-close"
+                onClick={() => setShowDeleteConfirm(null)}
+                disabled={loading}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                Are you sure you want to delete{' '}
+                <strong>{showDeleteConfirm}</strong>?
               </p>
             </div>
             <div className="modal-actions">
