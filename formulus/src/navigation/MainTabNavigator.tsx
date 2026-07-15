@@ -28,6 +28,7 @@ import {
   VISIBLE_MAIN_TABS,
 } from '../types/NavigationTypes';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { useTranslation } from 'react-i18next';
 import tokens from '@ode/tokens/dist/react-native/tokens-resolved';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -149,6 +150,14 @@ const TAB_ICONS: Record<
   More: renderMoreIcon,
 };
 
+const TAB_ACCESSIBILITY_KEYS: Record<VisibleMainTab, string> = {
+  Home: 'tabs.home',
+  Forms: 'tabs.forms',
+  Observations: 'tabs.observations',
+  Sync: 'tabs.sync',
+  More: 'tabs.more',
+};
+
 const isVisibleMainTab = (value: string): value is VisibleMainTab =>
   (VISIBLE_MAIN_TABS as readonly string[]).includes(value);
 
@@ -233,6 +242,7 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
   insets,
   style,
 }) => {
+  const { t } = useTranslation();
   const visibleRoutes = state.routes.filter(r =>
     (VISIBLE_MAIN_TABS as readonly string[]).includes(r.name),
   );
@@ -281,6 +291,10 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
                 focused,
               })
             : null;
+          const tabName = route.name as VisibleMainTab;
+          const accessibilityLabel = isVisibleMainTab(tabName)
+            ? t(TAB_ACCESSIBILITY_KEYS[tabName])
+            : route.name;
 
           return (
             <Pressable
@@ -299,7 +313,8 @@ const CustomTabBar: React.FC<CustomTabBarProps> = ({
                 );
               }}
               accessibilityRole="button"
-              accessibilityState={{ selected: focused }}>
+              accessibilityState={{ selected: focused }}
+              accessibilityLabel={accessibilityLabel}>
               {icon}
             </Pressable>
           );

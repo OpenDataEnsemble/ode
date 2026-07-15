@@ -28,6 +28,24 @@ export function resolveItemLabel(
   return trimmed.length > 0 ? trimmed : null;
 }
 
+import { interpolate } from '../i18n/createOdeI18n';
+
+export type ResolveAddButtonCopy = {
+  addDefault: string;
+  /** Template with `{{itemLabel}}`. */
+  addWithItem: string;
+  adding: string;
+  /** Template with `{{itemLabel}}`. */
+  addingWithItem: string;
+};
+
+export const DEFAULT_ADD_BUTTON_COPY: ResolveAddButtonCopy = {
+  addDefault: '+ Add observation',
+  addWithItem: '+ Add {{itemLabel}}',
+  adding: 'Adding…',
+  addingWithItem: 'Adding {{itemLabel}}…',
+};
+
 export type ResolveAddButtonLabelInput = {
   itemLabel: string | null;
   addButtonLabel?: unknown;
@@ -37,18 +55,19 @@ export type ResolveAddButtonLabelInput = {
 /** Add-button text: ui override > composed from itemLabel > legacy default. */
 export function resolveAddButtonLabel(
   input: ResolveAddButtonLabelInput,
+  copy: ResolveAddButtonCopy = DEFAULT_ADD_BUTTON_COPY,
 ): string {
   const override =
     typeof input.addButtonLabel === 'string' ? input.addButtonLabel.trim() : '';
   if (override.length > 0) {
-    return input.busy ? 'Adding…' : override;
+    return input.busy ? copy.adding : override;
   }
   if (input.itemLabel) {
     return input.busy
-      ? `Adding ${input.itemLabel}…`
-      : `+ Add ${input.itemLabel}`;
+      ? interpolate(copy.addingWithItem, { itemLabel: input.itemLabel })
+      : interpolate(copy.addWithItem, { itemLabel: input.itemLabel });
   }
-  return input.busy ? 'Adding…' : '+ Add observation';
+  return input.busy ? copy.adding : copy.addDefault;
 }
 
 /** Empty-table row text when the embedded array has no items. */

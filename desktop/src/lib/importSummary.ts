@@ -1,4 +1,8 @@
-import type { ApiObservation, HostTextReadResult } from '../types/domain';
+import type {
+  ApiObservation,
+  HostTextReadResult,
+  ObservationExtras,
+} from '../types/domain';
 import { tauriClient } from './tauriClient';
 
 export interface ParsedObservationFile {
@@ -19,6 +23,62 @@ function asNonEmptyString(v: unknown): string | undefined {
     return undefined;
   }
   return v.trim();
+}
+
+function asOptionalStringArray(v: unknown): string[] | undefined {
+  if (!Array.isArray(v)) {
+    return undefined;
+  }
+  const parts = v
+    .filter((x): x is string => typeof x === 'string')
+    .map(s => s.trim())
+    .filter(Boolean);
+  return parts.length ? parts : undefined;
+}
+
+/** Envelope fields stored in `observation_extras` (Synkronus Observation). */
+export function extractObservationExtras(
+  o: Record<string, unknown>,
+): ObservationExtras | undefined {
+  const formVersion =
+    asNonEmptyString(o.formVersion) ?? asNonEmptyString(o.form_version);
+  const createdAt =
+    asNonEmptyString(o.createdAt) ?? asNonEmptyString(o.created_at);
+  const syncedAt =
+    asNonEmptyString(o.syncedAt) ?? asNonEmptyString(o.synced_at);
+  const author = asNonEmptyString(o.author);
+  const deviceId =
+    asNonEmptyString(o.deviceId) ?? asNonEmptyString(o.device_id);
+  const deleted = typeof o.deleted === 'boolean' ? o.deleted : undefined;
+  const geolocation =
+    o.geolocation != null && typeof o.geolocation === 'object'
+      ? o.geolocation
+      : undefined;
+  const tags = asOptionalStringArray(o.tags);
+
+  if (
+    !formVersion &&
+    !createdAt &&
+    !syncedAt &&
+    !author &&
+    !deviceId &&
+    deleted === undefined &&
+    geolocation === undefined &&
+    !tags
+  ) {
+    return undefined;
+  }
+
+  return {
+    formVersion: formVersion ?? null,
+    createdAt: createdAt ?? null,
+    syncedAt: syncedAt ?? null,
+    author: author ?? null,
+    deviceId: deviceId ?? null,
+    deleted: deleted ?? null,
+    geolocation: geolocation ?? null,
+    tags: tags ?? null,
+  };
 }
 
 /** Normalize one JSON value into ApiObservation[] (0+ per file). */
@@ -68,6 +128,7 @@ export function extractObservationsFromJson(
       data,
       formType,
       updatedAt,
+      extras: extractObservationExtras(o),
     });
   }
 

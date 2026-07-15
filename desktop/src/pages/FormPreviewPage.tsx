@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { FormFinalizeDialog } from '../components/FormFinalizeDialog';
+import { FormPreviewAdvancedParamsDialog } from '../components/FormPreviewAdvancedParamsDialog';
+import { CustomAppDeviceViewport } from '../components/CustomAppDeviceViewport';
 import {
   FormplayerEmbed,
   type FormplayerEmbedHandle,
 } from '../components/FormplayerEmbed';
 import {
-  buildFormPreviewInit,
+  buildFormPreviewInitFromBundleSpec,
+  formatPreviewParamsJson,
   inferObservationIdFromSavedData,
+  mergePreviewParams,
   parseJsonObject,
+  previewParamsFromLocalePrefs,
 } from '../lib/buildFormPreviewInit';
 import { loadBundleFormplayerExtensions } from '../lib/bundleExtensionLoader';
 import { useDeveloperMode } from '../hooks/useDeveloperMode';
@@ -28,6 +33,18 @@ import {
   dropPendingSubObservationOpen,
   registerPendingSubObservationOpen,
 } from '../lib/formPreviewSubObservationBridge';
+import {
+  FORM_LOCALE_DEFAULT,
+  getDesktopFormLocalePreference,
+  scanActiveBundleFormLocales,
+  setDesktopFormLocalePreference,
+  type FormLocalePreference,
+} from '../lib/formLocale';
+import {
+  getDesktopLocalePreference,
+  setDesktopLocalePreference,
+  type UiLocalePreference,
+} from '../lib/uiLocale';
 
 const DEFAULT_JSON = '{}';
 
@@ -68,8 +85,19 @@ export function FormPreviewPage() {
   const [previewObservationId, setPreviewObservationId] = useState<
     string | null
   >(null);
+  const [uiLocalePreference, setUiLocalePreference] =
+    useState<UiLocalePreference>(() => getDesktopLocalePreference());
+  const [formLocalePreference, setFormLocalePreference] =
+    useState<FormLocalePreference>(() => getDesktopFormLocalePreference());
+  const [scannedFormLocales, setScannedFormLocales] = useState<string[]>([]);
 
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedDraftParams, setAdvancedDraftParams] = useState(DEFAULT_JSON);
+  const [advancedDraftSaved, setAdvancedDraftSaved] = useState(DEFAULT_JSON);
+  const [advancedParseError, setAdvancedParseError] = useState<string | null>(
+    null,
+  );
 
   const iframeRef = useRef<FormplayerEmbedHandle>(null);
   const rootContentWindowRef = useRef<Window | null>(null);
@@ -138,15 +166,22 @@ export function FormPreviewPage() {
     setListLoading(true);
     setListError(null);
     try {
-      const rows = await tauriClient.listActiveBundleForms();
+      const [rows, locales] = await Promise.all([
+        tauriClient.listActiveBundleForms(),
+        scanActiveBundleFormLocales(),
+      ]);
       setForms(rows);
+      setScannedFormLocales(locales);
     } catch (e) {
       setListError(e instanceof Error ? e.message : String(e));
       setForms([]);
+      setScannedFormLocales([]);
     } finally {
       setListLoading(false);
     }
   }, []);
+
+  const prevDevMirrorGenerationRef = useRef(devMirrorGeneration);
 
   useEffect(() => {
     void loadForms();
@@ -163,19 +198,67 @@ export function FormPreviewPage() {
         s.formType,
         developerMode,
       );
-      return buildFormPreviewInit({
-        formType: s.formType,
+      return buildFormPreviewInitFromBundleSpec({
+        spec: s,
         observationId,
         params,
         savedData,
-        formSchema: s.formSchema,
-        uiSchema: s.uiSchema,
         extensions: ext.extensions,
         customQuestionTypes: ext.customQuestionTypes,
+        loadLinkedFormSpec: ft => tauriClient.readBundleFormSpec(ft),
       });
     },
     [developerMode],
   );
+
+  /** Re-read schema/ui/extensions from the (dev) bundle and remount formplayer. */
+  const reloadActivePreview = useCallback(async () => {
+    const formType = selectedFormType.trim();
+    if (!formType) {
+      return;
+    }
+    const p = parseJsonObject(paramsJson, 'params');
+    const sv = parseJsonObject(savedJson, 'savedData');
+    if (!p.ok || !sv.ok) {
+      return;
+    }
+    try {
+      const s = await tauriClient.readBundleFormSpec(formType);
+      setSpec(s);
+      setSpecError(null);
+      setFormInitData(
+        await buildInitFromSpec(s, p.value, sv.value, previewObservationId),
+      );
+    } catch (e) {
+      setSpecError(e instanceof Error ? e.message : String(e));
+    }
+  }, [
+    selectedFormType,
+    paramsJson,
+    savedJson,
+    previewObservationId,
+    buildInitFromSpec,
+  ]);
+
+  useEffect(() => {
+    if (prevDevMirrorGenerationRef.current === devMirrorGeneration) {
+      return;
+    }
+    prevDevMirrorGenerationRef.current = devMirrorGeneration;
+    nestedEmbedByMessageIdRef.current.clear();
+    nestedIframeByMessageIdRef.current.clear();
+    nestedContentWindowByMessageIdRef.current.clear();
+    setNestedSessions([]);
+    void reloadActivePreview();
+  }, [devMirrorGeneration, reloadActivePreview]);
+
+  const seedParamsFromLocalePrefs = useCallback(() => {
+    return previewParamsFromLocalePrefs({
+      uiLocalePreference,
+      formLocalePreference,
+      formLocaleDefault: FORM_LOCALE_DEFAULT,
+    });
+  }, [uiLocalePreference, formLocalePreference]);
 
   const loadSpec = useCallback(
     async (formType: string) => {
@@ -192,22 +275,19 @@ export function FormPreviewPage() {
       try {
         const s = await tauriClient.readBundleFormSpec(formType);
         setSpec(s);
-        setParamsJson(DEFAULT_JSON);
+        const seededParams = seedParamsFromLocalePrefs();
+        setParamsJson(formatPreviewParamsJson(seededParams));
         setSavedJson(DEFAULT_JSON);
         setParseError(null);
-        const p = parseJsonObject(DEFAULT_JSON, 'params');
         const sv = parseJsonObject(DEFAULT_JSON, 'savedData');
-        if (!p.ok) {
-          setParseError(p.error);
-          setFormInitData(null);
-          return;
-        }
         if (!sv.ok) {
           setParseError(sv.error);
           setFormInitData(null);
           return;
         }
-        setFormInitData(await buildInitFromSpec(s, p.value, sv.value, null));
+        setFormInitData(
+          await buildInitFromSpec(s, seededParams, sv.value, null),
+        );
       } catch (e) {
         setSpec(null);
         setFormInitData(null);
@@ -216,7 +296,7 @@ export function FormPreviewPage() {
         setSpecLoading(false);
       }
     },
-    [buildInitFromSpec],
+    [buildInitFromSpec, seedParamsFromLocalePrefs],
   );
 
   useEffect(() => {
@@ -268,25 +348,68 @@ export function FormPreviewPage() {
     };
   }, [buildInitFromSpec, location.pathname, location.state, navigate]);
 
-  const applyJsonToPreview = useCallback(async () => {
-    if (!spec) {
-      return;
-    }
-    const p = parseJsonObject(paramsJson, 'params');
-    const sv = parseJsonObject(savedJson, 'savedData');
+  const openAdvancedDialog = useCallback(() => {
+    setAdvancedDraftParams(paramsJson);
+    setAdvancedDraftSaved(savedJson);
+    setAdvancedParseError(null);
+    setAdvancedOpen(true);
+  }, [paramsJson, savedJson]);
+
+  const rebuildPreviewFromJson = useCallback(
+    async (paramsOverride: Record<string, unknown | undefined>) => {
+      if (!spec) {
+        return;
+      }
+      const p = parseJsonObject(paramsJson, 'params');
+      const sv = parseJsonObject(savedJson, 'savedData');
+      if (!p.ok || !sv.ok) {
+        return;
+      }
+      const mergedParams = mergePreviewParams(p.value, paramsOverride);
+      setParamsJson(formatPreviewParamsJson(mergedParams));
+      setParseError(null);
+      setFormInitData(
+        await buildInitFromSpec(
+          spec,
+          mergedParams,
+          sv.value,
+          previewObservationId,
+        ),
+      );
+    },
+    [spec, paramsJson, savedJson, previewObservationId, buildInitFromSpec],
+  );
+
+  const applyAdvancedDialog = useCallback(async () => {
+    const p = parseJsonObject(advancedDraftParams, 'params');
+    const sv = parseJsonObject(advancedDraftSaved, 'savedData');
     if (!p.ok) {
-      setParseError(p.error);
+      setAdvancedParseError(p.error);
       return;
     }
     if (!sv.ok) {
-      setParseError(sv.error);
+      setAdvancedParseError(sv.error);
       return;
     }
+    setAdvancedParseError(null);
+    setParamsJson(advancedDraftParams);
+    setSavedJson(advancedDraftSaved);
     setParseError(null);
+    if (!spec) {
+      setAdvancedOpen(false);
+      return;
+    }
     setFormInitData(
       await buildInitFromSpec(spec, p.value, sv.value, previewObservationId),
     );
-  }, [paramsJson, savedJson, spec, buildInitFromSpec, previewObservationId]);
+    setAdvancedOpen(false);
+  }, [
+    advancedDraftParams,
+    advancedDraftSaved,
+    spec,
+    buildInitFromSpec,
+    previewObservationId,
+  ]);
 
   const onFinalize = useCallback((request: FinalizeRequest) => {
     return new Promise<{ result?: string; error?: string }>(resolve => {
@@ -345,18 +468,17 @@ export function FormPreviewPage() {
             developerMode,
           );
           const observationId = inferObservationIdFromSavedData(savedData);
-          const initData = buildFormPreviewInit({
-            formType,
+          const initData = await buildFormPreviewInitFromBundleSpec({
+            spec: s,
             observationId,
             params,
             savedData,
-            formSchema: s.formSchema,
-            uiSchema: s.uiSchema,
             extensions: ext.extensions,
             customQuestionTypes: ext.customQuestionTypes,
             subObservationMode: true,
             skipFinalize,
             skipDraftSelection,
+            loadLinkedFormSpec: ft => tauriClient.readBundleFormSpec(ft),
           });
           setNestedSessions(prev =>
             prev.map(sess =>
@@ -484,6 +606,10 @@ export function FormPreviewPage() {
     </option>
   ));
 
+  const previewLocaleKey = formInitData
+    ? `${String(formInitData.params?.locale ?? 'auto')}:${String(formInitData.params?.formLocale ?? FORM_LOCALE_DEFAULT)}`
+    : 'none';
+
   return (
     <div className="page workbench-page page-form-preview">
       <FormFinalizeDialog
@@ -556,90 +682,120 @@ export function FormPreviewPage() {
         </div>
       ) : null}
 
-      <header className="page-header">
-        <h2>Form preview</h2>
-      </header>
+      <FormPreviewAdvancedParamsDialog
+        open={advancedOpen}
+        paramsJson={advancedDraftParams}
+        savedJson={advancedDraftSaved}
+        parseError={advancedParseError}
+        disabled={!selectedFormType}
+        onParamsChange={setAdvancedDraftParams}
+        onSavedChange={setAdvancedDraftSaved}
+        onApply={() => void applyAdvancedDialog()}
+        onCancel={() => setAdvancedOpen(false)}
+      />
 
-      <div className="split split-form-preview">
-        <aside className="panel panel-form-preview-sidebar card">
-          <div className="form-preview-controls">
-            <select
-              id="form-type-select"
-              className="form-preview-type-select"
-              aria-label="Form type"
-              value={selectedFormType}
-              disabled={listLoading}
-              onChange={e => {
-                const v = e.target.value;
-                setSelectedFormType(v);
-                void loadSpec(v);
-              }}>
-              <option value="">{listLoading ? 'Loading…' : 'Form type'}</option>
-              {formOptions}
-            </select>
-            {listError ? (
-              <p className="notice error">{listError}</p>
-            ) : forms.length === 0 && !listLoading ? (
-              <p className="muted">No forms in bundle.</p>
-            ) : null}
+      {listError ? <p className="notice error">{listError}</p> : null}
+      {specError ? <p className="notice error">{specError}</p> : null}
+      {parseError && !advancedOpen ? (
+        <p className="notice error">{parseError}</p>
+      ) : null}
 
-            {specLoading ? <p className="muted">Loading form spec…</p> : null}
-            {specError ? <p className="notice error">{specError}</p> : null}
-
-            <details className="form-preview-advanced">
-              <summary>Advanced params</summary>
-              <div className="form-preview-row form-preview-row-stacked">
-                <label className="form-preview-label" htmlFor="params-json">
-                  params
-                </label>
-                <textarea
-                  id="params-json"
-                  className="form-preview-json"
-                  spellCheck={false}
-                  disabled={!selectedFormType}
-                  value={paramsJson}
-                  onChange={e => setParamsJson(e.target.value)}
-                  rows={5}
-                />
-              </div>
-              <div className="form-preview-row form-preview-row-stacked">
-                <label className="form-preview-label" htmlFor="saved-json">
-                  savedData
-                </label>
-                <textarea
-                  id="saved-json"
-                  className="form-preview-json"
-                  spellCheck={false}
-                  disabled={!selectedFormType}
-                  value={savedJson}
-                  onChange={e => setSavedJson(e.target.value)}
-                  rows={5}
-                />
-              </div>
-              {parseError ? <p className="notice error">{parseError}</p> : null}
-              <div className="button-row">
-                <button
-                  type="button"
-                  disabled={!spec}
-                  onClick={() => void applyJsonToPreview()}>
-                  Apply
-                </button>
-              </div>
-            </details>
-          </div>
-        </aside>
-
-        <div className="panel panel-form-preview-embed panel-embed-flush">
-          <FormplayerEmbed
-            ref={iframeRef}
-            onContentWindowReady={cw => {
-              rootContentWindowRef.current = cw;
-            }}
-            formInitData={formInitData}
-            emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON and click Apply."
-          />
-        </div>
-      </div>
+      <section className="panel panel-embed-flush form-preview-embed-panel">
+        <CustomAppDeviceViewport
+          toolbarStart={
+            <div className="form-preview-toolbar-fields">
+              <select
+                id="form-type-select"
+                aria-label="Form type"
+                value={selectedFormType}
+                disabled={listLoading}
+                onChange={e => {
+                  const v = e.target.value;
+                  setSelectedFormType(v);
+                  void loadSpec(v);
+                }}>
+                <option value="">
+                  {listLoading ? 'Loading…' : 'Form type'}
+                </option>
+                {formOptions}
+              </select>
+              <select
+                id="ui-locale-select"
+                aria-label="UI language"
+                value={uiLocalePreference}
+                onChange={e => {
+                  const v = e.target.value as UiLocalePreference;
+                  setUiLocalePreference(v);
+                  setDesktopLocalePreference(v);
+                  const paramsOverride =
+                    v === 'auto' ? { locale: undefined } : { locale: v };
+                  void rebuildPreviewFromJson(paramsOverride);
+                }}>
+                <option value="auto">UI Language (auto)</option>
+                <option value="en">English</option>
+                <option value="pt">Português</option>
+                <option value="fr">Français</option>
+              </select>
+              <select
+                id="form-locale-select"
+                aria-label="Form language"
+                value={formLocalePreference}
+                disabled={scannedFormLocales.length === 0}
+                onChange={e => {
+                  const v = e.target.value;
+                  setFormLocalePreference(v);
+                  setDesktopFormLocalePreference(v);
+                  void rebuildPreviewFromJson({
+                    formLocale: v === FORM_LOCALE_DEFAULT ? undefined : v,
+                  });
+                }}>
+                <option value={FORM_LOCALE_DEFAULT}>
+                  Form language (default)
+                </option>
+                {scannedFormLocales.map(code => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="secondary btn-icon form-preview-advanced-btn"
+                disabled={!selectedFormType}
+                aria-label="Advanced params"
+                title="Advanced params"
+                onClick={openAdvancedDialog}>
+                <span className="material-symbols-outlined" aria-hidden>
+                  data_object
+                </span>
+              </button>
+              {specLoading ? (
+                <span className="muted form-preview-toolbar-status">
+                  Loading form spec…
+                </span>
+              ) : null}
+              {!listLoading && forms.length === 0 ? (
+                <span className="muted form-preview-toolbar-status">
+                  No forms in bundle.
+                </span>
+              ) : null}
+            </div>
+          }>
+          {({ fillFrame, devicePixelRatio }) => (
+            <FormplayerEmbed
+              key={`${devMirrorGeneration}-${selectedFormType || 'none'}-${devicePixelRatio}-${previewLocaleKey}`}
+              ref={iframeRef}
+              fillFrame={fillFrame}
+              devicePixelRatio={devicePixelRatio}
+              onContentWindowReady={cw => {
+                rootContentWindowRef.current = cw;
+              }}
+              formInitData={formInitData}
+              emptyMessage="Choose a form type to load schema and ui from the active bundle, then adjust params / saved JSON in Advanced params."
+            />
+          )}
+        </CustomAppDeviceViewport>
+      </section>
     </div>
   );
 }

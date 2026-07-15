@@ -1,5 +1,12 @@
 import type { FormInitData } from './formplayerHost';
 import { sanitizePortableAttachmentsInFormData } from './sanitizeFormSavedData';
+import { resolveDesktopUiLocale } from './uiLocale';
+import { resolveDesktopFormLocale } from './formLocale';
+import {
+  buildLinkedFormSpecs,
+  type LoadLinkedFormSpec,
+} from './buildLinkedFormSpecs';
+import type { BundleFormSpec } from '../types/domain';
 
 /** Infer SQLite observation id from embedded saved row data (matches Workbench navigate-from-custom-app). */
 export function inferObservationIdFromSavedData(
@@ -30,11 +37,24 @@ export function buildFormPreviewInit(args: {
   skipDraftSelection?: boolean;
   extensions?: FormInitData['extensions'];
   customQuestionTypes?: FormInitData['customQuestionTypes'];
+  linkedFormSpecs?: FormInitData['linkedFormSpecs'];
 }): FormInitData {
+  const locale =
+    typeof args.params.locale === 'string'
+      ? resolveDesktopUiLocale(args.params.locale)
+      : resolveDesktopUiLocale();
+  const savedFormLocale =
+    typeof args.savedData.formLocale === 'string'
+      ? args.savedData.formLocale
+      : null;
+  const formLocale = resolveDesktopFormLocale(
+    typeof args.params.formLocale === 'string' ? args.params.formLocale : null,
+    savedFormLocale,
+  );
   const init: FormInitData = {
     formType: args.formType,
     observationId: args.observationId ?? null,
-    params: args.params,
+    params: { ...args.params, locale, formLocale },
     savedData: sanitizePortableAttachmentsInFormData(args.savedData),
     formSchema: args.formSchema,
     uiSchema: args.uiSchema,
@@ -50,7 +70,89 @@ export function buildFormPreviewInit(args: {
   if (args.skipDraftSelection) {
     init.skipDraftSelection = true;
   }
+  if (args.linkedFormSpecs) {
+    init.linkedFormSpecs = args.linkedFormSpecs;
+  }
   return init;
+}
+
+/**
+ * Build preview init from a bundle form spec, including linked child forms for sub-obs columns.
+ */
+export async function buildFormPreviewInitFromBundleSpec(args: {
+  spec: BundleFormSpec;
+  params: Record<string, unknown>;
+  savedData: Record<string, unknown>;
+  observationId?: string | null;
+  subObservationMode?: boolean;
+  skipFinalize?: boolean;
+  skipDraftSelection?: boolean;
+  extensions?: FormInitData['extensions'];
+  customQuestionTypes?: FormInitData['customQuestionTypes'];
+  loadLinkedFormSpec: LoadLinkedFormSpec;
+}): Promise<FormInitData> {
+  const linkedFormSpecs = await buildLinkedFormSpecs(
+    args.spec.formSchema,
+    args.loadLinkedFormSpec,
+  );
+  return buildFormPreviewInit({
+    formType: args.spec.formType,
+    observationId: args.observationId ?? null,
+    params: args.params,
+    savedData: args.savedData,
+    formSchema: args.spec.formSchema,
+    uiSchema: args.spec.uiSchema,
+    extensions: args.extensions,
+    customQuestionTypes: args.customQuestionTypes,
+    subObservationMode: args.subObservationMode,
+    skipFinalize: args.skipFinalize,
+    skipDraftSelection: args.skipDraftSelection,
+    linkedFormSpecs,
+  });
+}
+
+/** Merge toolbar / advanced-dialog overrides; `undefined` values remove keys. */
+export function mergePreviewParams(
+  base: Record<string, unknown>,
+  override: Record<string, unknown | undefined>,
+): Record<string, unknown> {
+  const merged = { ...base, ...override };
+  for (const [key, value] of Object.entries(override)) {
+    if (value === undefined) {
+      delete merged[key];
+    }
+  }
+  return merged;
+}
+
+export function formatPreviewParamsJson(
+  params: Record<string, unknown>,
+): string {
+  if (Object.keys(params).length === 0) {
+    return '{}';
+  }
+  return JSON.stringify(params, null, 2);
+}
+
+export function previewParamsFromLocalePrefs(args: {
+  uiLocalePreference: string;
+  formLocalePreference: string;
+  formLocaleDefault?: string;
+}): Record<string, unknown> {
+  const formLocaleDefault = args.formLocaleDefault ?? 'default';
+  return mergePreviewParams(
+    {},
+    {
+      locale:
+        args.uiLocalePreference === 'auto'
+          ? undefined
+          : args.uiLocalePreference,
+      formLocale:
+        args.formLocalePreference === formLocaleDefault
+          ? undefined
+          : args.formLocalePreference,
+    },
+  );
 }
 
 export function parseJsonObject(

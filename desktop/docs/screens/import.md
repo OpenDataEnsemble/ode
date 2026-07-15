@@ -29,3 +29,11 @@ Bring external JSON observation files into the active profile’s local reposito
 
 - Store: `import` flow via `tauriClient.importObservations`, refresh `loadObservations` / `loadHealth` after import
 - Active profile determines target SQLite repository
+
+## Observation indexes
+
+When the active app bundle declares `observationIndexes` in `app.config.json`:
+
+1. Import writes observations in batches (default 2000 rows per IPC call); intermediate batches skip index work.
+2. After the final batch commits, Rust schedules **one** coalesced background full index rebuild (`bundle/index-rebuild` progress events). Overlapping rebuild requests while one is running are merged into a single follow-up pass.
+3. Sync pull uses incremental indexing per page instead (no full rebuild after each pull).

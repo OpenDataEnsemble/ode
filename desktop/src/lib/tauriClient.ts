@@ -13,13 +13,17 @@ import type {
   AttachmentCopyBatchResult,
   HostTextReadResult,
   ListObservationsPageResult,
+  ObservationOverviewResult,
   OutboundAttachmentUploadResult,
   ObservationRecord,
   WorkspaceAttachmentPresenceEntry,
   SaveObservationRequest,
+  StartObservationIndexRebuildResult,
   ServerProfile,
   ActiveBundleFormEntry,
   AppBundleState,
+  DownloadAndApplyAppBundleResult,
+  PushDevMirrorAppBundleResult,
   CreateObservationSqliteIndexesResult,
   CustomAppDevMirrorResult,
   BundleFormSpec,
@@ -94,8 +98,12 @@ export const tauriClient = {
     limit?: number;
   }) => invokeSafe<ObservationRecord[]>('query_observations', { req }),
   rebuildObservationIndexes: () =>
-    invokeSafe<{ generation: number; lastRebuildAt?: string | null }>(
+    invokeSafe<StartObservationIndexRebuildResult>(
       'rebuild_observation_indexes',
+    ),
+  startObservationIndexRebuild: () =>
+    invokeSafe<StartObservationIndexRebuildResult>(
+      'start_observation_index_rebuild',
     ),
   createObservationSqliteIndexes: () =>
     invokeSafe<CreateObservationSqliteIndexesResult>(
@@ -109,6 +117,8 @@ export const tauriClient = {
   listDirtyObservations: () =>
     invokeSafe<ObservationRecord[]>('list_dirty_observations'),
   listFormTypes: () => invokeSafe<string[]>('list_form_types'),
+  getObservationOverview: () =>
+    invokeSafe<ObservationOverviewResult>('get_observation_overview'),
   getSyncState: () => invokeSafe<SyncStateInfo>('get_sync_state'),
   setSyncState: (req: SetSyncStateRequest) =>
     invokeSafe<void>('set_sync_state', { req }),
@@ -128,6 +138,8 @@ export const tauriClient = {
     }),
   readHostTextFile: (path: string) =>
     invokeSafe<string>('read_host_text_file', { path }),
+  hostPathIsDirectory: (path: string) =>
+    invokeSafe<boolean>('host_path_is_directory', { path }),
   readHostTextFilesBatch: (paths: string[]) =>
     invokeSafe<HostTextReadResult[]>('read_host_text_files_batch', { paths }),
   parseImportObservationJsonPaths: (paths: string[]) =>
@@ -194,23 +206,41 @@ export const tauriClient = {
   writeWorkspaceFile: (relativePath: string, data: Uint8Array) =>
     invokeSafe<string>('write_workspace_file', {
       relativePath,
-      data: Array.from(data),
+      data,
     }),
   getAppBundleState: () =>
     invokeSafe<AppBundleState | null>('get_app_bundle_state'),
   /** Mirrors profile `customAppLocalFolder` into `bundles/dev-local/app/`. */
   refreshCustomAppDevMirror: () =>
     invokeSafe<CustomAppDevMirrorResult>('refresh_custom_app_dev_mirror'),
-  /** Writes `bundles/archives/{version}.zip`, extracts to `bundles/active/`, updates `state.json`. */
-  applyAppBundleDownload: (args: {
+  /** Native download + apply from Synkronus (no binary IPC). Progress via bundle/* events. */
+  downloadAndApplyAppBundle: (args: {
+    baseUrl: string;
+    bearerToken: string;
+    xOdeVersion: string;
     version: string;
     hash: string;
-    zipBytes: Uint8Array;
   }) =>
-    invokeSafe<AppBundleState>('apply_app_bundle_download', {
-      version: args.version,
-      hash: args.hash,
-      zipBytes: Array.from(args.zipBytes),
+    invokeSafe<DownloadAndApplyAppBundleResult>(
+      'download_and_apply_app_bundle',
+      {
+        baseUrl: args.baseUrl,
+        bearerToken: args.bearerToken,
+        xOdeVersion: args.xOdeVersion,
+        version: args.version,
+        hash: args.hash,
+      },
+    ),
+  /** Zip dev mirror, push to Synkronus, and activate the new bundle version. */
+  pushDevMirrorAppBundle: (args: {
+    baseUrl: string;
+    bearerToken: string;
+    xOdeVersion: string;
+  }) =>
+    invokeSafe<PushDevMirrorAppBundleResult>('push_dev_mirror_app_bundle', {
+      baseUrl: args.baseUrl,
+      bearerToken: args.bearerToken,
+      xOdeVersion: args.xOdeVersion,
     }),
   listActiveBundleForms: () =>
     invokeSafe<ActiveBundleFormEntry[]>('list_active_bundle_forms'),
@@ -245,14 +275,17 @@ export const tauriClient = {
   /**
    * @param markPending When true (file import), observations are stored as pending push.
    *   When false/omitted, rows match server pull semantics (synced / conflict rules).
+   * @param scheduleIndexRebuild When false, skips the post-import full index rebuild (use on
+   *   intermediate write batches; default true for file import, false for server pull).
    */
   importObservations: (
     observations: ApiObservation[],
-    options?: { markPending?: boolean },
+    options?: { markPending?: boolean; scheduleIndexRebuild?: boolean },
   ) =>
     invokeSafe<ImportResult>('import_observations', {
       observations,
       markPending: options?.markPending ?? false,
+      scheduleIndexRebuild: options?.scheduleIndexRebuild,
     }),
   markObservationsPushed: (ids: string[]) =>
     invokeSafe<void>('mark_observations_pushed', { ids }),

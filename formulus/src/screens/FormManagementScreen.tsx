@@ -21,6 +21,7 @@ import { MainAppStackParamList } from '../types/NavigationTypes';
 import { colors } from '../theme/colors';
 import { odeScreenHeaderHeight } from '../theme/odeDesign';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
+import { useTranslation } from 'react-i18next';
 
 type FormManagementScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -33,6 +34,7 @@ type FormManagementScreenNavigationProp = StackNavigationProp<
 const FormManagementScreen = () => {
   const navigation = useNavigation<FormManagementScreenNavigationProp>();
   const { showConfirm } = useConfirmModal();
+  const { t } = useTranslation();
   const [formSpecs, setFormSpecs] = useState<FormSpec[]>([]);
   const [observations, setObservations] = useState<
     Record<string, Observation[]>
@@ -59,7 +61,7 @@ const FormManagementScreen = () => {
 
   const loadData = useCallback(async () => {
     if (!formService) {
-      Alert.alert('Error', 'FormService is not initialized');
+      Alert.alert(t('common.error'), t('admin.formServiceNotInitialized'));
       return;
     }
     try {
@@ -80,12 +82,12 @@ const FormManagementScreen = () => {
       setObservations(observationsMap);
     } catch (error) {
       console.error('Error loading form data:', error);
-      Alert.alert('Error', 'Failed to load form data');
+      Alert.alert(t('common.error'), t('admin.loadFormDataFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [formService]);
+  }, [formService, t]);
 
   useEffect(() => {
     if (!formService) {
@@ -122,7 +124,7 @@ const FormManagementScreen = () => {
         'Error while opening Formplayer for new observation:',
         error,
       );
-      Alert.alert('Error', 'Failed to open form for new observation');
+      Alert.alert(t('common.error'), t('admin.openFormNewFailed'));
     }
   };
 
@@ -150,7 +152,7 @@ const FormManagementScreen = () => {
         'Error while opening Formplayer for editing observation:',
         error,
       );
-      Alert.alert('Error', 'Failed to open form for editing observation');
+      Alert.alert(t('common.error'), t('admin.openFormEditFailed'));
     }
   };
 
@@ -165,17 +167,17 @@ const FormManagementScreen = () => {
     observation: Observation,
   ) => {
     if (!formService) {
-      Alert.alert('Error', 'FormService is not initialized');
+      Alert.alert(t('common.error'), t('admin.formServiceNotInitialized'));
       return;
     }
     try {
       showConfirm({
-        title: 'Confirm Delete',
-        message: 'Are you sure you want to delete this observation?',
+        title: t('admin.confirmDeleteTitle'),
+        message: t('admin.confirmDeleteMessage'),
         buttons: [
-          { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
+          { text: t('common.cancel'), onPress: () => {}, variant: 'tertiary' },
           {
-            text: 'Delete',
+            text: t('common.delete'),
             variant: 'danger',
             onPress: async () => {
               setLoading(true);
@@ -187,38 +189,37 @@ const FormManagementScreen = () => {
       });
     } catch (error) {
       console.error('Error deleting observation:', error);
-      Alert.alert('Error', 'Failed to delete observation');
+      Alert.alert(t('common.error'), t('observations.deleteError'));
       setLoading(false);
     }
   };
 
   const handleResetDatabase = async () => {
     if (!formService) {
-      Alert.alert('Error', 'FormService is not initialized');
+      Alert.alert(t('common.error'), t('admin.formServiceNotInitialized'));
       return;
     }
     try {
       showConfirm({
-        title: 'Reset Database',
-        message:
-          'Are you sure you want to delete ALL observations? This action cannot be undone.',
+        title: t('admin.resetDatabaseTitle'),
+        message: t('admin.resetDatabaseMessage'),
         buttons: [
-          { text: 'Cancel', onPress: () => {}, variant: 'tertiary' },
+          { text: t('common.cancel'), onPress: () => {}, variant: 'tertiary' },
           {
-            text: 'Reset Database',
+            text: t('admin.resetDatabaseButton'),
             variant: 'danger',
             onPress: async () => {
               setLoading(true);
               await formService.resetDatabase();
               await loadData();
-              Alert.alert('Success', 'Database has been reset successfully.');
+              Alert.alert(t('common.success'), t('admin.resetDatabaseSuccess'));
             },
           },
         ],
       });
     } catch (error) {
       console.error('Error resetting database:', error);
-      Alert.alert('Error', 'Failed to reset database');
+      Alert.alert(t('common.error'), t('admin.resetDatabaseFailed'));
       setLoading(false);
     }
   };

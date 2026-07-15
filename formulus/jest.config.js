@@ -3,6 +3,8 @@ export default {
   testMatch: ['**/__tests__/**/*.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
   moduleNameMapper: {
     '^@babel/runtime/(.*)$': '<rootDir>/node_modules/@babel/runtime/$1',
+    '^react-native-localize$':
+      '<rootDir>/src/testUtils/mocks/reactNativeLocalize.js',
   },
   // Vendored packages ship their own Jest suites; they are not part of this app.
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/third_party/'],
@@ -15,6 +17,7 @@ export default {
   ],
   // WatermelonDB / Loki can leave handles open in Jest; force exit avoids hung workers.
   forceExit: true,
-  // Set a timeout for the entire test suite
+  // React Native's jest preset still pulls jest-environment-node@29; jest-runtime@30.4+
+  // calls clearMocksOnScope which that mocker lacks. Pin jest to 30.3.x (see package.json).
   testTimeout: 30000,
 };

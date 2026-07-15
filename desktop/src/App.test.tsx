@@ -6,6 +6,12 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
 }));
 
+vi.mock('./lib/bundleTauriEvents', () => ({
+  ensureBundleApplyEventPipeline: vi.fn().mockResolvedValue(undefined),
+  installGlobalIndexRebuildListener: vi.fn(() => () => {}),
+  bundleBannerLineFromProgress: vi.fn((p: { message: string }) => p.message),
+}));
+
 import App from './App';
 
 const { defaultSettings } = vi.hoisted(() => ({
@@ -75,7 +81,7 @@ vi.mock('./lib/tauriClient', () => ({
       .fn()
       .mockResolvedValue('/tmp/custodian-ws/bundles/app-bundle.zip'),
     getAppBundleState: vi.fn().mockResolvedValue(null),
-    applyAppBundleDownload: vi.fn(),
+    downloadAndApplyAppBundle: vi.fn(),
     listActiveBundleForms: vi.fn().mockResolvedValue([]),
     readBundleFormSpec: vi.fn(),
     removeWorkspaceAttachment: vi.fn(),

@@ -4,8 +4,9 @@ import {
   DefaultTheme,
   DarkTheme,
 } from '@react-navigation/native';
-import { StatusBar, Alert } from 'react-native';
+import { StatusBar, Alert, View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { I18nextProvider } from 'react-i18next';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
 import {
@@ -25,6 +26,7 @@ import SignatureCaptureModal from './src/components/SignatureCaptureModal';
 import MainAppNavigator from './src/navigation/MainAppNavigator';
 import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
 import { FormSpec } from './src/services';
+import { initFormulusI18n, i18n } from './src/i18n';
 
 /**
  * Inner component that consumes the AppTheme context to build a dynamic
@@ -315,16 +317,35 @@ function AppInner(): React.JSX.Element {
  * custom app's brand colors are available to all native UI elements.
  */
 function App(): React.JSX.Element {
+  const [i18nReady, setI18nReady] = useState(false);
+
+  useEffect(() => {
+    void initFormulusI18n().then(() => setI18nReady(true));
+  }, []);
+
+  if (!i18nReady) {
+    return (
+      <SafeAreaProvider>
+        <View
+          style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
-    <SafeAreaProvider>
-      <SyncProvider>
-        <AppThemeProvider>
-          <ConfirmModalProvider>
-            <AppInner />
-          </ConfirmModalProvider>
-        </AppThemeProvider>
-      </SyncProvider>
-    </SafeAreaProvider>
+    <I18nextProvider i18n={i18n}>
+      <SafeAreaProvider>
+        <SyncProvider>
+          <AppThemeProvider>
+            <ConfirmModalProvider>
+              <AppInner />
+            </ConfirmModalProvider>
+          </AppThemeProvider>
+        </SyncProvider>
+      </SafeAreaProvider>
+    </I18nextProvider>
   );
 }
 

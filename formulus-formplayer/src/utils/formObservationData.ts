@@ -9,6 +9,10 @@ export const FORMPARAMS_NON_DATA_KEYS = new Set([
   'theme',
   'darkMode',
   'themeColors',
+  // UI locale from host — not observation data (distinct from optional schema `locale` field).
+  'locale',
+  // Form translation locale from host — stamped on submit as observation metadata.
+  'formLocale',
   // Reserved read-only session context channel (see App init): a custom app may
   // pass `params.context` with session info (device role, selected cluster, ...)
   // that must never be persisted as observation data.
@@ -135,13 +139,13 @@ export function applySchemaDefaultTokens(
 }
 
 /**
- * Observation JSON should match root `schema.properties` (plus optional extras like `locale`).
+ * Observation JSON should match root `schema.properties` (plus optional extras like `locale`, `formLocale`).
  * Strips leaked host/UI keys and survives older rows that embedded `theme`, `themeColors`, etc.
  */
 export function dataMatchingSchemaRoot(
   data: FormObservationData,
   formSchema: unknown,
-  extraRootKeys: string[] = ['locale'],
+  extraRootKeys: string[] = ['locale', 'formLocale'],
 ): FormObservationData {
   if (!data || typeof data !== 'object') {
     return {};
@@ -210,7 +214,7 @@ export function coerceSchemaRootIntegers(
 export function prepareRootObservationData(
   data: FormObservationData,
   formSchema: unknown,
-  extraRootKeys: string[] = ['locale'],
+  extraRootKeys: string[] = ['locale', 'formLocale'],
 ): FormObservationData {
   return coerceSchemaRootIntegers(
     dataMatchingSchemaRoot(data, formSchema, extraRootKeys),

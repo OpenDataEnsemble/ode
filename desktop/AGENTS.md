@@ -41,7 +41,9 @@ Persisted per profile via `upsertProfileRemote` / Rust `ServerProfile`.
 | Off  | `bundles/active/app/`             | `bundles/active/forms/`                                        |
 | On   | `bundles/dev-local/app/` (mirror) | `bundles/dev-local/forms/` (mirror if `<folder>/forms` exists) |
 
-Synk downloads and **Refresh from server** on the Bundles page only touch `bundles/active/`. The source folder on disk is **never** modified.
+Synk downloads and **Download & apply** on the Bundles page only touch `bundles/active/`. The source folder on disk is **never** modified.
+
+**Bundle download:** `download_and_apply_app_bundle` (TS: `tauriClient.downloadAndApplyAppBundle()`) — native Rust HTTP download; no zip bytes over IPC. Progress events: `bundle/apply-progress`, `bundle/index-rebuild`. Observation index rebuild runs in the background after apply.
 
 ### UI
 
@@ -64,13 +66,15 @@ On success, Zustand bumps `devMirrorGeneration` so embeds and form lists reload.
 - `src/hooks/useDeveloperMode.ts` — profile read/write, refresh, generation counter from store.
 - `src/components/DeveloperModePanel.tsx` — full vs banner UI; auto-mirror `useEffect` only on `variant="full"`.
 - `src/lib/bundleLayout.ts` — `bundleSegment()`, `bundleFormsRel()`.
-- `src/store/useCustodianStore.ts` — `devMirrorGeneration`, `devBusy`, `devError`, `refreshDevMirror`.
+- `src/store/useCustodianStore.ts` — `devMirrorGeneration`, `devBusy`, `devError`, `refreshDevMirror`, `bundleActivity`.
+- `src/lib/bundleTauriEvents.ts` — bundle apply progress listeners.
 
 ### Key Rust
 
 - `profile_developer_mode`, `bundle_segment`, `bundle_form_roots_for_ctx`
 - Dev-aware: `list_active_bundle_forms`, `read_bundle_form_spec`, `get_active_bundle_forms_file_base_url`, `scan_bundle_custom_question_types`, `bundle_app_config_path`
-- Tests: `validate_custom_app_dev_source_requires_index_html`, `mirror_custom_app_dev_folder_copies_tree`
+- `download_and_apply_app_bundle` — streamed Synkronus zip download + apply (never pass large binaries through WebView IPC as `number[]`)
+- Tests: `validate_custom_app_dev_source_requires_index_html`, `mirror_custom_app_dev_folder_copies_tree`, `apply_app_bundle_zip_at_workspace_writes_state_and_active`
 
 ### Errors
 
@@ -81,7 +85,7 @@ Developer mode on with missing/invalid folder → blocking error in UI; no silen
 ## Bridge and bundles
 
 - **Contract source of truth:** [`formulus/src/webview/FormulusInterfaceDefinition.ts`](../formulus/src/webview/FormulusInterfaceDefinition.ts).
-- **Form preview:** `formPreviewBridge.ts` handles injection `postMessage` types; device APIs stubbed; observations/attachments use Tauri.
+- **Form preview:** `formPreviewBridge.ts` handles injection `postMessage` types; device APIs stubbed; observations/attachments use Tauri. **`linkedFormSpecs`** on `FormInitData` is populated via `buildLinkedFormSpecs` (see `buildFormPreviewInit.ts`) so sub-observation column headers match Formulus.
 - **Extensions:** `bundleExtensionLoader.ts` merges `forms/ext.json` like Formulus `ExtensionService`; pass `developerMode` for path prefix.
 
 ---

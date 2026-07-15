@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Button from './Button';
 
 export type SyncStatus = 'all' | 'synced' | 'pending';
@@ -15,10 +16,11 @@ const SyncStatusButtons: React.FC<SyncStatusButtonsProps> = ({
   onStatusChange,
   containerStyle,
 }) => {
+  const { t } = useTranslation();
   const buttons: { id: SyncStatus; label: string }[] = [
-    { id: 'all', label: 'All' },
-    { id: 'synced', label: 'Synced' },
-    { id: 'pending', label: 'Pending' },
+    { id: 'all', label: t('filters.all') },
+    { id: 'synced', label: t('filters.synced') },
+    { id: 'pending', label: t('filters.pending') },
   ];
 
   return (

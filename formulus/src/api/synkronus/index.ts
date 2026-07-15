@@ -37,6 +37,7 @@ import {
   type SyncProgress,
   type SyncProgressReporter,
 } from '../../sync/syncProgress';
+import { i18n } from '../../i18n/instance';
 
 const REPOSITORY_GENERATION_STORAGE_KEY = '@repository_generation';
 
@@ -434,7 +435,7 @@ class SynkronusApi {
         current: 0,
         total: 0,
         indeterminate: true,
-        details: 'Checking for attachments…',
+        details: i18n.t('sync.progress.checkingAttachments'),
       });
 
       console.debug(
@@ -486,7 +487,7 @@ class SynkronusApi {
           phase: 'pull_attachments',
           current: 1,
           total: 1,
-          details: 'Up to date',
+          details: i18n.t('sync.progress.upToDate'),
         });
         return;
       }
@@ -1102,7 +1103,7 @@ class SynkronusApi {
       current: 0,
       total: 0,
       indeterminate: true,
-      details: 'Connecting…',
+      details: i18n.t('sync.progress.connecting'),
     });
 
     do {
@@ -1177,10 +1178,12 @@ class SynkronusApi {
         indeterminate: true,
         details:
           totalServerRecordsThisPull > 0
-            ? `${totalServerRecordsThisPull.toLocaleString()} records downloaded`
+            ? i18n.t('sync.progress.recordsDownloaded', {
+                count: totalServerRecordsThisPull,
+              })
             : res.data.has_more
-              ? `Downloading (page ${pullPage})…`
-              : 'Downloading…',
+              ? i18n.t('sync.progress.downloadingPage', { page: pullPage })
+              : i18n.t('sync.progress.downloading'),
       });
 
       console.debug('Pulled observations: ', domainObservations);
@@ -1202,8 +1205,10 @@ class SynkronusApi {
       total: 1,
       details:
         totalServerRecordsThisPull > 0
-          ? `${totalServerRecordsThisPull.toLocaleString()} records`
-          : 'Up to date',
+          ? i18n.t('sync.progress.recordsSummary', {
+              count: totalServerRecordsThisPull,
+            })
+          : i18n.t('sync.progress.upToDate'),
     });
 
     logRepositoryGenerationSync('syncPull all pages done', {
@@ -1301,7 +1306,7 @@ class SynkronusApi {
           phase: 'push_observations',
           current: 1,
           total: 1,
-          details: 'Nothing to upload',
+          details: i18n.t('sync.progress.nothingToUpload'),
         });
         const skipGen = await this.getRepositoryGenerationForRequestOrNull();
         const lastSeen =
@@ -1355,7 +1360,9 @@ class SynkronusApi {
         current: 0,
         total: 1,
         indeterminate: true,
-        details: `Uploading ${localChanges.length} observation${localChanges.length === 1 ? '' : 's'}…`,
+        details: i18n.t('sync.progress.uploadingObservations', {
+          count: localChanges.length,
+        }),
       });
 
       console.debug(
@@ -1415,7 +1422,7 @@ class SynkronusApi {
         phase: 'push_observations',
         current: 1,
         total: 1,
-        details: 'Upload complete',
+        details: i18n.t('sync.progress.uploadComplete'),
       });
 
       return res.data.current_version;

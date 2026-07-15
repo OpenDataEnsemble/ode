@@ -21,6 +21,7 @@ import {
 import { Button } from '@ode/components/react-web';
 import { Delete as DeleteIcon } from '@mui/icons-material';
 import { draftService, DraftSummary } from '../services/DraftService';
+import { useOdeT } from '../i18n/useOdeT';
 
 interface DraftSelectorProps {
   /** The form type to show drafts for */
@@ -50,6 +51,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   fullScreen = false,
 }) => {
   const theme = useTheme();
+  const t = useOdeT();
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
@@ -64,12 +66,19 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
     const oldDraftCount = draftService.getOldDraftCount();
     if (oldDraftCount > 0) {
       setCleanupMessage(
-        `${oldDraftCount} draft${
-          oldDraftCount === 1 ? '' : 's'
-        } older than 7 days will be automatically removed.`,
+        oldDraftCount === 1
+          ? t(
+              'draft.cleanupOldOne',
+              '1 draft older than 7 days will be automatically removed.',
+            )
+          : t(
+              'draft.cleanupOldMany',
+              '{{count}} drafts older than 7 days will be automatically removed.',
+              { count: oldDraftCount },
+            ),
       );
     }
-  }, [formType, formVersion]);
+  }, [formType, formVersion, t]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -111,7 +120,9 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
         <Typography
           variant="subtitle2"
           sx={{ fontWeight: 600, mb: 0.75, textAlign: 'left' }}>
-          Recent drafts ({drafts.length})
+          {t('draft.recentDrafts', 'Recent drafts ({{count}})', {
+            count: drafts.length,
+          })}
         </Typography>
         <Box
           sx={{
@@ -139,7 +150,9 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
                   color="text.primary"
                   noWrap
                   sx={{ textAlign: 'left' }}>
-                  Draft saved {formatDate(draft.updatedAt)}
+                  {t('draft.savedAtLine', 'Draft saved {{date}}', {
+                    date: formatDate(draft.updatedAt),
+                  })}
                 </Typography>
               </Box>
               <Box
@@ -153,7 +166,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
                   variant="neutral"
                   size="small"
                   onPress={() => onResumeDraft(draft.id)}>
-                  Resume
+                  {t('draft.resume', 'Resume')}
                 </Button>
                 <IconButton
                   onClick={() => handleDeleteDraft(draft.id)}
@@ -169,7 +182,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
     ) : (
       <Box sx={{ textAlign: 'left', py: 2, mt: 1 }}>
         <Typography variant="body2" color="text.secondary">
-          No recent drafts found for this form.
+          {t('draft.none', 'No recent drafts found for this form.')}
         </Typography>
       </Box>
     );
@@ -207,13 +220,13 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
             mb: 0.5,
             textAlign: 'left',
           }}>
-          Resume Draft or Start New
+          {t('draft.title', 'Resume Draft or Start New')}
         </Typography>
         <Typography
           variant="body2"
           color="text.secondary"
           sx={{ textAlign: 'left' }}>
-          Form: {formType}
+          {t('draft.formLabel', 'Form: {{formType}}', { formType })}
           {formVersion && (
             <Chip label={`v${formVersion}`} size="small" sx={{ ml: 1 }} />
           )}
@@ -238,7 +251,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
               gutterBottom
               color="text.primary"
               sx={{ fontWeight: 600, textAlign: 'left' }}>
-              New Form
+              {t('draft.newFormSection', 'New Form')}
             </Typography>
             <Box sx={{ textAlign: 'center', mt: 0.5 }}>
               <Button
@@ -246,7 +259,7 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
                 size="medium"
                 onPress={onStartNew}
                 style={{ minWidth: 180 }}>
-                Start New Form
+                {t('draft.startNew', 'Start New Form')}
               </Button>
             </Box>
           </Box>
@@ -260,21 +273,23 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
           <Dialog
             open={deleteConfirmOpen}
             onClose={() => setDeleteConfirmOpen(false)}>
-            <DialogTitle>Delete Draft</DialogTitle>
+            <DialogTitle>{t('draft.delete', 'Delete Draft')}</DialogTitle>
             <DialogContent>
               <Typography>
-                Are you sure you want to delete this draft? This action cannot
-                be undone.
+                {t(
+                  'draft.deleteConfirm',
+                  'Are you sure you want to delete this draft? This action cannot be undone.',
+                )}
               </Typography>
             </DialogContent>
             <DialogActions>
               <Button
                 variant="neutral"
                 onPress={() => setDeleteConfirmOpen(false)}>
-                Cancel
+                {t('draft.cancel', 'Cancel')}
               </Button>
               <Button variant="danger" onPress={confirmDeleteDraft}>
-                Delete
+                {t('draft.delete', 'Delete')}
               </Button>
             </DialogActions>
           </Dialog>

@@ -1,7 +1,7 @@
 {
   "name": "synkronus-portal",
   "private": true,
-  "version": "1.1.1",
+  "version": "1.2.0",
   "packageManager": "pnpm@10.33.2",
   "license": "MIT",
   "type": "module",
@@ -20,6 +20,7 @@
     "@ode/components": "file:../packages/components",
     "@ode/tokens": "file:../packages/tokens",
     "axios": "^1.13.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-icons": "^5.5.0"
@@ -28,6 +29,7 @@
     "@eslint/js": "^9.39.2",
     "@openapitools/openapi-generator-cli": "^2.26.0",
     "@types/node": "^24.10.9",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",

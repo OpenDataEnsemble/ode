@@ -4,11 +4,13 @@ Single source of truth for how the shell surfaces status, errors, and confirmati
 
 ## Progress banner (full-width)
 
-**Use for:** long-running sync and import jobs only.
+**Use for:** long-running sync, import, and **app bundle download/apply** jobs.
 
 - Renders below the mode switch / dev bar in `Shell`.
-- Shows spinner + status text; dismissible but reappears on next activity.
-- Do not use for quick actions (save, auth, bundle download).
+- Shows spinner + status text; optional determinate progress bar when `bundleActivity.total > 0`.
+- Dismissible but reappears on next activity.
+- Bundle apply: Rust emits `bundle/apply-progress` and `bundle/index-rebuild`; `bundleActivity` in `useCustodianStore` drives the banner.
+- Do not use for quick actions (save, auth, dev mirror refresh).
 
 ## Toasts (bottom-right stack)
 
@@ -32,7 +34,7 @@ Single source of truth for how the shell surfaces status, errors, and confirmati
 
 **Use for:** destructive actions, import-with-issues, closing unsaved observation tabs.
 
-- `confirmDestructiveAction()` for destructive flows (always strict production-tier wording).
+- `confirmDestructiveAction()` for destructive flows (clear, profile-scoped wording).
 - `confirm()` from `@tauri-apps/plugin-dialog` for save-anyway / import-anyway / tab discard (Save / Don't save / Cancel via separate flows).
 
 ## Retired patterns

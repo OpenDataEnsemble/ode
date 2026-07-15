@@ -24,7 +24,7 @@ const preview: Preview = {
     Story => (
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <div style={{ padding: 24, maxWidth: 640 }}>
+        <div style={{ padding: 16, width: '100%', maxWidth: 640 }}>
           <ClearFormulusBridgeCache>
             <Story />
           </ClearFormulusBridgeCache>

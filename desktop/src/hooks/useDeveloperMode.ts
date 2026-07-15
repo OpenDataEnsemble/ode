@@ -1,4 +1,7 @@
-import { open } from '@tauri-apps/plugin-dialog';
+import {
+  openSessionFolderDialog,
+  SESSION_FOLDER_DIALOG_KEYS,
+} from '../lib/sessionFolderDialog';
 import { useCallback } from 'react';
 import {
   selectActiveProfileState,
@@ -49,12 +52,11 @@ export function useDeveloperMode() {
   );
 
   const pickLocalFolder = useCallback(async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
+    const selected = await openSessionFolderDialog({
+      key: SESSION_FOLDER_DIALOG_KEYS.developerLocalApp,
       title: 'Select local custom app folder',
     });
-    if (selected == null || Array.isArray(selected)) {
+    if (!selected) {
       return;
     }
     await persistProfilePatch({

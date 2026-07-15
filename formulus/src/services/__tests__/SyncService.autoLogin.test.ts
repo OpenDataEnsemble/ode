@@ -113,6 +113,11 @@ jest.mock('../FormService', () => ({
     }),
   },
 }));
+jest.mock('../FormLocaleIndexService', () => ({
+  formLocaleIndexService: {
+    refreshIndex: jest.fn().mockResolvedValue([]),
+  },
+}));
 
 import {
   jest,

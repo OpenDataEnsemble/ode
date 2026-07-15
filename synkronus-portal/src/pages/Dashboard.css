@@ -2996,6 +2996,99 @@ html::-webkit-scrollbar-thumb:hover {
   transform: rotate(90deg);
 }
 
+.suggest-password-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-brand-primary-400, #60a5fa);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.suggest-password-btn:hover:not(:disabled) {
+  color: var(--color-brand-primary-300, #93c5fd);
+  text-decoration: underline;
+}
+
+.suggest-password-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field .modal-input,
+.password-field .ode-input {
+  width: 100%;
+}
+
+.password-field .modal-input input,
+.password-field .ode-input input {
+  padding-right: 2.5rem !important;
+}
+
+.password-field-toggle {
+  position: absolute;
+  right: var(--spacing-2);
+  bottom: 0;
+  height: 38px;
+  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--color-neutral-400);
+  cursor: pointer;
+  border-radius: var(--border-radius-md);
+}
+
+.password-field-toggle:hover:not(:disabled) {
+  color: var(--color-neutral-50);
+}
+
+.password-field-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.password-field-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-1);
+}
+
+.password-field-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+  color: var(--color-neutral-400);
+}
+
+[data-theme='light'] .suggest-password-btn {
+  color: var(--color-brand-primary-600, #2563eb);
+}
+
+[data-theme='light'] .password-field-toggle {
+  color: var(--color-neutral-500);
+}
+
+[data-theme='light'] .password-field-toggle:hover:not(:disabled) {
+  color: var(--color-neutral-900);
+}
+
+[data-theme='light'] .password-field-hint {
+  color: var(--color-neutral-500);
+}
+
 [data-theme='light'] .modal-close {
   color: var(--color-text-primary);
 }

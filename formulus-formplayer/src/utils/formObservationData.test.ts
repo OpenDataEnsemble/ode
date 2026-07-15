@@ -25,6 +25,8 @@ describe('initialFormDataFromParams', () => {
       theme: 'dark',
       darkMode: true,
       themeColors: { primary: '#000' },
+      locale: 'pt',
+      formLocale: 'fj',
       species: 'oak',
     };
     expect(initialFormDataFromParams(params)).toEqual({ species: 'oak' });
@@ -47,11 +49,13 @@ describe('dataMatchingSchemaRoot', () => {
       themeColors: { z: 1 },
       junk: true,
       locale: 'sv',
+      formLocale: 'fj',
     };
     const schema = { properties: { name: { type: 'string' } } };
     expect(dataMatchingSchemaRoot(data, schema)).toEqual({
       name: 'x',
       locale: 'sv',
+      formLocale: 'fj',
     });
   });
 

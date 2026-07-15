@@ -3,6 +3,8 @@ import { openPath } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UnsavedChangesDialog } from '../components/UnsavedChangesDialog';
+import { ObservationEditorAccordion } from '../components/ObservationEditorAccordion';
+import { ObservationOverviewTab } from '../components/ObservationOverviewTab';
 import {
   createNewObservationSaveRequest,
   DEFAULT_OBSERVATION_FORM_VERSION,
@@ -27,6 +29,7 @@ import { useToastStore } from '../store/useToastStore';
 import type {
   BundleFormSpec,
   ObservationExtras,
+  ObservationOverviewResult,
   ObservationRecord,
   SaveObservationRequest,
 } from '../types/domain';
@@ -133,6 +136,7 @@ export function ObservationsPage() {
     observationsTotal,
     observationListParams,
     formTypes,
+    health,
     loadObservations,
     loadFormTypes,
     saveObservation,
@@ -142,7 +146,13 @@ export function ObservationsPage() {
   const [search, setSearch] = useState('');
   const [formTypeFilter, setFormTypeFilter] = useState<string>('');
   const [filter, setFilter] = useState<FilterMode>('all');
-  const [activeTab, setActiveTab] = useState<'list' | string>('list');
+  const [activeTab, setActiveTab] = useState<'overview' | 'list' | string>(
+    'overview',
+  );
+  const [overviewData, setOverviewData] =
+    useState<ObservationOverviewResult | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [openTabs, setOpenTabs] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ObservationEditorDraft>>(
     {},
@@ -154,6 +164,41 @@ export function ObservationsPage() {
   const [pendingCloseId, setPendingCloseId] = useState<string | null>(null);
 
   const formTypeSkipFirst = useRef(true);
+
+  const loadOverview = useCallback(async () => {
+    setOverviewLoading(true);
+    setOverviewError(null);
+    try {
+      const result = await tauriClient.getObservationOverview();
+      setOverviewData(result);
+    } catch (e) {
+      setOverviewError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOverviewLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      void loadOverview();
+    }
+  }, [activeTab, loadOverview]);
+
+  const overviewHealthKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (activeTab !== 'overview' || !health) {
+      return;
+    }
+    const key = `${health.totalObservations}:${health.lastSaveAt ?? ''}:${health.lastPullAt ?? ''}:${health.lastPushAt ?? ''}`;
+    if (overviewHealthKeyRef.current === null) {
+      overviewHealthKeyRef.current = key;
+      return;
+    }
+    if (overviewHealthKeyRef.current !== key) {
+      overviewHealthKeyRef.current = key;
+      void loadOverview();
+    }
+  }, [activeTab, health, loadOverview]);
 
   useEffect(() => {
     void loadFormTypes();
@@ -533,45 +578,9 @@ export function ObservationsPage() {
         ? [...referencedNamesForObservation(spec?.formSchema, dataObj)]
         : [];
 
-    return (
-      <div className="observation-form">
-        <div className="button-row editor-header">
-          <button
-            type="button"
-            className="btn-icon"
-            onClick={() => void saveTab(id)}>
-            <span className="material-symbols-outlined" aria-hidden>
-              save
-            </span>
-            Save
-          </button>
-          <button
-            type="button"
-            className="secondary danger btn-icon"
-            disabled={draft.deleted}
-            onClick={() => void deleteTab(id)}>
-            <span className="material-symbols-outlined" aria-hidden>
-              delete
-            </span>
-            Delete
-          </button>
-          <button
-            type="button"
-            className="secondary btn-icon"
-            disabled={!ft}
-            onClick={() => editInFormplayer(id)}>
-            <span className="material-symbols-outlined" aria-hidden>
-              edit
-            </span>
-            Edit in formplayer
-          </button>
-        </div>
-
-        {draft.validationSummary ? (
-          <p className="notice warn">{draft.validationSummary}</p>
-        ) : null}
-
-        <div className="section-heading">
+    const metadataPanel = (
+      <>
+        <div className="section-heading observation-editor-subheading">
           <h4>Repository</h4>
           <hr />
         </div>
@@ -606,8 +615,8 @@ export function ObservationsPage() {
           </tbody>
         </table>
 
-        <div className="section-heading">
-          <h4>Metadata</h4>
+        <div className="section-heading observation-editor-subheading">
+          <h4>Envelope</h4>
           <hr />
         </div>
         <table className="form-table">
@@ -744,15 +753,58 @@ export function ObservationsPage() {
             </tr>
           </tbody>
         </table>
+      </>
+    );
 
-        <div className="section-heading">
-          <h4>data</h4>
-          <hr />
+    return (
+      <div className="observation-form observation-form-editor">
+        <div className="button-row editor-header">
+          <button
+            type="button"
+            className="btn-icon"
+            onClick={() => void saveTab(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              save
+            </span>
+            Save
+          </button>
+          <button
+            type="button"
+            className="secondary danger btn-icon"
+            disabled={draft.deleted}
+            onClick={() => void deleteTab(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              delete
+            </span>
+            Delete
+          </button>
+          <button
+            type="button"
+            className="secondary btn-icon"
+            disabled={!ft}
+            onClick={() => editInFormplayer(id)}>
+            <span className="material-symbols-outlined" aria-hidden>
+              edit
+            </span>
+            Edit in formplayer
+          </button>
         </div>
-        <textarea
-          className="editor"
-          value={draft.data}
-          onChange={e => updateDraft(id, { data: e.target.value })}
+
+        {draft.validationSummary ? (
+          <p className="notice warn">{draft.validationSummary}</p>
+        ) : null}
+
+        <ObservationEditorAccordion
+          formTypeLabel={ft || undefined}
+          metadata={metadataPanel}
+          dataEditor={
+            <textarea
+              id={`obs-data-${id}`}
+              className="editor observation-editor-data-textarea"
+              value={draft.data}
+              onChange={e => updateDraft(id, { data: e.target.value })}
+            />
+          }
         />
       </div>
     );
@@ -891,6 +943,14 @@ export function ObservationsPage() {
         <button
           type="button"
           role="tab"
+          className={`tab${activeTab === 'overview' ? ' tab-active' : ''}`}
+          aria-selected={activeTab === 'overview'}
+          onClick={() => setActiveTab('overview')}>
+          Overview
+        </button>
+        <button
+          type="button"
+          role="tab"
           className={`tab${activeTab === 'list' ? ' tab-active' : ''}`}
           aria-selected={activeTab === 'list'}
           onClick={() => setActiveTab('list')}>
@@ -941,8 +1001,21 @@ export function ObservationsPage() {
         ) : null}
       </div>
 
-      <div className="tab-content" role="tabpanel">
-        {activeTab === 'list' ? renderListTab() : renderEditorTab(activeTab)}
+      <div
+        className={`tab-content${activeTab === 'overview' ? ' tab-content--overview' : ''}${activeTab !== 'overview' && activeTab !== 'list' ? ' tab-content--editor' : ''}`}
+        role="tabpanel">
+        {activeTab === 'overview' ? (
+          <ObservationOverviewTab
+            data={overviewData}
+            loading={overviewLoading}
+            error={overviewError}
+            onRefresh={() => void loadOverview()}
+          />
+        ) : activeTab === 'list' ? (
+          renderListTab()
+        ) : (
+          renderEditorTab(activeTab)
+        )}
       </div>
 
       <UnsavedChangesDialog

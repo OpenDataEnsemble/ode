@@ -31,6 +31,11 @@ If you run `pnpm install` only in formulus-formplayer, the tokens package’s `p
 
 Use `pnpm run build:copy` to build the project and copy the bundle into the Formulus app (Android + iOS) and ODE Desktop (`desktop/public/formplayer_dist/`).
 
+## Internationalization
+
+- **ODE chrome** — `src/locales/{en,pt,fr}.json`, wired via `createOdeI18n()` and JsonForms `i18n`. Host sets `params.locale`.
+- **Form copy** — optional `translations` objects on `ui.json`; merged once at init by `applyFormUiTranslations()`. See [form translations](https://opendataensemble.org/docs/guides/form-translations).
+
 ## Javascript interface
 
 The javascript interface made available to the custom app is as follows:
@@ -203,6 +208,15 @@ After formplayer changes, verify on a phone WebView (or ODE Desktop form preview
 | `age_years` > 120                         | Single validation error via QuestionShell                    |
 
 Rebuild formplayer (`pnpm run build:copy`) before testing in Formulus or Desktop developer mode.
+
+## Built-in question types: Likert scale and duration
+
+`format: "likert"` and `format: "duration"` are **built-in** renderers (same pattern as `photo`, `gps`, `signature`) — not app-bundle `question_types/`.
+
+- Likert: `src/renderers/LikertScaleQuestionRenderer.tsx` + `src/components/likert/`. Storybook: `Question Renderers/LikertScaleQuestionRenderer`.
+- Duration: `src/renderers/DurationQuestionRenderer.tsx` + `src/components/duration/`. Storybook: `Question Renderers/DurationQuestionRenderer`.
+
+Form-author configuration (schema `likert` / `duration` objects, display modes, colour, presets, layout, N/A) is documented on the docs site under **Reference → Form Specifications → Question Types** (`docs/reference/form-specifications.md`). Update that page when adding or changing options.
 
 ## Validation error display
 

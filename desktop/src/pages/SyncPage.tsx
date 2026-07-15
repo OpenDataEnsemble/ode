@@ -1,22 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ForcePushMissingAttachmentsDialog } from '../components/ForcePushMissingAttachmentsDialog';
+import { useProfileAutoSynkAuth } from '../hooks/useProfileAutoSynkAuth';
 import { tauriClient } from '../lib/tauriClient';
-import { tryAutoSynkAuth } from '../lib/autoSynkAuth';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
 import {
   auditPendingPushMissingAttachments,
   type MissingAttachmentIssue,
 } from '../lib/pushAttachmentAudit';
-import { productionPushConfirmDetail } from '../lib/syncUiCopy';
+import { pushConfirmMessage } from '../lib/syncUiCopy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
-  selectAuthSessionForActiveProfile,
+  selectBundleActivity,
   selectPausedSyncJob,
   selectSyncActivity,
   useCustodianStore,
 } from '../store/useCustodianStore';
+import { ensureBundleApplyEventPipeline } from '../lib/bundleTauriEvents';
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
@@ -26,9 +27,12 @@ function formatDate(value?: string | null) {
 
 export function SyncPage() {
   const activeProfile = useCustodianStore(selectActiveProfileState);
-  const authSession = useCustodianStore(selectAuthSessionForActiveProfile);
+  const { authSession, authBlocked, ensureAuth } = useProfileAutoSynkAuth(
+    activeProfile?.id,
+  );
   const syncActivity = useCustodianStore(selectSyncActivity);
   const syncPausedJob = useCustodianStore(selectPausedSyncJob);
+  const bundleActivity = useCustodianStore(selectBundleActivity);
   const {
     synkPull,
     synkPush,
@@ -51,7 +55,6 @@ export function SyncPage() {
     profileLabel,
   );
 
-  const [authBlocked, setAuthBlocked] = useState(false);
   const [missingAttachmentIssues, setMissingAttachmentIssues] = useState<
     MissingAttachmentIssue[] | null
   >(null);
@@ -59,49 +62,35 @@ export function SyncPage() {
     activeGeneration: number;
     lastRebuildAt?: string | null;
   } | null>(null);
-  const [indexRebuildBusy, setIndexRebuildBusy] = useState(false);
 
-  useEffect(() => {
-    void (async () => {
-      const ok = await tryAutoSynkAuth();
-      setAuthBlocked(
-        !ok && !selectAuthSessionForActiveProfile(useCustodianStore.getState()),
-      );
-    })();
-  }, [activeProfile?.id]);
+  const indexRebuildBusy = bundleActivity !== null;
 
-  useEffect(() => {
-    void loadHealth();
-    void refreshPausedSyncJob();
+  const refreshIndexStatus = useCallback(() => {
     void tauriClient
       .getObservationIndexStatus()
       .then(setIndexStatus)
       .catch(() => setIndexStatus(null));
-  }, [loadHealth, refreshPausedSyncJob]);
+  }, []);
 
-  async function ensureAuth(): Promise<boolean> {
-    if (authSession?.token) {
-      return true;
+  useEffect(() => {
+    void loadHealth();
+    void refreshPausedSyncJob();
+    refreshIndexStatus();
+  }, [loadHealth, refreshPausedSyncJob, refreshIndexStatus]);
+
+  useEffect(() => {
+    if (bundleActivity !== null) {
+      return;
     }
-    const ok = await tryAutoSynkAuth();
-    if (!ok) {
-      setAuthBlocked(true);
-      return false;
-    }
-    setAuthBlocked(false);
-    return true;
-  }
+    refreshIndexStatus();
+  }, [bundleActivity, refreshIndexStatus]);
 
   async function recreateObservationIndexes() {
-    setIndexRebuildBusy(true);
+    await ensureBundleApplyEventPipeline();
     try {
-      const result = await tauriClient.rebuildObservationIndexes();
-      setIndexStatus({
-        activeGeneration: result.generation,
-        lastRebuildAt: result.lastRebuildAt ?? null,
-      });
-    } finally {
-      setIndexRebuildBusy(false);
+      await tauriClient.startObservationIndexRebuild();
+    } catch {
+      /* store error if we wire one later */
     }
   }
 
@@ -156,7 +145,7 @@ export function SyncPage() {
     if (
       !(await confirmDestructiveAction(
         'push',
-        productionPushConfirmDetail(dirtyCount),
+        pushConfirmMessage(dirtyCount, profileLabel),
       ))
     ) {
       return;

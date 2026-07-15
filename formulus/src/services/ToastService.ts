@@ -1,4 +1,5 @@
 import { ToastAndroid, Platform, Alert } from 'react-native';
+import { i18n } from '../i18n/instance';
 
 /**
  * Cross-platform toast notification service
@@ -13,7 +14,7 @@ export class ToastService {
       ToastAndroid.show(message, ToastAndroid.SHORT);
     } else {
       // iOS fallback - could be replaced with a third-party toast library
-      Alert.alert('Info', message);
+      Alert.alert(i18n.t('common.info'), message);
     }
   }
 
@@ -25,7 +26,7 @@ export class ToastService {
       ToastAndroid.show(message, ToastAndroid.LONG);
     } else {
       // iOS fallback
-      Alert.alert('Info', message);
+      Alert.alert(i18n.t('common.info'), message);
     }
   }
 

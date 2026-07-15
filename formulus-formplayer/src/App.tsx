@@ -14,7 +14,11 @@ import {
   materialRenderers,
   materialCells,
 } from '@jsonforms/material-renderers';
-import { JsonSchema7, JsonFormsRendererRegistryEntry } from '@jsonforms/core';
+import {
+  JsonSchema7,
+  JsonFormsRendererRegistryEntry,
+  UISchemaElement,
+} from '@jsonforms/core';
 import {
   Alert,
   Snackbar,
@@ -46,6 +50,16 @@ import {
   applyStickyDefaults,
 } from './utils/stickyFieldHelpers';
 import { stickyService } from './services/StickyService';
+import { applyFormUiTranslations } from './i18n/applyFormUiTranslations';
+import {
+  resolveEffectiveFormLocale,
+  stampFormLocaleOnObservationData,
+} from './i18n/formLocaleUtils';
+import { LinkedFormSpecsMap } from './utils/controlDisplayText';
+import { createOdeI18n } from './i18n/createOdeI18n';
+import { odeT } from './i18n/createOdeI18n';
+import { resolveFormplayerLocale, type OdeUiLocale } from './i18n/localeUtils';
+import { FormplayerLocaleContext } from './i18n/FormplayerLocaleContext';
 
 import SwipeLayoutRenderer, {
   swipeLayoutTester,
@@ -88,6 +102,13 @@ import SubObservationQuestionRenderer, {
 } from './renderers/SubObservationQuestionRenderer';
 import { shellMaterialRenderers } from './theme/material-wrappers';
 import { numberStepperRenderer } from './renderers/NumberStepperRenderer';
+import LikertScaleQuestionRenderer, {
+  likertScaleQuestionTester,
+} from './renderers/LikertScaleQuestionRenderer';
+import { injectLikertNotApplicable } from './components/likert/likertConfig';
+import DurationQuestionRenderer, {
+  durationQuestionTester,
+} from './renderers/DurationQuestionRenderer';
 import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
 import ShellInputControl, {
   shellInputControlTester,
@@ -151,6 +172,30 @@ function isMockActive(): boolean {
     typeof window !== 'undefined' &&
     (window as any).__FORMULUS_MOCK_ACTIVE__
   );
+}
+
+/** When formplayer runs outside a native WebView (and dev mock is off), fail fast without an effect. */
+function getStandaloneBrowserInitState(): {
+  isLoading: boolean;
+  loadError: string | null;
+} {
+  if (typeof window === 'undefined') {
+    return { isLoading: true, loadError: null };
+  }
+  if (window.ReactNativeWebView?.postMessage) {
+    return { isLoading: true, loadError: null };
+  }
+  if (isMockActive()) {
+    return { isLoading: true, loadError: null };
+  }
+  return {
+    isLoading: false,
+    loadError: odeT(
+      'en',
+      'form.noNativeHost',
+      'Cannot communicate with native host. Formplayer might be running in a standalone browser.',
+    ),
+  };
 }
 const DevTestbedLazy = import.meta.env.DEV
   ? React.lazy(() => import('./mocks/DevTestbed'))
@@ -291,6 +336,27 @@ interface FormContextType {
    * debounce races where `handleChange` alone does not reach `onChange` in time.
    */
   commitFormData?: (data: Record<string, unknown>) => void;
+  /** Localized specs for linked child forms (sub-observation column labels). */
+  linkedFormSpecs?: LinkedFormSpecsMap;
+}
+
+function prepareLinkedFormSpecs(
+  raw: FormInitData['linkedFormSpecs'],
+  formLocale: string,
+): LinkedFormSpecsMap {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: LinkedFormSpecsMap = {};
+  for (const [id, spec] of Object.entries(raw)) {
+    if (!spec || typeof spec !== 'object') continue;
+    const schema = spec.schema as JsonSchema7 | undefined;
+    const uiRaw = spec.uiSchema as UISchemaElement | undefined;
+    if (!schema || !uiRaw) continue;
+    out[id] = {
+      schema,
+      uiSchema: applyFormUiTranslations(uiRaw, formLocale) as UISchemaElement,
+    };
+  }
+  return out;
 }
 
 export const FormContext = createContext<FormContextType>({
@@ -298,6 +364,7 @@ export const FormContext = createContext<FormContextType>({
   keyboardEnterKeyHint: undefined,
   draftSessionKey: null,
   commitFormData: undefined,
+  linkedFormSpecs: undefined,
 });
 
 export const useFormContext = () => useContext(FormContext);
@@ -318,6 +385,8 @@ export const customRenderers = [
   { tester: gpsQuestionTester, renderer: GPSQuestionRenderer },
   { tester: videoQuestionTester, renderer: VideoQuestionRenderer },
   { tester: qrcodeQuestionTester, renderer: QrcodeQuestionRenderer },
+  { tester: likertScaleQuestionTester, renderer: LikertScaleQuestionRenderer },
+  { tester: durationQuestionTester, renderer: DurationQuestionRenderer },
   { tester: htmlLabelTester, renderer: HtmlLabelRenderer },
   { tester: adateQuestionTester, renderer: AdateQuestionRenderer },
   {
@@ -350,8 +419,12 @@ function App() {
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [uischema, setUISchema] = useState<FormUISchema | null>(null);
 
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    () => getStandaloneBrowserInitState().isLoading,
+  );
+  const [loadError, setLoadError] = useState<string | null>(
+    () => getStandaloneBrowserInitState().loadError,
+  );
   const [showFinalizeMessage, setShowFinalizeMessage] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [formInitData, setFormInitData] = useState<FormInitData | null>(null);
@@ -391,10 +464,20 @@ function App() {
   const [validationMode, setValidationMode] = useState<
     'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
   >('ValidateAndShow');
+  const [uiLocale, setUiLocale] = useState<OdeUiLocale>('en');
+  const uiLocaleRef = useRef(uiLocale);
+  uiLocaleRef.current = uiLocale;
+  const [linkedFormSpecs, setLinkedFormSpecs] = useState<
+    LinkedFormSpecsMap | undefined
+  >(undefined);
+
+  const odeI18n = useMemo(() => createOdeI18n(uiLocale), [uiLocale]);
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
-  const isLoadingRef = useRef<boolean>(true); // Use a ref to track loading state for the timeout
+  const isLoadingRef = useRef<boolean>(
+    getStandaloneBrowserInitState().isLoading,
+  );
 
   // Separate function to handle actual form initialization
   const initializeForm = useCallback(
@@ -429,6 +512,15 @@ function App() {
         );
 
         setFormInitData(initData);
+
+        const resolvedLocale = resolveFormplayerLocale(
+          (params as Record<string, unknown> | null)?.locale,
+        );
+        const resolvedFormLocale = resolveEffectiveFormLocale(params);
+        setUiLocale(resolvedLocale);
+        setLinkedFormSpecs(
+          prepareLinkedFormSpecs(initData.linkedFormSpecs, resolvedFormLocale),
+        );
 
         // Debug: log schema details, especially x-dynamicEnum usage
         try {
@@ -571,26 +663,30 @@ function App() {
             'formSchema was not provided. Form rendering might fail or be incomplete.',
           );
           setLoadError(
-            'Form schema is missing. Form rendering might fail or be incomplete.',
+            odeT(
+              resolvedLocale,
+              'form.schemaMissing',
+              'Form schema is missing. Form rendering might fail or be incomplete.',
+            ),
           );
           setSchema({} as FormSchema); // Set to empty schema or handle as per requirements
           // First ensure SwipeLayout root, then process to ensure Finalize element is present
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(null);
-          const processedUISchema = processUISchemaWithFinalize(
-            swipeLayoutUISchema,
-            skipFinalize,
+          const withLocale = applyFormUiTranslations(
+            processUISchemaWithFinalize(swipeLayoutUISchema, skipFinalize),
+            resolvedFormLocale,
           );
-          setUISchema(processedUISchema);
+          setUISchema(withLocale);
         } else {
-          setSchema(formSchema as FormSchema);
+          setSchema(injectLikertNotApplicable(formSchema) as FormSchema);
           const swipeLayoutUISchema = ensureSwipeLayoutRoot(
             uiSchema as FormUISchema,
           );
-          const processedUISchema = processUISchemaWithFinalize(
-            swipeLayoutUISchema,
-            skipFinalize,
+          const withLocale = applyFormUiTranslations(
+            processUISchemaWithFinalize(swipeLayoutUISchema, skipFinalize),
+            resolvedFormLocale,
           );
-          setUISchema(processedUISchema);
+          setUISchema(withLocale);
         }
 
         const formSchemaTyped = formSchema as FormSchema | null;
@@ -693,7 +789,12 @@ function App() {
           error instanceof Error
             ? error.message
             : 'Unknown error during form initialization';
-        setLoadError(`Error initializing form: ${errorMessage}`);
+        const errorLocale = resolveFormplayerLocale(
+          (initData.params as Record<string, unknown> | null)?.locale,
+        );
+        setLoadError(
+          `${odeT(errorLocale, 'form.errorInitializing', 'Error initializing form')}: ${errorMessage}`,
+        );
         setIsLoading(false);
         isLoadingRef.current = false;
       }
@@ -721,7 +822,13 @@ function App() {
           console.error(
             'formType is crucial and was not provided in onFormInit. Cannot proceed.',
           );
-          setLoadError('Form ID is missing. Cannot initialize form.');
+          setLoadError(
+            odeT(
+              resolveFormplayerLocale(initData.params?.locale),
+              'form.missingFormId',
+              'Form ID is missing. Cannot initialize form.',
+            ),
+          );
           if (
             window.ReactNativeWebView &&
             window.ReactNativeWebView.postMessage
@@ -757,8 +864,12 @@ function App() {
             console.log(
               `Found ${availableDrafts.length} draft(s) for form ${receivedFormType}, showing draft selector`,
             );
-            // Apply theme from params so draft selector respects light/dark mode
+            // Apply theme and locale from params so draft selector matches the session
             const params = initData.params;
+            const resolvedLocale = resolveFormplayerLocale(
+              (params as Record<string, unknown> | null)?.locale,
+            );
+            setUiLocale(resolvedLocale);
             const isDarkMode = params?.darkMode === true;
             setDarkMode(isDarkMode);
             if (params?.themeColors && typeof params.themeColors === 'object') {
@@ -781,7 +892,9 @@ function App() {
           error instanceof Error
             ? error.message
             : 'Unknown error during form initialization';
-        setLoadError(`Error processing form data: ${errorMessage}`);
+        setLoadError(
+          `${odeT(resolveFormplayerLocale(initData.params?.locale), 'form.errorProcessing', 'Error processing form data')}: ${errorMessage}`,
+        );
         if (
           window.ReactNativeWebView &&
           window.ReactNativeWebView.postMessage
@@ -816,9 +929,7 @@ function App() {
 
     globalAny.__formplayerOnInitRegistered = true;
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoading(true);
-    isLoadingRef.current = true;
+    // isLoading / isLoadingRef already start true (see useState/useRef above).
 
     console.log('Registering window.onFormInit handler.');
     globalAny.onFormInit = handleFormInitByNative;
@@ -840,26 +951,10 @@ function App() {
       console.log('Debug - NODE_ENV:', process.env.NODE_ENV);
       console.log('Debug - isMockActive():', isMockActive());
       console.log('Debug - isLoadingRef.current:', isLoadingRef.current);
-
-      // Potentially set an error or handle standalone mode if WebView context isn't available
-      // For example, if running in a standard browser for development
-      if (isLoadingRef.current) {
-        // Avoid setting error if already handled by timeout or success
-        if (isMockActive()) {
-          console.log(
-            'Development mode: WebView mock is active, continuing without error',
-          );
-          // Don't set error in development mode when mock is active
-        } else {
-          console.log(
-            'Setting error message because mock is not active or not in development',
-          );
-          setLoadError(
-            'Cannot communicate with native host. Formplayer might be running in a standalone browser.',
-          );
-          setIsLoading(false);
-          isLoadingRef.current = false;
-        }
+      if (!isMockActive() && isLoadingRef.current) {
+        console.log(
+          'Standalone browser without native host (load error set at init).',
+        );
       }
     }
 
@@ -884,7 +979,11 @@ function App() {
               '[Formplayer] onFormInit timeout: Form failed to initialize after extended wait.',
             );
             setLoadError(
-              'Failed to initialize form: No data received from native host. Please try again.',
+              odeT(
+                uiLocaleRef.current,
+                'form.initTimeout',
+                'Failed to initialize form: No data received from native host. Please try again.',
+              ),
             );
             setIsLoading(false);
             isLoadingRef.current = false;
@@ -915,7 +1014,7 @@ function App() {
         console.log('Unregistered window.onFormInit handler.');
       }
     };
-  }, [handleFormInitByNative]); // Dependency: re-run if handleFormInitByNative changes
+  }, [handleFormInitByNative]);
 
   // Attachment handling is now fully encapsulated within individual components
   // using the Promise-based media/action APIs exposed by Formulus.
@@ -948,6 +1047,8 @@ function App() {
       return typeof data === 'string' && dateRegex.test(data);
     });
     instance.addFormat('sub-observation', () => true);
+    instance.addFormat('likert', () => true);
+    instance.addFormat('duration', () => true);
 
     // Register custom question type formats with AJV
     // Custom question types use "format": "formatName" in schemas (not "type")
@@ -1132,24 +1233,38 @@ function App() {
           '[App.tsx] Cannot finalize form: formInitData is missing',
         );
         setSubmitError(
-          'Cannot submit form because initialization data is missing.',
+          odeT(
+            uiLocale,
+            'form.submitMissingInit',
+            'Cannot submit form because initialization data is missing.',
+          ),
         );
         return;
       }
 
       const rootPayload = prepareRootObservationData(rawPayload ?? {}, schema);
+      const effectiveFormLocale = resolveEffectiveFormLocale(
+        payloadFormInit.params,
+      );
       const { errors: finalizeValidatorErrors, data: payloadData } =
         runCustomValidatorsAndRefreshData(
           uischema ?? undefined,
           schema ?? undefined,
-          rootPayload as Record<string, unknown>,
+          stampFormLocaleOnObservationData(
+            rootPayload as Record<string, unknown>,
+            effectiveFormLocale,
+          ),
           ajv,
         );
 
       if (finalizeValidatorErrors.length > 0) {
         setCustomValidatorErrors(finalizeValidatorErrors);
         setSubmitError(
-          'Cannot submit form until custom validation errors are resolved.',
+          odeT(
+            uiLocale,
+            'form.submitValidatorErrors',
+            'Cannot submit form until custom validation errors are resolved.',
+          ),
         );
         return;
       }
@@ -1188,7 +1303,13 @@ function App() {
         })
         .catch(error => {
           console.error('[App.tsx] Error submitting form:', error);
-          setSubmitError('Failed to submit form. Please try again.');
+          setSubmitError(
+            odeT(
+              uiLocale,
+              'form.submitFailed',
+              'Failed to submit form. Please try again.',
+            ),
+          );
         });
     };
 
@@ -1227,7 +1348,15 @@ function App() {
         handleRevalidate as EventListener,
       );
     };
-  }, [formInitData, draftSessionKey, uischema, schema, ajv, refreshFormData]);
+  }, [
+    formInitData,
+    draftSessionKey,
+    uischema,
+    schema,
+    ajv,
+    refreshFormData,
+    uiLocale,
+  ]);
 
   // Create dynamic theme based on dark mode preference and custom app colors.
   // When a custom app provides themeColors, they override the default palette
@@ -1264,13 +1393,15 @@ function App() {
   if (showDraftSelector && pendingFormInit) {
     return (
       <ThemeProvider theme={currentTheme}>
-        <DraftSelector
-          formType={pendingFormInit.formType}
-          formVersion={(pendingFormInit.formSchema as any)?.version}
-          onResumeDraft={handleResumeDraft}
-          onStartNew={handleStartNewForm}
-          fullScreen={true}
-        />
+        <FormplayerLocaleContext.Provider value={uiLocale}>
+          <DraftSelector
+            formType={pendingFormInit.formType}
+            formVersion={(pendingFormInit.formSchema as any)?.version}
+            onResumeDraft={handleResumeDraft}
+            onStartNew={handleStartNewForm}
+            fullScreen={true}
+          />
+        </FormplayerLocaleContext.Provider>
       </ThemeProvider>
     );
   }
@@ -1288,10 +1419,14 @@ function App() {
         }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
-          Loading form...
+          {odeT(uiLocale, 'form.loading', 'Loading form...')}
         </Typography>
         <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-          Waiting for data from Formulus...
+          {odeT(
+            uiLocale,
+            'form.waitingForData',
+            'Waiting for data from Formulus...',
+          )}
         </Typography>
       </Box>
     );
@@ -1316,7 +1451,7 @@ function App() {
             variant="h6"
             color="error"
             sx={{ mb: 2, textAlign: 'center' }}>
-            Error Loading Form
+            {odeT(uiLocale, 'form.errorLoading', 'Error Loading Form')}
           </Typography>
           <Typography
             variant="body2"
@@ -1344,7 +1479,7 @@ function App() {
         }}>
         <CircularProgress />
         <Typography variant="h6" sx={{ mt: 2 }}>
-          Loading form...
+          {odeT(uiLocale, 'form.loading', 'Loading form...')}
         </Typography>
       </Box>
     );
@@ -1361,110 +1496,122 @@ function App() {
 
   return (
     <ThemeProvider theme={currentTheme}>
-      <FormContext.Provider
-        value={{ formInitData, draftSessionKey, commitFormData }}>
-        <div
-          className="App"
-          style={{
-            display: 'flex',
-            height: '100%', // Fill WebView; host resizes for keyboard (adjustResize)
-            width: '100%',
-            backgroundColor: currentTheme.palette.background.default, // Ensure dark background
-            color: currentTheme.palette.text.primary,
+      <FormplayerLocaleContext.Provider value={uiLocale}>
+        <FormContext.Provider
+          value={{
+            formInitData,
+            draftSessionKey,
+            commitFormData,
+            linkedFormSpecs,
           }}>
-          {/* Main app content - 60% width in development mode */}
           <div
+            className="App"
             style={{
-              width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
-              overflow: 'hidden', // Prevent outer scrolling - FormLayout handles scrolling internally
-              padding: tokens.spacing[1],
-              boxSizing: 'border-box',
-              height: '100%', // Ensure it takes full height
-              backgroundColor: 'transparent', // Use theme background
+              display: 'flex',
+              height: '100%', // Fill WebView; host resizes for keyboard (adjustResize)
+              width: '100%',
+              backgroundColor: currentTheme.palette.background.default, // Ensure dark background
+              color: currentTheme.palette.text.primary,
             }}>
-            <ErrorBoundary>
-              {loadError ? (
-                <Box
-                  sx={{
-                    padding: tokens.spacing[5],
-                    backgroundColor: 'error.light',
-                    border: `${tokens.border.width.thin} solid`,
-                    borderColor: 'error.main',
-                    borderRadius: tokens.border.radius.md, // Match button border radius
-                    color: 'error.dark',
-                  }}>
-                  <Typography variant="h6" color="error">
-                    Error Loading Form
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    {loadError}
-                  </Typography>
-                </Box>
-              ) : (
-                <>
-                  <FormEvaluationProvider functions={extensionFunctions}>
-                    <JsonForms
-                      schema={schema}
-                      uischema={uischema}
-                      data={data}
-                      renderers={[
-                        ...shellMaterialRenderers,
-                        ...materialRenderers,
-                        ...customRenderers,
-                        ...customTypeRenderers, // Custom question types from custom_app
-                        ...extensionRenderers, // Extension renderers (highest priority)
-                      ]}
-                      cells={materialCells}
-                      onChange={handleDataChange}
-                      validationMode={validationMode}
-                      ajv={ajv}
-                      additionalErrors={customValidatorErrors}
-                    />
-                  </FormEvaluationProvider>
-                  {/* Success Snackbar */}
-                  <Snackbar
-                    open={showFinalizeMessage}
-                    autoHideDuration={6000}
-                    onClose={() => setShowFinalizeMessage(false)}>
-                    <Alert
-                      onClose={() => setShowFinalizeMessage(false)}
-                      severity="info">
-                      Form submitted successfully!
-                    </Alert>
-                  </Snackbar>
-                  {/* Error Snackbar for submit failures */}
-                  <Snackbar
-                    open={Boolean(submitError)}
-                    autoHideDuration={6000}
-                    onClose={() => setSubmitError(null)}>
-                    <Alert
-                      onClose={() => setSubmitError(null)}
-                      severity="error">
-                      {submitError}
-                    </Alert>
-                  </Snackbar>
-                </>
-              )}
-            </ErrorBoundary>
-          </div>
-
-          {/* Development testbed - 40% width in development mode (lazy-loaded, not in production bundle) */}
-          {DevTestbedLazy && (
+            {/* Main app content - 60% width in development mode */}
             <div
               style={{
-                width: '40%',
-                borderLeft: `${tokens.border.width.medium} solid ${tokens.color.neutral[200]}`,
-                backgroundColor: tokens.color.neutral[50],
+                width: process.env.NODE_ENV === 'development' ? '60%' : '100%',
+                overflow: 'hidden', // Prevent outer scrolling - FormLayout handles scrolling internally
+                padding: tokens.spacing[1],
+                boxSizing: 'border-box',
+                height: '100%', // Ensure it takes full height
+                backgroundColor: 'transparent', // Use theme background
               }}>
               <ErrorBoundary>
-                <React.Suspense fallback={null}>
-                  <DevTestbedLazy isVisible={true} />
-                </React.Suspense>
+                {loadError ? (
+                  <Box
+                    sx={{
+                      padding: tokens.spacing[5],
+                      backgroundColor: 'error.light',
+                      border: `${tokens.border.width.thin} solid`,
+                      borderColor: 'error.main',
+                      borderRadius: tokens.border.radius.md, // Match button border radius
+                      color: 'error.dark',
+                    }}>
+                    <Typography variant="h6" color="error">
+                      Error Loading Form
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      {loadError}
+                    </Typography>
+                  </Box>
+                ) : (
+                  <>
+                    <FormEvaluationProvider functions={extensionFunctions}>
+                      <JsonForms
+                        schema={schema}
+                        uischema={uischema}
+                        data={data}
+                        i18n={odeI18n}
+                        renderers={[
+                          ...shellMaterialRenderers,
+                          ...materialRenderers,
+                          ...customRenderers,
+                          ...customTypeRenderers, // Custom question types from custom_app
+                          ...extensionRenderers, // Extension renderers (highest priority)
+                        ]}
+                        cells={materialCells}
+                        onChange={handleDataChange}
+                        validationMode={validationMode}
+                        ajv={ajv}
+                        additionalErrors={customValidatorErrors}
+                      />
+                    </FormEvaluationProvider>
+                    {/* Success Snackbar */}
+                    <Snackbar
+                      open={showFinalizeMessage}
+                      autoHideDuration={6000}
+                      onClose={() => setShowFinalizeMessage(false)}>
+                      <Alert
+                        onClose={() => setShowFinalizeMessage(false)}
+                        severity="info">
+                        {odeT(
+                          uiLocale,
+                          'form.submitSuccess',
+                          'Form submitted successfully!',
+                        )}
+                      </Alert>
+                    </Snackbar>
+                    {/* Error Snackbar for submit failures */}
+                    <Snackbar
+                      open={Boolean(submitError)}
+                      autoHideDuration={6000}
+                      onClose={() => setSubmitError(null)}>
+                      <Alert
+                        onClose={() => setSubmitError(null)}
+                        severity="error">
+                        {submitError}
+                      </Alert>
+                    </Snackbar>
+                  </>
+                )}
               </ErrorBoundary>
             </div>
-          )}
-        </div>
-      </FormContext.Provider>
+
+            {/* Development testbed - 40% width in development mode (lazy-loaded, not in production bundle) */}
+            {DevTestbedLazy && (
+              <div
+                style={{
+                  width: '40%',
+                  borderLeft: `${tokens.border.width.medium} solid ${tokens.color.neutral[200]}`,
+                  backgroundColor: tokens.color.neutral[50],
+                }}>
+                <ErrorBoundary>
+                  <React.Suspense fallback={null}>
+                    <DevTestbedLazy isVisible={true} />
+                  </React.Suspense>
+                </ErrorBoundary>
+              </div>
+            )}
+          </div>
+        </FormContext.Provider>
+      </FormplayerLocaleContext.Provider>
     </ThemeProvider>
   );
 }

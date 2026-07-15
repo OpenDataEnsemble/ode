@@ -24,6 +24,7 @@ import { WorkbenchCustomAppPage } from './pages/WorkbenchCustomAppPage';
 import { useSynkServerStatus } from './hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
+  selectBundleActivity,
   selectSyncActivity,
   useCustodianStore,
 } from './store/useCustodianStore';
@@ -31,7 +32,12 @@ import {
   selectImportActivity,
   useImportStagingStore,
 } from './store/useImportStagingStore';
+import { guardedProfileNavigation } from './store/useProfileDraftGuardStore';
 import { useToastStore } from './store/useToastStore';
+import {
+  ensureBundleApplyEventPipeline,
+  installGlobalIndexRebuildListener,
+} from './lib/bundleTauriEvents';
 import './App.css';
 
 const DATA_NAV = [
@@ -82,7 +88,11 @@ function ModeSwitch() {
   const upsertProfileRemote = useCustodianStore(s => s.upsertProfileRemote);
 
   async function goData() {
-    navigate('/data/profiles');
+    await guardedProfileNavigation(
+      navigate,
+      '/data/profiles',
+      location.pathname,
+    );
     if (active) {
       await upsertProfileRemote({
         ...active,
@@ -92,7 +102,11 @@ function ModeSwitch() {
   }
 
   async function goWorkbench() {
-    navigate('/workbench/bundles');
+    await guardedProfileNavigation(
+      navigate,
+      '/workbench/bundles',
+      location.pathname,
+    );
     if (active) {
       await upsertProfileRemote({
         ...active,
@@ -159,6 +173,46 @@ function RootRedirect() {
   return <Navigate to={to} replace />;
 }
 
+function SidebarNavLink({
+  to,
+  end,
+  icon,
+  label,
+}: {
+  to: string;
+  end?: boolean;
+  icon: string;
+  label: string;
+}) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+      onClick={e => {
+        if (
+          e.metaKey ||
+          e.ctrlKey ||
+          e.shiftKey ||
+          e.altKey ||
+          e.button !== 0
+        ) {
+          return;
+        }
+        if (location.pathname === '/data/profiles' && to !== '/data/profiles') {
+          e.preventDefault();
+          void guardedProfileNavigation(navigate, to, location.pathname);
+        }
+      }}>
+      <span className="material-symbols-outlined">{icon}</span>
+      <span>{label}</span>
+    </NavLink>
+  );
+}
+
 function Shell() {
   const year = useMemo(() => new Date().getFullYear(), []);
   const location = useLocation();
@@ -168,11 +222,35 @@ function Shell() {
   const clearSyncMessage = useCustodianStore(s => s.clearSyncMessage);
   const pushToast = useToastStore(s => s.pushToast);
   const syncActivity = useCustodianStore(selectSyncActivity);
+  const bundleActivity = useCustodianStore(selectBundleActivity);
   const importActivity = useImportStagingStore(selectImportActivity);
-  const activityText: string | null =
-    syncActivity?.statusText ?? importActivity?.statusText ?? null;
+  const setBundleActivity = useCustodianStore(s => s.setBundleActivity);
+  const clearBundleActivity = useCustodianStore(s => s.clearBundleActivity);
 
-  const activityPresent = syncActivity !== null || importActivity !== null;
+  useEffect(() => {
+    void ensureBundleApplyEventPipeline();
+    return installGlobalIndexRebuildListener({
+      setBundleActivity,
+      clearBundleActivity,
+    });
+  }, [setBundleActivity, clearBundleActivity]);
+
+  const activityText: string | null =
+    syncActivity?.statusText ??
+    bundleActivity?.statusText ??
+    importActivity?.statusText ??
+    null;
+
+  const activityProgress =
+    bundleActivity && bundleActivity.total > 0
+      ? Math.min(
+          100,
+          Math.round((bundleActivity.done / bundleActivity.total) * 100),
+        )
+      : null;
+
+  const activityPresent =
+    syncActivity !== null || bundleActivity !== null || importActivity !== null;
   const [activityBannerDismissed, setActivityBannerDismissed] = useState(false);
 
   useEffect(() => {
@@ -225,18 +303,15 @@ function Shell() {
         <ModeSwitch />
         <nav className="nav">
           {navItems.map(item => (
-            <NavLink
+            <SidebarNavLink
               key={item.to}
               to={item.to}
               end={
                 item.to === '/data/profiles' || item.to === '/workbench/bundles'
               }
-              className={({ isActive }) =>
-                `nav-link${isActive ? ' active' : ''}`
-              }>
-              <span className="material-symbols-outlined">{item.icon}</span>
-              <span>{item.label}</span>
-            </NavLink>
+              icon={item.icon}
+              label={item.label}
+            />
           ))}
         </nav>
         <footer className="sidebar-footer">
@@ -257,6 +332,19 @@ function Shell() {
               <div className="app-sync-banner-body">
                 <span className="btn-spinner" aria-hidden />
                 <span>{activityText}</span>
+                {activityProgress !== null ? (
+                  <div
+                    className="activity-progress"
+                    role="progressbar"
+                    aria-valuenow={activityProgress}
+                    aria-valuemin={0}
+                    aria-valuemax={100}>
+                    <div
+                      className="activity-progress-fill"
+                      style={{ width: `${activityProgress}%` }}
+                    />
+                  </div>
+                ) : null}
               </div>
               <button
                 type="button"

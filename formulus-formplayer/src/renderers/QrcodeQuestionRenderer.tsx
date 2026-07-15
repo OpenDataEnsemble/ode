@@ -22,6 +22,10 @@ import { ControlProps, rankWith, formatIs } from '@jsonforms/core';
 import FormulusClient from '../services/FormulusInterface';
 import { QrcodeResult } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
+import {
+  resolveControlDescription,
+  resolveControlLabel,
+} from '../utils/controlDisplayText';
 
 /**
  * Tester function — matches any schema field with "format": "qrcode".
@@ -37,16 +41,17 @@ export const qrcodeQuestionTester = rankWith(
   formatIs('qrcode'),
 );
 
-const QrcodeQuestionRenderer: React.FC<ControlProps> = ({
-  data,
-  handleChange,
-  path,
-  errors,
-  schema,
-  uischema,
-  enabled = true,
-  visible = true,
-}) => {
+const QrcodeQuestionRenderer: React.FC<ControlProps> = props => {
+  const {
+    data,
+    handleChange,
+    path,
+    errors,
+    schema,
+    uischema,
+    enabled = true,
+    visible = true,
+  } = props;
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -135,8 +140,8 @@ const QrcodeQuestionRenderer: React.FC<ControlProps> = ({
     return null;
   }
 
-  const label = (uischema as any)?.label || schema.title || 'QR Code';
-  const description = schema.description;
+  const label = resolveControlLabel(props) || 'QR Code';
+  const description = resolveControlDescription(props) ?? schema.description;
   const isRequired = Boolean(
     (uischema as any)?.options?.required ??
     (schema as any)?.options?.required ??

@@ -22,9 +22,28 @@ import {
   useImportStagingStore,
 } from '../store/useImportStagingStore';
 import { messageFromUnknown } from '../lib/errors';
+import { ensureBundleApplyEventPipeline } from '../lib/bundleTauriEvents';
 import { useCustodianStore } from '../store/useCustodianStore';
+import {
+  openSessionFolderDialog,
+  SESSION_FOLDER_DIALOG_KEYS,
+} from '../lib/sessionFolderDialog';
 
 const MAX_INDIVIDUAL_FILES = 20;
+
+/** Host copy batch size — keeps IPC payloads and UI updates manageable. */
+const ATTACHMENT_COPY_CHUNK_SIZE = 400;
+
+/** Observation write batch size — one index rebuild after the final batch only. */
+const IMPORT_WRITE_CHUNK_SIZE = 2000;
+
+function formatAttachmentCopyProgress(done: number, total: number): string {
+  if (total <= 0) {
+    return 'Copying attachments…';
+  }
+  const pct = Math.min(100, Math.round((done / total) * 100));
+  return `Copying attachments (${done}/${total}, ${pct}%)…`;
+}
 
 function formatBytes(n: number) {
   if (n < 1024) {
@@ -255,20 +274,21 @@ export function ImportPage() {
 
   const pickImportFolder = useCallback(async () => {
     try {
-      const selected = await open({
-        directory: true,
-        multiple: false,
-        recursive: true,
-        title: 'Choose folder to import',
+      const selected = await openSessionFolderDialog({
+        key: SESSION_FOLDER_DIALOG_KEYS.importFolder,
+        multiple: true,
+        title: 'Choose folder(s) to import',
       });
-      const paths = normalizeDialogPaths(selected);
-      if (!paths.length) {
+      if (!selected?.length) {
         return;
       }
       setImportActivity({
         statusText: 'Scanning folder for import files…',
       });
-      const expanded = await tauriClient.expandImportStagingPaths(paths, null);
+      const expanded = await tauriClient.expandImportStagingPaths(
+        selected,
+        null,
+      );
       if (expanded.length) {
         addScanEntries(expanded);
       }
@@ -341,6 +361,7 @@ export function ImportPage() {
     statusCtl.push('Reading observation JSON…');
 
     try {
+      await ensureBundleApplyEventPipeline();
       const parsed = await parseObservationJsonPathsViaRust(
         stagedJson.map(s => ({ name: s.name, nativePath: s.nativePath })),
         (done, tot) => statusCtl.push(`Reading JSON (${done}/${tot})…`),
@@ -405,12 +426,34 @@ export function ImportPage() {
       }
 
       const observations = flattenObservations(report.parsedFiles);
-      statusCtl.push(
-        `Writing ${observations.length} observations to local store…`,
-      );
-      const result = await tauriClient.importObservations(observations, {
-        markPending: true,
-      });
+      const writeTotal = observations.length;
+      let imported = 0;
+      let conflicts = 0;
+      let indexRebuildScheduled = false;
+
+      for (
+        let offset = 0;
+        offset < writeTotal;
+        offset += IMPORT_WRITE_CHUNK_SIZE
+      ) {
+        const chunk = observations.slice(
+          offset,
+          offset + IMPORT_WRITE_CHUNK_SIZE,
+        );
+        const written = Math.min(offset + chunk.length, writeTotal);
+        const isLast = written >= writeTotal;
+        statusCtl.push(`Writing observations (${written}/${writeTotal})…`);
+        const chunkResult = await tauriClient.importObservations(chunk, {
+          markPending: true,
+          scheduleIndexRebuild: isLast,
+        });
+        imported += chunkResult.imported;
+        conflicts += chunkResult.conflicts;
+        indexRebuildScheduled =
+          indexRebuildScheduled || !!chunkResult.indexRebuildScheduled;
+      }
+
+      const result = { imported, conflicts, indexRebuildScheduled };
 
       const stagedNorm = new Map<string, string>();
       for (const s of stagedAttachments) {
@@ -439,27 +482,62 @@ export function ImportPage() {
         });
       }
 
-      let copyErrors: string[] = [];
+      const copyErrors: string[] = [];
       let attachmentsCopied = 0;
       if (copyItems.length > 0) {
-        statusCtl.push(`Copying attachments (0/${copyItems.length})…`);
+        const copyTotal = copyItems.length;
+        const copyStatusCtl = createThrottledImportStatus(
+          setImportActivity,
+          250,
+        );
+        copyStatusCtl.push(formatAttachmentCopyProgress(0, copyTotal));
         const { listen } = await import('@tauri-apps/api/event');
-        const unlisten = await listen<{
-          done: number;
-          total: number;
-          attachmentId: string;
-        }>('import/attachment-copy-progress', e => {
-          statusCtl.push(
-            `Copying attachments (${e.payload.done}/${e.payload.total}) ${e.payload.attachmentId}…`,
-          );
-        });
+        let unlisten: (() => void) | undefined;
         try {
-          const batchResult =
-            await tauriClient.copyWorkspaceAttachmentsBatch(copyItems);
-          copyErrors = batchResult.errors;
-          attachmentsCopied = batchResult.copied;
+          for (
+            let offset = 0;
+            offset < copyItems.length;
+            offset += ATTACHMENT_COPY_CHUNK_SIZE
+          ) {
+            const chunk = copyItems.slice(
+              offset,
+              offset + ATTACHMENT_COPY_CHUNK_SIZE,
+            );
+            const chunkIndex =
+              Math.floor(offset / ATTACHMENT_COPY_CHUNK_SIZE) + 1;
+            const chunkCount = Math.ceil(
+              copyItems.length / ATTACHMENT_COPY_CHUNK_SIZE,
+            );
+            if (chunkCount > 1) {
+              copyStatusCtl.push(
+                `Copying attachments batch ${chunkIndex}/${chunkCount}…`,
+              );
+            }
+            unlisten?.();
+            unlisten = await listen<{
+              done: number;
+              total: number;
+              attachmentId: string;
+            }>('import/attachment-copy-progress', e => {
+              const globalDone = offset + e.payload.done;
+              copyStatusCtl.push(
+                formatAttachmentCopyProgress(globalDone, copyTotal),
+              );
+            });
+            const batchResult =
+              await tauriClient.copyWorkspaceAttachmentsBatch(chunk);
+            copyErrors.push(...batchResult.errors);
+            attachmentsCopied += batchResult.copied;
+            copyStatusCtl.push(
+              formatAttachmentCopyProgress(
+                Math.min(offset + chunk.length, copyTotal),
+                copyTotal,
+              ),
+            );
+          }
         } finally {
-          unlisten();
+          unlisten?.();
+          copyStatusCtl.dispose();
         }
       }
 
@@ -468,11 +546,14 @@ export function ImportPage() {
       await loadHealth();
 
       const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).`;
+      const indexMsg = result.indexRebuildScheduled
+        ? ' Rebuilding observation indexes in the background (see activity banner).'
+        : '';
       const attMsg =
         copyItems.length > 0
           ? ` Copied ${attachmentsCopied}/${copyItems.length} referenced attachment(s) to queue.${copyErrors.length ? ` Errors: ${copyErrors.slice(0, 5).join('; ')}${copyErrors.length > 5 ? '…' : ''}` : ''}`
           : '';
-      setMessage(`${baseMsg}${attMsg}`);
+      setMessage(`${baseMsg}${indexMsg}${attMsg}`);
       clearStagedFiles();
       setPreviewReport(null);
     } catch (e) {
@@ -512,7 +593,7 @@ export function ImportPage() {
             <span className="material-symbols-outlined" aria-hidden>
               folder_open
             </span>
-            Import folder…
+            Import folders…
           </button>
           <button
             type="button"
@@ -538,8 +619,9 @@ export function ImportPage() {
 
         <div
           className={`import-drop-zone${dragOver ? ' import-staging-pane--drag' : ''}`}>
-          Drop up to {MAX_INDIVIDUAL_FILES} JSON / attachment files, or a folder
-          (use Import folder for large trees).
+          Drop up to {MAX_INDIVIDUAL_FILES} JSON / attachment files, or one or
+          more folders (use Import folders for large trees — e.g. observations
+          and attachments together).
         </div>
 
         <p className="muted import-staging-stats">
@@ -561,49 +643,53 @@ export function ImportPage() {
           ) : null}
         </p>
 
-        {stagedJson.length > 0 ? (
-          <div className="import-staging-section">
-            <h4>JSON ({stagedJson.length})</h4>
-            {stagedJson.map(s => (
-              <div key={s.nativePath} className="import-staging-row">
-                <button
-                  type="button"
-                  className="import-staging-row-remove"
-                  aria-label={`Remove ${s.name}`}
-                  disabled={busy}
-                  onClick={() => removeStagedJson(s.nativePath)}>
-                  ×
-                </button>
-                <span className="material-symbols-outlined" aria-hidden>
-                  description
-                </span>
-                <span className="import-staging-row-name">{s.name}</span>
-                <span className="muted">{formatBytes(s.size)}</span>
+        {stagingSummary.jsonCount + stagingSummary.attCount > 0 ? (
+          <div className="import-staging-lists">
+            {stagedJson.length > 0 ? (
+              <div className="import-staging-section">
+                <h4>JSON ({stagedJson.length})</h4>
+                {stagedJson.map(s => (
+                  <div key={s.nativePath} className="import-staging-row">
+                    <button
+                      type="button"
+                      className="import-staging-row-remove"
+                      aria-label={`Remove ${s.name}`}
+                      disabled={busy}
+                      onClick={() => removeStagedJson(s.nativePath)}>
+                      ×
+                    </button>
+                    <span className="material-symbols-outlined" aria-hidden>
+                      description
+                    </span>
+                    <span className="import-staging-row-name">{s.name}</span>
+                    <span className="muted">{formatBytes(s.size)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : null}
+            ) : null}
 
-        {stagedAttachments.length > 0 ? (
-          <div className="import-staging-section">
-            <h4>Attachments ({stagedAttachments.length})</h4>
-            {stagedAttachments.map(s => (
-              <div key={s.nativePath} className="import-staging-row">
-                <button
-                  type="button"
-                  className="import-staging-row-remove"
-                  aria-label={`Remove ${s.name}`}
-                  disabled={busy}
-                  onClick={() => removeStagedAttachment(s.nativePath)}>
-                  ×
-                </button>
-                <span className="material-symbols-outlined" aria-hidden>
-                  attach_file
-                </span>
-                <span className="import-staging-row-name">{s.name}</span>
-                <span className="muted">{formatBytes(s.size)}</span>
+            {stagedAttachments.length > 0 ? (
+              <div className="import-staging-section">
+                <h4>Attachments ({stagedAttachments.length})</h4>
+                {stagedAttachments.map(s => (
+                  <div key={s.nativePath} className="import-staging-row">
+                    <button
+                      type="button"
+                      className="import-staging-row-remove"
+                      aria-label={`Remove ${s.name}`}
+                      disabled={busy}
+                      onClick={() => removeStagedAttachment(s.nativePath)}>
+                      ×
+                    </button>
+                    <span className="material-symbols-outlined" aria-hidden>
+                      attach_file
+                    </span>
+                    <span className="import-staging-row-name">{s.name}</span>
+                    <span className="muted">{formatBytes(s.size)}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
           </div>
         ) : null}
 

@@ -38,18 +38,18 @@ This file gives AI assistants and developers enough context to work effectively 
 
 ## Source layout (high level)
 
-| Area                       | Purpose                                                                                                                                                        |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/App.tsx`              | Main app: JsonForms setup, renderer/cell registration, theme, init from `FormInitData`.                                                                        |
-| `src/index.tsx`            | Entry: mounts React app; exposes `React` and `MaterialUI` on `window` for custom question type renderers.                                                      |
-| `src/renderers/*`          | JSON Forms **renderers** (e.g. signature, photo, sub-observation, file, GPS, swipe layout, finalize). Each has a **tester** (when to use) and a **component**. |
-| `src/theme/`               | MUI theme from `@ode/tokens` via `tokens-adapter.ts`; material wrappers for consistent look.                                                                   |
-| `src/services/`            | `FormulusInterface.ts` (bridge client), `DraftService`, `ExtensionsLoader`, custom question type/validator loaders and registries.                             |
-| `src/types/`               | `FormulusInterfaceDefinition.ts` (synced from formulus), `CustomQuestionTypeContract.ts`, etc.                                                                 |
-| `src/components/`          | Shared UI (e.g. `QuestionShell`, `FormLayout`, `DraftSelector`).                                                                                               |
-| `src/builtinExtensions.ts` | Built-in extension functions (e.g. `getDynamicChoiceList`) used in forms.                                                                                      |
-| `src/mocks/`               | `webview-mock.ts` and `DevTestbed` for local dev without RN.                                                                                                   |
-| `scripts/`                 | `sync-interface.js`, `copy-to-rn.js`, `clean-rn-assets.js`.                                                                                                    |
+| Area                       | Purpose                                                                                                                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/App.tsx`              | Main app: JsonForms setup, renderer/cell registration, theme, init from `FormInitData`.                                                                                          |
+| `src/index.tsx`            | Entry: mounts React app; exposes `React` and `MaterialUI` on `window` for custom question type renderers.                                                                        |
+| `src/renderers/*`          | JSON Forms **renderers** (e.g. signature, photo, likert, duration, sub-observation, file, GPS, swipe layout, finalize). Each has a **tester** (when to use) and a **component**. |
+| `src/theme/`               | MUI theme from `@ode/tokens` via `tokens-adapter.ts`; material wrappers for consistent look.                                                                                     |
+| `src/services/`            | `FormulusInterface.ts` (bridge client), `DraftService`, `ExtensionsLoader`, custom question type/validator loaders and registries.                                               |
+| `src/types/`               | `FormulusInterfaceDefinition.ts` (synced from formulus), `CustomQuestionTypeContract.ts`, etc.                                                                                   |
+| `src/components/`          | Shared UI (e.g. `QuestionShell`, `FormLayout`, `DraftSelector`).                                                                                                                 |
+| `src/builtinExtensions.ts` | Built-in extension functions (e.g. `getDynamicChoiceList`) used in forms.                                                                                                        |
+| `src/mocks/`               | `webview-mock.ts` and `DevTestbed` for local dev without RN.                                                                                                                     |
+| `scripts/`                 | `sync-interface.js`, `copy-to-rn.js`, `clean-rn-assets.js`.                                                                                                                      |
 
 ## Key technical constraints
 
@@ -58,7 +58,26 @@ This file gives AI assistants and developers enough context to work effectively 
 3. **Custom question types**: Loaded from a **manifest** (source strings) from the RN app, evaluated in a sandbox with `React` and `MaterialUI` on `window`. They use **format** in the schema (e.g. `"format": "signature"`), not only `type`. Contract: `src/types/CustomQuestionTypeContract.ts`.
 4. **Design tokens**: Use `@ode/tokens` via `src/theme/tokens-adapter.ts` and the theme in `src/theme/theme.ts`; avoid hardcoding colors/spacing that exist in tokens.
 5. **Attachment-backed builtins** (`photo`, `audio`, `video`, `select_file`): Observation JSON stores **basename-only** `filename` plus portable metadata; RN writes files under **`attachments/draft/`** (etc.). Resolve previews with **`getAttachmentUri`** where applicable. **`select_file`** shows the chosen **name** only—no file preview.
+
+## Internationalization (i18n)
+
+Two **independent** layers:
+
+| Layer      | Owner       | Mechanism                                                                                 |
+| ---------- | ----------- | ----------------------------------------------------------------------------------------- |
+| ODE chrome | ODE         | `src/locales/{en,pt,fr}.json`, `createOdeI18n()`, JsonForms `i18n` prop, `useOdeT()` hook |
+| Form copy  | Form author | Optional `translations` on `ui.json`; `applyFormUiTranslations()` at init in `App.tsx`    |
+
+- Host passes `params.locale` (reserved bridge key, not observation data).
+- Custom question types receive localized `options` from `ui.json` via `CustomQuestionTypeAdapter`.
+- Display labels: `src/utils/controlDisplayText.ts` (`resolveControlLabel`, `resolveFieldLabel`) — use in renderers, SwipeLayout `headerFields`, Finalize, and error summaries instead of ad-hoc `uischema.label || schema.title`.
+- `translations.<locale>.title` aliases to `Control.label` when `label` is absent in that block.
+- Sub-observation column headers: `key` in schema; labels resolved from linked child form via `linkedFormSpecs` on `FormInitData` (Formulus loads at open). See `subObservationColumnLabels.ts`.
+- Docs: [form translations](https://opendataensemble.org/docs/guides/form-translations).
+
 6. **Numeric inputs** (`type: integer` / `type: number`): Built-in control is **`NumberStepperRenderer`** (`src/renderers/NumberStepperRenderer.tsx`) backed by **`useNumericDraftInput`** (`src/hooks/useNumericDraftInput.ts`). Policy: **draft text while focused** (`type="text"` + `inputMode` + `enterKeyHint` from `FormContext`); observation JSON stores **JSON numbers only** (parse on commit, never strings); **never clamp** to `minimum`/`maximum` while typing—surface AJV errors instead. Custom numeric question types must follow the same contract (see `CustomQuestionTypeContract.ts`).
+7. **Likert scale** (`format: "likert"`): Built-in **`LikertScaleQuestionRenderer`** + `src/components/likert/`. Config via schema `likert` object and `oneOf` options. All displays share one standard outlined-cell look; `colorMode` (`neutral` | `spectrum` | `stars`) only accents the **selected** option. Not an app-bundle custom type.
+8. **Duration / timer** (`format: "duration"`): Built-in **`DurationQuestionRenderer`** + `src/components/duration/`. Stores **seconds** as JSON number; stopwatch requires explicit Save before value is committed.
 
 ## Adding or changing behavior
 

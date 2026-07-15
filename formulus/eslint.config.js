@@ -11,6 +11,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/node_modules/**',
+      'third_party/**',
       '**/android/**',
       '**/ios/**',
       '**/coverage/**',
@@ -59,6 +60,14 @@ export default tseslint.config(
   prettierConfig,
   {
     files: ['scripts/**/*.{js,mjs}'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
+    files: ['src/testUtils/**/*.{js,mjs}'],
     languageOptions: {
       globals: {
         ...globals.node,

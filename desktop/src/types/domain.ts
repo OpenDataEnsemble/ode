@@ -57,6 +57,8 @@ export interface ApiObservation {
   data: unknown;
   formType?: string | null;
   updatedAt?: string | null;
+  /** Envelope fields (geolocation, author, tags, …) — stored as observation_extras locally. */
+  extras?: ObservationExtras | null;
 }
 
 /** One file discovered for import staging (Rust walk of dialog/drop paths). */
@@ -95,6 +97,13 @@ export interface ImportResult {
   attachmentsDownloaded?: number;
   /** Download attempts that failed after a manifest op (e.g. HTTP error). */
   attachmentsFailed?: number;
+  /** Background full index rebuild was scheduled after this import. */
+  indexRebuildScheduled?: boolean;
+}
+
+export interface StartObservationIndexRebuildResult {
+  jobId: string;
+  scheduled: boolean;
 }
 
 /** Result of uploading outbound attachment files before `syncPush`. */
@@ -130,6 +139,53 @@ export interface ListObservationsPageResult {
   total: number;
 }
 
+export interface ObservationOverviewRow {
+  formType: string;
+  observationCount: number;
+  pendingSyncCount: number;
+}
+
+export interface ObservationTimelineBucket {
+  bucketStart: string;
+  label: string;
+  count: number;
+}
+
+export interface ObservationOverviewTimeline {
+  bucketUnit: 'day' | 'week';
+  rangeStart: string;
+  rangeEnd: string;
+  buckets: ObservationTimelineBucket[];
+  observationsWithoutDate: number;
+}
+
+export interface ObservationGeolocationSummary {
+  withLocation: number;
+  withoutLocation: number;
+}
+
+export interface ObservationMapPoint {
+  id: string;
+  formType: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface ObservationOverviewMap {
+  points: ObservationMapPoint[];
+  truncated: boolean;
+  cap: number;
+}
+
+export interface ObservationOverviewResult {
+  rows: ObservationOverviewRow[];
+  totals: ObservationOverviewRow;
+  timeline: ObservationOverviewTimeline;
+  geolocationSummary: ObservationGeolocationSummary;
+  map: ObservationOverviewMap;
+  computedAt: string;
+}
+
 export interface AppHealth {
   workspacePath?: string | null;
   dbPath: string;
@@ -156,9 +212,6 @@ export interface AuthSession {
   expiresAt?: number;
 }
 
-/** Client-side server tier for confirmation strictness (mirrors Rust `ProfileEnvironment`). */
-export type ProfileEnvironment = 'production' | 'staging' | 'development';
-
 /** Default sidebar mode when opening the app or switching profiles (mirrors Rust `DefaultAppMode`). */
 export type DefaultAppMode = 'data_management' | 'workbench';
 
@@ -171,8 +224,6 @@ export interface ServerProfile {
   workspacePath?: string | null;
   databasePath: string;
   attachmentsPath?: string | null;
-  /** Client-only guardrail; not sent to Synkronus as an API mode. */
-  environment?: ProfileEnvironment | null;
   /** Which mode subtree to open by default for this profile. */
   defaultAppMode?: DefaultAppMode | null;
   /** When true, Workbench custom app loads from a mirrored local folder instead of `bundles/active`. */
@@ -216,6 +267,35 @@ export interface AppBundleState {
   activeHash: string;
   downloadedAt: string;
   archivedVersions: string[];
+}
+
+export interface DownloadAndApplyAppBundleResult {
+  state: AppBundleState;
+  indexRebuildScheduled: boolean;
+}
+
+export interface PushDevMirrorAppBundleResult {
+  version: string;
+  hash: string;
+  message: string;
+}
+
+export type BundleApplyPhase =
+  | 'downloading'
+  | 'archiving'
+  | 'extracting'
+  | 'indexing'
+  | 'completed'
+  | 'failed';
+
+/** Rust `bundle/apply-progress` and `bundle/index-rebuild` payloads. */
+export interface BundleApplyProgressPayload {
+  jobId: string;
+  phase: BundleApplyPhase;
+  done: number;
+  total: number;
+  message: string;
+  detail?: string;
 }
 
 /** One form folder under `bundles/active/forms/` (or `bundles/active/app/forms/`). */
