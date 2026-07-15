@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isTauri } from '@tauri-apps/api/core';
-import { confirm, message } from '@tauri-apps/plugin-dialog';
+import { confirm } from '@tauri-apps/plugin-dialog';
 import {
   Configuration,
   DefaultApi,
   type AppBundleManifest,
 } from '../generated/synkronus-client';
+import { useProfileAutoSynkAuth } from '../hooks/useProfileAutoSynkAuth';
 import { appBundleUpdateAvailable } from '../lib/appBundleStatus';
 import {
   bundleBannerLineFromProgress,
@@ -17,6 +17,10 @@ import { readBundleCache, writeBundleCache } from '../lib/bundleCacheMeta';
 import { isUnauthorizedSynkError } from '../lib/synkAuthErrors';
 import { SYNKRONUS_CLIENT_VERSION } from '../lib/synkConstants';
 import { tauriClient } from '../lib/tauriClient';
+import {
+  ensureWorkbenchBundleAuth,
+  promptNavigateToProfilesForBundleAuth,
+} from '../lib/workbenchBundleAuth';
 import {
   selectActiveProfileState,
   selectAuthSessionForActiveProfile,
@@ -52,17 +56,6 @@ function bundleButtonLabel(
       return 'Rebuilding indexes…';
     default:
       return 'Applying…';
-  }
-}
-
-async function alertAuthRequired(body: string): Promise<void> {
-  if (isTauri()) {
-    await message(body, {
-      title: 'Authentication required',
-      kind: 'warning',
-    });
-  } else {
-    window.alert(body);
   }
 }
 
@@ -103,9 +96,7 @@ async function fetchServerBundleInfoFromApi(
 export function WorkbenchBundlesPage() {
   const navigate = useNavigate();
   const active = useCustodianStore(selectActiveProfileState);
-  const ensureActiveProfileAuth = useCustodianStore(
-    s => s.ensureActiveProfileAuth,
-  );
+  useProfileAutoSynkAuth(active?.id);
   const recoverActiveProfileAuth = useCustodianStore(
     s => s.recoverActiveProfileAuth,
   );
@@ -175,8 +166,7 @@ export function WorkbenchBundlesPage() {
 
   const promptNavigateToProfiles = useCallback(
     async (body: string) => {
-      await alertAuthRequired(body);
-      navigate('/data/profiles');
+      await promptNavigateToProfilesForBundleAuth(body, navigate);
     },
     [navigate],
   );
@@ -184,30 +174,20 @@ export function WorkbenchBundlesPage() {
   const ensureAuthForBundleOps = useCallback(async (): Promise<
     string | null
   > => {
-    if (!active) {
-      await promptNavigateToProfiles(
-        'Select a profile in Profiles before checking for app bundle updates.',
-      );
-      return null;
-    }
-    if (!baseUrl) {
-      await promptNavigateToProfiles(
-        'Set a server URL for this profile in Profiles before checking for app bundle updates.',
-      );
-      return null;
-    }
-    const ok = await ensureActiveProfileAuth();
-    const token = selectAuthSessionForActiveProfile(
-      useCustodianStore.getState(),
-    )?.token;
-    if (!ok || !token) {
-      await promptNavigateToProfiles(
-        'Could not sign in automatically. Open Profiles to authenticate (save a password or sign in manually).',
-      );
-      return null;
-    }
-    return token;
-  }, [active, baseUrl, ensureActiveProfileAuth, promptNavigateToProfiles]);
+    return ensureWorkbenchBundleAuth({
+      active,
+      baseUrl,
+      onAuthRequired: promptNavigateToProfiles,
+      messages: {
+        noProfile:
+          'Select a profile in Profiles before checking for app bundle updates.',
+        noServerUrl:
+          'Set a server URL for this profile in Profiles before checking for app bundle updates.',
+        authFailed:
+          'Could not sign in automatically. Open Profiles to authenticate (save a password or sign in manually).',
+      },
+    });
+  }, [active, baseUrl, promptNavigateToProfiles]);
 
   const applyDownloadedBundle = useCallback(
     async (m: AppBundleManifest, token: string, skipConfirm: boolean) => {

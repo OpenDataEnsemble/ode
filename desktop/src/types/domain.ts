@@ -274,6 +274,12 @@ export interface DownloadAndApplyAppBundleResult {
   indexRebuildScheduled: boolean;
 }
 
+export interface PushDevMirrorAppBundleResult {
+  version: string;
+  hash: string;
+  message: string;
+}
+
 export type BundleApplyPhase =
   | 'downloading'
   | 'archiving'

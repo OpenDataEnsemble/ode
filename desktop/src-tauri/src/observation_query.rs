@@ -357,7 +357,7 @@ mod tests {
                 assert!(result.is_err(), "expected error for {name}");
                 continue;
             }
-            let compiled = result.expect(&name);
+            let compiled = result.expect(name);
             let fragments = fixture["expectedSqlFragmentsByDialect"]["desktop"]
                 .as_array()
                 .or_else(|| fixture["expectedSqlFragments"].as_array());
