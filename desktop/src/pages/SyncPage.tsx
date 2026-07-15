@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ForcePushMissingAttachmentsDialog } from '../components/ForcePushMissingAttachmentsDialog';
+import { useProfileAutoSynkAuth } from '../hooks/useProfileAutoSynkAuth';
 import { tauriClient } from '../lib/tauriClient';
-import { tryAutoSynkAuth } from '../lib/autoSynkAuth';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
 import {
   auditPendingPushMissingAttachments,
@@ -12,7 +12,6 @@ import { pushConfirmMessage } from '../lib/syncUiCopy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
-  selectAuthSessionForActiveProfile,
   selectBundleActivity,
   selectPausedSyncJob,
   selectSyncActivity,
@@ -28,7 +27,9 @@ function formatDate(value?: string | null) {
 
 export function SyncPage() {
   const activeProfile = useCustodianStore(selectActiveProfileState);
-  const authSession = useCustodianStore(selectAuthSessionForActiveProfile);
+  const { authSession, authBlocked, ensureAuth } = useProfileAutoSynkAuth(
+    activeProfile?.id,
+  );
   const syncActivity = useCustodianStore(selectSyncActivity);
   const syncPausedJob = useCustodianStore(selectPausedSyncJob);
   const bundleActivity = useCustodianStore(selectBundleActivity);
@@ -54,7 +55,6 @@ export function SyncPage() {
     profileLabel,
   );
 
-  const [authBlocked, setAuthBlocked] = useState(false);
   const [missingAttachmentIssues, setMissingAttachmentIssues] = useState<
     MissingAttachmentIssue[] | null
   >(null);
@@ -73,15 +73,6 @@ export function SyncPage() {
   }, []);
 
   useEffect(() => {
-    void (async () => {
-      const ok = await tryAutoSynkAuth();
-      setAuthBlocked(
-        !ok && !selectAuthSessionForActiveProfile(useCustodianStore.getState()),
-      );
-    })();
-  }, [activeProfile?.id]);
-
-  useEffect(() => {
     void loadHealth();
     void refreshPausedSyncJob();
     refreshIndexStatus();
@@ -93,19 +84,6 @@ export function SyncPage() {
     }
     refreshIndexStatus();
   }, [bundleActivity, refreshIndexStatus]);
-
-  async function ensureAuth(): Promise<boolean> {
-    if (authSession?.token) {
-      return true;
-    }
-    const ok = await tryAutoSynkAuth();
-    if (!ok) {
-      setAuthBlocked(true);
-      return false;
-    }
-    setAuthBlocked(false);
-    return true;
-  }
 
   async function recreateObservationIndexes() {
     await ensureBundleApplyEventPipeline();

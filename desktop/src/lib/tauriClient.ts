@@ -23,6 +23,7 @@ import type {
   ActiveBundleFormEntry,
   AppBundleState,
   DownloadAndApplyAppBundleResult,
+  PushDevMirrorAppBundleResult,
   CreateObservationSqliteIndexesResult,
   CustomAppDevMirrorResult,
   BundleFormSpec,
@@ -230,6 +231,17 @@ export const tauriClient = {
         hash: args.hash,
       },
     ),
+  /** Zip dev mirror, push to Synkronus, and activate the new bundle version. */
+  pushDevMirrorAppBundle: (args: {
+    baseUrl: string;
+    bearerToken: string;
+    xOdeVersion: string;
+  }) =>
+    invokeSafe<PushDevMirrorAppBundleResult>('push_dev_mirror_app_bundle', {
+      baseUrl: args.baseUrl,
+      bearerToken: args.bearerToken,
+      xOdeVersion: args.xOdeVersion,
+    }),
   listActiveBundleForms: () =>
     invokeSafe<ActiveBundleFormEntry[]>('list_active_bundle_forms'),
   readBundleFormSpec: (formType: string) =>

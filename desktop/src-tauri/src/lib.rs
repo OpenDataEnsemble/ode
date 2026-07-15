@@ -1480,6 +1480,340 @@ async fn download_synkronus_app_bundle_zip(
     Ok(buf)
 }
 
+const DEV_MIRROR_BUNDLE_TOP_DIRS: [&str; 3] = ["app", "forms", "renderers"];
+const SHARED_CHOICE_REF_PREFIX: &str = "forms/shared-choice-defs.schema.json#/$defs/";
+
+fn publish_form_bundle_rel_path(rel: &str) -> bool {
+    let parts: Vec<&str> = rel.split('/').collect();
+    if parts.len() == 3 && parts[0] == "forms" {
+        return parts[2] == "schema.json" || parts[2] == "ui.json";
+    }
+    if parts.len() == 4 && parts[0] == "app" && parts[1] == "forms" {
+        return parts[3] == "schema.json" || parts[3] == "ui.json";
+    }
+    false
+}
+
+/// Synkronus only accepts `forms/{form}/{schema,ui}.json` (and the `app/forms/…` variant).
+fn publish_bundle_zip_entry_allowed(rel: &str) -> bool {
+    if rel.is_empty() {
+        return false;
+    }
+    if rel.starts_with("forms/") {
+        return publish_form_bundle_rel_path(rel);
+    }
+    if rel.starts_with("app/forms/") {
+        return publish_form_bundle_rel_path(rel);
+    }
+    let top = rel.split('/').next().unwrap_or("");
+    DEV_MIRROR_BUNDLE_TOP_DIRS.contains(&top)
+}
+
+fn forms_root_for_publish_schema(dev_local: &Path, rel: &str) -> Option<PathBuf> {
+    if rel.starts_with("app/forms/") {
+        Some(dev_local.join("app/forms"))
+    } else if rel.starts_with("forms/") {
+        Some(dev_local.join("forms"))
+    } else {
+        None
+    }
+}
+
+fn load_shared_choice_defs(forms_root: &Path) -> Option<Value> {
+    let path = forms_root.join("shared-choice-defs.schema.json");
+    let raw = fs::read_to_string(&path).ok()?;
+    let doc: Value = serde_json::from_str(&raw).ok()?;
+    if doc.get("$defs").and_then(|d| d.as_object()).is_some() {
+        Some(doc)
+    } else {
+        None
+    }
+}
+
+fn extract_shared_choice_def_name(ref_str: &str) -> Option<String> {
+    ref_str
+        .trim()
+        .strip_prefix(SHARED_CHOICE_REF_PREFIX)
+        .map(|s| s.to_string())
+}
+
+fn collapse_shared_choice_allof(prop: &mut Value) {
+    let Some(obj) = prop.as_object_mut() else {
+        return;
+    };
+    let Some(all_of) = obj.get("allOf").and_then(|v| v.as_array()) else {
+        return;
+    };
+    let ref_branch = all_of.iter().find_map(|b| {
+        b.as_object()
+            .and_then(|o| o.get("$ref"))
+            .and_then(|r| r.as_str())
+    });
+    let Some(ref_str) = ref_branch else {
+        return;
+    };
+    let mut next = serde_json::Map::new();
+    for (k, v) in obj.iter() {
+        if k == "allOf" || k == "format" || k == "type" {
+            continue;
+        }
+        next.insert(k.clone(), v.clone());
+    }
+    next.insert("$ref".to_string(), Value::String(ref_str.to_string()));
+    *prop = Value::Object(next);
+}
+
+fn normalize_shared_choice_properties(schema: &mut Value) {
+    let Some(props) = schema
+        .as_object_mut()
+        .and_then(|o| o.get_mut("properties"))
+        .and_then(|p| p.as_object_mut())
+    else {
+        return;
+    };
+    for prop in props.values_mut() {
+        collapse_shared_choice_allof(prop);
+    }
+}
+
+fn collect_shared_choice_refs(node: &mut Value, needed: &mut HashSet<String>) {
+    match node {
+        Value::Object(map) => {
+            if let Some(Value::String(r)) = map.get_mut("$ref")
+                && let Some(name) = extract_shared_choice_def_name(r)
+            {
+                needed.insert(name.clone());
+                *r = format!("#/$defs/{name}");
+            }
+            for v in map.values_mut() {
+                collect_shared_choice_refs(v, needed);
+            }
+        }
+        Value::Array(arr) => {
+            for v in arr.iter_mut() {
+                collect_shared_choice_refs(v, needed);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn resolve_shared_choice_refs(
+    mut schema: Value,
+    shared_doc: &Value,
+) -> Result<Value, CustodianError> {
+    let shared_defs = shared_doc
+        .get("$defs")
+        .and_then(|d| d.as_object())
+        .ok_or_else(|| {
+            CustodianError::Message(
+                "shared-choice-defs.schema.json must contain a $defs object".to_string(),
+            )
+        })?;
+
+    if !schema.is_object() {
+        return Ok(schema);
+    }
+
+    let obj = schema.as_object_mut().unwrap();
+    if !obj.contains_key("$defs") {
+        obj.insert("$defs".to_string(), Value::Object(serde_json::Map::new()));
+    }
+    normalize_shared_choice_properties(&mut schema);
+
+    let mut needed = HashSet::new();
+    collect_shared_choice_refs(&mut schema, &mut needed);
+
+    let defs = schema
+        .as_object_mut()
+        .and_then(|o| o.get_mut("$defs"))
+        .and_then(|d| d.as_object_mut())
+        .ok_or_else(|| CustodianError::Message("schema $defs missing".to_string()))?;
+
+    for name in needed {
+        let Some(def) = shared_defs.get(&name) else {
+            return Err(CustodianError::Message(format!(
+                "missing shared choice def \"{name}\" in shared-choice-defs.schema.json"
+            )));
+        };
+        defs.insert(name, def.clone());
+    }
+
+    Ok(schema)
+}
+
+fn read_publish_schema_bytes(
+    schema_path: &Path,
+    forms_root: &Path,
+    shared_cache: &mut HashMap<PathBuf, Option<Value>>,
+) -> Result<Vec<u8>, CustodianError> {
+    let raw = fs::read_to_string(schema_path)?;
+    let mut schema: Value = serde_json::from_str(&raw)?;
+    let shared = shared_cache
+        .entry(forms_root.to_path_buf())
+        .or_insert_with(|| load_shared_choice_defs(forms_root));
+    if let Some(shared_doc) = shared.clone() {
+        schema = resolve_shared_choice_refs(schema, &shared_doc)?;
+    }
+    let out = serde_json::to_vec_pretty(&schema)?;
+    Ok(out)
+}
+
+/// Zips `bundles/dev-local/` into a temp file with Synkronus-compatible paths (`app/`, `forms/`, …).
+fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
+    let dev_local = ws.join("bundles/dev-local");
+    let index = dev_local.join("app/index.html");
+    if !index.is_file() {
+        return Err(CustodianError::Message(
+            "developer mirror missing app/index.html — use Refresh app first".to_string(),
+        ));
+    }
+    let zip_path = std::env::temp_dir().join(format!("ode-dev-bundle-{}.zip", Uuid::new_v4()));
+    let file = fs::File::create(&zip_path)?;
+    let mut zip = ZipWriter::new(BufWriter::new(file));
+    let options = SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+    let mut wrote_file = false;
+    let mut shared_cache: HashMap<PathBuf, Option<Value>> = HashMap::new();
+
+    for entry in WalkDir::new(&dev_local).into_iter().filter_map(|e| e.ok()) {
+        let path = entry.path();
+        if path.is_dir() {
+            continue;
+        }
+        let rel = path
+            .strip_prefix(&dev_local)
+            .map_err(|e| CustodianError::Message(e.to_string()))?;
+        let name = rel.to_string_lossy();
+        if !publish_bundle_zip_entry_allowed(&name) {
+            continue;
+        }
+        let bytes = if name.ends_with("schema.json") {
+            if let Some(forms_root) = forms_root_for_publish_schema(&dev_local, &name) {
+                read_publish_schema_bytes(path, &forms_root, &mut shared_cache)?
+            } else {
+                fs::read(path)?
+            }
+        } else {
+            fs::read(path)?
+        };
+        zip.start_file(name.as_ref(), options)
+            .map_err(|e| CustodianError::Message(e.to_string()))?;
+        zip.write_all(&bytes)
+            .map_err(|e| CustodianError::Message(e.to_string()))?;
+        wrote_file = true;
+    }
+    zip.finish()
+        .map_err(|e| CustodianError::Message(e.to_string()))?;
+    if !wrote_file {
+        let _ = fs::remove_file(&zip_path);
+        return Err(CustodianError::Message(
+            "developer mirror zip is empty".to_string(),
+        ));
+    }
+    Ok(zip_path)
+}
+
+#[derive(Debug, Deserialize)]
+struct SynkAppBundleManifest {
+    version: String,
+    hash: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct SynkAppBundlePushResponse {
+    message: String,
+    manifest: SynkAppBundleManifest,
+}
+
+async fn push_app_bundle_zip(
+    base_url: &str,
+    bearer_token: &str,
+    x_ode_version: &str,
+    zip_path: &Path,
+) -> Result<SynkAppBundlePushResponse, CustodianError> {
+    let url = format!(
+        "{}/api/app-bundle/push",
+        base_url.trim().trim_end_matches('/')
+    );
+    let bytes = fs::read(zip_path)?;
+    if bytes.is_empty() {
+        return Err(CustodianError::Message("zip is empty".to_string()));
+    }
+    let part = multipart::Part::bytes(bytes)
+        .file_name("bundle.zip")
+        .mime_str("application/zip")
+        .map_err(|e| CustodianError::Message(e.to_string()))?;
+    let form = multipart::Form::new().part("bundle", part);
+    let client = reqwest::Client::new();
+    let res = client
+        .post(url)
+        .header(AUTHORIZATION, format!("Bearer {}", bearer_token.trim()))
+        .header("x-ode-version", x_ode_version.trim())
+        .multipart(form)
+        .send()
+        .await?;
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        let detail = if body.trim().is_empty() {
+            String::new()
+        } else {
+            format!(": {body}")
+        };
+        return Err(CustodianError::Message(format!(
+            "bundle push failed: HTTP {status}{detail}"
+        )));
+    }
+    Ok(res.json().await?)
+}
+
+async fn switch_app_bundle_version(
+    base_url: &str,
+    bearer_token: &str,
+    x_ode_version: &str,
+    version: &str,
+) -> Result<(), CustodianError> {
+    let version = version.trim();
+    if version.is_empty() {
+        return Err(CustodianError::Message(
+            "bundle push response missing version".to_string(),
+        ));
+    }
+    let url = format!(
+        "{}/api/app-bundle/switch/{}",
+        base_url.trim().trim_end_matches('/'),
+        urlencoding::encode(version)
+    );
+    let client = reqwest::Client::new();
+    let res = client
+        .post(url)
+        .header(AUTHORIZATION, format!("Bearer {}", bearer_token.trim()))
+        .header("x-ode-version", x_ode_version.trim())
+        .send()
+        .await?;
+    if !res.status().is_success() {
+        let status = res.status();
+        let body = res.text().await.unwrap_or_default();
+        let detail = if body.trim().is_empty() {
+            String::new()
+        } else {
+            format!(": {body}")
+        };
+        return Err(CustodianError::Message(format!(
+            "bundle switch failed: HTTP {status}{detail}"
+        )));
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PushDevMirrorAppBundleResult {
+    version: String,
+    hash: String,
+    message: String,
+}
+
 fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job_id: String) {
     {
         let gate = ctx
@@ -4371,6 +4705,48 @@ async fn download_and_apply_app_bundle(
     })
 }
 
+/// Zips the developer mirror, uploads it to Synkronus, and activates the new version.
+#[tauri::command]
+async fn push_dev_mirror_app_bundle(
+    ctx: tauri::State<'_, AppCtxHandle>,
+    base_url: String,
+    bearer_token: String,
+    x_ode_version: String,
+) -> Result<PushDevMirrorAppBundleResult, String> {
+    let base = base_url.trim();
+    if base.is_empty() {
+        return Err("base_url is required".to_string());
+    }
+    let token = bearer_token.trim();
+    if token.is_empty() {
+        return Err("bearer token is required".to_string());
+    }
+    let ode_ver = x_ode_version.trim();
+    if ode_ver.is_empty() {
+        return Err("x_ode_version is required".to_string());
+    }
+    if !profile_developer_mode(&ctx)? {
+        return Err("developer mode is not enabled for the active profile".to_string());
+    }
+
+    let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+    let zip_path = zip_dev_mirror_bundle(&ws).map_err(|e| e.to_string())?;
+
+    let push_result = push_app_bundle_zip(base, token, ode_ver, &zip_path).await;
+    let _ = fs::remove_file(&zip_path);
+
+    let push_res = push_result.map_err(|e| e.to_string())?;
+    switch_app_bundle_version(base, token, ode_ver, &push_res.manifest.version)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(PushDevMirrorAppBundleResult {
+        version: push_res.manifest.version,
+        hash: push_res.manifest.hash,
+        message: push_res.message,
+    })
+}
+
 fn reserved_form_dir_name(name: &str) -> bool {
     matches!(name, "extensions" | "question_types" | "validators")
         || name.starts_with('.')
@@ -5009,6 +5385,7 @@ pub fn run() {
             get_app_bundle_state,
             refresh_custom_app_dev_mirror,
             download_and_apply_app_bundle,
+            push_dev_mirror_app_bundle,
             list_active_bundle_forms,
             read_bundle_form_spec,
             read_workspace_text_file,
@@ -5044,16 +5421,19 @@ mod tests {
 
     use super::{
         ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL, ApiObservation, CompressionMethod,
-        ObservationExtras, SimpleFileOptions, ZipWriter, apply_app_bundle_zip_at_workspace,
-        attachment_copy_progress_step, bind_query_params, build_observation_overview,
-        extract_observations_from_json_value, init_db, mirror_custom_app_dev_folder,
-        parse_observation_extras, parse_time, resolve_attachment_path,
+        ObservationExtras, SimpleFileOptions, ZipArchive, ZipWriter,
+        apply_app_bundle_zip_at_workspace, attachment_copy_progress_step, bind_query_params,
+        build_observation_overview, extract_observations_from_json_value, init_db,
+        mirror_custom_app_dev_folder, parse_observation_extras, parse_time,
+        publish_bundle_zip_entry_allowed, resolve_attachment_path,
         should_emit_attachment_copy_progress, should_mark_conflict,
         upsert_observation_from_local_import, validate_custom_app_dev_source_folder,
+        zip_dev_mirror_bundle,
     };
     use crate::observation_query::SqlParam;
     use rusqlite::{Connection, params};
     use serde_json::Value;
+    use std::io::Read;
     use std::time::Instant;
 
     #[test]
@@ -5388,5 +5768,104 @@ mod tests {
         assert!(base.join("bundles/archives/1.0.0.zip").is_file());
         assert!(base.join("bundles/state.json").is_file());
         let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn zip_dev_mirror_bundle_produces_valid_layout() {
+        let base = std::env::temp_dir().join(format!("ode_dev_zip_test_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
+        fs::create_dir_all(base.join("bundles/dev-local/forms/demo")).unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/index.html"),
+            b"<html></html>",
+        )
+        .unwrap();
+        fs::write(base.join("bundles/dev-local/forms/demo/schema.json"), b"{}").unwrap();
+        fs::write(base.join("bundles/dev-local/forms/demo/ui.json"), b"{}").unwrap();
+        fs::write(
+            base.join("bundles/dev-local/forms/shared-choice-defs.schema.json"),
+            br#"{"$defs":{"yesno":{"type":"string"}}}"#,
+        )
+        .unwrap();
+        fs::create_dir_all(base.join("bundles/dev-local/forms/extensions/helpers")).unwrap();
+        fs::write(
+            base.join("bundles/dev-local/forms/extensions/helpers/queryHelpers.js"),
+            b"export {}",
+        )
+        .unwrap();
+
+        let zip_path = zip_dev_mirror_bundle(Path::new(&base)).unwrap();
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = ZipArchive::new(file).unwrap();
+        let mut names: Vec<String> = (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect();
+        names.sort();
+        assert!(names.contains(&"app/index.html".to_string()));
+        assert!(names.contains(&"forms/demo/schema.json".to_string()));
+        assert!(names.contains(&"forms/demo/ui.json".to_string()));
+        assert!(!names.iter().any(|n| n.contains("shared-choice-defs")));
+        assert!(!names.iter().any(|n| n.contains("extensions/")));
+        let _ = fs::remove_file(&zip_path);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn zip_dev_mirror_bundle_inlines_shared_choice_refs() {
+        let base =
+            std::env::temp_dir().join(format!("ode_dev_zip_shared_choice_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
+        fs::create_dir_all(base.join("bundles/dev-local/forms/demo")).unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/index.html"),
+            b"<html></html>",
+        )
+        .unwrap();
+        fs::write(
+            base.join("bundles/dev-local/forms/shared-choice-defs.schema.json"),
+            br#"{"$defs":{"yesno":{"type":"string","enum":["yes","no"]}}}"#,
+        )
+        .unwrap();
+        fs::write(
+            base.join("bundles/dev-local/forms/demo/schema.json"),
+            br#"{"type":"object","properties":{"ok":{"$ref":"forms/shared-choice-defs.schema.json#/$defs/yesno"}}}"#,
+        )
+        .unwrap();
+        fs::write(base.join("bundles/dev-local/forms/demo/ui.json"), b"{}").unwrap();
+
+        let zip_path = zip_dev_mirror_bundle(Path::new(&base)).unwrap();
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = ZipArchive::new(file).unwrap();
+        let mut schema_entry = archive.by_name("forms/demo/schema.json").unwrap();
+        let mut schema_raw = String::new();
+        schema_entry.read_to_string(&mut schema_raw).unwrap();
+        let schema: Value = serde_json::from_str(&schema_raw).unwrap();
+        assert_eq!(
+            schema["properties"]["ok"]["$ref"],
+            Value::String("#/$defs/yesno".to_string())
+        );
+        assert!(schema["$defs"]["yesno"].is_object());
+        let _ = fs::remove_file(&zip_path);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn publish_bundle_zip_entry_allowed_filters_authoring_artifacts() {
+        assert!(publish_bundle_zip_entry_allowed("app/index.html"));
+        assert!(publish_bundle_zip_entry_allowed(
+            "forms/household/schema.json"
+        ));
+        assert!(publish_bundle_zip_entry_allowed(
+            "app/forms/household/ui.json"
+        ));
+        assert!(!publish_bundle_zip_entry_allowed(
+            "forms/shared-choice-defs.schema.json"
+        ));
+        assert!(!publish_bundle_zip_entry_allowed(
+            "forms/extensions/helpers/queryHelpers.js"
+        ));
+        assert!(!publish_bundle_zip_entry_allowed("forms/ext.json"));
     }
 }
