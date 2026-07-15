@@ -67,8 +67,8 @@ export function ObservationIndexPrompt() {
         <p
           className="notice warn"
           style={{ fontSize: '0.85rem', margin: '1rem 0 0.5rem' }}>
-          Indexes are created on this profile&apos;s production database (the
-          same store used for sync and observations). This is not limited to
+          Indexes are created in this profile&apos;s local database (the same
+          store used for sync and observations). This is not limited to
           developer mode or the dev mirror folder.
         </p>
         <button

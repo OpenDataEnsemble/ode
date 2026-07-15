@@ -103,16 +103,6 @@ pub struct BundleFormSpec {
     pub ui_schema: Value,
 }
 
-/// Client-side guardrail for confirmations (not interpreted by Synkronus).
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-enum ProfileEnvironment {
-    #[default]
-    Production,
-    Staging,
-    Development,
-}
-
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum DefaultAppMode {
@@ -131,8 +121,6 @@ struct ServerProfile {
     workspace_path: Option<String>,
     database_path: String,
     attachments_path: Option<String>,
-    #[serde(default)]
-    environment: ProfileEnvironment,
     #[serde(default)]
     default_app_mode: DefaultAppMode,
     #[serde(default)]
@@ -847,7 +835,6 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             workspace_path: Some(workspace_dir.to_string_lossy().to_string()),
             database_path: db_path.to_string_lossy().to_string(),
             attachments_path: None,
-            environment: ProfileEnvironment::default(),
             default_app_mode: DefaultAppMode::default(),
             custom_app_developer_mode: false,
             custom_app_local_folder: None,
@@ -870,7 +857,6 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             workspace_path: Some(workspace_path.to_string()),
             database_path: db.to_string_lossy().to_string(),
             attachments_path: None,
-            environment: ProfileEnvironment::default(),
             default_app_mode: DefaultAppMode::default(),
             custom_app_developer_mode: false,
             custom_app_local_folder: None,

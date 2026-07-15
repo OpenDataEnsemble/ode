@@ -1,10 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { productionPushConfirmDetail } from './syncUiCopy';
+import { pushConfirmMessage } from './syncUiCopy';
 
-describe('productionPushConfirmDetail', () => {
-  it('includes the dirty observation count', () => {
-    expect(productionPushConfirmDetail(12)).toBe(
-      'Push 12 pending observation(s) to production?',
+describe('pushConfirmMessage', () => {
+  it('includes the observation count and profile label', () => {
+    expect(pushConfirmMessage(12, 'AnthroCollect field')).toBe(
+      'Push 12 observations to AnthroCollect field?',
+    );
+  });
+
+  it('uses singular observation for one row', () => {
+    expect(pushConfirmMessage(1, 'Local dev')).toBe(
+      'Push 1 observation to Local dev?',
+    );
+  });
+
+  it('falls back when the profile label is empty', () => {
+    expect(pushConfirmMessage(3, '   ')).toBe(
+      'Push 3 observations to this profile?',
     );
   });
 });
