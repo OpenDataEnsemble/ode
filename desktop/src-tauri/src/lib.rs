@@ -1480,33 +1480,51 @@ async fn download_synkronus_app_bundle_zip(
     Ok(buf)
 }
 
-const DEV_MIRROR_BUNDLE_TOP_DIRS: [&str; 3] = ["app", "forms", "renderers"];
 const SHARED_CHOICE_REF_PREFIX: &str = "forms/shared-choice-defs.schema.json#/$defs/";
 
-fn publish_form_bundle_rel_path(rel: &str) -> bool {
-    let parts: Vec<&str> = rel.split('/').collect();
-    if parts.len() == 3 && parts[0] == "forms" {
-        return parts[2] == "schema.json" || parts[2] == "ui.json";
-    }
-    if parts.len() == 4 && parts[0] == "app" && parts[1] == "forms" {
-        return parts[3] == "schema.json" || parts[3] == "ui.json";
-    }
-    false
+/// Normalize a path relative to the bundle root to forward-slash zip entry names.
+fn zip_entry_path_normalized(rel: &Path) -> String {
+    rel.components()
+        .filter_map(|c| match c {
+            std::path::Component::Normal(s) => Some(s.to_string_lossy()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
-/// Synkronus only accepts `forms/{form}/{schema,ui}.json` (and the `app/forms/…` variant).
-fn publish_bundle_zip_entry_allowed(rel: &str) -> bool {
-    if rel.is_empty() {
+fn publish_path_has_skipped_segment(rel: &str) -> bool {
+    rel.split('/').any(|s| {
+        matches!(
+            s,
+            ".DS_Store" | "Thumbs.db" | "desktop.ini" | ".git" | "node_modules"
+        )
+    })
+}
+
+/// Top-level sibling `forms/{form}/{schema,ui}.json` only (Synkronus is strict here).
+fn publish_top_level_form_rel_path(rel: &str) -> bool {
+    let parts: Vec<&str> = rel.split('/').collect();
+    parts.len() == 3 && parts[0] == "forms" && (parts[2] == "schema.json" || parts[2] == "ui.json")
+}
+
+/// Whether a relative zip entry may be published.
+///
+/// - Full `app/` trees are allowed (including `app/forms/ext.json` and other nested artifacts).
+/// - Top-level `forms/` is only for the legacy sibling layout and is schema/ui-only.
+/// - When `omit_top_level_forms` is true (nested `app/forms/` present), skip top-level `forms/`.
+fn publish_bundle_zip_entry_allowed(rel: &str, omit_top_level_forms: bool) -> bool {
+    if rel.is_empty() || publish_path_has_skipped_segment(rel) {
         return false;
     }
     if rel.starts_with("forms/") {
-        return publish_form_bundle_rel_path(rel);
-    }
-    if rel.starts_with("app/forms/") {
-        return publish_form_bundle_rel_path(rel);
+        if omit_top_level_forms {
+            return false;
+        }
+        return publish_top_level_form_rel_path(rel);
     }
     let top = rel.split('/').next().unwrap_or("");
-    DEV_MIRROR_BUNDLE_TOP_DIRS.contains(&top)
+    matches!(top, "app" | "renderers")
 }
 
 fn forms_root_for_publish_schema(dev_local: &Path, rel: &str) -> Option<PathBuf> {
@@ -1660,6 +1678,8 @@ fn read_publish_schema_bytes(
 }
 
 /// Zips `bundles/dev-local/` into a temp file with Synkronus-compatible paths (`app/`, `forms/`, …).
+///
+/// Prefer app-only layout when `app/forms/` exists (omit duplicate top-level `forms/`).
 fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
     let dev_local = ws.join("bundles/dev-local");
     let index = dev_local.join("app/index.html");
@@ -1668,6 +1688,7 @@ fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
             "developer mirror missing app/index.html — use Refresh app first".to_string(),
         ));
     }
+    let omit_top_level_forms = dev_local.join("app/forms").is_dir();
     let zip_path = std::env::temp_dir().join(format!("ode-dev-bundle-{}.zip", Uuid::new_v4()));
     let file = fs::File::create(&zip_path)?;
     let mut zip = ZipWriter::new(BufWriter::new(file));
@@ -1683,8 +1704,8 @@ fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
         let rel = path
             .strip_prefix(&dev_local)
             .map_err(|e| CustodianError::Message(e.to_string()))?;
-        let name = rel.to_string_lossy();
-        if !publish_bundle_zip_entry_allowed(&name) {
+        let name = zip_entry_path_normalized(rel);
+        if !publish_bundle_zip_entry_allowed(&name, omit_top_level_forms) {
             continue;
         }
         let bytes = if name.ends_with("schema.json") {
@@ -1696,7 +1717,7 @@ fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
         } else {
             fs::read(path)?
         };
-        zip.start_file(name.as_ref(), options)
+        zip.start_file(name.as_str(), options)
             .map_err(|e| CustodianError::Message(e.to_string()))?;
         zip.write_all(&bytes)
             .map_err(|e| CustodianError::Message(e.to_string()))?;
@@ -5772,15 +5793,33 @@ mod tests {
 
     #[test]
     fn zip_dev_mirror_bundle_produces_valid_layout() {
+        // Nested app/forms (CI style) plus a duplicate top-level forms/ copy from the mirror.
         let base = std::env::temp_dir().join(format!("ode_dev_zip_test_{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
-        fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
+        fs::create_dir_all(base.join("bundles/dev-local/app/forms/demo")).unwrap();
         fs::create_dir_all(base.join("bundles/dev-local/forms/demo")).unwrap();
         fs::write(
             base.join("bundles/dev-local/app/index.html"),
             b"<html></html>",
         )
         .unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/forms/ext.json"),
+            br#"{"version":"1","renderers":{}}"#,
+        )
+        .unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/forms/forms-manifest.json"),
+            br#"[]"#,
+        )
+        .unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/forms/demo/schema.json"),
+            b"{}",
+        )
+        .unwrap();
+        fs::write(base.join("bundles/dev-local/app/forms/demo/ui.json"), b"{}").unwrap();
+        // Duplicate sibling forms/ (mirror side-effect) — must be omitted from the zip.
         fs::write(base.join("bundles/dev-local/forms/demo/schema.json"), b"{}").unwrap();
         fs::write(base.join("bundles/dev-local/forms/demo/ui.json"), b"{}").unwrap();
         fs::write(
@@ -5803,10 +5842,48 @@ mod tests {
             .collect();
         names.sort();
         assert!(names.contains(&"app/index.html".to_string()));
+        assert!(names.contains(&"app/forms/ext.json".to_string()));
+        assert!(names.contains(&"app/forms/forms-manifest.json".to_string()));
+        assert!(names.contains(&"app/forms/demo/schema.json".to_string()));
+        assert!(names.contains(&"app/forms/demo/ui.json".to_string()));
+        assert!(!names.iter().any(|n| n.starts_with("forms/")));
+        let _ = fs::remove_file(&zip_path);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn zip_dev_mirror_bundle_sibling_forms_strict_filter() {
+        // Legacy sibling forms/ only (no app/forms/) — schema/ui only, strip authoring junk.
+        let base = std::env::temp_dir().join(format!("ode_dev_zip_sibling_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
+        fs::create_dir_all(base.join("bundles/dev-local/forms/demo")).unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/index.html"),
+            b"<html></html>",
+        )
+        .unwrap();
+        fs::write(base.join("bundles/dev-local/forms/demo/schema.json"), b"{}").unwrap();
+        fs::write(base.join("bundles/dev-local/forms/demo/ui.json"), b"{}").unwrap();
+        fs::write(
+            base.join("bundles/dev-local/forms/shared-choice-defs.schema.json"),
+            br#"{"$defs":{"yesno":{"type":"string"}}}"#,
+        )
+        .unwrap();
+        fs::write(base.join("bundles/dev-local/forms/ext.json"), b"{}").unwrap();
+
+        let zip_path = zip_dev_mirror_bundle(Path::new(&base)).unwrap();
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = ZipArchive::new(file).unwrap();
+        let mut names: Vec<String> = (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect();
+        names.sort();
+        assert!(names.contains(&"app/index.html".to_string()));
         assert!(names.contains(&"forms/demo/schema.json".to_string()));
         assert!(names.contains(&"forms/demo/ui.json".to_string()));
         assert!(!names.iter().any(|n| n.contains("shared-choice-defs")));
-        assert!(!names.iter().any(|n| n.contains("extensions/")));
+        assert!(!names.iter().any(|n| n == "forms/ext.json"));
         let _ = fs::remove_file(&zip_path);
         let _ = fs::remove_dir_all(&base);
     }
@@ -5853,19 +5930,39 @@ mod tests {
 
     #[test]
     fn publish_bundle_zip_entry_allowed_filters_authoring_artifacts() {
-        assert!(publish_bundle_zip_entry_allowed("app/index.html"));
+        // Nested app/forms: allow full tree extras.
+        assert!(publish_bundle_zip_entry_allowed("app/index.html", true));
         assert!(publish_bundle_zip_entry_allowed(
-            "forms/household/schema.json"
+            "app/forms/household/ui.json",
+            true
         ));
+        assert!(publish_bundle_zip_entry_allowed("app/forms/ext.json", true));
         assert!(publish_bundle_zip_entry_allowed(
-            "app/forms/household/ui.json"
+            "app/forms/forms-manifest.json",
+            true
         ));
         assert!(!publish_bundle_zip_entry_allowed(
-            "forms/shared-choice-defs.schema.json"
+            "forms/household/schema.json",
+            true
+        ));
+
+        // Sibling forms layout: schema/ui only at top-level forms/.
+        assert!(publish_bundle_zip_entry_allowed(
+            "forms/household/schema.json",
+            false
         ));
         assert!(!publish_bundle_zip_entry_allowed(
-            "forms/extensions/helpers/queryHelpers.js"
+            "forms/shared-choice-defs.schema.json",
+            false
         ));
-        assert!(!publish_bundle_zip_entry_allowed("forms/ext.json"));
+        assert!(!publish_bundle_zip_entry_allowed(
+            "forms/extensions/helpers/queryHelpers.js",
+            false
+        ));
+        assert!(!publish_bundle_zip_entry_allowed("forms/ext.json", false));
+        assert!(!publish_bundle_zip_entry_allowed(
+            "app/node_modules/pkg/index.js",
+            false
+        ));
     }
 }
