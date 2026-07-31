@@ -4,6 +4,7 @@ import { HiArrowPath } from 'react-icons/hi2';
 import type { ObservationStatsResponse } from '../api/synkronus/generated';
 import { api } from '../services/api';
 import { formatOverviewCount } from '../lib/observationStatsCharts';
+import noDataIllustration from '../assets/nodata.png';
 import { ObservationFormTypeChart } from './charts/ObservationFormTypeChart';
 import { ObservationTimelineChart } from './charts/ObservationTimelineChart';
 
@@ -62,10 +63,7 @@ export function HomePanel() {
     <div className="home-section">
       <div className="section-header">
         <div className="section-title">
-          <h2>Home</h2>
-          <p className="section-subtitle">
-            Observation activity across this Synkronus server
-          </p>
+          <h2>Data overview</h2>
         </div>
         <div className="section-actions">
           <Button
@@ -95,12 +93,17 @@ export function HomePanel() {
       )}
 
       {stats && !error && total === 0 && (
-        <div className="home-stats-empty muted">
-          No observations yet. Once devices sync data, charts will appear here.
+        <div className="home-stats-empty">
+          <img
+            src={noDataIllustration}
+            alt=""
+            className="home-stats-empty-illustration"
+          />
+          <p className="home-stats-empty-title">This server contains no observations yet</p>
         </div>
       )}
 
-      {stats && (
+      {stats && total > 0 && (
         <>
           <p className="home-stats-summary">
             <strong>{formatOverviewCount(total)}</strong> observation

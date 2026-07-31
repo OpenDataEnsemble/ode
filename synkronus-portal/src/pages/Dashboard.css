@@ -4711,10 +4711,41 @@ button.logo-home-link:focus-visible {
   --home-chart-donut-stroke: #ffffff;
 }
 
-.home-stats-loading,
-.home-stats-empty {
+.home-stats-loading {
   padding: var(--spacing-8) 0;
   text-align: center;
+}
+
+.home-stats-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-8) var(--spacing-4);
+  text-align: center;
+}
+
+.home-stats-empty-illustration {
+  width: min(600px, 100%);
+  height: auto;
+  display: block;
+  margin: 0 auto var(--spacing-2);
+  user-select: none;
+  pointer-events: none;
+}
+
+.home-stats-empty-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.home-stats-empty-copy {
+  margin: 0;
+  max-width: 28rem;
+  font-size: var(--font-size-sm);
 }
 
 .home-stats-error {
