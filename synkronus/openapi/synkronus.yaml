@@ -1159,6 +1159,36 @@ paths:
       security:
         - bearerAuth: [read-only, read-write, admin]
 
+  /api/stats/observations:
+    get:
+      operationId: getObservationStats
+      summary: Observation aggregate stats for dashboard charts
+      description: >
+        Returns non-deleted observation totals grouped by form type and a dense
+        activity timeline bucketed by UTC calendar day (or week when the span is
+        at least 365 days). Soft-deleted observations are excluded. Timeline dates
+        use `created_at` interpreted in UTC. Intended for portal/desktop overview
+        charts; not a general-purpose query API.
+      tags:
+        - Stats
+      parameters:
+        - $ref: '#/components/parameters/XOdeVersion'
+      responses:
+        '200':
+          description: Observation aggregate stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ObservationStatsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+      security:
+        - bearerAuth: [read-only, read-write, admin]
+
 components:
   parameters:
     XOdeVersion:
@@ -1172,6 +1202,74 @@ components:
       description: >-
         Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
   schemas:
+    ObservationStatsResponse:
+      type: object
+      required: [totalCount, byFormType, timeline, computedAt]
+      properties:
+        totalCount:
+          type: integer
+          format: int64
+          description: Total non-deleted observations
+          example: 1234
+        byFormType:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObservationFormTypeCount'
+        timeline:
+          $ref: '#/components/schemas/ObservationTimeline'
+        computedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when this aggregate was computed
+    ObservationFormTypeCount:
+      type: object
+      required: [formType, count]
+      properties:
+        formType:
+          type: string
+          description: Form type id; empty/whitespace stored values become "(no form type)"
+          example: household
+        count:
+          type: integer
+          format: int64
+          example: 100
+    ObservationTimeline:
+      type: object
+      required: [bucketUnit, rangeStart, rangeEnd, buckets]
+      properties:
+        bucketUnit:
+          type: string
+          enum: [day, week]
+          description: Bucket granularity (week when span of dated observations is >= 365 days)
+        rangeStart:
+          type: string
+          description: First bucket start date (YYYY-MM-DD), empty when there are no observations
+          example: '2025-01-01'
+        rangeEnd:
+          type: string
+          description: Last bucket start date (YYYY-MM-DD), empty when there are no observations
+          example: '2025-06-01'
+        buckets:
+          type: array
+          description: Dense zero-filled buckets from rangeStart through rangeEnd
+          items:
+            $ref: '#/components/schemas/ObservationTimelineBucket'
+    ObservationTimelineBucket:
+      type: object
+      required: [bucketStart, label, count]
+      properties:
+        bucketStart:
+          type: string
+          description: Bucket start date (YYYY-MM-DD, UTC)
+          example: '2025-01-01'
+        label:
+          type: string
+          description: Human-readable label (e.g. "Jan 1")
+          example: 'Jan 1'
+        count:
+          type: integer
+          format: int64
+          example: 3
     APIVersionsResponse:
       type: object
       required: [versions, current]

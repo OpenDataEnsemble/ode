@@ -16,6 +16,8 @@ import {
   HiCube,
   HiOutlineUsers,
   HiUsers,
+  HiOutlineHome,
+  HiHome,
   HiCheckCircle,
   HiExclamationTriangle,
   HiArrowUpTray,
@@ -36,6 +38,7 @@ import { ColorBrandPrimary500 } from '@ode/tokens';
 import portalLogo from '../assets/portal.png';
 import dashboardBackgroundDark from '../assets/dashboard-background.png';
 import dashboardBackgroundLight from '../assets/dashboard-background-light.png';
+import { HomePanel } from '../components/HomePanel';
 import './Dashboard.css';
 import type { UserListItem } from '../api/synkronus/generated';
 
@@ -49,7 +52,7 @@ function userMatchesSearch(u: UserListItem, query: string): boolean {
   );
 }
 
-type TabType = 'users' | 'app-bundles' | 'data-export';
+type TabType = 'home' | 'users' | 'app-bundles' | 'data-export';
 
 interface AppBundleVersion {
   version: string;
@@ -84,12 +87,13 @@ interface AppBundleVersionsResponse {
 export function Dashboard() {
   const { user, logout } = useAuth();
   const { resolvedTheme } = useTheme();
-  const [activeTab, setActiveTab] = useState<TabType>('users');
+  const [activeTab, setActiveTab] = useState<TabType>('home');
   const [appBundles, setAppBundles] = useState<AppBundleVersion[]>([]);
   const [users, setUsers] = useState<UserListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [serverVersion, setServerVersion] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** Prevents overlapping listUsers calls without putting `loading` in loadUsers deps (which would retrigger the initial-load effect). */
@@ -362,15 +366,37 @@ export function Dashboard() {
     }
   };
 
-  // Initial load: after login, the "users" tab is already active, but
-  // handleTabChange() won't run again. So explicitly fetch users when the
-  // logged-in user becomes an admin and the Users tab is active.
+  // Users load when switching to the Users tab (see handleTabChange).
+  // Home is the default tab, so no initial users fetch on mount.
+
   useEffect(() => {
-    if (activeTab !== 'users') return;
-    if (user?.role !== 'admin') return;
-    if (users.length !== 0) return;
-    loadUsers();
-  }, [activeTab, user?.role, users.length, loadUsers]);
+    const fetchVersion = async () => {
+      try {
+        const data = await api.getVersion();
+        const version = data.server?.version || data.version;
+        if (version) {
+          setServerVersion(version);
+          return;
+        }
+      } catch {
+        // Continue to health fallback below.
+      }
+
+      try {
+        const health = await api.getHealth();
+        if (typeof health?.version === 'string') {
+          setServerVersion(health.version);
+          return;
+        }
+      } catch (err) {
+        console.debug('Failed to fetch server version:', err);
+      }
+
+      setServerVersion('Unknown');
+    };
+
+    void fetchVersion();
+  }, []);
 
   const handleUploadClick = () => {
     if (loading) return;
@@ -645,14 +671,18 @@ export function Dashboard() {
       }>
       <header className={`dashboard-header ${isScrolled ? 'scrolled' : ''}`}>
         <div className="header-content">
-          <div className="logo-section">
+          <button
+            type="button"
+            className="logo-section logo-home-link"
+            onClick={() => handleTabChange('home')}
+            aria-label="Go to Home">
             <img
               src={portalLogo}
               alt="Synkronus Portal Logo"
               className="logo-icon"
             />
             <h1>Synkronus Portal</h1>
-          </div>
+          </button>
           <div className="user-info">
             <div className="user-details">
               <span className="welcome-text">Welcome back:</span>
@@ -740,6 +770,44 @@ export function Dashboard() {
 
       <main className="dashboard-content">
         <nav className="dashboard-tabs">
+          <button
+            className={`tab-button ${activeTab === 'home' ? 'active' : ''} fade-left`}
+            onClick={() => handleTabChange('home')}>
+            <svg className="border-fade" preserveAspectRatio="none">
+              <defs>
+                <linearGradient
+                  id="border-fade-left-home"
+                  x1="0%"
+                  y1="0%"
+                  x2="100%"
+                  y2="0%">
+                  <stop offset="0%" stopColor={BRAND_PRIMARY} stopOpacity="0" />
+                  <stop
+                    offset="15%"
+                    stopColor={BRAND_PRIMARY}
+                    stopOpacity="1"
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={BRAND_PRIMARY}
+                    stopOpacity="1"
+                  />
+                </linearGradient>
+              </defs>
+              <rect
+                x="0"
+                y="0"
+                width="100%"
+                height="100%"
+                rx="8"
+                stroke="url(#border-fade-left-home)"
+              />
+            </svg>
+            <span className="tab-icon">
+              {activeTab === 'home' ? <HiHome /> : <HiOutlineHome />}
+            </span>
+            <span>Home</span>
+          </button>
           <button
             className={`tab-button ${activeTab === 'users' ? 'active' : ''} fade-left`}
             onClick={() => handleTabChange('users')}>
@@ -891,6 +959,7 @@ export function Dashboard() {
         )}
 
         <div className="tab-content">
+          {activeTab === 'home' && <HomePanel />}
           {activeTab === 'app-bundles' && (
             <div className="app-bundles-section">
               <div className="section-header">
@@ -1077,7 +1146,7 @@ export function Dashboard() {
                 <div className="last-activity-panel">
                   <div className="last-activity-header">
                     <HiChartBar aria-hidden />
-                    <h3>Last activity</h3>
+                    <h3>Latest activity</h3>
                   </div>
                   <div className="last-activity-grid">
                     {users
@@ -2092,6 +2161,13 @@ export function Dashboard() {
           </div>
         </div>
       )}
+      <footer className="dashboard-footer">
+        {serverVersion && (
+          <span className="version-text">
+            Server v{serverVersion.replace(/^v+/i, '')}
+          </span>
+        )}
+      </footer>
     </div>
   );
 }

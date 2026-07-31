@@ -282,6 +282,7 @@ func createTestServerWithDB(t *testing.T, db *sql.DB) *httptest.Server {
 		&mockVersionService{},
 		mockAttachmentManifestService,
 		mockDataExportService,
+		mocks.NewMockStatsService(),
 		nil,
 	)
 

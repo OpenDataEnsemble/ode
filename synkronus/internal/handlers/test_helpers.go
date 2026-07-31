@@ -45,6 +45,7 @@ func createTestHandler() (*Handler, *mocks.MockAppBundleService) {
 		mockVersionService,
 		mockAttachmentManifestService,
 		mockDataExportService,
+		mocks.NewMockStatsService(),
 		nil,
 	)
 
@@ -75,6 +76,7 @@ func createTestHandlerWithSync() (*Handler, *mocks.MockSyncService, *mocks.MockA
 		mockVersionService,
 		mockAttachmentManifestService,
 		mockDataExportService,
+		mocks.NewMockStatsService(),
 		nil,
 	)
 	return h, mockSyncService, mockAppBundleService

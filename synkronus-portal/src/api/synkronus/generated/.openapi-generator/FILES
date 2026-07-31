@@ -35,7 +35,11 @@ docs/GetHealth503Response.md
 docs/HealthApi.md
 docs/LoginRequest.md
 docs/Observation.md
+docs/ObservationFormTypeCount.md
 docs/ObservationGeolocation.md
+docs/ObservationStatsResponse.md
+docs/ObservationTimeline.md
+docs/ObservationTimelineBucket.md
 docs/ProblemDetail.md
 docs/ProblemDetailErrorsInner.md
 docs/RefreshTokenRequest.md
@@ -44,6 +48,7 @@ docs/RepositoryResetResponse.md
 docs/ResetUserPassword200Response.md
 docs/ResetUserPasswordRequest.md
 docs/ServerInfo.md
+docs/StatsApi.md
 docs/SwitchAppBundleVersion200Response.md
 docs/SyncPullRequest.md
 docs/SyncPullRequestSince.md

@@ -156,6 +156,11 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 			}
 			r.Route("/dataexport", dataExportRoutes)
 
+			statsRoutes := func(r chi.Router) {
+				r.With(auth.RequireRole(models.RoleReadOnly, models.RoleReadWrite, models.RoleAdmin)).Get("/observations", h.GetObservationStats)
+			}
+			r.Route("/stats", statsRoutes)
+
 			r.Get("/version", h.GetVersion)
 			r.Get("/versions", h.GetAPIVersions)
 
