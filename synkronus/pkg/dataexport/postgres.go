@@ -148,7 +148,7 @@ func (p *postgresDB) GetObservationsForFormType(ctx context.Context, formType st
 	for _, col := range schema.Columns {
 		switch col.SQLType {
 		case "numeric":
-			selectParts = append(selectParts, fmt.Sprintf("(data ->> '%s')::numeric AS data_%s", col.Key, col.Key))
+			selectParts = append(selectParts, fmt.Sprintf("(data ->> '%s')::double precision AS data_%s", col.Key, col.Key))
 		case "boolean":
 			selectParts = append(selectParts, fmt.Sprintf("(data ->> '%s')::boolean AS data_%s", col.Key, col.Key))
 		case "adate":
