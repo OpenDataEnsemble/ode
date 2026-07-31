@@ -1340,7 +1340,6 @@ button.logo-home-link:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  max-width: 1000px;
   width: 100%;
   margin: 0 auto;
   margin-bottom: var(--spacing-8); /* Additional margin from bottom edge */
@@ -2202,7 +2201,6 @@ button.logo-home-link:focus-visible {
   overflow: hidden;
   overflow-x: auto;
   width: 100%;
-  max-width: 1000px;
   margin: 0 auto;
   margin-top: var(--spacing-8);
   padding: 0;
@@ -4700,6 +4698,7 @@ button.logo-home-link:focus-visible {
   --home-chart-tooltip-border: #2d3449;
   --home-chart-tooltip-fg: #e8edf8;
   --home-chart-donut-stroke: var(--color-background-card, #131b2e);
+  width: 100%;
 }
 
 [data-theme='light'] .home-section {
