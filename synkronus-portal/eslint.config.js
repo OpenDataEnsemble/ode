@@ -9,7 +9,7 @@ import prettierPlugin from 'eslint-plugin-prettier';
 import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'src/api/synkronus/generated/**']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

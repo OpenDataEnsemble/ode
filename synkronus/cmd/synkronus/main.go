@@ -24,6 +24,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/migrations"
 	"github.com/opendataensemble/synkronus/pkg/presence"
+	"github.com/opendataensemble/synkronus/pkg/stats"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 	"github.com/opendataensemble/synkronus/pkg/user"
 	"github.com/opendataensemble/synkronus/pkg/version"
@@ -216,6 +217,10 @@ func main() {
 	dataExportDB := dataexport.NewPostgresDB(db.DB())
 	dataExportService := dataexport.NewService(dataExportDB, cfg)
 
+	// Initialize observation stats service
+	statsDB := stats.NewPostgresDB(db.DB())
+	statsService := stats.NewService(statsDB)
+
 	// Convert concrete types to interfaces if needed
 	var (
 		authSvc      auth.AuthServiceInterface           = authService
@@ -235,6 +240,7 @@ func main() {
 		versionService,
 		attachmentManifestService,
 		dataExportService,
+		statsService,
 		presenceRecorder,
 	)
 

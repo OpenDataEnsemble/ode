@@ -50,6 +50,7 @@ func TestProtectedEndpoints(t *testing.T) {
 		mockVersionService,
 		mockAttachmentManifestService,
 		mockDataExportService,
+		mocks.NewMockStatsService(),
 		nil,
 	)
 
