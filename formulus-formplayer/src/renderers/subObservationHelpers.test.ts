@@ -146,6 +146,12 @@ describe('subObservationHelpers', () => {
     expect(asc.map(r => r.z)).toEqual(['a', 'b']);
   });
 
+  it('sortRows compares numeric-looking values numerically', () => {
+    const rows = [{ nopessoa: '10' }, { nopessoa: '2' }, { nopessoa: 1 }];
+    const asc = sortRows(rows, { key: 'nopessoa', direction: 'asc' });
+    expect(asc.map(r => r.nopessoa)).toEqual([1, '2', '10']);
+  });
+
   it('coerceSubObservationRows normalizes values', () => {
     expect(coerceSubObservationRows(null)).toEqual([]);
     expect(coerceSubObservationRows([{ x: 1 }])).toEqual([{ x: 1 }]);
