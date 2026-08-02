@@ -129,10 +129,8 @@ import { runCustomValidatorsAndRefreshData } from './services/customValidatorDat
 import { resolveErrorPageIndex } from './utils/errorPageNavigation';
 import { applyAutoSequences } from './utils/autoSequence';
 import { newDraftSessionKey } from './utils/draftSessionKey';
-import {
-  formDataJsonEqual,
-  mergePreservingSubObsArrays,
-} from './renderers/subObservationHelpers';
+import { formDataJsonEqual } from './renderers/subObservationHelpers';
+import { mergeIncomingFormData } from './jsonforms/clearHiddenControlData';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
 function isSubObservationSession(init: FormInitData): boolean {
@@ -1164,7 +1162,12 @@ function App() {
     ({ data: newData }: { data: FormData }) => {
       const incoming = newData as Record<string, unknown>;
       const baseline = dataRef.current as Record<string, unknown>;
-      const merged = mergePreservingSubObsArrays(baseline, incoming);
+      // Preserve off-page SwipeLayout fields, then omit answers that are not
+      // relevant (key deletion = unanswered for AJV — not null).
+      const merged = mergeIncomingFormData(baseline, incoming, {
+        uischema,
+        ajv,
+      });
       void (async () => {
         const refreshedData = await refreshFormData(merged);
         if (formDataJsonEqual(refreshedData, baseline)) {
@@ -1175,7 +1178,7 @@ function App() {
         persistDraftIfRootSession(refreshedData);
       })();
     },
-    [refreshFormData, persistDraftIfRootSession],
+    [refreshFormData, persistDraftIfRootSession, uischema, ajv],
   );
 
   const commitFormData = useCallback(

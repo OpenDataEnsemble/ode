@@ -20,12 +20,9 @@ export function hasClearableValue(data: unknown): boolean {
  * When JsonForms marks a control `visible: false` (SHOW/HIDE), clear its value
  * so dependent relevance rules re-evaluate (ODK-style `relevant` behaviour).
  *
- * Formplayer policy: this is the default (and only) behaviour for Controls —
- * applied via {@link applyClearOnHideToRenderers} on the renderer registry and
- * also called from individual control shells for defense in depth.
- *
- * Safe to call on every render: no-ops when already empty or when handleChange/path
- * are missing (e.g. simple withVisibleGuard demos).
+ * Clears with `undefined` (JsonForms deletes the key = unanswered). App must
+ * apply {@link mergeIncomingFormData} on `onChange` so SwipeLayout's baseline
+ * merge cannot resurrect those keys.
  */
 export function useClearOnHide({
   visible,
