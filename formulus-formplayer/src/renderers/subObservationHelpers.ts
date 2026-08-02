@@ -589,6 +589,21 @@ export function sortRows(
         : b;
     const av = readDataPath(aData, key);
     const bv = readDataPath(bData, key);
+
+    const an =
+      av === null || av === undefined || av === ''
+        ? NaN
+        : Number(typeof av === 'string' ? av.trim() : av);
+    const bn =
+      bv === null || bv === undefined || bv === ''
+        ? NaN
+        : Number(typeof bv === 'string' ? bv.trim() : bv);
+    if (Number.isFinite(an) && Number.isFinite(bn)) {
+      if (an < bn) return -1 * sign;
+      if (an > bn) return 1 * sign;
+      return 0;
+    }
+
     const as = av == null ? '' : String(av);
     const bs = bv == null ? '' : String(bv);
     if (as < bs) return -1 * sign;
