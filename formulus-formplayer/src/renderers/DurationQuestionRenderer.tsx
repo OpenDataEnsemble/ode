@@ -2,6 +2,7 @@ import React from 'react';
 import { withJsonFormsControlProps } from '@jsonforms/react';
 import { ControlProps, rankWith, schemaMatches } from '@jsonforms/core';
 import QuestionShell from '../components/QuestionShell';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import DurationControl from '../components/duration/DurationControl';
 import { formatControlErrors } from '../utils/formatControlErrors';
 
@@ -42,6 +43,7 @@ const DurationQuestionRenderer: React.FC<ControlProps> = ({
       : null,
   );
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (visible === false) {
     return null;
   }

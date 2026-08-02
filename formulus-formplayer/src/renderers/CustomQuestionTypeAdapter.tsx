@@ -17,6 +17,7 @@ import {
   resolveControlLabel,
 } from '../utils/controlDisplayText';
 import { useOdeT } from '../i18n/useOdeT';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 
 interface ErrorBoundaryLabels {
   title: string;
@@ -139,6 +140,7 @@ export function createCustomQuestionTypeRenderer(
       visible,
     } = props;
     const t = useOdeT();
+    useClearOnHide({ visible, path, data, handleChange });
     const errorBoundaryLabels = {
       title: t('cqt.errorTitle', 'Custom Question Type Error'),
       body: t(

@@ -19,6 +19,7 @@ import {
   FileResultData,
 } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import {
   attachmentBasenameFromFilename,
   attachmentBasenameFromObservation,
@@ -174,6 +175,7 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
     setSafeError(null);
   }, [handleChange, path, setSafeError]);
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (!visible) {
     return null;
   }

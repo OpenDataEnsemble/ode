@@ -37,6 +37,7 @@ import {
 } from '@mui/material';
 import QuestionShell from '../components/QuestionShell';
 import { isControlHidden } from '../jsonforms/visibleGuard';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import { tokens } from './tokens-adapter';
 import {
   parseChoiceLayout,
@@ -66,6 +67,7 @@ const CardEnumControl = (props: AnyControlProps) => {
     visible,
   } = props;
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (isControlHidden(visible)) return null;
   const label = (uischema as any)?.label || schema.title;
   const description = schema.description;
@@ -207,6 +209,7 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
     visible,
   } = props;
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (isControlHidden(visible)) return null;
   const label = (uischema as any)?.label || schema.title;
   const description = schema.description;
@@ -314,6 +317,7 @@ const EnumArrayShellControl = (
     label,
   } = props;
 
+  useClearOnHide({ visible, path, data, handleChange: props.handleChange });
   if (visible === false) return null;
 
   const title = (uischema as any)?.label || schema.title || label;
@@ -403,6 +407,7 @@ export const ChoiceControl = (props: AnyControlProps) => {
     visible,
   } = props;
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (isControlHidden(visible)) return null;
   const label = (uischema as any)?.label || schema.title;
   const description = schema.description;
@@ -491,8 +496,10 @@ export const MultiChoiceControl = (
     errors,
     enabled = true,
     visible,
+    handleChange,
   } = props;
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (isControlHidden(visible)) return null;
   const label = (uischema as any)?.label || schema.title;
   const description = schema.description;

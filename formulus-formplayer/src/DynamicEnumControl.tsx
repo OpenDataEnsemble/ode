@@ -20,6 +20,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import QuestionShell from './components/QuestionShell';
+import { useClearOnHide } from './jsonforms/useClearOnHide';
 
 /**
  * Interface for x-dynamicEnum configuration
@@ -128,6 +129,8 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
 }) => {
   const { functions } = useFormEvaluation();
   const ctx = useJsonForms();
+
+  useClearOnHide({ visible, path, data, handleChange });
 
   const [choices, setChoices] = useState<Array<{ const: any; title: string }>>(
     [],

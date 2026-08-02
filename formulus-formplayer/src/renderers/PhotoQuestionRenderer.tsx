@@ -23,6 +23,7 @@ import {
 } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import {
   attachmentBasenameFromFilename,
   attachmentBasenameFromObservation,
@@ -240,6 +241,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     currentPhotoData as Record<string, unknown> | null,
   );
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (visible === false) return null;
 
   return (
