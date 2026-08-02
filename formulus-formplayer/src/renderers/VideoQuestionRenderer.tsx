@@ -33,6 +33,7 @@ import {
   VideoFile as VideoFileIcon,
 } from '@mui/icons-material';
 import QuestionShell from '../components/QuestionShell';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import FormulusClient from '../services/FormulusInterface';
 import {
   VideoResult,
@@ -331,6 +332,7 @@ const VideoQuestionRenderer: React.FC<ControlProps> = ({
     !!currentVideoData &&
     typeof meta?.duration === 'number';
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (visible === false) return null;
 
   return (

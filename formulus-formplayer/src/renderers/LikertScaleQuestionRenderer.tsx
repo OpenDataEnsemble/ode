@@ -5,6 +5,7 @@ import QuestionShell from '../components/QuestionShell';
 import LikertScaleControl from '../components/likert/LikertScaleControl';
 import { resolveLikertOptions } from '../components/likert/likertConfig';
 import { formatControlErrors } from '../utils/formatControlErrors';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 
 export const likertScaleQuestionTester = rankWith(
   12,
@@ -47,6 +48,7 @@ const LikertScaleQuestionRenderer: React.FC<ControlProps> = ({
       : null,
   );
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (visible === false) {
     return null;
   }

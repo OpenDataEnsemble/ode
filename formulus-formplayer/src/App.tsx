@@ -113,6 +113,7 @@ import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
 import ShellInputControl, {
   shellInputControlTester,
 } from './jsonforms/ShellInputControl';
+import { applyClearOnHideToRenderers } from './jsonforms/applyClearOnHideToRenderers';
 import type { KeyboardPrimaryEnterKeyHint } from './utils/keyboardEnterKeyHint';
 
 import ErrorBoundary from './components/ErrorBoundary';
@@ -472,6 +473,20 @@ function App() {
   >(undefined);
 
   const odeI18n = useMemo(() => createOdeI18n(uiLocale), [uiLocale]);
+
+  // Clear-on-hide is Formplayer's sole SHOW/HIDE data policy for Controls.
+  // Memoize so registry HOCs are stable across App re-renders.
+  const formRenderers = useMemo(
+    () =>
+      applyClearOnHideToRenderers([
+        ...shellMaterialRenderers,
+        ...materialRenderers,
+        ...customRenderers,
+        ...customTypeRenderers,
+        ...extensionRenderers,
+      ]),
+    [customTypeRenderers, extensionRenderers],
+  );
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -1549,13 +1564,7 @@ function App() {
                         uischema={uischema}
                         data={data}
                         i18n={odeI18n}
-                        renderers={[
-                          ...shellMaterialRenderers,
-                          ...materialRenderers,
-                          ...customRenderers,
-                          ...customTypeRenderers, // Custom question types from custom_app
-                          ...extensionRenderers, // Extension renderers (highest priority)
-                        ]}
+                        renderers={formRenderers}
                         cells={materialCells}
                         onChange={handleDataChange}
                         validationMode={validationMode}

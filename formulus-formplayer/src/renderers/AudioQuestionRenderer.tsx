@@ -36,6 +36,7 @@ import {
 } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import {
   attachmentBasenameFromFilename,
   attachmentBasenameFromObservation,
@@ -376,6 +377,7 @@ const AudioQuestionRenderer: React.FC<ControlProps> = ({
     !!currentAudioData &&
     typeof meta?.duration === 'number';
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (visible === false) return null;
 
   return (

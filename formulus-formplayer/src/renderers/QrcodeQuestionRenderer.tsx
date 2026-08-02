@@ -22,6 +22,7 @@ import { ControlProps, rankWith, formatIs } from '@jsonforms/core';
 import FormulusClient from '../services/FormulusInterface';
 import { QrcodeResult } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import {
   resolveControlDescription,
   resolveControlLabel,
@@ -135,6 +136,7 @@ const QrcodeQuestionRenderer: React.FC<ControlProps> = props => {
     console.log('QR code value cleared for field:', fieldId);
   }, [fieldId, handleChange, path]);
 
+  useClearOnHide({ visible, path, data, handleChange });
   // Don't render if not visible
   if (!visible) {
     return null;

@@ -11,6 +11,7 @@ import { Box, Typography, Button, IconButton, Tooltip } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import QuestionShell from '../components/QuestionShell';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import FormulusClient from '../services/FormulusInterface';
 import type { FormCompletionResult } from '../types/FormulusInterfaceDefinition';
 import { useFormContext } from '../App';
@@ -481,6 +482,7 @@ const SubObservationQuestionRendererInner: React.FC<ControlProps> = ({
     ],
   );
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (!visible) return null;
 
   const shellError =
