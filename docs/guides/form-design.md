@@ -891,6 +891,21 @@ Rules are defined in the UI schema using the `rule` property on Control elements
 }
 ```
 
+:::warning Clear-on-hide deletes the field value
+When Formplayer hides a **Control** (`SHOW` until the condition is true, or `HIDE` when the condition is true), it **clears that field’s value** from the observation (ODK-style `relevant` behaviour). This is intentional for user-entered answers that should not stay when the question is no longer relevant.
+
+**Do not** put `SHOW`/`HIDE` on fields you need to keep—especially values injected by a custom app via `defaultData` (cluster IDs, device role, AF codes, enrollment mode, etc.).
+
+**Recommended pattern for injected / stamp fields:**
+
+1. Declare the field in `schema.json` so it can be stored and validated.
+2. Pass it in `openFormplayer` / `FormInitData` as `params.defaultData`.
+3. **Do not** add a UI `Control` for that field (or never attach a visibility rule to it).
+4. If the enumerator must **see** the value, use a separate display-only / computed proxy (for example `lbl_region`, `lbl_af`) or list the stamp in SwipeLayout `headerFields`—not a hidden Control on the real field.
+
+Using a Control solely to “hide” an injected field will wipe the inject on open and can cause required-field failures or silent data loss.
+:::
+
 ### Scope Resolution Rules
 
 **Critical Rule**: Rule condition scopes **must exist in the schema at all times**, even when the field is hidden. The scope is evaluated against the current form data.

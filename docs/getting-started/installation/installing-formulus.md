@@ -86,7 +86,7 @@ You have two options to install Obtainium:
 
 ![Obtainium Add App Screen](/img/installation/obtainium-add-app.png)
 
-**Stable release:** Install **v1.1.1** (or the latest [GitHub release](https://github.com/OpenDataEnsemble/ode/releases)). Pre-release toggles are only needed for alpha/beta testing.
+**Stable release:** Install **v1.2.1** (or the latest [GitHub release](https://github.com/OpenDataEnsemble/ode/releases)). Pre-release toggles are only needed for alpha/beta testing.
 
 #### Step 3: Install Formulus
 
@@ -97,7 +97,7 @@ You have two options to install Obtainium:
    - App name: **ode**
    - Developer: **OpenDataEnsemble**
    - Package: `org.opendataensemble.formulus`
-   - Latest version: **v1.1.1** (or current [release](https://github.com/OpenDataEnsemble/ode/releases))
+   - Latest version: **v1.2.1** (or current [release](https://github.com/OpenDataEnsemble/ode/releases))
    - Status: **Not installed**
 5. **Tap the "Install" button** at the bottom of the screen
 6. **Confirm installation** when prompted:

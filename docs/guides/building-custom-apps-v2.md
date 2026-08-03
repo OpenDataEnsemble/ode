@@ -560,22 +560,25 @@ Upload to Synkronus:
 
 ## How it works: Data injection
 
-When you call:
+Prefer `defaultData` (keys must match schema root properties):
 
 ```javascript
 await api.openFormplayer(
   'pull_shot',
-  { bean: beanName },  // Inject this value
+  { defaultData: { bean: beanName } },
   {}
 )
 ```
 
+Legacy flat keys on the params object (other than reserved bridge keys) are still accepted when `defaultData` is omitted.
+
 The Formulus API:
 1. Opens the `pull_shot` form
-2. Pre-fills the `bean` field with the provided value
-3. Marks it read-only (from ui.json)
-4. User fills in the rest (yield, time, rating)
-5. When submitted, the observation includes the injected value
+2. Prefills matching schema fields from `defaultData`
+3. User fills in the rest (yield, time, rating)
+4. When submitted, the observation includes the injected value
+
+**Important — visibility vs injection:** Formplayer **clears** a field when its Control is hidden by a `SHOW`/`HIDE` rule. Injected stamps must live in the **schema** (and `defaultData`) and must **not** be bound to a Control that starts hidden. To show the value read-only, use SwipeLayout `headerFields` or a separate computed / `lbl_*` display field—not a hidden Control on the real property. See [Form design — Conditional Logic](./form-design.md#conditional-logic-in-ode-forms).
 
 ---
 
