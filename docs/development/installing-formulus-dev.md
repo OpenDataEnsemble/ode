@@ -160,18 +160,20 @@ adb install app-debug.apk
   <TabItem value="linux-mac" label="Linux/macOS">
 
 ```bash
-# Download and install in one command
-curl -L https://github.com/OpenDataEnsemble/ode/releases/download/v1.1.1/formulus.apk -o /tmp/formulus.apk
-adb install /tmp/formulus.apk
+# Browse the release and download the arm64-v8a APK for most phones:
+# https://github.com/OpenDataEnsemble/ode/releases/tag/v1.2.1
+# Asset names look like: formulus-v1.2.1-25-arm64-v8a-release-YYYYMMDD.apk
+adb install /path/to/formulus-v1.2.1-*-arm64-v8a-release-*.apk
 ```
 
   </TabItem>
   <TabItem value="windows" label="Windows">
 
 ```powershell
-# Download and install
-Invoke-WebRequest -Uri "https://github.com/OpenDataEnsemble/ode/releases/download/v1.1.1/formulus.apk" -OutFile "$env:TEMP\formulus.apk"
-adb install "$env:TEMP\formulus.apk"
+# Browse the release and download the arm64-v8a APK for most phones:
+# https://github.com/OpenDataEnsemble/ode/releases/tag/v1.2.1
+# Asset names look like: formulus-v1.2.1-25-arm64-v8a-release-YYYYMMDD.apk
+adb install "C:\path\to\formulus-v1.2.1-*-arm64-v8a-release-*.apk"
 ```
 
   </TabItem>

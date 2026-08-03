@@ -738,6 +738,8 @@ Use `type: object` with `format: select_file`. The Formplayer stores **basename-
 | `ENABLE` | Element is disabled until condition is true |
 | `DISABLE` | Element is enabled until condition is true |
 
+> **Clear-on-hide:** For `SHOW` and `HIDE`, when a Control becomes not visible Formplayer **deletes that field’s value** from form data (see `useClearOnHide`). Use visibility rules only for answers that should reset when irrelevant. Keep injected / stamp fields in the schema and `defaultData` **without** a hidden Control—display via `headerFields` or a separate computed/`lbl_*` field if needed. Details: [Form design — Conditional Logic](../guides/form-design.md#conditional-logic-in-ode-forms).
+
 ### Condition Schema
 
 **Supported Condition Types:**
