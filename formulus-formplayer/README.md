@@ -84,6 +84,7 @@ The React Native host passes `FormInitData` into the WebView (including `params`
 - **Reserved top-level `params` keys** (not treated as observation fields): `defaultData`, `theme`, `darkMode`, `themeColors`. If the host adds more non-data parameters later, the formplayer’s `FORMPARAMS_NON_DATA_KEYS` in `src/utils/formObservationData.ts` should be extended in lockstep.
 - **Legacy prefills**: If `defaultData` is missing, the formplayer copies other top-level `params` keys except the reserved keys above.
 - **Sanitization**: When the schema defines non-empty root `properties`, loaded and submitted data are filtered to those keys plus `locale` (so older polluted rows are cleaned on edit/save). Schemas with missing or empty root `properties` pass data through unchanged.
+- **Clear-on-hide**: A Control with a `SHOW`/`HIDE` rule that starts (or becomes) hidden has its value **deleted**. Injected stamps must stay schema + `defaultData` only—never a hidden Control on the real field. Prefer `headerFields` or a computed/`lbl_*` display proxy. See [form-design](https://opendataensemble.org/docs/guides/form-design#conditional-logic-in-ode-forms).
 
 ## Custom validators that mutate data
 

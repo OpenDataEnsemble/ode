@@ -1,6 +1,6 @@
 [package]
 name = "odedesktop"
-version = "1.2.0"
+version = "1.2.1"
 description = "ODE Desktop"
 authors = ["OpenDataEnsemble.org"]
 edition = "2024"
