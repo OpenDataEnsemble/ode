@@ -13,7 +13,8 @@ import { formatDurationHuman } from '../components/duration/durationFormat';
 import { useOdeT } from '../i18n/useOdeT';
 import { translateAjvError } from '../i18n/createOdeI18n';
 import { FormplayerLocaleContext } from '../i18n/FormplayerLocaleContext';
-import { titleForErrorPath } from '../utils/errorPageNavigation';
+import { titleForAjvError } from '../utils/errorPageNavigation';
+import { instancePathForAjvError } from '../utils/validationNavigation';
 import { resolveFieldLabel } from '../utils/controlDisplayText';
 import type { JsonSchema7 } from '@jsonforms/core';
 
@@ -287,8 +288,8 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
   }, [fullSchema, data, findFieldPageMemo, getFieldLabel]);
 
   const formatErrorMessage = (error: ErrorObject) => {
-    const title = titleForErrorPath(
-      error.instancePath,
+    const title = titleForAjvError(
+      error,
       fullSchema as JsonSchema7 | undefined,
       localizedUiSchema,
     );
@@ -298,12 +299,18 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
 
   const hasErrors = Array.isArray(errors) && errors.length > 0;
 
-  const handleErrorClick = (path: string) => {
-    // Dispatch a custom event that SwipeLayoutRenderer will listen for
-    const event = new CustomEvent('navigateToError', {
-      detail: { path },
-    });
-    window.dispatchEvent(event);
+  const navigateToPath = (path: string) => {
+    if (!path) return;
+    window.dispatchEvent(
+      new CustomEvent('navigateToError', {
+        detail: { path },
+      }),
+    );
+  };
+
+  const handleErrorClick = (error: ErrorObject) => {
+    const path = instancePathForAjvError(error);
+    if (path) navigateToPath(path);
   };
 
   const handleFieldEdit = (item: SummaryItem) => {
@@ -315,7 +322,7 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
       window.dispatchEvent(navigateEvent);
     } else {
       // Fallback: try to navigate using the field path
-      handleErrorClick(item.path);
+      navigateToPath(item.path);
     }
   };
 
@@ -364,7 +371,7 @@ const FinalizeRenderer = ({ data }: ControlProps) => {
                 key={index}
                 variant="danger"
                 size="medium"
-                onPress={() => handleErrorClick(error.instancePath)}
+                onPress={() => handleErrorClick(error)}
                 style={{
                   width: '100%',
                   whiteSpace: 'normal',
