@@ -4,7 +4,10 @@ import {
   coerceSchemaRootIntegers,
   prepareRootObservationData,
 } from './formObservationData';
-import { firstBlockingErrorInstancePath } from './validationNavigation';
+import {
+  firstBlockingErrorInstancePath,
+  instancePathForAjvError,
+} from './validationNavigation';
 
 describe('coerceSchemaIntegerValue', () => {
   it('coerces numeric strings to integers', () => {
@@ -56,9 +59,31 @@ describe('firstBlockingErrorInstancePath', () => {
     ).toBe('/quarto_num');
   });
 
-  it('falls back to custom validator path', () => {
+  it('falls back to custom validator path (normalized)', () => {
     expect(
       firstBlockingErrorInstancePath([{ path: '#/properties/validar_cama' }]),
-    ).toBe('#/properties/validar_cama');
+    ).toBe('/validar_cama');
+  });
+
+  it('resolves AJV required missingProperty at root', () => {
+    expect(
+      firstBlockingErrorInstancePath([
+        {
+          instancePath: '',
+          keyword: 'required',
+          params: { missingProperty: 'nome_chefe' },
+        },
+      ]),
+    ).toBe('/nome_chefe');
+  });
+
+  it('resolves AJV required missingProperty under a parent object', () => {
+    expect(
+      instancePathForAjvError({
+        instancePath: '/pessoas/0',
+        keyword: 'required',
+        params: { missingProperty: 'sexo' },
+      }),
+    ).toBe('/pessoas/0/sexo');
   });
 });

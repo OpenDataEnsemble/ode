@@ -8,6 +8,7 @@ import {
   type UISchemaElement,
 } from '@jsonforms/core';
 import type { BlockingValidationError } from './validationNavigation';
+import { instancePathForAjvError } from './validationNavigation';
 import { resolveFieldLabel } from './controlDisplayText';
 
 function escapeRegex(segment: string): string {
@@ -200,6 +201,16 @@ export function titleForErrorPath(
   return titleAtSchemaPath(schema, propertyPath);
 }
 
+/** Field title for an AJV/custom error, including root `required` failures. */
+export function titleForAjvError(
+  error: BlockingValidationError,
+  schema: JsonSchema7 | undefined,
+  uischema?: UISchemaElement,
+): string | null {
+  const path = instancePathForAjvError(error);
+  return path ? titleForErrorPath(path, schema, uischema) : null;
+}
+
 /** Human-readable summary for skipFinalize Done alert (field titles, not count only). */
 export type OdeTranslateFn = (
   key: string,
@@ -219,9 +230,7 @@ export function formatBlockingErrorSummary(
 
   const titles: string[] = [];
   for (const err of errors) {
-    const path =
-      err.instancePath ?? (typeof err.path === 'string' ? err.path : undefined);
-    const title = path ? titleForErrorPath(path, schema, uischema) : null;
+    const title = titleForAjvError(err, schema, uischema);
     const label = title || err.message;
     if (label && !titles.includes(label)) titles.push(label);
     if (titles.length >= maxTitles) break;

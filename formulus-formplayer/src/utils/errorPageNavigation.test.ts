@@ -5,6 +5,7 @@ import {
   instancePathMatchesControlScope,
   normalizeErrorInstancePath,
   resolveErrorPageIndex,
+  titleForAjvError,
 } from './errorPageNavigation';
 
 const nestedGroupLayout = {
@@ -101,6 +102,7 @@ describe('formatBlockingErrorSummary', () => {
     properties: {
       validar_cama: { type: 'string', title: 'A cama é válida' },
       viutenda: { type: 'string', title: 'Viu/tem tenda?' },
+      nome_chefe: { type: 'string', title: 'Nome do Chefe/Referência' },
     },
   };
 
@@ -111,5 +113,62 @@ describe('formatBlockingErrorSummary', () => {
     );
     expect(message).toContain('A cama é válida');
     expect(message).toContain('Tap Done to review');
+  });
+
+  it('resolves titles for root required errors with empty instancePath', () => {
+    const message = formatBlockingErrorSummary(
+      [
+        {
+          instancePath: '',
+          keyword: 'required',
+          params: { missingProperty: 'nome_chefe' },
+        },
+      ],
+      schema,
+    );
+    expect(message).toContain('Nome do Chefe/Referência');
+  });
+});
+
+describe('titleForAjvError', () => {
+  const schema = {
+    properties: {
+      nome_chefe: { type: 'string', title: 'Nome do Chefe/Referência' },
+      pessoas: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            sexo: { type: 'string', title: 'Sexo' },
+          },
+        },
+      },
+    },
+  };
+
+  it('titles root required errors via missingProperty', () => {
+    expect(
+      titleForAjvError(
+        {
+          instancePath: '',
+          keyword: 'required',
+          params: { missingProperty: 'nome_chefe' },
+        },
+        schema,
+      ),
+    ).toBe('Nome do Chefe/Referência');
+  });
+
+  it('titles nested required errors under a parent instancePath', () => {
+    expect(
+      titleForAjvError(
+        {
+          instancePath: '/pessoas/0',
+          keyword: 'required',
+          params: { missingProperty: 'sexo' },
+        },
+        schema,
+      ),
+    ).toBe('Sexo');
   });
 });
