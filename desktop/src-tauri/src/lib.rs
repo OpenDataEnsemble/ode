@@ -1677,9 +1677,30 @@ fn read_publish_schema_bytes(
     Ok(out)
 }
 
+/// Strip the in-place host stub that [`CustomAppEmbed`] writes into
+/// `bundles/dev-local/app/index.html` for the Desktop iframe (`asset://` base +
+/// localhost `formulus-injection.js`). That block must never ship to Synkronus —
+/// Formulus / mobile WebViews cannot resolve those URLs and render a blank screen.
+fn strip_ode_desktop_injection(html: &str) -> String {
+    const START: &str = "<!--ode-desktop-inject-start-->";
+    const END: &str = "<!--ode-desktop-inject-end-->";
+    let Some(start) = html.find(START) else {
+        return html.to_string();
+    };
+    let Some(end_rel) = html[start..].find(END) else {
+        return html.to_string();
+    };
+    let end = start + end_rel + END.len();
+    let mut out = String::with_capacity(html.len() - (end - start));
+    out.push_str(&html[..start]);
+    out.push_str(&html[end..]);
+    out
+}
+
 /// Zips `bundles/dev-local/` into a temp file with Synkronus-compatible paths (`app/`, `forms/`, …).
 ///
 /// Prefer app-only layout when `app/forms/` exists (omit duplicate top-level `forms/`).
+/// `app/index.html` is sanitized so ODE Desktop embed injection is never published.
 fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
     let dev_local = ws.join("bundles/dev-local");
     let index = dev_local.join("app/index.html");
@@ -1714,6 +1735,9 @@ fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
             } else {
                 fs::read(path)?
             }
+        } else if name == "app/index.html" {
+            let html = fs::read_to_string(path)?;
+            strip_ode_desktop_injection(&html).into_bytes()
         } else {
             fs::read(path)?
         };
@@ -5447,7 +5471,7 @@ mod tests {
         build_observation_overview, extract_observations_from_json_value, init_db,
         mirror_custom_app_dev_folder, parse_observation_extras, parse_time,
         publish_bundle_zip_entry_allowed, resolve_attachment_path,
-        should_emit_attachment_copy_progress, should_mark_conflict,
+        should_emit_attachment_copy_progress, should_mark_conflict, strip_ode_desktop_injection,
         upsert_observation_from_local_import, validate_custom_app_dev_source_folder,
         zip_dev_mirror_bundle,
     };
@@ -5924,6 +5948,56 @@ mod tests {
             Value::String("#/$defs/yesno".to_string())
         );
         assert!(schema["$defs"]["yesno"].is_object());
+        let _ = fs::remove_file(&zip_path);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn strip_ode_desktop_injection_removes_embed_stub() {
+        let html = concat!(
+            "<!DOCTYPE html><html lang=\"pt\"><head>",
+            "<!--ode-desktop-inject-start-->",
+            "<base href=\"asset://localhost/app/\">",
+            "<script src=\"http://localhost:1420/formulus-injection.js\"></script>",
+            "<!--ode-desktop-inject-end-->",
+            "<meta charset=\"UTF-8\" /><script src=\"./formulus-load.js\"></script>",
+            "</head><body><div id=\"root\"></div></body></html>",
+        );
+        let cleaned = strip_ode_desktop_injection(html);
+        assert!(!cleaned.contains("ode-desktop-inject"));
+        assert!(!cleaned.contains("asset://localhost"));
+        assert!(!cleaned.contains("formulus-injection.js"));
+        assert!(cleaned.contains("./formulus-load.js"));
+        assert!(cleaned.contains("<div id=\"root\"></div>"));
+    }
+
+    #[test]
+    fn zip_dev_mirror_bundle_strips_desktop_inject_from_index() {
+        let base =
+            std::env::temp_dir().join(format!("ode_dev_zip_strip_inject_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
+        let poisoned = concat!(
+            "<html><head><!--ode-desktop-inject-start-->",
+            "<base href=\"asset://localhost/x/\">",
+            "<!--ode-desktop-inject-end-->",
+            "<script src=\"./formulus-load.js\"></script></head><body></body></html>",
+        );
+        fs::write(
+            base.join("bundles/dev-local/app/index.html"),
+            poisoned.as_bytes(),
+        )
+        .unwrap();
+
+        let zip_path = zip_dev_mirror_bundle(Path::new(&base)).unwrap();
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = ZipArchive::new(file).unwrap();
+        let mut entry = archive.by_name("app/index.html").unwrap();
+        let mut html = String::new();
+        entry.read_to_string(&mut html).unwrap();
+        assert!(!html.contains("ode-desktop-inject"));
+        assert!(!html.contains("asset://localhost"));
+        assert!(html.contains("./formulus-load.js"));
         let _ = fs::remove_file(&zip_path);
         let _ = fs::remove_dir_all(&base);
     }
