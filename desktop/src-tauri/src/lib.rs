@@ -5471,9 +5471,9 @@ mod tests {
         build_observation_overview, extract_observations_from_json_value, init_db,
         mirror_custom_app_dev_folder, parse_observation_extras, parse_time,
         publish_bundle_zip_entry_allowed, resolve_attachment_path,
-        should_emit_attachment_copy_progress, should_mark_conflict,
-        strip_ode_desktop_injection, upsert_observation_from_local_import,
-        validate_custom_app_dev_source_folder, zip_dev_mirror_bundle,
+        should_emit_attachment_copy_progress, should_mark_conflict, strip_ode_desktop_injection,
+        upsert_observation_from_local_import, validate_custom_app_dev_source_folder,
+        zip_dev_mirror_bundle,
     };
     use crate::observation_query::SqlParam;
     use rusqlite::{Connection, params};
@@ -5973,10 +5973,8 @@ mod tests {
 
     #[test]
     fn zip_dev_mirror_bundle_strips_desktop_inject_from_index() {
-        let base = std::env::temp_dir().join(format!(
-            "ode_dev_zip_strip_inject_{}",
-            std::process::id()
-        ));
+        let base =
+            std::env::temp_dir().join(format!("ode_dev_zip_strip_inject_{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
         let poisoned = concat!(
