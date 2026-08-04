@@ -178,6 +178,10 @@ export function WorkbenchCustomAppPage() {
 
     setUploading(true);
     try {
+      // Refresh from the local source folder, then zip+push the mirror.
+      // `pushDevMirrorAppBundle` strips the ODE Desktop embed inject that
+      // CustomAppEmbed writes into `app/index.html` for iframe preview —
+      // that stub must not ship to Synkronus / Formulus.
       await refreshDevApp();
       if (!(await ensureAuth())) {
         return;
