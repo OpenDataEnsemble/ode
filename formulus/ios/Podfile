@@ -7,7 +7,7 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
-platform :ios, min_ios_version_supported
+platform :ios, '17.0'
 prepare_react_native_project!
 
 linkage = ENV['USE_FRAMEWORKS']
@@ -35,5 +35,24 @@ target 'Formulus' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Xcode 26+ rejects deployment targets below 15.0, but several pods
+    # (RNSVG, RNImagePicker, RNCAsyncStorage, ...) still declare 9.0-13.4.
+    # Clamp every pod target up to the RN minimum.
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        current = build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']
+        if current && Gem::Version.new(current) < Gem::Version.new(min_ios_version_supported)
+          build_config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = min_ios_version_supported
+        end
+
+        # fmt 11.0.2 (pinned by RCT-Folly) fails C++20 consteval checks under
+        # Apple clang 21 (Xcode 26.4+); C++17 skips consteval entirely.
+        # Drop once RN ships fmt >= 12.1.0 (facebook/react-native#55601).
+        if target.name == 'fmt'
+          build_config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
+        end
+      end
+    end
   end
 end
