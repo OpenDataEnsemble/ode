@@ -37,8 +37,34 @@
 	<string>Formulus needs access to your location to add geolocation data to observations for accurate data collection.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Formulus needs access to your location to add geolocation data to observations for accurate data collection.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Formulus needs access to your microphone to add voice note data to observations for accurate data collection.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Formulus needs access to your photo library if you wish to upload photo observations for accurate data collection.</string>
 	<key>RCTNewArchEnabled</key>
 	<true/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>MaterialDesignIcons.ttf</string>
+		<string>MaterialIcons.ttf</string>
+	</array>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -51,12 +77,14 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
-	<key>UIAppFonts</key>
-	<array>
-		<string>MaterialDesignIcons.ttf</string>
-		<string>MaterialIcons.ttf</string>
-	</array>
 </dict>
 </plist>
