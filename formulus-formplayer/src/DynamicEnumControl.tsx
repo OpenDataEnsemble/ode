@@ -158,9 +158,11 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
     [handleChange, path],
   );
 
-  // Find selected option based on current data value - must be before early returns
+  // Find selected option based on current data value - must be before early returns.
+  // Coerce so number/string mismatches from saved observations still resolve.
   const selectedOption = useMemo(() => {
-    return choices.find(opt => opt.const === data) || null;
+    if (data == null || data === '') return null;
+    return choices.find(opt => String(opt.const) === String(data)) || null;
   }, [choices, data]);
 
   // Get display label from schema or uischema - computed before early returns
@@ -352,14 +354,16 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
           onChange={handleValueChange}
           options={choices}
           getOptionLabel={option => option.title || String(option.const)}
-          isOptionEqualToValue={(option, value) => option.const === value.const}
+          isOptionEqualToValue={(option, value) =>
+            String(option.const) === String(value.const)
+          }
           disabled={!enabled}
           sx={{ mt: 1 }}
           renderInput={params => (
             <TextField
               {...params}
               error={!!hasValidationErrors}
-              placeholder="Select an option..."
+              placeholder={selectedOption ? undefined : 'Select an option...'}
             />
           )}
         />

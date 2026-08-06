@@ -28,6 +28,12 @@ import {
   attachmentBasenameFromFilename,
   attachmentBasenameFromObservation,
 } from '../utils/attachmentBasename';
+import { formatControlErrors } from '../utils/formatControlErrors';
+import {
+  resolveControlDescription,
+  resolveControlLabel,
+} from '../utils/controlDisplayText';
+import { useOdeT } from '../i18n/useOdeT';
 
 // Helper to parse pixel values from tokens
 const parsePx = (value: string): number => {
@@ -68,36 +74,41 @@ interface PhotoQuestionProps extends ControlProps {
   // Additional props specific to photo questions can be added here
 }
 
-const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
-  data,
-  handleChange,
-  path,
-  errors,
-  schema,
-  uischema,
-  enabled = true,
-  visible = true,
-}) => {
+const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = props => {
+  const {
+    data,
+    handleChange,
+    path,
+    errors,
+    schema,
+    enabled = true,
+    visible = true,
+  } = props;
+
+  const t = useOdeT();
   const [isLoading, setIsLoading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Safe error setter to prevent corruption
-  const setSafeError = useCallback((errorMessage: string | null) => {
-    if (errorMessage === null || errorMessage === undefined) {
-      setError(null);
-    } else if (typeof errorMessage === 'string' && errorMessage.length > 0) {
-      setError(errorMessage);
-    } else {
-      console.warn(
-        'Invalid error message detected:',
-        errorMessage,
-        'Type:',
-        typeof errorMessage,
-      );
-      setError('An unknown error occurred');
-    }
-  }, []);
+  const setSafeError = useCallback(
+    (errorMessage: string | null) => {
+      if (errorMessage === null || errorMessage === undefined) {
+        setError(null);
+      } else if (typeof errorMessage === 'string' && errorMessage.length > 0) {
+        setError(errorMessage);
+      } else {
+        console.warn(
+          'Invalid error message detected:',
+          errorMessage,
+          'Type:',
+          typeof errorMessage,
+        );
+        setError(t('cqt.unknownError', 'Unknown error'));
+      }
+    },
+    [t],
+  );
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
 
   // Extract field ID from the path for use with the camera interface
@@ -152,7 +163,9 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           cameraResult.data.filename,
         );
         if (!storedBasename) {
-          setSafeError('Invalid photo filename from camera.');
+          setSafeError(
+            t('media.invalidFilename', 'Invalid photo filename from camera.'),
+          );
           return;
         }
 
@@ -196,24 +209,29 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
           console.log('Camera operation cancelled by user');
           setSafeError(null);
         } else if (cameraError.status === 'error') {
-          const errorMessage = cameraError.message || 'Camera error occurred';
+          const errorMessage =
+            cameraError.message ||
+            t('media.cameraError', 'Camera error occurred');
           console.log('Setting camera error message:', errorMessage);
           setSafeError(errorMessage);
         } else {
-          setSafeError('Unknown camera error');
+          setSafeError(t('media.unknownCameraError', 'Unknown camera error'));
         }
       } else {
         const errorMessage =
           err?.message ||
           err?.toString() ||
-          'Failed to capture photo. Please try again.';
+          t(
+            'media.captureFailed',
+            'Failed to capture photo. Please try again.',
+          );
         console.log('Setting error message:', errorMessage);
         setSafeError(errorMessage);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [fieldId, enabled, handleChange, path, setSafeError]);
+  }, [fieldId, enabled, handleChange, path, setSafeError, t]);
 
   // Handle photo deletion
   const handleDeletePhoto = useCallback(() => {
@@ -225,17 +243,15 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
     console.log('Photo deleted for field:', fieldId);
   }, [fieldId, handleChange, path, enabled, setSafeError]);
 
-  // Get display label from schema or uischema
-  const label = (uischema as any)?.label || schema.title || 'Photo';
-  const description = schema.description;
+  const label = resolveControlLabel(props) || t('media.photo', 'Photo');
+  const description = resolveControlDescription(props) ?? schema.description;
   const isRequired = Boolean(
-    (uischema as any)?.options?.required ??
+    (props.uischema as any)?.options?.required ??
     (schema as any)?.options?.required ??
     false,
   );
 
-  const validationError =
-    errors && errors.length > 0 ? String(errors[0]) : null;
+  const validationError = formatControlErrors(errors);
 
   const displayBasename = attachmentBasenameFromObservation(
     currentPhotoData as Record<string, unknown> | null,
@@ -252,7 +268,9 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
       required={isRequired}
       error={error || validationError}
       helperText={
-        displayBasename ? `File: ${displayBasename}` : 'Capture a clear photo.'
+        displayBasename
+          ? undefined
+          : t('media.captureHint', 'Capture a clear photo.')
       }
       metadata={
         process.env.NODE_ENV === 'development' ? (
@@ -301,7 +319,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
             component="img"
             height="200"
             image={photoUrl}
-            alt="Captured photo"
+            alt={t('media.capturedPhotoAlt', 'Captured photo')}
             sx={{ objectFit: 'cover' }}
           />
           <CardContent>
@@ -323,7 +341,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
                   disabled={!enabled || isLoading}
                   color="primary"
                   size="small"
-                  aria-label="Retake photo">
+                  aria-label={t('media.retakePhoto', 'Retake photo')}>
                   <Refresh />
                 </IconButton>
                 <IconButton
@@ -331,7 +349,7 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
                   disabled={!enabled}
                   color="error"
                   size="small"
-                  aria-label="Delete photo">
+                  aria-label={t('media.deletePhoto', 'Delete photo')}>
                   <Delete />
                 </IconButton>
               </Box>
@@ -366,14 +384,16 @@ const PhotoQuestionRenderer: React.FC<PhotoQuestionProps> = ({
                 color: 'action.disabled',
               },
             }}
-            aria-label="Take photo">
+            aria-label={t('media.takePhoto', 'Take photo')}>
             <PhotoCamera sx={{ fontSize: { xs: 28, sm: 32 } }} />
           </IconButton>
           <Typography
             variant="body2"
             color="text.secondary"
             sx={{ mt: 2, textAlign: 'center' }}>
-            {isLoading ? 'Opening camera...' : 'Tap to capture photo'}
+            {isLoading
+              ? t('media.openingCamera', 'Opening camera...')
+              : t('media.photoTap', 'Tap to capture photo')}
           </Typography>
         </Box>
       )}
