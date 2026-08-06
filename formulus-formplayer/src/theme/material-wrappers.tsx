@@ -246,7 +246,8 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
             'aria-label':
               typeof label === 'string' ? label : (schema.title ?? undefined),
           }}>
-          <option value="" disabled={selectValue !== ''}>
+          {/* Disable clear only when required — optional enums must stay clearable. */}
+          <option value="" disabled={required && selectValue !== ''}>
             {placeholder}
           </option>
           {options.map(option => (
