@@ -115,6 +115,7 @@ import ShellInputControl, {
 } from './jsonforms/ShellInputControl';
 import { applyClearOnHideToRenderers } from './jsonforms/applyClearOnHideToRenderers';
 import type { KeyboardPrimaryEnterKeyHint } from './utils/keyboardEnterKeyHint';
+import { additionalErrorsForDisplay } from './utils/additionalErrorsForDisplay';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import { draftService } from './services/DraftService';
@@ -460,9 +461,10 @@ function App() {
   // Deferred validation: new forms start hidden (no red errors on first paint),
   // then switch to ValidateAndShow on first forward navigation / finalize. Edits
   // and draft resumes start shown. Host can override via params.validationMode.
+  // Default Hide so pre-init flash cannot paint Show before FormInitData arrives.
   const [validationMode, setValidationMode] = useState<
     'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
-  >('ValidateAndShow');
+  >('ValidateAndHide');
   const [uiLocale, setUiLocale] = useState<OdeUiLocale>('en');
   const uiLocaleRef = useRef(uiLocale);
   uiLocaleRef.current = uiLocale;
@@ -1572,7 +1574,10 @@ function App() {
                         onChange={handleDataChange}
                         validationMode={validationMode}
                         ajv={ajv}
-                        additionalErrors={customValidatorErrors}
+                        additionalErrors={additionalErrorsForDisplay(
+                          validationMode,
+                          customValidatorErrors,
+                        )}
                       />
                     </FormEvaluationProvider>
                     {/* Success Snackbar */}
