@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import QuestionShell from './components/QuestionShell';
 import { useClearOnHide } from './jsonforms/useClearOnHide';
+import { useOdeT } from './i18n/useOdeT';
 
 /**
  * Interface for x-dynamicEnum configuration
@@ -129,6 +130,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
 }) => {
   const { functions } = useFormEvaluation();
   const ctx = useJsonForms();
+  const t = useOdeT();
 
   useClearOnHide({ visible, path, data, handleChange });
 
@@ -189,13 +191,20 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
   // Load choices when component mounts or params change
   const loadChoices = useCallback(async () => {
     if (!dynamicConfig) {
-      setError('x-dynamicEnum configuration is missing');
+      setError(
+        t(
+          'dynamicEnum.configMissing',
+          'x-dynamicEnum configuration is missing',
+        ),
+      );
       return;
     }
 
     // Validate configuration
     if (!dynamicConfig.query) {
-      setError('x-dynamicEnum: query is required');
+      setError(
+        t('dynamicEnum.queryRequired', 'x-dynamicEnum: query is required'),
+      );
       return;
     }
 
@@ -205,7 +214,14 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
     if (!func) {
       const availableFunctions = Array.from(functions.keys()).join(', ');
       setError(
-        `Function "${functionName}" not found. Available: ${availableFunctions || 'none'}.`,
+        t(
+          'dynamicEnum.functionNotFound',
+          'Function "{{functionName}}" not found. Available: {{available}}.',
+          {
+            functionName,
+            available: availableFunctions || 'none',
+          },
+        ),
       );
       return;
     }
@@ -253,13 +269,15 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
       };
       setLocalSchema(updatedSchema);
     } catch (err: any) {
-      const errorMessage = err?.message || 'Failed to load dynamic choices';
+      const errorMessage =
+        err?.message ||
+        t('dynamicEnum.loadFailed', 'Failed to load dynamic choices');
       setError(`${errorMessage}`);
       console.error(`Error loading dynamic choices for ${path}:`, err);
     } finally {
       setLoading(false);
     }
-  }, [dynamicConfig, functions, path, localSchema, currentFormData]); // Use currentFormData instead
+  }, [dynamicConfig, functions, path, localSchema, currentFormData, t]); // Use currentFormData instead
 
   // Load choices on mount, when config changes, and when form data changes (for cascading filters)
   // currentFormData must be in deps so fields that use {{data.field}} templates reload
@@ -313,7 +331,12 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
             {description}
           </Typography>
         )}
-        <Alert severity="error">x-dynamicEnum configuration is missing</Alert>
+        <Alert severity="error">
+          {t(
+            'dynamicEnum.configMissing',
+            'x-dynamicEnum configuration is missing',
+          )}
+        </Alert>
       </Box>
     );
   }
@@ -328,7 +351,7 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
         <Box display="flex" alignItems="center" gap={2} sx={{ mt: 1 }}>
           <CircularProgress size={20} />
           <Typography variant="body2" color="text.secondary">
-            Loading choices...
+            {t('dynamicEnum.loading', 'Loading choices...')}
           </Typography>
         </Box>
       ) : error ? (
@@ -341,12 +364,12 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
             color="primary"
             sx={{ cursor: 'pointer', textDecoration: 'underline' }}
             onClick={loadChoices}>
-            Retry
+            {t('dynamicEnum.retry', 'Retry')}
           </Typography>
         </Box>
       ) : choices.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          No options available
+          {t('dynamicEnum.noOptions', 'No options available')}
         </Typography>
       ) : (
         <Autocomplete
@@ -363,7 +386,11 @@ const DynamicEnumControl: React.FC<ControlProps> = ({
             <TextField
               {...params}
               error={!!hasValidationErrors}
-              placeholder={selectedOption ? undefined : 'Select an option...'}
+              placeholder={
+                selectedOption
+                  ? undefined
+                  : t('dynamicEnum.selectOption', 'Select an option...')
+              }
             />
           )}
         />
