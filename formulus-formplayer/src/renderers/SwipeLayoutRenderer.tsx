@@ -103,6 +103,7 @@ const SwipeLayoutRenderer = ({
   const t = useOdeT();
   const parentFormContext = useFormContext();
   const { formInitData } = parentFormContext;
+  const showValidationErrors = core?.validationMode === 'ValidateAndShow';
 
   const fallbackAjv = useMemo(() => createAjv(), []);
   const ajv = core?.ajv ?? fallbackAjv;
@@ -683,15 +684,18 @@ const SwipeLayoutRenderer = ({
             )}
           </div>
 
-          {skipFinalize && isLastContentPage && validationErrorCount > 0 && (
-            <Typography
-              variant="body2"
-              color="error"
-              role="alert"
-              sx={{ px: { xs: 1, sm: 1.5 }, pt: 1, pb: 0.5 }}>
-              {validationAlertMessage}
-            </Typography>
-          )}
+          {skipFinalize &&
+            isLastContentPage &&
+            showValidationErrors &&
+            validationErrorCount > 0 && (
+              <Typography
+                variant="body2"
+                color="error"
+                role="alert"
+                sx={{ px: { xs: 1, sm: 1.5 }, pt: 1, pb: 0.5 }}>
+                {validationAlertMessage}
+              </Typography>
+            )}
 
           {snackbarOpen &&
             typeof document !== 'undefined' &&
