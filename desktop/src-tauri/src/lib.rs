@@ -28,12 +28,13 @@ use zip::read::ZipArchive;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
+mod data_export;
 mod observation_index;
 mod observation_query;
 mod sync_engine;
 
 #[derive(Debug, Error)]
-enum CustodianError {
+pub(crate) enum CustodianError {
     #[error("workspace is not configured")]
     WorkspaceMissing,
     #[error("path is outside workspace")]
@@ -127,6 +128,15 @@ struct ServerProfile {
     custom_app_developer_mode: bool,
     #[serde(default)]
     custom_app_local_folder: Option<String>,
+    /// Parent folder last chosen on the Export page (survives restart).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    export_destination_parent: Option<String>,
+    /// ISO timestamp of the last successful Parquet export for this profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last_export_at: Option<String>,
+    /// Summary of the last successful export (folder, counts, parquet paths).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last_export: Option<data_export::ExportParquetResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,7 +304,7 @@ fn migrate_attachments_flat_to_synced_layout(workspace: &Path) -> Result<(), Cus
 }
 
 /// Local resolution: draft → outbound queue (`pending` before `synced`) → loose under `attachments/`.
-fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> {
     let root = attachments_root(workspace);
     let candidates = [
         root.join(ATTACH_SUBDIR_DRAFT).join(basename),
@@ -535,7 +545,7 @@ struct WorkspaceItem {
 /// Row columns hold `observation_id`, `form_type`, `data` (payload), and `updated_at`; the rest live here.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-struct ObservationExtras {
+pub(crate) struct ObservationExtras {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     form_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -838,6 +848,9 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             default_app_mode: DefaultAppMode::default(),
             custom_app_developer_mode: false,
             custom_app_local_folder: None,
+            export_destination_parent: None,
+            last_export_at: None,
+            last_export: None,
         }],
     }
 }
@@ -860,6 +873,9 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             default_app_mode: DefaultAppMode::default(),
             custom_app_developer_mode: false,
             custom_app_local_folder: None,
+            export_destination_parent: None,
+            last_export_at: None,
+            last_export: None,
         }],
     }
 }
@@ -3619,6 +3635,53 @@ fn backup_workspace(
     .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn preview_export_dir(parent_dir: String) -> Result<String, String> {
+    data_export::preview_export_dir(&parent_dir).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn export_observations_parquet(
+    request: data_export::ExportParquetRequest,
+    app: tauri::AppHandle,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<data_export::ExportParquetResult, String> {
+    let ctx = ctx.inner().clone();
+    let app_for_block = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let emit = |phase: &str, message: &str, done: usize, total: usize| {
+            let _ = app_for_block.emit(
+                "export/progress",
+                serde_json::json!({
+                    "phase": phase,
+                    "message": message,
+                    "done": done,
+                    "total": total,
+                }),
+            );
+        };
+
+        emit("starting", "Reading observations…", 0, 1);
+        let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+
+        // Hold the SQLite lock only while loading rows — never nest open_db inside
+        // with_workspace_fs_exclusive (same non-reentrant mutex → deadlock).
+        let rows = {
+            let conn = open_db(&ctx).map_err(|e| e.to_string())?;
+            data_export::load_export_rows(&conn, request.include_pending)
+                .map_err(|e| e.to_string())?
+        };
+
+        let mut progress = |done: usize, total: usize, message: &str| {
+            emit("running", message, done, total.max(1));
+        };
+        data_export::write_parquet_export(&ws, &request, rows, &mut progress)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("export task failed: {e}"))?
+}
+
 /// Moves `sqlite` and `attachments` under `workspace/previous_generations/<stamp>/`, then recreates a fresh layout.
 #[tauri::command]
 fn archive_workspace_for_repository_generation(
@@ -5415,6 +5478,8 @@ pub fn run() {
             archive_workspace_for_repository_generation,
             move_workspace,
             backup_workspace,
+            preview_export_dir,
+            export_observations_parquet,
             write_workspace_attachment,
             copy_workspace_attachment_from_path,
             expand_import_staging_paths,

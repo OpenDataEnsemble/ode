@@ -15,6 +15,7 @@ import { ObservationsPage } from './pages/ObservationsPage';
 import { SyncPage } from './pages/SyncPage';
 import { ProfilesPage } from './pages/ProfilesPage';
 import { ImportPage } from './pages/ImportPage';
+import { ExportPage } from './pages/ExportPage';
 import { FormPreviewPage } from './pages/FormPreviewPage';
 import { DeveloperModePanel } from './components/DeveloperModePanel';
 import { ObservationIndexPrompt } from './components/ObservationIndexPrompt';
@@ -25,6 +26,7 @@ import { useSynkServerStatus } from './hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
   selectBundleActivity,
+  selectExportActivity,
   selectSyncActivity,
   useCustodianStore,
 } from './store/useCustodianStore';
@@ -44,6 +46,7 @@ const DATA_NAV = [
   { to: '/data/profiles', label: 'Profiles', icon: 'badge' },
   { to: '/data/observations', label: 'Observations', icon: 'manage_search' },
   { to: '/data/import', label: 'Import', icon: 'input' },
+  { to: '/data/export', label: 'Export', icon: 'output' },
   { to: '/data/sync', label: 'Sync', icon: 'sync_alt' },
   { to: '/data/about', label: 'About', icon: 'info' },
 ];
@@ -223,6 +226,7 @@ function Shell() {
   const pushToast = useToastStore(s => s.pushToast);
   const syncActivity = useCustodianStore(selectSyncActivity);
   const bundleActivity = useCustodianStore(selectBundleActivity);
+  const exportActivity = useCustodianStore(selectExportActivity);
   const importActivity = useImportStagingStore(selectImportActivity);
   const setBundleActivity = useCustodianStore(s => s.setBundleActivity);
   const clearBundleActivity = useCustodianStore(s => s.clearBundleActivity);
@@ -239,6 +243,7 @@ function Shell() {
     syncActivity?.statusText ??
     bundleActivity?.statusText ??
     importActivity?.statusText ??
+    exportActivity?.statusText ??
     null;
 
   const activityProgress =
@@ -247,10 +252,18 @@ function Shell() {
           100,
           Math.round((bundleActivity.done / bundleActivity.total) * 100),
         )
-      : null;
+      : exportActivity && exportActivity.total > 0
+        ? Math.min(
+            100,
+            Math.round((exportActivity.done / exportActivity.total) * 100),
+          )
+        : null;
 
   const activityPresent =
-    syncActivity !== null || bundleActivity !== null || importActivity !== null;
+    syncActivity !== null ||
+    bundleActivity !== null ||
+    importActivity !== null ||
+    exportActivity !== null;
   const [activityBannerDismissed, setActivityBannerDismissed] = useState(false);
 
   useEffect(() => {
@@ -280,166 +293,174 @@ function Shell() {
     (syncMessage.includes('\n') || syncMessage.length > 120);
 
   return (
-    <div className="app">
+    <>
       <ProfilesBootstrap />
       <ProfileSwitchNavigation />
       <ToastHost />
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-icon">
-            <img
-              src={brandMarkUrl}
-              alt=""
-              className="brand-icon-img"
-              width={36}
-              height={36}
-            />
+      <div className="app">
+        <aside className="sidebar">
+          <div className="brand">
+            <div className="brand-icon">
+              <img
+                src={brandMarkUrl}
+                alt=""
+                className="brand-icon-img"
+                width={36}
+                height={36}
+              />
+            </div>
+            <div>
+              <h1>ODE Desktop</h1>
+              <p>Data &amp; collection tooling</p>
+            </div>
           </div>
-          <div>
-            <h1>ODE Desktop</h1>
-            <p>Data &amp; collection tooling</p>
-          </div>
-        </div>
-        <ModeSwitch />
-        <nav className="nav">
-          {navItems.map(item => (
-            <SidebarNavLink
-              key={item.to}
-              to={item.to}
-              end={
-                item.to === '/data/profiles' || item.to === '/workbench/bundles'
-              }
-              icon={item.icon}
-              label={item.label}
-            />
-          ))}
-        </nav>
-        <footer className="sidebar-footer">
-          <ServerStatusIndicator />
-          <span>Open Data Ensemble {year}</span>
-        </footer>
-      </aside>
+          <ModeSwitch />
+          <nav className="nav">
+            {navItems.map(item => (
+              <SidebarNavLink
+                key={item.to}
+                to={item.to}
+                end={
+                  item.to === '/data/profiles' ||
+                  item.to === '/workbench/bundles'
+                }
+                icon={item.icon}
+                label={item.label}
+              />
+            ))}
+          </nav>
+          <footer className="sidebar-footer">
+            <ServerStatusIndicator />
+            <span>Open Data Ensemble {year}</span>
+          </footer>
+        </aside>
 
-      <main className="content">
-        <ObservationIndexPrompt />
-        {isWorkbench ? <DeveloperModePanel /> : null}
-        <div className="content-body">
-          {showActivityBanner ? (
-            <div
-              className="notice info app-sync-banner app-sync-banner-with-dismiss"
-              role="status"
-              aria-live="polite">
-              <div className="app-sync-banner-body">
-                <span className="btn-spinner" aria-hidden />
-                <span>{activityText}</span>
-                {activityProgress !== null ? (
-                  <div
-                    className="activity-progress"
-                    role="progressbar"
-                    aria-valuenow={activityProgress}
-                    aria-valuemin={0}
-                    aria-valuemax={100}>
+        <main className="content">
+          <ObservationIndexPrompt />
+          {isWorkbench ? <DeveloperModePanel /> : null}
+          <div className="content-body">
+            {showActivityBanner ? (
+              <div
+                className="notice info app-sync-banner app-sync-banner-with-dismiss"
+                role="status"
+                aria-live="polite">
+                <div className="app-sync-banner-body">
+                  <span className="btn-spinner" aria-hidden />
+                  <span>{activityText}</span>
+                  {activityProgress !== null ? (
                     <div
-                      className="activity-progress-fill"
-                      style={{ width: `${activityProgress}%` }}
-                    />
-                  </div>
-                ) : null}
+                      className="activity-progress"
+                      role="progressbar"
+                      aria-valuenow={activityProgress}
+                      aria-valuemin={0}
+                      aria-valuemax={100}>
+                      <div
+                        className="activity-progress-fill"
+                        style={{ width: `${activityProgress}%` }}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  className="app-sync-banner-dismiss"
+                  aria-label="Dismiss status message"
+                  onClick={() => setActivityBannerDismissed(true)}>
+                  ×
+                </button>
               </div>
-              <button
-                type="button"
-                className="app-sync-banner-dismiss"
-                aria-label="Dismiss status message"
-                onClick={() => setActivityBannerDismissed(true)}>
-                ×
-              </button>
-            </div>
-          ) : null}
-          {showSyncMessageBanner ? (
-            <div className="notice success app-sync-banner app-sync-banner-with-dismiss">
-              <div className="app-sync-banner-body">{syncMessage}</div>
-              <button
-                type="button"
-                className="app-sync-banner-dismiss"
-                aria-label="Dismiss sync message"
-                onClick={() => clearSyncMessage()}>
-                ×
-              </button>
-            </div>
-          ) : null}
-          <Routes>
-            <Route path="/" element={<RootRedirect />} />
-            <Route
-              path="/overview"
-              element={<Navigate to="/data/profiles" replace />}
-            />
-            <Route
-              path="/data/overview"
-              element={<Navigate to="/data/profiles" replace />}
-            />
-            <Route
-              path="/observations"
-              element={<Navigate to="/data/observations" replace />}
-            />
-            <Route
-              path="/import"
-              element={<Navigate to="/data/import" replace />}
-            />
-            <Route
-              path="/sync"
-              element={<Navigate to="/data/sync" replace />}
-            />
-            <Route
-              path="/profiles"
-              element={<Navigate to="/data/profiles" replace />}
-            />
-            <Route
-              path="/records"
-              element={<Navigate to="/data/observations" replace />}
-            />
-            <Route
-              path="/explorer"
-              element={<Navigate to="/data/observations" replace />}
-            />
-            <Route
-              path="/health"
-              element={<Navigate to="/data/profiles" replace />}
-            />
-            <Route
-              path="/workspace"
-              element={<Navigate to="/data/profiles" replace />}
-            />
-            <Route
-              path="/settings"
-              element={<Navigate to="/data/profiles" replace />}
-            />
+            ) : null}
+            {showSyncMessageBanner ? (
+              <div className="notice success app-sync-banner app-sync-banner-with-dismiss">
+                <div className="app-sync-banner-body">{syncMessage}</div>
+                <button
+                  type="button"
+                  className="app-sync-banner-dismiss"
+                  aria-label="Dismiss sync message"
+                  onClick={() => clearSyncMessage()}>
+                  ×
+                </button>
+              </div>
+            ) : null}
+            <Routes>
+              <Route path="/" element={<RootRedirect />} />
+              <Route
+                path="/overview"
+                element={<Navigate to="/data/profiles" replace />}
+              />
+              <Route
+                path="/data/overview"
+                element={<Navigate to="/data/profiles" replace />}
+              />
+              <Route
+                path="/observations"
+                element={<Navigate to="/data/observations" replace />}
+              />
+              <Route
+                path="/import"
+                element={<Navigate to="/data/import" replace />}
+              />
+              <Route
+                path="/export"
+                element={<Navigate to="/data/export" replace />}
+              />
+              <Route
+                path="/sync"
+                element={<Navigate to="/data/sync" replace />}
+              />
+              <Route
+                path="/profiles"
+                element={<Navigate to="/data/profiles" replace />}
+              />
+              <Route
+                path="/records"
+                element={<Navigate to="/data/observations" replace />}
+              />
+              <Route
+                path="/explorer"
+                element={<Navigate to="/data/observations" replace />}
+              />
+              <Route
+                path="/health"
+                element={<Navigate to="/data/profiles" replace />}
+              />
+              <Route
+                path="/workspace"
+                element={<Navigate to="/data/profiles" replace />}
+              />
+              <Route
+                path="/settings"
+                element={<Navigate to="/data/profiles" replace />}
+              />
 
-            <Route path="/data/profiles" element={<ProfilesPage />} />
-            <Route path="/data/observations" element={<ObservationsPage />} />
-            <Route path="/data/import" element={<ImportPage />} />
-            <Route path="/data/sync" element={<SyncPage />} />
-            <Route path="/data/about" element={<AboutPage />} />
+              <Route path="/data/profiles" element={<ProfilesPage />} />
+              <Route path="/data/observations" element={<ObservationsPage />} />
+              <Route path="/data/import" element={<ImportPage />} />
+              <Route path="/data/export" element={<ExportPage />} />
+              <Route path="/data/sync" element={<SyncPage />} />
+              <Route path="/data/about" element={<AboutPage />} />
 
-            <Route
-              path="/workbench/bundles"
-              element={<WorkbenchBundlesPage />}
-            />
-            <Route
-              path="/workbench/form-preview"
-              element={<FormPreviewPage />}
-            />
-            <Route
-              path="/workbench/custom-app"
-              element={<WorkbenchCustomAppPage />}
-            />
-            <Route
-              path="/workbench"
-              element={<Navigate to="/workbench/bundles" replace />}
-            />
-          </Routes>
-        </div>
-      </main>
-    </div>
+              <Route
+                path="/workbench/bundles"
+                element={<WorkbenchBundlesPage />}
+              />
+              <Route
+                path="/workbench/form-preview"
+                element={<FormPreviewPage />}
+              />
+              <Route
+                path="/workbench/custom-app"
+                element={<WorkbenchCustomAppPage />}
+              />
+              <Route
+                path="/workbench"
+                element={<Navigate to="/workbench/bundles" replace />}
+              />
+            </Routes>
+          </div>
+        </main>
+      </div>
+    </>
   );
 }
 
