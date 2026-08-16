@@ -70,7 +70,12 @@ export interface LocalRepoInterface {
    * @param changes Array of changes to apply
    * @returns Promise resolving to the number of changes applied
    */
-  applyServerChanges(changes: Observation[]): Promise<number>;
+  applyServerChanges(
+    changes: Observation[],
+    options?: {
+      onIndexProgress?: (progress: { current: number; total: number }) => void;
+    },
+  ): Promise<number>;
 
   /**
    * Get pending changes from the local database

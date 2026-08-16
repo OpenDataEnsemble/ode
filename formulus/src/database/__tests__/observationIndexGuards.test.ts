@@ -38,6 +38,7 @@ jest.mock('../../services/AppConfigService', () => ({
 
 import ObservationIndexService, {
   computeDefsSignature,
+  INDEX_WRITE_BATCH_SIZE,
 } from '../../services/ObservationIndexService';
 
 const EMPTY_SIGNATURE = computeDefsSignature([]);
@@ -174,6 +175,39 @@ describe('ObservationIndexService guards', () => {
 
       service.reset();
       await expect(service.isIndexUsable()).resolves.toBe(false);
+    });
+  });
+
+  describe('incrementalReindexMany', () => {
+    it('flushes in bounded writes instead of one statement list for the whole page', async () => {
+      configIndexes.push({ key: 'hh_id', path: '$.hh_id' });
+      const rows = Array.from(
+        { length: INDEX_WRITE_BATCH_SIZE + 50 },
+        (_, i) => ({
+          observationId: `obs-${i}`,
+          formType: 'household',
+          dataJson: JSON.stringify({ hh_id: `HH-${i}` }),
+        }),
+      );
+      rawResults.push([{ active_generation: 1 }], [{ active_generation: 1 }]);
+      mockDb.write.mockClear();
+      const onProgress = jest.fn();
+
+      await service.incrementalReindexMany(rows, onProgress);
+
+      expect(mockDb.write).toHaveBeenCalledTimes(2);
+      expect(onProgress).toHaveBeenCalledWith({
+        current: 0,
+        total: INDEX_WRITE_BATCH_SIZE + 50,
+      });
+      expect(onProgress).toHaveBeenCalledWith({
+        current: INDEX_WRITE_BATCH_SIZE,
+        total: INDEX_WRITE_BATCH_SIZE + 50,
+      });
+      expect(onProgress).toHaveBeenLastCalledWith({
+        current: INDEX_WRITE_BATCH_SIZE + 50,
+        total: INDEX_WRITE_BATCH_SIZE + 50,
+      });
     });
   });
 });

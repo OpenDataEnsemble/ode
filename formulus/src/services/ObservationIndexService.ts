@@ -3,10 +3,14 @@
  * Rebuild uses snapshot generation swap; incremental updates on save/sync.
  *
  * Implementation notes:
- *  - All write paths collect SQL into an array and flush once via
+ *  - Incremental write paths collect SQL into an array and flush once via
  *    `db.adapter.unsafeExecute({ sqls })` inside a single `db.write(...)`
  *    block. This avoids nested `db.write` calls, which deadlock under
  *    WatermelonDB's serial WorkQueue.
+ *  - A full rebuild writes in bounded batches so the INSERT list cannot grow
+ *    with the whole repository. The signature is cleared first and stamped
+ *    last, so a crash mid-rebuild is indistinguishable from "not current"
+ *    and the next launch reruns.
  *  - `ensureInitialRebuild()` runs on first instantiation to populate the
  *    index for users who already have synced rows from before indexing
  *    landed.
@@ -109,8 +113,18 @@ function yieldToUi(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, 0));
 }
 
-/** Observations read per batch between yields. */
-const REBUILD_BATCH_SIZE = 200;
+/**
+ * Observations processed per index write.
+ *
+ * Used by a full rebuild and by `incrementalReindexMany` (sync pull). Each
+ * observation produces a DELETE plus one INSERT per matching definition, and
+ * none of that is released until `unsafeExecute` returns. Two hundred rows
+ * keeps the statement list in the low thousands even with a generous
+ * `observationIndexes` config — small enough for a Blackview-class tablet,
+ * large enough that a first-time pull of a few thousand observations is
+ * tens of writes rather than one giant flush.
+ */
+export const INDEX_WRITE_BATCH_SIZE = 200;
 
 export interface IndexRebuildProgress {
   /** Observations processed so far. */
@@ -368,63 +382,82 @@ export class ObservationIndexService {
     // The rebuild empties the table before refilling it, and may legitimately
     // end with no rows at all, so any cached "index is healthy" answer is void.
     this.indexUsable = false;
-    return this.db.write(async () => {
+
+    // Invalidate the signature *before* touching rows. A crash after this
+    // point leaves `isIndexUsable` false even if some batches have landed,
+    // and `ensureInitialRebuild` will rerun instead of treating the partial
+    // table as current. OFFSET pagination is unsafe once we release the
+    // write lock between batches (a concurrent insert shifts the window),
+    // so the scan walks `id > cursor` instead.
+    await this.db.write(async () => {
       await this.db.adapter.unsafeExecute({
         sqls: [
           [
             `INSERT OR IGNORE INTO observation_index_meta(id, active_generation) VALUES (?, ?)`,
             ['meta', gen],
           ],
+          [
+            `UPDATE observation_index_meta
+             SET defs_signature = NULL, building_generation = ?
+             WHERE id = ?`,
+            [gen, 'meta'],
+          ],
+          ['DELETE FROM observation_index', []],
         ],
       });
+    });
 
-      const totalRows = await this.query<{ cnt: number }>(
-        'SELECT COUNT(*) AS cnt FROM observations',
+    const totalRows = await this.query<{ cnt: number }>(
+      'SELECT COUNT(*) AS cnt FROM observations',
+    );
+    const total = totalRows[0]?.cnt ?? 0;
+
+    let processed = 0;
+    let cursor: string | null = null;
+    options?.onProgress?.({ current: 0, total });
+
+    while (true) {
+      const batch = await this.query<{
+        id: string;
+        form_type: string;
+        data: string;
+      }>(
+        cursor == null
+          ? 'SELECT id, form_type, data FROM observations ORDER BY id LIMIT ?'
+          : 'SELECT id, form_type, data FROM observations WHERE id > ? ORDER BY id LIMIT ?',
+        cursor == null
+          ? [INDEX_WRITE_BATCH_SIZE]
+          : [cursor, INDEX_WRITE_BATCH_SIZE],
       );
-      const total = totalRows[0]?.cnt ?? 0;
+      if (!batch.length) break;
 
       const sqls: SqlStatement[] = [];
-      sqls.push(['DELETE FROM observation_index', []]);
-
-      // Read in batches and yield between them. The scan parses each
-      // observation's JSON once per definition, which on a full repository is
-      // long enough to freeze the UI if run as a single loop.
-      let processed = 0;
-      options?.onProgress?.({ current: 0, total });
-      for (let offset = 0; offset < total; offset += REBUILD_BATCH_SIZE) {
-        const batch = await this.query<{
-          id: string;
-          form_type: string;
-          data: string;
-        }>(
-          'SELECT id, form_type, data FROM observations ORDER BY id LIMIT ? OFFSET ?',
-          [REBUILD_BATCH_SIZE, offset],
+      for (const obs of batch) {
+        this.collectReindexStatements(
+          obs.id,
+          obs.form_type ?? '',
+          obs.data,
+          defs,
+          gen,
+          sqls,
         );
-        if (!batch.length) break;
-
-        for (const obs of batch) {
-          this.collectReindexStatements(
-            obs.id,
-            obs.form_type ?? '',
-            obs.data,
-            defs,
-            gen,
-            sqls,
-          );
-        }
-
-        processed += batch.length;
-        options?.onProgress?.({ current: processed, total });
-        await yieldToUi();
       }
+      await this.db.write(async () => {
+        await this.flush(sqls);
+      });
 
-      this.collectSqliteIndexStatements(defs, sqls);
+      cursor = batch[batch.length - 1].id;
+      processed += batch.length;
+      options?.onProgress?.({ current: processed, total });
+      await yieldToUi();
+    }
 
-      await this.flush(sqls);
-
-      // Stamp meta in a separate execute; batched meta UPDATE was not sticking.
-      // Written only after the rows land, so a rebuild interrupted before this
-      // point leaves a signature that no longer matches and reruns next launch.
+    const indexSqls: SqlStatement[] = [];
+    this.collectSqliteIndexStatements(defs, indexSqls);
+    await this.db.write(async () => {
+      await this.flush(indexSqls);
+      // Stamp only after every batch has landed. Batched meta UPDATE was not
+      // sticking on device, so this stays a separate execute.
       await this.db.adapter.unsafeExecute({
         sqls: [
           [
@@ -435,14 +468,13 @@ export class ObservationIndexService {
           ],
         ],
       });
-
-      const metaAfter = await this.getStatus();
-
-      return {
-        generation: gen,
-        lastRebuildAt: metaAfter.lastRebuildAt,
-      };
     });
+
+    const metaAfter = await this.getStatus();
+    return {
+      generation: gen,
+      lastRebuildAt: metaAfter.lastRebuildAt,
+    };
   }
 
   async incrementalReindex(
@@ -468,29 +500,54 @@ export class ObservationIndexService {
   }
 
   /**
-   * Reindex many observations in a single batched write. Used by sync paths
-   * that ingest large numbers of rows.
+   * Reindex many observations in bounded writes. Used by sync pull, where the
+   * first page on a new device can be thousands of rows — not a full rebuild,
+   * but the same shape of OOM if every INSERT is held until one flush.
+   *
+   * The signature is left alone: this is additive work against the current
+   * definitions. A crash mid-loop is safe because the pull cursor is persisted
+   * only after this returns, so the page is re-applied and these statements
+   * are INSERT OR REPLACE.
    */
   async incrementalReindexMany(
     rows: Array<{ observationId: string; formType: string; dataJson: string }>,
+    onProgress?: (progress: IndexRebuildProgress) => void,
   ): Promise<void> {
     const defs = this.getIndexDefs();
     if (!defs.length || rows.length === 0) return;
-    await this.db.write(async () => {
-      const generation = await this.readActiveGeneration();
-      const sqls: SqlStatement[] = [];
-      for (const r of rows) {
-        this.collectReindexStatements(
-          r.observationId,
-          r.formType,
-          r.dataJson,
-          defs,
-          generation,
-          sqls,
-        );
+
+    const total = rows.length;
+    onProgress?.({ current: 0, total });
+
+    for (
+      let offset = 0;
+      offset < rows.length;
+      offset += INDEX_WRITE_BATCH_SIZE
+    ) {
+      const batch = rows.slice(offset, offset + INDEX_WRITE_BATCH_SIZE);
+      await this.db.write(async () => {
+        const generation = await this.readActiveGeneration();
+        const sqls: SqlStatement[] = [];
+        for (const r of batch) {
+          this.collectReindexStatements(
+            r.observationId,
+            r.formType,
+            r.dataJson,
+            defs,
+            generation,
+            sqls,
+          );
+        }
+        await this.flush(sqls);
+      });
+      onProgress?.({
+        current: Math.min(offset + batch.length, total),
+        total,
+      });
+      if (offset + INDEX_WRITE_BATCH_SIZE < rows.length) {
+        await yieldToUi();
       }
-      await this.flush(sqls);
-    });
+    }
   }
 
   /**

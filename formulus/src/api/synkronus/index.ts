@@ -1175,7 +1175,31 @@ class SynkronusApi {
 
       // 2. Apply to local db (local dirty records will not be applied = last update wins).
       //    Skipped rows get a `last_write_won` tag (see syncConstants / WatermelonDBRepo).
-      const pulledChanges = await repo.applyServerChanges(domainObservations); // ingest observations into WatermelonDB
+      //    Report before and during this step: on a first-time pull the page
+      //    can be thousands of rows, and indexing them used to leave the
+      //    progress card sitting on "Connecting…" until the flush returned.
+      if (domainObservations.length > 0) {
+        reportSyncProgress(report, {
+          phase: 'pull_observations',
+          current: pullPage,
+          total: 0,
+          indeterminate: true,
+          details: i18n.t('sync.progress.savingRecords', {
+            count: domainObservations.length,
+          }),
+        });
+      }
+      const pulledChanges = await repo.applyServerChanges(domainObservations, {
+        onIndexProgress: ({ current, total }) => {
+          if (total <= 0) return;
+          reportSyncProgress(report, {
+            phase: 'index_rebuild',
+            current,
+            total,
+            details: formatCountProgress(current, total),
+          });
+        },
+      });
       console.debug(`Applied ${pulledChanges} changes to local database`);
 
       reportSyncProgress(report, {

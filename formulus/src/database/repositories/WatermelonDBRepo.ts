@@ -527,7 +527,12 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    * Apply changes from the server to the local database
    * @param changes Array of changes to apply
    */
-  async applyServerChanges(changes: Observation[]): Promise<number> {
+  async applyServerChanges(
+    changes: Observation[],
+    options?: {
+      onIndexProgress?: (progress: { current: number; total: number }) => void;
+    },
+  ): Promise<number> {
     if (!changes.length) {
       return 0;
     }
@@ -629,7 +634,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           ? change.data
           : JSON.stringify(change.data),
     }));
-    await indexService.incrementalReindexMany(indexRows);
+    await indexService.incrementalReindexMany(
+      indexRows,
+      options?.onIndexProgress,
+    );
 
     return count;
   }

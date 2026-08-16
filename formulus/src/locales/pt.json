@@ -149,6 +149,8 @@
   "sync.progress.downloadingPage": "A descarregar (página {{page}})…",
   "sync.progress.recordsDownloaded_one": "{{count}} observação descarregada",
   "sync.progress.recordsDownloaded_other": "{{count}} observações descarregadas",
+  "sync.progress.savingRecords_one": "A guardar {{count}} observação…",
+  "sync.progress.savingRecords_other": "A guardar {{count}} observações…",
   "sync.progress.recordsSummary_one": "{{count}} observação",
   "sync.progress.recordsSummary_other": "{{count}} observações",
   "sync.progress.nothingToUpload": "Nada para enviar",
