@@ -13,12 +13,23 @@ import {
   shouldShowSyncProgressCurrentItem,
 } from '../sync/syncProgressUi';
 import { i18n } from '../i18n/instance';
+import { logger } from '../diagnostics/logger';
+
+/** White-on-transparent status-bar glyph — not the adaptive launcher icon. */
+const SYNC_SMALL_ICON = 'ic_stat_formulus';
 
 class NotificationService {
   private syncNotificationId = 'sync_progress';
   private channelId = 'sync_channel';
   private isConfigured = false;
   private foregroundServiceRunning = false;
+
+  private androidDefaults() {
+    return {
+      channelId: this.channelId,
+      smallIcon: SYNC_SMALL_ICON,
+    };
+  }
 
   async configure() {
     if (this.isConfigured) return;
@@ -67,7 +78,7 @@ class NotificationService {
         title,
         body,
         android: {
-          channelId: this.channelId,
+          ...this.androidDefaults(),
           ongoing: true,
           progress: {
             max: 100,
@@ -85,12 +96,13 @@ class NotificationService {
     if (Platform.OS !== 'android' || this.foregroundServiceRunning) return;
     await this.configure();
 
+    await logger.breadcrumb('fgs', 'start');
     await notifee.displayNotification({
       id: this.syncNotificationId,
       title: 'Syncing…',
       body: 'Starting…',
       android: {
-        channelId: this.channelId,
+        ...this.androidDefaults(),
         asForegroundService: true,
         foregroundServiceTypes: [
           AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
@@ -105,6 +117,7 @@ class NotificationService {
   async stopForegroundService() {
     if (Platform.OS !== 'android' || !this.foregroundServiceRunning) return;
     this.foregroundServiceRunning = false;
+    await logger.breadcrumb('fgs', 'stop');
     try {
       await notifee.stopForegroundService();
     } catch (e) {
@@ -151,7 +164,7 @@ class NotificationService {
         title: `Sync completed @ ${timeString}`,
         body: 'All data synchronized successfully',
         android: {
-          channelId: this.channelId,
+          ...this.androidDefaults(),
           autoCancel: true,
           ongoing: false,
           pressAction: { id: 'default' },
@@ -163,7 +176,7 @@ class NotificationService {
         title: 'Sync failed',
         body: error || 'An error occurred during synchronization',
         android: {
-          channelId: this.channelId,
+          ...this.androidDefaults(),
           autoCancel: true,
           ongoing: false,
           pressAction: { id: 'default' },
@@ -179,7 +192,7 @@ class NotificationService {
       title: 'Sync canceled',
       body: 'Synchronization was canceled',
       android: {
-        channelId: this.channelId,
+        ...this.androidDefaults(),
         autoCancel: true,
         ongoing: false,
         pressAction: { id: 'default' },

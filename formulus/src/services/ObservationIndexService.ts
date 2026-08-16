@@ -20,6 +20,7 @@ import { database } from '../database/database';
 import { ObservationModel } from '../database/models/ObservationModel';
 import AppConfigService from './AppConfigService';
 import type { ObservationIndexDef } from '../types/AppConfig';
+import { logger } from '../diagnostics/logger';
 
 type SqlArg = string | number | boolean | null;
 type SqlStatement = [string, SqlArg[]];
@@ -105,9 +106,9 @@ export function computeDefsSignature(defs: ObservationIndexDef[]): string {
 /**
  * Yield to the event loop so React Native can paint.
  *
- * A rebuild walks every observation and parses its JSON once per definition.
- * Left as one uninterrupted loop that work blocks the JS thread, which freezes
- * the UI — including whatever spinner is meant to show the rebuild running.
+ * Map-join still parses JSON on the JS thread. Left as one uninterrupted loop
+ * that work blocks the UI — including whatever spinner is meant to show the
+ * rebuild running.
  */
 function yieldToUi(): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, 0));
@@ -117,29 +118,142 @@ function yieldToUi(): Promise<void> {
  * Observations processed per index write.
  *
  * Used by a full rebuild and by `incrementalReindexMany` (sync pull). Each
- * observation produces a DELETE plus one INSERT per matching definition, and
- * none of that is released until `unsafeExecute` returns. Two hundred rows
- * keeps the statement list in the low thousands even with a generous
- * `observationIndexes` config — small enough for a Blackview-class tablet,
- * large enough that a first-time pull of a few thousand observations is
- * tens of writes rather than one giant flush.
+ * batch is one `DELETE … IN (…)` plus a few multi-row INSERTs (map-join),
+ * flushed in a single `unsafeExecute`. Two hundred rows keeps a Blackview-
+ * class tablet responsive between yields without turning a first-time pull
+ * into one giant write.
  */
 export const INDEX_WRITE_BATCH_SIZE = 200;
+
+/** SQLite default max is 999 binds. Six columns per index row → 120 is safe. */
+const INDEX_INSERT_ROW_CHUNK = 120;
+
+/** Leave headroom under the 999-bind limit (`ids` + generation). */
+const INDEX_DELETE_ID_CHUNK = 400;
+
+export type PreparedIndexRow = {
+  id: string;
+  observationId: string;
+  indexKey: string;
+  generation: number;
+  valueText: string | null;
+  valueNum: number | null;
+};
+
+function parseObservationData(
+  dataJson: string | unknown,
+): Record<string, unknown> | null {
+  if (dataJson && typeof dataJson === 'object' && !Array.isArray(dataJson)) {
+    return dataJson as Record<string, unknown>;
+  }
+  if (typeof dataJson !== 'string') {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(dataJson) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parse `data` once and emit every EAV row for this observation.
+ *
+ * Desktop's rebuild does the same map step (there, in parallel with rayon).
+ * Hermes is single-threaded, so the win here is avoiding one JSON.parse per
+ * index definition — that was the dominant cost on a 500-row pull page.
+ * Pull already has parsed objects; pass those through to skip parse entirely.
+ */
+export function extractIndexRows(
+  observationId: string,
+  formType: string,
+  dataJson: string | unknown,
+  defs: ObservationIndexDef[],
+  generation: number,
+): { rows: PreparedIndexRow[]; nonScalarKeys: string[] } {
+  const data = parseObservationData(dataJson);
+  if (!data) {
+    return { rows: [], nonScalarKeys: [] };
+  }
+  const rows: PreparedIndexRow[] = [];
+  const nonScalarKeys: string[] = [];
+  for (const def of defs) {
+    if (!formTypeMatches(formType, def.formTypes)) {
+      continue;
+    }
+    const val = data[jsonPathToKey(def.path)];
+    if (val == null) {
+      continue;
+    }
+    const columns = scalarToColumns(val, def.valueType);
+    if (!columns) {
+      nonScalarKeys.push(def.key);
+      continue;
+    }
+    rows.push({
+      id: `${observationId}:${def.key}:${generation}`,
+      observationId,
+      indexKey: def.key,
+      generation,
+      valueText: columns.valueText,
+      valueNum: columns.valueNum,
+    });
+  }
+  return { rows, nonScalarKeys };
+}
+
+export function deleteIndexSqls(
+  observationIds: string[],
+  generation: number,
+): SqlStatement[] {
+  if (observationIds.length === 0) {
+    return [];
+  }
+  const sqls: SqlStatement[] = [];
+  for (let i = 0; i < observationIds.length; i += INDEX_DELETE_ID_CHUNK) {
+    const part = observationIds.slice(i, i + INDEX_DELETE_ID_CHUNK);
+    const placeholders = part.map(() => '?').join(',');
+    sqls.push([
+      `DELETE FROM observation_index WHERE observation_id IN (${placeholders}) AND index_generation = ?`,
+      [...part, generation],
+    ]);
+  }
+  return sqls;
+}
+
+export function insertIndexSqls(rows: PreparedIndexRow[]): SqlStatement[] {
+  const sqls: SqlStatement[] = [];
+  for (let i = 0; i < rows.length; i += INDEX_INSERT_ROW_CHUNK) {
+    const part = rows.slice(i, i + INDEX_INSERT_ROW_CHUNK);
+    const values = part.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
+    const args: SqlArg[] = [];
+    for (const row of part) {
+      args.push(
+        row.id,
+        row.observationId,
+        row.indexKey,
+        row.generation,
+        row.valueText,
+        row.valueNum,
+      );
+    }
+    sqls.push([
+      `INSERT INTO observation_index (id, observation_id, index_key, index_generation, value_text, value_num) VALUES ${values}`,
+      args,
+    ]);
+  }
+  return sqls;
+}
 
 export interface IndexRebuildProgress {
   /** Observations processed so far. */
   current: number;
   /** Total observations to process. */
   total: number;
-}
-
-function extractScalar(dataJson: string, path: string): unknown {
-  try {
-    const data = JSON.parse(dataJson) as Record<string, unknown>;
-    return data[jsonPathToKey(path)];
-  } catch {
-    return undefined;
-  }
 }
 
 export class ObservationIndexService {
@@ -246,7 +360,7 @@ export class ObservationIndexService {
   private warnOnce(token: string, message: string): void {
     if (this.warnedOnce.has(token)) return;
     this.warnedOnce.add(token);
-    console.warn(message);
+    logger.warn('index', message);
   }
 
   getInitialRebuildFinished(): boolean {
@@ -284,12 +398,17 @@ export class ObservationIndexService {
     if (this.initialRebuildPromise) return this.initialRebuildPromise;
     this.initialRebuildPromise = (async () => {
       try {
+        logger.info('index', 'ensureInitialRebuild start', {
+          phase: 'ensure',
+        });
         await AppConfigService.getInstance()
           .loadConfig()
           .catch(err => {
-            console.warn(
-              '[ObservationIndexService] loadConfig before initial rebuild failed:',
-              err,
+            logger.warn(
+              'index',
+              err instanceof Error
+                ? err.message
+                : 'loadConfig before initial rebuild failed',
             );
           });
 
@@ -318,26 +437,52 @@ export class ObservationIndexService {
           Boolean(status.lastRebuildAt) &&
           signatureMatches;
 
+        logger.info(
+          'index',
+          `ensureInitialRebuild obs=${observationCount} indexRows=${indexCount} stamped=${Boolean(status.lastRebuildAt)} sigMatch=${signatureMatches}`,
+          { phase: 'ensure', counts: observationCount },
+        );
+
         if (skipBecausePopulated) {
+          logger.info('index', 'ensureInitialRebuild skip: populated', {
+            phase: 'skip',
+            counts: indexCount,
+            success: true,
+          });
           this.initialRebuildFinished = true;
           return;
         }
 
         if (skipBecauseEmptyInstall) {
+          logger.info('index', 'ensureInitialRebuild skip: empty install', {
+            phase: 'skip',
+            counts: 0,
+            success: true,
+          });
           this.initialRebuildFinished = true;
           return;
         }
 
         if (!signatureMatches && Boolean(status.lastRebuildAt)) {
-          console.log(
-            '[ObservationIndexService] index definitions changed or a previous rebuild did not complete — rebuilding',
+          logger.info(
+            'index',
+            'index definitions changed or a previous rebuild did not complete — rebuilding',
+            { phase: 'rebuild', counts: observationCount },
           );
+        } else {
+          logger.info('index', 'ensureInitialRebuild running full rebuild', {
+            phase: 'rebuild',
+            counts: observationCount,
+          });
         }
 
         await this.rebuildAllIndexes();
         this.initialRebuildFinished = true;
       } catch (err) {
-        console.warn('[ObservationIndexService] initial rebuild failed:', err);
+        logger.warn(
+          'index',
+          err instanceof Error ? err.message : 'initial rebuild failed',
+        );
         // Allow a future caller to retry.
         this.initialRebuildPromise = null;
       }
@@ -411,6 +556,7 @@ export class ObservationIndexService {
       'SELECT COUNT(*) AS cnt FROM observations',
     );
     const total = totalRows[0]?.cnt ?? 0;
+    await logger.breadcrumb('index', 'rebuild_start', { counts: total });
 
     let processed = 0;
     let cursor: string | null = null;
@@ -431,24 +577,36 @@ export class ObservationIndexService {
       );
       if (!batch.length) break;
 
-      const sqls: SqlStatement[] = [];
+      const mapped: PreparedIndexRow[] = [];
       for (const obs of batch) {
-        this.collectReindexStatements(
+        const extracted = extractIndexRows(
           obs.id,
           obs.form_type ?? '',
           obs.data,
           defs,
           gen,
-          sqls,
         );
+        for (const key of extracted.nonScalarKeys) {
+          this.warnOnce(
+            `nonscalar:${key}`,
+            `[ObservationIndexService] index "${key}" holds a non-scalar value; it is not indexed, so only any() filters can match it`,
+          );
+        }
+        mapped.push(...extracted.rows);
       }
       await this.db.write(async () => {
-        await this.flush(sqls);
+        await this.flush(insertIndexSqls(mapped));
       });
 
       cursor = batch[batch.length - 1].id;
       processed += batch.length;
       options?.onProgress?.({ current: processed, total });
+      if (processed === total || processed % 1000 === 0) {
+        logger.info('index', `rebuild ${processed}/${total}`, {
+          phase: 'rebuild',
+          counts: processed,
+        });
+      }
       await yieldToUi();
     }
 
@@ -471,6 +629,7 @@ export class ObservationIndexService {
     });
 
     const metaAfter = await this.getStatus();
+    await logger.breadcrumb('index', 'rebuild_done', { counts: processed });
     return {
       generation: gen,
       lastRebuildAt: metaAfter.lastRebuildAt,
@@ -506,40 +665,69 @@ export class ObservationIndexService {
    *
    * The signature is left alone: this is additive work against the current
    * definitions. A crash mid-loop is safe because the pull cursor is persisted
-   * only after this returns, so the page is re-applied and these statements
-   * are INSERT OR REPLACE.
+   * only after this returns, so the page is re-applied. Each batch deletes the
+   * observation's current-generation rows first, then INSERT (not OR REPLACE).
    */
   async incrementalReindexMany(
-    rows: Array<{ observationId: string; formType: string; dataJson: string }>,
+    rows: Array<{
+      observationId: string;
+      formType: string;
+      dataJson: string | unknown;
+    }>,
     onProgress?: (progress: IndexRebuildProgress) => void,
+    isCancelled?: () => boolean,
   ): Promise<void> {
     const defs = this.getIndexDefs();
     if (!defs.length || rows.length === 0) return;
 
     const total = rows.length;
     onProgress?.({ current: 0, total });
+    const generation = await this.readActiveGeneration();
+    let mapMs = 0;
+    let writeMs = 0;
+    let eavRows = 0;
 
     for (
       let offset = 0;
       offset < rows.length;
       offset += INDEX_WRITE_BATCH_SIZE
     ) {
+      if (isCancelled?.()) {
+        throw new Error('Sync cancelled');
+      }
       const batch = rows.slice(offset, offset + INDEX_WRITE_BATCH_SIZE);
-      await this.db.write(async () => {
-        const generation = await this.readActiveGeneration();
-        const sqls: SqlStatement[] = [];
-        for (const r of batch) {
-          this.collectReindexStatements(
-            r.observationId,
-            r.formType,
-            r.dataJson,
-            defs,
-            generation,
-            sqls,
+      const mapStarted = Date.now();
+      const mapped: PreparedIndexRow[] = [];
+      const ids: string[] = [];
+      for (const r of batch) {
+        ids.push(r.observationId);
+        const extracted = extractIndexRows(
+          r.observationId,
+          r.formType,
+          r.dataJson,
+          defs,
+          generation,
+        );
+        for (const key of extracted.nonScalarKeys) {
+          this.warnOnce(
+            `nonscalar:${key}`,
+            `[ObservationIndexService] index "${key}" holds a non-scalar value; it is not indexed, so only any() filters can match it`,
           );
         }
+        mapped.push(...extracted.rows);
+      }
+      eavRows += mapped.length;
+      mapMs += Date.now() - mapStarted;
+
+      const sqls: SqlStatement[] = [
+        ...deleteIndexSqls(ids, generation),
+        ...insertIndexSqls(mapped),
+      ];
+      const writeStarted = Date.now();
+      await this.db.write(async () => {
         await this.flush(sqls);
       });
+      writeMs += Date.now() - writeStarted;
       onProgress?.({
         current: Math.min(offset + batch.length, total),
         total,
@@ -548,6 +736,11 @@ export class ObservationIndexService {
         await yieldToUi();
       }
     }
+    logger.info(
+      'sync',
+      `index many map=${mapMs}ms write=${writeMs}ms rows=${total} eav=${eavRows}`,
+      { phase: 'index', counts: total },
+    );
   }
 
   /**
@@ -571,31 +764,21 @@ export class ObservationIndexService {
     generation: number,
     out: SqlStatement[],
   ): void {
-    out.push([
-      'DELETE FROM observation_index WHERE observation_id = ? AND index_generation = ?',
-      [observationId, generation],
-    ]);
-    for (const def of defs) {
-      if (!formTypeMatches(formType, def.formTypes)) continue;
-      const val = extractScalar(dataJson, def.path);
-      if (val == null) continue;
-      const columns = scalarToColumns(val, def.valueType);
-      if (!columns) {
-        this.warnOnce(
-          `nonscalar:${def.key}`,
-          `[ObservationIndexService] index "${def.key}" holds a non-scalar value; it is not indexed, so only any() filters can match it`,
-        );
-        continue;
-      }
-      const { valueText, valueNum } = columns;
-      const rowId = `${observationId}:${def.key}:${generation}`;
-      out.push([
-        `INSERT OR REPLACE INTO observation_index
-         (id, observation_id, index_key, index_generation, value_text, value_num)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [rowId, observationId, def.key, generation, valueText, valueNum],
-      ]);
+    out.push(...deleteIndexSqls([observationId], generation));
+    const extracted = extractIndexRows(
+      observationId,
+      formType,
+      dataJson,
+      defs,
+      generation,
+    );
+    for (const key of extracted.nonScalarKeys) {
+      this.warnOnce(
+        `nonscalar:${key}`,
+        `[ObservationIndexService] index "${key}" holds a non-scalar value; it is not indexed, so only any() filters can match it`,
+      );
     }
+    out.push(...insertIndexSqls(extracted.rows));
   }
 
   private collectSqliteIndexStatements(

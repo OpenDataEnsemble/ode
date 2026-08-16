@@ -24,6 +24,7 @@ import { unzip } from 'react-native-zip-archive';
 import { synkronusDownload } from './download';
 import { ODE_VERSION } from '../../version';
 import { pendingRoot, syncedRoot } from '../../services/attachmentStorage';
+import { logger } from '../../diagnostics/logger';
 import {
   isRepositoryResetRequiredError,
   parseRepositoryResetFromAxios,
@@ -32,6 +33,11 @@ import {
 import type { AxiosError, AxiosResponse } from 'axios';
 import { effectiveRepositoryGenerationForRequest } from './repositoryGenerationRequest';
 import { pullPageOutcome } from './pullCursor';
+import {
+  ATTACHMENT_DOWNLOAD_CONCURRENCY,
+  PULL_PAGE_SIZE,
+} from '../../sync/syncConstants';
+import { failedDownloadCount, runWithConcurrency } from './downloadPool';
 import {
   formatCountProgress,
   type SynkronusSyncOptions,
@@ -63,11 +69,11 @@ function logRepositoryGenerationSync(
   message: string,
   payload?: Record<string, unknown>,
 ): void {
-  if (payload != null) {
-    console.log(`[RepositoryGeneration] ${message}`, payload);
-  } else {
-    console.log(`[RepositoryGeneration] ${message}`);
-  }
+  const extras =
+    payload && typeof payload.observationDataVersion === 'number'
+      ? { counts: payload.observationDataVersion as number }
+      : undefined;
+  logger.info('sync', message, extras);
 }
 
 function logAxiosErrorForRepoGen(operation: string, error: unknown): void {
@@ -101,6 +107,7 @@ interface DownloadResult {
 
 function throwIfSyncCancelled(isCancelled?: () => boolean): void {
   if (isCancelled?.()) {
+    logger.info('sync', 'cancel observed, aborting');
     throw new Error('Sync cancelled');
   }
 }
@@ -242,7 +249,6 @@ class SynkronusApi {
     const removeIfExists = async (path: string) => {
       try {
         if (await RNFS.exists(path)) {
-          console.debug(`Removing files from ${path}`);
           await RNFS.unlink(path);
         }
         await RNFS.mkdir(path);
@@ -293,10 +299,6 @@ class SynkronusApi {
     prefix: string,
     progressCallback?: (progressPercent: number) => void,
   ): Promise<DownloadResult[]> {
-    console.debug(
-      `Downloading files with prefix "${prefix}" to: ${outputRootDirectory}`,
-    );
-
     const config = await this.getConfig();
     const filesToDownload = manifest.files.filter(file =>
       file.path.startsWith(prefix),
@@ -439,10 +441,6 @@ class SynkronusApi {
         details: i18n.t('sync.progress.checkingAttachments'),
       });
 
-      console.debug(
-        `Getting attachment manifest since version ${lastAttachmentVersion}`,
-      );
-
       const api = await this.getApi();
       const manifestClientGen =
         await this.getRepositoryGenerationForRequestOrNull();
@@ -474,12 +472,8 @@ class SynkronusApi {
 
       // Handle null operations array (server returns null when no operations)
       const operations = manifest.operations || [];
-      console.debug(
-        `Received attachment manifest: ${operations.length} operations at version ${manifest.current_version}`,
-      );
 
       if (operations.length === 0) {
-        console.debug('No attachment operations to perform');
         await AsyncStorage.setItem(
           '@last_attachment_version',
           manifest.current_version.toString(),
@@ -497,10 +491,6 @@ class SynkronusApi {
       const downloadOps = operations.filter(op => op.operation === 'download');
       const deleteOps = operations.filter(op => op.operation === 'delete');
       const totalSteps = deleteOps.length + downloadOps.length;
-
-      console.debug(
-        `Processing ${downloadOps.length} downloads, ${deleteOps.length} deletions`,
-      );
 
       let doneSteps = 0;
       const bumpProgress = (currentItem?: string) => {
@@ -541,9 +531,6 @@ class SynkronusApi {
         '@last_attachment_version',
         manifest.current_version.toString(),
       );
-      console.debug(
-        `Attachment sync completed at version ${manifest.current_version}`,
-      );
     } catch (error: unknown) {
       this.rethrowIfRepositoryResetConflict(error);
       if (isRepositoryResetRequiredError(error)) {
@@ -570,19 +557,11 @@ class SynkronusApi {
       try {
         const syncedPath = `${syncedDirectory}/${op.attachment_id}`;
         const pendingPath = `${pendingDirectory}/${op.attachment_id}`;
-        let deleted = false;
         if (await RNFS.exists(syncedPath)) {
           await RNFS.unlink(syncedPath);
-          deleted = true;
         }
         if (await RNFS.exists(pendingPath)) {
           await RNFS.unlink(pendingPath);
-          deleted = true;
-        }
-        if (deleted) {
-          console.debug(`Deleted attachment: ${op.attachment_id}`);
-        } else {
-          console.debug(`Attachment already deleted: ${op.attachment_id}`);
         }
       } catch (error) {
         console.error(
@@ -605,6 +584,9 @@ class SynkronusApi {
     },
   ): Promise<void> {
     const isCancelled = options?.isCancelled;
+    if (downloadOps.length === 0) {
+      return;
+    }
     const syncedDirectory = syncedRoot();
     await RNFS.mkdir(syncedDirectory);
 
@@ -624,39 +606,39 @@ class SynkronusApi {
     // with `version > cursor`, so being told to download at all means either
     // (a) we don't have the file yet or (b) our local copy is stale or
     // corrupt — re-fetching is always the correct action.
+    const started = Date.now();
     const results = await this.downloadRawFiles(urls, localPaths, undefined, {
       overwrite: true,
       isCancelled,
-      onFileStart: (index: number) => {
-        const op = downloadOps[index];
-        reportSyncProgress(options?.onProgress, {
-          phase: 'pull_attachments',
-          current: (options?.startDone ?? 0) + index,
-          total: options?.totalSteps ?? downloadOps.length,
-          details: formatCountProgress(
-            (options?.startDone ?? 0) + index,
-            options?.totalSteps ?? downloadOps.length,
-          ),
-          currentItem: op.attachment_id,
-        });
-      },
+      concurrency: ATTACHMENT_DOWNLOAD_CONCURRENCY,
       onFileComplete: (index: number) => {
         options?.onStepComplete?.(downloadOps[index].attachment_id);
       },
     });
 
+    const failed = failedDownloadCount(results);
+    logger.info(
+      'sync',
+      `attachments download=${Date.now() - started}ms files=${downloadOps.length} concurrency=${ATTACHMENT_DOWNLOAD_CONCURRENCY} failed=${failed}`,
+      { phase: 'pull_attachments', counts: downloadOps.length },
+    );
+
     results.forEach((result, index) => {
       const op = downloadOps[index];
-      if (result.success) {
-        console.debug(
-          `Downloaded attachment: ${op.attachment_id} (${result.bytesWritten} bytes)`,
-        );
-      } else {
+      if (!result.success) {
         console.error(
           `Failed to download attachment ${op.attachment_id}: ${result.message}`,
         );
       }
     });
+
+    // Leave `@last_attachment_version` unadvanced so the next sync retries
+    // the missing files instead of skipping them forever.
+    if (failed > 0) {
+      throw new Error(
+        `Failed to download ${failed} attachment${failed === 1 ? '' : 's'}`,
+      );
+    }
   }
 
   private async getAttachmentsUploadManifest(): Promise<string[]> {
@@ -752,17 +734,28 @@ class SynkronusApi {
       isCancelled?: () => boolean;
       onFileStart?: (index: number) => void;
       onFileComplete?: (index: number) => void;
+      concurrency?: number;
     },
   ): Promise<DownloadResult[]> {
-    const results: DownloadResult[] = [];
     if (urls.length !== localFilePaths.length) {
       throw new Error(
         'URLs and local file paths arrays must have the same length',
       );
     }
     const totalFiles = urls.length;
-    console.debug('URLS:', urls);
-    console.debug('Local file paths:', localFilePaths);
+    const concurrency = options?.concurrency ?? 1;
+    const activeJobIds = new Set<number>();
+    let completed = 0;
+    const stopActiveDownloads = () => {
+      for (const jobId of activeJobIds) {
+        try {
+          RNFS.stopDownload(jobId);
+        } catch {
+          // Native cancel is best-effort.
+        }
+      }
+      activeJobIds.clear();
+    };
     const singleFileCallback = (
       currentIndex: number,
       progress: RNFS.DownloadProgressCallbackResult,
@@ -771,47 +764,58 @@ class SynkronusApi {
       const overallProgress =
         ((currentIndex + fileProgress) / totalFiles) * 100;
 
-      console.debug(
-        `Downloading file: ${urls[currentIndex]} ${Math.round(
-          fileProgress * 100,
-        )}%`,
-      );
       progressCallback?.(Math.round(overallProgress));
     };
 
-    for (let i = 0; i < totalFiles; i++) {
-      throwIfSyncCancelled(options?.isCancelled);
-      const url = urls[i];
-      const localFilePath = localFilePaths[i];
-      options?.onFileStart?.(i);
-      try {
-        console.debug(`Downloading file: ${url}`);
-        const result = await this.downloadRawFile(
-          url,
-          localFilePath,
-          (progress: RNFS.DownloadProgressCallbackResult) =>
-            singleFileCallback(i, progress),
-          options,
-        );
-        console.debug(
-          `Downloaded file: ${localFilePath} (size: ${result.bytesWritten})`,
-        );
-        results.push(result);
-      } catch (error) {
-        console.error(`Failed to download file ${localFilePath}: ${error}`);
-        results.push({
-          success: false,
-          message: `Failed to download file ${localFilePath}: ${error}`,
-          filePath: localFilePath,
-          bytesWritten: 0,
-        });
-      }
-      options?.onFileComplete?.(i);
-      const progressPercent = Math.round((i / totalFiles) * 100);
-      progressCallback?.(progressPercent);
-    }
-    console.debug('Files downloaded');
-    return results;
+    return runWithConcurrency(
+      urls,
+      concurrency,
+      async (url, i) => {
+        const localFilePath = localFilePaths[i];
+        options?.onFileStart?.(i);
+        try {
+          const result = await this.downloadRawFile(
+            url,
+            localFilePath,
+            concurrency === 1
+              ? (progress: RNFS.DownloadProgressCallbackResult) =>
+                  singleFileCallback(i, progress)
+              : undefined,
+            {
+              overwrite: options?.overwrite,
+              isCancelled: options?.isCancelled,
+              onJobStart: jobId => {
+                activeJobIds.add(jobId);
+              },
+              onJobEnd: jobId => {
+                activeJobIds.delete(jobId);
+              },
+            },
+          );
+          return result;
+        } catch (error) {
+          console.error(`Failed to download file ${localFilePath}: ${error}`);
+          return {
+            success: false,
+            message: `Failed to download file ${localFilePath}: ${error}`,
+            filePath: localFilePath,
+            bytesWritten: 0,
+          };
+        } finally {
+          completed += 1;
+          options?.onFileComplete?.(i);
+          if (concurrency > 1) {
+            progressCallback?.(Math.round((completed / totalFiles) * 100));
+          } else {
+            progressCallback?.(Math.round((i / totalFiles) * 100));
+          }
+        }
+      },
+      {
+        isCancelled: options?.isCancelled,
+        onCancelInFlight: stopActiveDownloads,
+      },
+    );
   }
   private async downloadRawFile(
     url: string,
@@ -819,8 +823,15 @@ class SynkronusApi {
     progressCallback?: (
       progressPercent: RNFS.DownloadProgressCallbackResult,
     ) => void,
-    options?: { overwrite?: boolean },
+    options?: {
+      overwrite?: boolean;
+      isCancelled?: () => boolean;
+      onJobStart?: (jobId: number) => void;
+      onJobEnd?: (jobId: number) => void;
+    },
   ): Promise<DownloadResult> {
+    throwIfSyncCancelled(options?.isCancelled);
+
     if (await RNFS.exists(localFilePath)) {
       if (options?.overwrite) {
         // Caller is re-fetching from authoritative source (e.g. attachment
@@ -854,23 +865,40 @@ class SynkronusApi {
       }
     }
 
+    throwIfSyncCancelled(options?.isCancelled);
+
     const authToken =
       this.fastGetToken_cachedToken ?? (await this.fastGetToken());
 
-    console.debug(`Downloading from: ${url}`);
-    const result = await synkronusDownload({
+    const watchCancel = Boolean(options?.isCancelled);
+    const download = synkronusDownload({
       fromUrl: url,
       toFile: localFilePath,
       authToken,
       background: true,
-      progressInterval: 500, // fire at most every 500ms if progressCallback is provided
-      progressDivider: progressCallback ? 1 : 100, // fire at most on every percentage change if progressCallback is provided
+      progressInterval: 500,
+      // Check cancel every 500ms even when the caller does not want byte progress.
+      progressDivider: progressCallback || watchCancel ? 1 : 100,
       progress: progress => {
+        if (options?.isCancelled?.()) {
+          try {
+            RNFS.stopDownload(progress.jobId);
+          } catch {
+            // Native cancel is best-effort.
+          }
+        }
         if (progressCallback) {
           progressCallback(progress);
         }
       },
-    }).promise;
+    });
+    options?.onJobStart?.(download.jobId);
+    let result: RNFS.DownloadResult;
+    try {
+      result = await download.promise;
+    } finally {
+      options?.onJobEnd?.(download.jobId);
+    }
 
     if (result.statusCode !== 200) {
       console.error(
@@ -884,9 +912,6 @@ class SynkronusApi {
       };
     }
 
-    console.debug(
-      `Successfully downloaded and saved (binary): ${localFilePath} (${result.bytesWritten} bytes)`,
-    );
     return {
       success: true,
       message: `Successfully downloaded and saved (binary): ${localFilePath} (${result.bytesWritten} bytes)`,
@@ -903,11 +928,10 @@ class SynkronusApi {
     const isCancelled = options?.isCancelled;
     const total = attachments.length;
     if (attachments.length === 0) {
-      console.debug('No attachments to upload');
       return [];
     }
+    logger.info('sync', `uploading ${total} attachments`, { counts: total });
 
-    console.debug('Starting attachments upload...', attachments);
     const pendingDirectory = pendingRoot();
     const syncedDirectory = syncedRoot();
     const api = await this.getApi();
@@ -964,11 +988,7 @@ class SynkronusApi {
           this.rethrowIfRepositoryResetConflict(err);
         }
 
-        if (alreadyOnServer) {
-          console.debug(
-            `Attachment ${attachmentId} already on server; skipping PUT`,
-          );
-        } else {
+        if (!alreadyOnServer) {
           const mimeType = this.getMimeTypeFromFilename(attachmentId);
           const file = {
             uri: `file://${pendingFilePath}`,
@@ -976,9 +996,6 @@ class SynkronusApi {
             name: attachmentId,
           } as unknown as File;
 
-          console.debug(
-            `Uploading attachment: ${attachmentId} (${fileStats.size} bytes)`,
-          );
           await api.uploadAttachment({
             attachmentId,
             file,
@@ -1001,12 +1018,6 @@ class SynkronusApi {
           filePath: syncedFilePath,
           bytesWritten: fileStats.size,
         });
-
-        console.debug(
-          alreadyOnServer
-            ? `Confirmed existing attachment: ${attachmentId}`
-            : `Successfully uploaded attachment: ${attachmentId}`,
-        );
       } catch (error: unknown) {
         this.rethrowIfRepositoryResetConflict(error);
         console.error(`Failed to upload attachment ${attachmentId}:`, error);
@@ -1027,7 +1038,6 @@ class SynkronusApi {
       });
     }
 
-    console.debug('Attachments upload completed', results);
     return results;
   }
 
@@ -1094,12 +1104,53 @@ class SynkronusApi {
     const repo = databaseService.getLocalRepo();
     const api = await this.getApi();
     const schemaTypes = undefined; // TODO: Feature: Maybe allow partial sync
-    let res;
+    let res: AxiosResponse<SyncPullResponse> | undefined;
     let currentSince = since;
     let totalServerRecordsThisPull = 0;
     let pullPage = 0;
     let hasMorePages = true;
     let finalVersion = since;
+
+    const fetchPullPage = async (sinceVersion: number) => {
+      throwIfSyncCancelled(isCancelled);
+      const clientGen = await this.getRepositoryGenerationForRequestOrNull();
+      const fetchStarted = Date.now();
+      try {
+        const response = await api.syncPull({
+          xOdeVersion: ODE_VERSION,
+          limit: PULL_PAGE_SIZE,
+          syncPullRequest: {
+            client_id: clientId,
+            ...(clientGen != null ? { repository_generation: clientGen } : {}),
+            since: {
+              version: sinceVersion,
+            },
+            schema_types: schemaTypes,
+          },
+          xRepositoryGeneration: clientGen ?? undefined,
+        });
+        logger.info(
+          'sync',
+          `pull fetch=${Date.now() - fetchStarted}ms records=${
+            response.data.records?.length ?? 0
+          }`,
+          {
+            phase: 'fetch',
+            counts: response.data.records?.length ?? 0,
+          },
+        );
+        return { response, clientGen };
+      } catch (err: unknown) {
+        logAxiosErrorForRepoGen('syncPull', err);
+        this.rethrowIfRepositoryResetConflict(err);
+        throw err;
+      }
+    };
+
+    // Next HTTP page, started after we know has_more so it overlaps apply+index.
+    // Discarded if apply fails (cursor is not advanced). Never apply two pages
+    // at once — SQLite is a single writer.
+    let pendingPage: ReturnType<typeof fetchPullPage> | null = null;
 
     reportSyncProgress(report, {
       phase: 'pull_observations',
@@ -1112,50 +1163,12 @@ class SynkronusApi {
     do {
       throwIfSyncCancelled(isCancelled);
       pullPage += 1;
-      const clientGen = await this.getRepositoryGenerationForRequestOrNull();
-      logRepositoryGenerationSync('syncPull request', {
-        clientXRepositoryGeneration: clientGen ?? '(omitted)',
-        sinceVersion: currentSince,
-      });
-
-      try {
-        res = await api.syncPull({
-          xOdeVersion: ODE_VERSION,
-          syncPullRequest: {
-            client_id: clientId,
-            ...(clientGen != null ? { repository_generation: clientGen } : {}),
-            since: {
-              version: currentSince,
-            },
-            schema_types: schemaTypes,
-          },
-          xRepositoryGeneration: clientGen ?? undefined,
-        });
-      } catch (err: unknown) {
-        logAxiosErrorForRepoGen('syncPull', err);
-        this.rethrowIfRepositoryResetConflict(err);
-        throw err;
-      }
-
-      const pullRes = res as AxiosResponse<SyncPullResponse>;
-      logRepositoryGenerationSync('syncPull response OK', {
-        clientSent: clientGen ?? '(omitted)',
-        sinceVersion: currentSince,
-        bodyRepositoryGeneration: res.data.repository_generation,
-        bodyCurrentVersion: res.data.current_version,
-        bodyHasMore: res.data.has_more,
-        recordsInThisPage: res.data.records?.length ?? 0,
-        headerXRepositoryGeneration: headerRepositoryGeneration(
-          pullRes.headers,
-        ),
-        note: 'repository_generation = server epoch (resets); current_version = observation stream cursor — a 4 and a 1 here are not a mismatch.',
-      });
-
-      console.debug(
-        `Pull response: page ${pullPage}, ${
-          res.data.records?.length ?? 0
-        } record(s), has_more=${String(res.data.has_more)}`,
-      );
+      const waitStarted = Date.now();
+      const fetched = await (pendingPage ?? fetchPullPage(currentSince));
+      const waitMs = Date.now() - waitStarted;
+      pendingPage = null;
+      const clientGen = fetched.clientGen;
+      res = fetched.response;
 
       this.ensureRepoGenResponseMatchesSent(
         'syncPull',
@@ -1166,42 +1179,16 @@ class SynkronusApi {
         res.data.repository_generation,
       );
 
-      // 1. Pull and map changes from the API
+      const mapStarted = Date.now();
       const domainObservations = res.data.records
         ? res.data.records.map(ObservationMapper.fromApi)
         : [];
+      const mapMs = Date.now() - mapStarted;
 
       totalServerRecordsThisPull += domainObservations.length;
 
-      // 2. Apply to local db (local dirty records will not be applied = last update wins).
-      //    Skipped rows get a `last_write_won` tag (see syncConstants / WatermelonDBRepo).
-      //    Report before and during this step: on a first-time pull the page
-      //    can be thousands of rows, and indexing them used to leave the
-      //    progress card sitting on "Connecting…" until the flush returned.
-      if (domainObservations.length > 0) {
-        reportSyncProgress(report, {
-          phase: 'pull_observations',
-          current: pullPage,
-          total: 0,
-          indeterminate: true,
-          details: i18n.t('sync.progress.savingRecords', {
-            count: domainObservations.length,
-          }),
-        });
-      }
-      const pulledChanges = await repo.applyServerChanges(domainObservations, {
-        onIndexProgress: ({ current, total }) => {
-          if (total <= 0) return;
-          reportSyncProgress(report, {
-            phase: 'index_rebuild',
-            current,
-            total,
-            details: formatCountProgress(current, total),
-          });
-        },
-      });
-      console.debug(`Applied ${pulledChanges} changes to local database`);
-
+      // One line for the whole page: count when HTTP arrives, then leave it
+      // up through apply/index. Toggling "Saving…" made the count unreadable.
       reportSyncProgress(report, {
         phase: 'pull_observations',
         current: pullPage,
@@ -1217,15 +1204,31 @@ class SynkronusApi {
               : i18n.t('sync.progress.downloading'),
       });
 
-      // 3. Advance the cursor and persist it before fetching the next page, so
-      //    an interrupted pull resumes here instead of restarting from zero.
-      //    See pullCursor.ts for why this cannot skip records.
+      // Cursor math depends only on the response. Start the next fetch before
+      // apply so the RTT is hidden behind SQLite work. Persist the cursor
+      // only after apply succeeds (see pullCursor.ts).
       const pageOutcome = pullPageOutcome(res.data, currentSince);
       if (pageOutcome.kind === 'unusable') {
         throw new Error(
           `Sync pull stopped after page ${pullPage}: ${pageOutcome.reason}`,
         );
       }
+      if (pageOutcome.kind === 'continue') {
+        pendingPage = fetchPullPage(pageOutcome.nextSince);
+      }
+
+      // Apply + incremental index. Stay on pull_observations — flipping to
+      // index_rebuild made the card blink "Preparing data for search" on
+      // every page. That title is for the full rebuild after a bundle change.
+      const applyStarted = Date.now();
+      await repo.applyServerChanges(domainObservations, {
+        isCancelled,
+      });
+      logger.info(
+        'sync',
+        `pull page=${pullPage} records=${domainObservations.length} wait=${waitMs}ms map=${mapMs}ms apply=${Date.now() - applyStarted}ms`,
+        { phase: 'page', counts: domainObservations.length },
+      );
 
       hasMorePages = pageOutcome.kind === 'continue';
       const cursor =
@@ -1239,17 +1242,12 @@ class SynkronusApi {
       }
 
       await AsyncStorage.setItem('@last_seen_version', String(cursor));
-      console.debug(
-        `Pull cursor persisted at version ${cursor}${
-          hasMorePages ? ' (more pages follow)' : ''
-        }`,
-      );
     } while (hasMorePages);
 
     logRepositoryGenerationSync('syncPull all pages done', {
       totalServerRecordsReceived: totalServerRecordsThisPull,
-      finalBodyCurrentVersion: res.data.current_version,
-      finalBodyRepositoryGeneration: res.data.repository_generation,
+      finalBodyCurrentVersion: res?.data.current_version,
+      finalBodyRepositoryGeneration: res?.data.repository_generation,
       persistedObservationCursor: finalVersion,
     });
 
@@ -1308,16 +1306,11 @@ class SynkronusApi {
       // 1. Get pending changes from watermelondb
       const repo = databaseService.getLocalRepo();
       const localChanges = await repo.getPendingChanges();
-      console.debug(`Found ${localChanges.length} local changes to push`);
 
       // 2. Upload attachments first (if requested and available)
       let attachmentUploadResults: DownloadResult[] = [];
       if (includeAttachments) {
         const attachments = await this.getAttachmentsUploadManifest();
-        console.debug(
-          `Found ${attachments.length} pending attachments to upload:`,
-          attachments,
-        );
 
         if (attachments.length > 0) {
           attachmentUploadResults = await this.uploadAttachments(
@@ -1337,13 +1330,6 @@ class SynkronusApi {
             // Continue with observation sync even if some attachments failed
             // The server should handle missing attachments gracefully
           }
-
-          const successfulUploads = attachmentUploadResults.filter(
-            result => result.success,
-          );
-          console.debug(
-            `Successfully uploaded ${successfulUploads.length}/${attachments.length} attachments`,
-          );
         }
       }
 
@@ -1351,7 +1337,6 @@ class SynkronusApi {
 
       // 3. Check if we have observations to push
       if (localChanges.length === 0) {
-        console.debug('No local changes to push');
         reportSyncProgress(report, {
           phase: 'push_observations',
           current: 1,
@@ -1368,16 +1353,6 @@ class SynkronusApi {
             lastSeenVersion: lastSeen,
           },
         );
-
-        // If we uploaded attachments, report that
-        if (includeAttachments && attachmentUploadResults.length > 0) {
-          const successfulUploads = attachmentUploadResults.filter(
-            result => result.success,
-          );
-          console.debug(
-            `Push completed: 0 observations, ${successfulUploads.length}/${attachmentUploadResults.length} attachments uploaded`,
-          );
-        }
 
         return Number(await AsyncStorage.getItem('@last_seen_version')) || 0;
       }
@@ -1415,9 +1390,6 @@ class SynkronusApi {
         }),
       });
 
-      console.debug(
-        `Pushing ${localChanges.length} observations with transmission ID: ${transmissionId}`,
-      );
       const res = await api.syncPush(request);
 
       logRepositoryGenerationSync('syncPush response OK', {
@@ -1437,15 +1409,11 @@ class SynkronusApi {
       await this.persistRepositoryGenerationFromResponse(
         res.data.repository_generation,
       );
-      console.debug(
-        `Successfully pushed ${localChanges.length} observations. Server version: ${res.data.current_version}`,
-      );
 
       // 4. Update local database sync status
       await repo.markObservationsAsSynced(
         localChanges.map(record => record.observationId),
       );
-      console.debug(`Marked ${localChanges.length} observations as synced`);
 
       // 5. Update last seen version
       await AsyncStorage.setItem(
@@ -1453,19 +1421,13 @@ class SynkronusApi {
         res.data.current_version.toString(),
       );
 
-      // 6. Log summary
       if (includeAttachments && attachmentUploadResults.length > 0) {
         const successfulUploads = attachmentUploadResults.filter(
           result => result.success,
         ).length;
-        const totalUploads = attachmentUploadResults.length;
-        console.debug(
-          `Push completed: ${localChanges.length} observations, ${successfulUploads}/${totalUploads} attachments uploaded`,
-        );
-      } else {
-        console.debug(
-          `Push completed: ${localChanges.length} observations (attachments not included)`,
-        );
+        logger.info('sync', `uploaded ${successfulUploads} attachments`, {
+          counts: successfulUploads,
+        });
       }
 
       reportSyncProgress(report, {
@@ -1497,11 +1459,6 @@ class SynkronusApi {
     includeAttachments: boolean = false,
     options?: SynkronusSyncOptions,
   ) {
-    console.debug(
-      includeAttachments
-        ? 'Syncing observations with attachments'
-        : 'Syncing observations',
-    );
     const rawStored = await AsyncStorage.getItem(
       REPOSITORY_GENERATION_STORAGE_KEY,
     );
@@ -1512,10 +1469,8 @@ class SynkronusApi {
       includeAttachments,
     });
     const version = await this.pullObservations(includeAttachments, options);
-    console.debug('Pull completed @ data version ' + version);
     throwIfSyncCancelled(options?.isCancelled);
     await this.pushObservations(includeAttachments, options);
-    console.debug('Push completed');
     const storageAfter = await AsyncStorage.getItem(
       REPOSITORY_GENERATION_STORAGE_KEY,
     );

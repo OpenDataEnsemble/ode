@@ -1,12 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  RefreshControl,
   ActivityIndicator,
-  Alert,
   TouchableOpacity,
 } from 'react-native';
 import { Input as ODEInput } from '../components/common';
@@ -14,22 +11,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useObservations } from '../hooks/useObservations';
 import {
-  ObservationCard,
   EmptyState,
   FormTypeSelector,
   SyncStatusButtons,
-  SyncStatus,
+  ObservationListTable,
+  ObservationPager,
 } from '../components/common';
-import { isObservationFullySynced } from '../utils/observationSyncStatus';
-import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { FormService } from '../services/FormService';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MainAppStackParamList } from '../types/NavigationTypes';
-import { Observation } from '../database/models/Observation';
 import colors from '../theme/colors';
 import { useAppTheme } from '../contexts/AppThemeContext';
-import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
   odeSpacing,
@@ -39,6 +32,8 @@ import {
   odeScreenHeaderHeight,
 } from '../theme/odeDesign';
 import { useTranslation } from 'react-i18next';
+import { logger } from '../diagnostics/logger';
+import type { ObservationListRow } from '../database/observationListQuery';
 
 type ObservationsScreenNavigationProp = StackNavigationProp<
   MainAppStackParamList,
@@ -56,9 +51,6 @@ const ObservationsScreen: React.FC = () => {
   const clearIconColor = isDark
     ? (colors.neutral[300] as string)
     : (colors.neutral[600] as string);
-  const _headerBg = isDark
-    ? (colors.neutral[900] as string)
-    : (colors.neutral[50] as string);
   const filtersContainerStyle = [
     styles.filtersContainer,
     {
@@ -75,27 +67,39 @@ const ObservationsScreen: React.FC = () => {
     },
   ];
   const navigation = useNavigation<ObservationsScreenNavigationProp>();
-  const observationsHook = useObservations();
   const {
-    filteredAndSorted,
+    rows,
+    total,
+    totalPages,
+    page,
+    setPage,
     loading,
     error,
     refresh,
     searchQuery,
     setSearchQuery,
-  } = observationsHook;
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+    selectedFormType,
+    setSelectedFormType,
+    syncStatus,
+    setSyncStatus,
+  } = useObservations();
   const [formNames, setFormNames] = useState<Record<string, string>>({});
   const [formTypes, setFormTypes] = useState<{ id: string; name: string }[]>(
     [],
   );
-  const [selectedFormType, setSelectedFormType] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>('all');
   const [showSearch, setShowSearch] = useState<boolean>(false);
-  const { showConfirm } = useConfirmModal();
+  const refreshRef = useRef(refresh);
+  const skipFocusRefresh = useRef(true);
+
+  useEffect(() => {
+    refreshRef.current = refresh;
+  }, [refresh]);
 
   useFocusEffect(
     React.useCallback(() => {
+      void logger.breadcrumb('screen', 'observations', {
+        screen: 'Observations',
+      });
       const loadFormData = async () => {
         try {
           const formService = await FormService.getInstance();
@@ -112,142 +116,27 @@ const ObservationsScreen: React.FC = () => {
           console.error('Failed to load form data:', err);
         }
       };
-      loadFormData();
-      refresh();
-    }, [refresh]),
+      void loadFormData();
+      // First focus: useObservations already loads. Later focuses (back from
+      // detail) refresh without tying this effect to the loadPage identity.
+      if (skipFocusRefresh.current) {
+        skipFocusRefresh.current = false;
+        return;
+      }
+      void refreshRef.current();
+    }, []),
   );
 
-  const finalFiltered = useMemo(() => {
-    let filtered = filteredAndSorted;
+  const showSubtitle = total > 0;
 
-    if (selectedFormType) {
-      filtered = filtered.filter(obs => obs.formType === selectedFormType);
-    }
-
-    if (syncStatus !== 'all') {
-      filtered = filtered.filter(obs => {
-        const synced = isObservationFullySynced(obs);
-        return syncStatus === 'synced' ? synced : !synced;
+  const handleRowPress = useCallback(
+    (row: ObservationListRow) => {
+      navigation.navigate('ObservationDetail', {
+        observationId: row.observationId,
       });
-    }
-
-    return filtered;
-  }, [filteredAndSorted, selectedFormType, syncStatus]);
-
-  const showSubtitle = finalFiltered.length > 0;
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refresh();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleObservationPress = (observation: Observation) => {
-    navigation.navigate('ObservationDetail', {
-      observationId: observation.observationId,
-    });
-  };
-
-  const handleEditObservation = async (observation: Observation) => {
-    try {
-      const result = await openFormplayerFromNative(
-        observation.formType,
-        {},
-        typeof observation.data === 'string'
-          ? JSON.parse(observation.data)
-          : observation.data,
-        observation.observationId,
-      );
-      if (
-        result.status === 'form_submitted' ||
-        result.status === 'form_updated'
-      ) {
-        await refresh();
-      }
-    } catch (err) {
-      console.error('Error editing observation:', err);
-      Alert.alert(t('common.error'), t('observations.editError'));
-    }
-  };
-
-  const handleDeleteObservation = async (observation: Observation) => {
-    showConfirm({
-      title: t('observations.deleteTitle'),
-      message: t('observations.deleteMessage'),
-      buttons: [
-        { text: t('common.cancel'), onPress: () => {}, variant: 'tertiary' },
-        {
-          text: t('observations.delete'),
-          variant: 'danger',
-          onPress: async () => {
-            try {
-              const formService = await FormService.getInstance();
-              await formService.deleteObservation(observation.observationId);
-              await refresh();
-            } catch (err) {
-              console.error('Error deleting observation:', err);
-              Alert.alert(t('common.error'), t('observations.deleteError'));
-            }
-          },
-        },
-      ],
-    });
-  };
-
-  const renderObservation = ({ item }: { item: Observation }) => {
-    return (
-      <ObservationCard
-        observation={item}
-        formName={formNames[item.formType] || item.formType}
-        onPress={() => handleObservationPress(item)}
-        onEdit={() => handleEditObservation(item)}
-        onDelete={() => handleDeleteObservation(item)}
-      />
-    );
-  };
-
-  if (loading && filteredAndSorted.length === 0) {
-    return (
-      <View style={shellStyle}>
-        <SafeAreaView
-          style={[
-            styles.container,
-            { backgroundColor: colors.neutral.transparent },
-          ]}>
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={themeColors.primary} />
-            <Text
-              style={[styles.loadingText, { color: themeColors.onBackground }]}>
-              {t('observations.loading')}
-            </Text>
-          </View>
-        </SafeAreaView>
-      </View>
-    );
-  }
-
-  if (error && filteredAndSorted.length === 0) {
-    return (
-      <View style={shellStyle}>
-        <SafeAreaView
-          style={[
-            styles.container,
-            { backgroundColor: colors.neutral.transparent },
-          ]}>
-          <EmptyState
-            icon="alert-circle-outline"
-            title={t('observations.errorTitle')}
-            message={error}
-            actionLabel={t('common.retry')}
-            onAction={refresh}
-          />
-        </SafeAreaView>
-      </View>
-    );
-  }
+    },
+    [navigation],
+  );
 
   return (
     <View style={shellStyle}>
@@ -280,7 +169,7 @@ const ObservationsScreen: React.FC = () => {
             </Text>
             {showSubtitle && (
               <Text style={[styles.subtitle, { color: themeColors.onSurface }]}>
-                {t('observations.count', { count: finalFiltered.length })}
+                {t('observations.count', { count: total })}
               </Text>
             )}
           </View>
@@ -346,7 +235,23 @@ const ObservationsScreen: React.FC = () => {
           </View>
         </View>
 
-        {finalFiltered.length === 0 ? (
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={themeColors.primary} />
+            <Text
+              style={[styles.loadingText, { color: themeColors.onBackground }]}>
+              {t('observations.loading')}
+            </Text>
+          </View>
+        ) : error && rows.length === 0 ? (
+          <EmptyState
+            icon="alert-circle-outline"
+            title={t('observations.errorTitle')}
+            message={error}
+            actionLabel={t('common.retry')}
+            onAction={refresh}
+          />
+        ) : rows.length === 0 ? (
           <EmptyState
             icon="clipboard-text-outline"
             title={
@@ -361,19 +266,18 @@ const ObservationsScreen: React.FC = () => {
             }
           />
         ) : (
-          <FlatList
-            style={styles.listTransparent}
-            data={finalFiltered}
-            renderItem={renderObservation}
-            keyExtractor={item => item.observationId}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-              />
-            }
-          />
+          <View style={styles.tableSection}>
+            <ObservationListTable
+              rows={rows}
+              formNames={formNames}
+              onPressRow={handleRowPress}
+            />
+            <ObservationPager
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          </View>
         )}
       </SafeAreaView>
     </View>
@@ -383,9 +287,6 @@ const ObservationsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  listTransparent: {
-    backgroundColor: colors.neutral.transparent,
   },
   header: {
     flexDirection: 'row',
@@ -455,9 +356,9 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: 44,
   },
-  listContent: {
-    // Same gap as between cards: paddingTop + first card marginTop = 16.
-    paddingVertical: odeSpacing.xs,
+  tableSection: {
+    flex: 1,
+    minHeight: 0,
   },
   loadingContainer: {
     flex: 1,

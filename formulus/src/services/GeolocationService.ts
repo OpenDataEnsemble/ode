@@ -229,7 +229,6 @@ export class GeolocationService {
         Geolocation.getCurrentPosition(
           position => {
             const location = this.convertToObservationGeolocation(position);
-            console.debug('Got location for observation:', location);
             resolve(location);
           },
           error => {

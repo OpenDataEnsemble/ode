@@ -70,7 +70,7 @@ describe('syncProgressUi', () => {
     ).toBe('Preparing data for search');
   });
 
-  it('uses the index-rebuild title during an observation pull', () => {
+  it('uses the index-rebuild title for a full rebuild (bundle update path)', () => {
     expect(
       getSyncProgressCardTitle(
         {

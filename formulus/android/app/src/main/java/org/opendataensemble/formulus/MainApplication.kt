@@ -23,6 +23,7 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    DiagnosticsStore.recordHistoricalExits(this)
     WebView.setWebContentsDebuggingEnabled(true)
     loadReactNative(this)
   }

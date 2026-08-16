@@ -30,6 +30,7 @@ import MainAppNavigator from './src/navigation/MainAppNavigator';
 import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
 import { FormSpec } from './src/services';
 import { initFormulusI18n, i18n } from './src/i18n';
+import { DirtyExitGate } from './src/diagnostics/DirtyExitGate';
 
 /**
  * Inner component that consumes the AppTheme context to build a dynamic
@@ -268,6 +269,7 @@ function AppInner(): React.JSX.Element {
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={themeColors.surface}
       />
+      <DirtyExitGate />
       <NavigationContainer theme={navigationTheme}>
         <MainAppNavigator />
         {formplayerStack.map((entry, index) => (

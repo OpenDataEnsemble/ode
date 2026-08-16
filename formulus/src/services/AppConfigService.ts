@@ -83,9 +83,6 @@ class AppConfigService {
     try {
       const exists = await RNFS.exists(APP_CONFIG_PATH);
       if (!exists) {
-        console.log(
-          '[AppConfigService] No app.config.json found — using ODE defaults.',
-        );
         this.config = null;
         this.loaded = true;
         return;
@@ -104,9 +101,6 @@ class AppConfigService {
       }
 
       this.config = parsed;
-      console.log(
-        `[AppConfigService] Loaded config for "${parsed.name}" v${parsed.version}`,
-      );
     } catch (err) {
       // Deliberately not latching `loaded` here. A read that throws mid-bundle
       // extraction is transient, and latching would pin the config to null —

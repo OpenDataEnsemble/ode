@@ -24,6 +24,7 @@ export interface SynkronusDownloadOptions {
  * Automatically includes x-ode-version header.
  */
 export function synkronusDownload(options: SynkronusDownloadOptions): {
+  jobId: number;
   promise: Promise<RNFS.DownloadResult>;
 } {
   return RNFS.downloadFile({
