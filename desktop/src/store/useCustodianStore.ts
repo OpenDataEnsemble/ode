@@ -9,6 +9,7 @@ import {
 } from '../lib/syncTauriEvents';
 import { partitionPendingPushObservations } from '../lib/pushAttachmentAudit';
 import { getOrCreateClientId, syncGateway } from '../services/synk';
+import { isSyncHttpUnauthorized } from '../services/synk/syncErrors';
 import type {
   AppHealth,
   AuthSession,
@@ -117,7 +118,14 @@ async function reauthenticateActiveProfile(
       persistAuthMap(merged);
       set({ authSessionsByProfileId: merged });
       return;
-    } catch {
+    } catch (refreshError) {
+      const cred = await tauriClient.credentialGet(id);
+      const password = cred.password ?? '';
+      if (!password.trim()) {
+        // No password fallback: surface the refresh failure (401 clears session
+        // in recover; network errors keep the stored refresh token).
+        throw refreshError;
+      }
       // Fall through to password login.
     }
   }
@@ -137,6 +145,20 @@ async function reauthenticateActiveProfile(
   const merged = { ...get().authSessionsByProfileId, [id]: next };
   persistAuthMap(merged);
   set({ authSessionsByProfileId: merged });
+}
+
+function clearActiveProfileAuthSession(
+  set: (partial: Partial<CustodianState>) => void,
+  get: () => CustodianState,
+): void {
+  const id = get().activeProfileId;
+  if (!id || !get().authSessionsByProfileId[id]) {
+    return;
+  }
+  const auth = { ...get().authSessionsByProfileId };
+  delete auth[id];
+  persistAuthMap(auth);
+  set({ authSessionsByProfileId: auth });
 }
 
 async function awaitSyncJobTerminal(
@@ -389,13 +411,13 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   clearExportActivity: () => set({ exportActivity: null }),
 
   ensureActiveProfileAuth: async () => {
-    if (selectAuthSessionForActiveProfile(get())?.token) {
-      return true;
-    }
     try {
       await reauthenticateActiveProfile(set, get);
       return true;
-    } catch {
+    } catch (e) {
+      if (isSyncHttpUnauthorized(e)) {
+        clearActiveProfileAuthSession(set, get);
+      }
       return false;
     }
   },
@@ -404,7 +426,10 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
     try {
       await reauthenticateActiveProfile(set, get);
       return true;
-    } catch {
+    } catch (e) {
+      if (isSyncHttpUnauthorized(e)) {
+        clearActiveProfileAuthSession(set, get);
+      }
       return false;
     }
   },

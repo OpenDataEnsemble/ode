@@ -323,7 +323,9 @@ export async function parseObservationJsonFromPaths(
   return out;
 }
 
-const RUST_PARSE_CHUNK = 128;
+const RUST_PARSE_CHUNK = 512;
+/** Overlapping IPC batches while each batch still parses in parallel on the host. */
+const RUST_PARSE_CONCURRENCY = 3;
 
 /**
  * Read and parse observation JSON via Rust (parallel per chunk). Preserves file order.
@@ -336,27 +338,34 @@ export async function parseObservationJsonPathsViaRust(
   if (total === 0) {
     return [];
   }
-  const out: ParsedObservationFile[] = [];
+  const chunks: { name: string; nativePath: string }[][] = [];
   for (let i = 0; i < total; i += RUST_PARSE_CHUNK) {
-    const chunk = items.slice(i, i + RUST_PARSE_CHUNK);
-    const paths = chunk.map(c => c.nativePath);
-    const rows = await tauriClient.parseImportObservationJsonPaths(paths);
-    if (rows.length !== chunk.length) {
-      throw new Error(
-        `parseImportObservationJsonPaths returned ${rows.length} rows, expected ${chunk.length}`,
-      );
-    }
-    for (let j = 0; j < chunk.length; j++) {
-      const r = rows[j]!;
-      out.push({
+    chunks.push(items.slice(i, i + RUST_PARSE_CHUNK));
+  }
+
+  let done = 0;
+  const chunkResults = await mapPool(
+    chunks,
+    RUST_PARSE_CONCURRENCY,
+    async chunk => {
+      const paths = chunk.map(c => c.nativePath);
+      const rows = await tauriClient.parseImportObservationJsonPaths(paths);
+      if (rows.length !== chunk.length) {
+        throw new Error(
+          `parseImportObservationJsonPaths returned ${rows.length} rows, expected ${chunk.length}`,
+        );
+      }
+      done += chunk.length;
+      onBatchProgress?.(Math.min(done, total), total);
+      return rows.map(r => ({
         fileName: r.fileName,
         observations: r.observations,
         error: r.error,
-      });
-    }
-    onBatchProgress?.(Math.min(i + chunk.length, total), total);
-  }
-  return out;
+      }));
+    },
+  );
+
+  return chunkResults.flat();
 }
 
 export function flattenObservations(

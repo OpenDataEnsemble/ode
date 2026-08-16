@@ -33,6 +33,9 @@ import {
 
 const MAX_INDIVIDUAL_FILES = 20;
 
+/** Cap DOM rows — rendering tens of thousands of staging rows freezes the UI. */
+const STAGING_LIST_PREVIEW = 50;
+
 /** Host copy batch size — keeps IPC payloads and UI updates manageable. */
 const ATTACHMENT_COPY_CHUNK_SIZE = 400;
 
@@ -216,6 +219,9 @@ export function ImportPage() {
   const busy = importActivity !== null;
 
   const addScanEntries = useImportStagingStore(s => s.addScanEntries);
+  const retainStagedJsonPaths = useImportStagingStore(
+    s => s.retainStagedJsonPaths,
+  );
   const removeStagedJson = useImportStagingStore(s => s.removeStagedJson);
   const removeStagedAttachment = useImportStagingStore(
     s => s.removeStagedAttachment,
@@ -226,6 +232,10 @@ export function ImportPage() {
   const setError = useImportStagingStore(s => s.setError);
   const setImportActivity = useImportStagingStore(s => s.setImportActivity);
 
+  /** After staging skip dialog: silently drop remaining synced rows at import. */
+  const [preferSkipSynced, setPreferSkipSynced] = useState(false);
+  const [skippedSyncedAtStaging, setSkippedSyncedAtStaging] = useState(0);
+
   const stagingSummary = useMemo(() => {
     const jsonCount = stagedJson.length;
     const attCount = stagedAttachments.length;
@@ -234,6 +244,69 @@ export function ImportPage() {
       stagedAttachments.reduce((a, s) => a + s.size, 0);
     return { jsonCount, attCount, bytes };
   }, [stagedJson, stagedAttachments]);
+
+  /**
+   * After JSON lands in staging, scan Formulus `syncedAt` metadata and optionally
+   * drop already-synced files before the heavy parse/validate pass.
+   */
+  const offerSkipAlreadySynced = useCallback(async () => {
+    const jsonPaths = useImportStagingStore
+      .getState()
+      .stagedJson.map(s => s.nativePath);
+    if (jsonPaths.length === 0) {
+      return;
+    }
+    setImportActivity({
+      statusText: `Checking sync status (${jsonPaths.length} JSON files)…`,
+    });
+    try {
+      const scan = await tauriClient.scanImportJsonSyncAppearance(jsonPaths);
+      if (scan.apparentlySyncedCount <= 0) {
+        return;
+      }
+      const skipSynced = await confirm(
+        `${scan.observationCount} observations were found. ${scan.apparentlySyncedCount} already appear to be synced — skip those and import only the ${scan.unsyncedCount} new observations?`,
+        {
+          title: 'Skip already-synced observations?',
+          kind: 'info',
+          okLabel: 'Skip synced',
+          cancelLabel: 'Keep all',
+        },
+      );
+      if (skipSynced) {
+        retainStagedJsonPaths(scan.unsyncedPaths);
+        setPreferSkipSynced(true);
+        setSkippedSyncedAtStaging(scan.apparentlySyncedCount);
+        setMessage(
+          `Staging updated — kept ${scan.unsyncedPaths.length} JSON file(s); skipped ${scan.apparentlySyncedCount} already-synced observation(s).`,
+        );
+      } else {
+        setPreferSkipSynced(false);
+        setSkippedSyncedAtStaging(0);
+      }
+    } catch (e) {
+      setError(
+        messageFromUnknown(e, 'Could not check already-synced observations'),
+      );
+    }
+  }, [retainStagedJsonPaths, setError, setImportActivity, setMessage]);
+
+  const stageExpandedEntries = useCallback(
+    async (
+      expanded: Awaited<
+        ReturnType<typeof tauriClient.expandImportStagingPaths>
+      >,
+    ) => {
+      if (!expanded.length) {
+        return;
+      }
+      addScanEntries(expanded);
+      if (expanded.some(e => e.isJson)) {
+        await offerSkipAlreadySynced();
+      }
+    },
+    [addScanEntries, offerSkipAlreadySynced],
+  );
 
   useEffect(() => {
     if (!isTauri()) {
@@ -267,9 +340,7 @@ export function ImportPage() {
                   paths,
                   MAX_INDIVIDUAL_FILES,
                 );
-                if (expanded.length) {
-                  addScanEntries(expanded);
-                }
+                await stageExpandedEntries(expanded);
               } catch (e) {
                 setError(
                   messageFromUnknown(e, 'Could not stage dropped files'),
@@ -288,7 +359,7 @@ export function ImportPage() {
       alive = false;
       unlisten?.();
     };
-  }, [addScanEntries, setError, setImportActivity]);
+  }, [setError, setImportActivity, stageExpandedEntries]);
 
   const pickImportFolder = useCallback(async () => {
     try {
@@ -307,15 +378,13 @@ export function ImportPage() {
         selected,
         null,
       );
-      if (expanded.length) {
-        addScanEntries(expanded);
-      }
+      await stageExpandedEntries(expanded);
     } catch (e) {
       setError(messageFromUnknown(e, 'Folder selection failed'));
     } finally {
       setImportActivity(null);
     }
-  }, [addScanEntries, setError, setImportActivity]);
+  }, [setError, setImportActivity, stageExpandedEntries]);
 
   const pickJsonFiles = useCallback(async () => {
     try {
@@ -333,15 +402,13 @@ export function ImportPage() {
         paths,
         MAX_INDIVIDUAL_FILES,
       );
-      if (expanded.length) {
-        addScanEntries(expanded);
-      }
+      await stageExpandedEntries(expanded);
     } catch (e) {
       setError(messageFromUnknown(e, 'File selection failed'));
     } finally {
       setImportActivity(null);
     }
-  }, [addScanEntries, setError, setImportActivity]);
+  }, [setError, setImportActivity, stageExpandedEntries]);
 
   const pickAttachmentFiles = useCallback(async () => {
     try {
@@ -422,8 +489,11 @@ export function ImportPage() {
         parsedFiles: parsed,
         formSpecsByType,
         stagedAttachmentBasenames: basenames,
-        onFileValidated: (fi, tot, name) =>
-          statusCtl.push(`Validating (${fi + 1}/${tot}) ${name}…`),
+        onFileValidated: (fi, tot, name) => {
+          if (tot <= 40 || fi === tot - 1 || (fi + 1) % 50 === 0) {
+            statusCtl.push(`Validating (${fi + 1}/${tot}) ${name}…`);
+          }
+        },
       });
 
       if (report.issues.length > 0) {
@@ -446,24 +516,17 @@ export function ImportPage() {
       const allObservations = flattenObservations(report.parsedFiles);
       const syncPartition =
         partitionImportObservationsBySyncAppearance(allObservations);
-      let observations = allObservations;
-      let skippedSyncedCount = 0;
-
-      if (syncPartition.apparentlySynced.length > 0) {
-        const skipSynced = await confirm(
-          `${syncPartition.total} observations were found. ${syncPartition.apparentlySynced.length} already appear to be synced — skip those and import only the ${syncPartition.unsynced.length} new observations?`,
-          {
-            title: 'Skip already-synced observations?',
-            kind: 'info',
-            okLabel: 'Skip synced',
-            cancelLabel: 'Import all',
-          },
-        );
-        if (skipSynced) {
-          observations = syncPartition.unsynced;
-          skippedSyncedCount = syncPartition.apparentlySynced.length;
-        }
-      }
+      // Staging already offered skip/keep; when skip was chosen, drop any
+      // remaining apparently-synced rows (e.g. mixed files) without re-prompting.
+      const observations = preferSkipSynced
+        ? syncPartition.unsynced
+        : allObservations;
+      const skippedSyncedCount = preferSkipSynced
+        ? Math.max(
+            skippedSyncedAtStaging,
+            syncPartition.apparentlySynced.length,
+          )
+        : 0;
 
       if (observations.length === 0) {
         setMessage(
@@ -607,6 +670,8 @@ export function ImportPage() {
           : '';
       setMessage(`${baseMsg}${indexMsg}${attMsg}`);
       clearStagedFiles();
+      setPreferSkipSynced(false);
+      setSkippedSyncedAtStaging(0);
       setPreviewReport(null);
     } catch (e) {
       setError(messageFromUnknown(e, 'Import failed'));
@@ -617,6 +682,8 @@ export function ImportPage() {
   }, [
     stagedJson,
     stagedAttachments,
+    preferSkipSynced,
+    skippedSyncedAtStaging,
     setMessage,
     setError,
     setImportActivity,
@@ -689,7 +756,11 @@ export function ImportPage() {
               type="button"
               className="linkish"
               disabled={busy}
-              onClick={() => clearStagingLists()}>
+              onClick={() => {
+                clearStagingLists();
+                setPreferSkipSynced(false);
+                setSkippedSyncedAtStaging(0);
+              }}>
               Clear staging
             </button>
           ) : null}
@@ -700,7 +771,7 @@ export function ImportPage() {
             {stagedJson.length > 0 ? (
               <div className="import-staging-section">
                 <h4>JSON ({stagedJson.length})</h4>
-                {stagedJson.map(s => (
+                {stagedJson.slice(0, STAGING_LIST_PREVIEW).map(s => (
                   <div key={s.nativePath} className="import-staging-row">
                     <button
                       type="button"
@@ -717,13 +788,19 @@ export function ImportPage() {
                     <span className="muted">{formatBytes(s.size)}</span>
                   </div>
                 ))}
+                {stagedJson.length > STAGING_LIST_PREVIEW ? (
+                  <p className="muted">
+                    … and {stagedJson.length - STAGING_LIST_PREVIEW} more (list
+                    truncated for performance)
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
             {stagedAttachments.length > 0 ? (
               <div className="import-staging-section">
                 <h4>Attachments ({stagedAttachments.length})</h4>
-                {stagedAttachments.map(s => (
+                {stagedAttachments.slice(0, STAGING_LIST_PREVIEW).map(s => (
                   <div key={s.nativePath} className="import-staging-row">
                     <button
                       type="button"
@@ -740,6 +817,12 @@ export function ImportPage() {
                     <span className="muted">{formatBytes(s.size)}</span>
                   </div>
                 ))}
+                {stagedAttachments.length > STAGING_LIST_PREVIEW ? (
+                  <p className="muted">
+                    … and {stagedAttachments.length - STAGING_LIST_PREVIEW} more
+                    (list truncated for performance)
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>

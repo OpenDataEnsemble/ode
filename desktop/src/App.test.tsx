@@ -60,6 +60,15 @@ vi.mock('./lib/tauriClient', () => ({
     writeWorkspaceAttachment: vi.fn(),
     copyWorkspaceAttachmentFromPath: vi.fn(),
     expandImportStagingPaths: vi.fn().mockResolvedValue([]),
+    parseImportObservationJsonPaths: vi.fn().mockResolvedValue([]),
+    scanImportJsonSyncAppearance: vi.fn().mockResolvedValue({
+      fileCount: 0,
+      observationCount: 0,
+      apparentlySyncedCount: 0,
+      unsyncedCount: 0,
+      parseErrorCount: 0,
+      unsyncedPaths: [],
+    }),
     readHostTextFile: vi.fn().mockResolvedValue('{}'),
     readHostTextFilesBatch: vi.fn().mockImplementation((paths: string[]) =>
       Promise.resolve(

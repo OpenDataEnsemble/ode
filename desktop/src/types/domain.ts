@@ -84,6 +84,17 @@ export interface ParsedImportFileResult {
   error?: string;
 }
 
+/** Lightweight sync-appearance scan over staged Formulus export JSON. */
+export interface ImportSyncAppearanceScanResult {
+  fileCount: number;
+  observationCount: number;
+  apparentlySyncedCount: number;
+  unsyncedCount: number;
+  parseErrorCount: number;
+  /** Absolute paths to retain when skipping already-synced observations. */
+  unsyncedPaths: string[];
+}
+
 export interface AttachmentCopyBatchResult {
   copied: number;
   failed: number;

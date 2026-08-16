@@ -9,6 +9,7 @@ import type {
   CredentialSetResult,
   ImportResult,
   ImportStagingScanEntry,
+  ImportSyncAppearanceScanResult,
   ParsedImportFileResult,
   AttachmentCopyBatchResult,
   HostTextReadResult,
@@ -153,6 +154,11 @@ export const tauriClient = {
   parseImportObservationJsonPaths: (paths: string[]) =>
     invokeSafe<ParsedImportFileResult[]>(
       'parse_import_observation_json_paths',
+      { paths },
+    ),
+  scanImportJsonSyncAppearance: (paths: string[]) =>
+    invokeSafe<ImportSyncAppearanceScanResult>(
+      'scan_import_json_sync_appearance',
       { paths },
     ),
   copyWorkspaceAttachmentsBatch: (

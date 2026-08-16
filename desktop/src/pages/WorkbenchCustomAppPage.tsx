@@ -25,9 +25,7 @@ import type { AppBundleState } from '../types/domain';
 export function WorkbenchCustomAppPage() {
   const navigate = useNavigate();
   const activeProfile = useCustodianStore(selectActiveProfileState);
-  const { authSession, authBlocked, ensureAuth } = useProfileAutoSynkAuth(
-    activeProfile?.id,
-  );
+  const { authBlocked, ensureAuth } = useProfileAutoSynkAuth(activeProfile?.id);
   const recoverActiveProfileAuth = useCustodianStore(
     s => s.recoverActiveProfileAuth,
   );
@@ -261,7 +259,7 @@ export function WorkbenchCustomAppPage() {
       {devError ? <p className="notice error">{devError}</p> : null}
       {bundleError ? <p className="notice error">{bundleError}</p> : null}
       {uploadError ? <p className="notice error">{uploadError}</p> : null}
-      {developerMode && baseUrl && authBlocked && !authSession ? (
+      {developerMode && baseUrl && authBlocked ? (
         <p className="notice warn">
           Not authenticated. <Link to="/data/profiles">Open Profiles</Link> to
           sign in.

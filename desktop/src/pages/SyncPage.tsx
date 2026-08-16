@@ -27,9 +27,7 @@ function formatDate(value?: string | null) {
 
 export function SyncPage() {
   const activeProfile = useCustodianStore(selectActiveProfileState);
-  const { authSession, authBlocked, ensureAuth } = useProfileAutoSynkAuth(
-    activeProfile?.id,
-  );
+  const { authBlocked, ensureAuth } = useProfileAutoSynkAuth(activeProfile?.id);
   const syncActivity = useCustodianStore(selectSyncActivity);
   const syncPausedJob = useCustodianStore(selectPausedSyncJob);
   const bundleActivity = useCustodianStore(selectBundleActivity);
@@ -212,7 +210,7 @@ export function SyncPage() {
         <h2>Sync</h2>
       </header>
 
-      {authBlocked && !authSession ? (
+      {authBlocked ? (
         <p className="notice warn">
           Not authenticated. <Link to="/data/profiles">Open Profiles</Link> to
           sign in.

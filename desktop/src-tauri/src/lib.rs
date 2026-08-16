@@ -3920,7 +3920,7 @@ fn read_host_text_file_inner(path: &Path) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| e.to_string())
 }
 
-const MAX_HOST_TEXT_BATCH_PATHS: usize = 128;
+const MAX_HOST_TEXT_BATCH_PATHS: usize = 512;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -4173,6 +4173,194 @@ fn parse_import_observation_json_paths(
     let mut indexed = indexed;
     indexed.sort_by_key(|(i, _)| *i);
     Ok(indexed.into_iter().map(|(_, r)| r).collect())
+}
+
+/// Same floor as Formulus / Desktop TS (`1980-01-01`).
+const MIN_VALID_IMPORT_SYNCED_AT_MS: i64 = 315_532_800_000;
+
+fn parse_import_timestamp_ms(raw: &str) -> Option<i64> {
+    let t = raw.trim();
+    if t.is_empty() {
+        return None;
+    }
+    if let Ok(dt) = DateTime::parse_from_rfc3339(t) {
+        return Some(dt.timestamp_millis());
+    }
+    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(t, "%Y-%m-%dT%H:%M:%S%.f") {
+        return Some(dt.and_utc().timestamp_millis());
+    }
+    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(t, "%Y-%m-%dT%H:%M:%S") {
+        return Some(dt.and_utc().timestamp_millis());
+    }
+    None
+}
+
+fn import_observation_apparently_synced(obj: &serde_json::Map<String, Value>) -> bool {
+    let synced_raw = optional_import_str(obj, "synced_at", "syncedAt");
+    let Some(synced_ms) = synced_raw.as_deref().and_then(parse_import_timestamp_ms) else {
+        return false;
+    };
+    if synced_ms <= MIN_VALID_IMPORT_SYNCED_AT_MS {
+        return false;
+    }
+    let updated_raw = optional_import_str(obj, "updated_at", "updatedAt");
+    let Some(updated_ms) = updated_raw.as_deref().and_then(parse_import_timestamp_ms) else {
+        return true;
+    };
+    updated_ms <= synced_ms
+}
+
+fn import_json_root_observation_maps(root: &Value) -> Vec<&serde_json::Map<String, Value>> {
+    match root {
+        Value::Array(a) => a.iter().filter_map(|v| v.as_object()).collect(),
+        Value::Object(map) => {
+            if let Some(Value::Array(inner)) = map.get("observations") {
+                inner.iter().filter_map(|v| v.as_object()).collect()
+            } else {
+                vec![map]
+            }
+        }
+        _ => Vec::new(),
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportSyncAppearanceScanResult {
+    /// JSON files scanned.
+    file_count: usize,
+    observation_count: usize,
+    apparently_synced_count: usize,
+    unsynced_count: usize,
+    parse_error_count: usize,
+    /// Absolute paths to keep when skipping already-synced rows (pending + parse errors).
+    unsynced_paths: Vec<String>,
+}
+
+#[derive(Debug)]
+struct ImportFileSyncScanRow {
+    path: String,
+    observation_count: usize,
+    apparently_synced_count: usize,
+    unsynced_count: usize,
+    parse_error: bool,
+}
+
+fn scan_one_import_json_sync_appearance(path: &Path) -> ImportFileSyncScanRow {
+    let path_str = path.to_string_lossy().to_string();
+    match read_host_text_file_inner(path) {
+        Err(_) => ImportFileSyncScanRow {
+            path: path_str,
+            observation_count: 0,
+            apparently_synced_count: 0,
+            unsynced_count: 0,
+            parse_error: true,
+        },
+        Ok(text) => match serde_json::from_str::<Value>(&text) {
+            Err(_) => ImportFileSyncScanRow {
+                path: path_str,
+                observation_count: 0,
+                apparently_synced_count: 0,
+                unsynced_count: 0,
+                parse_error: true,
+            },
+            Ok(root) => {
+                let maps = import_json_root_observation_maps(&root);
+                if maps.is_empty() {
+                    return ImportFileSyncScanRow {
+                        path: path_str,
+                        observation_count: 0,
+                        apparently_synced_count: 0,
+                        unsynced_count: 0,
+                        parse_error: true,
+                    };
+                }
+                let mut synced = 0usize;
+                let mut unsynced = 0usize;
+                for obj in maps {
+                    if observation_id_from_obj(obj).is_none() {
+                        unsynced += 1;
+                        continue;
+                    }
+                    if import_observation_apparently_synced(obj) {
+                        synced += 1;
+                    } else {
+                        unsynced += 1;
+                    }
+                }
+                ImportFileSyncScanRow {
+                    path: path_str,
+                    observation_count: synced + unsynced,
+                    apparently_synced_count: synced,
+                    unsynced_count: unsynced,
+                    parse_error: false,
+                }
+            }
+        },
+    }
+}
+
+/// Lightweight parallel scan of Formulus-style `syncedAt` / `updatedAt` without shipping payloads.
+#[tauri::command]
+fn scan_import_json_sync_appearance(
+    paths: Vec<String>,
+) -> Result<ImportSyncAppearanceScanResult, String> {
+    if paths.is_empty() {
+        return Ok(ImportSyncAppearanceScanResult {
+            file_count: 0,
+            observation_count: 0,
+            apparently_synced_count: 0,
+            unsynced_count: 0,
+            parse_error_count: 0,
+            unsynced_paths: Vec::new(),
+        });
+    }
+    if paths.len() > MAX_IMPORT_SCAN_ENTRIES {
+        return Err(format!(
+            "Too many JSON paths to scan (max {MAX_IMPORT_SCAN_ENTRIES})"
+        ));
+    }
+
+    let file_count = paths.len();
+    let rows: Vec<ImportFileSyncScanRow> = paths
+        .into_par_iter()
+        .map(|raw| {
+            let p = Path::new(raw.trim());
+            scan_one_import_json_sync_appearance(p)
+        })
+        .collect();
+
+    let mut observation_count = 0usize;
+    let mut apparently_synced_count = 0usize;
+    let mut unsynced_obs = 0usize;
+    let mut parse_error_count = 0usize;
+    let mut unsynced_paths = Vec::new();
+
+    for row in rows {
+        observation_count += row.observation_count;
+        apparently_synced_count += row.apparently_synced_count;
+        unsynced_obs += row.unsynced_count;
+        if row.parse_error {
+            parse_error_count += 1;
+            unsynced_paths.push(row.path);
+        } else if row.unsynced_count > 0 {
+            // Keep the file if any observation still needs import.
+            unsynced_paths.push(row.path);
+        } else if row.apparently_synced_count == 0 {
+            // Empty / unexpected — keep for validation to report.
+            unsynced_paths.push(row.path);
+        }
+        // else: all observations apparently synced → omit from unsynced_paths
+    }
+
+    Ok(ImportSyncAppearanceScanResult {
+        file_count,
+        observation_count,
+        apparently_synced_count,
+        unsynced_count: unsynced_obs + parse_error_count,
+        parse_error_count,
+        unsynced_paths,
+    })
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -5484,6 +5672,7 @@ pub fn run() {
             copy_workspace_attachment_from_path,
             expand_import_staging_paths,
             parse_import_observation_json_paths,
+            scan_import_json_sync_appearance,
             copy_workspace_attachments_batch,
             read_host_text_file,
             host_path_is_directory,
@@ -5533,9 +5722,10 @@ mod tests {
         ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL, ApiObservation, CompressionMethod,
         ObservationExtras, SimpleFileOptions, ZipArchive, ZipWriter,
         apply_app_bundle_zip_at_workspace, attachment_copy_progress_step, bind_query_params,
-        build_observation_overview, extract_observations_from_json_value, init_db,
-        mirror_custom_app_dev_folder, parse_observation_extras, parse_time,
-        publish_bundle_zip_entry_allowed, resolve_attachment_path,
+        build_observation_overview, extract_observations_from_json_value,
+        import_observation_apparently_synced, init_db, mirror_custom_app_dev_folder,
+        parse_observation_extras, parse_time, publish_bundle_zip_entry_allowed,
+        resolve_attachment_path, scan_import_json_sync_appearance,
         should_emit_attachment_copy_progress, should_mark_conflict, strip_ode_desktop_injection,
         upsert_observation_from_local_import, validate_custom_app_dev_source_folder,
         zip_dev_mirror_bundle,
@@ -5781,6 +5971,79 @@ mod tests {
         assert_eq!(extras.author.as_deref(), Some("username:device02"));
         assert_eq!(extras.tags.as_deref(), Some(&["migrated".to_string()][..]));
         assert!(extras.geolocation.is_some());
+    }
+
+    #[test]
+    fn import_observation_apparently_synced_matches_formulus_rule() {
+        let synced: serde_json::Map<String, Value> = serde_json::from_value(serde_json::json!({
+            "observationId": "a",
+            "updatedAt": "2026-08-15T11:00:00.000Z",
+            "syncedAt": "2026-08-15T12:00:00.000Z",
+        }))
+        .unwrap();
+        assert!(import_observation_apparently_synced(&synced));
+
+        let pending: serde_json::Map<String, Value> = serde_json::from_value(serde_json::json!({
+            "observationId": "b",
+            "updatedAt": "2026-08-15T13:00:00.000Z",
+            "syncedAt": "2026-08-15T12:00:00.000Z",
+        }))
+        .unwrap();
+        assert!(!import_observation_apparently_synced(&pending));
+
+        let never: serde_json::Map<String, Value> = serde_json::from_value(serde_json::json!({
+            "observationId": "c",
+            "updatedAt": "2026-08-15T13:00:00.000Z",
+            "syncedAt": null,
+        }))
+        .unwrap();
+        assert!(!import_observation_apparently_synced(&never));
+    }
+
+    #[test]
+    fn scan_import_json_sync_appearance_keeps_unsynced_paths() {
+        let base = std::env::temp_dir().join(format!(
+            "ode_import_sync_scan_{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let synced_path = base.join("synced.json");
+        let pending_path = base.join("pending.json");
+        fs::write(
+            &synced_path,
+            r#"{
+              "observationId": "s1",
+              "formType": "t",
+              "updatedAt": "2026-01-01T00:00:00.000Z",
+              "syncedAt": "2026-01-02T00:00:00.000Z",
+              "data": {}
+            }"#,
+        )
+        .unwrap();
+        fs::write(
+            &pending_path,
+            r#"{
+              "observationId": "p1",
+              "formType": "t",
+              "updatedAt": "2026-01-03T00:00:00.000Z",
+              "syncedAt": "2026-01-02T00:00:00.000Z",
+              "data": {}
+            }"#,
+        )
+        .unwrap();
+        let result = scan_import_json_sync_appearance(vec![
+            synced_path.to_string_lossy().to_string(),
+            pending_path.to_string_lossy().to_string(),
+        ])
+        .unwrap();
+        assert_eq!(result.file_count, 2);
+        assert_eq!(result.observation_count, 2);
+        assert_eq!(result.apparently_synced_count, 1);
+        assert_eq!(result.unsynced_count, 1);
+        assert_eq!(result.unsynced_paths.len(), 1);
+        assert!(result.unsynced_paths[0].ends_with("pending.json"));
+        let _ = fs::remove_dir_all(&base);
     }
 
     #[test]

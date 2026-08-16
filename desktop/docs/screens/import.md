@@ -40,3 +40,7 @@ When the active app bundle declares `observationIndexes` in `app.config.json`:
 1. Import writes observations in batches (default 2000 rows per IPC call); intermediate batches skip index work.
 2. After the final batch commits, Rust schedules **one** coalesced background full index rebuild (`bundle/index-rebuild` progress events). Overlapping rebuild requests while one is running are merged into a single follow-up pass.
 3. Sync pull uses incremental indexing per page instead (no full rebuild after each pull).
+
+## Large Formulus exports
+
+After staging JSON (folder / drop / Add JSON), Desktop runs a lightweight host scan of `syncedAt` / `updatedAt` and may offer to drop already-synced files **before** full parse + schema validation. Staging lists truncate after ~50 rows so tens of thousands of files do not freeze the UI.

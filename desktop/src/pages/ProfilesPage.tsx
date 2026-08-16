@@ -19,9 +19,9 @@ import {
 import type { ServerProfile } from '../types/domain';
 import {
   selectActiveProfileState,
-  selectAuthSessionForActiveProfile,
   useCustodianStore,
 } from '../store/useCustodianStore';
+import { useProfileAutoSynkAuth } from '../hooks/useProfileAutoSynkAuth';
 import { useProfileDraftGuardStore } from '../store/useProfileDraftGuardStore';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
 
@@ -89,7 +89,8 @@ export function ProfilesPage() {
     error,
   } = useCustodianStore();
   const active = useCustodianStore(selectActiveProfileState);
-  const authSession = useCustodianStore(selectAuthSessionForActiveProfile);
+  const { authSession, authBlocked, authReady, refreshAuth } =
+    useProfileAutoSynkAuth(active?.id);
 
   const [label, setLabel] = useState('');
   const [serverUrl, setServerUrl] = useState('');
@@ -406,6 +407,7 @@ export function ProfilesPage() {
         username: username.trim(),
         password: pwd,
       });
+      await refreshAuth();
     } catch {
       // synkLogin reports via store `error`
     }
@@ -415,8 +417,18 @@ export function ProfilesPage() {
   const derivedDb = ws ? workspaceSqlitePath(ws) : '';
   const derivedAttachments = ws ? workspaceAttachmentsDir(ws) : '';
 
-  const authIcon = authSession ? 'verified_user' : 'lock_open';
-  const authLabel = authSession ? 'Authenticated' : 'Authenticate';
+  const isAuthenticated = authReady && Boolean(authSession) && !authBlocked;
+  const authChecking = Boolean(active) && !authReady;
+  const authIcon = isAuthenticated
+    ? 'verified_user'
+    : authChecking
+      ? 'hourglass_empty'
+      : 'lock_open';
+  const authLabel = isAuthenticated
+    ? 'Authenticated'
+    : authChecking
+      ? 'Checking…'
+      : 'Authenticate';
 
   return (
     <section className="page">
@@ -524,8 +536,8 @@ export function ProfilesPage() {
                 <td colSpan={2} className="form-table-actions-cell">
                   <button
                     type="button"
-                    className={`btn-icon${authSession ? ' btn-success' : ' secondary'}`}
-                    disabled={Boolean(authSession)}
+                    className={`btn-icon${isAuthenticated ? ' btn-success' : ' secondary'}`}
+                    disabled={isAuthenticated || authChecking}
                     onClick={() => void authenticate()}>
                     <span className="material-symbols-outlined" aria-hidden>
                       {authIcon}
