@@ -95,6 +95,27 @@ export interface ImportSyncAppearanceScanResult {
   unsyncedPaths: string[];
 }
 
+/** One issue from host-side import validation ({@link parseAndValidateImportJsonPaths}). */
+export interface ImportHostIssue {
+  severity: 'error' | 'warning' | string;
+  code: string;
+  message: string;
+  fileName?: string;
+  observationId?: string;
+  formType?: string | null;
+}
+
+/** Result of parallel Rust parse + schema/attachment validation. */
+export interface ImportValidateBatchResult {
+  files: ParsedImportFileResult[];
+  issues: ImportHostIssue[];
+  observationCount: number;
+  formTypeCount: number;
+  referencedAttachmentNames: string[];
+  missingAttachmentNames: string[];
+  orphanAttachmentNames: string[];
+}
+
 export interface AttachmentCopyBatchResult {
   copied: number;
   failed: number;

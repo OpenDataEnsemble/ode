@@ -1,6 +1,7 @@
 import type {
   ApiObservation,
   HostTextReadResult,
+  ImportHostIssue,
   ObservationExtras,
 } from '../types/domain';
 import { tauriClient } from './tauriClient';
@@ -366,6 +367,41 @@ export async function parseObservationJsonPathsViaRust(
   );
 
   return chunkResults.flat();
+}
+
+/**
+ * Host-side parallel parse + schema/attachment validation for the full staged set.
+ * Prefer this over parse-then-AJV for large imports.
+ */
+export async function parseAndValidateImportJsonViaRust(
+  items: readonly { name: string; nativePath: string }[],
+  stagedAttachmentBasenames: readonly string[],
+): Promise<{
+  parsedFiles: ParsedObservationFile[];
+  issues: ImportHostIssue[];
+  observationCount: number;
+  formTypeCount: number;
+  referencedAttachmentNames: string[];
+  missingAttachmentNames: string[];
+  orphanAttachmentNames: string[];
+}> {
+  const paths = items.map(it => it.nativePath);
+  const result = await tauriClient.parseAndValidateImportJsonPaths(paths, [
+    ...stagedAttachmentBasenames,
+  ]);
+  return {
+    parsedFiles: result.files.map(r => ({
+      fileName: r.fileName,
+      observations: r.observations,
+      error: r.error,
+    })),
+    issues: result.issues,
+    observationCount: result.observationCount,
+    formTypeCount: result.formTypeCount,
+    referencedAttachmentNames: result.referencedAttachmentNames,
+    missingAttachmentNames: result.missingAttachmentNames,
+    orphanAttachmentNames: result.orphanAttachmentNames,
+  };
 }
 
 export function flattenObservations(

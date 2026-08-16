@@ -10,6 +10,7 @@ import type {
   ImportResult,
   ImportStagingScanEntry,
   ImportSyncAppearanceScanResult,
+  ImportValidateBatchResult,
   ParsedImportFileResult,
   AttachmentCopyBatchResult,
   HostTextReadResult,
@@ -156,6 +157,18 @@ export const tauriClient = {
       'parse_import_observation_json_paths',
       { paths },
     ),
+  /** Parallel host parse + JSON Schema / attachment validation (loads bundle schemas once). */
+  parseAndValidateImportJsonPaths: (
+    paths: string[],
+    stagedAttachmentBasenames: string[],
+  ) =>
+    invokeSafe<ImportValidateBatchResult>(
+      'parse_and_validate_import_json_paths',
+      {
+        paths,
+        stagedAttachmentBasenames,
+      },
+    ),
   scanImportJsonSyncAppearance: (paths: string[]) =>
     invokeSafe<ImportSyncAppearanceScanResult>(
       'scan_import_json_sync_appearance',
@@ -289,8 +302,8 @@ export const tauriClient = {
   /**
    * @param markPending When true (file import), observations are stored as pending push.
    *   When false/omitted, rows match server pull semantics (synced / conflict rules).
-   * @param scheduleIndexRebuild When false, skips the post-import full index rebuild (use on
-   *   intermediate write batches; default true for file import, false for server pull).
+   * @param scheduleIndexRebuild When true, schedules a full background index rebuild
+   *   after the write. Default false — import and sync update indexes incrementally.
    */
   importObservations: (
     observations: ApiObservation[],
@@ -304,8 +317,10 @@ export const tauriClient = {
   markObservationsPushed: (ids: string[]) =>
     invokeSafe<void>('mark_observations_pushed', { ids }),
   getAppHealth: () => invokeSafe<AppHealth>('get_app_health'),
-  resetLocalWorkspaceData: () =>
-    invokeSafe<AppHealth>('reset_local_workspace_data'),
+  resetLocalWorkspaceData: (options?: { pendingOnly?: boolean }) =>
+    invokeSafe<AppHealth>('reset_local_workspace_data', {
+      pendingOnly: options?.pendingOnly ?? false,
+    }),
   synkLogin: (req: SyncLoginRequest) =>
     invokeSafe<AuthSession>('synk_login', { req }),
 

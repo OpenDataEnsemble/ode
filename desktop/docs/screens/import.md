@@ -11,10 +11,10 @@ Bring external JSON observation files into the active profile’s local reposito
 ## What to include
 
 - Drag-and-drop and multi-file picker for `.json`
-- Pre-flight summary (counts, form types, attachment hints)
-- Per-file parse/normalization issues
-- Import action and clear/reset
-- Optional skip of Formulus-export rows that already appear synced (`syncedAt` ≥ `updatedAt`) — confirm dialog before write
+- **Validate** then review results in-page (no “import anyway?” popup)
+- Import action on the validation results panel (available with or without errors)
+- Clear label when validation finds no errors
+- Optional skip of Formulus-export rows that already appear synced (`syncedAt` ≥ `updatedAt`) — confirm dialog at staging time
 
 ## What to exclude
 
@@ -24,7 +24,7 @@ Bring external JSON observation files into the active profile’s local reposito
 
 ## Key actions
 
-- Stage files, review summary, import, clear
+- Stage files → **Validate** → review results → **Import into local store** (or clear)
 - When import JSON carries Formulus `syncedAt` metadata, confirm whether to skip already-synced observations and write only unsynced ones
 
 ## Data dependencies
@@ -35,12 +35,10 @@ Bring external JSON observation files into the active profile’s local reposito
 
 ## Observation indexes
 
-When the active app bundle declares `observationIndexes` in `app.config.json`:
-
-1. Import writes observations in batches (default 2000 rows per IPC call); intermediate batches skip index work.
-2. After the final batch commits, Rust schedules **one** coalesced background full index rebuild (`bundle/index-rebuild` progress events). Overlapping rebuild requests while one is running are merged into a single follow-up pass.
-3. Sync pull uses incremental indexing per page instead (no full rebuild after each pull).
+When the active app bundle declares `observationIndexes` in `app.config.json`, local file import updates indexes **incrementally** for the written rows (same as sync pull). A full background rebuild is reserved for bundle apply / empty index / explicit rebuild — not for import.
 
 ## Large Formulus exports
 
 After staging JSON (folder / drop / Add JSON), Desktop runs a lightweight host scan of `syncedAt` / `updatedAt` and may offer to drop already-synced files **before** full parse + schema validation. Staging lists truncate after ~50 rows so tens of thousands of files do not freeze the UI.
+
+Import parse + JSON Schema validation + attachment reference checks run in **Rust (Rayon)** in one pass (`parse_and_validate_import_json_paths`), with form schemas loaded once from the active bundle.

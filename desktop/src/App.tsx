@@ -40,6 +40,7 @@ import {
   ensureBundleApplyEventPipeline,
   installGlobalIndexRebuildListener,
 } from './lib/bundleTauriEvents';
+import { tauriClient } from './lib/tauriClient';
 import './App.css';
 
 const DATA_NAV = [
@@ -222,6 +223,7 @@ function Shell() {
   const isWorkbench = location.pathname.startsWith('/workbench');
   const navItems = isWorkbench ? WORKBENCH_NAV : DATA_NAV;
   const syncMessage = useCustodianStore(s => s.syncMessage);
+  const syncDetailReport = useCustodianStore(s => s.syncDetailReport);
   const clearSyncMessage = useCustodianStore(s => s.clearSyncMessage);
   const pushToast = useToastStore(s => s.pushToast);
   const syncActivity = useCustodianStore(selectSyncActivity);
@@ -276,13 +278,18 @@ function Shell() {
     if (!syncMessage) {
       return;
     }
-    const isLong = syncMessage.includes('\n') || syncMessage.length > 120;
-    if (isLong) {
+    // Keep the banner when a downloadable detail report is attached, or when
+    // the message is long (multi-line / verbose).
+    const keepBanner =
+      Boolean(syncDetailReport) ||
+      syncMessage.includes('\n') ||
+      syncMessage.length > 120;
+    if (keepBanner) {
       return;
     }
     pushToast({ message: syncMessage, variant: 'success' });
     clearSyncMessage();
-  }, [syncMessage, pushToast, clearSyncMessage]);
+  }, [syncMessage, syncDetailReport, pushToast, clearSyncMessage]);
 
   const showActivityBanner =
     Boolean(activityText) && activityPresent && !activityBannerDismissed;
@@ -290,7 +297,33 @@ function Shell() {
   const showSyncMessageBanner =
     Boolean(syncMessage) &&
     syncMessage !== null &&
-    (syncMessage.includes('\n') || syncMessage.length > 120);
+    (Boolean(syncDetailReport) ||
+      syncMessage.includes('\n') ||
+      syncMessage.length > 120);
+
+  async function saveSyncDetailReport() {
+    if (!syncDetailReport) {
+      return;
+    }
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+      const path = await save({
+        defaultPath: `ode-push-attachment-report-${stamp}.txt`,
+        filters: [{ name: 'Text', extensions: ['txt'] }],
+      });
+      if (path == null) {
+        return;
+      }
+      await tauriClient.writeTextFile(path, syncDetailReport);
+      pushToast({ message: 'Report saved.', variant: 'success' });
+    } catch (e) {
+      pushToast({
+        message: e instanceof Error ? e.message : String(e),
+        variant: 'error',
+      });
+    }
+  }
 
   return (
     <>
@@ -372,7 +405,20 @@ function Shell() {
             ) : null}
             {showSyncMessageBanner ? (
               <div className="notice success app-sync-banner app-sync-banner-with-dismiss">
-                <div className="app-sync-banner-body">{syncMessage}</div>
+                <div className="app-sync-banner-body">
+                  <span className="app-sync-banner-text">{syncMessage}</span>
+                  {syncDetailReport ? (
+                    <button
+                      type="button"
+                      className="secondary btn-icon app-sync-banner-save-report"
+                      onClick={() => void saveSyncDetailReport()}>
+                      <span className="material-symbols-outlined" aria-hidden>
+                        download
+                      </span>
+                      Save report
+                    </button>
+                  ) : null}
+                </div>
                 <button
                   type="button"
                   className="app-sync-banner-dismiss"

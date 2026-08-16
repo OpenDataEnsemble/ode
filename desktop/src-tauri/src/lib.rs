@@ -29,6 +29,7 @@ use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
 mod data_export;
+mod import_validate;
 mod observation_index;
 mod observation_query;
 mod sync_engine;
@@ -611,13 +612,13 @@ struct SaveObservationRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ApiObservation {
-    observation_id: String,
-    data: Value,
-    form_type: Option<String>,
-    updated_at: Option<String>,
+pub(crate) struct ApiObservation {
+    pub(crate) observation_id: String,
+    pub(crate) data: Value,
+    pub(crate) form_type: Option<String>,
+    pub(crate) updated_at: Option<String>,
     #[serde(default)]
-    extras: Option<ObservationExtras>,
+    pub(crate) extras: Option<ObservationExtras>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -948,6 +949,24 @@ fn open_db(ctx: &AppCtxHandle) -> Result<ScopedDb<'_>, CustodianError> {
         _guard: guard,
         conn,
     })
+}
+
+/// Open SQLite for long-running background work (full index rebuild) without
+/// holding `workspace_sqlite_lock` for the entire job. Holding that mutex for a
+/// multi-minute rebuild blocks every other DB command (import refresh, list,
+/// health) and makes the UI look stuck on the last "Writing observations…" step.
+///
+/// Concurrent short writers still take the mutex; this connection uses a busy
+/// timeout so rebuild waits on them instead of starving the UI.
+fn open_db_for_background_index_rebuild(ctx: &AppCtxHandle) -> Result<Connection, CustodianError> {
+    let db_path = resolve_db_path(ctx)?;
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let conn = Connection::open(&db_path)?;
+    conn.busy_timeout(std::time::Duration::from_secs(120))?;
+    init_db(&conn)?;
+    Ok(conn)
 }
 
 /// Caller must hold `workspace_sqlite_lock`. Opens the DB, checkpoints WAL, then closes.
@@ -1913,7 +1932,7 @@ fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job
         if defs.is_empty() {
             return;
         }
-        let conn = match open_db(&ctx) {
+        let conn = match open_db_for_background_index_rebuild(&ctx) {
             Ok(c) => c,
             Err(err) => {
                 emit_bundle_index_rebuild_progress(
@@ -3980,11 +3999,11 @@ fn host_path_is_directory(path: String) -> bool {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ParsedImportFileResult {
-    file_name: String,
-    observations: Vec<ApiObservation>,
+pub(crate) struct ParsedImportFileResult {
+    pub(crate) file_name: String,
+    pub(crate) observations: Vec<ApiObservation>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
+    pub(crate) error: Option<String>,
 }
 
 fn observation_id_from_obj(obj: &serde_json::Map<String, Value>) -> Option<String> {
@@ -4110,7 +4129,7 @@ fn extract_observations_from_json_value(
     Ok(observations)
 }
 
-fn parse_import_json_file(path: &Path) -> ParsedImportFileResult {
+pub(crate) fn parse_import_json_file(path: &Path) -> ParsedImportFileResult {
     let file_name = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -4142,6 +4161,68 @@ fn parse_import_json_file(path: &Path) -> ParsedImportFileResult {
             },
         },
     }
+}
+
+/// Load every `schema.json` under active/dev form roots (first-wins by form type).
+fn load_bundle_form_schemas_for_ctx(ctx: &AppCtxHandle) -> Result<HashMap<String, Value>, String> {
+    let roots = bundle_form_roots_for_ctx(ctx)?;
+    let mut out = HashMap::new();
+    for root in roots {
+        let rd = match fs::read_dir(&root) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        for entry in rd {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !entry.file_type().map_err(|e| e.to_string())?.is_dir() {
+                continue;
+            }
+            if reserved_form_dir_name(&name) {
+                continue;
+            }
+            if out.contains_key(&name) {
+                continue;
+            }
+            let schema_path = entry.path().join("schema.json");
+            let ui_path = entry.path().join("ui.json");
+            if !(schema_path.is_file() && ui_path.is_file()) {
+                continue;
+            }
+            let form_schema: Value =
+                serde_json::from_str(&fs::read_to_string(&schema_path).map_err(|e| e.to_string())?)
+                    .map_err(|e| e.to_string())?;
+            out.insert(name, form_schema);
+        }
+    }
+    Ok(out)
+}
+
+/// Parse + schema-validate import JSON on the host (Rayon), loading form schemas from the active bundle.
+#[tauri::command]
+fn parse_and_validate_import_json_paths(
+    paths: Vec<String>,
+    staged_attachment_basenames: Vec<String>,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<import_validate::ImportValidateBatchResult, String> {
+    if paths.is_empty() {
+        return Ok(import_validate::parse_and_validate_paths(
+            paths,
+            &HashMap::new(),
+            &staged_attachment_basenames,
+        ));
+    }
+    if paths.len() > MAX_IMPORT_SCAN_ENTRIES {
+        return Err(format!(
+            "Too many JSON paths to validate (max {MAX_IMPORT_SCAN_ENTRIES})"
+        ));
+    }
+    let schemas = load_bundle_form_schemas_for_ctx(&ctx)?;
+    Ok(import_validate::parse_and_validate_paths(
+        paths,
+        &schemas,
+        &staged_attachment_basenames,
+    ))
 }
 
 /// Parse observation JSON files on the host (parallel) in import order.
@@ -5360,10 +5441,11 @@ fn import_observations_run(
                 conflicts += 1;
             }
         }
-        if !index_defs.is_empty() && !mark_pending {
-            // Sync pull: update indexes incrementally per page (no full rebuild follows).
-            // Local file import: skip here — `import_observations` schedules one background
-            // full rebuild after the batch commit (incremental work would be discarded).
+        if !index_defs.is_empty() {
+            // Sync pull and local file import both update the active generation
+            // incrementally. A full rebuild is reserved for bundle apply / empty
+            // index / explicit rebuild — not for adding a few hundred import rows
+            // on top of an already-indexed sync.
             let payload = serde_json::to_string(&observation.data).map_err(|e| e.to_string())?;
             let form_type = observation.form_type.as_deref().unwrap_or("");
             observation_index::incremental_reindex(
@@ -5406,7 +5488,9 @@ fn import_observations(
     let ctx_inner = ctx.inner().clone();
     let mark = mark_pending.unwrap_or(false);
     let mut result = import_observations_run(observations, mark, &ctx_inner)?;
-    let should_schedule = schedule_index_rebuild.unwrap_or(mark) && result.imported > 0;
+    // Full rebuild is optional and off by default — import/sync maintain indexes
+    // incrementally. Callers that need a snapshot rebuild (rare) pass true.
+    let should_schedule = schedule_index_rebuild.unwrap_or(false) && result.imported > 0;
     if should_schedule {
         result.index_rebuild_scheduled =
             schedule_observation_index_rebuild(&app, &ctx_inner).is_some();
@@ -5528,12 +5612,52 @@ fn get_app_health(ctx: tauri::State<'_, AppCtxHandle>) -> Result<AppHealth, Stri
 
 /// Clears local observations, backup history, attachment files, and generation archives; resets
 /// `sync_state` to fresh-install values. Does not modify `bundles/` or app auth.
+///
+/// When `pending_only` is true, only pending-push and conflict observations (and their
+/// index/history rows) are removed, plus the outbound `attachments/pending/` queue.
+/// Synced rows and sync offsets are preserved for a continued pull.
 #[tauri::command]
-fn reset_local_workspace_data(ctx: tauri::State<'_, AppCtxHandle>) -> Result<AppHealth, String> {
+fn reset_local_workspace_data(
+    pending_only: Option<bool>,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<AppHealth, String> {
+    let pending_only = pending_only.unwrap_or(false);
     with_workspace_fs_exclusive(&ctx, |ctx| {
         let db_path = resolve_db_path(ctx)?;
         let conn = Connection::open(&db_path)?;
         init_db(&conn)?;
+
+        if pending_only {
+            conn.execute(
+                "DELETE FROM observation_history WHERE observation_id IN (
+                    SELECT id FROM observations
+                    WHERE dirty = 1 OR sync_status IN ('dirty', 'conflict')
+                )",
+                [],
+            )?;
+            conn.execute(
+                "DELETE FROM observation_index WHERE observation_id IN (
+                    SELECT id FROM observations
+                    WHERE dirty = 1 OR sync_status IN ('dirty', 'conflict')
+                )",
+                [],
+            )?;
+            conn.execute(
+                "DELETE FROM observations WHERE dirty = 1 OR sync_status IN ('dirty', 'conflict')",
+                [],
+            )?;
+            conn.execute_batch("PRAGMA wal_checkpoint(FULL);")?;
+            drop(conn);
+
+            let ws = resolve_active_workspace_dir(ctx)?;
+            let pending_dir = attachments_root(&ws).join(ATTACH_SUBDIR_PENDING);
+            if pending_dir.exists() {
+                fs::remove_dir_all(&pending_dir)?;
+            }
+            ensure_workspace_layout(&ws)?;
+            return Ok(());
+        }
+
         conn.execute("DELETE FROM observation_history", [])?;
         conn.execute("DELETE FROM observations", [])?;
         conn.execute("DELETE FROM observation_index", [])?;
@@ -5672,6 +5796,7 @@ pub fn run() {
             copy_workspace_attachment_from_path,
             expand_import_staging_paths,
             parse_import_observation_json_paths,
+            parse_and_validate_import_json_paths,
             scan_import_json_sync_appearance,
             copy_workspace_attachments_batch,
             read_host_text_file,
@@ -6002,10 +6127,8 @@ mod tests {
 
     #[test]
     fn scan_import_json_sync_appearance_keeps_unsynced_paths() {
-        let base = std::env::temp_dir().join(format!(
-            "ode_import_sync_scan_{}",
-            std::process::id()
-        ));
+        let base =
+            std::env::temp_dir().join(format!("ode_import_sync_scan_{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
         fs::create_dir_all(&base).unwrap();
         let synced_path = base.join("synced.json");

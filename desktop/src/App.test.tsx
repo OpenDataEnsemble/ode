@@ -61,6 +61,15 @@ vi.mock('./lib/tauriClient', () => ({
     copyWorkspaceAttachmentFromPath: vi.fn(),
     expandImportStagingPaths: vi.fn().mockResolvedValue([]),
     parseImportObservationJsonPaths: vi.fn().mockResolvedValue([]),
+    parseAndValidateImportJsonPaths: vi.fn().mockResolvedValue({
+      files: [],
+      issues: [],
+      observationCount: 0,
+      formTypeCount: 0,
+      referencedAttachmentNames: [],
+      missingAttachmentNames: [],
+      orphanAttachmentNames: [],
+    }),
     scanImportJsonSyncAppearance: vi.fn().mockResolvedValue({
       fileCount: 0,
       observationCount: 0,

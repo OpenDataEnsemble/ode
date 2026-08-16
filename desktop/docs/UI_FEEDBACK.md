@@ -10,6 +10,7 @@ Single source of truth for how the shell surfaces status, errors, and confirmati
 - Shows spinner + status text; optional determinate progress bar when `bundleActivity.total > 0`.
 - Dismissible but reappears on next activity.
 - Bundle apply: Rust emits `bundle/apply-progress` and `bundle/index-rebuild`; `bundleActivity` in `useCustodianStore` drives the banner.
+- Sync completion: keep the banner for short **summary** lines when a downloadable `syncDetailReport` is attached (e.g. missing-attachment push details). Offer **Save report** instead of dumping long ID lists into the banner.
 - Do not use for quick actions (save, auth, dev mirror refresh).
 
 ## Toasts (bottom-right stack)
@@ -32,7 +33,7 @@ Single source of truth for how the shell surfaces status, errors, and confirmati
 
 ## Native confirm (Tauri)
 
-**Use for:** destructive actions, import-with-issues, skip already-synced import rows, closing unsaved observation tabs.
+**Use for:** destructive actions, skip already-synced import rows, closing unsaved observation tabs.
 
 - `confirmDestructiveAction()` for destructive flows (clear, profile-scoped wording).
 - `confirm()` from `@tauri-apps/plugin-dialog` for save-anyway / import-anyway / tab discard (Save / Don't save / Cancel via separate flows).
@@ -41,7 +42,8 @@ Single source of truth for how the shell surfaces status, errors, and confirmati
 
 - `window.alert` — replace with toast or inline notice.
 - `window.confirm` — replace with Tauri `confirm`.
-- Duplicate sync success in both banner and toast — prefer toast for short messages; keep banner only for multi-line sync summaries.
+- Dumping long per-observation lists into the sync banner — use a short highlight + **Save report** (`syncDetailReport`).
+- Duplicate sync success in both banner and toast — prefer toast for short messages; keep banner when a detail report is available or the message is multi-line.
 
 ## Dev mode bar
 
