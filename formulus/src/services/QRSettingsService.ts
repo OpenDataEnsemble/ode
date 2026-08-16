@@ -46,8 +46,6 @@ export class QRSettingsService {
 
       // Save credentials to Keychain
       await Keychain.setGenericPassword(settings.username, settings.password);
-
-      console.log('Settings updated successfully from QR code');
     } catch (error) {
       console.error('Failed to update settings:', error);
       throw new Error('Failed to save settings');

@@ -1,10 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
-  RefreshControl,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
@@ -12,11 +10,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useForms } from '../hooks/useForms';
-import { FormCard, EmptyState, Input as ODEInput } from '../components/common';
+import {
+  FormListTable,
+  EmptyState,
+  Input as ODEInput,
+} from '../components/common';
 import { openFormplayerFromNative } from '../webview/FormulusMessageHandlers';
 import { useFocusEffect } from '@react-navigation/native';
 import colors from '../theme/colors';
-import { FormSpec } from '../services';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import {
@@ -49,8 +50,7 @@ const FormsScreen: React.FC = () => {
       borderColor: themeColors.divider as string,
     },
   ];
-  const { forms, loading, error, refresh, getObservationCount } = useForms();
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const { forms, loading, error, refresh, observationCounts } = useForms();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSearch, setShowSearch] = useState<boolean>(false);
 
@@ -72,40 +72,23 @@ const FormsScreen: React.FC = () => {
     }, [refresh]),
   );
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await refresh();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const handleFormPress = async (formId: string) => {
-    try {
-      const result = await openFormplayerFromNative(formId, {}, {});
-      if (
-        result.status === 'form_submitted' ||
-        result.status === 'form_updated'
-      ) {
-        await refresh();
+  const handleCreate = useCallback(
+    async (formId: string) => {
+      try {
+        const result = await openFormplayerFromNative(formId, {}, {});
+        if (
+          result.status === 'form_submitted' ||
+          result.status === 'form_updated'
+        ) {
+          await refresh();
+        }
+      } catch (err) {
+        console.error('Error opening form:', err);
+        Alert.alert(t('common.error'), t('forms.openError'));
       }
-    } catch (err) {
-      console.error('Error opening form:', err);
-      Alert.alert(t('common.error'), t('forms.openError'));
-    }
-  };
-
-  const renderForm = ({ item }: { item: FormSpec }) => {
-    const observationCount = getObservationCount(item.id);
-    return (
-      <FormCard
-        form={item}
-        observationCount={observationCount}
-        onPress={() => handleFormPress(item.id)}
-      />
-    );
-  };
+    },
+    [refresh, t],
+  );
 
   if (loading && forms.length === 0) {
     return (
@@ -246,18 +229,10 @@ const FormsScreen: React.FC = () => {
             }
           />
         ) : (
-          <FlatList
-            style={styles.listTransparent}
-            data={filteredForms}
-            renderItem={renderForm}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={handleRefresh}
-              />
-            }
+          <FormListTable
+            forms={filteredForms}
+            observationCounts={observationCounts}
+            onCreate={handleCreate}
           />
         )}
       </SafeAreaView>
@@ -268,9 +243,6 @@ const FormsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  listTransparent: {
-    backgroundColor: colors.neutral.transparent,
   },
   header: {
     flexDirection: 'row',
@@ -329,10 +301,6 @@ const styles = StyleSheet.create({
     marginLeft: odeSpacing.xs,
   },
   clearIcon: {},
-  listContent: {
-    // Same gap as between cards: paddingTop + first card marginTop = 16.
-    paddingVertical: odeSpacing.xs,
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

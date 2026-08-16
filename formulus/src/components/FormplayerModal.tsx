@@ -233,7 +233,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
 
     // Handle WebView load complete
     const handleWebViewLoad = () => {
-      console.log('[FormplayerModal] WebView finished loading');
       setWebViewReady(true);
       // WebView is now ready to receive form initialization
     };
@@ -441,9 +440,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                 // Read the source code so the WebView can evaluate it directly
                 const source = await RNFS.readFile(jsPath, 'utf8');
                 custom_types[folder.name] = { source };
-                console.log(
-                  `[FormplayerModal] Custom question type: "${folder.name}" (${source.length} bytes from ${jsPath})`,
-                );
               } else {
                 console.warn(
                   `[FormplayerModal] Skipping "${folder.name}": no renderer.js or index.js found`,
@@ -472,9 +468,6 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
                 // Read the source code so the WebView can evaluate it directly
                 const source = await RNFS.readFile(indexPath, 'utf8');
                 validators[folder.name] = { source };
-                console.log(
-                  `[FormplayerModal] Custom validator: "${folder.name}" (${source.length} bytes from ${indexPath})`,
-                );
               } else {
                 console.warn(
                   `[FormplayerModal] Skipping validator "${folder.name}": no index.js found`,

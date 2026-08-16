@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { logger } from '../diagnostics/logger';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { formatRelativeTime } from '../utils/dateUtils';
@@ -23,6 +24,14 @@ import {
   getUserInfo,
   getUserFacingSyncErrorMessage,
 } from '../api/synkronus/Auth';
+
+function isSyncCancelledError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.message === 'Sync cancelled' ||
+      error.message === 'Sync cancelled by user')
+  );
+}
 import {
   isRepositoryResetRequiredError,
   type RepositoryResetRequiredError,
@@ -281,7 +290,9 @@ const SyncScreen = () => {
         );
       } else {
         syncError = getUserFacingSyncErrorMessage(error);
-        Alert.alert(t('sync.failed'), syncError);
+        if (!isSyncCancelledError(error)) {
+          Alert.alert(t('sync.failed'), syncError);
+        }
       }
     } finally {
       finishSync(syncError);
@@ -357,7 +368,9 @@ const SyncScreen = () => {
       } else {
         const errorMessage = getUserFacingSyncErrorMessage(error);
         finishSync(errorMessage);
-        Alert.alert(t('sync.operationFailed'), errorMessage);
+        if (!isSyncCancelledError(error)) {
+          Alert.alert(t('sync.operationFailed'), errorMessage);
+        }
       }
     } finally {
       setActiveOperation(null);
@@ -495,6 +508,7 @@ const SyncScreen = () => {
   // Refresh pending count and bundle status whenever the Sync screen gains focus
   useFocusEffect(
     useCallback(() => {
+      void logger.breadcrumb('screen', 'sync', { screen: 'Sync' });
       updatePendingUploads();
       updatePendingObservations();
       refreshUserRole();

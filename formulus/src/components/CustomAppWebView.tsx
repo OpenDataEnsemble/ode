@@ -18,6 +18,7 @@ import { appEvents, Listener } from '../webview/FormulusMessageHandlers';
 import { FormInitData } from '../webview/FormulusInterfaceDefinition';
 import { colors } from '../theme/colors';
 import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
+import { logger } from '../diagnostics/logger';
 
 export interface CustomAppWebViewHandle {
   reload: () => void;
@@ -274,10 +275,9 @@ const CustomAppWebView = forwardRef<
 
           // Handle API re-injection requests from WebView
           if (eventData.type === 'requestApiReinjection') {
-            console.log(
-              `[CustomAppWebView - ${
-                appName || 'Default'
-              }] WebView requested API re-injection`,
+            logger.debug(
+              'webview',
+              `API re-injection requested (${appName || 'Default'})`,
             );
 
             // Perform immediate re-injection
@@ -427,9 +427,7 @@ const CustomAppWebView = forwardRef<
     useEffect(() => {
       const handleAppStateChange = (nextAppState: string) => {
         if (nextAppState === 'active') {
-          console.log(
-            '[CustomAppWebView] App became active, triggering handleReceiveFocus',
-          );
+          logger.debug('webview', 'app became active, handleReceiveFocus');
           // Call handleReceiveFocus on the messageManager when app becomes active
           if (
             messageManager &&
@@ -477,17 +475,10 @@ const CustomAppWebView = forwardRef<
         onMessage={messageManager.handleWebViewMessage}
         onError={handleError}
         onLoadStart={() =>
-          console.debug(
-            `[CustomAppWebView - ${appName || 'Default'}] Starting to load URL:`,
-            appUrl,
-          )
+          logger.debug('webview', `starting load (${appName || 'Default'})`)
         }
         onLoadEnd={() => {
-          console.debug(
-            `[CustomAppWebView - ${
-              appName || 'Default'
-            }] Finished loading URL: ${appUrl}`,
-          );
+          logger.debug('webview', `finished load (${appName || 'Default'})`);
           if (webViewRef.current) {
             // Ensure API is available after load
             const ensureApiScript = `

@@ -1,140 +1,132 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FormService } from '../services/FormService';
-import { Observation } from '../database/models/Observation';
-import { isObservationFullySynced } from '../utils/observationSyncStatus';
-import { SortOption, FilterOption } from '../components/common/FilterBar';
+import type { SyncStatus } from '../components/common/SyncStatusButtons';
+import { logger } from '../diagnostics/logger';
+import type {
+  ObservationListPage,
+  ObservationListRow,
+} from '../database/observationListQuery';
+import { OBSERVATION_LIST_PAGE_SIZE } from '../database/observationListQuery';
 
 interface UseObservationsResult {
-  observations: Observation[];
+  rows: ObservationListRow[];
+  total: number;
+  totalPages: number;
+  page: number;
+  setPage: (page: number) => void;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
-  sortOption: SortOption;
-  setSortOption: (option: SortOption) => void;
-  filterOption: FilterOption;
-  setFilterOption: (option: FilterOption) => void;
-  filteredAndSorted: Observation[];
+  selectedFormType: string | null;
+  setSelectedFormType: (formType: string | null) => void;
+  syncStatus: SyncStatus;
+  setSyncStatus: (status: SyncStatus) => void;
 }
 
 export const useObservations = (): UseObservationsResult => {
-  const [observations, setObservations] = useState<Observation[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [rows, setRows] = useState<ObservationListRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [page, setPageState] = useState(1);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [sortOption, setSortOption] = useState<SortOption>('date-desc');
-  const [filterOption, setFilterOption] = useState<FilterOption>('all');
+  const [searchQuery, setSearchQueryState] = useState('');
+  const [selectedFormType, setSelectedFormTypeState] = useState<string | null>(
+    null,
+  );
+  const [syncStatus, setSyncStatusState] = useState<SyncStatus>('all');
 
-  const loadObservations = useCallback(async () => {
+  const loadPage = useCallback(async () => {
+    const started = Date.now();
+    logger.info('observations', 'load start', {
+      screen: 'Observations',
+      phase: 'start',
+      counts: page,
+    });
     try {
       setLoading(true);
       setError(null);
       const formService = await FormService.getInstance();
-      const formSpecs = formService.getFormSpecs();
-      const allObservations: Observation[] = [];
-      for (const formSpec of formSpecs) {
-        try {
-          const formObservations = await formService.getObservationsByFormType(
-            formSpec.id,
-          );
-          allObservations.push(...formObservations);
-        } catch (err) {
-          console.error(
-            `Failed to load observations for form ${formSpec.id}:`,
-            err,
-          );
-        }
+      const result: ObservationListPage =
+        await formService.listObservationsPage({
+          page,
+          pageSize: OBSERVATION_LIST_PAGE_SIZE,
+          formType: selectedFormType,
+          syncStatus,
+          search: searchQuery,
+        });
+      setRows(result.rows);
+      setTotal(result.total);
+      setTotalPages(result.totalPages);
+      if (page > result.totalPages) {
+        setPageState(result.totalPages);
       }
-
-      setObservations(allObservations);
+      logger.info('observations', `load done in ${Date.now() - started}ms`, {
+        screen: 'Observations',
+        phase: 'done',
+        counts: result.total,
+        success: true,
+      });
     } catch (err) {
-      console.error('Failed to load observations:', err);
+      logger.error(
+        'observations',
+        err instanceof Error ? err.message : 'load failed',
+        { screen: 'Observations', phase: 'done', success: false },
+      );
       setError(
         err instanceof Error ? err.message : 'Failed to load observations',
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, searchQuery, selectedFormType, syncStatus]);
 
   useEffect(() => {
-    let cancelled = false;
     const timer = setTimeout(() => {
-      if (!cancelled) {
-        void loadObservations();
-      }
+      void loadPage();
     }, 0);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [loadObservations]);
+    return () => clearTimeout(timer);
+  }, [loadPage]);
 
-  const filteredAndSorted = useMemo(() => {
-    let filtered = observations.filter(obs => !obs.deleted);
+  const setPage = useCallback((nextPage: number) => {
+    setPageState(nextPage);
+    setLoading(true);
+  }, []);
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(obs => {
-        try {
-          const data =
-            typeof obs.data === 'string' ? JSON.parse(obs.data) : obs.data;
-          const dataStr = JSON.stringify(data).toLowerCase();
-          return (
-            obs.observationId.toLowerCase().includes(query) ||
-            obs.formType.toLowerCase().includes(query) ||
-            dataStr.includes(query)
-          );
-        } catch {
-          return (
-            obs.observationId.toLowerCase().includes(query) ||
-            obs.formType.toLowerCase().includes(query)
-          );
-        }
-      });
-    }
+  const setSearchQuery = useCallback((query: string) => {
+    setSearchQueryState(query);
+    setPageState(1);
+    setLoading(true);
+  }, []);
 
-    if (filterOption !== 'all') {
-      filtered = filtered.filter(obs => {
-        const synced = isObservationFullySynced(obs);
-        return filterOption === 'synced' ? synced : !synced;
-      });
-    }
+  const setSelectedFormType = useCallback((formType: string | null) => {
+    setSelectedFormTypeState(formType);
+    setPageState(1);
+    setLoading(true);
+  }, []);
 
-    filtered.sort((a, b) => {
-      switch (sortOption) {
-        case 'date-desc':
-          return b.createdAt.getTime() - a.createdAt.getTime();
-        case 'date-asc':
-          return a.createdAt.getTime() - b.createdAt.getTime();
-        case 'form-type':
-          return a.formType.localeCompare(b.formType);
-        case 'sync-status': {
-          const aSynced = isObservationFullySynced(a);
-          const bSynced = isObservationFullySynced(b);
-          if (aSynced === bSynced) return 0;
-          return aSynced ? 1 : -1;
-        }
-        default:
-          return 0;
-      }
-    });
-
-    return filtered;
-  }, [observations, searchQuery, sortOption, filterOption]);
+  const setSyncStatus = useCallback((status: SyncStatus) => {
+    setSyncStatusState(status);
+    setPageState(1);
+    setLoading(true);
+  }, []);
 
   return {
-    observations,
+    rows,
+    total,
+    totalPages,
+    page,
+    setPage,
     loading,
     error,
-    refresh: loadObservations,
+    refresh: loadPage,
     searchQuery,
     setSearchQuery,
-    sortOption,
-    setSortOption,
-    filterOption,
-    setFilterOption,
-    filteredAndSorted,
+    selectedFormType,
+    setSelectedFormType,
+    syncStatus,
+    setSyncStatus,
   };
 };

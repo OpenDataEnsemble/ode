@@ -623,6 +623,47 @@ describe('WatermelonDBRepo', () => {
     expect(viaLookup!.deviceId).toBe('device-a');
     expect(apiPayload.author).toBe('alice');
     expect(apiPayload.device_id).toBe('device-a');
+    expect(model.createdAt.toISOString()).toBe('2025-01-02T10:00:00.000Z');
+    expect(model.updatedAt.toISOString()).toBe('2025-01-02T11:00:00.000Z');
+    expect(domain.createdAt.toISOString()).toBe('2025-01-02T10:00:00.000Z');
+    expect(domain.updatedAt.toISOString()).toBe('2025-01-02T11:00:00.000Z');
+  });
+
+  test('applyServerChanges writes envelope createdAt/updatedAt on update', async () => {
+    const serverObservationId = 'obs_pulled_timestamp_repair';
+    await repo.applyServerChanges([
+      {
+        observationId: serverObservationId,
+        formType: 'register_coffee',
+        formVersion: '1.0',
+        createdAt: new Date('2020-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+        syncedAt: null,
+        deleted: false,
+        data: { name: 'old' },
+        geolocation: null,
+      },
+    ]);
+
+    await repo.applyServerChanges([
+      {
+        observationId: serverObservationId,
+        formType: 'register_coffee',
+        formVersion: '1.0',
+        createdAt: new Date('2019-06-15T08:30:00.000Z'),
+        updatedAt: new Date('2024-03-01T12:00:00.000Z'),
+        syncedAt: null,
+        deleted: false,
+        data: { name: 'repaired' },
+        geolocation: null,
+      },
+    ]);
+
+    const repaired = await repo.getObservation(serverObservationId);
+    expect(repaired).not.toBeNull();
+    expect(repaired!.createdAt.toISOString()).toBe('2019-06-15T08:30:00.000Z');
+    expect(repaired!.updatedAt.toISOString()).toBe('2024-03-01T12:00:00.000Z');
+    expect(repaired!.data).toEqual({ name: 'repaired' });
   });
 
   /**

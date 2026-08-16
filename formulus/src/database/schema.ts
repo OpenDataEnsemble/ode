@@ -8,6 +8,7 @@ export const schemas = appSchema({
       name: 'observations',
       columns: [
         { name: 'observation_id', type: 'string', isIndexed: true },
+        // Platform-owned. Always indexed — not part of custom-app observationIndexes.
         { name: 'form_type', type: 'string', isIndexed: true },
         { name: 'form_version', type: 'string' },
         { name: 'deleted', type: 'boolean', isIndexed: true },

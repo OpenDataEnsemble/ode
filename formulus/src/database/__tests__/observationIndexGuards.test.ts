@@ -38,7 +38,10 @@ jest.mock('../../services/AppConfigService', () => ({
 
 import ObservationIndexService, {
   computeDefsSignature,
+  deleteIndexSqls,
+  extractIndexRows,
   INDEX_WRITE_BATCH_SIZE,
+  insertIndexSqls,
 } from '../../services/ObservationIndexService';
 
 const EMPTY_SIGNATURE = computeDefsSignature([]);
@@ -178,6 +181,110 @@ describe('ObservationIndexService guards', () => {
     });
   });
 
+  describe('extractIndexRows', () => {
+    const defs = [
+      { key: 'hh_id', path: '$.hh_id' },
+      { key: 'af', path: '$.af' },
+    ];
+
+    it('parses JSON once and emits a row per matching key', () => {
+      const { rows, nonScalarKeys } = extractIndexRows(
+        'obs-1',
+        'household',
+        JSON.stringify({ hh_id: 'HH-1', af: 12 }),
+        defs,
+        1,
+      );
+      expect(nonScalarKeys).toEqual([]);
+      expect(rows).toEqual([
+        {
+          id: 'obs-1:hh_id:1',
+          observationId: 'obs-1',
+          indexKey: 'hh_id',
+          generation: 1,
+          valueText: 'HH-1',
+          valueNum: null,
+        },
+        {
+          id: 'obs-1:af:1',
+          observationId: 'obs-1',
+          indexKey: 'af',
+          generation: 1,
+          valueText: null,
+          valueNum: 12,
+        },
+      ]);
+    });
+
+    it('accepts an already-parsed object so pull can skip JSON.parse', () => {
+      const { rows } = extractIndexRows(
+        'obs-1',
+        'household',
+        { hh_id: 'HH-1' },
+        [defs[0]],
+        1,
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].valueText).toBe('HH-1');
+    });
+
+    it('returns no rows for invalid JSON', () => {
+      expect(
+        extractIndexRows('obs-1', 'household', '{not-json', defs, 1),
+      ).toEqual({ rows: [], nonScalarKeys: [] });
+    });
+  });
+
+  describe('index SQL helpers', () => {
+    it('deletes a batch with one IN list', () => {
+      expect(deleteIndexSqls(['obs-1', 'obs-2'], 1)).toEqual([
+        [
+          'DELETE FROM observation_index WHERE observation_id IN (?,?) AND index_generation = ?',
+          ['obs-1', 'obs-2', 1],
+        ],
+      ]);
+    });
+
+    it('inserts many EAV rows in one VALUES list', () => {
+      const sqls = insertIndexSqls([
+        {
+          id: 'obs-1:hh_id:1',
+          observationId: 'obs-1',
+          indexKey: 'hh_id',
+          generation: 1,
+          valueText: 'HH-1',
+          valueNum: null,
+        },
+        {
+          id: 'obs-2:hh_id:1',
+          observationId: 'obs-2',
+          indexKey: 'hh_id',
+          generation: 1,
+          valueText: 'HH-2',
+          valueNum: null,
+        },
+      ]);
+      expect(sqls).toHaveLength(1);
+      expect(sqls[0][0]).toBe(
+        'INSERT INTO observation_index (id, observation_id, index_key, index_generation, value_text, value_num) VALUES (?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?)',
+      );
+      expect(sqls[0][1]).toEqual([
+        'obs-1:hh_id:1',
+        'obs-1',
+        'hh_id',
+        1,
+        'HH-1',
+        null,
+        'obs-2:hh_id:1',
+        'obs-2',
+        'hh_id',
+        1,
+        'HH-2',
+        null,
+      ]);
+    });
+  });
+
   describe('incrementalReindexMany', () => {
     it('flushes in bounded writes instead of one statement list for the whole page', async () => {
       configIndexes.push({ key: 'hh_id', path: '$.hh_id' });
@@ -189,8 +296,9 @@ describe('ObservationIndexService guards', () => {
           dataJson: JSON.stringify({ hh_id: `HH-${i}` }),
         }),
       );
-      rawResults.push([{ active_generation: 1 }], [{ active_generation: 1 }]);
+      rawResults.push([{ active_generation: 1 }]);
       mockDb.write.mockClear();
+      mockDb.adapter.unsafeExecute.mockClear();
       const onProgress = jest.fn();
 
       await service.incrementalReindexMany(rows, onProgress);
@@ -208,6 +316,17 @@ describe('ObservationIndexService guards', () => {
         current: INDEX_WRITE_BATCH_SIZE + 50,
         total: INDEX_WRITE_BATCH_SIZE + 50,
       });
+
+      const firstFlush = mockDb.adapter.unsafeExecute.mock.calls[0][0]
+        .sqls as Array<[string, unknown[]]>;
+      expect(firstFlush[0][0]).toMatch(
+        /^DELETE FROM observation_index WHERE observation_id IN \(/,
+      );
+      expect(firstFlush[0][1]).toHaveLength(INDEX_WRITE_BATCH_SIZE + 1);
+      expect(firstFlush[1][0]).toMatch(
+        /^INSERT INTO observation_index \(id, observation_id, index_key, index_generation, value_text, value_num\) VALUES /,
+      );
+      expect(firstFlush[1][0]).toContain('(?, ?, ?, ?, ?, ?),');
     });
   });
 });

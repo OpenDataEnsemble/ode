@@ -41,7 +41,6 @@ export class ClientIdService {
       const deviceId = await DeviceInfo.getUniqueId();
       this.cachedClientId = `formulus-${deviceId}`;
 
-      console.log('ClientIdService: Generated client ID:', this.cachedClientId);
       return this.cachedClientId;
     } catch (error) {
       console.error('ClientIdService: Error getting device ID:', error);

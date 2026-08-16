@@ -5,8 +5,15 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/** Monorepo root (parent of formulus) so Metro can resolve @ode/tokens and @ode/components */
+/** Monorepo root — used only to resolve @ode/* paths, not as a watch root. */
 const monorepoRoot = path.resolve(__dirname, '..');
+
+/** Workspace packages Formulus imports. Do not watch the rest of the repo. */
+const workspaceWatchFolders = [
+  path.resolve(monorepoRoot, 'packages/tokens'),
+  path.resolve(monorepoRoot, 'packages/components'),
+  path.resolve(monorepoRoot, 'packages/observation-query'),
+];
 
 /**
  * Force a single React/react-native instance so hooks work (avoids "Invalid hook call" / "useState of null").
@@ -56,7 +63,10 @@ const extraModules = {
  * @type {import('@react-native/metro-config').MetroConfig}
  */
 const config = {
-  watchFolders: [monorepoRoot],
+  // Default config already watches formulus/. Extra roots are only the
+  // @ode packages we import — watching the monorepo root also walks
+  // desktop/, synkronus/, and their node_modules (ENOSPC on typical Linux).
+  watchFolders: workspaceWatchFolders,
   resolver: {
     unstable_enableSymlinks: true,
     unstable_enablePackageExports: true,

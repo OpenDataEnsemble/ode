@@ -7,7 +7,7 @@ import com.facebook.react.uimanager.ViewManager
 
 class UserAppPackage : ReactPackage {
     override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> {
-        return listOf(UserAppModule(reactContext))
+        return listOf(UserAppModule(reactContext), DiagnosticsModule(reactContext))
     }
 
     override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> {

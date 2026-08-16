@@ -91,6 +91,8 @@ jest.mock('../../database/DatabaseService', () => ({
     getLocalRepo: jest.fn(() => ({
       getObservationsByFormId: mockGetObservationsByFormId,
       getObservationsByFormType: mockGetObservationsByFormType,
+      getObservation: jest.fn(),
+      listObservationsPage: jest.fn(),
       queryObservations: mockQueryObservations,
       deleteObservation: mockDeleteObservation,
       saveObservation: mockSaveObservation,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -25,15 +25,31 @@ import logo from '../../assets/images/logo.png';
 import { attachmentExportService } from '../services/AttachmentExportService';
 import { observationExportService } from '../services/ObservationExportService';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect } from '@react-navigation/native';
+import { useConfirmModal } from '../contexts/ConfirmModalContext';
+import {
+  clearDiagnosticFiles,
+  exportDiagnosticsZip,
+  logger,
+  readLastExit,
+  readRecentEvents,
+} from '../diagnostics';
+import { formatExitReason } from '../diagnostics/classifyExit';
+import type { DiagnosticEvent, ProcessExitRecord } from '../diagnostics';
 
 const FORUM_URL = 'https://forum.opendataensemble.org';
 const EMAIL_URL = 'mailto:hello@opendataensemble.org';
 const GH_URL = 'https://github.com/OpenDataEnsemble';
+const DIAGNOSTIC_EVENT_PREVIEW_LIMIT = 50;
 
 const HelpScreen: React.FC = () => {
   const { t } = useTranslation();
   const [exportingAttachments, setExportingAttachments] = useState(false);
   const [exportingObservations, setExportingObservations] = useState(false);
+  const [exportingDiagnostics, setExportingDiagnostics] = useState(false);
+  const [events, setEvents] = useState<DiagnosticEvent[]>([]);
+  const [lastExit, setLastExit] = useState<ProcessExitRecord | null>(null);
+  const { showConfirm } = useConfirmModal();
   const { themeColors, resolvedMode } = useAppTheme();
   const shellStyle = useScreenShellStyle();
   const isDark = resolvedMode === 'dark';
@@ -63,6 +79,52 @@ const HelpScreen: React.FC = () => {
     } finally {
       setExportingAttachments(false);
     }
+  };
+
+  const refreshDiagnostics = useCallback(async () => {
+    const [recent, exit] = await Promise.all([
+      readRecentEvents(DIAGNOSTIC_EVENT_PREVIEW_LIMIT),
+      readLastExit(),
+    ]);
+    setEvents(recent);
+    setLastExit(exit);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void logger.breadcrumb('screen', 'help', { screen: 'Help' });
+      void refreshDiagnostics();
+    }, [refreshDiagnostics]),
+  );
+
+  const onExportDiagnostics = async () => {
+    setExportingDiagnostics(true);
+    try {
+      await exportDiagnosticsZip();
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : t('help.diagnostics.exportFailed');
+      Alert.alert(t('help.exportFailed'), message);
+    } finally {
+      setExportingDiagnostics(false);
+    }
+  };
+
+  const onClearDiagnostics = () => {
+    showConfirm({
+      title: t('help.diagnostics.clearTitle'),
+      message: t('help.diagnostics.clearMessage'),
+      buttons: [
+        { text: t('help.diagnostics.ok'), onPress: () => undefined },
+        {
+          text: t('help.diagnostics.clear'),
+          variant: 'danger',
+          onPress: () => {
+            void clearDiagnosticFiles().then(() => refreshDiagnostics());
+          },
+        },
+      ],
+    });
   };
 
   const onExportObservations = async () => {
@@ -294,6 +356,94 @@ const HelpScreen: React.FC = () => {
               )}
             </Pressable>
           </View>
+
+          <View style={cardStyle}>
+            <Text style={[styles.cardTitle, { color: sectionColor }]}>
+              {t('help.diagnostics.title')}
+            </Text>
+            <Text
+              style={[
+                styles.cardText,
+                styles.cardTextCentered,
+                mutedOnSurface,
+              ]}>
+              {t('help.diagnostics.hint')}
+            </Text>
+            <Text
+              style={[
+                styles.cardText,
+                mutedOnSurface,
+                { marginTop: odeSpacing.sm },
+              ]}>
+              {lastExit
+                ? t('help.diagnostics.lastExit', {
+                    reason: formatExitReason(lastExit),
+                    when: new Date(lastExit.timestamp).toLocaleString(),
+                  })
+                : t('help.diagnostics.noExit')}
+            </Text>
+            <Pressable
+              onPress={onExportDiagnostics}
+              disabled={exportingDiagnostics}
+              accessibilityRole="button"
+              accessibilityLabel={t('help.diagnostics.download')}
+              accessibilityState={{ disabled: exportingDiagnostics }}
+              style={({ pressed }) => [
+                styles.exportButton,
+                {
+                  marginTop: odeSpacing.sm,
+                  opacity: exportingDiagnostics ? 0.55 : pressed ? 0.85 : 1,
+                  backgroundColor: themeColors.surface as string,
+                  borderColor: themeColors.divider as string,
+                },
+              ]}>
+              {exportingDiagnostics ? (
+                <ActivityIndicator
+                  size="small"
+                  color={themeColors.onSurface as string}
+                />
+              ) : (
+                <Text
+                  style={[
+                    styles.exportButtonText,
+                    { color: themeColors.onSurface as string },
+                  ]}>
+                  {t('help.diagnostics.download')}
+                </Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={onClearDiagnostics}
+              accessibilityRole="button"
+              accessibilityLabel={t('help.diagnostics.clear')}
+              style={({ pressed }) => [
+                styles.exportButton,
+                {
+                  marginTop: odeSpacing.sm,
+                  opacity: pressed ? 0.85 : 1,
+                  backgroundColor: themeColors.surface as string,
+                  borderColor: themeColors.divider as string,
+                },
+              ]}>
+              <Text
+                style={[
+                  styles.exportButtonText,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                {t('help.diagnostics.clear')}
+              </Text>
+            </Pressable>
+            <Text style={[styles.eventLog, onSurface]} selectable>
+              {events.length === 0
+                ? t('help.diagnostics.emptyEvents')
+                : events
+                    .map(
+                      event =>
+                        `${event.ts} ${event.level ?? event.kind} ${event.tag ?? ''} ${event.message}`,
+                    )
+                    .join('\n')}
+            </Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -387,6 +537,12 @@ const styles = StyleSheet.create({
   exportButtonText: {
     fontSize: odeTypography.bodySm,
     fontWeight: '600',
+  },
+  eventLog: {
+    fontFamily: 'monospace',
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: odeSpacing.sm,
   },
 });
 
