@@ -20,6 +20,7 @@ jest.mock('../../../services/ObservationIndexService', () => {
   const incrementalReindexMany = jest.fn(async () => undefined);
   const getIndexDefs = jest.fn(() => []);
   const ensureInitialRebuild = jest.fn(async () => undefined);
+  const isIndexUsable = jest.fn(async () => true);
   const rebuildAllIndexes = jest.fn(async () => ({
     generation: 1,
     lastRebuildAt: null,
@@ -32,6 +33,7 @@ jest.mock('../../../services/ObservationIndexService', () => {
         incrementalReindexMany,
         getIndexDefs,
         ensureInitialRebuild,
+        isIndexUsable,
         rebuildAllIndexes,
       })),
     },
@@ -48,6 +50,7 @@ import { Observation } from '../LocalRepoInterface';
 import { ObservationMapper } from '../../../mappers/ObservationMapper';
 import { LAST_WRITE_WON_TAG } from '../../../sync/syncConstants';
 import { Q } from '@nozbe/watermelondb';
+import ObservationIndexService from '../../../services/ObservationIndexService';
 
 // Create a test database with in-memory LokiJS adapter
 function createTestDatabase() {
@@ -719,5 +722,50 @@ describe('WatermelonDBRepo', () => {
 
     const appliedAgain = await repo.applyServerChanges([serverObservation]);
     expect(appliedAgain).toBe(0);
+  });
+
+  /**
+   * A locally dirty row keeps its local data and is only tagged, so feeding the
+   * server payload to the index would leave the index describing values the
+   * stored record does not have. Nothing surfaces that divergence until a full
+   * rebuild, and in the meantime an indexed query matches on the wrong values.
+   */
+  test('applyServerChanges only indexes the changes it actually stored', async () => {
+    const localId = await repo.saveObservation({
+      formType: 'form_lww',
+      data: { source: 'local' },
+    });
+
+    const conflicting: Observation = {
+      observationId: localId,
+      formType: 'form_lww',
+      formVersion: '1.0',
+      createdAt: new Date('2025-01-02T10:00:00.000Z'),
+      updatedAt: new Date('2025-01-02T12:00:00.000Z'),
+      syncedAt: null,
+      deleted: false,
+      data: { source: 'server' },
+      geolocation: null,
+    };
+    const fresh: Observation = {
+      ...conflicting,
+      observationId: 'obs_server_only_3003',
+    };
+
+    const indexService = ObservationIndexService.getInstance(
+      database,
+    ) as unknown as {
+      incrementalReindexMany: jest.Mock;
+    };
+    indexService.incrementalReindexMany.mockClear();
+
+    await repo.applyServerChanges([conflicting, fresh]);
+
+    const indexed = indexService.incrementalReindexMany.mock.calls[0][0] as
+      | Array<{ observationId: string }>
+      | undefined;
+    expect(indexed?.map(row => row.observationId)).toEqual([
+      'obs_server_only_3003',
+    ]);
   });
 });

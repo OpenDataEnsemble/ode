@@ -7,8 +7,13 @@ import {
   setCustodianSyncProgressHandler,
   SyncPausedError,
 } from '../lib/syncTauriEvents';
-import { partitionPendingPushObservations } from '../lib/pushAttachmentAudit';
+import {
+  formatMissingAttachmentHighlight,
+  formatMissingAttachmentReport,
+  partitionPendingPushObservations,
+} from '../lib/pushAttachmentAudit';
 import { getOrCreateClientId, syncGateway } from '../services/synk';
+import { isSyncHttpUnauthorized } from '../services/synk/syncErrors';
 import type {
   AppHealth,
   AuthSession,
@@ -117,7 +122,14 @@ async function reauthenticateActiveProfile(
       persistAuthMap(merged);
       set({ authSessionsByProfileId: merged });
       return;
-    } catch {
+    } catch (refreshError) {
+      const cred = await tauriClient.credentialGet(id);
+      const password = cred.password ?? '';
+      if (!password.trim()) {
+        // No password fallback: surface the refresh failure (401 clears session
+        // in recover; network errors keep the stored refresh token).
+        throw refreshError;
+      }
       // Fall through to password login.
     }
   }
@@ -137,6 +149,20 @@ async function reauthenticateActiveProfile(
   const merged = { ...get().authSessionsByProfileId, [id]: next };
   persistAuthMap(merged);
   set({ authSessionsByProfileId: merged });
+}
+
+function clearActiveProfileAuthSession(
+  set: (partial: Partial<CustodianState>) => void,
+  get: () => CustodianState,
+): void {
+  const id = get().activeProfileId;
+  if (!id || !get().authSessionsByProfileId[id]) {
+    return;
+  }
+  const auth = { ...get().authSessionsByProfileId };
+  delete auth[id];
+  persistAuthMap(auth);
+  set({ authSessionsByProfileId: auth });
 }
 
 async function awaitSyncJobTerminal(
@@ -207,6 +233,8 @@ interface CustodianState {
   loading: boolean;
   error: string | null;
   syncMessage: string | null;
+  /** Full text for optional “Save report” (e.g. missing-attachment push details). */
+  syncDetailReport: string | null;
   syncActivity: {
     op: 'pull' | 'push' | 'reset';
     statusText: string;
@@ -273,7 +301,9 @@ interface CustodianState {
   syncPauseInFlight: () => Promise<void>;
   syncContinueInFlight: () => Promise<void>;
   syncCancelJob: (jobId?: string | null) => Promise<void>;
-  resetLocalWorkspaceData: () => Promise<void>;
+  resetLocalWorkspaceData: (options?: {
+    pendingOnly?: boolean;
+  }) => Promise<void>;
 }
 
 /** Tauri invoke often rejects with a string; preserve the real message for the UI. */
@@ -370,6 +400,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   loading: false,
   error: null,
   syncMessage: null,
+  syncDetailReport: null,
   syncActivity: null,
   bundleActivity: null,
   exportActivity: null,
@@ -389,13 +420,13 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   clearExportActivity: () => set({ exportActivity: null }),
 
   ensureActiveProfileAuth: async () => {
-    if (selectAuthSessionForActiveProfile(get())?.token) {
-      return true;
-    }
     try {
       await reauthenticateActiveProfile(set, get);
       return true;
-    } catch {
+    } catch (e) {
+      if (isSyncHttpUnauthorized(e)) {
+        clearActiveProfileAuthSession(set, get);
+      }
       return false;
     }
   },
@@ -404,7 +435,10 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
     try {
       await reauthenticateActiveProfile(set, get);
       return true;
-    } catch {
+    } catch (e) {
+      if (isSyncHttpUnauthorized(e)) {
+        clearActiveProfileAuthSession(set, get);
+      }
       return false;
     }
   },
@@ -515,6 +549,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         activeProfileId: s.activeProfileId,
         profiles: s.profiles,
         syncMessage: null,
+        syncDetailReport: null,
       });
       await reloadProfileScopedData(set, get);
       await get().refreshPausedSyncJob();
@@ -551,7 +586,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   setSelectedObservationId: id => set({ selectedObservationId: id }),
   clearError: () => set({ error: null }),
 
-  clearSyncMessage: () => set({ syncMessage: null }),
+  clearSyncMessage: () => set({ syncMessage: null, syncDetailReport: null }),
 
   loadWorkspace: async () =>
     withErrorHandling(set, async () => {
@@ -624,7 +659,10 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
       await tauriClient.saveObservation(request);
       await get().loadObservations();
       await get().loadHealth();
-      set({ syncMessage: 'Saved locally. Observation is now pending push.' });
+      set({
+        syncMessage: 'Saved locally. Observation is now pending push.',
+        syncDetailReport: null,
+      });
     }),
 
   synkLogin: async request =>
@@ -636,6 +674,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
       set({
         authSessionsByProfileId: next,
         syncMessage: 'Authenticated with Synkronus.',
+        syncDetailReport: null,
       });
     }),
 
@@ -648,6 +687,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
       );
       set({
         syncMessage: null,
+        syncDetailReport: null,
         syncActivity: { op: 'pull', statusText: 'Pulling…' },
       });
       try {
@@ -678,6 +718,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         await get().loadHealth();
         set({
           syncMessage: capture.current.trim() || 'Pull finished.',
+          syncDetailReport: null,
         });
       } finally {
         setCustodianSyncProgressHandler(null);
@@ -695,6 +736,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
       );
       set({
         syncMessage: null,
+        syncDetailReport: null,
         syncActivity: { op: 'push', statusText: 'Preparing push…' },
       });
       try {
@@ -708,7 +750,10 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         const pendingPushObservations =
           await tauriClient.listDirtyObservations();
         if (pendingPushObservations.length === 0) {
-          set({ syncMessage: 'No pending observations to push.' });
+          set({
+            syncMessage: 'No pending observations to push.',
+            syncDetailReport: null,
+          });
           return 0;
         }
 
@@ -719,25 +764,21 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
             forceMissing,
           );
 
-        const skipSummary =
-          missingAttachmentIssues.length > 0 && !forceMissing
-            ? ` Skipped ${missingAttachmentIssues.length} observation(s) with missing attachment file(s): ${missingAttachmentIssues
-                .map(
-                  s =>
-                    `${s.id} (form: ${s.formType}; missing: ${s.missing.map(n => `"${n}"`).join(', ')})`,
-                )
-                .join('; ')}.`
+        const attachmentMode = forceMissing ? 'forced' : 'skipped';
+        const attachmentHighlight =
+          missingAttachmentIssues.length > 0
+            ? formatMissingAttachmentHighlight(
+                missingAttachmentIssues,
+                attachmentMode,
+              )
             : '';
-
-        const forceMissingSummary =
-          missingAttachmentIssues.length > 0 && forceMissing
-            ? ` Included ${missingAttachmentIssues.length} observation(s) with missing attachment(s) (forced): ${missingAttachmentIssues
-                .map(
-                  s =>
-                    `${s.id} (form: ${s.formType}; missing: ${s.missing.map(n => `"${n}"`).join(', ')})`,
-                )
-                .join('; ')}.`
-            : '';
+        const attachmentReport =
+          missingAttachmentIssues.length > 0
+            ? formatMissingAttachmentReport(
+                missingAttachmentIssues,
+                attachmentMode,
+              )
+            : null;
 
         if (
           missingAttachmentIssues.length > 0 &&
@@ -754,7 +795,8 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
 
         if (readyToPush.length === 0) {
           set({
-            syncMessage: `Nothing pushed.${skipSummary}`.trim(),
+            syncMessage: `Nothing pushed.${attachmentHighlight}`.trim(),
+            syncDetailReport: attachmentReport,
           });
           return 0;
         }
@@ -768,7 +810,9 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           xOdeVersion: SYNKRONUS_CLIENT_VERSION,
           pushPrepare: {
             readyObservationIds: readyToPush.map(o => o.id),
-            skipSummary: skipSummary.trim() ? skipSummary : undefined,
+            skipSummary: attachmentHighlight.trim()
+              ? attachmentHighlight.trim()
+              : undefined,
           },
         });
         const resumePayloadBound = (): SyncResumeJobRequest => ({
@@ -787,8 +831,8 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
             ? Number(acceptedMatch[1])
             : readyToPush.length;
         set({
-          syncMessage:
-            `${capture.current.trim()}${skipSummary}${forceMissingSummary}`.trim(),
+          syncMessage: `${capture.current.trim()}${attachmentHighlight}`.trim(),
+          syncDetailReport: attachmentReport,
         });
         return accepted;
       } finally {
@@ -807,6 +851,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
       );
       set({
         syncMessage: null,
+        syncDetailReport: null,
         syncActivity: {
           op: 'reset',
           statusText: 'Resetting server repository…',
@@ -845,6 +890,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
           syncMessage:
             capture.current.trim() ||
             'Server repository reset and pull finished.',
+          syncDetailReport: null,
         });
       } finally {
         setCustodianSyncProgressHandler(null);
@@ -910,7 +956,10 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
         await get().loadObservations();
         await get().loadHealth();
         if (capture.current.trim()) {
-          set({ syncMessage: capture.current.trim() });
+          set({
+            syncMessage: capture.current.trim(),
+            syncDetailReport: null,
+          });
         }
       } finally {
         setCustodianSyncProgressHandler(null);
@@ -934,14 +983,17 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
     await get().loadHealth();
   },
 
-  resetLocalWorkspaceData: async () =>
+  resetLocalWorkspaceData: async options =>
     withErrorHandling(set, async () => {
-      await tauriClient.resetLocalWorkspaceData();
+      const pendingOnly = options?.pendingOnly === true;
+      await tauriClient.resetLocalWorkspaceData({ pendingOnly });
       await reloadProfileScopedData(set, get);
       set({
         selectedObservationId: null,
-        syncMessage:
-          'Local data reset: observations cleared, attachments removed, sync offsets reset.',
+        syncMessage: pendingOnly
+          ? 'Pending observations cleared. Synced data and sync offsets kept.'
+          : 'Local data reset: observations cleared, attachments removed, sync offsets reset.',
+        syncDetailReport: null,
       });
     }),
 }));

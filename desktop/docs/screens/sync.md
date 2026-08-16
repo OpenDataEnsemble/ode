@@ -18,6 +18,7 @@ Operational console to authenticate with Synkronus and exchange data: pull into 
 - Pull and push actions
 - Recent operation log (per-session, on this screen)
 - Store-level `syncMessage` / `error` after operations
+- Danger zone: reset local data (full, or **pending-only** so synced rows + sync offsets stay for a continued pull), re-create index, reset server repository
 
 ## What to exclude
 
@@ -28,6 +29,7 @@ Operational console to authenticate with Synkronus and exchange data: pull into 
 ## Key actions
 
 - Login, pull, push
+- Reset local data (optional: pending observations only)
 
 ## Data dependencies
 

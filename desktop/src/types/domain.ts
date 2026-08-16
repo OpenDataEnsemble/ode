@@ -84,6 +84,38 @@ export interface ParsedImportFileResult {
   error?: string;
 }
 
+/** Lightweight sync-appearance scan over staged Formulus export JSON. */
+export interface ImportSyncAppearanceScanResult {
+  fileCount: number;
+  observationCount: number;
+  apparentlySyncedCount: number;
+  unsyncedCount: number;
+  parseErrorCount: number;
+  /** Absolute paths to retain when skipping already-synced observations. */
+  unsyncedPaths: string[];
+}
+
+/** One issue from host-side import validation ({@link parseAndValidateImportJsonPaths}). */
+export interface ImportHostIssue {
+  severity: 'error' | 'warning' | string;
+  code: string;
+  message: string;
+  fileName?: string;
+  observationId?: string;
+  formType?: string | null;
+}
+
+/** Result of parallel Rust parse + schema/attachment validation. */
+export interface ImportValidateBatchResult {
+  files: ParsedImportFileResult[];
+  issues: ImportHostIssue[];
+  observationCount: number;
+  formTypeCount: number;
+  referencedAttachmentNames: string[];
+  missingAttachmentNames: string[];
+  orphanAttachmentNames: string[];
+}
+
 export interface AttachmentCopyBatchResult {
   copied: number;
   failed: number;

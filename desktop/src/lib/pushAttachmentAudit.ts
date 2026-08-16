@@ -105,3 +105,51 @@ export function formatMissingAttachmentSummary(
     )
     .join('\n');
 }
+
+/** One-line UI highlight (no per-observation dump). */
+export function formatMissingAttachmentHighlight(
+  issues: MissingAttachmentIssue[],
+  mode: 'skipped' | 'forced',
+): string {
+  if (issues.length === 0) {
+    return '';
+  }
+  const n = issues.length;
+  const noun = n === 1 ? 'observation' : 'observations';
+  if (mode === 'forced') {
+    return ` Included ${n} ${noun} with missing attachment(s) (forced).`;
+  }
+  return ` Skipped ${n} ${noun} with missing attachment file(s).`;
+}
+
+/** Full multi-line report suitable for saving to a text file. */
+export function formatMissingAttachmentReport(
+  issues: MissingAttachmentIssue[],
+  mode: 'skipped' | 'forced',
+  meta?: { headline?: string },
+): string {
+  const lines: string[] = [];
+  lines.push('ODE Desktop — push attachment report');
+  lines.push(`Generated: ${new Date().toISOString()}`);
+  lines.push(
+    `Mode: ${mode === 'forced' ? 'forced inclusion' : 'skipped from push'}`,
+  );
+  if (meta?.headline?.trim()) {
+    lines.push('');
+    lines.push(meta.headline.trim());
+  }
+  lines.push('');
+  lines.push(
+    `Summary: ${issues.length} observation(s) with missing attachment file(s).`,
+  );
+  lines.push('');
+  lines.push('Details:');
+  for (const issue of issues) {
+    lines.push(`${issue.id} (form: ${issue.formType})`);
+    for (const name of issue.missing) {
+      lines.push(`  - ${name}`);
+    }
+  }
+  lines.push('');
+  return lines.join('\n');
+}

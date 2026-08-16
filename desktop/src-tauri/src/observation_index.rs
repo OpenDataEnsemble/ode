@@ -1,10 +1,14 @@
 //! Local observation_index EAV table (never synced) + snapshot generation rebuild.
 
+use rayon::prelude::*;
 use rusqlite::{Connection, params};
 use serde::Deserialize;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::path::Path;
+
+/// Observations loaded / parsed per parallel chunk during a full rebuild.
+const REBUILD_MAP_CHUNK_SIZE: usize = 512;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -85,14 +89,74 @@ fn form_type_matches(form_type: &str, patterns: Option<&Vec<String>>) -> bool {
     false
 }
 
-fn json_path_to_key(path: &str) -> String {
-    path.strip_prefix("$.").unwrap_or(path).to_string()
+fn json_path_to_key(path: &str) -> &str {
+    path.strip_prefix("$.").unwrap_or(path)
 }
 
-fn extract_scalar(payload: &str, path: &str) -> Option<Value> {
-    let v: Value = serde_json::from_str(payload).ok()?;
-    let key = json_path_to_key(path);
-    v.get(&key).cloned()
+#[derive(Debug, Clone)]
+struct IndexRow {
+    observation_id: String,
+    index_key: String,
+    value_text: Option<String>,
+    value_num: Option<f64>,
+}
+
+/// Parse payload once and emit every matching EAV row (CPU-bound map step).
+fn extract_index_rows(
+    observation_id: &str,
+    form_type: &str,
+    payload: &str,
+    defs: &[ObservationIndexDef],
+) -> Vec<IndexRow> {
+    let Ok(v) = serde_json::from_str::<Value>(payload) else {
+        return Vec::new();
+    };
+    let mut out = Vec::with_capacity(defs.len());
+    for def in defs {
+        if !form_type_matches(form_type, def.form_types.as_ref()) {
+            continue;
+        }
+        let Some(val) = v.get(json_path_to_key(&def.path)) else {
+            continue;
+        };
+        if val.is_null() {
+            continue;
+        }
+        let (value_text, value_num) = scalar_to_columns(val, def.value_type.as_deref());
+        out.push(IndexRow {
+            observation_id: observation_id.to_string(),
+            index_key: def.key.clone(),
+            value_text,
+            value_num,
+        });
+    }
+    out
+}
+
+fn insert_index_rows(
+    conn: &Connection,
+    generation: i64,
+    rows: &[IndexRow],
+) -> rusqlite::Result<()> {
+    if rows.is_empty() {
+        return Ok(());
+    }
+    // Full rebuild clears the target generation first; INSERT (not OR REPLACE) is fine
+    // and cheaper. Incremental reindex deletes the observation's rows first as well.
+    let mut stmt = conn.prepare(
+        "INSERT INTO observation_index (observation_id, index_key, index_generation, value_text, value_num)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+    )?;
+    for row in rows {
+        stmt.execute(params![
+            row.observation_id,
+            row.index_key,
+            generation,
+            row.value_text,
+            row.value_num,
+        ])?;
+    }
+    Ok(())
 }
 
 pub fn reindex_observation(
@@ -107,24 +171,8 @@ pub fn reindex_observation(
         "DELETE FROM observation_index WHERE observation_id = ?1 AND index_generation = ?2",
         params![observation_id, generation],
     )?;
-    for def in defs {
-        if !form_type_matches(form_type, def.form_types.as_ref()) {
-            continue;
-        }
-        let Some(val) = extract_scalar(payload, &def.path) else {
-            continue;
-        };
-        if val.is_null() {
-            continue;
-        }
-        let (value_text, value_num) = scalar_to_columns(&val, def.value_type.as_deref());
-        conn.execute(
-            "INSERT OR REPLACE INTO observation_index (observation_id, index_key, index_generation, value_text, value_num)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![observation_id, def.key, generation, value_text, value_num],
-        )?;
-    }
-    Ok(())
+    let rows = extract_index_rows(observation_id, form_type, payload, defs);
+    insert_index_rows(conn, generation, &rows)
 }
 
 fn scalar_to_columns(val: &Value, value_type: Option<&str>) -> (Option<String>, Option<f64>) {
@@ -174,15 +222,6 @@ pub fn rebuild_all_indexes(
         cb(0, total, Some("Indexing observations…"));
     }
 
-    let mut stmt = conn.prepare("SELECT id, form_type, payload FROM observations")?;
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, Option<String>>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    })?;
-
     let progress_interval = if total < 50 {
         1
     } else if total < 500 {
@@ -191,23 +230,59 @@ pub fn rebuild_all_indexes(
         50
     };
 
+    // Map-join rebuild:
+    // 1. Load observation triples (desktop-scale; typically tens of thousands).
+    // 2. Parallel map: parse each payload once and extract all EAV rows.
+    // 3. Join: batch INSERT in one transaction (avoids per-row autocommit).
+    let observations: Vec<(String, String, String)> = {
+        let mut stmt = conn.prepare("SELECT id, form_type, payload FROM observations")?;
+        let mapped = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                row.get::<_, String>(2)?,
+            ))
+        })?;
+        mapped.collect::<rusqlite::Result<Vec<_>>>()?
+    };
+
+    // Drop secondary indexes for the bulk load; recreate after commit.
+    conn.execute_batch(
+        r#"
+        DROP INDEX IF EXISTS idx_observation_index_lookup;
+        DROP INDEX IF EXISTS idx_observation_index_lookup_num;
+        "#,
+    )?;
+
+    let tx = conn.unchecked_transaction()?;
     let mut done = 0i64;
-    for row in rows {
-        let (id, form_type, payload) = row?;
-        let ft = form_type.unwrap_or_default();
-        reindex_observation(conn, &id, &ft, &payload, defs, new_gen)?;
-        done += 1;
+    for chunk in observations.chunks(REBUILD_MAP_CHUNK_SIZE) {
+        let mapped: Vec<IndexRow> = chunk
+            .par_iter()
+            .flat_map(|(id, ft, payload)| extract_index_rows(id, ft, payload, defs))
+            .collect();
+        insert_index_rows(&tx, new_gen, &mapped)?;
+        done += chunk.len() as i64;
         if let Some(ref mut cb) = progress
             && (total == 0 || done == total || done % progress_interval == 0)
         {
             cb(done, total, Some("Indexing observations…"));
         }
     }
+    tx.commit()?;
 
     if let Some(ref mut cb) = progress {
         cb(done, total, Some("Creating SQLite indexes…"));
     }
 
+    conn.execute_batch(
+        r#"
+        CREATE INDEX IF NOT EXISTS idx_observation_index_lookup
+            ON observation_index(index_generation, index_key, value_text, observation_id);
+        CREATE INDEX IF NOT EXISTS idx_observation_index_lookup_num
+            ON observation_index(index_generation, index_key, value_num, observation_id);
+        "#,
+    )?;
     recreate_sqlite_indexes(conn, defs)?;
 
     conn.execute(
@@ -468,6 +543,41 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rows, 1);
+    }
+
+    #[test]
+    fn rebuild_map_join_indexes_many_observations() {
+        let conn = test_conn();
+        let defs = sample_defs();
+        for i in 0..1200 {
+            conn.execute(
+                "INSERT INTO observations (id, form_type, payload) VALUES (?1, 'person', ?2)",
+                params![
+                    format!("obs{i}"),
+                    format!(r#"{{"p_id":"P{i}","age":{}}}"#, i % 80)
+                ],
+            )
+            .unwrap();
+        }
+        let generation = rebuild_all_indexes(&conn, &defs, None).unwrap();
+        assert_eq!(generation, 2);
+        let rows: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM observation_index WHERE index_generation = 2",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        // Each person has p_id + age
+        assert_eq!(rows, 2400);
+        let lookup_ok: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = 'idx_observation_index_lookup'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(lookup_ok, 1);
     }
 
     #[test]

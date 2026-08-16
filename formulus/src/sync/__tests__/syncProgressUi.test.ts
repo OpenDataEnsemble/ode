@@ -1,4 +1,5 @@
 import {
+  getSyncProgressCardTitle,
   getSyncProgressDetailsForDisplay,
   shouldShowSyncProgressCurrentItem,
   shouldShowSyncProgressPercent,
@@ -53,5 +54,32 @@ describe('syncProgressUi', () => {
         total: 100,
       }),
     ).toBe(false);
+  });
+
+  it('uses the index-rebuild title even during a bundle update', () => {
+    expect(
+      getSyncProgressCardTitle(
+        {
+          phase: 'index_rebuild',
+          current: 200,
+          total: 1500,
+          details: '200 of 1500',
+        },
+        'update',
+      ),
+    ).toBe('Preparing data for search');
+  });
+
+  it('uses the index-rebuild title during an observation pull', () => {
+    expect(
+      getSyncProgressCardTitle(
+        {
+          phase: 'index_rebuild',
+          current: 200,
+          total: 800,
+        },
+        'sync',
+      ),
+    ).toBe('Preparing data for search');
   });
 });

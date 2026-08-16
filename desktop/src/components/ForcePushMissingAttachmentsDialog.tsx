@@ -24,9 +24,9 @@ export function ForcePushMissingAttachmentsDialog({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
+    <div className="modal-overlay" role="presentation">
       <div
-        className="modal-card"
+        className="card modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="force-push-title">

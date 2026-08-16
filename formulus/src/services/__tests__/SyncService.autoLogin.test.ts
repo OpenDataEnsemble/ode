@@ -118,6 +118,14 @@ jest.mock('../FormLocaleIndexService', () => ({
     refreshIndex: jest.fn().mockResolvedValue([]),
   },
 }));
+jest.mock('../ObservationIndexService', () => ({
+  __esModule: true,
+  default: {
+    getInstance: jest.fn(() => ({
+      rebuildForBundleUpdate: jest.fn().mockResolvedValue(undefined),
+    })),
+  },
+}));
 
 import {
   jest,

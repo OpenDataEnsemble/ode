@@ -1,12 +1,16 @@
 import { synkronusApi } from '../api/synkronus';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appEvents } from '../webview/FormulusMessageHandlers';
-import type { SyncProgress } from '../sync/syncProgress';
-import type { SynkronusSyncOptions } from '../sync/syncProgress';
+import {
+  formatCountProgress,
+  type SyncProgress,
+  type SynkronusSyncOptions,
+} from '../sync/syncProgress';
 import { notificationService } from './NotificationService';
 import { getUserFacingAppBundleUpdateErrorMessage } from './appBundleUpdateErrors';
 import { FormService } from './FormService';
 import { formLocaleIndexService } from './FormLocaleIndexService';
+import ObservationIndexService from './ObservationIndexService';
 import {
   autoLogin,
   getUserFacingSyncErrorMessage,
@@ -399,6 +403,29 @@ export class SyncService {
       await formService.invalidateCache();
 
       await formLocaleIndexService.refreshIndex();
+
+      // The bundle is the only way new index definitions arrive. Await the
+      // rebuild here rather than firing it from `bundleUpdated`: that event
+      // used to start a fire-and-forget rebuild, so sync reported "complete"
+      // while the index was still being written, and a crash left rows built
+      // from the previous bundle with no record that they were stale.
+      this.updateStatus(i18n.t('sync.progress.phase.index_rebuild'));
+      this.updateProgress({
+        current: 0,
+        total: 0,
+        phase: 'index_rebuild',
+        indeterminate: true,
+      });
+      await ObservationIndexService.getInstance().rebuildForBundleUpdate(
+        ({ current, total }) => {
+          this.updateProgress({
+            current,
+            total,
+            phase: 'index_rebuild',
+            details: formatCountProgress(current, total),
+          });
+        },
+      );
 
       const syncTime = new Date().toLocaleTimeString();
       await AsyncStorage.setItem('@lastSync', syncTime);

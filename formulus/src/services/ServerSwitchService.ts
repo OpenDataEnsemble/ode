@@ -6,6 +6,7 @@ import { synkronusApi } from '../api/synkronus';
 import { logout } from '../api/synkronus/Auth';
 import { serverConfigService } from './ServerConfigService';
 import { invalidateSettingsHydrationCache } from './SettingsHydrationCache';
+import ObservationIndexService from './ObservationIndexService';
 
 /**
  * Handles cleanup when switching Synkronus servers to avoid cross-server data.
@@ -52,6 +53,10 @@ class ServerSwitchService {
     await database.write(async () => {
       await database.unsafeResetDatabase();
     });
+
+    // The index tables come back empty, but the service is a singleton and
+    // still believes it has a completed rebuild behind it.
+    ObservationIndexService.getInstance(database).reset();
 
     // 4) Clear sync/app metadata + tokens
     await AsyncStorage.multiRemove([

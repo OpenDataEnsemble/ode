@@ -14,6 +14,7 @@ Define units of custody: each profile has its own Synkronus server, credentials,
 - Edit: display name, server URL, username, password (OS keyring when available)
 - Local repository file picker, workspace folder, optional attachments folder
 - Reload, save profile, clear saved password
+- Authenticate button: auto-recovers session (refresh token / saved password) on load and profile switch; shows **Authenticated** only after a successful check, otherwise **Authenticate**
 - Warnings when secure storage is unavailable (password not persisted)
 
 ## What to exclude

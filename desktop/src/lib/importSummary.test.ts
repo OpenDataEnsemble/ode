@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   extractObservationsFromJson,
+  isImportObservationApparentlySynced,
+  partitionImportObservationsBySyncAppearance,
   summarizeImportFiles,
   type ParsedObservationFile,
 } from './importSummary';
+import type { ApiObservation } from '../types/domain';
 
 describe('extractObservationsFromJson', () => {
   it('parses Synkronus-style snake_case object', () => {
@@ -104,5 +107,89 @@ describe('summarizeImportFiles', () => {
     expect(s.observationCount).toBe(2);
     expect(s.formTypeCount).toBe(2);
     expect(s.attachmentHintCount).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('isImportObservationApparentlySynced', () => {
+  const base: ApiObservation = {
+    observationId: 'o1',
+    data: {},
+    updatedAt: '2026-08-15T12:00:00.000Z',
+  };
+
+  it('is false when syncedAt is missing or null', () => {
+    expect(isImportObservationApparentlySynced(base)).toBe(false);
+    expect(
+      isImportObservationApparentlySynced({
+        ...base,
+        extras: { syncedAt: null },
+      }),
+    ).toBe(false);
+  });
+
+  it('is true when updatedAt is at or before syncedAt', () => {
+    expect(
+      isImportObservationApparentlySynced({
+        ...base,
+        extras: { syncedAt: '2026-08-15T12:00:00.000Z' },
+      }),
+    ).toBe(true);
+    expect(
+      isImportObservationApparentlySynced({
+        ...base,
+        updatedAt: '2026-08-15T11:00:00.000Z',
+        extras: { syncedAt: '2026-08-15T12:00:00.000Z' },
+      }),
+    ).toBe(true);
+  });
+
+  it('is false when updated after syncedAt (pending local edit)', () => {
+    expect(
+      isImportObservationApparentlySynced({
+        ...base,
+        updatedAt: '2026-08-15T13:00:00.000Z',
+        extras: { syncedAt: '2026-08-15T12:00:00.000Z' },
+      }),
+    ).toBe(false);
+  });
+
+  it('ignores placeholder syncedAt before 1980', () => {
+    expect(
+      isImportObservationApparentlySynced({
+        ...base,
+        extras: { syncedAt: '1970-01-01T00:00:00.000Z' },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('partitionImportObservationsBySyncAppearance', () => {
+  it('splits synced vs unsynced rows', () => {
+    const rows: ApiObservation[] = [
+      {
+        observationId: 'synced',
+        data: {},
+        updatedAt: '2026-01-01T00:00:00Z',
+        extras: { syncedAt: '2026-01-02T00:00:00Z' },
+      },
+      {
+        observationId: 'pending',
+        data: {},
+        updatedAt: '2026-01-03T00:00:00Z',
+        extras: { syncedAt: '2026-01-02T00:00:00Z' },
+      },
+      {
+        observationId: 'never',
+        data: {},
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+    ];
+    const part = partitionImportObservationsBySyncAppearance(rows);
+    expect(part.total).toBe(3);
+    expect(part.apparentlySynced.map(o => o.observationId)).toEqual(['synced']);
+    expect(part.unsynced.map(o => o.observationId)).toEqual([
+      'pending',
+      'never',
+    ]);
   });
 });

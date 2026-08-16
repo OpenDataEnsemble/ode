@@ -10,7 +10,9 @@ export type SyncProgressPhase =
   | 'push_attachments'
   | 'push_observations'
   /** Form definitions / custom app ZIP (not observation attachments). */
-  | 'app_bundle';
+  | 'app_bundle'
+  /** Rebuilding local query indexes after a bundle changed their definitions. */
+  | 'index_rebuild';
 
 export interface SyncProgress {
   current: number;
@@ -62,6 +64,8 @@ export function syncProgressPhaseTitle(phase: SyncProgressPhase): string {
       return i18n.t('sync.progress.phase.push_observations');
     case 'app_bundle':
       return i18n.t('sync.progress.phase.app_bundle');
+    case 'index_rebuild':
+      return i18n.t('sync.progress.phase.index_rebuild');
     default:
       return i18n.t('sync.progress.phase.default');
   }

@@ -257,7 +257,17 @@ export class WatermelonDBRepo implements LocalRepoInterface {
       const indexService = ObservationIndexService.getInstance(this.database);
       await indexService.ensureInitialRebuild();
 
-      const indexKeys = indexKeysFromConfig(indexService.getIndexDefs());
+      let indexKeys = indexKeysFromConfig(indexService.getIndexDefs());
+      if (indexKeys.size > 0 && !(await indexService.isIndexUsable())) {
+        // ensureInitialRebuild() reports success even when it gave up, so this
+        // is the last point at which an unusable index can be caught. Querying
+        // an empty index returns no rows, and one built from a previous
+        // bundle's definitions returns wrong ones — neither raises an error.
+        console.warn(
+          '[queryObservations] observation_index is empty or stale for the active generation; using json_extract so results stay correct',
+        );
+        indexKeys = new Set<string>();
+      }
       const compiled = compileObservationQuery({
         dialect: 'formulus',
         jsonColumn: 'data',
@@ -517,10 +527,21 @@ export class WatermelonDBRepo implements LocalRepoInterface {
    * Apply changes from the server to the local database
    * @param changes Array of changes to apply
    */
-  async applyServerChanges(changes: Observation[]): Promise<number> {
+  async applyServerChanges(
+    changes: Observation[],
+    options?: {
+      onIndexProgress?: (progress: { current: number; total: number }) => void;
+    },
+  ): Promise<number> {
     if (!changes.length) {
       return 0;
     }
+
+    // Only the changes whose data actually landed in the database may be
+    // indexed. A locally dirty record keeps its local data and is merely tagged,
+    // so indexing the server payload for it would leave the index describing
+    // values the stored record does not have — invisible until a full rebuild.
+    const applied: Observation[] = [];
 
     const count = await this.database.write(async () => {
       const existingRecords = await this.observationsCollection
@@ -549,6 +570,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
                 record.tags = serializeTagsColumn(merged);
               });
             }
+            applied.push(change);
             return existing.prepareUpdate(record => {
               record.formType = change.formType || record.formType;
               record.formVersion = change.formVersion || record.formVersion;
@@ -576,6 +598,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           console.debug(
             `Preparing create for new observation: ${change.observationId}`,
           );
+          applied.push(change);
           return this.observationsCollection.prepareCreate(record => {
             record._raw.id = change.observationId;
             record.observationId = change.observationId;
@@ -603,7 +626,7 @@ export class WatermelonDBRepo implements LocalRepoInterface {
     });
 
     const indexService = ObservationIndexService.getInstance(this.database);
-    const indexRows = changes.map(change => ({
+    const indexRows = applied.map(change => ({
       observationId: change.observationId,
       formType: change.formType,
       dataJson:
@@ -611,7 +634,10 @@ export class WatermelonDBRepo implements LocalRepoInterface {
           ? change.data
           : JSON.stringify(change.data),
     }));
-    await indexService.incrementalReindexMany(indexRows);
+    await indexService.incrementalReindexMany(
+      indexRows,
+      options?.onIndexProgress,
+    );
 
     return count;
   }
