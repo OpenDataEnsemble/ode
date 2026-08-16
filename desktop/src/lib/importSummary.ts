@@ -368,3 +368,62 @@ export function flattenObservations(
   }
   return out;
 }
+
+/**
+ * Ignore null / placeholder syncedAt values (same floor as Formulus
+ * `MIN_VALID_SYNCED_AT_MS` in observationSyncStatus.ts).
+ */
+export const MIN_VALID_IMPORT_SYNCED_AT_MS = new Date('1980-01-01').getTime();
+
+function parseImportTimestampMs(raw: string | null | undefined): number | null {
+  if (raw == null || !raw.trim()) {
+    return null;
+  }
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * True when Formulus-style export metadata says the observation was fully
+ * synced (`syncedAt` set and `updatedAt <= syncedAt`). Used to offer skipping
+ * already-synced rows during hail-mary device exports.
+ */
+export function isImportObservationApparentlySynced(
+  observation: ApiObservation,
+): boolean {
+  const syncedMs = parseImportTimestampMs(observation.extras?.syncedAt ?? null);
+  if (syncedMs == null || syncedMs <= MIN_VALID_IMPORT_SYNCED_AT_MS) {
+    return false;
+  }
+  const updatedMs = parseImportTimestampMs(observation.updatedAt ?? null);
+  if (updatedMs == null) {
+    return true;
+  }
+  return updatedMs <= syncedMs;
+}
+
+export interface ImportSyncAppearancePartition {
+  total: number;
+  apparentlySynced: ApiObservation[];
+  unsynced: ApiObservation[];
+}
+
+/** Split flattened import rows by Formulus sync appearance (`syncedAt`). */
+export function partitionImportObservationsBySyncAppearance(
+  observations: readonly ApiObservation[],
+): ImportSyncAppearancePartition {
+  const apparentlySynced: ApiObservation[] = [];
+  const unsynced: ApiObservation[] = [];
+  for (const obs of observations) {
+    if (isImportObservationApparentlySynced(obs)) {
+      apparentlySynced.push(obs);
+    } else {
+      unsynced.push(obs);
+    }
+  }
+  return {
+    total: observations.length,
+    apparentlySynced,
+    unsynced,
+  };
+}

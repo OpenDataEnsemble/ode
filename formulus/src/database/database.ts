@@ -87,6 +87,18 @@ const migrations = schemaMigrations({
         `),
       ],
     },
+    {
+      toVersion: 7,
+      steps: [
+        // Records which index definitions the current rows were built from, so
+        // an interrupted rebuild is detected on the next launch instead of
+        // looking complete forever. Left NULL for existing installs, which
+        // forces exactly one rebuild after upgrading.
+        unsafeExecuteSql(`
+          ALTER TABLE observation_index_meta ADD COLUMN defs_signature TEXT;
+        `),
+      ],
+    },
   ],
 });
 

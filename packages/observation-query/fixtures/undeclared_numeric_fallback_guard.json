@@ -1,0 +1,20 @@
+{
+  "name": "undeclared_numeric_fallback_guard",
+  "jsonColumn": "payload",
+  "formType": "hh_person",
+  "includeDeleted": false,
+  "indexKeys": ["hh_id"],
+  "filter": {
+    "field": "data.age_years",
+    "op": "gte",
+    "value": 18
+  },
+  "expectedSqlFragmentsByDialect": {
+    "desktop": ["json_type(o.payload, '$.age_years') IN ('integer','real')"],
+    "formulus": [
+      "json_type(observations.data, '$.age_years') IN ('integer','real')"
+    ]
+  },
+  "expectWarning": true,
+  "expectError": false
+}

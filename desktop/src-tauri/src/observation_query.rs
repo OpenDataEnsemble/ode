@@ -291,6 +291,23 @@ fn compile_json_extract(
         }
     };
     let p = push_param(params, value);
+
+    // A numeric comparison has to match the indexed path, which compares against
+    // `value_num` and therefore only ever considers values that are JSON numbers.
+    // SQLite orders by storage class rather than coercing, so `'abc' > 5` is true
+    // and every text value would otherwise satisfy a numeric filter here. This
+    // fallback is what `query_observations` switches to when the index is
+    // unusable, so the two paths have to return the same rows.
+    //
+    // json_type rather than typeof(json_extract(...)): JSON `true` extracts as
+    // the integer 1, so typeof would admit booleans that the index stores as text.
+    if value.is_number() {
+        let type_expr = format!("json_type(o.payload, '{json_path}')");
+        return Ok(format!(
+            "({type_expr} IN ('integer','real') AND {expr} {sql_op} {p})"
+        ));
+    }
+
     Ok(format!("{expr} {sql_op} {p}"))
 }
 

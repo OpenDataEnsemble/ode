@@ -135,6 +135,7 @@
   "sync.progress.phase.push_attachments": "Uploading attachments",
   "sync.progress.phase.push_observations": "Uploading changes",
   "sync.progress.phase.app_bundle": "Updating forms",
+  "sync.progress.phase.index_rebuild": "Preparing data for search",
   "sync.progress.phase.default": "Syncing",
   "sync.progress.syncingAndUpdatingForms": "Syncing & updating forms",
   "sync.progress.syncingAndUpdating": "Syncing & updating",

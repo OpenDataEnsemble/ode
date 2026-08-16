@@ -14,6 +14,7 @@ Bring external JSON observation files into the active profile’s local reposito
 - Pre-flight summary (counts, form types, attachment hints)
 - Per-file parse/normalization issues
 - Import action and clear/reset
+- Optional skip of Formulus-export rows that already appear synced (`syncedAt` ≥ `updatedAt`) — confirm dialog before write
 
 ## What to exclude
 
@@ -24,11 +25,13 @@ Bring external JSON observation files into the active profile’s local reposito
 ## Key actions
 
 - Stage files, review summary, import, clear
+- When import JSON carries Formulus `syncedAt` metadata, confirm whether to skip already-synced observations and write only unsynced ones
 
 ## Data dependencies
 
 - Store: `import` flow via `tauriClient.importObservations`, refresh `loadObservations` / `loadHealth` after import
 - Active profile determines target SQLite repository
+- Sync appearance: Formulus hail-mary export includes `syncedAt`; Desktop treats a row as already synced when `syncedAt` is meaningful and `updatedAt <= syncedAt` (same rule as Formulus pending detection)
 
 ## Observation indexes
 

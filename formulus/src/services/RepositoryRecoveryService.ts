@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import RNFS from 'react-native-fs';
 import { database } from '../database/database';
 import { synkronusApi } from '../api/synkronus';
+import ObservationIndexService from './ObservationIndexService';
 
 const REPOSITORY_GENERATION_KEY = '@repository_generation';
 
@@ -33,6 +34,10 @@ class RepositoryRecoveryService {
     await database.write(async () => {
       await database.unsafeResetDatabase();
     });
+
+    // The index tables come back empty, but the service is a singleton and
+    // still believes it has a completed rebuild behind it.
+    ObservationIndexService.getInstance(database).reset();
 
     await AsyncStorage.multiRemove([
       '@last_seen_version',

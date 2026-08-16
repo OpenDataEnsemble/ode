@@ -135,6 +135,7 @@
   "sync.progress.phase.push_attachments": "A enviar anexos",
   "sync.progress.phase.push_observations": "A enviar alterações",
   "sync.progress.phase.app_bundle": "A atualizar formulários",
+  "sync.progress.phase.index_rebuild": "A preparar dados para pesquisa",
   "sync.progress.phase.default": "A sincronizar",
   "sync.progress.syncingAndUpdatingForms": "A sincronizar e atualizar formulários",
   "sync.progress.syncingAndUpdating": "A sincronizar e atualizar",

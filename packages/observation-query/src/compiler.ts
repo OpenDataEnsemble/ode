@@ -60,6 +60,24 @@ function pushParam(params: Array<string | number | null>, value: unknown): strin
   return '?';
 }
 
+/**
+ * Whether an operand should be compared numerically.
+ *
+ * This mirrors how the index stores values — numbers in `value_num`,
+ * everything else in `value_text` — so both compilation paths have to consult
+ * it to stay in agreement. `eq` is excluded deliberately, which keeps equality
+ * type-strict: `eq "42"` matches the string and `eq 42` matches the number.
+ */
+function isNumericOperand(value: unknown, op: string): boolean {
+  if (typeof value === 'number') return true;
+  return (
+    typeof value === 'string' &&
+    value !== '' &&
+    !Number.isNaN(Number(value)) &&
+    op !== 'eq'
+  );
+}
+
 export function compileFilter(
   filter: ObservationFilter,
   options: CompileOptions,
@@ -168,9 +186,7 @@ function compileCondition(
   }
 
   const val = cond.value;
-  const isNum =
-    typeof val === 'number' ||
-    (typeof val === 'string' && val !== '' && !Number.isNaN(Number(val)) && cond.op !== 'eq');
+  const isNum = isNumericOperand(val, cond.op);
 
   if (isNum && ['gt', 'gte', 'lt', 'lte', 'eq', 'neq'].includes(cond.op)) {
     const p = pushParam(params, Number(val));
@@ -246,6 +262,24 @@ function compileJsonExtractCondition(
   if (!(cond.op in opMap)) {
     return { code: 'UNSUPPORTED_OP', message: `Unsupported op ${cond.op}` };
   }
+
+  // A numeric comparison has to match the indexed path, which compares against
+  // `value_num` and therefore only ever considers values that are JSON numbers.
+  // SQLite orders by storage class rather than coercing, so an unguarded
+  // json_extract comparison disagrees in both directions: `18 >= '18'` is false,
+  // so a numeric-looking string operand matches nothing, and `'abc' > 5` is
+  // true, so every text value matches a numeric filter. This fallback runs
+  // precisely when the index is unusable, and a safety net that quietly returns
+  // different rows is worse than no safety net at all.
+  //
+  // json_type rather than typeof(json_extract(...)): JSON `true` extracts as
+  // the integer 1, so typeof would admit booleans that the index stores as text.
+  if (isNumericOperand(cond.value, cond.op)) {
+    const p = pushParam(params, Number(cond.value));
+    const typeExpr = `json_type(${tableAlias}.${jsonCol}, '${jsonPath}')`;
+    return `(${typeExpr} IN ('integer','real') AND ${expr} ${opMap[cond.op]} ${p})`;
+  }
+
   const p = pushParam(params, cond.value as string | number | null);
   return `${expr} ${opMap[cond.op]} ${p}`;
 }

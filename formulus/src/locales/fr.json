@@ -135,6 +135,7 @@
   "sync.progress.phase.push_attachments": "Envoi des pièces jointes",
   "sync.progress.phase.push_observations": "Envoi des modifications",
   "sync.progress.phase.app_bundle": "Mise à jour des formulaires",
+  "sync.progress.phase.index_rebuild": "Préparation des données pour la recherche",
   "sync.progress.phase.default": "Synchronisation",
   "sync.progress.syncingAndUpdatingForms": "Synchronisation et mise à jour des formulaires",
   "sync.progress.syncingAndUpdating": "Synchronisation et mise à jour",

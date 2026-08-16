@@ -32,7 +32,7 @@ Single source of truth for how the shell surfaces status, errors, and confirmati
 
 ## Native confirm (Tauri)
 
-**Use for:** destructive actions, import-with-issues, closing unsaved observation tabs.
+**Use for:** destructive actions, import-with-issues, skip already-synced import rows, closing unsaved observation tabs.
 
 - `confirmDestructiveAction()` for destructive flows (clear, profile-scoped wording).
 - `confirm()` from `@tauri-apps/plugin-dialog` for save-anyway / import-anyway / tab discard (Save / Don't save / Cancel via separate flows).

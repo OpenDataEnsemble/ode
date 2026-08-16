@@ -5,16 +5,18 @@ import { tauriClient } from '../lib/tauriClient';
 import {
   groupIssuesBySeverityAndCategory,
   normalizeBasename,
+  referencedNamesForObservation,
   runImportValidation,
   type ImportIssue,
   type ImportIssueCategory,
   type ImportValidationReport,
 } from '../lib/importValidation';
-import type { BundleFormSpec } from '../types/domain';
+import type { ApiObservation, BundleFormSpec } from '../types/domain';
 import {
   flattenObservations,
   mapPool,
   parseObservationJsonPathsViaRust,
+  partitionImportObservationsBySyncAppearance,
   summarizeImportFiles,
 } from '../lib/importSummary';
 import {
@@ -53,6 +55,22 @@ function formatBytes(n: number) {
     return `${(n / 1024).toFixed(1)} KB`;
   }
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Attachment basenames referenced by the observations actually being written. */
+function referencedAttachmentNamesForObservations(
+  observations: readonly ApiObservation[],
+  formSpecsByType: Map<string, BundleFormSpec>,
+): string[] {
+  const refs = new Set<string>();
+  for (const obs of observations) {
+    const ft = obs.formType?.trim();
+    const schema = ft ? formSpecsByType.get(ft)?.formSchema : undefined;
+    for (const name of referencedNamesForObservation(schema, obs.data)) {
+      refs.add(name);
+    }
+  }
+  return [...refs];
 }
 
 function normalizeDialogPaths(
@@ -425,7 +443,37 @@ export function ImportPage() {
         }
       }
 
-      const observations = flattenObservations(report.parsedFiles);
+      const allObservations = flattenObservations(report.parsedFiles);
+      const syncPartition =
+        partitionImportObservationsBySyncAppearance(allObservations);
+      let observations = allObservations;
+      let skippedSyncedCount = 0;
+
+      if (syncPartition.apparentlySynced.length > 0) {
+        const skipSynced = await confirm(
+          `${syncPartition.total} observations were found. ${syncPartition.apparentlySynced.length} already appear to be synced — skip those and import only the ${syncPartition.unsynced.length} new observations?`,
+          {
+            title: 'Skip already-synced observations?',
+            kind: 'info',
+            okLabel: 'Skip synced',
+            cancelLabel: 'Import all',
+          },
+        );
+        if (skipSynced) {
+          observations = syncPartition.unsynced;
+          skippedSyncedCount = syncPartition.apparentlySynced.length;
+        }
+      }
+
+      if (observations.length === 0) {
+        setMessage(
+          skippedSyncedCount > 0
+            ? `Nothing to import — all ${skippedSyncedCount} observations already appear to be synced.`
+            : 'Nothing to import — no observations found in staged JSON.',
+        );
+        return;
+      }
+
       const writeTotal = observations.length;
       let imported = 0;
       let conflicts = 0;
@@ -464,7 +512,7 @@ export function ImportPage() {
       }
 
       const refNorm = new Set(
-        report.referencedAttachmentNames
+        referencedAttachmentNamesForObservations(observations, formSpecsByType)
           .map(n => normalizeBasename(n))
           .filter(Boolean),
       );
@@ -545,7 +593,11 @@ export function ImportPage() {
       await loadObservations();
       await loadHealth();
 
-      const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).`;
+      const skipMsg =
+        skippedSyncedCount > 0
+          ? ` Skipped ${skippedSyncedCount} already-synced observation(s).`
+          : '';
+      const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).${skipMsg}`;
       const indexMsg = result.indexRebuildScheduled
         ? ' Rebuilding observation indexes in the background (see activity banner).'
         : '';
