@@ -4,7 +4,7 @@ Single source of truth for how the shell surfaces status, errors, and confirmati
 
 ## Progress banner (full-width)
 
-**Use for:** long-running sync, import, and **app bundle download/apply** jobs.
+**Use for:** long-running sync, import, **export**, and **app bundle download/apply** jobs.
 
 - Renders below the mode switch / dev bar in `Shell`.
 - Shows spinner + status text; optional determinate progress bar when `bundleActivity.total > 0`.

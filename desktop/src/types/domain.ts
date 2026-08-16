@@ -230,6 +230,12 @@ export interface ServerProfile {
   customAppDeveloperMode?: boolean | null;
   /** Absolute path to a folder containing `index.html` (e.g. custom app `dist/`). */
   customAppLocalFolder?: string | null;
+  /** Parent folder last chosen on the Export page (survives restart). */
+  exportDestinationParent?: string | null;
+  /** ISO timestamp of the last successful Parquet export for this profile. */
+  lastExportAt?: string | null;
+  /** Summary of the last successful export (folder, counts, parquet paths). */
+  lastExport?: ExportParquetResult | null;
 }
 
 /** Result of mirroring a local custom app folder into the profile workspace. */
@@ -434,4 +440,28 @@ export interface WorkspaceDomainItem {
   label: string;
   path: string;
   kind: 'directory' | 'file';
+}
+
+/** Result of local Parquet export (`export_observations_parquet`). */
+export interface ExportParquetResult {
+  exportDir: string;
+  formTypeCounts: Record<string, number>;
+  /** Absolute `.parquet` paths keyed by form type. */
+  parquetFiles: Record<string, string>;
+  totalRows: number;
+  attachmentsCopied: number;
+  attachmentsMissing: number;
+  includePending: boolean;
+  includeAttachments: boolean;
+  workspaceAttachmentsPath: string;
+  exportAttachmentsPath?: string | null;
+  manifestPath: string;
+}
+
+export interface ExportParquetRequest {
+  parentDir: string;
+  includePending?: boolean;
+  includeAttachments?: boolean;
+  overwrite?: boolean;
+  profileLabel?: string | null;
 }

@@ -36,4 +36,6 @@ walkdir = "2"
 url = "2"
 urlencoding = "2"
 tokio = { version = "1", features = ["sync", "time", "macros"] }
+arrow = { version = "59", default-features = false, features = ["chrono-tz"] }
+parquet = { version = "59", default-features = false, features = ["arrow", "snap"] }
 

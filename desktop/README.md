@@ -12,9 +12,22 @@ The internal Rust crate may still be named `custodian`; user-facing strings use 
 ## Who it is for
 
 - **Field and data staff** managing observations and sync (Data management).
+- **Analysts** exporting local Parquet from Data → **Export** for offline analysis (R, Python, etc.).
 - **Form and app authors** testing bundles and custom apps against Synkronus before mobile deploy (Workbench).
 
 Relationship to other ODE components: **Synkronus** (API), **Formulus** + **formplayer** (runtime parity), **Portal** and **CLI** (same public API — no privileged desktop channel). Long-form prose here is intended to be **copy-friendly** for [opendataensemble.org](https://opendataensemble.org/) documentation; keep user-facing sections free of repo-only trivia (put contributor notes under **Development**).
+
+## Data management — Export
+
+From **Data → Export**, ODE Desktop writes analyst-oriented Parquet from the **active profile’s local workspace** (not from Synkronus over the network):
+
+1. Choose a destination parent folder (last location is remembered for the session, like Import).
+2. Desktop creates a leaf folder named **`YYYYMMDD`** under that parent (overwrite confirmation if it already exists).
+3. One **`<form_type>.parquet`** per form type, plus **`export_manifest.json`**, and **`snippets/`** load scripts (R, Python, Stata, Julia).
+4. Optional **Include pending observations** (local rows not yet synced).
+5. Optional **Include attachments** — copies referenced files into `attachments/` under the export folder. Observation data stores attachment **basenames**; prefix them with the workspace attachments path shown on Profiles / Export (or the export `attachments/` path when copied) to open files on disk.
+
+The Export page also shows copyable load snippets with variables named after each form type. Transforms and study-specific ETL stay **outside** Desktop. For a full **server** dump as a ZIP, use Portal or `synk data export`.
 
 ## Install
 

@@ -35,6 +35,8 @@ import type {
   SyncStartRequest,
   SyncStateInfo,
   WorkspaceItem,
+  ExportParquetRequest,
+  ExportParquetResult,
 } from '../types/domain';
 
 const NOT_IN_TAURI_MESSAGE =
@@ -128,6 +130,12 @@ export const tauriClient = {
     invokeSafe<string>('move_workspace', { destination }),
   backupWorkspace: (zipPath: string) =>
     invokeSafe<string>('backup_workspace', { zipPath }),
+  previewExportDir: (parentDir: string) =>
+    invokeSafe<string>('preview_export_dir', { parentDir }),
+  exportObservationsParquet: (request: ExportParquetRequest) =>
+    invokeSafe<ExportParquetResult>('export_observations_parquet', {
+      request,
+    }),
   expandImportStagingPaths: (
     paths: string[],
     maxIndividualFiles?: number | null,

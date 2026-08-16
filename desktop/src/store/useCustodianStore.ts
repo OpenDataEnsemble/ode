@@ -217,6 +217,11 @@ interface CustodianState {
     done: number;
     total: number;
   } | null;
+  exportActivity: {
+    statusText: string;
+    done: number;
+    total: number;
+  } | null;
   /** Persisted Rust sync job awaiting resume (transient stall, auth, or cold start). */
   syncPausedJob: SyncJobRowOut | null;
   /** Bumped after each successful `refresh_custom_app_dev_mirror` (Workbench embeds). */
@@ -230,6 +235,8 @@ interface CustodianState {
   setDevError: (message: string | null) => void;
   setBundleActivity: (activity: CustodianState['bundleActivity']) => void;
   clearBundleActivity: () => void;
+  setExportActivity: (activity: CustodianState['exportActivity']) => void;
+  clearExportActivity: () => void;
   dismissObservationIndexPrompt: () => void;
   createPendingObservationIndexes: () => Promise<boolean>;
   refreshSettings: () => Promise<void>;
@@ -365,6 +372,7 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
   syncMessage: null,
   syncActivity: null,
   bundleActivity: null,
+  exportActivity: null,
   syncPausedJob: null,
   devMirrorGeneration: 0,
   devBusy: false,
@@ -377,6 +385,8 @@ export const useCustodianStore = create<CustodianState>((set, get) => ({
 
   setBundleActivity: activity => set({ bundleActivity: activity }),
   clearBundleActivity: () => set({ bundleActivity: null }),
+  setExportActivity: activity => set({ exportActivity: activity }),
+  clearExportActivity: () => set({ exportActivity: null }),
 
   ensureActiveProfileAuth: async () => {
     if (selectAuthSessionForActiveProfile(get())?.token) {
@@ -950,6 +960,10 @@ export function selectSyncActivity(state: CustodianState) {
 
 export function selectBundleActivity(state: CustodianState) {
   return state.bundleActivity;
+}
+
+export function selectExportActivity(state: CustodianState) {
+  return state.exportActivity;
 }
 
 export function selectPausedSyncJob(state: CustodianState) {
