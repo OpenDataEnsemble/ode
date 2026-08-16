@@ -2947,7 +2947,7 @@ dependencies = [
 
 [[package]]
 name = "odedesktop"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "arrow",
  "chrono",
