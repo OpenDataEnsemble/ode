@@ -31,6 +31,7 @@ import {
 } from '../../errors/RepositoryResetRequiredError';
 import type { AxiosError, AxiosResponse } from 'axios';
 import { effectiveRepositoryGenerationForRequest } from './repositoryGenerationRequest';
+import { pullPageOutcome } from './pullCursor';
 import {
   formatCountProgress,
   type SynkronusSyncOptions,
@@ -1097,6 +1098,8 @@ class SynkronusApi {
     let currentSince = since;
     let totalServerRecordsThisPull = 0;
     let pullPage = 0;
+    let hasMorePages = true;
+    let finalVersion = since;
 
     reportSyncProgress(report, {
       phase: 'pull_observations',
@@ -1148,7 +1151,11 @@ class SynkronusApi {
         note: 'repository_generation = server epoch (resets); current_version = observation stream cursor — a 4 and a 1 here are not a mismatch.',
       });
 
-      console.debug('Pull response: ', res.data);
+      console.debug(
+        `Pull response: page ${pullPage}, ${
+          res.data.records?.length ?? 0
+        } record(s), has_more=${String(res.data.has_more)}`,
+      );
 
       this.ensureRepoGenResponseMatchesSent(
         'syncPull',
@@ -1186,35 +1193,40 @@ class SynkronusApi {
               : i18n.t('sync.progress.downloading'),
       });
 
-      console.debug('Pulled observations: ', domainObservations);
-
-      // Update since version for next iteration using change_cutoff
-      if (res.data.has_more && res.data.change_cutoff) {
-        currentSince = res.data.change_cutoff;
-        console.debug(`Continuing pagination from version ${currentSince}`);
+      // 3. Advance the cursor and persist it before fetching the next page, so
+      //    an interrupted pull resumes here instead of restarting from zero.
+      //    See pullCursor.ts for why this cannot skip records.
+      const pageOutcome = pullPageOutcome(res.data, currentSince);
+      if (pageOutcome.kind === 'unusable') {
+        throw new Error(
+          `Sync pull stopped after page ${pullPage}: ${pageOutcome.reason}`,
+        );
       }
-    } while (res.data.has_more);
 
-    if (includeAttachments) {
-      await this.processAttachmentManifest(options);
-    }
+      hasMorePages = pageOutcome.kind === 'continue';
+      const cursor =
+        pageOutcome.kind === 'continue'
+          ? pageOutcome.nextSince
+          : pageOutcome.version;
+      if (pageOutcome.kind === 'continue') {
+        currentSince = cursor;
+      } else {
+        finalVersion = cursor;
+      }
 
-    reportSyncProgress(report, {
-      phase: 'pull_observations',
-      current: 1,
-      total: 1,
-      details:
-        totalServerRecordsThisPull > 0
-          ? i18n.t('sync.progress.recordsSummary', {
-              count: totalServerRecordsThisPull,
-            })
-          : i18n.t('sync.progress.upToDate'),
-    });
+      await AsyncStorage.setItem('@last_seen_version', String(cursor));
+      console.debug(
+        `Pull cursor persisted at version ${cursor}${
+          hasMorePages ? ' (more pages follow)' : ''
+        }`,
+      );
+    } while (hasMorePages);
 
     logRepositoryGenerationSync('syncPull all pages done', {
       totalServerRecordsReceived: totalServerRecordsThisPull,
       finalBodyCurrentVersion: res.data.current_version,
       finalBodyRepositoryGeneration: res.data.repository_generation,
+      persistedObservationCursor: finalVersion,
     });
 
     if (totalServerRecordsThisPull === 0) {
@@ -1231,12 +1243,26 @@ class SynkronusApi {
       }
     }
 
-    // Only when all observations are pulled and ingested by WatermelonDB, update the last seen version
-    await AsyncStorage.setItem(
-      '@last_seen_version',
-      res.data.current_version.toString(),
-    );
-    return res.data.current_version;
+    // The observation cursor is already persisted (per page, above). Attachments
+    // carry their own cursor, so a failure here no longer forces a full
+    // re-pull of every observation on the next attempt.
+    if (includeAttachments) {
+      await this.processAttachmentManifest(options);
+    }
+
+    reportSyncProgress(report, {
+      phase: 'pull_observations',
+      current: 1,
+      total: 1,
+      details:
+        totalServerRecordsThisPull > 0
+          ? i18n.t('sync.progress.recordsSummary', {
+              count: totalServerRecordsThisPull,
+            })
+          : i18n.t('sync.progress.upToDate'),
+    });
+
+    return finalVersion;
   }
 
   /**
