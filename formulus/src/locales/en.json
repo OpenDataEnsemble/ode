@@ -170,6 +170,7 @@
   "sync.progress.uploadComplete": "Upload complete",
   "sync.progress.countOf": "{{current}} of {{total}}",
   "sync.progress.inProgress": "In progress…",
+  "sync.progress.cancelling": "Cancelling…",
   "settings.switchServerTitle": "Switch server?",
   "settings.switchServerWipeMessage": "Switching servers will wipe all local data for the previous server.",
   "settings.switchServerPendingMessage": "Unsynced observations: {{observations}}\nUnsynced attachments: {{attachments}}\n\nSync is recommended before switching.",
