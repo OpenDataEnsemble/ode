@@ -6,6 +6,12 @@ import {
   schemaMigrations,
   unsafeExecuteSql,
 } from '@nozbe/watermelondb/Schema/migrations';
+import { logger } from '../diagnostics/logger';
+import { installWatermelonLogBridge } from './installWatermelonLogBridge';
+import { logSqliteEngine } from './probeSqliteEngine';
+
+// Capture Watermelon's JSI-fallback warn before SQLiteAdapter runs initializeJSI.
+installWatermelonLogBridge();
 
 // Define migrations
 const migrations = schemaMigrations({
@@ -109,11 +115,14 @@ const adapter = new SQLiteAdapter({
   dbName: 'formulus',
   // Configure migrations
   migrations: migrations,
-  // Optional synchronous mode for development
+  // Requests the bundled JSI SQLite. Confirm with logSqliteEngine — Android
+  // still falls back to system SQLite if WatermelonDBJSIPackage is missing.
   jsi: true,
-  // Optional onSetUpError callback
   onSetUpError: error => {
-    console.error('Database setup error:', error);
+    logger.error(
+      'db',
+      error instanceof Error ? error.message : 'Database setup error',
+    );
   },
 });
 
@@ -124,4 +133,11 @@ export const database = new Database({
     ObservationModel,
     // Add more models as needed
   ],
+});
+
+void logSqliteEngine(database).catch(error => {
+  logger.warn(
+    'db',
+    error instanceof Error ? error.message : 'sqlite engine probe failed',
+  );
 });

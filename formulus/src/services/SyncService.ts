@@ -278,15 +278,19 @@ export class SyncService {
 
       return finalVersion;
     } catch (error) {
-      logger.error(
-        'sync',
-        error instanceof Error ? error.message : 'Sync failed',
-      );
-      if (
+      const cancelled =
         error instanceof Error &&
         error.message === 'Sync cancelled' &&
-        this.shouldCancel
-      ) {
+        this.shouldCancel;
+      if (cancelled) {
+        logger.info('sync', 'cancel observed, aborting');
+      } else {
+        logger.error(
+          'sync',
+          error instanceof Error ? error.message : 'Sync failed',
+        );
+      }
+      if (cancelled) {
         notificationService
           .showSyncCanceled()
           .catch(notifError =>

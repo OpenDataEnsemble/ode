@@ -266,7 +266,7 @@ const SyncScreen = () => {
   );
 
   const handleSync = useCallback(async () => {
-    if (syncState.isActive) return;
+    if (syncState.isActive || syncService.getIsSyncing()) return;
 
     let syncError: string | undefined;
 
@@ -277,7 +277,9 @@ const SyncScreen = () => {
       await syncService.syncObservations(true);
       await refreshAfterOperation();
     } catch (error) {
-      if (isRepositoryResetRequiredError(error)) {
+      if (isSyncCancelledError(error)) {
+        // Cancel is requested, not a failure — do not Alert or paint the card red.
+      } else if (isRepositoryResetRequiredError(error)) {
         syncError = getUserFacingSyncErrorMessage(error);
         runRepositoryResetRecovery(
           error,
@@ -290,9 +292,7 @@ const SyncScreen = () => {
         );
       } else {
         syncError = getUserFacingSyncErrorMessage(error);
-        if (!isSyncCancelledError(error)) {
-          Alert.alert(t('sync.failed'), syncError);
-        }
+        Alert.alert(t('sync.failed'), syncError);
       }
     } finally {
       finishSync(syncError);
@@ -321,12 +321,16 @@ const SyncScreen = () => {
       const fs = await formService.FormService.getInstance();
       await fs.invalidateCache();
     } catch (error) {
-      const errorMessage = (error as Error).message;
-      finishSync(errorMessage);
-      if (errorMessage.includes('401')) {
-        Alert.alert(t('sync.authErrorTitle'), t('sync.sessionExpired'));
+      if (isSyncCancelledError(error)) {
+        finishSync();
       } else {
-        Alert.alert(t('sync.updateFailed'), errorMessage);
+        const errorMessage = (error as Error).message;
+        finishSync(errorMessage);
+        if (errorMessage.includes('401')) {
+          Alert.alert(t('sync.authErrorTitle'), t('sync.sessionExpired'));
+        } else {
+          Alert.alert(t('sync.updateFailed'), errorMessage);
+        }
       }
     } finally {
       setActiveOperation(null);
@@ -365,12 +369,12 @@ const SyncScreen = () => {
           },
           t('sync.operationFailed'),
         );
+      } else if (isSyncCancelledError(error)) {
+        finishSync();
       } else {
         const errorMessage = getUserFacingSyncErrorMessage(error);
         finishSync(errorMessage);
-        if (!isSyncCancelledError(error)) {
-          Alert.alert(t('sync.operationFailed'), errorMessage);
-        }
+        Alert.alert(t('sync.operationFailed'), errorMessage);
       }
     } finally {
       setActiveOperation(null);
@@ -384,7 +388,7 @@ const SyncScreen = () => {
   ]);
 
   const handleCustomAppUpdate = useCallback(async () => {
-    if (syncState.isActive) return;
+    if (syncState.isActive || syncService.getIsSyncing()) return;
 
     const userInfo = await getUserInfo();
     if (!userInfo) {

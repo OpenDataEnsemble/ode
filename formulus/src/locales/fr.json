@@ -170,6 +170,7 @@
   "sync.progress.uploadComplete": "Envoi terminé",
   "sync.progress.countOf": "{{current}} sur {{total}}",
   "sync.progress.inProgress": "En cours…",
+  "sync.progress.cancelling": "Annulation…",
   "settings.switchServerTitle": "Changer de serveur ?",
   "settings.switchServerWipeMessage": "Changer de serveur effacera toutes les données locales de l'ancien serveur.",
   "settings.switchServerPendingMessage": "Observations non synchronisées : {{observations}}\nPièces jointes non synchronisées : {{attachments}}\n\nIl est recommandé de synchroniser avant de changer.",
