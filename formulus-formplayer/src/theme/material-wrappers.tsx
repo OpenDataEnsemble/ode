@@ -221,6 +221,8 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
     typeof (uischema as any)?.options?.placeholder === 'string'
       ? (uischema as any).options.placeholder
       : '—';
+  // Coerce so option values (always strings) match saved data (number/boolean).
+  const selectValue = data == null || data === '' ? '' : String(data);
 
   return (
     <QuestionShell
@@ -235,8 +237,7 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
         disabled={!enabled}>
         <Select
           native
-          value={data ?? ''}
-          displayEmpty
+          value={selectValue}
           onChange={event => {
             const value = event.target.value;
             handleChange(path, value === '' ? undefined : value);
@@ -245,7 +246,10 @@ const SelectOneOfEnumControl = (props: ControlProps & OwnPropsOfEnum) => {
             'aria-label':
               typeof label === 'string' ? label : (schema.title ?? undefined),
           }}>
-          <option value="">{placeholder}</option>
+          {/* Disable clear only when required — optional enums must stay clearable. */}
+          <option value="" disabled={required && selectValue !== ''}>
+            {placeholder}
+          </option>
           {options.map(option => (
             <option key={String(option.value)} value={String(option.value)}>
               {option.label}

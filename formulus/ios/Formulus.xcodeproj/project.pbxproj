@@ -14,6 +14,7 @@
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		92DE80C6F6664AA2AF375F73 /* formplayer_dist in Resources */ = {isa = PBXBuildFile; fileRef = EBDD571F89894B28B8C91913 /* formplayer_dist */; };
+		A1B2C3D4E5F60718293A4B5C /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F60718293A4B5D /* SceneDelegate.swift */; };
 		A403F6B5C831432092D6432A /* formulus-api.js in Resources */ = {isa = PBXBuildFile; fileRef = 672207178378430481699308 /* formulus-api.js */; };
 		D1F3D891BD4E91B83D93379D /* libPods-Formulus.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 35A5068D571FAAC91153000D /* libPods-Formulus.a */; };
 		E2D4C3847B9CFE032014F121 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
@@ -31,6 +32,7 @@
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Formulus/AppDelegate.swift; sourceTree = "<group>"; };
 		771907CB95B14EB19B4CB206 /* placeholder_app.html */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = placeholder_app.html; path = ../assets/webview/placeholder_app.html; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Formulus/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		A1B2C3D4E5F60718293A4B5D /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SceneDelegate.swift; path = Formulus/SceneDelegate.swift; sourceTree = "<group>"; };
 		B069022F6C1C274ADFA7DCBD /* Pods-Formulus.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Formulus.debug.xcconfig"; path = "Target Support Files/Pods-Formulus/Pods-Formulus.debug.xcconfig"; sourceTree = "<group>"; };
 		B9003E8457E34C9983C8BD62 /* FormulusInjectionScript.js */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; name = FormulusInjectionScript.js; path = ../assets/webview/FormulusInjectionScript.js; sourceTree = "<group>"; };
 		EBDD571F89894B28B8C91913 /* formplayer_dist */ = {isa = PBXFileReference; lastKnownFileType = folder; path = formplayer_dist; sourceTree = "<group>"; };
@@ -54,6 +56,7 @@
 			children = (
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				761780EC2CA45674006654EE /* AppDelegate.swift */,
+				A1B2C3D4E5F60718293A4B5D /* SceneDelegate.swift */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
@@ -134,6 +137,7 @@
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				563235D0618B399E9E2C5576 /* [CP] Embed Pods Frameworks */,
+				A7E4F1C29B8D4056A13E70D2 /* Generate Hermes dSYM */,
 				FFE8138CF617206B3248B8EF /* [CP] Copy Pods Resources */,
 			);
 			buildRules = (
@@ -254,6 +258,23 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Formulus/Pods-Formulus-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		A7E4F1C29B8D4056A13E70D2 /* Generate Hermes dSYM */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/hermes-engine/destroot/Library/Frameworks/universal/hermesvm.xcframework/ios-arm64/hermesvm.framework/hermesvm",
+			);
+			name = "Generate Hermes dSYM";
+			outputPaths = (
+				"${DWARF_DSYM_FOLDER_PATH}/hermesvm.framework.dSYM",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/scripts/generate-hermes-dsym.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
 		FFE8138CF617206B3248B8EF /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -283,6 +304,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
+				A1B2C3D4E5F60718293A4B5C /* SceneDelegate.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -294,9 +316,10 @@
 			baseConfigurationReference = B069022F6C1C274ADFA7DCBD /* Pods-Formulus.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 25;
-				DEVELOPMENT_TEAM = ZZ9482ZVMJ;
+				CURRENT_PROJECT_VERSION = 24;
+				DEVELOPMENT_TEAM = 57WY3GA5K7;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Formulus/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -310,7 +333,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.opendataensemble.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = Formulus;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -328,9 +351,10 @@
 			baseConfigurationReference = 4BC86BCC31A36E17B33DBE8D /* Pods-Formulus.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 25;
-				DEVELOPMENT_TEAM = ZZ9482ZVMJ;
+				CURRENT_PROJECT_VERSION = 24;
+				DEVELOPMENT_TEAM = 57WY3GA5K7;
 				INFOPLIST_FILE = Formulus/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -343,7 +367,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
+				PRODUCT_BUNDLE_IDENTIFIER = "org.opendataensemble.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = Formulus;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
@@ -386,8 +410,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = 57WY3GA5K7;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -427,6 +453,7 @@
 				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
 				USE_HERMES = true;
 			};
@@ -463,8 +490,10 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				COPY_PHASE_STRIP = YES;
+				DEVELOPMENT_TEAM = 57WY3GA5K7;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = "";
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_NO_COMMON_BLOCKS = YES;

@@ -7,12 +7,20 @@
   "lockFileMaintenance": {
     "enabled": false
   },
+  "platformAutomerge": true,
+  "automergeType": "pr",
+  "ignoreTests": false,
   "packageRules": [
     {
       "description": "formulus: always bump package.json ranges (pnpm + npm lockfiles must stay aligned)",
       "matchManagers": ["npm"],
       "matchFileNames": ["formulus/package.json"],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "Automerge patch and digest updates only after required CI status checks pass",
+      "matchUpdateTypes": ["patch", "digest"],
+      "automerge": true
     }
   ],
   "github-actions": {
