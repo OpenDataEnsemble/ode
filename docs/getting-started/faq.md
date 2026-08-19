@@ -6,7 +6,7 @@ sidebar_position: 5
 
 Common questions about ODE installation, usage, and development.
 
-> **Current ODE release:** [v1.1.1](https://github.com/OpenDataEnsemble/ode/releases/tag/v1.1.1) (Synkronus container, Formulus APK, Desktop, Portal)
+> **Current ODE release:** [v1.3.0](https://github.com/OpenDataEnsemble/ode/releases/tag/v1.3.0) (Synkronus container, Formulus APK, Desktop, Portal)
 
 ## General Questions
 

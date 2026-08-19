@@ -17,7 +17,7 @@ Install the server first so that the client has something to connect to. Then in
 
 ## For IT / infrastructure teams
 
-Hosting Synkronus for a study? See **[Server Architecture for IT](/docs/guides/server-architecture-for-it)** for a one-page overview: container layout, TLS, backups, and how custom apps (app bundles) relate to the server. Current platform release: **v1.1.1**.
+Hosting Synkronus for a study? See **[Server Architecture for IT](/docs/guides/server-architecture-for-it)** for a one-page overview: container layout, TLS, backups, and how custom apps (app bundles) relate to the server. Current platform release: **v1.3.0**.
 
 ## Next steps
 

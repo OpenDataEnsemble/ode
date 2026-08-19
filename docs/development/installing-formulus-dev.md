@@ -161,9 +161,9 @@ adb install app-debug.apk
 
 ```bash
 # Browse the release and download the arm64-v8a APK for most phones:
-# https://github.com/OpenDataEnsemble/ode/releases/tag/v1.2.1
-# Asset names look like: formulus-v1.2.1-25-arm64-v8a-release-YYYYMMDD.apk
-adb install /path/to/formulus-v1.2.1-*-arm64-v8a-release-*.apk
+# https://github.com/OpenDataEnsemble/ode/releases/tag/v1.3.0
+# Asset names look like: formulus-v1.3.0-35-arm64-v8a-release-YYYYMMDD.apk
+adb install /path/to/formulus-v1.3.0-*-arm64-v8a-release-*.apk
 ```
 
   </TabItem>
@@ -171,9 +171,9 @@ adb install /path/to/formulus-v1.2.1-*-arm64-v8a-release-*.apk
 
 ```powershell
 # Browse the release and download the arm64-v8a APK for most phones:
-# https://github.com/OpenDataEnsemble/ode/releases/tag/v1.2.1
-# Asset names look like: formulus-v1.2.1-25-arm64-v8a-release-YYYYMMDD.apk
-adb install "C:\path\to\formulus-v1.2.1-*-arm64-v8a-release-*.apk"
+# https://github.com/OpenDataEnsemble/ode/releases/tag/v1.3.0
+# Asset names look like: formulus-v1.3.0-35-arm64-v8a-release-YYYYMMDD.apk
+adb install "C:\path\to\formulus-v1.3.0-*-arm64-v8a-release-*.apk"
 ```
 
   </TabItem>
