@@ -47,51 +47,59 @@ The observations list supports filtering by:
 
 ## Exporting Data
 
-Data can be exported from the server using multiple methods:
+### ODE Desktop (local workspace)
 
-<Tabs>
-  <TabItem value="cli" label="CLI">
+**ODE Desktop** exports from the **active profile’s local SQLite workspace** (offline-friendly; no Synkronus round-trip):
 
-Export all observations as a Parquet ZIP archive:
+1. Open **Data → Export**.
+2. Optionally enable **Include pending observations** and/or **Include attachments**.
+3. Choose a parent folder. Desktop creates a dated leaf folder **`YYYYMMDD`** (asks before overwriting).
+4. Result layout:
+
+| Path | Contents |
+|------|----------|
+| `<form_type>.parquet` | One Parquet file per form type (envelope columns + top-level `data_*` fields, plus a `pending` flag) |
+| `export_manifest.json` | Export metadata (options, counts, attachment path hints) |
+| `snippets/` | Ready-to-run load scripts (`load_r.R`, `load_python.py`, `load_stata.do`, `load_julia.jl`) with variables named after each form type |
+| `attachments/` | Present when **Include attachments** is on — flat copies of referenced files |
+
+Attachment fields in observation JSON store **basenames**. Use the workspace attachments path shown on the Export / Profiles pages as a prefix for live workspace files, or the export folder’s `attachments/` path for a self-contained handoff.
+
+Study-specific transforms and pipelines belong in analyst tools (R, Python, etc.), not in Desktop. Desktop’s role is extract.
+
+### Synkronus server (Portal / CLI)
+
+For a full **server-side** dump (all non-deleted observations on Synkronus), use Portal or the CLI. These download a **ZIP**:
+
+**CLI**
 
 ```bash
-synk data export exports.zip
-```
-
-Export to different formats:
-
-```bash
-# Parquet (default)
+# Parquet ZIP (default) — one <form_type>.parquet per form type inside the archive
 synk data export observations.zip
 
-# JSON
-synk data export observations.json --format json
+# Nested JSON ZIP
+synk data export observations.zip --format json
 
-# CSV
-synk data export observations.csv --format csv
+# Attachments ZIP
+synk data export attachments.zip --format attachments
 ```
 
-  </TabItem>
-  <TabItem value="curl" label="curl">
+**curl**
 
 ```bash
 curl -X GET http://your-server:8080/api/dataexport/parquet \
   -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "x-ode-version: YOUR_ODE_VERSION" \
   -o observations.zip
 ```
 
-  </TabItem>
-  <TabItem value="portal" label="Portal">
+**Portal**
 
-1. Navigate to the Portal
-2. Go to the "Data Export" section
-3. Select export format (Parquet, JSON, CSV)
-4. Click "Export" to download
+1. Open Synkronus Portal (admin).
+2. Open the **Data Export** section.
+3. Download Parquet, raw JSON, or attachments.
 
-  </TabItem>
-</Tabs>
-
-The export includes all observations in the selected format, organized by schema type. See the [API Reference](/reference/api) for details.
+There is **no CSV** export endpoint today; use Parquet (or JSON) and convert in your analysis toolchain if needed.
 
 ## Data Synchronization
 
@@ -101,5 +109,4 @@ Observations are synchronized between devices and the server automatically. See 
 
 - Learn about [synchronization](/using/synchronization) in detail
 - Review the [API Reference](/reference/api/endpoints) for programmatic access
-- Explore [data export options](/reference/api/endpoints) for analysis
-
+- Use ODE Desktop **Export** for local Parquet; use Portal/CLI for server ZIP dumps

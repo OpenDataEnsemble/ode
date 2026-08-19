@@ -19,7 +19,7 @@ Synkronus is a robust synchronization API server built with Go. It provides REST
 Production deployments should pin a release tag rather than `:latest`:
 
 ```
-ghcr.io/opendataensemble/synkronus:v1.1.1
+ghcr.io/opendataensemble/synkronus:v1.3.0
 ```
 
 Images are published on [GitHub Container Registry](https://github.com/OpenDataEnsemble/ode/pkgs/container/synkronus) for each [ODE release](https://github.com/OpenDataEnsemble/ode/releases).

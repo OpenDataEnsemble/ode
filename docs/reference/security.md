@@ -14,7 +14,7 @@ For a one-page infrastructure overview aimed at IT departments, see [Server Arch
 
 ## Supported versions
 
-Security updates are provided for the latest release and the immediately preceding major version. **Current ODE release: [v1.1.1](https://github.com/OpenDataEnsemble/ode/releases/tag/v1.1.1).**
+Security updates are provided for the latest release and the immediately preceding major version. **Current ODE release: [v1.3.0](https://github.com/OpenDataEnsemble/ode/releases/tag/v1.3.0).**
 
 | Component | Supported |
 |-----------|-----------|
@@ -77,7 +77,7 @@ Recommend **device passcode or biometric lock** and **MDM remote wipe** for lost
 
 ### Container images
 
-- Production: pin `ghcr.io/opendataensemble/synkronus:v1.1.1` (not `:latest`).
+- Production: pin `ghcr.io/opendataensemble/synkronus:v1.3.0` (not `:latest`).
 - Scan images for vulnerabilities as part of your supply-chain process.
 
 ### Network
@@ -149,7 +149,7 @@ Before production:
 - [ ] OS and image dependencies patched
 - [ ] Reverse proxy rate limiting configured
 - [ ] Proxy upload limit ≥ 32 MB
-- [ ] Synkronus image tag pinned (e.g. `v1.1.1`)
+- [ ] Synkronus image tag pinned (e.g. `v1.3.0`)
 - [ ] Device passcode/MDM policy for field tablets
 
 ## Security updates
