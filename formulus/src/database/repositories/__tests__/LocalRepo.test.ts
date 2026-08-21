@@ -32,10 +32,36 @@ class MockLocalRepo implements LocalRepoInterface {
     return this.observations.get(id) || null;
   }
 
-  async getObservationsByFormId(formId: string): Promise<Observation[]> {
+  async getObservationsByFormType(formId: string): Promise<Observation[]> {
     return Array.from(this.observations.values()).filter(
       obs => obs.formType === formId && !obs.deleted,
     );
+  }
+
+  async getObservationsByFormId(formId: string): Promise<Observation[]> {
+    return this.getObservationsByFormType(formId);
+  }
+
+  async getActiveObservations(): Promise<Observation[]> {
+    return Array.from(this.observations.values()).filter(obs => !obs.deleted);
+  }
+
+  async listObservationsPage() {
+    const rows = await this.getActiveObservations();
+    return {
+      rows: rows.map(obs => ({
+        observationId: obs.observationId,
+        formType: obs.formType,
+        createdAt: obs.createdAt,
+        updatedAt: obs.updatedAt,
+        syncedAt: obs.syncedAt,
+        author: obs.author ?? null,
+      })),
+      total: rows.length,
+      page: 1,
+      pageSize: rows.length || 1,
+      totalPages: 1,
+    };
   }
 
   async updateObservation(

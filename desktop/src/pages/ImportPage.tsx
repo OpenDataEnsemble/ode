@@ -5,16 +5,17 @@ import { tauriClient } from '../lib/tauriClient';
 import {
   groupIssuesBySeverityAndCategory,
   normalizeBasename,
-  runImportValidation,
+  referencedNamesForObservation,
   type ImportIssue,
   type ImportIssueCategory,
   type ImportValidationReport,
 } from '../lib/importValidation';
-import type { BundleFormSpec } from '../types/domain';
+import type { ApiObservation, BundleFormSpec } from '../types/domain';
 import {
   flattenObservations,
   mapPool,
-  parseObservationJsonPathsViaRust,
+  parseAndValidateImportJsonViaRust,
+  partitionImportObservationsBySyncAppearance,
   summarizeImportFiles,
 } from '../lib/importSummary';
 import {
@@ -30,6 +31,9 @@ import {
 } from '../lib/sessionFolderDialog';
 
 const MAX_INDIVIDUAL_FILES = 20;
+
+/** Cap DOM rows — rendering tens of thousands of staging rows freezes the UI. */
+const STAGING_LIST_PREVIEW = 50;
 
 /** Host copy batch size — keeps IPC payloads and UI updates manageable. */
 const ATTACHMENT_COPY_CHUNK_SIZE = 400;
@@ -53,6 +57,22 @@ function formatBytes(n: number) {
     return `${(n / 1024).toFixed(1)} KB`;
   }
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Attachment basenames referenced by the observations actually being written. */
+function referencedAttachmentNamesForObservations(
+  observations: readonly ApiObservation[],
+  formSpecsByType: Map<string, BundleFormSpec>,
+): string[] {
+  const refs = new Set<string>();
+  for (const obs of observations) {
+    const ft = obs.formType?.trim();
+    const schema = ft ? formSpecsByType.get(ft)?.formSchema : undefined;
+    for (const name of referencedNamesForObservation(schema, obs.data)) {
+      refs.add(name);
+    }
+  }
+  return [...refs];
 }
 
 function normalizeDialogPaths(
@@ -124,6 +144,8 @@ const CATEGORY_LABELS: Record<ImportIssueCategory, string> = {
 function ValidationAccordion({ issues }: { issues: ImportIssue[] }) {
   const grouped = groupIssuesBySeverityAndCategory(issues);
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
+  const errorCount = issues.filter(i => i.severity === 'error').length;
+  const warningCount = issues.filter(i => i.severity === 'warning').length;
 
   function toggle(key: string) {
     setOpenKeys(prev => {
@@ -148,38 +170,54 @@ function ValidationAccordion({ issues }: { issues: ImportIssue[] }) {
     }
   }
 
-  if (sections.length === 0) {
-    return <p className="notice success">No issues reported.</p>;
-  }
-
   return (
-    <div className="validation-accordion">
-      {sections.map(sec => (
-        <div key={sec.key} className="validation-accordion-item">
-          <button
-            type="button"
-            className="validation-accordion-header"
-            aria-expanded={openKeys.has(sec.key)}
-            onClick={() => toggle(sec.key)}>
-            <span className="material-symbols-outlined" aria-hidden>
-              {openKeys.has(sec.key) ? 'expand_more' : 'chevron_right'}
-            </span>
-            {sec.title}
-          </button>
-          {openKeys.has(sec.key) ? (
-            <div className="validation-accordion-body">
-              <ul>
-                {sec.items.slice(0, 30).map((issue, i) => (
-                  <li key={`${issue.code}-${i}`}>{issue.message}</li>
-                ))}
-              </ul>
-              {sec.items.length > 30 ? (
-                <p className="muted">… and {sec.items.length - 30} more</p>
+    <div className="validation-results">
+      {errorCount === 0 ? (
+        <p className="notice success">No validation errors were found.</p>
+      ) : (
+        <p className="notice warn">
+          {errorCount} validation error{errorCount === 1 ? '' : 's'}
+          {warningCount > 0
+            ? ` · ${warningCount} warning${warningCount === 1 ? '' : 's'}`
+            : ''}
+          . Review below — you can still import.
+        </p>
+      )}
+      {errorCount === 0 && warningCount > 0 ? (
+        <p className="muted">
+          {warningCount} warning{warningCount === 1 ? '' : 's'} reported.
+        </p>
+      ) : null}
+      {sections.length > 0 ? (
+        <div className="validation-accordion">
+          {sections.map(sec => (
+            <div key={sec.key} className="validation-accordion-item">
+              <button
+                type="button"
+                className="validation-accordion-header"
+                aria-expanded={openKeys.has(sec.key)}
+                onClick={() => toggle(sec.key)}>
+                <span className="material-symbols-outlined" aria-hidden>
+                  {openKeys.has(sec.key) ? 'expand_more' : 'chevron_right'}
+                </span>
+                {sec.title}
+              </button>
+              {openKeys.has(sec.key) ? (
+                <div className="validation-accordion-body">
+                  <ul>
+                    {sec.items.slice(0, 30).map((issue, i) => (
+                      <li key={`${issue.code}-${i}`}>{issue.message}</li>
+                    ))}
+                  </ul>
+                  {sec.items.length > 30 ? (
+                    <p className="muted">… and {sec.items.length - 30} more</p>
+                  ) : null}
+                </div>
               ) : null}
             </div>
-          ) : null}
+          ))}
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }
@@ -198,6 +236,9 @@ export function ImportPage() {
   const busy = importActivity !== null;
 
   const addScanEntries = useImportStagingStore(s => s.addScanEntries);
+  const retainStagedJsonPaths = useImportStagingStore(
+    s => s.retainStagedJsonPaths,
+  );
   const removeStagedJson = useImportStagingStore(s => s.removeStagedJson);
   const removeStagedAttachment = useImportStagingStore(
     s => s.removeStagedAttachment,
@@ -208,6 +249,10 @@ export function ImportPage() {
   const setError = useImportStagingStore(s => s.setError);
   const setImportActivity = useImportStagingStore(s => s.setImportActivity);
 
+  /** After staging skip dialog: silently drop remaining synced rows at import. */
+  const [preferSkipSynced, setPreferSkipSynced] = useState(false);
+  const [skippedSyncedAtStaging, setSkippedSyncedAtStaging] = useState(0);
+
   const stagingSummary = useMemo(() => {
     const jsonCount = stagedJson.length;
     const attCount = stagedAttachments.length;
@@ -216,6 +261,70 @@ export function ImportPage() {
       stagedAttachments.reduce((a, s) => a + s.size, 0);
     return { jsonCount, attCount, bytes };
   }, [stagedJson, stagedAttachments]);
+
+  /**
+   * After JSON lands in staging, scan Formulus `syncedAt` metadata and optionally
+   * drop already-synced files before the heavy parse/validate pass.
+   */
+  const offerSkipAlreadySynced = useCallback(async () => {
+    const jsonPaths = useImportStagingStore
+      .getState()
+      .stagedJson.map(s => s.nativePath);
+    if (jsonPaths.length === 0) {
+      return;
+    }
+    setImportActivity({
+      statusText: `Checking sync status (${jsonPaths.length} JSON files)…`,
+    });
+    try {
+      const scan = await tauriClient.scanImportJsonSyncAppearance(jsonPaths);
+      if (scan.apparentlySyncedCount <= 0) {
+        return;
+      }
+      const skipSynced = await confirm(
+        `${scan.observationCount} observations were found. ${scan.apparentlySyncedCount} already appear to be synced — skip those and import only the ${scan.unsyncedCount} new observations?`,
+        {
+          title: 'Skip already-synced observations?',
+          kind: 'info',
+          okLabel: 'Skip synced',
+          cancelLabel: 'Keep all',
+        },
+      );
+      if (skipSynced) {
+        retainStagedJsonPaths(scan.unsyncedPaths);
+        setPreferSkipSynced(true);
+        setSkippedSyncedAtStaging(scan.apparentlySyncedCount);
+        setMessage(
+          `Staging updated — kept ${scan.unsyncedPaths.length} JSON file(s); skipped ${scan.apparentlySyncedCount} already-synced observation(s).`,
+        );
+      } else {
+        setPreferSkipSynced(false);
+        setSkippedSyncedAtStaging(0);
+      }
+    } catch (e) {
+      setError(
+        messageFromUnknown(e, 'Could not check already-synced observations'),
+      );
+    }
+  }, [retainStagedJsonPaths, setError, setImportActivity, setMessage]);
+
+  const stageExpandedEntries = useCallback(
+    async (
+      expanded: Awaited<
+        ReturnType<typeof tauriClient.expandImportStagingPaths>
+      >,
+    ) => {
+      if (!expanded.length) {
+        return;
+      }
+      setPreviewReport(null);
+      addScanEntries(expanded);
+      if (expanded.some(e => e.isJson)) {
+        await offerSkipAlreadySynced();
+      }
+    },
+    [addScanEntries, offerSkipAlreadySynced],
+  );
 
   useEffect(() => {
     if (!isTauri()) {
@@ -249,9 +358,7 @@ export function ImportPage() {
                   paths,
                   MAX_INDIVIDUAL_FILES,
                 );
-                if (expanded.length) {
-                  addScanEntries(expanded);
-                }
+                await stageExpandedEntries(expanded);
               } catch (e) {
                 setError(
                   messageFromUnknown(e, 'Could not stage dropped files'),
@@ -270,7 +377,7 @@ export function ImportPage() {
       alive = false;
       unlisten?.();
     };
-  }, [addScanEntries, setError, setImportActivity]);
+  }, [setError, setImportActivity, stageExpandedEntries]);
 
   const pickImportFolder = useCallback(async () => {
     try {
@@ -289,15 +396,13 @@ export function ImportPage() {
         selected,
         null,
       );
-      if (expanded.length) {
-        addScanEntries(expanded);
-      }
+      await stageExpandedEntries(expanded);
     } catch (e) {
       setError(messageFromUnknown(e, 'Folder selection failed'));
     } finally {
       setImportActivity(null);
     }
-  }, [addScanEntries, setError, setImportActivity]);
+  }, [setError, setImportActivity, stageExpandedEntries]);
 
   const pickJsonFiles = useCallback(async () => {
     try {
@@ -315,15 +420,13 @@ export function ImportPage() {
         paths,
         MAX_INDIVIDUAL_FILES,
       );
-      if (expanded.length) {
-        addScanEntries(expanded);
-      }
+      await stageExpandedEntries(expanded);
     } catch (e) {
       setError(messageFromUnknown(e, 'File selection failed'));
     } finally {
       setImportActivity(null);
     }
-  }, [addScanEntries, setError, setImportActivity]);
+  }, [setError, setImportActivity, stageExpandedEntries]);
 
   const pickAttachmentFiles = useCallback(async () => {
     try {
@@ -341,6 +444,7 @@ export function ImportPage() {
         MAX_INDIVIDUAL_FILES,
       );
       if (expanded.length) {
+        setPreviewReport(null);
         addScanEntries(expanded);
       }
     } catch (e) {
@@ -350,45 +454,104 @@ export function ImportPage() {
     }
   }, [addScanEntries, setError, setImportActivity]);
 
-  const runFullImport = useCallback(async () => {
+  const runValidate = useCallback(async () => {
     if (stagedJson.length === 0) {
       return;
     }
     const statusCtl = createThrottledImportStatus(setImportActivity);
-    setPreviewReport(null);
     setMessage(null);
     setError(null);
-    statusCtl.push('Reading observation JSON…');
 
     try {
       await ensureBundleApplyEventPipeline();
-      const parsed = await parseObservationJsonPathsViaRust(
+      statusCtl.push(
+        `Reading and validating JSON (${stagedJson.length} files)…`,
+      );
+      const hostReport = await parseAndValidateImportJsonViaRust(
         stagedJson.map(s => ({ name: s.name, nativePath: s.nativePath })),
-        (done, tot) => statusCtl.push(`Reading JSON (${done}/${tot})…`),
+        stagedAttachments.map(s => s.name),
       );
 
-      const formTypes = new Set<string>();
-      for (const p of parsed) {
-        if (p.error) {
-          continue;
-        }
-        for (const obs of p.observations) {
-          if (obs.formType?.trim()) {
-            formTypes.add(obs.formType.trim());
-          }
-        }
+      const issues: ImportIssue[] = hostReport.issues.map(i => ({
+        severity: i.severity === 'warning' ? 'warning' : 'error',
+        code: i.code,
+        message: i.message,
+        fileName: i.fileName,
+        observationId: i.observationId,
+        formType: i.formType ?? null,
+      }));
+
+      setPreviewReport({
+        issues,
+        parsedFiles: hostReport.parsedFiles,
+        observationCount: hostReport.observationCount,
+        formTypeCount: hostReport.formTypeCount,
+        stagedAttachmentBasenames: stagedAttachments.map(s => s.name),
+        referencedAttachmentNames: hostReport.referencedAttachmentNames,
+        missingAttachmentNames: hostReport.missingAttachmentNames,
+        orphanAttachmentNames: hostReport.orphanAttachmentNames,
+      });
+    } catch (e) {
+      setPreviewReport(null);
+      setError(messageFromUnknown(e, 'Validation failed'));
+    } finally {
+      statusCtl.dispose();
+      setImportActivity(null);
+    }
+  }, [stagedJson, stagedAttachments, setMessage, setError, setImportActivity]);
+
+  const runImportFromReport = useCallback(async () => {
+    if (!previewReport) {
+      return;
+    }
+    const statusCtl = createThrottledImportStatus(setImportActivity);
+    setMessage(null);
+    setError(null);
+
+    try {
+      await ensureBundleApplyEventPipeline();
+
+      const allObservations = flattenObservations(previewReport.parsedFiles);
+      const syncPartition =
+        partitionImportObservationsBySyncAppearance(allObservations);
+      // Staging already offered skip/keep; when skip was chosen, drop any
+      // remaining apparently-synced rows (e.g. mixed files) without re-prompting.
+      const observations = preferSkipSynced
+        ? syncPartition.unsynced
+        : allObservations;
+      const skippedSyncedCount = preferSkipSynced
+        ? Math.max(
+            skippedSyncedAtStaging,
+            syncPartition.apparentlySynced.length,
+          )
+        : 0;
+
+      if (observations.length === 0) {
+        setMessage(
+          skippedSyncedCount > 0
+            ? `Nothing to import — all ${skippedSyncedCount} observations already appear to be synced.`
+            : 'Nothing to import — no observations found in staged JSON.',
+        );
+        return;
       }
 
+      // Form schemas only needed for attachment refs on the rows we actually write.
+      const formTypes = new Set<string>();
+      for (const obs of observations) {
+        if (obs.formType?.trim()) {
+          formTypes.add(obs.formType.trim());
+        }
+      }
       const formSpecsByType = new Map<string, BundleFormSpec>();
       const ftArr = [...formTypes].sort();
-      if (ftArr.length > 0) {
+      if (ftArr.length > 0 && stagedAttachments.length > 0) {
         let schemaDone = 0;
         await mapPool(ftArr, 8, async ft => {
           try {
             const spec = await tauriClient.readBundleFormSpec(ft);
             formSpecsByType.set(ft, spec);
           } catch {
-            /* missing schema reported inside runImportValidation */
+            /* attachment refs fall back to heuristics */
           } finally {
             schemaDone += 1;
             statusCtl.push(
@@ -398,38 +561,9 @@ export function ImportPage() {
         });
       }
 
-      statusCtl.push('Validating…');
-      const basenames = stagedAttachments.map(s => s.name);
-      const report = runImportValidation({
-        parsedFiles: parsed,
-        formSpecsByType,
-        stagedAttachmentBasenames: basenames,
-        onFileValidated: (fi, tot, name) =>
-          statusCtl.push(`Validating (${fi + 1}/${tot}) ${name}…`),
-      });
-
-      if (report.issues.length > 0) {
-        const errCount = report.issues.filter(
-          i => i.severity === 'error',
-        ).length;
-        const warnCount = report.issues.filter(
-          i => i.severity === 'warning',
-        ).length;
-        const ok = await confirm(
-          `${errCount} error(s), ${warnCount} warning(s). Import anyway?`,
-          { title: 'Validation issues', kind: 'warning' },
-        );
-        if (!ok) {
-          setPreviewReport(report);
-          return;
-        }
-      }
-
-      const observations = flattenObservations(report.parsedFiles);
       const writeTotal = observations.length;
       let imported = 0;
       let conflicts = 0;
-      let indexRebuildScheduled = false;
 
       for (
         let offset = 0;
@@ -441,103 +575,107 @@ export function ImportPage() {
           offset + IMPORT_WRITE_CHUNK_SIZE,
         );
         const written = Math.min(offset + chunk.length, writeTotal);
-        const isLast = written >= writeTotal;
         statusCtl.push(`Writing observations (${written}/${writeTotal})…`);
+        // Indexes are updated incrementally inside import (same as sync pull).
         const chunkResult = await tauriClient.importObservations(chunk, {
           markPending: true,
-          scheduleIndexRebuild: isLast,
+          scheduleIndexRebuild: false,
         });
         imported += chunkResult.imported;
         conflicts += chunkResult.conflicts;
-        indexRebuildScheduled =
-          indexRebuildScheduled || !!chunkResult.indexRebuildScheduled;
       }
 
-      const result = { imported, conflicts, indexRebuildScheduled };
-
-      const stagedNorm = new Map<string, string>();
-      for (const s of stagedAttachments) {
-        const k = normalizeBasename(s.name);
-        if (k && !stagedNorm.has(k)) {
-          stagedNorm.set(k, s.name);
-        }
-      }
-
-      const refNorm = new Set(
-        report.referencedAttachmentNames
-          .map(n => normalizeBasename(n))
-          .filter(Boolean),
-      );
+      const result = { imported, conflicts };
 
       const copyItems: { sourcePath: string; attachmentId: string }[] = [];
-      for (const s of stagedAttachments) {
-        const kn = normalizeBasename(s.name);
-        if (!kn || !refNorm.has(kn)) {
-          continue;
-        }
-        const attachmentId = stagedNorm.get(kn) ?? s.name;
-        copyItems.push({
-          sourcePath: s.nativePath,
-          attachmentId,
-        });
-      }
-
       const copyErrors: string[] = [];
       let attachmentsCopied = 0;
-      if (copyItems.length > 0) {
-        const copyTotal = copyItems.length;
-        const copyStatusCtl = createThrottledImportStatus(
-          setImportActivity,
-          250,
+      if (stagedAttachments.length > 0) {
+        statusCtl.push('Resolving attachment references…');
+        const stagedNorm = new Map<string, string>();
+        for (const s of stagedAttachments) {
+          const k = normalizeBasename(s.name);
+          if (k && !stagedNorm.has(k)) {
+            stagedNorm.set(k, s.name);
+          }
+        }
+
+        const refNorm = new Set(
+          referencedAttachmentNamesForObservations(
+            observations,
+            formSpecsByType,
+          )
+            .map(n => normalizeBasename(n))
+            .filter(Boolean),
         );
-        copyStatusCtl.push(formatAttachmentCopyProgress(0, copyTotal));
-        const { listen } = await import('@tauri-apps/api/event');
-        let unlisten: (() => void) | undefined;
-        try {
-          for (
-            let offset = 0;
-            offset < copyItems.length;
-            offset += ATTACHMENT_COPY_CHUNK_SIZE
-          ) {
-            const chunk = copyItems.slice(
-              offset,
-              offset + ATTACHMENT_COPY_CHUNK_SIZE,
-            );
-            const chunkIndex =
-              Math.floor(offset / ATTACHMENT_COPY_CHUNK_SIZE) + 1;
-            const chunkCount = Math.ceil(
-              copyItems.length / ATTACHMENT_COPY_CHUNK_SIZE,
-            );
-            if (chunkCount > 1) {
+
+        for (const s of stagedAttachments) {
+          const kn = normalizeBasename(s.name);
+          if (!kn || !refNorm.has(kn)) {
+            continue;
+          }
+          const attachmentId = stagedNorm.get(kn) ?? s.name;
+          copyItems.push({
+            sourcePath: s.nativePath,
+            attachmentId,
+          });
+        }
+
+        if (copyItems.length > 0) {
+          const copyTotal = copyItems.length;
+          const copyStatusCtl = createThrottledImportStatus(
+            setImportActivity,
+            250,
+          );
+          copyStatusCtl.push(formatAttachmentCopyProgress(0, copyTotal));
+          const { listen } = await import('@tauri-apps/api/event');
+          let unlisten: (() => void) | undefined;
+          try {
+            for (
+              let offset = 0;
+              offset < copyItems.length;
+              offset += ATTACHMENT_COPY_CHUNK_SIZE
+            ) {
+              const chunk = copyItems.slice(
+                offset,
+                offset + ATTACHMENT_COPY_CHUNK_SIZE,
+              );
+              const chunkIndex =
+                Math.floor(offset / ATTACHMENT_COPY_CHUNK_SIZE) + 1;
+              const chunkCount = Math.ceil(
+                copyItems.length / ATTACHMENT_COPY_CHUNK_SIZE,
+              );
+              if (chunkCount > 1) {
+                copyStatusCtl.push(
+                  `Copying attachments batch ${chunkIndex}/${chunkCount}…`,
+                );
+              }
+              unlisten?.();
+              unlisten = await listen<{
+                done: number;
+                total: number;
+                attachmentId: string;
+              }>('import/attachment-copy-progress', e => {
+                const globalDone = offset + e.payload.done;
+                copyStatusCtl.push(
+                  formatAttachmentCopyProgress(globalDone, copyTotal),
+                );
+              });
+              const batchResult =
+                await tauriClient.copyWorkspaceAttachmentsBatch(chunk);
+              copyErrors.push(...batchResult.errors);
+              attachmentsCopied += batchResult.copied;
               copyStatusCtl.push(
-                `Copying attachments batch ${chunkIndex}/${chunkCount}…`,
+                formatAttachmentCopyProgress(
+                  Math.min(offset + chunk.length, copyTotal),
+                  copyTotal,
+                ),
               );
             }
+          } finally {
             unlisten?.();
-            unlisten = await listen<{
-              done: number;
-              total: number;
-              attachmentId: string;
-            }>('import/attachment-copy-progress', e => {
-              const globalDone = offset + e.payload.done;
-              copyStatusCtl.push(
-                formatAttachmentCopyProgress(globalDone, copyTotal),
-              );
-            });
-            const batchResult =
-              await tauriClient.copyWorkspaceAttachmentsBatch(chunk);
-            copyErrors.push(...batchResult.errors);
-            attachmentsCopied += batchResult.copied;
-            copyStatusCtl.push(
-              formatAttachmentCopyProgress(
-                Math.min(offset + chunk.length, copyTotal),
-                copyTotal,
-              ),
-            );
+            copyStatusCtl.dispose();
           }
-        } finally {
-          unlisten?.();
-          copyStatusCtl.dispose();
         }
       }
 
@@ -545,16 +683,19 @@ export function ImportPage() {
       await loadObservations();
       await loadHealth();
 
-      const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).`;
-      const indexMsg = result.indexRebuildScheduled
-        ? ' Rebuilding observation indexes in the background (see activity banner).'
-        : '';
+      const skipMsg =
+        skippedSyncedCount > 0
+          ? ` Skipped ${skippedSyncedCount} already-synced observation(s).`
+          : '';
+      const baseMsg = `Imported ${result.imported} observations (${result.conflicts} conflicts).${skipMsg}`;
       const attMsg =
         copyItems.length > 0
           ? ` Copied ${attachmentsCopied}/${copyItems.length} referenced attachment(s) to queue.${copyErrors.length ? ` Errors: ${copyErrors.slice(0, 5).join('; ')}${copyErrors.length > 5 ? '…' : ''}` : ''}`
           : '';
-      setMessage(`${baseMsg}${indexMsg}${attMsg}`);
+      setMessage(`${baseMsg}${attMsg}`);
       clearStagedFiles();
+      setPreferSkipSynced(false);
+      setSkippedSyncedAtStaging(0);
       setPreviewReport(null);
     } catch (e) {
       setError(messageFromUnknown(e, 'Import failed'));
@@ -563,8 +704,10 @@ export function ImportPage() {
       setImportActivity(null);
     }
   }, [
-    stagedJson,
+    previewReport,
     stagedAttachments,
+    preferSkipSynced,
+    skippedSyncedAtStaging,
     setMessage,
     setError,
     setImportActivity,
@@ -637,7 +780,12 @@ export function ImportPage() {
               type="button"
               className="linkish"
               disabled={busy}
-              onClick={() => clearStagingLists()}>
+              onClick={() => {
+                clearStagingLists();
+                setPreferSkipSynced(false);
+                setSkippedSyncedAtStaging(0);
+                setPreviewReport(null);
+              }}>
               Clear staging
             </button>
           ) : null}
@@ -648,14 +796,17 @@ export function ImportPage() {
             {stagedJson.length > 0 ? (
               <div className="import-staging-section">
                 <h4>JSON ({stagedJson.length})</h4>
-                {stagedJson.map(s => (
+                {stagedJson.slice(0, STAGING_LIST_PREVIEW).map(s => (
                   <div key={s.nativePath} className="import-staging-row">
                     <button
                       type="button"
                       className="import-staging-row-remove"
                       aria-label={`Remove ${s.name}`}
                       disabled={busy}
-                      onClick={() => removeStagedJson(s.nativePath)}>
+                      onClick={() => {
+                        removeStagedJson(s.nativePath);
+                        setPreviewReport(null);
+                      }}>
                       ×
                     </button>
                     <span className="material-symbols-outlined" aria-hidden>
@@ -665,20 +816,29 @@ export function ImportPage() {
                     <span className="muted">{formatBytes(s.size)}</span>
                   </div>
                 ))}
+                {stagedJson.length > STAGING_LIST_PREVIEW ? (
+                  <p className="muted">
+                    … and {stagedJson.length - STAGING_LIST_PREVIEW} more (list
+                    truncated for performance)
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
             {stagedAttachments.length > 0 ? (
               <div className="import-staging-section">
                 <h4>Attachments ({stagedAttachments.length})</h4>
-                {stagedAttachments.map(s => (
+                {stagedAttachments.slice(0, STAGING_LIST_PREVIEW).map(s => (
                   <div key={s.nativePath} className="import-staging-row">
                     <button
                       type="button"
                       className="import-staging-row-remove"
                       aria-label={`Remove ${s.name}`}
                       disabled={busy}
-                      onClick={() => removeStagedAttachment(s.nativePath)}>
+                      onClick={() => {
+                        removeStagedAttachment(s.nativePath);
+                        setPreviewReport(null);
+                      }}>
                       ×
                     </button>
                     <span className="material-symbols-outlined" aria-hidden>
@@ -688,6 +848,12 @@ export function ImportPage() {
                     <span className="muted">{formatBytes(s.size)}</span>
                   </div>
                 ))}
+                {stagedAttachments.length > STAGING_LIST_PREVIEW ? (
+                  <p className="muted">
+                    … and {stagedAttachments.length - STAGING_LIST_PREVIEW} more
+                    (list truncated for performance)
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -698,23 +864,35 @@ export function ImportPage() {
             type="button"
             className="btn-icon"
             disabled={busy || stagedJson.length === 0}
-            onClick={() => void runFullImport()}>
+            onClick={() => void runValidate()}>
             <span className="material-symbols-outlined" aria-hidden>
-              download
+              fact_check
             </span>
-            {busy ? 'Working…' : 'Import into local store'}
+            {busy ? 'Working…' : 'Validate'}
           </button>
         </div>
       </div>
 
       {previewReport && preflightSummary ? (
         <div className="panel">
-          <h3>Validation summary</h3>
+          <h3>Validation results</h3>
           <p className="muted">
             {preflightSummary.observationCount} observations ·{' '}
             {preflightSummary.formTypeCount} form types
           </p>
           <ValidationAccordion issues={previewReport.issues} />
+          <div className="button-row" style={{ marginTop: 'var(--space-lg)' }}>
+            <button
+              type="button"
+              className="btn-icon"
+              disabled={busy || previewReport.observationCount === 0}
+              onClick={() => void runImportFromReport()}>
+              <span className="material-symbols-outlined" aria-hidden>
+                download
+              </span>
+              {busy ? 'Importing…' : 'Import into local store'}
+            </button>
+          </div>
         </div>
       ) : null}
 

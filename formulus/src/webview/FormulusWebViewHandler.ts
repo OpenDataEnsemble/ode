@@ -7,6 +7,7 @@
  */
 
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
+import { persistWebViewConsole, webViewTag } from '../diagnostics/logger';
 import { createFormulusMessageHandlers } from './FormulusMessageHandlers';
 import { FormInitData } from './FormulusInterfaceDefinition';
 
@@ -221,6 +222,11 @@ export class FormulusWebViewMessageManager {
           // If logging fails, silently ignore to prevent cascading errors
           // This can happen if console methods are not properly available
         }
+        persistWebViewConsole(
+          webViewTag(this.appName),
+          String(logLevel),
+          logArgs,
+        );
       } else if (type === 'console') {
         // Keep existing handler for type === 'console' as fallback
         // Handle console messages from WebView if type is exactly 'console' and level is in payload
@@ -237,6 +243,11 @@ export class FormulusWebViewMessageManager {
         } else {
           console.log(`${this.logPrefix} [WebView]`, ...args);
         }
+        persistWebViewConsole(
+          webViewTag(this.appName),
+          String(level ?? 'log'),
+          Array.isArray(args) ? args : [args],
+        );
       } else {
         this.handleIncomingAction(type, payload, messageId);
       }

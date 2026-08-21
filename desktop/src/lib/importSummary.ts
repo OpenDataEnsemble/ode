@@ -1,6 +1,7 @@
 import type {
   ApiObservation,
   HostTextReadResult,
+  ImportHostIssue,
   ObservationExtras,
 } from '../types/domain';
 import { tauriClient } from './tauriClient';
@@ -323,7 +324,9 @@ export async function parseObservationJsonFromPaths(
   return out;
 }
 
-const RUST_PARSE_CHUNK = 128;
+const RUST_PARSE_CHUNK = 512;
+/** Overlapping IPC batches while each batch still parses in parallel on the host. */
+const RUST_PARSE_CONCURRENCY = 3;
 
 /**
  * Read and parse observation JSON via Rust (parallel per chunk). Preserves file order.
@@ -336,27 +339,69 @@ export async function parseObservationJsonPathsViaRust(
   if (total === 0) {
     return [];
   }
-  const out: ParsedObservationFile[] = [];
+  const chunks: { name: string; nativePath: string }[][] = [];
   for (let i = 0; i < total; i += RUST_PARSE_CHUNK) {
-    const chunk = items.slice(i, i + RUST_PARSE_CHUNK);
-    const paths = chunk.map(c => c.nativePath);
-    const rows = await tauriClient.parseImportObservationJsonPaths(paths);
-    if (rows.length !== chunk.length) {
-      throw new Error(
-        `parseImportObservationJsonPaths returned ${rows.length} rows, expected ${chunk.length}`,
-      );
-    }
-    for (let j = 0; j < chunk.length; j++) {
-      const r = rows[j]!;
-      out.push({
+    chunks.push(items.slice(i, i + RUST_PARSE_CHUNK));
+  }
+
+  let done = 0;
+  const chunkResults = await mapPool(
+    chunks,
+    RUST_PARSE_CONCURRENCY,
+    async chunk => {
+      const paths = chunk.map(c => c.nativePath);
+      const rows = await tauriClient.parseImportObservationJsonPaths(paths);
+      if (rows.length !== chunk.length) {
+        throw new Error(
+          `parseImportObservationJsonPaths returned ${rows.length} rows, expected ${chunk.length}`,
+        );
+      }
+      done += chunk.length;
+      onBatchProgress?.(Math.min(done, total), total);
+      return rows.map(r => ({
         fileName: r.fileName,
         observations: r.observations,
         error: r.error,
-      });
-    }
-    onBatchProgress?.(Math.min(i + chunk.length, total), total);
-  }
-  return out;
+      }));
+    },
+  );
+
+  return chunkResults.flat();
+}
+
+/**
+ * Host-side parallel parse + schema/attachment validation for the full staged set.
+ * Prefer this over parse-then-AJV for large imports.
+ */
+export async function parseAndValidateImportJsonViaRust(
+  items: readonly { name: string; nativePath: string }[],
+  stagedAttachmentBasenames: readonly string[],
+): Promise<{
+  parsedFiles: ParsedObservationFile[];
+  issues: ImportHostIssue[];
+  observationCount: number;
+  formTypeCount: number;
+  referencedAttachmentNames: string[];
+  missingAttachmentNames: string[];
+  orphanAttachmentNames: string[];
+}> {
+  const paths = items.map(it => it.nativePath);
+  const result = await tauriClient.parseAndValidateImportJsonPaths(paths, [
+    ...stagedAttachmentBasenames,
+  ]);
+  return {
+    parsedFiles: result.files.map(r => ({
+      fileName: r.fileName,
+      observations: r.observations,
+      error: r.error,
+    })),
+    issues: result.issues,
+    observationCount: result.observationCount,
+    formTypeCount: result.formTypeCount,
+    referencedAttachmentNames: result.referencedAttachmentNames,
+    missingAttachmentNames: result.missingAttachmentNames,
+    orphanAttachmentNames: result.orphanAttachmentNames,
+  };
 }
 
 export function flattenObservations(
@@ -367,4 +412,63 @@ export function flattenObservations(
     out.push(...f.observations);
   }
   return out;
+}
+
+/**
+ * Ignore null / placeholder syncedAt values (same floor as Formulus
+ * `MIN_VALID_SYNCED_AT_MS` in observationSyncStatus.ts).
+ */
+export const MIN_VALID_IMPORT_SYNCED_AT_MS = new Date('1980-01-01').getTime();
+
+function parseImportTimestampMs(raw: string | null | undefined): number | null {
+  if (raw == null || !raw.trim()) {
+    return null;
+  }
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/**
+ * True when Formulus-style export metadata says the observation was fully
+ * synced (`syncedAt` set and `updatedAt <= syncedAt`). Used to offer skipping
+ * already-synced rows during hail-mary device exports.
+ */
+export function isImportObservationApparentlySynced(
+  observation: ApiObservation,
+): boolean {
+  const syncedMs = parseImportTimestampMs(observation.extras?.syncedAt ?? null);
+  if (syncedMs == null || syncedMs <= MIN_VALID_IMPORT_SYNCED_AT_MS) {
+    return false;
+  }
+  const updatedMs = parseImportTimestampMs(observation.updatedAt ?? null);
+  if (updatedMs == null) {
+    return true;
+  }
+  return updatedMs <= syncedMs;
+}
+
+export interface ImportSyncAppearancePartition {
+  total: number;
+  apparentlySynced: ApiObservation[];
+  unsynced: ApiObservation[];
+}
+
+/** Split flattened import rows by Formulus sync appearance (`syncedAt`). */
+export function partitionImportObservationsBySyncAppearance(
+  observations: readonly ApiObservation[],
+): ImportSyncAppearancePartition {
+  const apparentlySynced: ApiObservation[] = [];
+  const unsynced: ApiObservation[] = [];
+  for (const obs of observations) {
+    if (isImportObservationApparentlySynced(obs)) {
+      apparentlySynced.push(obs);
+    } else {
+      unsynced.push(obs);
+    }
+  }
+  return {
+    total: observations.length,
+    apparentlySynced,
+    unsynced,
+  };
 }

@@ -2,6 +2,7 @@ import { synkronusApi } from './index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
 import { ODE_VERSION } from '../../version';
+import { logger } from '../../diagnostics/logger';
 
 export type UserRole = 'read-only' | 'read-write' | 'admin';
 
@@ -100,7 +101,7 @@ export const login = async (
   username: string,
   password: string,
 ): Promise<UserInfo> => {
-  console.log('Logging in with', username);
+  logger.info('auth', 'login ok');
   const api = await synkronusApi.getApi();
 
   synkronusApi.clearTokenCache();
@@ -155,7 +156,6 @@ export const getApiAuthToken = async (): Promise<string | undefined> => {
   try {
     const token = await AsyncStorage.getItem('@token');
     if (token) {
-      console.debug('Token retrieved from AsyncStorage.');
       return token;
     }
     console.warn('No token found in AsyncStorage.');
@@ -199,9 +199,8 @@ export const autoLogin = async (): Promise<UserInfo | null> => {
       return null;
     }
 
-    console.log('🔄 Attempting auto-login with stored credentials');
     const userInfo = await login(credentials.username, credentials.password);
-    console.log('✅ Auto-login successful - token refreshed');
+    logger.info('auth', 'auto-login ok');
     return userInfo;
   } catch (error: unknown) {
     const httpError = error as HttpError;

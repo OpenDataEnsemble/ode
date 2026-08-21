@@ -37,7 +37,7 @@ func TestPushAppBundle(t *testing.T) {
 	mockDataExportService := mocks.NewMockDataExportService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService, nil)
+	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService, mocks.NewMockStatsService(), nil)
 
 	// Create a temporary test file
 	tempDir := t.TempDir()
@@ -175,7 +175,7 @@ func TestGetAppBundleVersions(t *testing.T) {
 	mockDataExportService := mocks.NewMockDataExportService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService, nil)
+	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService, mocks.NewMockStatsService(), nil)
 
 	// Test cases
 	tests := []struct {
@@ -231,7 +231,7 @@ func TestSwitchAppBundleVersion(t *testing.T) {
 	mockDataExportService := mocks.NewMockDataExportService()
 
 	// Create a handler for testing
-	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService, nil)
+	h := NewHandler(log, mockConfig, mockAuthService, mockAppBundleService, mockSyncService, mockUserService, mockVersionService, mockAttachmentManifestService, mockDataExportService, mocks.NewMockStatsService(), nil)
 
 	// Test cases
 	tests := []struct {

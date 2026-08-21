@@ -8,6 +8,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/dataexport"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/presence"
+	"github.com/opendataensemble/synkronus/pkg/stats"
 	"github.com/opendataensemble/synkronus/pkg/sync"
 	"github.com/opendataensemble/synkronus/pkg/user"
 	"github.com/opendataensemble/synkronus/pkg/version"
@@ -24,6 +25,7 @@ type Handler struct {
 	versionService            version.Service
 	attachmentManifestService attachment.ManifestService
 	dataExportService         dataexport.Service
+	statsService              stats.Service
 	presenceRecorder          *presence.Recorder
 }
 
@@ -38,6 +40,7 @@ func NewHandler(
 	versionService version.Service,
 	attachmentManifestService attachment.ManifestService,
 	dataExportService dataexport.Service,
+	statsService stats.Service,
 	presenceRecorder *presence.Recorder,
 ) *Handler {
 	return &Handler{
@@ -50,6 +53,7 @@ func NewHandler(
 		versionService:            versionService,
 		attachmentManifestService: attachmentManifestService,
 		dataExportService:         dataExportService,
+		statsService:              statsService,
 		presenceRecorder:          presenceRecorder,
 	}
 }

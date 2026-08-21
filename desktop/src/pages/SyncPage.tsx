@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ForcePushMissingAttachmentsDialog } from '../components/ForcePushMissingAttachmentsDialog';
+import { ResetLocalDataDialog } from '../components/ResetLocalDataDialog';
 import { useProfileAutoSynkAuth } from '../hooks/useProfileAutoSynkAuth';
 import { tauriClient } from '../lib/tauriClient';
 import { confirmDestructiveAction } from '../lib/destructivePolicy';
@@ -27,9 +28,7 @@ function formatDate(value?: string | null) {
 
 export function SyncPage() {
   const activeProfile = useCustodianStore(selectActiveProfileState);
-  const { authSession, authBlocked, ensureAuth } = useProfileAutoSynkAuth(
-    activeProfile?.id,
-  );
+  const { authBlocked, ensureAuth } = useProfileAutoSynkAuth(activeProfile?.id);
   const syncActivity = useCustodianStore(selectSyncActivity);
   const syncPausedJob = useCustodianStore(selectPausedSyncJob);
   const bundleActivity = useCustodianStore(selectBundleActivity);
@@ -58,6 +57,7 @@ export function SyncPage() {
   const [missingAttachmentIssues, setMissingAttachmentIssues] = useState<
     MissingAttachmentIssue[] | null
   >(null);
+  const [resetLocalOpen, setResetLocalOpen] = useState(false);
   const [indexStatus, setIndexStatus] = useState<{
     activeGeneration: number;
     lastRebuildAt?: string | null;
@@ -195,15 +195,8 @@ export function SyncPage() {
   }
 
   async function resetLocalData() {
-    if (
-      !(await confirmDestructiveAction(
-        'local_reset',
-        'Remove all observations and attachment files from this device and reset sync offsets.',
-      ))
-    ) {
-      return;
-    }
-    await resetLocalWorkspaceData();
+    await loadHealth();
+    setResetLocalOpen(true);
   }
 
   return (
@@ -212,7 +205,7 @@ export function SyncPage() {
         <h2>Sync</h2>
       </header>
 
-      {authBlocked && !authSession ? (
+      {authBlocked ? (
         <p className="notice warn">
           Not authenticated. <Link to="/data/profiles">Open Profiles</Link> to
           sign in.
@@ -365,6 +358,19 @@ export function SyncPage() {
             return;
           }
           void runPush(force);
+        }}
+      />
+
+      <ResetLocalDataDialog
+        open={resetLocalOpen}
+        dirtyCount={health?.dirtyCount ?? 0}
+        conflictCount={health?.conflictCount ?? 0}
+        onChoice={choice => {
+          setResetLocalOpen(false);
+          if (!choice) {
+            return;
+          }
+          void resetLocalWorkspaceData({ pendingOnly: choice.pendingOnly });
         }}
       />
     </section>

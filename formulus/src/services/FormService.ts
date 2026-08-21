@@ -10,6 +10,11 @@ import {
   SHARED_CHOICE_SCHEMA_ID,
   type SharedChoiceSchemaDoc,
 } from '../utils/sharedChoiceSchema';
+import { logger } from '../diagnostics/logger';
+import type {
+  ObservationListPage,
+  ObservationListQuery,
+} from '../database/observationListQuery';
 
 /**
  * Interface representing a form type
@@ -37,20 +42,12 @@ export class FormService {
     SharedChoiceSchemaDoc | null
   >();
 
-  private constructor() {
-    console.log(
-      'FormService: Instance created - use await getInstance() to access singleton instance',
-    );
-  }
+  private constructor() {}
 
   private async _initialize(): Promise<void> {
-    console.log('FormService: Starting initialization...');
     try {
       const specs = await this.getFormspecsFromStorage();
       this.formSpecs = specs;
-      console.log(
-        `FormService: ${specs.length} form specs loaded successfully`,
-      );
     } catch (error) {
       console.error(
         'Failed to load default form types during FormService construction:',
@@ -86,9 +83,6 @@ export class FormService {
         doc.$id = SHARED_CHOICE_SCHEMA_ID;
       }
       this.sharedChoiceSchemaByDir.set(formsDir, doc);
-      console.log(
-        `FormService: loaded shared choice defs (${Object.keys(doc.$defs).length} lists) from ${filePath}`,
-      );
       return doc;
     } catch (error) {
       console.warn(
@@ -105,10 +99,8 @@ export class FormService {
     formsParentDir: string,
   ): Promise<FormSpec | null> {
     if (!formDir.isDirectory()) {
-      console.log('Skipping non-directory:', formDir.name);
       return null;
     }
-    console.log('Loading form spec:', formDir.path);
     let schema: unknown;
     try {
       const filePath = formDir.path + '/schema.json';
@@ -209,12 +201,6 @@ export class FormService {
         await RNFS.mkdir(rootFormsDir);
       }
 
-      console.log(
-        `🟢🟢🟢 [FormService] Successfully loaded ${allFormSpecs.length} form specs`,
-      );
-      console.log(
-        `🟢 [FormService] Form IDs: ${allFormSpecs.map(f => f.id).join(', ')}`,
-      );
       return allFormSpecs;
     } catch (error) {
       console.error(
@@ -235,7 +221,6 @@ export class FormService {
     }
 
     if (!FormService.initializationPromise) {
-      console.log('FormService: Starting initialization...');
       FormService.initializationPromise = FormService.instance
         ._initialize()
         .catch(error => {
@@ -272,13 +257,9 @@ export class FormService {
    * This should be called after app bundle updates
    */
   public async invalidateCache(): Promise<void> {
-    console.log('FormService: Invalidating cache and reloading form specs...');
     try {
       const specs = await this.getFormspecsFromStorage();
       this.formSpecs = specs;
-      console.log(
-        `FormService: Cache invalidated, ${specs.length} form specs reloaded`,
-      );
 
       // Notify all subscribers that cache has been invalidated
       this.cacheInvalidationCallbacks.forEach(callback => {
@@ -307,15 +288,8 @@ export class FormService {
    */
   public getFormSpecById(id: string): FormSpec | undefined {
     const found = this.formSpecs.find(formSpec => formSpec.id === id);
-    if (found) {
-      console.log(
-        'FormService: Found form spec for',
-        id,
-        'sending schema and uiSchema',
-      );
-    } else {
+    if (!found) {
       console.warn('FormService: Form spec not found for', id);
-      console.debug('FormService: Form specs:', this.formSpecs);
     }
     return found;
   }
@@ -330,6 +304,25 @@ export class FormService {
   ): Promise<Observation[]> {
     const localRepo = databaseService.getLocalRepo();
     return await localRepo.getObservationsByFormType(formTypeId);
+  }
+
+  public async getActiveObservations(): Promise<Observation[]> {
+    const localRepo = databaseService.getLocalRepo();
+    return localRepo.getActiveObservations();
+  }
+
+  public async getObservation(
+    observationId: string,
+  ): Promise<Observation | null> {
+    const localRepo = databaseService.getLocalRepo();
+    return localRepo.getObservation(observationId);
+  }
+
+  public async listObservationsPage(
+    query: ObservationListQuery,
+  ): Promise<ObservationListPage> {
+    const localRepo = databaseService.getLocalRepo();
+    return localRepo.listObservationsPage(query);
   }
 
   /**
@@ -392,14 +385,13 @@ export class FormService {
       formVersion: '1.0', // Default version
     };
 
-    console.debug('Observation input: ', input);
     if (input.formType === undefined) {
       throw new Error('Form type is required to save observation');
     }
     if (input.data === undefined) {
       throw new Error('Data is required to save observation');
     }
-    console.log('Saving observation of type: ' + input.formType);
+    logger.info('forms', 'saving observation', { formType });
     const localRepo = databaseService.getLocalRepo();
     return await localRepo.saveObservation(input);
   }
@@ -419,14 +411,12 @@ export class FormService {
       data,
     };
 
-    console.debug('Observation update input: ', input);
     if (input.observationId === undefined) {
       throw new Error('Observation ID is required to update observation');
     }
     if (input.data === undefined) {
       throw new Error('Data is required to update observation');
     }
-    console.log('Updating observation with ID: ' + input.observationId);
     const localRepo = databaseService.getLocalRepo();
     await localRepo.updateObservation(input);
     return input.observationId;
@@ -438,8 +428,6 @@ export class FormService {
    */
   public async debugDatabase(): Promise<void> {
     try {
-      console.log('=== DATABASE DEBUG INFO ===');
-
       // Get the local repository
       const localRepo = databaseService.getLocalRepo();
       if (!localRepo) {
@@ -448,23 +436,17 @@ export class FormService {
       }
 
       // Log some test observations
-      console.log('Creating test observations...');
 
       // Create a test observation with person form type
-      const testId1 = await localRepo.saveObservation({
+      await localRepo.saveObservation({
         formType: 'person',
         data: { test: 'data1' },
       });
-      console.log('Created test observation 1:', testId1);
 
-      // Create another test observation with a different form type
-      const testId2 = await localRepo.saveObservation({
+      await localRepo.saveObservation({
         formType: 'test_form',
         data: { test: 'data2' },
       });
-      console.log('Created test observation 2:', testId2);
-
-      console.log('=== END DEBUG INFO ===');
     } catch (error) {
       console.error('Error debugging database:', error);
     }

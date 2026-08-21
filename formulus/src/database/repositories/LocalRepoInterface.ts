@@ -4,6 +4,10 @@ import {
   NewObservationInput,
   UpdateObservationInput,
 } from '../models/Observation';
+import type {
+  ObservationListPage,
+  ObservationListQuery,
+} from '../observationListQuery';
 /**
  * Interface for local data repository operations
  * This allows us to abstract the storage implementation for testability
@@ -29,6 +33,18 @@ export interface LocalRepoInterface {
    * @returns Promise resolving to an array of observations
    */
   getObservationsByFormType(formType: string): Promise<Observation[]>;
+
+  /**
+   * All non-deleted observations (every form type). Used by the Observations list.
+   */
+  getActiveObservations(): Promise<Observation[]>;
+
+  /**
+   * Envelope-only page for the Observations table. Never reads `data`.
+   */
+  listObservationsPage(
+    query: ObservationListQuery,
+  ): Promise<ObservationListPage>;
 
   /**
    * Query observations with structured filter AST (SQLite + local indexes).
@@ -70,7 +86,13 @@ export interface LocalRepoInterface {
    * @param changes Array of changes to apply
    * @returns Promise resolving to the number of changes applied
    */
-  applyServerChanges(changes: Observation[]): Promise<number>;
+  applyServerChanges(
+    changes: Observation[],
+    options?: {
+      onIndexProgress?: (progress: { current: number; total: number }) => void;
+      isCancelled?: () => boolean;
+    },
+  ): Promise<number>;
 
   /**
    * Get pending changes from the local database

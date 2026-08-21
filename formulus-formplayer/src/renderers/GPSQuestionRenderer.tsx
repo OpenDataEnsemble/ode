@@ -19,6 +19,7 @@ import {
   MyLocation as MyLocationIcon,
 } from '@mui/icons-material';
 import QuestionShell from '../components/QuestionShell';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import { tokens } from '../theme/tokens-adapter';
 import FormulusClient from '../services/FormulusInterface';
 import type { LocationResult } from '../types/FormulusInterfaceDefinition';
@@ -155,6 +156,7 @@ const GPSQuestionRenderer: React.FC<GPSQuestionRendererProps> = props => {
   const hasValidationErrors = errors && errors.length > 0;
   const isDisabled = !enabled || isCapturing;
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (visible === false) return null;
 
   return (

@@ -804,6 +804,25 @@ export interface Observation {
     tags?: Array<string> | null;
 }
 /**
+ * 
+ * @export
+ * @interface ObservationFormTypeCount
+ */
+export interface ObservationFormTypeCount {
+    /**
+     * Form type id; empty/whitespace stored values become "(no form type)"
+     * @type {string}
+     * @memberof ObservationFormTypeCount
+     */
+    formType: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof ObservationFormTypeCount
+     */
+    count: number;
+}
+/**
  * Optional geolocation data for the observation
  * @export
  * @interface ObservationGeolocation
@@ -845,6 +864,104 @@ export interface ObservationGeolocation {
      * @memberof ObservationGeolocation
      */
     timestamp?: Date;
+}
+/**
+ * 
+ * @export
+ * @interface ObservationStatsResponse
+ */
+export interface ObservationStatsResponse {
+    /**
+     * Total non-deleted observations
+     * @type {number}
+     * @memberof ObservationStatsResponse
+     */
+    totalCount: number;
+    /**
+     * 
+     * @type {Array<ObservationFormTypeCount>}
+     * @memberof ObservationStatsResponse
+     */
+    byFormType: Array<ObservationFormTypeCount>;
+    /**
+     * 
+     * @type {ObservationTimeline}
+     * @memberof ObservationStatsResponse
+     */
+    timeline: ObservationTimeline;
+    /**
+     * UTC timestamp when this aggregate was computed
+     * @type {Date}
+     * @memberof ObservationStatsResponse
+     */
+    computedAt: Date;
+}
+/**
+ * 
+ * @export
+ * @interface ObservationTimeline
+ */
+export interface ObservationTimeline {
+    /**
+     * Bucket granularity (week when span of dated observations is >= 365 days)
+     * @type {ObservationTimelineBucketUnitEnum}
+     * @memberof ObservationTimeline
+     */
+    bucketUnit: ObservationTimelineBucketUnitEnum;
+    /**
+     * First bucket start date (YYYY-MM-DD), empty when there are no observations
+     * @type {string}
+     * @memberof ObservationTimeline
+     */
+    rangeStart: string;
+    /**
+     * Last bucket start date (YYYY-MM-DD), empty when there are no observations
+     * @type {string}
+     * @memberof ObservationTimeline
+     */
+    rangeEnd: string;
+    /**
+     * Dense zero-filled buckets from rangeStart through rangeEnd
+     * @type {Array<ObservationTimelineBucket>}
+     * @memberof ObservationTimeline
+     */
+    buckets: Array<ObservationTimelineBucket>;
+}
+
+
+/**
+ * @export
+ */
+export const ObservationTimelineBucketUnitEnum = {
+    Day: 'day',
+    Week: 'week'
+} as const;
+export type ObservationTimelineBucketUnitEnum = typeof ObservationTimelineBucketUnitEnum[keyof typeof ObservationTimelineBucketUnitEnum];
+
+/**
+ * 
+ * @export
+ * @interface ObservationTimelineBucket
+ */
+export interface ObservationTimelineBucket {
+    /**
+     * Bucket start date (YYYY-MM-DD, UTC)
+     * @type {string}
+     * @memberof ObservationTimelineBucket
+     */
+    bucketStart: string;
+    /**
+     * Human-readable label (e.g. "Jan 1")
+     * @type {string}
+     * @memberof ObservationTimelineBucket
+     */
+    label: string;
+    /**
+     * 
+     * @type {number}
+     * @memberof ObservationTimelineBucket
+     */
+    count: number;
 }
 /**
  * 

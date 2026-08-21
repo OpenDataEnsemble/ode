@@ -130,6 +130,37 @@ export function writeDataPath(
   return root;
 }
 
+/** Immutable omit of a leaf at `dotPath` (top-level or nested object paths). */
+export function omitDataPath(
+  data: Record<string, unknown>,
+  dotPath: string,
+): Record<string, unknown> {
+  if (!dotPath) return data;
+  const keys = dotPath.split('.');
+  if (keys.length === 1) {
+    if (!(dotPath in data)) return data;
+    const { [dotPath]: _removed, ...rest } = data;
+    return rest;
+  }
+
+  const root = { ...data };
+  let cur: Record<string, unknown> = root;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    const next = cur[key];
+    if (next == null || typeof next !== 'object' || Array.isArray(next)) {
+      return data;
+    }
+    const cloned = { ...(next as Record<string, unknown>) };
+    cur[key] = cloned;
+    cur = cloned;
+  }
+  const leaf = keys[keys.length - 1];
+  if (!(leaf in cur)) return data;
+  delete cur[leaf];
+  return root;
+}
+
 /** Embedded arrays and derived indexes preserved when JsonForms omits unmounted fields. */
 const PRESERVED_ARRAY_KEYS = [
   'quartos',
@@ -156,8 +187,12 @@ export function formDataJsonEqual(
  * absent from `incoming` even though they still live in our baseline draft
  * state. Starting from `{ ...baseline, ...incoming }` preserves off-page
  * scalars (host prefills like cluster stamps / obsdate, and directly-used
- * `x-autoSequence` fields) so they are not dropped and re-allocated. On-page
- * edits (including clearing a field) still override baseline via `incoming`.
+ * `x-autoSequence` fields) so they are not dropped and re-allocated.
+ *
+ * Clear-on-hide deletes keys (unanswered). That is indistinguishable from an
+ * off-page omit here, so App must use {@link mergeIncomingFormData} which
+ * re-applies SHOW/HIDE after this merge. Do not clear to `null` — AJV treats
+ * null as an invalid typed value ("Invalid value") rather than unanswered.
  * Sub-observation arrays get extra protection below against shorter/partial
  * payloads.
  */
@@ -589,6 +624,21 @@ export function sortRows(
         : b;
     const av = readDataPath(aData, key);
     const bv = readDataPath(bData, key);
+
+    const an =
+      av === null || av === undefined || av === ''
+        ? NaN
+        : Number(typeof av === 'string' ? av.trim() : av);
+    const bn =
+      bv === null || bv === undefined || bv === ''
+        ? NaN
+        : Number(typeof bv === 'string' ? bv.trim() : bv);
+    if (Number.isFinite(an) && Number.isFinite(bn)) {
+      if (an < bn) return -1 * sign;
+      if (an > bn) return 1 * sign;
+      return 0;
+    }
+
     const as = av == null ? '' : String(av);
     const bs = bv == null ? '' : String(bv);
     if (as < bs) return -1 * sign;

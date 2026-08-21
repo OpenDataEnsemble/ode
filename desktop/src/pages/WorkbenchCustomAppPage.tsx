@@ -25,9 +25,7 @@ import type { AppBundleState } from '../types/domain';
 export function WorkbenchCustomAppPage() {
   const navigate = useNavigate();
   const activeProfile = useCustodianStore(selectActiveProfileState);
-  const { authSession, authBlocked, ensureAuth } = useProfileAutoSynkAuth(
-    activeProfile?.id,
-  );
+  const { authBlocked, ensureAuth } = useProfileAutoSynkAuth(activeProfile?.id);
   const recoverActiveProfileAuth = useCustodianStore(
     s => s.recoverActiveProfileAuth,
   );
@@ -178,6 +176,10 @@ export function WorkbenchCustomAppPage() {
 
     setUploading(true);
     try {
+      // Refresh from the local source folder, then zip+push the mirror.
+      // `pushDevMirrorAppBundle` strips the ODE Desktop embed inject that
+      // CustomAppEmbed writes into `app/index.html` for iframe preview —
+      // that stub must not ship to Synkronus / Formulus.
       await refreshDevApp();
       if (!(await ensureAuth())) {
         return;
@@ -257,7 +259,7 @@ export function WorkbenchCustomAppPage() {
       {devError ? <p className="notice error">{devError}</p> : null}
       {bundleError ? <p className="notice error">{bundleError}</p> : null}
       {uploadError ? <p className="notice error">{uploadError}</p> : null}
-      {developerMode && baseUrl && authBlocked && !authSession ? (
+      {developerMode && baseUrl && authBlocked ? (
         <p className="notice warn">
           Not authenticated. <Link to="/data/profiles">Open Profiles</Link> to
           sign in.

@@ -9,6 +9,7 @@ import { withJsonFormsControlProps } from '@jsonforms/react';
 import { ControlProps, rankWith, formatIs } from '@jsonforms/core';
 import QuestionShell from '../components/QuestionShell';
 import { tokens } from '../theme/tokens-adapter';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 
 // Helper to parse pixel values from tokens
 const parsePx = (value: string): number => {
@@ -212,6 +213,7 @@ const SignatureQuestionRenderer: React.FC<ControlProps> = ({
     }
   }, [hasData]);
 
+  useClearOnHide({ visible, path, data, handleChange });
   // Don't render if not visible
   if (!visible) {
     return null;

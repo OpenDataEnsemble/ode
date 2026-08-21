@@ -40,6 +40,24 @@ func (e AttachmentOperationOperation) Valid() bool {
 	}
 }
 
+// Defines values for ObservationTimelineBucketUnit.
+const (
+	Day  ObservationTimelineBucketUnit = "day"
+	Week ObservationTimelineBucketUnit = "week"
+)
+
+// Valid indicates whether the value is a known member of the ObservationTimelineBucketUnit enum.
+func (e ObservationTimelineBucketUnit) Valid() bool {
+	switch e {
+	case Day:
+		return true
+	case Week:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RepositoryResetRequestConfirm.
 const (
 	RESETREPOSITORY RepositoryResetRequestConfirm = "RESET_REPOSITORY"
@@ -332,6 +350,54 @@ type Observation struct {
 	// Tags Optional list of string tags (labeling, extensions, data cleaning)
 	Tags      *[]string `json:"tags,omitempty"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ObservationFormTypeCount defines model for ObservationFormTypeCount.
+type ObservationFormTypeCount struct {
+	Count int64 `json:"count"`
+
+	// FormType Form type id; empty/whitespace stored values become "(no form type)"
+	FormType string `json:"formType"`
+}
+
+// ObservationStatsResponse defines model for ObservationStatsResponse.
+type ObservationStatsResponse struct {
+	ByFormType []ObservationFormTypeCount `json:"byFormType"`
+
+	// ComputedAt UTC timestamp when this aggregate was computed
+	ComputedAt time.Time           `json:"computedAt"`
+	Timeline   ObservationTimeline `json:"timeline"`
+
+	// TotalCount Total non-deleted observations
+	TotalCount int64 `json:"totalCount"`
+}
+
+// ObservationTimeline defines model for ObservationTimeline.
+type ObservationTimeline struct {
+	// BucketUnit Bucket granularity (week when span of dated observations is >= 365 days)
+	BucketUnit ObservationTimelineBucketUnit `json:"bucketUnit"`
+
+	// Buckets Dense zero-filled buckets from rangeStart through rangeEnd
+	Buckets []ObservationTimelineBucket `json:"buckets"`
+
+	// RangeEnd Last bucket start date (YYYY-MM-DD), empty when there are no observations
+	RangeEnd string `json:"rangeEnd"`
+
+	// RangeStart First bucket start date (YYYY-MM-DD), empty when there are no observations
+	RangeStart string `json:"rangeStart"`
+}
+
+// ObservationTimelineBucketUnit Bucket granularity (week when span of dated observations is >= 365 days)
+type ObservationTimelineBucketUnit string
+
+// ObservationTimelineBucket defines model for ObservationTimelineBucket.
+type ObservationTimelineBucket struct {
+	// BucketStart Bucket start date (YYYY-MM-DD, UTC)
+	BucketStart string `json:"bucketStart"`
+	Count       int64  `json:"count"`
+
+	// Label Human-readable label (e.g. "Jan 1")
+	Label string `json:"label"`
 }
 
 // ProblemDetail defines model for ProblemDetail.
@@ -654,6 +720,12 @@ type GetRawJsonExportZipParams struct {
 	XOdeVersion XOdeVersion `json:"x-ode-version"`
 }
 
+// GetObservationStatsParams defines parameters for GetObservationStats.
+type GetObservationStatsParams struct {
+	// XOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+	XOdeVersion XOdeVersion `json:"x-ode-version"`
+}
+
 // SyncPullParams defines parameters for SyncPull.
 type SyncPullParams struct {
 	// SchemaType Filter by schemaType
@@ -926,6 +998,9 @@ type ClientInterface interface {
 
 	// GetRawJsonExportZip request
 	GetRawJsonExportZip(ctx context.Context, params *GetRawJsonExportZipParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetObservationStats request
+	GetObservationStats(ctx context.Context, params *GetObservationStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SyncPullWithBody request with any body
 	SyncPullWithBody(ctx context.Context, params *SyncPullParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1210,6 +1285,18 @@ func (c *Client) GetParquetExportZip(ctx context.Context, params *GetParquetExpo
 
 func (c *Client) GetRawJsonExportZip(ctx context.Context, params *GetRawJsonExportZipParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetRawJsonExportZipRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetObservationStats(ctx context.Context, params *GetObservationStatsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetObservationStatsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2319,6 +2406,46 @@ func NewGetRawJsonExportZipRequest(server string, params *GetRawJsonExportZipPar
 	return req, nil
 }
 
+// NewGetObservationStatsRequest generates requests for GetObservationStats
+func NewGetObservationStatsRequest(server string, params *GetObservationStatsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/stats/observations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "x-ode-version", params.XOdeVersion, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("x-ode-version", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewSyncPullRequest calls the generic SyncPull builder with application/json body
 func NewSyncPullRequest(server string, params *SyncPullParams, body SyncPullJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -2973,6 +3100,9 @@ type ClientWithResponsesInterface interface {
 	// GetRawJsonExportZipWithResponse request
 	GetRawJsonExportZipWithResponse(ctx context.Context, params *GetRawJsonExportZipParams, reqEditors ...RequestEditorFn) (*GetRawJsonExportZipHTTPResponse, error)
 
+	// GetObservationStatsWithResponse request
+	GetObservationStatsWithResponse(ctx context.Context, params *GetObservationStatsParams, reqEditors ...RequestEditorFn) (*GetObservationStatsHTTPResponse, error)
+
 	// SyncPullWithBodyWithResponse request with any body
 	SyncPullWithBodyWithResponse(ctx context.Context, params *SyncPullParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SyncPullHTTPResponse, error)
 
@@ -3416,6 +3546,31 @@ func (r GetRawJsonExportZipHTTPResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetRawJsonExportZipHTTPResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetObservationStatsHTTPResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ObservationStatsResponse
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON500      *InternalServerError
+}
+
+// Status returns HTTPResponse.Status
+func (r GetObservationStatsHTTPResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetObservationStatsHTTPResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -3870,6 +4025,15 @@ func (c *ClientWithResponses) GetRawJsonExportZipWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseGetRawJsonExportZipHTTPResponse(rsp)
+}
+
+// GetObservationStatsWithResponse request returning *GetObservationStatsHTTPResponse
+func (c *ClientWithResponses) GetObservationStatsWithResponse(ctx context.Context, params *GetObservationStatsParams, reqEditors ...RequestEditorFn) (*GetObservationStatsHTTPResponse, error) {
+	rsp, err := c.GetObservationStats(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetObservationStatsHTTPResponse(rsp)
 }
 
 // SyncPullWithBodyWithResponse request with arbitrary body returning *SyncPullHTTPResponse
@@ -4623,6 +4787,53 @@ func ParseGetRawJsonExportZipHTTPResponse(rsp *http.Response) (*GetRawJsonExport
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalServerError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetObservationStatsHTTPResponse parses an HTTP response from a GetObservationStatsWithResponse call
+func ParseGetObservationStatsHTTPResponse(rsp *http.Response) (*GetObservationStatsHTTPResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetObservationStatsHTTPResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ObservationStatsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest Unauthorized
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

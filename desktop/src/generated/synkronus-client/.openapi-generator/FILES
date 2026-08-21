@@ -2,6 +2,7 @@ apis/AttachmentsApi.ts
 apis/DataExportApi.ts
 apis/DefaultApi.ts
 apis/HealthApi.ts
+apis/StatsApi.ts
 apis/index.ts
 docs/APIVersionInfo.md
 docs/APIVersionsResponse.md
@@ -34,7 +35,11 @@ docs/GetHealth503Response.md
 docs/HealthApi.md
 docs/LoginRequest.md
 docs/Observation.md
+docs/ObservationFormTypeCount.md
 docs/ObservationGeolocation.md
+docs/ObservationStatsResponse.md
+docs/ObservationTimeline.md
+docs/ObservationTimelineBucket.md
 docs/ProblemDetail.md
 docs/ProblemDetailErrorsInner.md
 docs/RefreshTokenRequest.md
@@ -43,6 +48,7 @@ docs/RepositoryResetResponse.md
 docs/ResetUserPassword200Response.md
 docs/ResetUserPasswordRequest.md
 docs/ServerInfo.md
+docs/StatsApi.md
 docs/SwitchAppBundleVersion200Response.md
 docs/SyncPullRequest.md
 docs/SyncPullRequestSince.md
@@ -85,7 +91,11 @@ models/GetHealth200Response.ts
 models/GetHealth503Response.ts
 models/LoginRequest.ts
 models/Observation.ts
+models/ObservationFormTypeCount.ts
 models/ObservationGeolocation.ts
+models/ObservationStatsResponse.ts
+models/ObservationTimeline.ts
+models/ObservationTimelineBucket.ts
 models/ProblemDetail.ts
 models/ProblemDetailErrorsInner.ts
 models/RefreshTokenRequest.ts

@@ -18,6 +18,8 @@ interface ImportStagingState {
   error: string | null;
   importActivity: { statusText: string } | null;
   addScanEntries: (entries: ImportStagingScanEntry[]) => void;
+  /** Keep only JSON files whose absolute path is in `nativePaths`. */
+  retainStagedJsonPaths: (nativePaths: readonly string[]) => void;
   removeStagedJson: (nativePath: string) => void;
   removeStagedAttachment: (nativePath: string) => void;
   /** Clears staged JSON + attachment lists (keeps message/error). */
@@ -83,6 +85,14 @@ export const useImportStagingStore = create<ImportStagingState>(set => ({
         stagedAttachments: nextAtt,
         message: null,
         error: null,
+      };
+    }),
+
+  retainStagedJsonPaths: nativePaths =>
+    set(s => {
+      const keep = new Set(nativePaths);
+      return {
+        stagedJson: s.stagedJson.filter(f => keep.has(f.nativePath)),
       };
     }),
 

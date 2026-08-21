@@ -25,6 +25,7 @@ import {
   useNumericDraftInput,
   type NumericSchemaKind,
 } from '../hooks/useNumericDraftInput';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 
 const isNumberControl: RankedTester = rankWith(
   5,
@@ -73,6 +74,7 @@ const NumberStepperRenderer = ({
     enabled,
   });
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (visible === false) return null;
 
   const min = schema.minimum ?? (schema as { minimum?: number }).minimum;

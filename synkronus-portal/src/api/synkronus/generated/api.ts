@@ -299,6 +299,13 @@ export interface Observation {
      */
     'tags'?: Array<string> | null;
 }
+export interface ObservationFormTypeCount {
+    /**
+     * Form type id; empty/whitespace stored values become \"(no form type)\"
+     */
+    'formType': string;
+    'count': number;
+}
 /**
  * Optional geolocation data for the observation
  */
@@ -327,6 +334,55 @@ export interface ObservationGeolocation {
      * When the GPS fix was obtained (ISO 8601)
      */
     'timestamp'?: string;
+}
+export interface ObservationStatsResponse {
+    /**
+     * Total non-deleted observations
+     */
+    'totalCount': number;
+    'byFormType': Array<ObservationFormTypeCount>;
+    'timeline': ObservationTimeline;
+    /**
+     * UTC timestamp when this aggregate was computed
+     */
+    'computedAt': string;
+}
+export interface ObservationTimeline {
+    /**
+     * Bucket granularity (week when span of dated observations is >= 365 days)
+     */
+    'bucketUnit': ObservationTimelineBucketUnitEnum;
+    /**
+     * First bucket start date (YYYY-MM-DD), empty when there are no observations
+     */
+    'rangeStart': string;
+    /**
+     * Last bucket start date (YYYY-MM-DD), empty when there are no observations
+     */
+    'rangeEnd': string;
+    /**
+     * Dense zero-filled buckets from rangeStart through rangeEnd
+     */
+    'buckets': Array<ObservationTimelineBucket>;
+}
+
+export const ObservationTimelineBucketUnitEnum = {
+    Day: 'day',
+    Week: 'week',
+} as const;
+
+export type ObservationTimelineBucketUnitEnum = typeof ObservationTimelineBucketUnitEnum[keyof typeof ObservationTimelineBucketUnitEnum];
+
+export interface ObservationTimelineBucket {
+    /**
+     * Bucket start date (YYYY-MM-DD, UTC)
+     */
+    'bucketStart': string;
+    /**
+     * Human-readable label (e.g. \"Jan 1\")
+     */
+    'label': string;
+    'count': number;
 }
 export interface ProblemDetail {
     'type': string;
@@ -3203,6 +3259,123 @@ export class HealthApi extends BaseAPI {
      */
     public getHealth(options?: RawAxiosRequestConfig) {
         return HealthApiFp(this.configuration).getHealth(options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * StatsApi - axios parameter creator
+ */
+export const StatsApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Returns non-deleted observation totals grouped by form type and a dense activity timeline bucketed by UTC calendar day (or week when the span is at least 365 days). Soft-deleted observations are excluded. Timeline dates use `created_at` interpreted in UTC. Intended for portal/desktop overview charts; not a general-purpose query API. 
+         * @summary Observation aggregate stats for dashboard charts
+         * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getObservationStats: async (xOdeVersion: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'xOdeVersion' is not null or undefined
+            assertParamExists('getObservationStats', 'xOdeVersion', xOdeVersion)
+            const localVarPath = `/api/stats/observations`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication bearerAuth required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            localVarHeaderParameter['Accept'] = 'application/json';
+
+            if (xOdeVersion != null) {
+                localVarHeaderParameter['x-ode-version'] = String(xOdeVersion);
+            }
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * StatsApi - functional programming interface
+ */
+export const StatsApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = StatsApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Returns non-deleted observation totals grouped by form type and a dense activity timeline bucketed by UTC calendar day (or week when the span is at least 365 days). Soft-deleted observations are excluded. Timeline dates use `created_at` interpreted in UTC. Intended for portal/desktop overview charts; not a general-purpose query API. 
+         * @summary Observation aggregate stats for dashboard charts
+         * @param {string} xOdeVersion Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getObservationStats(xOdeVersion: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ObservationStatsResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getObservationStats(xOdeVersion, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['StatsApi.getObservationStats']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * StatsApi - factory interface
+ */
+export const StatsApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = StatsApiFp(configuration)
+    return {
+        /**
+         * Returns non-deleted observation totals grouped by form type and a dense activity timeline bucketed by UTC calendar day (or week when the span is at least 365 days). Soft-deleted observations are excluded. Timeline dates use `created_at` interpreted in UTC. Intended for portal/desktop overview charts; not a general-purpose query API. 
+         * @summary Observation aggregate stats for dashboard charts
+         * @param {StatsApiGetObservationStatsRequest} requestParameters Request parameters.
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getObservationStats(requestParameters: StatsApiGetObservationStatsRequest, options?: RawAxiosRequestConfig): AxiosPromise<ObservationStatsResponse> {
+            return localVarFp.getObservationStats(requestParameters.xOdeVersion, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * Request parameters for getObservationStats operation in StatsApi.
+ */
+export interface StatsApiGetObservationStatsRequest {
+    /**
+     * Client semantic version; the major segment must match the server. Optional leading v/V and semver pre-release/build suffixes are accepted (same rules as Synkronus).
+     */
+    readonly xOdeVersion: string
+}
+
+/**
+ * StatsApi - object-oriented interface
+ */
+export class StatsApi extends BaseAPI {
+    /**
+     * Returns non-deleted observation totals grouped by form type and a dense activity timeline bucketed by UTC calendar day (or week when the span is at least 365 days). Soft-deleted observations are excluded. Timeline dates use `created_at` interpreted in UTC. Intended for portal/desktop overview charts; not a general-purpose query API. 
+     * @summary Observation aggregate stats for dashboard charts
+     * @param {StatsApiGetObservationStatsRequest} requestParameters Request parameters.
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public getObservationStats(requestParameters: StatsApiGetObservationStatsRequest, options?: RawAxiosRequestConfig) {
+        return StatsApiFp(this.configuration).getObservationStats(requestParameters.xOdeVersion, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

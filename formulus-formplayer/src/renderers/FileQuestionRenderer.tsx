@@ -19,11 +19,13 @@ import {
   FileResultData,
 } from '../types/FormulusInterfaceDefinition';
 import QuestionShell from '../components/QuestionShell';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import {
   attachmentBasenameFromFilename,
   attachmentBasenameFromObservation,
 } from '../utils/attachmentBasename';
 import FormulusClient from '../services/FormulusInterface';
+import { formatControlErrors } from '../utils/formatControlErrors';
 
 const parsePx = (value: string): number =>
   parseInt(value.replace('px', ''), 10);
@@ -174,6 +176,7 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
     setSafeError(null);
   }, [handleChange, path, setSafeError]);
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (!visible) {
     return null;
   }
@@ -181,8 +184,7 @@ const FileQuestionRenderer: React.FC<ControlProps> = ({
   const obs = fileObservationRecord(data);
   const hasData = obs !== null;
   const displayName = displayFilenameForFileObservation(obs);
-  const validationError =
-    errors && errors.length > 0 ? String(errors[0]) : null;
+  const validationError = formatControlErrors(errors);
 
   const label = (uischema as { label?: string }).label ?? schema.title;
   const description = schema.description;

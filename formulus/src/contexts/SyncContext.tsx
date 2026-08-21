@@ -6,6 +6,7 @@ import React, {
   ReactNode,
 } from 'react';
 import { syncService as syncServiceInstance } from '../services/SyncService';
+import { i18n } from '../i18n/instance';
 
 export type { SyncProgress, SyncProgressPhase } from '../sync/syncProgress';
 export type { SyncProgressReporter } from '../sync/syncProgress';
@@ -69,12 +70,19 @@ export const SyncProvider: React.FC<SyncProviderProps> = ({ children }) => {
 
   const cancelSync = useCallback(() => {
     syncServiceInstance.cancelSync();
+    // Keep isActive until the in-flight syncObservations/updateAppBundle
+    // finally-block clears isSyncing. Flipping it here re-enabled the Sync
+    // button while the service was still busy, and the next tap threw
+    // "Sync already in progress".
     setSyncState(prev => ({
       ...prev,
-      isActive: false,
       canCancel: false,
-      error: 'Sync cancelled by user',
-      progress: undefined,
+      progress: prev.progress
+        ? {
+            ...prev.progress,
+            details: i18n.t('sync.progress.cancelling'),
+          }
+        : prev.progress,
     }));
   }, []);
 

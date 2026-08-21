@@ -93,21 +93,10 @@ export class ExtensionService {
       renderers: {},
     };
 
-    console.log(
-      `[ExtensionService] Loading extensions for app: ${customAppPath}, form: ${formName || 'none'}`,
-    );
-
     // Load app-level extensions
     const appExtPath = `${customAppPath}/forms/ext.json`;
-    console.log(
-      `[ExtensionService] Loading app-level ext.json from: ${appExtPath}`,
-    );
     const appLevelExt = await this.loadExtensionFile(appExtPath);
     if (appLevelExt) {
-      console.log(`[ExtensionService] App-level extensions loaded:`, {
-        functionCount: Object.keys(appLevelExt.functions || {}).length,
-        functionNames: Object.keys(appLevelExt.functions || {}),
-      });
       this.mergeExtension(result, appLevelExt);
     } else {
       console.warn(
@@ -118,30 +107,11 @@ export class ExtensionService {
     // Load form-level extensions (higher precedence)
     if (formName) {
       const formExtPath = `${customAppPath}/forms/${formName}/ext.json`;
-      console.log(
-        `[ExtensionService] Loading form-level ext.json from: ${formExtPath}`,
-      );
       const formLevelExt = await this.loadExtensionFile(formExtPath);
       if (formLevelExt) {
-        console.log(`[ExtensionService] Form-level extensions loaded:`, {
-          functionCount: Object.keys(formLevelExt.functions || {}).length,
-          functionNames: Object.keys(formLevelExt.functions || {}),
-        });
         this.mergeExtension(result, formLevelExt);
       }
     }
-
-    console.log(`[ExtensionService] Final merged extensions:`, {
-      definitionKeys: Object.keys(result.definitions),
-      functionKeys: Object.keys(result.functions),
-      functionDetails: Object.entries(result.functions).map(([k, v]) => ({
-        key: k,
-        name: v.name,
-        module: v.module,
-        export: v.export,
-      })),
-      rendererKeys: Object.keys(result.renderers),
-    });
 
     return result;
   }
@@ -155,22 +125,11 @@ export class ExtensionService {
     try {
       const exists = await RNFS.exists(filePath);
       if (!exists) {
-        console.log(`[ExtensionService] File does not exist: ${filePath}`);
         return null;
       }
 
       const content = await RNFS.readFile(filePath, 'utf8');
       const rawExtension = JSON.parse(content) as Record<string, unknown>;
-
-      console.log(`[ExtensionService] Loaded ext.json from ${filePath}:`, {
-        hasSchemas: !!rawExtension.schemas,
-        hasDefinitions: !!rawExtension.definitions,
-        hasFunctions: !!rawExtension.functions,
-        functionKeys: rawExtension.functions
-          ? Object.keys(rawExtension.functions)
-          : [],
-        hasRenderers: !!rawExtension.renderers,
-      });
 
       // Normalize the extension format to match ExtensionDefinition interface
       const extension: ExtensionDefinition = {
@@ -219,20 +178,6 @@ export class ExtensionService {
             )
           : undefined,
       };
-
-      console.log(`[ExtensionService] Normalized extension:`, {
-        definitionKeys: Object.keys(extension.definitions || {}),
-        functionKeys: Object.keys(extension.functions || {}),
-        functionDetails: extension.functions
-          ? Object.entries(extension.functions).map(([k, v]) => ({
-              key: k,
-              name: v.name,
-              module: v.module,
-              export: v.export,
-            }))
-          : [],
-        rendererKeys: Object.keys(extension.renderers || {}),
-      });
 
       // Validate structure
       this.validateExtension(extension, filePath);

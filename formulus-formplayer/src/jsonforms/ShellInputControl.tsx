@@ -13,6 +13,7 @@ import {
   resolveControlDescription,
   resolveControlLabel,
 } from '../utils/controlDisplayText';
+import { useClearOnHide } from './useClearOnHide';
 
 /**
  * String control that renders the stock MuiInputText cell inside QuestionShell
@@ -21,8 +22,18 @@ import {
  */
 const ShellInputControl = (props: ControlProps) => {
   const { keyboardEnterKeyHint } = useFormContext();
-  const { uischema, schema, errors, visible, required } = props;
+  const {
+    uischema,
+    schema,
+    errors,
+    visible,
+    required,
+    path,
+    data,
+    handleChange,
+  } = props;
 
+  useClearOnHide({ visible, path, data, handleChange });
   if (visible === false) return null;
 
   const title = resolveControlLabel(props);

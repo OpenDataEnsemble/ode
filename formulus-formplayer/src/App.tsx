@@ -113,7 +113,9 @@ import DynamicEnumControl, { dynamicEnumTester } from './DynamicEnumControl';
 import ShellInputControl, {
   shellInputControlTester,
 } from './jsonforms/ShellInputControl';
+import { applyClearOnHideToRenderers } from './jsonforms/applyClearOnHideToRenderers';
 import type { KeyboardPrimaryEnterKeyHint } from './utils/keyboardEnterKeyHint';
+import { additionalErrorsForDisplay } from './utils/additionalErrorsForDisplay';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import { draftService } from './services/DraftService';
@@ -128,10 +130,8 @@ import { runCustomValidatorsAndRefreshData } from './services/customValidatorDat
 import { resolveErrorPageIndex } from './utils/errorPageNavigation';
 import { applyAutoSequences } from './utils/autoSequence';
 import { newDraftSessionKey } from './utils/draftSessionKey';
-import {
-  formDataJsonEqual,
-  mergePreservingSubObsArrays,
-} from './renderers/subObservationHelpers';
+import { formDataJsonEqual } from './renderers/subObservationHelpers';
+import { mergeIncomingFormData } from './jsonforms/clearHiddenControlData';
 
 /** Embedded sub-observation session (also accepts legacy `returnOnly` from older hosts). */
 function isSubObservationSession(init: FormInitData): boolean {
@@ -461,9 +461,10 @@ function App() {
   // Deferred validation: new forms start hidden (no red errors on first paint),
   // then switch to ValidateAndShow on first forward navigation / finalize. Edits
   // and draft resumes start shown. Host can override via params.validationMode.
+  // Default Hide so pre-init flash cannot paint Show before FormInitData arrives.
   const [validationMode, setValidationMode] = useState<
     'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
-  >('ValidateAndShow');
+  >('ValidateAndHide');
   const [uiLocale, setUiLocale] = useState<OdeUiLocale>('en');
   const uiLocaleRef = useRef(uiLocale);
   uiLocaleRef.current = uiLocale;
@@ -472,6 +473,20 @@ function App() {
   >(undefined);
 
   const odeI18n = useMemo(() => createOdeI18n(uiLocale), [uiLocale]);
+
+  // Clear-on-hide is Formplayer's sole SHOW/HIDE data policy for Controls.
+  // Memoize so registry HOCs are stable across App re-renders.
+  const formRenderers = useMemo(
+    () =>
+      applyClearOnHideToRenderers([
+        ...shellMaterialRenderers,
+        ...materialRenderers,
+        ...customRenderers,
+        ...customTypeRenderers,
+        ...extensionRenderers,
+      ]),
+    [customTypeRenderers, extensionRenderers],
+  );
 
   // Reference to the FormulusClient instance and loading state
   const formulusClient = useRef<FormulusClient>(FormulusClient.getInstance());
@@ -1149,7 +1164,12 @@ function App() {
     ({ data: newData }: { data: FormData }) => {
       const incoming = newData as Record<string, unknown>;
       const baseline = dataRef.current as Record<string, unknown>;
-      const merged = mergePreservingSubObsArrays(baseline, incoming);
+      // Preserve off-page SwipeLayout fields, then omit answers that are not
+      // relevant (key deletion = unanswered for AJV — not null).
+      const merged = mergeIncomingFormData(baseline, incoming, {
+        uischema,
+        ajv,
+      });
       void (async () => {
         const refreshedData = await refreshFormData(merged);
         if (formDataJsonEqual(refreshedData, baseline)) {
@@ -1160,7 +1180,7 @@ function App() {
         persistDraftIfRootSession(refreshedData);
       })();
     },
-    [refreshFormData, persistDraftIfRootSession],
+    [refreshFormData, persistDraftIfRootSession, uischema, ajv],
   );
 
   const commitFormData = useCallback(
@@ -1549,18 +1569,15 @@ function App() {
                         uischema={uischema}
                         data={data}
                         i18n={odeI18n}
-                        renderers={[
-                          ...shellMaterialRenderers,
-                          ...materialRenderers,
-                          ...customRenderers,
-                          ...customTypeRenderers, // Custom question types from custom_app
-                          ...extensionRenderers, // Extension renderers (highest priority)
-                        ]}
+                        renderers={formRenderers}
                         cells={materialCells}
                         onChange={handleDataChange}
                         validationMode={validationMode}
                         ajv={ajv}
-                        additionalErrors={customValidatorErrors}
+                        additionalErrors={additionalErrorsForDisplay(
+                          validationMode,
+                          customValidatorErrors,
+                        )}
                       />
                     </FormEvaluationProvider>
                     {/* Success Snackbar */}

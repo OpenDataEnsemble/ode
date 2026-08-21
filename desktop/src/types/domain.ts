@@ -84,6 +84,38 @@ export interface ParsedImportFileResult {
   error?: string;
 }
 
+/** Lightweight sync-appearance scan over staged Formulus export JSON. */
+export interface ImportSyncAppearanceScanResult {
+  fileCount: number;
+  observationCount: number;
+  apparentlySyncedCount: number;
+  unsyncedCount: number;
+  parseErrorCount: number;
+  /** Absolute paths to retain when skipping already-synced observations. */
+  unsyncedPaths: string[];
+}
+
+/** One issue from host-side import validation ({@link parseAndValidateImportJsonPaths}). */
+export interface ImportHostIssue {
+  severity: 'error' | 'warning' | string;
+  code: string;
+  message: string;
+  fileName?: string;
+  observationId?: string;
+  formType?: string | null;
+}
+
+/** Result of parallel Rust parse + schema/attachment validation. */
+export interface ImportValidateBatchResult {
+  files: ParsedImportFileResult[];
+  issues: ImportHostIssue[];
+  observationCount: number;
+  formTypeCount: number;
+  referencedAttachmentNames: string[];
+  missingAttachmentNames: string[];
+  orphanAttachmentNames: string[];
+}
+
 export interface AttachmentCopyBatchResult {
   copied: number;
   failed: number;
@@ -230,6 +262,12 @@ export interface ServerProfile {
   customAppDeveloperMode?: boolean | null;
   /** Absolute path to a folder containing `index.html` (e.g. custom app `dist/`). */
   customAppLocalFolder?: string | null;
+  /** Parent folder last chosen on the Export page (survives restart). */
+  exportDestinationParent?: string | null;
+  /** ISO timestamp of the last successful Parquet export for this profile. */
+  lastExportAt?: string | null;
+  /** Summary of the last successful export (folder, counts, parquet paths). */
+  lastExport?: ExportParquetResult | null;
 }
 
 /** Result of mirroring a local custom app folder into the profile workspace. */
@@ -434,4 +472,28 @@ export interface WorkspaceDomainItem {
   label: string;
   path: string;
   kind: 'directory' | 'file';
+}
+
+/** Result of local Parquet export (`export_observations_parquet`). */
+export interface ExportParquetResult {
+  exportDir: string;
+  formTypeCounts: Record<string, number>;
+  /** Absolute `.parquet` paths keyed by form type. */
+  parquetFiles: Record<string, string>;
+  totalRows: number;
+  attachmentsCopied: number;
+  attachmentsMissing: number;
+  includePending: boolean;
+  includeAttachments: boolean;
+  workspaceAttachmentsPath: string;
+  exportAttachmentsPath?: string | null;
+  manifestPath: string;
+}
+
+export interface ExportParquetRequest {
+  parentDir: string;
+  includePending?: boolean;
+  includeAttachments?: boolean;
+  overwrite?: boolean;
+  profileLabel?: string | null;
 }

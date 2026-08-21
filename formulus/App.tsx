@@ -5,7 +5,10 @@ import {
   DarkTheme,
 } from '@react-navigation/native';
 import { StatusBar, Alert, View, ActivityIndicator } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import {
+  SafeAreaProvider,
+  initialWindowMetrics,
+} from 'react-native-safe-area-context';
 import { I18nextProvider } from 'react-i18next';
 import 'react-native-url-polyfill/auto';
 import { FormService } from './src/services/FormService';
@@ -27,6 +30,7 @@ import MainAppNavigator from './src/navigation/MainAppNavigator';
 import { FormInitData } from './src/webview/FormulusInterfaceDefinition.ts';
 import { FormSpec } from './src/services';
 import { initFormulusI18n, i18n } from './src/i18n';
+import { DirtyExitGate } from './src/diagnostics/DirtyExitGate';
 
 /**
  * Inner component that consumes the AppTheme context to build a dynamic
@@ -265,6 +269,7 @@ function AppInner(): React.JSX.Element {
         barStyle={isDark ? 'light-content' : 'dark-content'}
         backgroundColor={themeColors.surface}
       />
+      <DirtyExitGate />
       <NavigationContainer theme={navigationTheme}>
         <MainAppNavigator />
         {formplayerStack.map((entry, index) => (
@@ -323,9 +328,14 @@ function App(): React.JSX.Element {
     void initFormulusI18n().then(() => setI18nReady(true));
   }, []);
 
+  // initialMetrics seeds insets synchronously. Without it, iOS + RN 0.83
+  // white-screens: Fabric mounts RNCSafeAreaProviderComponentView with its
+  // final frame, UIKit never runs another layout pass on it, so the native
+  // onInsetsChange event is never emitted and SafeAreaProvider renders null
+  // forever (upstream: AppAndFlow/react-native-safe-area-context).
   if (!i18nReady) {
     return (
-      <SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <View
           style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" />
@@ -336,7 +346,7 @@ function App(): React.JSX.Element {
 
   return (
     <I18nextProvider i18n={i18n}>
-      <SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <SyncProvider>
           <AppThemeProvider>
             <ConfirmModalProvider>

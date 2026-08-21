@@ -1,3 +1,24 @@
+function pad2(value: number): string {
+  return value < 10 ? `0${value}` : String(value);
+}
+
+/**
+ * Local date-time for dense tables. Avoid Date#toLocaleString — on Hermes
+ * the first ICU locale load can stall the JS thread for 1–2s.
+ */
+export function formatDateTimeShort(date: Date | string | null): string {
+  if (!date) {
+    return '—';
+  }
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (Number.isNaN(dateObj.getTime())) {
+    return '—';
+  }
+  return `${dateObj.getFullYear()}-${pad2(dateObj.getMonth() + 1)}-${pad2(
+    dateObj.getDate(),
+  )} ${pad2(dateObj.getHours())}:${pad2(dateObj.getMinutes())}`;
+}
+
 export const formatRelativeTime = (date: Date | string | null): string => {
   if (!date) {
     return 'Never';

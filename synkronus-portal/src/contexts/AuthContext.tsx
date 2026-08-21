@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from '../services/api';
 import type { LoginRequest, User, AuthState } from '../types/auth';
@@ -11,37 +11,37 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [authState, setAuthState] = useState<AuthState>({
+function readStoredAuthState(): AuthState {
+  const token = localStorage.getItem('token');
+  const refreshToken = localStorage.getItem('refreshToken');
+  const userStr = localStorage.getItem('user');
+
+  if (token && refreshToken && userStr) {
+    try {
+      const user = JSON.parse(userStr) as User;
+      return {
+        user,
+        token,
+        refreshToken,
+        isAuthenticated: true,
+      };
+    } catch {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+    }
+  }
+
+  return {
     user: null,
     token: null,
     refreshToken: null,
     isAuthenticated: false,
-  });
+  };
+}
 
-  // Load auth state from localStorage on mount
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const refreshToken = localStorage.getItem('refreshToken');
-    const userStr = localStorage.getItem('user');
-
-    if (token && refreshToken && userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        setAuthState({
-          user,
-          token,
-          refreshToken,
-          isAuthenticated: true,
-        });
-      } catch {
-        // Invalid stored data, clear it
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-      }
-    }
-  }, []);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [authState, setAuthState] = useState<AuthState>(readStoredAuthState);
 
   const login = async (credentials: LoginRequest) => {
     const response = await api.login(credentials);

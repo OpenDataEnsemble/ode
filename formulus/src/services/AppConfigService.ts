@@ -83,9 +83,6 @@ class AppConfigService {
     try {
       const exists = await RNFS.exists(APP_CONFIG_PATH);
       if (!exists) {
-        console.log(
-          '[AppConfigService] No app.config.json found — using ODE defaults.',
-        );
         this.config = null;
         this.loaded = true;
         return;
@@ -94,21 +91,23 @@ class AppConfigService {
       const raw = await RNFS.readFile(APP_CONFIG_PATH, 'utf8');
       const parsed: AppConfig = JSON.parse(raw);
 
-      // Basic validation
+      // A missing or malformed theme only disables theming. It used to discard
+      // the whole config, which also silently dropped observationIndexes and
+      // left every declared query unindexed for no visible reason.
       if (!parsed.theme?.light || !parsed.theme?.dark) {
         console.warn(
-          '[AppConfigService] app.config.json is missing theme.light or theme.dark — ignoring.',
-        );
-        this.config = null;
-      } else {
-        this.config = parsed;
-        console.log(
-          `[AppConfigService] Loaded config for "${parsed.name}" v${parsed.version}`,
+          '[AppConfigService] app.config.json is missing theme.light or theme.dark — falling back to ODE colors.',
         );
       }
+
+      this.config = parsed;
     } catch (err) {
+      // Deliberately not latching `loaded` here. A read that throws mid-bundle
+      // extraction is transient, and latching would pin the config to null —
+      // and with it the index definitions — for the rest of the process.
       console.warn('[AppConfigService] Failed to load app.config.json:', err);
       this.config = null;
+      return;
     }
 
     this.loaded = true;
@@ -134,10 +133,7 @@ class AppConfigService {
    * Returns the custom app colors if available, otherwise ODE defaults.
    */
   getThemeColors(mode: 'light' | 'dark'): ThemeColors {
-    if (this.config) {
-      return this.config.theme[mode];
-    }
-    return getOdeFallbackColors(mode);
+    return this.config?.theme?.[mode] ?? getOdeFallbackColors(mode);
   }
 
   /**

@@ -2,12 +2,13 @@ import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 // Define the database schema
 export const schemas = appSchema({
-  version: 6,
+  version: 7,
   tables: [
     tableSchema({
       name: 'observations',
       columns: [
         { name: 'observation_id', type: 'string', isIndexed: true },
+        // Platform-owned. Always indexed — not part of custom-app observationIndexes.
         { name: 'form_type', type: 'string', isIndexed: true },
         { name: 'form_version', type: 'string' },
         { name: 'deleted', type: 'boolean', isIndexed: true },
@@ -27,6 +28,11 @@ export const schemas = appSchema({
         { name: 'active_generation', type: 'number' },
         { name: 'building_generation', type: 'number', isOptional: true },
         { name: 'last_rebuild_at', type: 'string', isOptional: true },
+        // Identifies the index definitions the current rows were built from.
+        // `last_rebuild_at` only records that some rebuild happened; without
+        // this, a rebuild interrupted by a crash is indistinguishable from a
+        // completed one and never reruns.
+        { name: 'defs_signature', type: 'string', isOptional: true },
       ],
     }),
     tableSchema({

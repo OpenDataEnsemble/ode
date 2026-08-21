@@ -56,6 +56,12 @@ jest.mock('../ServerConfigService', () => ({
   serverConfigService: mockServerConfigService,
 }));
 
+const mockIndexReset = jest.fn();
+jest.mock('../ObservationIndexService', () => ({
+  __esModule: true,
+  default: { getInstance: jest.fn(() => ({ reset: mockIndexReset })) },
+}));
+
 const { serverSwitchService } = require('../ServerSwitchService');
 
 describe('ServerSwitchService', () => {
@@ -81,6 +87,10 @@ describe('ServerSwitchService', () => {
 
     expect(mockDatabase.write).toHaveBeenCalled();
     expect(mockDatabase.unsafeResetDatabase).toHaveBeenCalled();
+
+    // The index service is a singleton and survives the database reset, so it
+    // has to be told that the rebuild it remembers is gone.
+    expect(mockIndexReset).toHaveBeenCalled();
 
     expect(mockAsyncStorage.multiRemove).toHaveBeenCalledWith([
       '@last_seen_version',

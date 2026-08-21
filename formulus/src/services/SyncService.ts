@@ -1,12 +1,16 @@
 import { synkronusApi } from '../api/synkronus';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { appEvents } from '../webview/FormulusMessageHandlers';
-import type { SyncProgress } from '../sync/syncProgress';
-import type { SynkronusSyncOptions } from '../sync/syncProgress';
+import {
+  formatCountProgress,
+  type SyncProgress,
+  type SynkronusSyncOptions,
+} from '../sync/syncProgress';
 import { notificationService } from './NotificationService';
 import { getUserFacingAppBundleUpdateErrorMessage } from './appBundleUpdateErrors';
 import { FormService } from './FormService';
 import { formLocaleIndexService } from './FormLocaleIndexService';
+import ObservationIndexService from './ObservationIndexService';
 import {
   autoLogin,
   getUserFacingSyncErrorMessage,
@@ -21,6 +25,7 @@ import {
   normalizeAppBundleVersion,
 } from '../utils/appBundleVersion';
 import { i18n } from '../i18n/instance';
+import { logger } from '../diagnostics/logger';
 type SyncStatusCallback = (status: string) => void;
 type SyncProgressDetailCallback = (progress: SyncProgress) => void;
 
@@ -64,13 +69,19 @@ export class SyncService {
     notificationService
       .showSyncProgress(progress)
       .catch(error =>
-        console.warn('Failed to show sync progress notification:', error),
+        logger.warn(
+          'sync',
+          error instanceof Error
+            ? error.message
+            : 'Failed to show sync progress notification',
+        ),
       );
   }
 
   public cancelSync(): void {
     if (this.canCancel) {
       this.shouldCancel = true;
+      logger.info('sync', 'cancel requested');
       this.updateStatus('Cancelling sync...');
     }
   }
@@ -123,7 +134,8 @@ export class SyncService {
       if (isUnauthorizedError(error)) {
         // Prevent infinite retry loops
         if (this.autoLoginRetryCount >= 1) {
-          console.error(
+          logger.error(
+            'sync',
             'Auto-login retry limit reached. Please login manually in Settings.',
           );
           throw new Error(
@@ -132,8 +144,9 @@ export class SyncService {
         }
 
         this.autoLoginRetryCount++;
-        console.log(
-          `🚨 401 Unauthorized error detected during ${operationName}, attempting auto-login...`,
+        logger.info(
+          'sync',
+          `401 during ${operationName}, attempting auto-login`,
         );
         this.updateStatus('Session expired, re-authenticating...');
 
@@ -141,18 +154,16 @@ export class SyncService {
           // Attempt auto-login
           const userInfo = await autoLogin();
           if (userInfo) {
-            console.log(`Auto-login successful, retrying ${operationName}...`);
+            logger.info('sync', `auto-login ok, retrying ${operationName}`);
             this.updateStatus(`Retrying ${operationName}...`);
             // Clear API cache to force new token usage
             synkronusApi.clearTokenCache();
-            console.log(
-              `🔄 API cache cleared, retrying ${operationName} with new token...`,
-            );
             // Retry the operation once (protected by retry count check above)
             try {
               const result = await operation();
-              console.log(
-                `✅ ${operationName} succeeded after auto-login retry`,
+              logger.info(
+                'sync',
+                `${operationName} succeeded after auto-login retry`,
               );
               // Reset retry count on successful retry
               this.autoLoginRetryCount = 0;
@@ -173,7 +184,7 @@ export class SyncService {
           }
         } catch (autoLoginError: unknown) {
           const loginError = autoLoginError as HttpError;
-          console.error('Auto-login failed:', loginError);
+          logger.error('sync', loginError?.message || 'Auto-login failed');
           // Reset retry count on failure
           this.autoLoginRetryCount = 0;
           throw new Error(
@@ -204,10 +215,16 @@ export class SyncService {
     notificationService
       .clearAllSyncNotifications()
       .catch(error =>
-        console.warn('Failed to clear stale notifications:', error),
+        logger.warn(
+          'sync',
+          error instanceof Error
+            ? error.message
+            : 'Failed to clear stale notifications',
+        ),
       );
 
     try {
+      await logger.breadcrumb('sync', 'start');
       await notificationService.startForegroundService();
 
       const syncOptions: SynkronusSyncOptions = {
@@ -230,12 +247,9 @@ export class SyncService {
 
       const repoGenStorage =
         (await AsyncStorage.getItem('@repository_generation')) ?? '(missing)';
-      console.log(
-        '[RepositoryGeneration] SyncService: observations sync done',
-        {
-          finalObservationDataVersion: finalVersion,
-          repositoryGenerationStorage: repoGenStorage,
-        },
+      logger.info(
+        'sync',
+        `observations sync done @ ${finalVersion} gen=${repoGenStorage}`,
       );
 
       this.updateProgress({
@@ -247,33 +261,44 @@ export class SyncService {
       await AsyncStorage.setItem('@last_seen_version', finalVersion.toString());
 
       this.updateStatus(`Sync completed @ data version ${finalVersion}`);
-      console.log(
-        'Sync completed successfully, showing completion notification...',
-      );
+      await logger.breadcrumb('sync', 'end', { success: true });
+      logger.info('sync', `completed @ data version ${finalVersion}`);
 
       // Don't let notification service block sync completion
       notificationService
         .showSyncComplete(true)
-        .then(() => console.log('Sync completion notification shown'))
         .catch(error =>
-          console.warn('Failed to show sync completion notification:', error),
+          logger.warn(
+            'sync',
+            error instanceof Error
+              ? error.message
+              : 'Failed to show sync completion notification',
+          ),
         );
 
-      console.log('Returning final version:', finalVersion);
       return finalVersion;
     } catch (error) {
-      console.error('Sync failed', error);
-      if (
+      const cancelled =
         error instanceof Error &&
         error.message === 'Sync cancelled' &&
-        this.shouldCancel
-      ) {
+        this.shouldCancel;
+      if (cancelled) {
+        logger.info('sync', 'cancel observed, aborting');
+      } else {
+        logger.error(
+          'sync',
+          error instanceof Error ? error.message : 'Sync failed',
+        );
+      }
+      if (cancelled) {
         notificationService
           .showSyncCanceled()
           .catch(notifError =>
-            console.warn(
-              'Failed to show sync canceled notification:',
-              notifError,
+            logger.warn(
+              'sync',
+              notifError instanceof Error
+                ? notifError.message
+                : 'Failed to show sync canceled notification',
             ),
           );
         throw error;
@@ -285,7 +310,12 @@ export class SyncService {
       notificationService
         .showSyncComplete(false, errorMessage)
         .catch(notifError =>
-          console.warn('Failed to show sync failure notification:', notifError),
+          logger.warn(
+            'sync',
+            notifError instanceof Error
+              ? notifError.message
+              : 'Failed to show sync failure notification',
+          ),
         );
 
       throw error;
@@ -310,16 +340,16 @@ export class SyncService {
         () => synkronusApi.getManifest(),
         'check for updates',
       );
-      console.log(
-        '[AppBundle] getManifest response (check for updates)',
-        manifest,
+      logger.info(
+        'sync',
+        `app bundle check local vs server version ${String(manifest.version)}`,
       );
 
       const serverVersion = normalizeAppBundleVersion(manifest.version);
       if (!isNumericAppBundleVersionString(serverVersion)) {
-        console.warn(
-          '[AppBundle] manifest.version is not numeric; treating check as failed:',
-          manifest.version,
+        logger.warn(
+          'sync',
+          `manifest.version is not numeric: ${String(manifest.version)}`,
         );
         return null;
       }
@@ -346,7 +376,10 @@ export class SyncService {
 
       return { localVersion, serverVersion, updateAvailable };
     } catch (error) {
-      console.warn('Failed to check for updates', error);
+      logger.warn(
+        'sync',
+        error instanceof Error ? error.message : 'Failed to check for updates',
+      );
       return null;
     }
   }
@@ -400,6 +433,31 @@ export class SyncService {
 
       await formLocaleIndexService.refreshIndex();
 
+      // The bundle is the only way new index definitions arrive. Await the
+      // rebuild here rather than firing it from `bundleUpdated`: that event
+      // used to start a fire-and-forget rebuild, so sync reported "complete"
+      // while the index was still being written, and a crash left rows built
+      // from the previous bundle with no record that they were stale.
+      this.updateStatus(i18n.t('sync.progress.phase.index_rebuild'));
+      this.updateProgress({
+        current: 0,
+        total: 0,
+        phase: 'index_rebuild',
+        indeterminate: true,
+      });
+      await logger.breadcrumb('index', 'rebuild_start');
+      await ObservationIndexService.getInstance().rebuildForBundleUpdate(
+        ({ current, total }) => {
+          this.updateProgress({
+            current,
+            total,
+            phase: 'index_rebuild',
+            details: formatCountProgress(current, total),
+          });
+        },
+      );
+      await logger.breadcrumb('index', 'rebuild_done');
+
       const syncTime = new Date().toLocaleTimeString();
       await AsyncStorage.setItem('@lastSync', syncTime);
       this.updateStatus('App bundle sync completed');
@@ -412,7 +470,10 @@ export class SyncService {
 
       appEvents.emit('bundleUpdated');
     } catch (error) {
-      console.error('App sync failed', error);
+      logger.error(
+        'sync',
+        error instanceof Error ? error.message : 'App sync failed',
+      );
       const message = await getUserFacingAppBundleUpdateErrorMessage(error);
       this.updateStatus(message);
       if (error instanceof Error && message === error.message) {
@@ -444,7 +505,10 @@ export class SyncService {
         'download app bundle',
       );
     } catch (error) {
-      console.error('Download failed', error);
+      logger.error(
+        'sync',
+        error instanceof Error ? error.message : 'Download failed',
+      );
       throw error;
     }
   }

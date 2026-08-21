@@ -1,6 +1,6 @@
 # ODE Desktop — AI and developer guide
 
-**ODE Desktop** (`desktop/`) is the Tauri + React + Rust app for **Data management** (observations, sync, import) and the **Forms / app workbench** (bundles, form preview, custom app embed). User-facing overview: [desktop/README.md](README.md).
+**ODE Desktop** (`desktop/`) is the Tauri + React + Rust app for **Data management** (observations, sync, import, **export**) and the **Forms / app workbench** (bundles, form preview, custom app embed). User-facing overview: [desktop/README.md](README.md).
 
 Published docs: [ODE Desktop developer mode](https://opendataensemble.org/docs/guides/ode-desktop-developer-mode) (local custom app iteration).
 

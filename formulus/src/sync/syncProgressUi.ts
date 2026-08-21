@@ -45,6 +45,12 @@ export function getSyncProgressCardTitle(
   progress: SyncProgress,
   activeOperation: 'sync' | 'update' | 'sync_then_update' | null,
 ): string {
+  // Index work is its own phase and can run after a bundle download or
+  // during a first-time pull. The operation wrapper would otherwise keep
+  // saying "Updating forms" / "Syncing observations" while the bar moves.
+  if (progress.phase === 'index_rebuild') {
+    return syncProgressPhaseTitle('index_rebuild');
+  }
   if (activeOperation === 'sync_then_update') {
     if (progress.phase === 'app_bundle') {
       return i18n.t('sync.progress.syncingAndUpdatingForms');

@@ -7,6 +7,8 @@ import {
   DataExportApi,
   DefaultApi,
   HealthApi,
+  type ObservationStatsResponse,
+  StatsApi,
   type UserListItem,
 } from '../api/synkronus/generated';
 import type { LoginRequest, LoginResponse } from '../types/auth';
@@ -112,6 +114,7 @@ const defaultApi = new DefaultApi(configuration);
 const dataExportApi = new DataExportApi(configuration);
 const attachmentsApi = new AttachmentsApi(configuration);
 const healthApi = new HealthApi(configuration);
+const statsApi = new StatsApi(configuration);
 
 async function requestJson<T>(
   endpoint: string,
@@ -188,6 +191,17 @@ export const api = {
       return res.data;
     } catch (error) {
       throw toApiError(error, { redirectOnUnauthorized: false });
+    }
+  },
+
+  async getObservationStats(): Promise<ObservationStatsResponse> {
+    try {
+      const res = await statsApi.getObservationStats({
+        xOdeVersion: ODE_VERSION,
+      });
+      return res.data;
+    } catch (error) {
+      throw toApiError(error);
     }
   },
 

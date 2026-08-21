@@ -118,6 +118,14 @@ jest.mock('../FormLocaleIndexService', () => ({
     refreshIndex: jest.fn().mockResolvedValue([]),
   },
 }));
+jest.mock('../ObservationIndexService', () => ({
+  __esModule: true,
+  default: {
+    getInstance: jest.fn(() => ({
+      rebuildForBundleUpdate: jest.fn().mockResolvedValue(undefined),
+    })),
+  },
+}));
 
 import {
   jest,
@@ -336,6 +344,45 @@ describe('SyncService - Auto-Login Integration', () => {
       expect(autoLogin).toHaveBeenCalledTimes(1);
       expect(synkronusApi.getManifest).toHaveBeenCalledTimes(2);
       expect(result).toBe(true); // Update available (version changed from '0')
+    });
+  });
+
+  describe('cancel while a pull is in flight', () => {
+    test('rejects a second start until the cancelled run has finished', async () => {
+      let sawCancel = (_options: { isCancelled?: () => boolean }) => {};
+      const started = new Promise<{ isCancelled?: () => boolean }>(resolve => {
+        sawCancel = resolve;
+      });
+
+      (isUnauthorizedError as jest.Mock).mockReturnValue(false);
+      (synkronusApi.syncObservations as jest.Mock).mockImplementation(
+        (_include: boolean, options: { isCancelled?: () => boolean }) => {
+          sawCancel(options);
+          return new Promise((_resolve, reject) => {
+            const id = setInterval(() => {
+              if (options.isCancelled?.()) {
+                clearInterval(id);
+                reject(new Error('Sync cancelled'));
+              }
+            }, 5);
+          });
+        },
+      );
+
+      const first = syncService.syncObservations(true);
+      await started;
+      expect(syncService.getIsSyncing()).toBe(true);
+
+      syncService.cancelSync();
+      await expect(syncService.syncObservations(true)).rejects.toThrow(
+        'Sync already in progress',
+      );
+
+      await expect(first).rejects.toThrow('Sync cancelled');
+      expect(syncService.getIsSyncing()).toBe(false);
+
+      (synkronusApi.syncObservations as jest.Mock).mockResolvedValueOnce(7);
+      await expect(syncService.syncObservations(true)).resolves.toBe(7);
     });
   });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   formDataJsonEqual,
   mergePreservingSubObsArrays,
+  omitDataPath,
   readDataPath,
   writeDataPath,
   resolveTemplateValue,
@@ -68,6 +69,13 @@ describe('subObservationHelpers', () => {
     const merged = mergePreservingSubObsArrays(baseline, incoming);
     expect(merged.nome_chefe).toBe('João');
     expect(merged.num).toBe(7);
+  });
+
+  it('omitDataPath removes top-level and nested keys', () => {
+    expect(omitDataPath({ a: 1, b: 2 }, 'a')).toEqual({ b: 2 });
+    expect(omitDataPath({ nest: { x: 1, y: 2 } }, 'nest.x')).toEqual({
+      nest: { y: 2 },
+    });
   });
 
   it('formDataJsonEqual compares stable JSON snapshots', () => {
@@ -144,6 +152,12 @@ describe('subObservationHelpers', () => {
     const rows = [{ z: 'b' }, { z: 'a' }];
     const asc = sortRows(rows, { key: 'z', direction: 'asc' });
     expect(asc.map(r => r.z)).toEqual(['a', 'b']);
+  });
+
+  it('sortRows compares numeric-looking values numerically', () => {
+    const rows = [{ nopessoa: '10' }, { nopessoa: '2' }, { nopessoa: 1 }];
+    const asc = sortRows(rows, { key: 'nopessoa', direction: 'asc' });
+    expect(asc.map(r => r.nopessoa)).toEqual([1, '2', '10']);
   });
 
   it('coerceSubObservationRows normalizes values', () => {

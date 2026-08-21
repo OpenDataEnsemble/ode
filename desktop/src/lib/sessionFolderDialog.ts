@@ -4,6 +4,7 @@ import { tauriClient } from './tauriClient';
 /** Session-scoped keys for folder picker default paths (cleared on app restart). */
 export const SESSION_FOLDER_DIALOG_KEYS = {
   importFolder: 'import.folder',
+  exportFolder: 'export.folder',
   developerLocalApp: 'developer-mode.local-app',
   profileWorkspace: 'profile.workspace',
 } as const;

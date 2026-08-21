@@ -61,21 +61,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
     try {
       setLoading(true);
       const formService = await FormService.getInstance();
-
-      const formSpecs = formService.getFormSpecs();
-      let foundObservation: Observation | null = null;
-
-      for (const formSpec of formSpecs) {
-        const observations = await formService.getObservationsByFormType(
-          formSpec.id,
-        );
-        const obs = observations.find(o => o.observationId === observationId);
-        if (obs) {
-          foundObservation = obs;
-          setFormName(formSpec.name);
-          break;
-        }
-      }
+      const foundObservation = await formService.getObservation(observationId);
 
       if (!foundObservation) {
         Alert.alert(t('common.error'), t('observations.notFound'));
@@ -83,6 +69,8 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
         return;
       }
 
+      const spec = formService.getFormSpecById(foundObservation.formType);
+      setFormName(spec?.name || foundObservation.formType);
       setObservation(foundObservation);
     } catch (error) {
       console.error('Error loading observation:', error);

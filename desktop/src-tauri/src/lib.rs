@@ -28,12 +28,14 @@ use zip::read::ZipArchive;
 use zip::write::SimpleFileOptions;
 use zip::{CompressionMethod, ZipWriter};
 
+mod data_export;
+mod import_validate;
 mod observation_index;
 mod observation_query;
 mod sync_engine;
 
 #[derive(Debug, Error)]
-enum CustodianError {
+pub(crate) enum CustodianError {
     #[error("workspace is not configured")]
     WorkspaceMissing,
     #[error("path is outside workspace")]
@@ -127,6 +129,15 @@ struct ServerProfile {
     custom_app_developer_mode: bool,
     #[serde(default)]
     custom_app_local_folder: Option<String>,
+    /// Parent folder last chosen on the Export page (survives restart).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    export_destination_parent: Option<String>,
+    /// ISO timestamp of the last successful Parquet export for this profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last_export_at: Option<String>,
+    /// Summary of the last successful export (folder, counts, parquet paths).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last_export: Option<data_export::ExportParquetResult>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -294,7 +305,7 @@ fn migrate_attachments_flat_to_synced_layout(workspace: &Path) -> Result<(), Cus
 }
 
 /// Local resolution: draft → outbound queue (`pending` before `synced`) → loose under `attachments/`.
-fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> {
+pub(crate) fn resolve_attachment_path(workspace: &Path, basename: &str) -> Option<PathBuf> {
     let root = attachments_root(workspace);
     let candidates = [
         root.join(ATTACH_SUBDIR_DRAFT).join(basename),
@@ -535,7 +546,7 @@ struct WorkspaceItem {
 /// Row columns hold `observation_id`, `form_type`, `data` (payload), and `updated_at`; the rest live here.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-struct ObservationExtras {
+pub(crate) struct ObservationExtras {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     form_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -601,13 +612,13 @@ struct SaveObservationRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ApiObservation {
-    observation_id: String,
-    data: Value,
-    form_type: Option<String>,
-    updated_at: Option<String>,
+pub(crate) struct ApiObservation {
+    pub(crate) observation_id: String,
+    pub(crate) data: Value,
+    pub(crate) form_type: Option<String>,
+    pub(crate) updated_at: Option<String>,
     #[serde(default)]
-    extras: Option<ObservationExtras>,
+    pub(crate) extras: Option<ObservationExtras>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -838,6 +849,9 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
             default_app_mode: DefaultAppMode::default(),
             custom_app_developer_mode: false,
             custom_app_local_folder: None,
+            export_destination_parent: None,
+            last_export_at: None,
+            last_export: None,
         }],
     }
 }
@@ -860,6 +874,9 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
             default_app_mode: DefaultAppMode::default(),
             custom_app_developer_mode: false,
             custom_app_local_folder: None,
+            export_destination_parent: None,
+            last_export_at: None,
+            last_export: None,
         }],
     }
 }
@@ -932,6 +949,24 @@ fn open_db(ctx: &AppCtxHandle) -> Result<ScopedDb<'_>, CustodianError> {
         _guard: guard,
         conn,
     })
+}
+
+/// Open SQLite for long-running background work (full index rebuild) without
+/// holding `workspace_sqlite_lock` for the entire job. Holding that mutex for a
+/// multi-minute rebuild blocks every other DB command (import refresh, list,
+/// health) and makes the UI look stuck on the last "Writing observations…" step.
+///
+/// Concurrent short writers still take the mutex; this connection uses a busy
+/// timeout so rebuild waits on them instead of starving the UI.
+fn open_db_for_background_index_rebuild(ctx: &AppCtxHandle) -> Result<Connection, CustodianError> {
+    let db_path = resolve_db_path(ctx)?;
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let conn = Connection::open(&db_path)?;
+    conn.busy_timeout(std::time::Duration::from_secs(120))?;
+    init_db(&conn)?;
+    Ok(conn)
 }
 
 /// Caller must hold `workspace_sqlite_lock`. Opens the DB, checkpoints WAL, then closes.
@@ -1480,33 +1515,51 @@ async fn download_synkronus_app_bundle_zip(
     Ok(buf)
 }
 
-const DEV_MIRROR_BUNDLE_TOP_DIRS: [&str; 3] = ["app", "forms", "renderers"];
 const SHARED_CHOICE_REF_PREFIX: &str = "forms/shared-choice-defs.schema.json#/$defs/";
 
-fn publish_form_bundle_rel_path(rel: &str) -> bool {
-    let parts: Vec<&str> = rel.split('/').collect();
-    if parts.len() == 3 && parts[0] == "forms" {
-        return parts[2] == "schema.json" || parts[2] == "ui.json";
-    }
-    if parts.len() == 4 && parts[0] == "app" && parts[1] == "forms" {
-        return parts[3] == "schema.json" || parts[3] == "ui.json";
-    }
-    false
+/// Normalize a path relative to the bundle root to forward-slash zip entry names.
+fn zip_entry_path_normalized(rel: &Path) -> String {
+    rel.components()
+        .filter_map(|c| match c {
+            std::path::Component::Normal(s) => Some(s.to_string_lossy()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/")
 }
 
-/// Synkronus only accepts `forms/{form}/{schema,ui}.json` (and the `app/forms/…` variant).
-fn publish_bundle_zip_entry_allowed(rel: &str) -> bool {
-    if rel.is_empty() {
+fn publish_path_has_skipped_segment(rel: &str) -> bool {
+    rel.split('/').any(|s| {
+        matches!(
+            s,
+            ".DS_Store" | "Thumbs.db" | "desktop.ini" | ".git" | "node_modules"
+        )
+    })
+}
+
+/// Top-level sibling `forms/{form}/{schema,ui}.json` only (Synkronus is strict here).
+fn publish_top_level_form_rel_path(rel: &str) -> bool {
+    let parts: Vec<&str> = rel.split('/').collect();
+    parts.len() == 3 && parts[0] == "forms" && (parts[2] == "schema.json" || parts[2] == "ui.json")
+}
+
+/// Whether a relative zip entry may be published.
+///
+/// - Full `app/` trees are allowed (including `app/forms/ext.json` and other nested artifacts).
+/// - Top-level `forms/` is only for the legacy sibling layout and is schema/ui-only.
+/// - When `omit_top_level_forms` is true (nested `app/forms/` present), skip top-level `forms/`.
+fn publish_bundle_zip_entry_allowed(rel: &str, omit_top_level_forms: bool) -> bool {
+    if rel.is_empty() || publish_path_has_skipped_segment(rel) {
         return false;
     }
     if rel.starts_with("forms/") {
-        return publish_form_bundle_rel_path(rel);
-    }
-    if rel.starts_with("app/forms/") {
-        return publish_form_bundle_rel_path(rel);
+        if omit_top_level_forms {
+            return false;
+        }
+        return publish_top_level_form_rel_path(rel);
     }
     let top = rel.split('/').next().unwrap_or("");
-    DEV_MIRROR_BUNDLE_TOP_DIRS.contains(&top)
+    matches!(top, "app" | "renderers")
 }
 
 fn forms_root_for_publish_schema(dev_local: &Path, rel: &str) -> Option<PathBuf> {
@@ -1659,7 +1712,30 @@ fn read_publish_schema_bytes(
     Ok(out)
 }
 
+/// Strip the in-place host stub that [`CustomAppEmbed`] writes into
+/// `bundles/dev-local/app/index.html` for the Desktop iframe (`asset://` base +
+/// localhost `formulus-injection.js`). That block must never ship to Synkronus —
+/// Formulus / mobile WebViews cannot resolve those URLs and render a blank screen.
+fn strip_ode_desktop_injection(html: &str) -> String {
+    const START: &str = "<!--ode-desktop-inject-start-->";
+    const END: &str = "<!--ode-desktop-inject-end-->";
+    let Some(start) = html.find(START) else {
+        return html.to_string();
+    };
+    let Some(end_rel) = html[start..].find(END) else {
+        return html.to_string();
+    };
+    let end = start + end_rel + END.len();
+    let mut out = String::with_capacity(html.len() - (end - start));
+    out.push_str(&html[..start]);
+    out.push_str(&html[end..]);
+    out
+}
+
 /// Zips `bundles/dev-local/` into a temp file with Synkronus-compatible paths (`app/`, `forms/`, …).
+///
+/// Prefer app-only layout when `app/forms/` exists (omit duplicate top-level `forms/`).
+/// `app/index.html` is sanitized so ODE Desktop embed injection is never published.
 fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
     let dev_local = ws.join("bundles/dev-local");
     let index = dev_local.join("app/index.html");
@@ -1668,6 +1744,7 @@ fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
             "developer mirror missing app/index.html — use Refresh app first".to_string(),
         ));
     }
+    let omit_top_level_forms = dev_local.join("app/forms").is_dir();
     let zip_path = std::env::temp_dir().join(format!("ode-dev-bundle-{}.zip", Uuid::new_v4()));
     let file = fs::File::create(&zip_path)?;
     let mut zip = ZipWriter::new(BufWriter::new(file));
@@ -1683,8 +1760,8 @@ fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
         let rel = path
             .strip_prefix(&dev_local)
             .map_err(|e| CustodianError::Message(e.to_string()))?;
-        let name = rel.to_string_lossy();
-        if !publish_bundle_zip_entry_allowed(&name) {
+        let name = zip_entry_path_normalized(rel);
+        if !publish_bundle_zip_entry_allowed(&name, omit_top_level_forms) {
             continue;
         }
         let bytes = if name.ends_with("schema.json") {
@@ -1693,10 +1770,13 @@ fn zip_dev_mirror_bundle(ws: &Path) -> Result<PathBuf, CustodianError> {
             } else {
                 fs::read(path)?
             }
+        } else if name == "app/index.html" {
+            let html = fs::read_to_string(path)?;
+            strip_ode_desktop_injection(&html).into_bytes()
         } else {
             fs::read(path)?
         };
-        zip.start_file(name.as_ref(), options)
+        zip.start_file(name.as_str(), options)
             .map_err(|e| CustodianError::Message(e.to_string()))?;
         zip.write_all(&bytes)
             .map_err(|e| CustodianError::Message(e.to_string()))?;
@@ -1852,7 +1932,7 @@ fn spawn_observation_index_rebuild(app: tauri::AppHandle, ctx: AppCtxHandle, job
         if defs.is_empty() {
             return;
         }
-        let conn = match open_db(&ctx) {
+        let conn = match open_db_for_background_index_rebuild(&ctx) {
             Ok(c) => c,
             Err(err) => {
                 emit_bundle_index_rebuild_progress(
@@ -3574,6 +3654,53 @@ fn backup_workspace(
     .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn preview_export_dir(parent_dir: String) -> Result<String, String> {
+    data_export::preview_export_dir(&parent_dir).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn export_observations_parquet(
+    request: data_export::ExportParquetRequest,
+    app: tauri::AppHandle,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<data_export::ExportParquetResult, String> {
+    let ctx = ctx.inner().clone();
+    let app_for_block = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let emit = |phase: &str, message: &str, done: usize, total: usize| {
+            let _ = app_for_block.emit(
+                "export/progress",
+                serde_json::json!({
+                    "phase": phase,
+                    "message": message,
+                    "done": done,
+                    "total": total,
+                }),
+            );
+        };
+
+        emit("starting", "Reading observations…", 0, 1);
+        let ws = get_workspace_path(&ctx).map_err(|e| e.to_string())?;
+
+        // Hold the SQLite lock only while loading rows — never nest open_db inside
+        // with_workspace_fs_exclusive (same non-reentrant mutex → deadlock).
+        let rows = {
+            let conn = open_db(&ctx).map_err(|e| e.to_string())?;
+            data_export::load_export_rows(&conn, request.include_pending)
+                .map_err(|e| e.to_string())?
+        };
+
+        let mut progress = |done: usize, total: usize, message: &str| {
+            emit("running", message, done, total.max(1));
+        };
+        data_export::write_parquet_export(&ws, &request, rows, &mut progress)
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| format!("export task failed: {e}"))?
+}
+
 /// Moves `sqlite` and `attachments` under `workspace/previous_generations/<stamp>/`, then recreates a fresh layout.
 #[tauri::command]
 fn archive_workspace_for_repository_generation(
@@ -3812,7 +3939,7 @@ fn read_host_text_file_inner(path: &Path) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| e.to_string())
 }
 
-const MAX_HOST_TEXT_BATCH_PATHS: usize = 128;
+const MAX_HOST_TEXT_BATCH_PATHS: usize = 512;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -3872,11 +3999,11 @@ fn host_path_is_directory(path: String) -> bool {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct ParsedImportFileResult {
-    file_name: String,
-    observations: Vec<ApiObservation>,
+pub(crate) struct ParsedImportFileResult {
+    pub(crate) file_name: String,
+    pub(crate) observations: Vec<ApiObservation>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
+    pub(crate) error: Option<String>,
 }
 
 fn observation_id_from_obj(obj: &serde_json::Map<String, Value>) -> Option<String> {
@@ -4002,7 +4129,7 @@ fn extract_observations_from_json_value(
     Ok(observations)
 }
 
-fn parse_import_json_file(path: &Path) -> ParsedImportFileResult {
+pub(crate) fn parse_import_json_file(path: &Path) -> ParsedImportFileResult {
     let file_name = path
         .file_name()
         .and_then(|n| n.to_str())
@@ -4036,6 +4163,68 @@ fn parse_import_json_file(path: &Path) -> ParsedImportFileResult {
     }
 }
 
+/// Load every `schema.json` under active/dev form roots (first-wins by form type).
+fn load_bundle_form_schemas_for_ctx(ctx: &AppCtxHandle) -> Result<HashMap<String, Value>, String> {
+    let roots = bundle_form_roots_for_ctx(ctx)?;
+    let mut out = HashMap::new();
+    for root in roots {
+        let rd = match fs::read_dir(&root) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        for entry in rd {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !entry.file_type().map_err(|e| e.to_string())?.is_dir() {
+                continue;
+            }
+            if reserved_form_dir_name(&name) {
+                continue;
+            }
+            if out.contains_key(&name) {
+                continue;
+            }
+            let schema_path = entry.path().join("schema.json");
+            let ui_path = entry.path().join("ui.json");
+            if !(schema_path.is_file() && ui_path.is_file()) {
+                continue;
+            }
+            let form_schema: Value =
+                serde_json::from_str(&fs::read_to_string(&schema_path).map_err(|e| e.to_string())?)
+                    .map_err(|e| e.to_string())?;
+            out.insert(name, form_schema);
+        }
+    }
+    Ok(out)
+}
+
+/// Parse + schema-validate import JSON on the host (Rayon), loading form schemas from the active bundle.
+#[tauri::command]
+fn parse_and_validate_import_json_paths(
+    paths: Vec<String>,
+    staged_attachment_basenames: Vec<String>,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<import_validate::ImportValidateBatchResult, String> {
+    if paths.is_empty() {
+        return Ok(import_validate::parse_and_validate_paths(
+            paths,
+            &HashMap::new(),
+            &staged_attachment_basenames,
+        ));
+    }
+    if paths.len() > MAX_IMPORT_SCAN_ENTRIES {
+        return Err(format!(
+            "Too many JSON paths to validate (max {MAX_IMPORT_SCAN_ENTRIES})"
+        ));
+    }
+    let schemas = load_bundle_form_schemas_for_ctx(&ctx)?;
+    Ok(import_validate::parse_and_validate_paths(
+        paths,
+        &schemas,
+        &staged_attachment_basenames,
+    ))
+}
+
 /// Parse observation JSON files on the host (parallel) in import order.
 #[tauri::command]
 fn parse_import_observation_json_paths(
@@ -4065,6 +4254,194 @@ fn parse_import_observation_json_paths(
     let mut indexed = indexed;
     indexed.sort_by_key(|(i, _)| *i);
     Ok(indexed.into_iter().map(|(_, r)| r).collect())
+}
+
+/// Same floor as Formulus / Desktop TS (`1980-01-01`).
+const MIN_VALID_IMPORT_SYNCED_AT_MS: i64 = 315_532_800_000;
+
+fn parse_import_timestamp_ms(raw: &str) -> Option<i64> {
+    let t = raw.trim();
+    if t.is_empty() {
+        return None;
+    }
+    if let Ok(dt) = DateTime::parse_from_rfc3339(t) {
+        return Some(dt.timestamp_millis());
+    }
+    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(t, "%Y-%m-%dT%H:%M:%S%.f") {
+        return Some(dt.and_utc().timestamp_millis());
+    }
+    if let Ok(dt) = chrono::NaiveDateTime::parse_from_str(t, "%Y-%m-%dT%H:%M:%S") {
+        return Some(dt.and_utc().timestamp_millis());
+    }
+    None
+}
+
+fn import_observation_apparently_synced(obj: &serde_json::Map<String, Value>) -> bool {
+    let synced_raw = optional_import_str(obj, "synced_at", "syncedAt");
+    let Some(synced_ms) = synced_raw.as_deref().and_then(parse_import_timestamp_ms) else {
+        return false;
+    };
+    if synced_ms <= MIN_VALID_IMPORT_SYNCED_AT_MS {
+        return false;
+    }
+    let updated_raw = optional_import_str(obj, "updated_at", "updatedAt");
+    let Some(updated_ms) = updated_raw.as_deref().and_then(parse_import_timestamp_ms) else {
+        return true;
+    };
+    updated_ms <= synced_ms
+}
+
+fn import_json_root_observation_maps(root: &Value) -> Vec<&serde_json::Map<String, Value>> {
+    match root {
+        Value::Array(a) => a.iter().filter_map(|v| v.as_object()).collect(),
+        Value::Object(map) => {
+            if let Some(Value::Array(inner)) = map.get("observations") {
+                inner.iter().filter_map(|v| v.as_object()).collect()
+            } else {
+                vec![map]
+            }
+        }
+        _ => Vec::new(),
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportSyncAppearanceScanResult {
+    /// JSON files scanned.
+    file_count: usize,
+    observation_count: usize,
+    apparently_synced_count: usize,
+    unsynced_count: usize,
+    parse_error_count: usize,
+    /// Absolute paths to keep when skipping already-synced rows (pending + parse errors).
+    unsynced_paths: Vec<String>,
+}
+
+#[derive(Debug)]
+struct ImportFileSyncScanRow {
+    path: String,
+    observation_count: usize,
+    apparently_synced_count: usize,
+    unsynced_count: usize,
+    parse_error: bool,
+}
+
+fn scan_one_import_json_sync_appearance(path: &Path) -> ImportFileSyncScanRow {
+    let path_str = path.to_string_lossy().to_string();
+    match read_host_text_file_inner(path) {
+        Err(_) => ImportFileSyncScanRow {
+            path: path_str,
+            observation_count: 0,
+            apparently_synced_count: 0,
+            unsynced_count: 0,
+            parse_error: true,
+        },
+        Ok(text) => match serde_json::from_str::<Value>(&text) {
+            Err(_) => ImportFileSyncScanRow {
+                path: path_str,
+                observation_count: 0,
+                apparently_synced_count: 0,
+                unsynced_count: 0,
+                parse_error: true,
+            },
+            Ok(root) => {
+                let maps = import_json_root_observation_maps(&root);
+                if maps.is_empty() {
+                    return ImportFileSyncScanRow {
+                        path: path_str,
+                        observation_count: 0,
+                        apparently_synced_count: 0,
+                        unsynced_count: 0,
+                        parse_error: true,
+                    };
+                }
+                let mut synced = 0usize;
+                let mut unsynced = 0usize;
+                for obj in maps {
+                    if observation_id_from_obj(obj).is_none() {
+                        unsynced += 1;
+                        continue;
+                    }
+                    if import_observation_apparently_synced(obj) {
+                        synced += 1;
+                    } else {
+                        unsynced += 1;
+                    }
+                }
+                ImportFileSyncScanRow {
+                    path: path_str,
+                    observation_count: synced + unsynced,
+                    apparently_synced_count: synced,
+                    unsynced_count: unsynced,
+                    parse_error: false,
+                }
+            }
+        },
+    }
+}
+
+/// Lightweight parallel scan of Formulus-style `syncedAt` / `updatedAt` without shipping payloads.
+#[tauri::command]
+fn scan_import_json_sync_appearance(
+    paths: Vec<String>,
+) -> Result<ImportSyncAppearanceScanResult, String> {
+    if paths.is_empty() {
+        return Ok(ImportSyncAppearanceScanResult {
+            file_count: 0,
+            observation_count: 0,
+            apparently_synced_count: 0,
+            unsynced_count: 0,
+            parse_error_count: 0,
+            unsynced_paths: Vec::new(),
+        });
+    }
+    if paths.len() > MAX_IMPORT_SCAN_ENTRIES {
+        return Err(format!(
+            "Too many JSON paths to scan (max {MAX_IMPORT_SCAN_ENTRIES})"
+        ));
+    }
+
+    let file_count = paths.len();
+    let rows: Vec<ImportFileSyncScanRow> = paths
+        .into_par_iter()
+        .map(|raw| {
+            let p = Path::new(raw.trim());
+            scan_one_import_json_sync_appearance(p)
+        })
+        .collect();
+
+    let mut observation_count = 0usize;
+    let mut apparently_synced_count = 0usize;
+    let mut unsynced_obs = 0usize;
+    let mut parse_error_count = 0usize;
+    let mut unsynced_paths = Vec::new();
+
+    for row in rows {
+        observation_count += row.observation_count;
+        apparently_synced_count += row.apparently_synced_count;
+        unsynced_obs += row.unsynced_count;
+        if row.parse_error {
+            parse_error_count += 1;
+            unsynced_paths.push(row.path);
+        } else if row.unsynced_count > 0 {
+            // Keep the file if any observation still needs import.
+            unsynced_paths.push(row.path);
+        } else if row.apparently_synced_count == 0 {
+            // Empty / unexpected — keep for validation to report.
+            unsynced_paths.push(row.path);
+        }
+        // else: all observations apparently synced → omit from unsynced_paths
+    }
+
+    Ok(ImportSyncAppearanceScanResult {
+        file_count,
+        observation_count,
+        apparently_synced_count,
+        unsynced_count: unsynced_obs + parse_error_count,
+        parse_error_count,
+        unsynced_paths,
+    })
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -5064,10 +5441,11 @@ fn import_observations_run(
                 conflicts += 1;
             }
         }
-        if !index_defs.is_empty() && !mark_pending {
-            // Sync pull: update indexes incrementally per page (no full rebuild follows).
-            // Local file import: skip here — `import_observations` schedules one background
-            // full rebuild after the batch commit (incremental work would be discarded).
+        if !index_defs.is_empty() {
+            // Sync pull and local file import both update the active generation
+            // incrementally. A full rebuild is reserved for bundle apply / empty
+            // index / explicit rebuild — not for adding a few hundred import rows
+            // on top of an already-indexed sync.
             let payload = serde_json::to_string(&observation.data).map_err(|e| e.to_string())?;
             let form_type = observation.form_type.as_deref().unwrap_or("");
             observation_index::incremental_reindex(
@@ -5110,7 +5488,9 @@ fn import_observations(
     let ctx_inner = ctx.inner().clone();
     let mark = mark_pending.unwrap_or(false);
     let mut result = import_observations_run(observations, mark, &ctx_inner)?;
-    let should_schedule = schedule_index_rebuild.unwrap_or(mark) && result.imported > 0;
+    // Full rebuild is optional and off by default — import/sync maintain indexes
+    // incrementally. Callers that need a snapshot rebuild (rare) pass true.
+    let should_schedule = schedule_index_rebuild.unwrap_or(false) && result.imported > 0;
     if should_schedule {
         result.index_rebuild_scheduled =
             schedule_observation_index_rebuild(&app, &ctx_inner).is_some();
@@ -5232,12 +5612,52 @@ fn get_app_health(ctx: tauri::State<'_, AppCtxHandle>) -> Result<AppHealth, Stri
 
 /// Clears local observations, backup history, attachment files, and generation archives; resets
 /// `sync_state` to fresh-install values. Does not modify `bundles/` or app auth.
+///
+/// When `pending_only` is true, only pending-push and conflict observations (and their
+/// index/history rows) are removed, plus the outbound `attachments/pending/` queue.
+/// Synced rows and sync offsets are preserved for a continued pull.
 #[tauri::command]
-fn reset_local_workspace_data(ctx: tauri::State<'_, AppCtxHandle>) -> Result<AppHealth, String> {
+fn reset_local_workspace_data(
+    pending_only: Option<bool>,
+    ctx: tauri::State<'_, AppCtxHandle>,
+) -> Result<AppHealth, String> {
+    let pending_only = pending_only.unwrap_or(false);
     with_workspace_fs_exclusive(&ctx, |ctx| {
         let db_path = resolve_db_path(ctx)?;
         let conn = Connection::open(&db_path)?;
         init_db(&conn)?;
+
+        if pending_only {
+            conn.execute(
+                "DELETE FROM observation_history WHERE observation_id IN (
+                    SELECT id FROM observations
+                    WHERE dirty = 1 OR sync_status IN ('dirty', 'conflict')
+                )",
+                [],
+            )?;
+            conn.execute(
+                "DELETE FROM observation_index WHERE observation_id IN (
+                    SELECT id FROM observations
+                    WHERE dirty = 1 OR sync_status IN ('dirty', 'conflict')
+                )",
+                [],
+            )?;
+            conn.execute(
+                "DELETE FROM observations WHERE dirty = 1 OR sync_status IN ('dirty', 'conflict')",
+                [],
+            )?;
+            conn.execute_batch("PRAGMA wal_checkpoint(FULL);")?;
+            drop(conn);
+
+            let ws = resolve_active_workspace_dir(ctx)?;
+            let pending_dir = attachments_root(&ws).join(ATTACH_SUBDIR_PENDING);
+            if pending_dir.exists() {
+                fs::remove_dir_all(&pending_dir)?;
+            }
+            ensure_workspace_layout(&ws)?;
+            return Ok(());
+        }
+
         conn.execute("DELETE FROM observation_history", [])?;
         conn.execute("DELETE FROM observations", [])?;
         conn.execute("DELETE FROM observation_index", [])?;
@@ -5370,10 +5790,14 @@ pub fn run() {
             archive_workspace_for_repository_generation,
             move_workspace,
             backup_workspace,
+            preview_export_dir,
+            export_observations_parquet,
             write_workspace_attachment,
             copy_workspace_attachment_from_path,
             expand_import_staging_paths,
             parse_import_observation_json_paths,
+            parse_and_validate_import_json_paths,
+            scan_import_json_sync_appearance,
             copy_workspace_attachments_batch,
             read_host_text_file,
             host_path_is_directory,
@@ -5423,10 +5847,11 @@ mod tests {
         ATTACHMENT_COPY_PROGRESS_MIN_INTERVAL, ApiObservation, CompressionMethod,
         ObservationExtras, SimpleFileOptions, ZipArchive, ZipWriter,
         apply_app_bundle_zip_at_workspace, attachment_copy_progress_step, bind_query_params,
-        build_observation_overview, extract_observations_from_json_value, init_db,
-        mirror_custom_app_dev_folder, parse_observation_extras, parse_time,
-        publish_bundle_zip_entry_allowed, resolve_attachment_path,
-        should_emit_attachment_copy_progress, should_mark_conflict,
+        build_observation_overview, extract_observations_from_json_value,
+        import_observation_apparently_synced, init_db, mirror_custom_app_dev_folder,
+        parse_observation_extras, parse_time, publish_bundle_zip_entry_allowed,
+        resolve_attachment_path, scan_import_json_sync_appearance,
+        should_emit_attachment_copy_progress, should_mark_conflict, strip_ode_desktop_injection,
         upsert_observation_from_local_import, validate_custom_app_dev_source_folder,
         zip_dev_mirror_bundle,
     };
@@ -5674,6 +6099,77 @@ mod tests {
     }
 
     #[test]
+    fn import_observation_apparently_synced_matches_formulus_rule() {
+        let synced: serde_json::Map<String, Value> = serde_json::from_value(serde_json::json!({
+            "observationId": "a",
+            "updatedAt": "2026-08-15T11:00:00.000Z",
+            "syncedAt": "2026-08-15T12:00:00.000Z",
+        }))
+        .unwrap();
+        assert!(import_observation_apparently_synced(&synced));
+
+        let pending: serde_json::Map<String, Value> = serde_json::from_value(serde_json::json!({
+            "observationId": "b",
+            "updatedAt": "2026-08-15T13:00:00.000Z",
+            "syncedAt": "2026-08-15T12:00:00.000Z",
+        }))
+        .unwrap();
+        assert!(!import_observation_apparently_synced(&pending));
+
+        let never: serde_json::Map<String, Value> = serde_json::from_value(serde_json::json!({
+            "observationId": "c",
+            "updatedAt": "2026-08-15T13:00:00.000Z",
+            "syncedAt": null,
+        }))
+        .unwrap();
+        assert!(!import_observation_apparently_synced(&never));
+    }
+
+    #[test]
+    fn scan_import_json_sync_appearance_keeps_unsynced_paths() {
+        let base =
+            std::env::temp_dir().join(format!("ode_import_sync_scan_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(&base).unwrap();
+        let synced_path = base.join("synced.json");
+        let pending_path = base.join("pending.json");
+        fs::write(
+            &synced_path,
+            r#"{
+              "observationId": "s1",
+              "formType": "t",
+              "updatedAt": "2026-01-01T00:00:00.000Z",
+              "syncedAt": "2026-01-02T00:00:00.000Z",
+              "data": {}
+            }"#,
+        )
+        .unwrap();
+        fs::write(
+            &pending_path,
+            r#"{
+              "observationId": "p1",
+              "formType": "t",
+              "updatedAt": "2026-01-03T00:00:00.000Z",
+              "syncedAt": "2026-01-02T00:00:00.000Z",
+              "data": {}
+            }"#,
+        )
+        .unwrap();
+        let result = scan_import_json_sync_appearance(vec![
+            synced_path.to_string_lossy().to_string(),
+            pending_path.to_string_lossy().to_string(),
+        ])
+        .unwrap();
+        assert_eq!(result.file_count, 2);
+        assert_eq!(result.observation_count, 2);
+        assert_eq!(result.apparently_synced_count, 1);
+        assert_eq!(result.unsynced_count, 1);
+        assert_eq!(result.unsynced_paths.len(), 1);
+        assert!(result.unsynced_paths[0].ends_with("pending.json"));
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
     fn upsert_observation_from_local_import_persists_extras() {
         let conn = Connection::open_in_memory().unwrap();
         init_db(&conn).unwrap();
@@ -5772,15 +6268,33 @@ mod tests {
 
     #[test]
     fn zip_dev_mirror_bundle_produces_valid_layout() {
+        // Nested app/forms (CI style) plus a duplicate top-level forms/ copy from the mirror.
         let base = std::env::temp_dir().join(format!("ode_dev_zip_test_{}", std::process::id()));
         let _ = fs::remove_dir_all(&base);
-        fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
+        fs::create_dir_all(base.join("bundles/dev-local/app/forms/demo")).unwrap();
         fs::create_dir_all(base.join("bundles/dev-local/forms/demo")).unwrap();
         fs::write(
             base.join("bundles/dev-local/app/index.html"),
             b"<html></html>",
         )
         .unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/forms/ext.json"),
+            br#"{"version":"1","renderers":{}}"#,
+        )
+        .unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/forms/forms-manifest.json"),
+            br#"[]"#,
+        )
+        .unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/forms/demo/schema.json"),
+            b"{}",
+        )
+        .unwrap();
+        fs::write(base.join("bundles/dev-local/app/forms/demo/ui.json"), b"{}").unwrap();
+        // Duplicate sibling forms/ (mirror side-effect) — must be omitted from the zip.
         fs::write(base.join("bundles/dev-local/forms/demo/schema.json"), b"{}").unwrap();
         fs::write(base.join("bundles/dev-local/forms/demo/ui.json"), b"{}").unwrap();
         fs::write(
@@ -5803,10 +6317,48 @@ mod tests {
             .collect();
         names.sort();
         assert!(names.contains(&"app/index.html".to_string()));
+        assert!(names.contains(&"app/forms/ext.json".to_string()));
+        assert!(names.contains(&"app/forms/forms-manifest.json".to_string()));
+        assert!(names.contains(&"app/forms/demo/schema.json".to_string()));
+        assert!(names.contains(&"app/forms/demo/ui.json".to_string()));
+        assert!(!names.iter().any(|n| n.starts_with("forms/")));
+        let _ = fs::remove_file(&zip_path);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn zip_dev_mirror_bundle_sibling_forms_strict_filter() {
+        // Legacy sibling forms/ only (no app/forms/) — schema/ui only, strip authoring junk.
+        let base = std::env::temp_dir().join(format!("ode_dev_zip_sibling_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
+        fs::create_dir_all(base.join("bundles/dev-local/forms/demo")).unwrap();
+        fs::write(
+            base.join("bundles/dev-local/app/index.html"),
+            b"<html></html>",
+        )
+        .unwrap();
+        fs::write(base.join("bundles/dev-local/forms/demo/schema.json"), b"{}").unwrap();
+        fs::write(base.join("bundles/dev-local/forms/demo/ui.json"), b"{}").unwrap();
+        fs::write(
+            base.join("bundles/dev-local/forms/shared-choice-defs.schema.json"),
+            br#"{"$defs":{"yesno":{"type":"string"}}}"#,
+        )
+        .unwrap();
+        fs::write(base.join("bundles/dev-local/forms/ext.json"), b"{}").unwrap();
+
+        let zip_path = zip_dev_mirror_bundle(Path::new(&base)).unwrap();
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = ZipArchive::new(file).unwrap();
+        let mut names: Vec<String> = (0..archive.len())
+            .map(|i| archive.by_index(i).unwrap().name().to_string())
+            .collect();
+        names.sort();
+        assert!(names.contains(&"app/index.html".to_string()));
         assert!(names.contains(&"forms/demo/schema.json".to_string()));
         assert!(names.contains(&"forms/demo/ui.json".to_string()));
         assert!(!names.iter().any(|n| n.contains("shared-choice-defs")));
-        assert!(!names.iter().any(|n| n.contains("extensions/")));
+        assert!(!names.iter().any(|n| n == "forms/ext.json"));
         let _ = fs::remove_file(&zip_path);
         let _ = fs::remove_dir_all(&base);
     }
@@ -5852,20 +6404,90 @@ mod tests {
     }
 
     #[test]
+    fn strip_ode_desktop_injection_removes_embed_stub() {
+        let html = concat!(
+            "<!DOCTYPE html><html lang=\"pt\"><head>",
+            "<!--ode-desktop-inject-start-->",
+            "<base href=\"asset://localhost/app/\">",
+            "<script src=\"http://localhost:1420/formulus-injection.js\"></script>",
+            "<!--ode-desktop-inject-end-->",
+            "<meta charset=\"UTF-8\" /><script src=\"./formulus-load.js\"></script>",
+            "</head><body><div id=\"root\"></div></body></html>",
+        );
+        let cleaned = strip_ode_desktop_injection(html);
+        assert!(!cleaned.contains("ode-desktop-inject"));
+        assert!(!cleaned.contains("asset://localhost"));
+        assert!(!cleaned.contains("formulus-injection.js"));
+        assert!(cleaned.contains("./formulus-load.js"));
+        assert!(cleaned.contains("<div id=\"root\"></div>"));
+    }
+
+    #[test]
+    fn zip_dev_mirror_bundle_strips_desktop_inject_from_index() {
+        let base =
+            std::env::temp_dir().join(format!("ode_dev_zip_strip_inject_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&base);
+        fs::create_dir_all(base.join("bundles/dev-local/app")).unwrap();
+        let poisoned = concat!(
+            "<html><head><!--ode-desktop-inject-start-->",
+            "<base href=\"asset://localhost/x/\">",
+            "<!--ode-desktop-inject-end-->",
+            "<script src=\"./formulus-load.js\"></script></head><body></body></html>",
+        );
+        fs::write(
+            base.join("bundles/dev-local/app/index.html"),
+            poisoned.as_bytes(),
+        )
+        .unwrap();
+
+        let zip_path = zip_dev_mirror_bundle(Path::new(&base)).unwrap();
+        let file = fs::File::open(&zip_path).unwrap();
+        let mut archive = ZipArchive::new(file).unwrap();
+        let mut entry = archive.by_name("app/index.html").unwrap();
+        let mut html = String::new();
+        entry.read_to_string(&mut html).unwrap();
+        assert!(!html.contains("ode-desktop-inject"));
+        assert!(!html.contains("asset://localhost"));
+        assert!(html.contains("./formulus-load.js"));
+        let _ = fs::remove_file(&zip_path);
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    #[test]
     fn publish_bundle_zip_entry_allowed_filters_authoring_artifacts() {
-        assert!(publish_bundle_zip_entry_allowed("app/index.html"));
+        // Nested app/forms: allow full tree extras.
+        assert!(publish_bundle_zip_entry_allowed("app/index.html", true));
         assert!(publish_bundle_zip_entry_allowed(
-            "forms/household/schema.json"
+            "app/forms/household/ui.json",
+            true
         ));
+        assert!(publish_bundle_zip_entry_allowed("app/forms/ext.json", true));
         assert!(publish_bundle_zip_entry_allowed(
-            "app/forms/household/ui.json"
+            "app/forms/forms-manifest.json",
+            true
         ));
         assert!(!publish_bundle_zip_entry_allowed(
-            "forms/shared-choice-defs.schema.json"
+            "forms/household/schema.json",
+            true
+        ));
+
+        // Sibling forms layout: schema/ui only at top-level forms/.
+        assert!(publish_bundle_zip_entry_allowed(
+            "forms/household/schema.json",
+            false
         ));
         assert!(!publish_bundle_zip_entry_allowed(
-            "forms/extensions/helpers/queryHelpers.js"
+            "forms/shared-choice-defs.schema.json",
+            false
         ));
-        assert!(!publish_bundle_zip_entry_allowed("forms/ext.json"));
+        assert!(!publish_bundle_zip_entry_allowed(
+            "forms/extensions/helpers/queryHelpers.js",
+            false
+        ));
+        assert!(!publish_bundle_zip_entry_allowed("forms/ext.json", false));
+        assert!(!publish_bundle_zip_entry_allowed(
+            "app/node_modules/pkg/index.js",
+            false
+        ));
     }
 }

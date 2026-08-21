@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { CalendarToday } from '@mui/icons-material';
 import QuestionShell from '../components/QuestionShell';
+import { useClearOnHide } from '../jsonforms/useClearOnHide';
 import {
   adateToStorageFormat,
   storageFormatToAdate,
@@ -179,6 +180,7 @@ const AdateQuestionRenderer: React.FC<ControlProps> = ({
     setYearUnknown(false);
   }, []);
 
+  useClearOnHide({ visible, path, data, handleChange });
   // Don't render if not visible
   if (!visible) {
     return null;

@@ -31,7 +31,6 @@ export class AppVersionService {
 
     try {
       this.cachedVersion = DeviceInfo.getVersion();
-      console.log('AppVersionService: App version:', this.cachedVersion);
       return this.cachedVersion;
     } catch (error) {
       console.error('AppVersionService: Error getting app version:', error);
@@ -54,7 +53,6 @@ export class AppVersionService {
 
     try {
       this.cachedBuildNumber = DeviceInfo.getBuildNumber();
-      console.log('AppVersionService: Build number:', this.cachedBuildNumber);
       return this.cachedBuildNumber;
     } catch (error) {
       console.error('AppVersionService: Error getting build number:', error);

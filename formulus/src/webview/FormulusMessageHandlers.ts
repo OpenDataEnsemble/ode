@@ -11,6 +11,7 @@ import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
 import { i18n } from '../i18n/instance';
+import { logger } from '../diagnostics/logger';
 import * as ImagePicker from 'react-native-image-picker';
 import {
   check,
@@ -251,12 +252,10 @@ export const rejectFormOperation = (operationId: string, error: Error) => {
 
 export function createFormulusMessageHandlers(): FormulusMessageHandlers {
   return {
-    onInitForm: (payload: unknown) => {
+    onInitForm: (_payload: unknown) => {
       // TODO: implement init form logic
-      console.log('FormulusMessageHandlers: onInitForm called', payload);
     },
     onGetVersion: async (): Promise<string> => {
-      console.log('FormulusMessageHandlers: onGetVersion handler invoked.');
       // Return the bridge interface contract version so custom apps can do
       // meaningful compatibility checks (see isCompatibleVersion).
       return FORMULUS_INTERFACE_VERSION;
@@ -266,16 +265,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       finalData: Record<string, unknown>;
     }) => {
       const { formType, finalData } = data;
-      console.log(
-        'FormulusMessageHandlers: onSubmitObservation handler invoked.',
-        { formType, finalData },
-      );
 
       // Use the active FormplayerModal's handleSubmission method if available
       if (activeFormplayerModalRef) {
-        console.log(
-          'FormulusMessageHandlers: Delegating to FormplayerModal.handleSubmission',
-        );
         return await activeFormplayerModalRef.handleSubmission({
           formType,
           finalData,
@@ -298,9 +290,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       // Formplayer uses updateObservation for existing rows; submitObservation for new.
       // Route updates through the modal too so the operation promise resolves and the UI closes.
       if (activeFormplayerModalRef) {
-        console.log(
-          'FormulusMessageHandlers: Delegating to FormplayerModal.handleSubmission (update)',
-        );
         return await activeFormplayerModalRef.handleSubmission({
           formType: data.formType,
           finalData: data.finalData,
@@ -317,7 +306,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       );
     },
     onRequestCamera: async (fieldId: string): Promise<unknown> => {
-      console.log('Request camera handler called', fieldId);
+      logger.debug('bridge', 'camera requested');
 
       return new Promise(resolve => {
         try {
@@ -347,18 +336,10 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             },
           };
 
-          console.log(
-            'Launching image picker with camera and gallery options, options:',
-            options,
-          );
-
           // Common response handler for both camera and gallery
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const handleImagePickerResponse = (response: any) => {
-            console.log('Camera response received:', response);
-
             if (response.didCancel) {
-              console.log('User cancelled camera');
               resolve({
                 fieldId,
                 status: 'cancelled',
@@ -396,24 +377,9 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               const imageGuid = generateGUID();
               const guidFilename = `${imageGuid}.jpg`;
 
-              console.log(
-                'Photo captured, processing for persistent storage:',
-                {
-                  imageGuid,
-                  guidFilename,
-                  tempUri: asset.uri,
-                  size: asset.fileSize,
-                },
-              );
-
               const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
               const draftDirectory = `${attachmentsDirectory}/draft`;
               const draftFilePath = `${draftDirectory}/${guidFilename}`;
-
-              console.log('Copying camera image to draft attachment storage:', {
-                source: asset.uri,
-                draftPath: draftFilePath,
-              });
 
               Promise.all([
                 RNFS.mkdir(attachmentsDirectory),
@@ -421,11 +387,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               ])
                 .then(() => RNFS.copyFile(asset.uri, draftFilePath))
                 .then(() => {
-                  console.log(
-                    'Image saved to draft attachments:',
-                    draftFilePath,
-                  );
-
                   const webViewUrl = `file://${draftFilePath}`;
 
                   resolve({
@@ -537,15 +498,12 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       });
     },
     onRequestQrcode: async (fieldId: string): Promise<unknown> => {
-      console.log('Request QR code handler called', fieldId);
-
       const promise = qrcodeRequestCoordinator.request(fieldId);
 
       try {
         appEvents.emit('openQRScanner', {
           fieldId,
           onResult: (result: unknown) => {
-            console.log('QR scan result received:', result);
             qrcodeRequestCoordinator.settle(result);
           },
         });
@@ -563,7 +521,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       return promise;
     },
     onRequestSignature: async (fieldId: string): Promise<unknown> => {
-      console.log('Request signature handler called', fieldId);
+      logger.debug('bridge', 'signature requested');
 
       return new Promise(resolve => {
         try {
@@ -572,8 +530,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             fieldId,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onResult: async (result: any) => {
-              console.log('Signature capture result received:', result);
-
               try {
                 // If the result contains base64 data, save it to file and return URI
                 if (
@@ -617,7 +573,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                     },
                   };
 
-                  console.log('Signature saved to file:', filePath);
                   resolve(updatedResult);
                 } else {
                   // Return result as-is if no base64 data or if it's an error/cancellation
@@ -649,13 +604,13 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     onRequestLocation: async (
       payload: string | { fieldId?: string },
     ): Promise<unknown> => {
+      logger.debug('bridge', 'location requested');
       const fieldId =
         typeof payload === 'string'
           ? payload
           : typeof payload?.fieldId === 'string'
             ? payload.fieldId
             : '';
-      console.log('Request location handler called', fieldId);
 
       // eslint-disable-next-line no-async-promise-executor
       return new Promise(async (resolve, reject) => {
@@ -681,7 +636,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               },
             };
 
-            console.log('Location captured successfully:', locationResult);
             resolve(locationResult);
           } else {
             throw new Error('Unable to get current location');
@@ -803,7 +757,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           };
           ImagePicker.launchCamera(options, async response => {
             if (response.didCancel) {
-              console.log('Video recording cancelled');
               reject({
                 fieldId,
                 status: 'cancelled',
@@ -882,7 +835,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                   },
                 };
 
-                console.log('Video recorded successfully:', videoResult);
                 resolve(videoResult);
               } catch (fileError) {
                 console.error('Error saving video file:', fileError);
@@ -914,15 +866,12 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
     },
 
     onRequestFile: async (fieldId: string) => {
-      console.log('Request file handler called (v12 API)', fieldId);
       try {
         const [result] = await pick({
           type: [types.allFiles],
           mode: 'import',
           allowMultiSelection: false,
         });
-
-        console.log('File selected:', result);
 
         const originalName =
           typeof result.name === 'string' && result.name.trim().length > 0
@@ -1002,17 +951,18 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       }
     },
 
-    onLaunchIntent: (fieldId: string, intentSpec: Record<string, unknown>) => {
+    onLaunchIntent: (
+      _fieldId: string,
+      _intentSpec: Record<string, unknown>,
+    ) => {
       // TODO: implement launch intent logic
-      console.log('Launch intent handler called', fieldId, intentSpec);
     },
     onCallSubform: (
-      fieldId: string,
-      formType: string,
-      options: Record<string, unknown>,
+      _fieldId: string,
+      _formType: string,
+      _options: Record<string, unknown>,
     ) => {
       // TODO: implement call subform logic
-      console.log('Call subform handler called', fieldId, formType, options);
     },
     onRequestAudio: async (fieldId: string) => {
       // Lazy-load NitroSound only when audio is requested (avoids console error on startup when disabled)
@@ -1075,10 +1025,7 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
           },
         };
       } catch (error) {
-        console.log('Audio recording error:', error);
-
         // Check if this is a user cancellation or permission error
-        console.log('Audio recording error:', error);
 
         if (typeof error === 'object' && error !== null) {
           const err = error as Record<string, unknown>;
@@ -1121,17 +1068,14 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         };
       }
     },
-    onRequestBiometric: (fieldId: string) => {
+    onRequestBiometric: (_fieldId: string) => {
       // TODO: implement biometric request logic
-      console.log('Request biometric handler called', fieldId);
     },
     onRequestConnectivityStatus: () => {
       // TODO: implement connectivity status logic
-      console.log('Request connectivity status handler called');
     },
     onRequestSyncStatus: () => {
       // TODO: implement sync status logic
-      console.log('Request sync status handler called');
     },
     onPersistObservation: async (
       data: {
@@ -1213,12 +1157,11 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       }
     },
     onRunLocalModel: (
-      fieldId: string,
-      modelId: string,
-      input: Record<string, unknown>,
+      _fieldId: string,
+      _modelId: string,
+      _input: Record<string, unknown>,
     ) => {
       // TODO: implement run local model logic
-      console.log('Run local model handler called', fieldId, modelId, input);
     },
     onGetAvailableForms: async (): Promise<FormInfo[]> => {
       try {
@@ -1365,11 +1308,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       isDraft?: boolean,
       includeDeleted?: boolean,
     ) => {
-      console.log(
-        'FormulusMessageHandlers: onGetObservations handler invoked.',
-        { formType, isDraft, includeDeleted },
-      );
-
       // Extract the actual formType string value
       let formTypeString: string;
       if (typeof formType === 'string') {
@@ -1379,9 +1317,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         formType !== null &&
         'formType' in formType
       ) {
-        console.debug(
-          'FormulusMessageHandlers: onGetObservations received formType as object, extracting string value',
-        );
         formTypeString = formType.formType;
       } else {
         console.error(

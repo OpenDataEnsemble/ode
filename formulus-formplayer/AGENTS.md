@@ -51,6 +51,10 @@ This file gives AI assistants and developers enough context to work effectively 
 | `src/mocks/`               | `webview-mock.ts` and `DevTestbed` for local dev without RN.                                                                                                                     |
 | `scripts/`                 | `sync-interface.js`, `copy-to-rn.js`, `clean-rn-assets.js`.                                                                                                                      |
 
+## Clear-on-hide (`SHOW` / `HIDE`)
+
+When a Control becomes not visible (`visible: false` from JSON Forms rules), Formplayer clears that path via `src/jsonforms/useClearOnHide.ts` (ODK-style `relevant`). Authoring implication: **do not** put visibility rules on fields that must survive (especially custom-app `defaultData` stamps). Keep those properties in the schema only; display with `headerFields` or a separate computed/`lbl_*` Control. Docs: [form-design — Conditional Logic](https://opendataensemble.org/docs/guides/form-design#conditional-logic-in-ode-forms).
+
 ## Key technical constraints
 
 1. **WebView environment**: No real `window.ReactNativeWebView` in browser dev; use the mock. Assume **file://** and **single JS bundle** when changing Vite/build.
