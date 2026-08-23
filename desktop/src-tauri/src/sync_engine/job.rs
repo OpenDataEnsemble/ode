@@ -178,6 +178,14 @@ pub(crate) fn delete_completed_stale(conn: &rusqlite::Connection) -> Result<(), 
     Ok(())
 }
 
+/// Clear every job that is not actively running (paused / failed / completed /
+/// cancelled). Used by "Reset local data" so a stale paused or failed job cannot
+/// keep blocking a fresh sync after the workspace has been wiped.
+pub(crate) fn delete_non_running_jobs(conn: &rusqlite::Connection) -> Result<usize, rusqlite::Error> {
+    let n = conn.execute("DELETE FROM sync_jobs WHERE status != 'running'", [])?;
+    Ok(n)
+}
+
 /// Rows left `running` after a crash have no in-process worker. Reset them so sync can start again.
 pub(crate) fn reconcile_interrupted_running_jobs(
     conn: &rusqlite::Connection,
@@ -221,5 +229,30 @@ mod tests {
             )
             .unwrap();
         assert_eq!(code, "interrupted");
+    }
+
+    #[test]
+    fn delete_non_running_jobs_clears_failed_and_paused_only() {
+        let conn = Connection::open_in_memory().unwrap();
+        migrate_sync_jobs(&conn).unwrap();
+        insert_job(&conn, "job-failed", "push", "failed", "failed").unwrap();
+        insert_job(&conn, "job-paused", "pull", "paused", "needs_auth").unwrap();
+        insert_job(&conn, "job-running", "pull", "running", "pull_data").unwrap();
+
+        let n = delete_non_running_jobs(&conn).unwrap();
+        assert_eq!(n, 2);
+
+        let remaining: i64 = conn
+            .query_row("SELECT COUNT(*) FROM sync_jobs", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(remaining, 1);
+        let status: String = conn
+            .query_row(
+                "SELECT status FROM sync_jobs WHERE id = 'job-running'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(status, "running");
     }
 }
