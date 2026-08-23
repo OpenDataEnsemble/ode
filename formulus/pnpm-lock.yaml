@@ -173,6 +173,9 @@ importers:
       '@react-native/babel-preset':
         specifier: 0.84.1
         version: 0.84.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
+      '@react-native/codegen':
+        specifier: 0.83.1
+        version: 0.83.1(@babel/core@7.29.7(supports-color@10.2.2))
       '@react-native/eslint-config':
         specifier: 0.84.1
         version: 0.84.1(eslint@9.39.5(supports-color@10.2.2))(jest@30.3.0(@types/node@24.13.3)(supports-color@10.2.2))(prettier@3.8.1)(supports-color@10.2.2)(typescript@5.9.3)
