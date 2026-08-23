@@ -13,6 +13,16 @@ onlyBuiltDependencies:
   - unrs-resolver
 
 overrides:
+  # Core jest packages pinned to the devDependencies version. Migrated from the
+  # package.json "pnpm.overrides" field, which pnpm 11 no longer reads.
+  jest: 30.3.0
+  '@jest/core': 30.3.0
+  jest-cli: 30.3.0
+  jest-config: 30.3.0
+  jest-circus: 30.3.0
+  jest-runner: 30.3.0
+  jest-runtime: 30.3.0
+  # Auxiliary jest packages bumped for audit fixes.
   jest-environment-node: ^30.4.1
   jest-haste-map: ^30.4.1
   jest-message-util: ^30.4.1

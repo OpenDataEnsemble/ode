@@ -102,16 +102,5 @@
   },
   "engines": {
     "node": ">=20"
-  },
-  "pnpm": {
-    "overrides": {
-      "jest": "30.3.0",
-      "jest-runtime": "30.3.0",
-      "@jest/core": "30.3.0",
-      "jest-cli": "30.3.0",
-      "jest-config": "30.3.0",
-      "jest-circus": "30.3.0",
-      "jest-runner": "30.3.0"
-    }
   }
 }

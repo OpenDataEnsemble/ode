@@ -1,0 +1,6 @@
+# pnpm 10+ reads project settings here (not package.json#pnpm).
+# Allow lifecycle scripts only for these native/tooling deps.
+onlyBuiltDependencies:
+  - '@nestjs/core'
+  - '@openapitools/openapi-generator-cli'
+  - esbuild
