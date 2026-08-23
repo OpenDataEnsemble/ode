@@ -8,12 +8,14 @@ export default {
   },
   // Vendored packages ship their own Jest suites; they are not part of this app.
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/third_party/'],
-  // Allow Babel to transform our internal @ode/* packages whose `main` points
-  // at TypeScript source (not pre-built). Without this override pnpm's hoisted
-  // node_modules layout lets jest's default ignore pattern skip them and Jest
-  // chokes on `export`.
+  // Allow Babel to transform react-native / @react-native* / @ode/* even when
+  // they live under pnpm's nested layout:
+  //   node_modules/.pnpm/<pkg>@…/node_modules/<pkg>/…
+  // Without the `.pnpm/…/node_modules/` alternative, Jest matches the first
+  // `node_modules/` (followed by `.pnpm`), skips transform, and chokes on the
+  // ESM `import` in react-native/jest/setup.js.
   transformIgnorePatterns: [
-    'node_modules/(?!((jest-)?react-native|@react-native(-community)?|@ode)/)',
+    'node_modules/(?!(?:\\.pnpm/[^/]+/node_modules/)?((jest-)?react-native|@react-native(-community)?|@ode)/)',
   ],
   // WatermelonDB / Loki can leave handles open in Jest; force exit avoids hung workers.
   forceExit: true,
