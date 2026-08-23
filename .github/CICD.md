@@ -49,10 +49,18 @@ Image tags are computed by `docker/metadata-action`. The highest-priority tag pe
 Moving pointer tags:
 
 - **`latest`** — always points to the most recent **non-prerelease** GitHub Release. Never moved by branch pushes.
-- **`latest-pre-release`** — always points to the most recent **prerelease** GitHub Release (e.g. `-alpha.N`, `-rc.N`).
+- **`latest-pre-release`** — always points to the most recent **prerelease** GitHub Release (e.g. `-alpha.N`, `-rc.N`). Point demo/staging servers (e.g. via Watchtower) at this tag to track published pre-releases.
 - **`main`** / **`dev`** — track the tip of the respective branch.
 
 `workflow_dispatch` intentionally produces only `sha-{short}` so that manual runs cannot accidentally reassign `latest`, `main`, `dev`, or any other pointer tag.
+
+> **Version stamping of non-release builds.** `dev`, `main`, and feature-branch
+> builds bake a `git describe --tags --always` version (e.g. `v1.3.0-7-gabc1234`)
+> into the binary via ldflags, so the server `/version` endpoint reports a version
+> clearly *ahead* of the last release. Previously these builds used
+> `git describe --abbrev=0`, which stamped them with the **previous** release tag —
+> the reason a branch-tracking demo server appeared to run "exactly one version
+> behind" even when the image content was current.
 
 #### Build Features
 
