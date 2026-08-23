@@ -147,9 +147,11 @@ Formplayer assets are **not committed to git** and are ignored via `.gitignore`.
 
 #### Build Types
 
-- **Pull Requests**: Debug APK (unsigned)
-- **Push to main/dev**: Release APK (signed with secrets)
-- **Release**: Release APK published to GitHub Release
+- **Pull Requests**: Debug APK (unsigned), **arm64-v8a only** (`-PreactNativeArchitectures=arm64-v8a`) to keep PR CI fast
+- **Push to main/dev**: Release APK + AAB (signed), **all four ABIs** from `formulus/android/gradle.properties`
+- **Release**: Same as main/dev; APK/AAB published to the GitHub Release
+
+Gradle uses `gradle/actions/setup-gradle` for dependency/build-cache restore. CI also enables parallel workers (local `gradle.properties` keeps them low for laptops).
 
 #### Secrets Required
 

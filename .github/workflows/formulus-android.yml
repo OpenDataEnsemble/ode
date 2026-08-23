@@ -136,7 +136,13 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+          # Gradle dependency/wrapper caching is handled by gradle/actions/setup-gradle below.
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b2458920921268a1ff4ebfba # v4
+        with:
+          # Persist the Gradle build cache across CI runs (wrapper + deps + task outputs).
+          cache-read-only: false
 
       - name: Make Gradle wrapper executable
         working-directory: formulus/android
@@ -166,20 +172,35 @@ jobs:
           echo "FORMULUS_RELEASE_KEY_ALIAS=${FORMULUS_RELEASE_KEY_ALIAS}" >> formulus/android/local.properties
           echo "FORMULUS_RELEASE_KEY_PASSWORD=${FORMULUS_RELEASE_KEY_PASSWORD}" >> formulus/android/local.properties
 
-      - name: Build debug APK (PR)
+      # PRs: compile arm64-v8a only (physical devices + most CI validation).
+      # Push/release: all four ABIs from gradle.properties (shippable APK/AAB).
+      # Local gradle.properties keeps parallel/workers low for laptops; CI overrides those.
+      - name: Build debug APK (PR, arm64-v8a only)
         if: github.event_name == 'pull_request'
         working-directory: formulus/android
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+        run: >
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          -Dorg.gradle.parallel=true
+          -Dorg.gradle.workers.max=4
+          -PreactNativeArchitectures=arm64-v8a
 
-      - name: Build release APK (main/dev/release)
+      - name: Build release APK (main/dev/release, all ABIs)
         if: github.event_name != 'pull_request'
         working-directory: formulus/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: >
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          -Dorg.gradle.parallel=true
+          -Dorg.gradle.workers.max=4
 
-      - name: Build release AAB for Play Store (main/dev/release)
+      - name: Build release AAB for Play Store (main/dev/release, all ABIs)
         if: github.event_name != 'pull_request'
         working-directory: formulus/android
-        run: ./gradlew bundleRelease --no-daemon
+        run: >
+          ./gradlew bundleRelease --no-daemon --stacktrace
+          -Dorg.gradle.parallel=true
+          -Dorg.gradle.workers.max=4
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
