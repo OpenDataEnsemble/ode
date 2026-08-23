@@ -56,6 +56,20 @@
 
 See [README.md](README.md): Metro, `pnpm run android` / `ios`, Android **Notifee** vendor step, iOS **Pods**. For CI and formatting, see root [README.md](../README.md) and [.github/CICD.md](../.github/CICD.md).
 
+## Dependency pins (check on every React Native upgrade)
+
+Exact versions in `package.json` that exist only to keep Android / codegen working with the **current** RN line. Revisit them when bumping `react-native`.
+
+| Package | Pinned to | Why | When to relax |
+| ------- | --------- | --- | ------------- |
+| `react-native-screens` | `4.25.2` (no `^`) | `4.26+` needs RN **0.84+** and uses `React.ComponentRef` in Fabric commands; codegen **0.83** only accepts `React.ElementRef`, so Android fails at `:react-native-screens:generateCodegenSchemaFromJavaScript`. | After upgrading RN to **≥ 0.84** (ideally **0.87**): restore a caret range (e.g. `^4.27.0`) and confirm Android codegen + screens still build. |
+| `@nozbe/sqlite` / `@nozbe/simdjson` | `3.46.0` / `3.9.4` (direct deps) | WatermelonDB JSI `CMakeLists.txt` resolves `node_modules/@nozbe/{sqlite,simdjson}` from a relative path; pnpm does not hoist those transitive packages there, so CMake gets `No SOURCES given to target: watermelondb-jsi`. | Keep as direct deps aligned with `@nozbe/watermelondb`'s versions. |
+| `@nozbe/watermelondb` | patched (`patches/@nozbe__watermelondb@0.28.0.patch`) | Same CMake file uses `../../../../../../../react-native`. Under pnpm the package is symlinked into `.pnpm/…`; on Linux `..` follows the real path into the package store (sqlite/simdjson present, **react-native not**), so `#include <jsi/jsi.h>` fails. Patch walks up until `jsi.h` is found. | Drop the patch when upstream CMake is pnpm-safe, or after switching away from WatermelonDB JSI. |
+| `@react-native/gradle-plugin` | `0.83.1` (direct devDependency) | pnpm does not hoist the transitive copy; `android/settings.gradle` expects `node_modules/@react-native/gradle-plugin`. | Keep as a direct dep aligned with `react-native`; bump the version in lockstep with RN. |
+| `@react-native/codegen` | `0.83.1` (direct devDependency) | Same hoist issue for the default `codegenDir` path. | Same — bump with RN. |
+
+Screens compat table: [react-native-screens README](https://github.com/software-mansion/react-native-screens#support-for-fabric).
+
 ## Pre-flight before a PR
 
 From **`formulus/`**:

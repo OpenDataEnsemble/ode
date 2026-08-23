@@ -1,0 +1,63 @@
+diff --git a/native/android-jsi/src/main/cpp/CMakeLists.txt b/native/android-jsi/src/main/cpp/CMakeLists.txt
+index 79d961e8a1b3a292d93cd5bfc4dff303d7151cd6..62ef3d6ac3ca830244e48544db1ff7bc74bca241 100644
+--- a/native/android-jsi/src/main/cpp/CMakeLists.txt
++++ b/native/android-jsi/src/main/cpp/CMakeLists.txt
+@@ -5,16 +5,24 @@ cmake_minimum_required(VERSION 3.4.1)
+ # execute_process (COMMAND ln "-s" "src" "../../../../../node_modules/react-native/third-party/double-conversion-1.1.6/double-conversion")
+ 
+ # NOTE: This may need to be bumped sometimes to force CMake caches to clear
+-set(WMELON_JSI_BUMP 4)
++set(WMELON_JSI_BUMP 5)
+ 
+ # -------------------------------------------------
+ # Figure out where node_modules is
+ # (surely there's a better way to do this)
+ # This has to work with standard RN project, Nozbe's unusual folder structure and internal Watermelon tester
++#
++# ODE / pnpm note: with a symlinked install, CMAKE_CURRENT_SOURCE_DIR resolves under
++# node_modules/.pnpm/<pkg>/node_modules/@nozbe/watermelondb/.... Relative ../../.. then
++# lands in that package's store node_modules (has @nozbe/sqlite, not react-native), so
++# #include <jsi/jsi.h> fails. Walk up from the real source dir until react-native is found.
+ 
+ get_filename_component(_nativeTesterPath "../../../../../node_modules/@nozbe/sqlite/" REALPATH)
+ get_filename_component(_nozbePath "../../../../../../../../../native/node_modules/react-native/ReactCommon/jsi/jsi/" REALPATH)
+ 
++set(NODE_MODULES_PATH_WM "")
++set(NODE_MODULES_PATH_RN "")
++
+ if(EXISTS "${_nativeTesterPath}")
+         # these paths work for WatermelonDB native tester
+         set(NODE_MODULES_PATH_WM ../../../../../node_modules/)
+@@ -24,11 +32,29 @@ elseif(EXISTS "${_nozbePath}")
+         set(NODE_MODULES_PATH_WM ../../../../../../../)
+         set(NODE_MODULES_PATH_RN ../../../../../../../../../native/node_modules/)
+ else()
+-        # these paths should work for a standard RN project
+-        set(NODE_MODULES_PATH_WM ../../../../../../../)
+-        set(NODE_MODULES_PATH_RN ../../../../../../../)
++        set(_search_dir "${CMAKE_CURRENT_SOURCE_DIR}")
++        foreach(_i RANGE 1 16)
++                get_filename_component(_search_dir "${_search_dir}" DIRECTORY)
++                if(EXISTS "${_search_dir}/react-native/ReactCommon/jsi/jsi/jsi.h")
++                        set(NODE_MODULES_PATH_WM "${_search_dir}")
++                        set(NODE_MODULES_PATH_RN "${_search_dir}")
++                        break()
++                endif()
++                if(EXISTS "${_search_dir}/node_modules/react-native/ReactCommon/jsi/jsi/jsi.h")
++                        set(NODE_MODULES_PATH_WM "${_search_dir}/node_modules")
++                        set(NODE_MODULES_PATH_RN "${_search_dir}/node_modules")
++                        break()
++                endif()
++        endforeach()
++        if(NODE_MODULES_PATH_RN STREQUAL "")
++                # Fallback: classic relative path for flat npm/yarn layouts
++                set(NODE_MODULES_PATH_WM ../../../../../../../)
++                set(NODE_MODULES_PATH_RN ../../../../../../../)
++        endif()
+ endif()
+ 
++message(STATUS "watermelondb-jsi: NODE_MODULES_PATH_RN=${NODE_MODULES_PATH_RN}")
++
+ # -------------------------------------------------
+ # Header search paths
+ # FIXME: <simdjson/simdjson.h> should work…

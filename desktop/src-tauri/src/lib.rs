@@ -5627,6 +5627,11 @@ fn reset_local_workspace_data(
         let conn = Connection::open(&db_path)?;
         init_db(&conn)?;
 
+        // A paused or failed sync job survives a data wipe and would otherwise
+        // keep blocking the Sync page buttons after the reset. Clear everything
+        // that is not actively running.
+        sync_engine::clear_non_running_jobs_db(&conn).map_err(CustodianError::Sqlite)?;
+
         if pending_only {
             conn.execute(
                 "DELETE FROM observation_history WHERE observation_id IN (

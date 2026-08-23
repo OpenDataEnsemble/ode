@@ -380,10 +380,7 @@ export function validateObservationPayload(
 }
 
 export type ImportIssueCategory =
-  | 'schema'
-  | 'observation'
-  | 'attachment'
-  | 'other';
+  'schema' | 'observation' | 'attachment' | 'other';
 
 export function categorizeImportIssue(issue: ImportIssue): ImportIssueCategory {
   const code = issue.code;

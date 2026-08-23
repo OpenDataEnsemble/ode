@@ -7,12 +7,42 @@ import { appVersionService } from '../services/AppVersionService';
 import {
   getEventsFilePath,
   getExitsFilePath,
+  getTracesDirPath,
   readFileIfExists,
   readLastExit,
   readRecentEvents,
 } from './DiagnosticLog';
 import { formatExitReason } from './classifyExit';
 import { buildSummaryText, serverHostnameOnly } from './exportDiagnosticsText';
+
+/** Cap bundled traces defensively; the native side already prunes to a few. */
+const MAX_BUNDLED_TRACES = 4;
+
+async function copyRecentTraces(destDir: string): Promise<string[]> {
+  const sourceDir = getTracesDirPath();
+  if (!(await RNFS.exists(sourceDir))) {
+    return [];
+  }
+  try {
+    const entries = await RNFS.readDir(sourceDir);
+    const files = entries
+      .filter(entry => entry.isFile())
+      .sort((a, b) => Number(b.mtime ?? 0) - Number(a.mtime ?? 0))
+      .slice(0, MAX_BUNDLED_TRACES);
+    if (files.length === 0) {
+      return [];
+    }
+    await RNFS.mkdir(`${destDir}/traces`);
+    const names: string[] = [];
+    for (const file of files) {
+      await RNFS.copyFile(file.path, `${destDir}/traces/${file.name}`);
+      names.push(file.name);
+    }
+    return names;
+  } catch {
+    return [];
+  }
+}
 
 export {
   DIAGNOSTICS_ZIP_FILES,
@@ -37,12 +67,14 @@ export async function exportDiagnosticsZip(): Promise<void> {
     await RNFS.writeFile(`${workDir}/events.ndjson`, events, 'utf8');
     await RNFS.writeFile(`${workDir}/exits.ndjson`, exits, 'utf8');
 
-    const [lastExit, recent, serverUrl, appVersion] = await Promise.all([
-      readLastExit(),
-      readRecentEvents(40),
-      serverConfigService.getServerUrl(),
-      appVersionService.getFullVersion().catch(() => 'unknown'),
-    ]);
+    const [traceFiles, lastExit, recent, serverUrl, appVersion] =
+      await Promise.all([
+        copyRecentTraces(workDir),
+        readLastExit(),
+        readRecentEvents(40),
+        serverConfigService.getServerUrl(),
+        appVersionService.getFullVersion().catch(() => 'unknown'),
+      ]);
     const breadcrumbs = recent
       .filter(event => event.kind === 'breadcrumb')
       .slice(0, 20)
@@ -56,6 +88,7 @@ export async function exportDiagnosticsZip(): Promise<void> {
       serverHost: serverHostnameOnly(serverUrl),
       lastExitReason: lastExit ? formatExitReason(lastExit) : null,
       breadcrumbs,
+      traceFiles,
     });
     await RNFS.writeFile(`${workDir}/summary.txt`, summary, 'utf8');
 

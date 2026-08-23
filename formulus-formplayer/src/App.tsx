@@ -409,6 +409,17 @@ if (typeof window !== 'undefined') {
   );
 }
 
+// Deferred draft refresh/persist: keep typing responsive by doing only the cheap
+// merge+setData per keystroke; the expensive custom-validator refresh, auto-
+// sequence, and draft write run on a trailing debounce, with a hard maxWait so a
+// long stretch of continuous typing still persists within the data-loss budget.
+const REFRESH_DEBOUNCE_MS = 1500;
+const REFRESH_MAX_WAIT_MS = 10000;
+// Render breadcrumb log: kept always-on for field forensics, but coalesced so a
+// burst of renders emits a single (latest) line instead of one bridge message
+// per keystroke.
+const RENDER_LOG_DEBOUNCE_MS = 500;
+
 function App() {
   // WebView mock is initialized in index.tsx (dev only, via dynamic import)
 
@@ -416,6 +427,8 @@ function App() {
   const [data, setData] = useState<FormData>({});
   /** Latest form data — read from event handlers that may run before React re-renders. */
   const dataRef = useRef<FormData>({});
+  /** False after unmount so deferred flushes skip React state writes but still persist. */
+  const mountedRef = useRef(true);
   const [schema, setSchema] = useState<FormSchema | null>(null);
   const [uischema, setUISchema] = useState<FormUISchema | null>(null);
 
@@ -465,6 +478,10 @@ function App() {
   const [validationMode, setValidationMode] = useState<
     'ValidateAndShow' | 'ValidateAndHide' | 'NoValidation'
   >('ValidateAndHide');
+  // True when the host explicitly pinned params.validationMode. When set, the
+  // per-page validation gating driven by SwipeLayout is ignored so the host
+  // choice always wins.
+  const hostValidationOverrideRef = useRef(false);
   const [uiLocale, setUiLocale] = useState<OdeUiLocale>('en');
   const uiLocaleRef = useRef(uiLocale);
   uiLocaleRef.current = uiLocale;
@@ -719,8 +736,10 @@ function App() {
           paramValidationMode === 'ValidateAndHide' ||
           paramValidationMode === 'NoValidation'
         ) {
+          hostValidationOverrideRef.current = true;
           setValidationMode(paramValidationMode);
         } else {
+          hostValidationOverrideRef.current = false;
           setValidationMode(
             hasSavedData ? 'ValidateAndShow' : 'ValidateAndHide',
           );
@@ -1160,31 +1179,88 @@ function App() {
     [formInitData, draftSessionKey],
   );
 
+  // --- Deferred refresh + draft persistence (see REFRESH_* constants) ---
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshPendingRef = useRef(false);
+
+  const clearRefreshTimers = useCallback(() => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (maxWaitTimerRef.current) {
+      clearTimeout(maxWaitTimerRef.current);
+      maxWaitTimerRef.current = null;
+    }
+  }, []);
+
+  const flushRefreshAndPersist = useCallback(async () => {
+    clearRefreshTimers();
+    if (!refreshPendingRef.current) return;
+    refreshPendingRef.current = false;
+    const base = dataRef.current as Record<string, unknown>;
+    // After unmount, don't touch React state — just save the latest data.
+    if (!mountedRef.current) {
+      persistDraftIfRootSession(base);
+      return;
+    }
+    const refreshedData = await refreshFormData(base);
+    dataRef.current = refreshedData;
+    if (mountedRef.current) {
+      setData(refreshedData);
+    }
+    persistDraftIfRootSession(refreshedData);
+  }, [clearRefreshTimers, refreshFormData, persistDraftIfRootSession]);
+
+  // Stable handle for timers / global listeners so they always call the latest.
+  const flushRefreshAndPersistRef = useRef(flushRefreshAndPersist);
+  flushRefreshAndPersistRef.current = flushRefreshAndPersist;
+
+  const scheduleRefreshAndPersist = useCallback(() => {
+    refreshPendingRef.current = true;
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+    }
+    refreshTimerRef.current = setTimeout(() => {
+      void flushRefreshAndPersistRef.current();
+    }, REFRESH_DEBOUNCE_MS);
+    if (!maxWaitTimerRef.current) {
+      maxWaitTimerRef.current = setTimeout(() => {
+        void flushRefreshAndPersistRef.current();
+      }, REFRESH_MAX_WAIT_MS);
+    }
+  }, []);
+
   const handleDataChange = useCallback(
     ({ data: newData }: { data: FormData }) => {
       const incoming = newData as Record<string, unknown>;
       const baseline = dataRef.current as Record<string, unknown>;
-      // Preserve off-page SwipeLayout fields, then omit answers that are not
-      // relevant (key deletion = unanswered for AJV — not null).
+      // Cheap, must-stay-live work on every keystroke: merge preserves off-page
+      // SwipeLayout fields and prunes irrelevant answers (clear-on-hide), which
+      // keeps inputs and SHOW/HIDE reactive without a full validator pass.
       const merged = mergeIncomingFormData(baseline, incoming, {
         uischema,
         ajv,
       });
-      void (async () => {
-        const refreshedData = await refreshFormData(merged);
-        if (formDataJsonEqual(refreshedData, baseline)) {
-          return;
-        }
-        dataRef.current = refreshedData;
-        setData(refreshedData);
-        persistDraftIfRootSession(refreshedData);
-      })();
+      if (formDataJsonEqual(merged, baseline)) {
+        return;
+      }
+      dataRef.current = merged;
+      setData(merged);
+      // Expensive work (custom validators, auto-sequence, draft write) is
+      // deferred; finalize and the flush handlers re-run it authoritatively.
+      scheduleRefreshAndPersist();
     },
-    [refreshFormData, persistDraftIfRootSession, uischema, ajv],
+    [uischema, ajv, scheduleRefreshAndPersist],
   );
 
   const commitFormData = useCallback(
     (newData: Record<string, unknown>) => {
+      // Authoritative commit (e.g. sub-observation merge): supersede any pending
+      // deferred pass so it cannot overwrite this with older data.
+      clearRefreshTimers();
+      refreshPendingRef.current = false;
       void (async () => {
         const refreshedData = await refreshFormData(newData);
         dataRef.current = refreshedData;
@@ -1192,12 +1268,62 @@ function App() {
         persistDraftIfRootSession(refreshedData);
       })();
     },
-    [refreshFormData, persistDraftIfRootSession],
+    [clearRefreshTimers, refreshFormData, persistDraftIfRootSession],
   );
 
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
+
+  // Hard flush points for the deferred draft write. Backgrounding is flushable
+  // (visibilitychange/pagehide), so a hidden app loses at most the current
+  // keystroke; a foreground native crash cannot be flushed, and REFRESH_MAX_WAIT
+  // bounds that window. On unmount, persist synchronously without React writes.
+  useEffect(() => {
+    mountedRef.current = true;
+    const flush = () => {
+      void flushRefreshAndPersistRef.current();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        flush();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', flush);
+      mountedRef.current = false;
+      flush();
+    };
+  }, []);
+
+  // Render breadcrumb, kept always-on for forensics but coalesced so a burst of
+  // renders logs once (latest state) instead of one bridge message per keystroke.
+  const renderLogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (isLoading || loadError || !schema || !uischema) return;
+    if (renderLogTimerRef.current) {
+      clearTimeout(renderLogTimerRef.current);
+    }
+    renderLogTimerRef.current = setTimeout(() => {
+      console.log('Rendering form with:', {
+        schemaType: schema?.type || 'MISSING',
+        uiSchemaType: uischema?.type || 'MISSING',
+        dataKeys: Object.keys(dataRef.current || {}),
+        formType: formInitData?.formType,
+        darkMode,
+      });
+    }, RENDER_LOG_DEBOUNCE_MS);
+    return () => {
+      if (renderLogTimerRef.current) {
+        clearTimeout(renderLogTimerRef.current);
+      }
+    };
+  }, [isLoading, loadError, schema, uischema, data, formInitData, darkMode]);
 
   // Set up event listeners for navigation and finalization
   useEffect(() => {
@@ -1231,12 +1357,36 @@ function App() {
 
     const handleShowValidation = () => {
       // Idempotent: once shown, stays shown for the session.
+      if (hostValidationOverrideRef.current) return;
       setValidationMode(prev =>
         prev === 'ValidateAndHide' ? 'ValidateAndShow' : prev,
       );
     };
 
+    // Per-page gating (A4): SwipeLayout drives this so only pages the enumerator
+    // has visited / moved past show validation. A host-pinned validationMode wins.
+    const handleSetValidationVisibility = (event: Event) => {
+      if (hostValidationOverrideRef.current) return;
+      const show =
+        (event as CustomEvent<{ show?: boolean }>).detail?.show === true;
+      setValidationMode(prev => {
+        if (prev === 'NoValidation') return prev;
+        return show ? 'ValidateAndShow' : 'ValidateAndHide';
+      });
+    };
+
     const handleFinalizeForm = (event: Event) => {
+      // Cancel any pending deferred persist so a late flush cannot resurrect a
+      // draft after a successful submit deletes it.
+      refreshPendingRef.current = false;
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+      if (maxWaitTimerRef.current) {
+        clearTimeout(maxWaitTimerRef.current);
+        maxWaitTimerRef.current = null;
+      }
       // Reaching finalize is a meaningful checkpoint: ensure validation is shown.
       handleShowValidation();
       const customEvent = event as CustomEvent<{
@@ -1346,6 +1496,10 @@ function App() {
       handleShowValidation as EventListener,
     );
     window.addEventListener(
+      'formSetValidationVisibility',
+      handleSetValidationVisibility as EventListener,
+    );
+    window.addEventListener(
       'formRevalidate',
       handleRevalidate as EventListener,
     );
@@ -1362,6 +1516,10 @@ function App() {
       window.removeEventListener(
         'formShowValidation',
         handleShowValidation as EventListener,
+      );
+      window.removeEventListener(
+        'formSetValidationVisibility',
+        handleSetValidationVisibility as EventListener,
       );
       window.removeEventListener(
         'formRevalidate',
@@ -1505,14 +1663,7 @@ function App() {
     );
   }
 
-  // Log render with current state
-  console.log('Rendering form with:', {
-    schemaType: schema?.type || 'MISSING',
-    uiSchemaType: uischema?.type || 'MISSING',
-    dataKeys: Object.keys(data),
-    formType: formInitData?.formType,
-    darkMode: darkMode,
-  });
+  // Render breadcrumb is emitted by the debounced effect above (coalesced).
 
   return (
     <ThemeProvider theme={currentTheme}>

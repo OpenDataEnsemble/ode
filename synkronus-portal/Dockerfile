@@ -1,7 +1,7 @@
 # Multi-stage build for Synkronus Portal (build context: repository root)
 FROM node:24-alpine AS builder
 
-RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+RUN corepack enable && corepack prepare pnpm@11.22.0 --activate
 
 WORKDIR /app
 

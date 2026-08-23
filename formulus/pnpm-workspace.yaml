@@ -1,12 +1,23 @@
-# pnpm 10+ reads project settings here (not package.json#pnpm).
-# Allow lifecycle scripts only for these native/tooling deps.
-onlyBuiltDependencies:
-  - '@nestjs/core'
-  - '@openapitools/openapi-generator-cli'
-  - esbuild
-  - unrs-resolver
+# pnpm 11: dependency lifecycle scripts are blocked unless listed here.
+# Run `pnpm approve-builds` locally to update; commit this file so CI matches.
+# (onlyBuiltDependencies was removed in pnpm 11 — allowBuilds is the replacement.)
+allowBuilds:
+  '@nestjs/core': true
+  '@openapitools/openapi-generator-cli': true
+  esbuild: true
+  unrs-resolver: true
 
 overrides:
+  # Core jest packages pinned to the devDependencies version. Migrated from the
+  # package.json "pnpm.overrides" field, which pnpm 11 no longer reads.
+  jest: 30.3.0
+  '@jest/core': 30.3.0
+  jest-cli: 30.3.0
+  jest-config: 30.3.0
+  jest-circus: 30.3.0
+  jest-runner: 30.3.0
+  jest-runtime: 30.3.0
+  # Auxiliary jest packages bumped for audit fixes.
   jest-environment-node: ^30.4.1
   jest-haste-map: ^30.4.1
   jest-message-util: ^30.4.1
@@ -15,3 +26,6 @@ overrides:
   jest-util: ^30.4.1
   jest-validate: ^30.4.1
   jest-worker: ^30.4.1
+
+patchedDependencies:
+  '@nozbe/watermelondb@0.28.0': patches/@nozbe__watermelondb@0.28.0.patch

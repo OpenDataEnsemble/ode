@@ -5,7 +5,7 @@ FROM node:24-alpine AS portal-builder
 # OpenAPI Generator CLI invokes Java during synkronus-portal prebuild (not installed in node:alpine)
 RUN apk add --no-cache openjdk21-jre-headless
 
-RUN corepack enable && corepack prepare pnpm@10.33.2 --activate
+RUN corepack enable && corepack prepare pnpm@11.22.0 --activate
 
 WORKDIR /app
 

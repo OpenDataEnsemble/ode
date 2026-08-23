@@ -44,7 +44,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
-          version: 10.33.2
+          version: 11.22.0
 
       - name: Set up Node.js for assets
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -94,7 +94,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
-          version: 10.33.2
+          version: 11.22.0
 
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -136,7 +136,13 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+          # Gradle dependency/wrapper caching is handled by gradle/actions/setup-gradle below.
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
+        with:
+          # Persist the Gradle build cache across CI runs (wrapper + deps + task outputs).
+          cache-read-only: false
 
       - name: Make Gradle wrapper executable
         working-directory: formulus/android
@@ -166,20 +172,35 @@ jobs:
           echo "FORMULUS_RELEASE_KEY_ALIAS=${FORMULUS_RELEASE_KEY_ALIAS}" >> formulus/android/local.properties
           echo "FORMULUS_RELEASE_KEY_PASSWORD=${FORMULUS_RELEASE_KEY_PASSWORD}" >> formulus/android/local.properties
 
-      - name: Build debug APK (PR)
+      # PRs: compile arm64-v8a only (physical devices + most CI validation).
+      # Push/release: all four ABIs from gradle.properties (shippable APK/AAB).
+      # Local gradle.properties keeps parallel/workers low for laptops; CI overrides those.
+      - name: Build debug APK (PR, arm64-v8a only)
         if: github.event_name == 'pull_request'
         working-directory: formulus/android
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: arm64-v8a
+        run: >
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          -Dorg.gradle.parallel=true
+          -Dorg.gradle.workers.max=4
+          -PreactNativeArchitectures=arm64-v8a
 
-      - name: Build release APK (main/dev/release)
+      - name: Build release APK (main/dev/release, all ABIs)
         if: github.event_name != 'pull_request'
         working-directory: formulus/android
-        run: ./gradlew assembleRelease --no-daemon
+        run: >
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          -Dorg.gradle.parallel=true
+          -Dorg.gradle.workers.max=4
 
-      - name: Build release AAB for Play Store (main/dev/release)
+      - name: Build release AAB for Play Store (main/dev/release, all ABIs)
         if: github.event_name != 'pull_request'
         working-directory: formulus/android
-        run: ./gradlew bundleRelease --no-daemon
+        run: >
+          ./gradlew bundleRelease --no-daemon --stacktrace
+          -Dorg.gradle.parallel=true
+          -Dorg.gradle.workers.max=4
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
