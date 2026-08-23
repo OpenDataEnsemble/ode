@@ -1,4 +1,4 @@
-# pnpm 10+ reads project settings here (not package.json#pnpm).
-# Allow lifecycle scripts only for these native/tooling deps.
-onlyBuiltDependencies:
-  - esbuild
+# pnpm 11: dependency lifecycle scripts are blocked unless listed here.
+# Run `pnpm approve-builds` locally to update; commit this file so CI matches.
+allowBuilds:
+  esbuild: true
