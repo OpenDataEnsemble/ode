@@ -139,7 +139,7 @@ jobs:
           # Gradle dependency/wrapper caching is handled by gradle/actions/setup-gradle below.
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@4d9f0ba0025fe599b2458920921268a1ff4ebfba # v4
+        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
         with:
           # Persist the Gradle build cache across CI runs (wrapper + deps + task outputs).
           cache-read-only: false
