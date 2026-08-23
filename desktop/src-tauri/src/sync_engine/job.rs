@@ -181,7 +181,9 @@ pub(crate) fn delete_completed_stale(conn: &rusqlite::Connection) -> Result<(), 
 /// Clear every job that is not actively running (paused / failed / completed /
 /// cancelled). Used by "Reset local data" so a stale paused or failed job cannot
 /// keep blocking a fresh sync after the workspace has been wiped.
-pub(crate) fn delete_non_running_jobs(conn: &rusqlite::Connection) -> Result<usize, rusqlite::Error> {
+pub(crate) fn delete_non_running_jobs(
+    conn: &rusqlite::Connection,
+) -> Result<usize, rusqlite::Error> {
     let n = conn.execute("DELETE FROM sync_jobs WHERE status != 'running'", [])?;
     Ok(n)
 }

@@ -19,7 +19,7 @@ Thank you for contributing to the ODE Design System! This guide will help you ad
 ### Prerequisites
 
 - Node.js (v14 or higher)
-- pnpm 10.33.2 (via Corepack)
+- pnpm 11.22.0 (via Corepack)
 
 ### Setup
 
