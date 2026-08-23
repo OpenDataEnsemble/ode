@@ -185,11 +185,12 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
         <View style={styles.container}>
           <View style={styles.permissionContainer}>
             <Text style={styles.permissionText}>
-              Camera permission is required to scan QR codes
+              Camera permission is required to scan QR codes. Select continue to
+              grant these permissions.
             </Text>
             <View style={styles.permissionButtonRow}>
               <Button
-                title="Grant Permission"
+                title="Continue"
                 onPress={requestCameraPermission}
                 variant="primary"
                 style={styles.permissionButton}
