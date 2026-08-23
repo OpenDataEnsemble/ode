@@ -99,7 +99,9 @@ export function HomePanel() {
             alt=""
             className="home-stats-empty-illustration"
           />
-          <p className="home-stats-empty-title">This server contains no observations yet</p>
+          <p className="home-stats-empty-title">
+            This server contains no observations yet
+          </p>
         </div>
       )}
 
