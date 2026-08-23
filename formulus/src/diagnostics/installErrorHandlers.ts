@@ -1,6 +1,11 @@
 import { appendEvent } from './DiagnosticLog';
 import { redactText } from './redact';
 
+/** Stacks are longer than log messages; keep enough frames to be useful. */
+export const STACK_MESSAGE_MAX = 4000;
+/** Never let a stalled write hold the crash open indefinitely. */
+const FLUSH_TIMEOUT_MS = 1500;
+
 type ErrorUtilsLike = {
   getGlobalHandler?: () =>
     | ((error: Error, isFatal?: boolean) => void)
@@ -10,18 +15,25 @@ type ErrorUtilsLike = {
   ) => void;
 };
 
-function persistFatal(
+function messageWithStack(value: unknown): string {
+  if (value instanceof Error) {
+    return value.stack || value.message || value.name;
+  }
+  return String(value);
+}
+
+function flushFatal(
   kind: 'js_fatal' | 'js_unhandled',
-  message: string,
-): void {
-  void appendEvent({
+  value: unknown,
+): Promise<void> {
+  return appendEvent({
     ts: new Date().toISOString(),
     kind,
     level: 'error',
     tag: 'js',
-    message: redactText(message),
+    message: redactText(messageWithStack(value), STACK_MESSAGE_MAX),
   }).catch(() => {
-    /* ignore */
+    /* Persistence must never mask the original error. */
   });
 }
 
@@ -30,11 +42,21 @@ export function installErrorHandlers(): void {
   if (errorUtils?.setGlobalHandler) {
     const previous = errorUtils.getGlobalHandler?.();
     errorUtils.setGlobalHandler((error, isFatal) => {
-      persistFatal(
-        'js_fatal',
-        error instanceof Error ? error.message : String(error),
-      );
-      previous?.(error, isFatal);
+      // Delay handing the fatal to the default handler (which crashes the
+      // process) until the append has landed, so the stack survives the exit —
+      // but never wait longer than FLUSH_TIMEOUT_MS if the write stalls.
+      let done = false;
+      const crash = () => {
+        if (done) {
+          return;
+        }
+        done = true;
+        clearTimeout(timer);
+        previous?.(error, isFatal);
+      };
+      const timer = setTimeout(crash, FLUSH_TIMEOUT_MS);
+      (timer as { unref?: () => void }).unref?.();
+      void flushFatal('js_fatal', error).finally(crash);
     });
   }
 
@@ -46,13 +68,7 @@ export function installErrorHandlers(): void {
   };
   if (typeof target.addEventListener === 'function') {
     target.addEventListener('unhandledrejection', event => {
-      const reason = event?.reason;
-      persistFatal(
-        'js_unhandled',
-        reason instanceof Error
-          ? reason.message
-          : String(reason ?? 'rejection'),
-      );
+      void flushFatal('js_unhandled', event?.reason ?? 'rejection');
     });
   }
 }

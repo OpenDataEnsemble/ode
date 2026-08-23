@@ -6,16 +6,59 @@ import android.content.Context
 import android.os.Build
 import org.json.JSONObject
 import java.io.File
+import java.io.InputStream
+import java.io.PrintWriter
+import java.io.StringWriter
 
 /**
  * Writes Android [ApplicationExitInfo] records to filesDir/diagnostics/exits.ndjson
  * so JS can read the same path as RNFS.DocumentDirectoryPath/diagnostics/.
+ *
+ * Also captures crash stack traces under filesDir/diagnostics/traces/ so field
+ * reports carry an actual stack, not just an exit reason:
+ *  - a JVM [Thread.UncaughtExceptionHandler] writes the stack at crash time,
+ *    which is the only way to get a trace for a REASON_CRASH (JVM exception);
+ *  - [getTraceInputStream] is dumped for REASON_ANR / REASON_CRASH_NATIVE, the
+ *    only reasons Android populates it for.
+ * Each trace is truncated to [TRACE_MAX_BYTES] and only the most recent
+ * [TRACE_KEEP] are retained so the diagnostics zip stays small.
  */
 object DiagnosticsStore {
     const val DIR_NAME = "diagnostics"
     const val EXITS_FILE = "exits.ndjson"
+    const val TRACES_DIR = "traces"
     private const val MAX_BYTES = 256 * 1024
     private const val DESCRIPTION_MAX = 500
+    private const val TRACE_MAX_BYTES = 64 * 1024
+    private const val TRACE_KEEP = 4
+
+    /**
+     * Chains a default uncaught-exception handler that persists the JVM stack
+     * before delegating to the previous handler (which crashes the process).
+     * Idempotent: install once from Application.onCreate.
+     */
+    fun installUncaughtHandler(context: Context) {
+        try {
+            val appContext = context.applicationContext
+            val previous = Thread.getDefaultUncaughtExceptionHandler()
+            Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+                try {
+                    val stack = StringWriter()
+                    PrintWriter(stack).use { throwable.printStackTrace(it) }
+                    val header =
+                        "thread: ${thread.name}\n" +
+                            "time: ${System.currentTimeMillis()}\n\n"
+                    writeTrace(appContext, "jvm-${System.currentTimeMillis()}.txt", header + stack)
+                } catch (_: Throwable) {
+                    // Never mask the original crash.
+                } finally {
+                    previous?.uncaughtException(thread, throwable)
+                }
+            }
+        } catch (_: Throwable) {
+            // Never block app start.
+        }
+    }
 
     fun recordHistoricalExits(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
@@ -37,13 +80,61 @@ object DiagnosticsStore {
                 if (!known.add(ts)) {
                     continue
                 }
+                dumpAeiTrace(context, info)
                 batch.append(toJson(info)).append('\n')
             }
             if (batch.isNotEmpty()) {
                 appendRotated(file, batch.toString())
             }
+            pruneTraces(context)
         } catch (_: Throwable) {
             // Never block app start.
+        }
+    }
+
+    private fun dumpAeiTrace(context: Context, info: ApplicationExitInfo) {
+        if (info.reason != ApplicationExitInfo.REASON_ANR &&
+            info.reason != ApplicationExitInfo.REASON_CRASH_NATIVE
+        ) {
+            return
+        }
+        try {
+            val stream = info.traceInputStream ?: return
+            val bytes = stream.use { it.readBounded(TRACE_MAX_BYTES) }
+            if (bytes.isNotEmpty()) {
+                writeTrace(context, "aei-${info.timestamp}.txt", String(bytes))
+            }
+        } catch (_: Throwable) {
+            // A missing trace must not abort exit recording.
+        }
+    }
+
+    private fun writeTrace(context: Context, name: String, text: String) {
+        val dir = File(File(context.filesDir, DIR_NAME), TRACES_DIR)
+        if (!dir.exists()) {
+            dir.mkdirs()
+        }
+        val truncated =
+            if (text.length > TRACE_MAX_BYTES) {
+                text.substring(0, TRACE_MAX_BYTES) + "\n…[truncated]"
+            } else {
+                text
+            }
+        File(dir, name).writeText(truncated)
+    }
+
+    private fun pruneTraces(context: Context) {
+        try {
+            val dir = File(File(context.filesDir, DIR_NAME), TRACES_DIR)
+            val files = dir.listFiles()?.filter { it.isFile } ?: return
+            if (files.size <= TRACE_KEEP) {
+                return
+            }
+            files.sortedByDescending { it.lastModified() }
+                .drop(TRACE_KEEP)
+                .forEach { it.delete() }
+        } catch (_: Throwable) {
+            // Best-effort cleanup.
         }
     }
 
@@ -130,6 +221,19 @@ object DiagnosticsStore {
                 }
             }
         }
+    }
+
+    private fun InputStream.readBounded(limit: Int): ByteArray {
+        val buffer = ByteArray(limit)
+        var total = 0
+        while (total < limit) {
+            val read = this.read(buffer, total, limit - total)
+            if (read < 0) {
+                break
+            }
+            total += read
+        }
+        return buffer.copyOf(total)
     }
 
     private fun appendRotated(file: File, chunk: String) {
