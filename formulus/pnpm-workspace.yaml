@@ -26,3 +26,6 @@ overrides:
   jest-util: ^30.4.1
   jest-validate: ^30.4.1
   jest-worker: ^30.4.1
+
+patchedDependencies:
+  '@nozbe/watermelondb@0.28.0': patches/@nozbe__watermelondb@0.28.0.patch

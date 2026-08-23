@@ -21,6 +21,9 @@ overrides:
   jest-validate: ^30.4.1
   jest-worker: ^30.4.1
 
+patchedDependencies:
+  '@nozbe/watermelondb@0.28.0': f6c43c3db6a32bda2502d4132837b3e47150a6498737ae9e0b0b77d5773b4872
+
 importers:
 
   .:
@@ -36,7 +39,7 @@ importers:
         version: 3.46.0
       '@nozbe/watermelondb':
         specifier: ^0.28.0
-        version: 0.28.0
+        version: 0.28.0(patch_hash=f6c43c3db6a32bda2502d4132837b3e47150a6498737ae9e0b0b77d5773b4872)
       '@ode/components':
         specifier: file:..\packages\components
         version: file:../packages/components(@ode/tokens@file:../packages/tokens)(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))(react@19.2.4)
@@ -6607,7 +6610,7 @@ snapshots:
 
   '@nozbe/sqlite@3.46.0': {}
 
-  '@nozbe/watermelondb@0.28.0':
+  '@nozbe/watermelondb@0.28.0(patch_hash=f6c43c3db6a32bda2502d4132837b3e47150a6498737ae9e0b0b77d5773b4872)':
     dependencies:
       '@babel/runtime': 7.26.0
       '@nozbe/simdjson': 3.9.4
