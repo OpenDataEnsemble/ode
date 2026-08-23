@@ -26,6 +26,8 @@
   },
   "dependencies": {
     "@notifee/react-native": "^9.1.8",
+    "@nozbe/simdjson": "3.9.4",
+    "@nozbe/sqlite": "3.46.0",
     "@nozbe/watermelondb": "^0.28.0",
     "@ode/components": "file:..\\packages\\components",
     "@ode/observation-query": "file:..\\packages\\observation-query",

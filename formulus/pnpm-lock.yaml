@@ -28,6 +28,12 @@ importers:
       '@notifee/react-native':
         specifier: ^9.1.8
         version: 9.1.8(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))
+      '@nozbe/simdjson':
+        specifier: 3.9.4
+        version: 3.9.4
+      '@nozbe/sqlite':
+        specifier: 3.46.0
+        version: 3.46.0
       '@nozbe/watermelondb':
         specifier: ^0.28.0
         version: 0.28.0
