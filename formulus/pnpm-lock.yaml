@@ -85,6 +85,9 @@ importers:
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
+      hermes-compiler:
+        specifier: 0.14.0
+        version: 0.14.0
       i18next:
         specifier: ^26.4.0
         version: 26.4.0(typescript@5.9.3)
