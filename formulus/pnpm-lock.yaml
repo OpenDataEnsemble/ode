@@ -79,6 +79,9 @@ importers:
       '@react-navigation/stack':
         specifier: ^7.10.23
         version: 7.10.23(b86b43b90a59ea677c7243137f2b8d14)
+      axios:
+        specifier: ^1.16.1
+        version: 1.19.0(debug@4.4.3(supports-color@10.2.2))(supports-color@10.2.2)
       i18next:
         specifier: ^26.4.0
         version: 26.4.0(typescript@5.9.3)

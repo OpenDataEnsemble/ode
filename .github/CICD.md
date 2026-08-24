@@ -105,6 +105,8 @@ Tagging follows the same strategy as the Synkronus server image (`latest`, `dev`
 
 Release assets: `synkronus-cli-{os}-{arch}.tar.gz` attached to GitHub Releases. Custom app CI should pin a release tag via `SYNK_CLI_VERSION` and download `synkronus-cli-linux-amd64.tar.gz`.
 
+**CI matrix:** pull requests build **linux-amd64** only; push to `main`/`dev` builds all six OS/arch pairs; release attaches all six to the GitHub Release.
+
 Non-interactive CI login: `synk login -u USER --password "$SYNK_PASSWORD"` (v1.1.2+).
 
 ### Formulus Android Build
@@ -387,7 +389,7 @@ Ubuntu job: installs and builds `@ode/tokens`, runs `pnpm install --frozen-lockf
 
 **Jobs `build-desktop-bundles` (CI) and `release-desktop-bundles` (release)**
 
-Matrix build (mirrors CLI OS/arch coverage): **linux** amd64 + arm64, **windows** amd64 + arm64, **darwin** amd64 (`macos-15-intel`) + arm64 (`macos-latest`). Each runner installs Node + pnpm, restores formplayer artifact, installs Linux WebKitGTK packages where needed, runs `pnpm exec tauri build --target …` with a merged config so `beforeBuildCommand` runs **`pnpm build` only** (frontend + Vite output; embedded formplayer is already present). Builds use `Swatinem/rust-cache` scoped per platform.
+Matrix build (mirrors CLI OS/arch coverage): **linux** amd64 + arm64, **windows** amd64 + arm64, **darwin** amd64 (`macos-14`) + arm64 (`macos-latest`). **Pull requests** build **linux-amd64 only** (smoke packaging); **push to `main`/`dev`** and **release** build all six platforms. Each runner installs Node + pnpm, restores formplayer artifact, installs Linux WebKitGTK packages where needed, runs `pnpm exec tauri build --target …` with a merged config so `beforeBuildCommand` runs **`pnpm build` only** (frontend + Vite output; embedded formplayer is already present). Builds use `Swatinem/rust-cache` scoped per platform.
 
 **CI artifacts**
 

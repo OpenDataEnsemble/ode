@@ -172,25 +172,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: linux-amd64
-            runner: ubuntu-24.04
-            rust_target: x86_64-unknown-linux-gnu
-          - platform: linux-arm64
-            runner: ubuntu-24.04-arm
-            rust_target: aarch64-unknown-linux-gnu
-          - platform: windows-amd64
-            runner: windows-latest
-            rust_target: x86_64-pc-windows-msvc
-          - platform: windows-arm64
-            runner: windows-11-arm
-            rust_target: aarch64-pc-windows-msvc
-          - platform: darwin-amd64
-            runner: macos-14
-            rust_target: x86_64-apple-darwin
-          - platform: darwin-arm64
-            runner: macos-latest
-            rust_target: aarch64-apple-darwin
+        include: ${{ fromJSON(
+          github.event_name == 'pull_request'
+          && '[{"platform":"linux-amd64","runner":"ubuntu-24.04","rust_target":"x86_64-unknown-linux-gnu"}]'
+          || '[{"platform":"linux-amd64","runner":"ubuntu-24.04","rust_target":"x86_64-unknown-linux-gnu"},{"platform":"linux-arm64","runner":"ubuntu-24.04-arm","rust_target":"aarch64-unknown-linux-gnu"},{"platform":"windows-amd64","runner":"windows-latest","rust_target":"x86_64-pc-windows-msvc"},{"platform":"windows-arm64","runner":"windows-11-arm","rust_target":"aarch64-pc-windows-msvc"},{"platform":"darwin-amd64","runner":"macos-14","rust_target":"x86_64-apple-darwin"},{"platform":"darwin-arm64","runner":"macos-latest","rust_target":"aarch64-apple-darwin"}]'
+          ) }}
 
     steps:
       - name: Checkout repository

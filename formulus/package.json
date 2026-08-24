@@ -42,6 +42,7 @@
     "@react-navigation/bottom-tabs": "^7.18.17",
     "@react-navigation/native": "^7.3.17",
     "@react-navigation/stack": "^7.10.23",
+    "axios": "^1.16.1",
     "i18next": "^26.4.0",
     "lucide-react-native": "^0.577.0",
     "react": "19.2.4",

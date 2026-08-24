@@ -58,10 +58,13 @@ See [README.md](README.md): Metro, `pnpm run android` / `ios`, Android **Notifee
 
 ## Dependency pins (check on every React Native upgrade)
 
-Exact versions in `package.json` that exist only to keep Android / codegen working with the **current** RN line. Revisit them when bumping `react-native`.
+Exact versions in `package.json` that exist only to keep Android / codegen / Metro working with the **current** RN line. Revisit them when bumping `react-native`.
+
+pnpm does not hoist transitive packages to the package root. Anything **imported from app code** (`src/`, generated API clients) or **referenced by native build scripts** (Gradle `settings.gradle`, CMake `node_modules/…` paths) must be a **direct** entry in `dependencies` (or `devDependencies` when dev-only).
 
 | Package | Pinned to | Why | When to relax |
 | ------- | --------- | --- | ------------- |
+| `axios` | `^1.16.1` (direct dep) | OpenAPI-generated Synkronus client imports it; under pnpm it was only transitive via `@openapitools/openapi-generator-cli`, so release Metro bundling (`createBundleReleaseJsAndAssets`) failed while PR `assembleDebug` could pass. | Keep as direct dep while using the `typescript-axios` generator. |
 | `react-native-screens` | `4.25.2` (no `^`) | `4.26+` needs RN **0.84+** and uses `React.ComponentRef` in Fabric commands; codegen **0.83** only accepts `React.ElementRef`, so Android fails at `:react-native-screens:generateCodegenSchemaFromJavaScript`. | After upgrading RN to **≥ 0.84** (ideally **0.87**): restore a caret range (e.g. `^4.27.0`) and confirm Android codegen + screens still build. |
 | `@nozbe/sqlite` / `@nozbe/simdjson` | `3.46.0` / `3.9.4` (direct deps) | WatermelonDB JSI `CMakeLists.txt` resolves `node_modules/@nozbe/{sqlite,simdjson}` from a relative path; pnpm does not hoist those transitive packages there, so CMake gets `No SOURCES given to target: watermelondb-jsi`. | Keep as direct deps aligned with `@nozbe/watermelondb`'s versions. |
 | `@nozbe/watermelondb` | patched (`patches/@nozbe__watermelondb@0.28.0.patch`) | Same CMake file uses `../../../../../../../react-native`. Under pnpm the package is symlinked into `.pnpm/…`; on Linux `..` follows the real path into the package store (sqlite/simdjson present, **react-native not**), so `#include <jsi/jsi.h>` fails. Patch walks up until `jsi.h` is found. | Drop the patch when upstream CMake is pnpm-safe, or after switching away from WatermelonDB JSI. |

@@ -23,8 +23,11 @@ jobs:
 
     strategy:
       matrix:
-        goos: [linux, windows, darwin]
-        goarch: [amd64, arm64]
+        include: ${{ fromJSON(
+          github.event_name == 'pull_request'
+          && '[{"goos":"linux","goarch":"amd64"}]'
+          || '[{"goos":"linux","goarch":"amd64"},{"goos":"linux","goarch":"arm64"},{"goos":"windows","goarch":"amd64"},{"goos":"windows","goarch":"arm64"},{"goos":"darwin","goarch":"amd64"},{"goos":"darwin","goarch":"arm64"}]'
+          ) }}
 
     env:
       CGO_ENABLED: 0
