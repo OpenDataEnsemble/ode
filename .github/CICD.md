@@ -149,11 +149,13 @@ Formplayer assets are **not committed to git** and are ignored via `.gitignore`.
 
 #### Build Types
 
-- **Pull Requests**: Debug APK (unsigned), **arm64-v8a only** (`-PreactNativeArchitectures=arm64-v8a`) to keep PR CI fast
-- **Push to main/dev**: Release APK + AAB (signed), **all four ABIs** from `formulus/android/gradle.properties`
-- **Release**: Same as main/dev; APK/AAB published to the GitHub Release
+- **Pull Requests**: Debug APK (unsigned), **arm64-v8a only** (smoke)
+- **Push to main/dev**: Release APK + AAB (signed), **arm64-v8a only** — CI artifacts, not F-Droid shippable
+- **GitHub Release**: Release APK + AAB (signed), **all four ABIs** from `formulus/android/gradle.properties` (F-Droid / Play); assets attached to the release
 
-Gradle uses `gradle/actions/setup-gradle` for dependency/build-cache restore. CI also enables parallel workers (local `gradle.properties` keeps them low for laptops).
+APK and AAB are built in **one** Gradle invocation (`assembleRelease bundleRelease`) so Metro/native work is shared. Gradle uses `gradle/actions/setup-gradle` (daemon left on). Vendored Notifee (`formulus/third_party/notifee`) is cached across runs (key = hash of `vendor-notifee-core.mjs`). CI enables parallel workers (local `gradle.properties` keeps them low for laptops).
+
+NDK `ccache` is **not** wired yet: it needs CI-only CMake launcher hooks into React Native’s native build and can flake; revisit if release builds are still too slow after the above.
 
 #### Secrets Required
 
