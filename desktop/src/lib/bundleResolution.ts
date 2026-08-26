@@ -54,8 +54,7 @@ export function normalizeExtJson(
     {};
 
   const functionsRaw = raw.functions as
-    | Record<string, Record<string, unknown>>
-    | undefined;
+    Record<string, Record<string, unknown>> | undefined;
   const functions: Record<string, ExtensionFunction> = {};
   if (functionsRaw) {
     for (const [key, func] of Object.entries(functionsRaw)) {
@@ -68,8 +67,7 @@ export function normalizeExtJson(
   }
 
   const renderersRaw = raw.renderers as
-    | Record<string, Record<string, unknown>>
-    | undefined;
+    Record<string, Record<string, unknown>> | undefined;
   const renderers: Record<string, ExtensionRenderer> = {};
   if (renderersRaw) {
     for (const [key, renderer] of Object.entries(renderersRaw)) {

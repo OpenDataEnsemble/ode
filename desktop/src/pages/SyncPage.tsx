@@ -110,15 +110,27 @@ export function SyncPage() {
         : 'Unreachable';
 
   const activeInFlight = syncActivity !== null;
-  const enginePaused =
-    !activeInFlight &&
-    syncPausedJob !== null &&
-    (syncPausedJob.status === 'paused' || syncPausedJob.status === 'failed');
+  const pausedJobStatus = activeInFlight
+    ? null
+    : (syncPausedJob?.status ?? null);
+  const engineResumablePaused = pausedJobStatus === 'paused';
+  const engineFailed = pausedJobStatus === 'failed';
+  const enginePaused = engineResumablePaused || engineFailed;
   const blockedStart = activeInFlight || enginePaused;
+  // A failed job must not block Pull: a `repository_reset_required` push failure
+  // instructs the user to pull to realign, so pull() below discards the stale
+  // failed job first, then starts a fresh pull.
+  const pullBlocked = activeInFlight || engineResumablePaused;
 
   async function pull() {
     if (!(await ensureAuth())) return;
-    if (activeInFlight || enginePaused) return;
+    if (pullBlocked) return;
+    // A failed job (e.g. a push that hit `repository_reset_required`) is not
+    // resumable into a pull and the backend rejects a new sync while it exists,
+    // so discard it before realigning.
+    if (engineFailed && syncPausedJob) {
+      await syncCancelJob(syncPausedJob.id);
+    }
     try {
       await synkPull({ baseUrl: serverUrl });
     } catch {
@@ -137,22 +149,29 @@ export function SyncPage() {
     }
   }
 
-  async function push() {
+  async function push(options?: { announceEmpty?: boolean }) {
     if (!(await ensureAuth())) return;
     if (activeInFlight || enginePaused) return;
     await loadHealth();
-    const dirtyCount = useCustodianStore.getState().health?.dirtyCount ?? 0;
-    if (
-      !(await confirmDestructiveAction(
-        'push',
-        pushConfirmMessage(dirtyCount, profileLabel),
-      ))
-    ) {
+
+    // Nothing pending: skip the "Push 0 observations?" confirm. When invoked
+    // directly by the Push button, still surface the store's "No pending
+    // observations to push." message so the click gives feedback; the combined
+    // Pull + Push flow stays silent so it keeps the pull result message.
+    const pending = await tauriClient.listDirtyObservations();
+    if (pending.length === 0) {
+      if (options?.announceEmpty) {
+        await runPush(false);
+      }
       return;
     }
 
-    const pending = await tauriClient.listDirtyObservations();
-    if (pending.length === 0) {
+    if (
+      !(await confirmDestructiveAction(
+        'push',
+        pushConfirmMessage(pending.length, profileLabel),
+      ))
+    ) {
       return;
     }
 
@@ -173,7 +192,7 @@ export function SyncPage() {
     } catch {
       return;
     }
-    await push();
+    await push({ announceEmpty: false });
   }
 
   async function resetServerAndPull() {
@@ -262,14 +281,24 @@ export function SyncPage() {
       {enginePaused && syncPausedJob ? (
         <div className="panel">
           <p className="muted">
-            Paused: {syncPausedJob.op} — {syncPausedJob.phase}
+            {engineFailed ? 'Failed' : 'Paused'}: {syncPausedJob.op} —{' '}
+            {syncPausedJob.phase}
           </p>
+          {engineFailed && syncPausedJob.errorMessage ? (
+            <p className="muted">{syncPausedJob.errorMessage}</p>
+          ) : null}
+          {engineFailed ? (
+            <p className="muted">
+              Discard this job, then Pull to realign — or use the Pull button
+              above, which discards it for you.
+            </p>
+          ) : null}
           <div className="button-row">
             <button
               type="button"
               className="secondary"
               onClick={() => void resumePausedSyncEngineJob()}>
-              Resume job
+              {engineFailed ? 'Retry job' : 'Resume job'}
             </button>
             <button
               type="button"
@@ -296,7 +325,7 @@ export function SyncPage() {
           <button
             type="button"
             className="btn-icon secondary"
-            disabled={blockedStart}
+            disabled={pullBlocked}
             onClick={() => void pull()}>
             <span className="material-symbols-outlined" aria-hidden>
               download
@@ -307,7 +336,7 @@ export function SyncPage() {
             type="button"
             className="btn-icon"
             disabled={blockedStart}
-            onClick={() => void push()}>
+            onClick={() => void push({ announceEmpty: true })}>
             <span className="material-symbols-outlined" aria-hidden>
               upload
             </span>

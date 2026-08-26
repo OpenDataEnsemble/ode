@@ -25,6 +25,14 @@ pub(crate) fn reconcile_interrupted_running_jobs(
     job::reconcile_interrupted_running_jobs(conn)
 }
 
+/// Drop paused / failed / completed / cancelled job rows so a local-data reset
+/// leaves no stale job that would keep blocking the next sync.
+pub(crate) fn clear_non_running_jobs_db(
+    conn: &rusqlite::Connection,
+) -> Result<usize, rusqlite::Error> {
+    job::delete_non_running_jobs(conn)
+}
+
 pub(crate) use api::SyncHttpClient;
 
 #[derive(Clone)]

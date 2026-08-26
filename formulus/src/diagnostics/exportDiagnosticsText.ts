@@ -23,7 +23,9 @@ export function buildSummaryText(input: {
   serverHost: string;
   lastExitReason: string | null;
   breadcrumbs: string[];
+  traceFiles?: string[];
 }): string {
+  const traceFiles = input.traceFiles ?? [];
   const lines = [
     'Formulus diagnostic summary',
     `device: ${input.deviceModel}`,
@@ -31,6 +33,11 @@ export function buildSummaryText(input: {
     `app: ${input.appVersion}`,
     `server: ${input.serverHost}`,
     `last dirty/exit reason: ${input.lastExitReason ?? '(none)'}`,
+    '',
+    'captured traces:',
+    ...(traceFiles.length > 0
+      ? traceFiles.map(name => `traces/${name}`)
+      : ['(none)']),
     '',
     'recent breadcrumbs:',
     ...(input.breadcrumbs.length > 0 ? input.breadcrumbs : ['(none)']),

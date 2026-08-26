@@ -49,10 +49,18 @@ Image tags are computed by `docker/metadata-action`. The highest-priority tag pe
 Moving pointer tags:
 
 - **`latest`** — always points to the most recent **non-prerelease** GitHub Release. Never moved by branch pushes.
-- **`latest-pre-release`** — always points to the most recent **prerelease** GitHub Release (e.g. `-alpha.N`, `-rc.N`).
+- **`latest-pre-release`** — always points to the most recent **prerelease** GitHub Release (e.g. `-alpha.N`, `-rc.N`). Point demo/staging servers (e.g. via Watchtower) at this tag to track published pre-releases.
 - **`main`** / **`dev`** — track the tip of the respective branch.
 
 `workflow_dispatch` intentionally produces only `sha-{short}` so that manual runs cannot accidentally reassign `latest`, `main`, `dev`, or any other pointer tag.
+
+> **Version stamping of non-release builds.** `dev`, `main`, and feature-branch
+> builds bake a `git describe --tags --always` version (e.g. `v1.3.0-7-gabc1234`)
+> into the binary via ldflags, so the server `/version` endpoint reports a version
+> clearly *ahead* of the last release. Previously these builds used
+> `git describe --abbrev=0`, which stamped them with the **previous** release tag —
+> the reason a branch-tracking demo server appeared to run "exactly one version
+> behind" even when the image content was current.
 
 #### Build Features
 
@@ -97,6 +105,8 @@ Tagging follows the same strategy as the Synkronus server image (`latest`, `dev`
 
 Release assets: `synkronus-cli-{os}-{arch}.tar.gz` attached to GitHub Releases. Custom app CI should pin a release tag via `SYNK_CLI_VERSION` and download `synkronus-cli-linux-amd64.tar.gz`.
 
+**CI matrix:** pull requests build **linux-amd64** only; push to `main`/`dev` builds all six OS/arch pairs; release attaches all six to the GitHub Release.
+
 Non-interactive CI login: `synk login -u USER --password "$SYNK_PASSWORD"` (v1.1.2+).
 
 ### Formulus Android Build
@@ -139,9 +149,13 @@ Formplayer assets are **not committed to git** and are ignored via `.gitignore`.
 
 #### Build Types
 
-- **Pull Requests**: Debug APK (unsigned)
-- **Push to main/dev**: Release APK (signed with secrets)
-- **Release**: Release APK published to GitHub Release
+- **Pull Requests**: Debug APK (unsigned), **arm64-v8a only** (smoke)
+- **Push to main/dev**: Release APK + AAB (signed), **arm64-v8a only** — CI artifacts, not F-Droid shippable
+- **GitHub Release**: Release APK + AAB (signed), **all four ABIs** from `formulus/android/gradle.properties` (F-Droid / Play); assets attached to the release
+
+APK and AAB are built in **one** Gradle invocation (`assembleRelease bundleRelease`) so Metro/native work is shared. Gradle uses `gradle/actions/setup-gradle` (daemon left on). Vendored Notifee (`formulus/third_party/notifee`) is cached across runs (key = hash of `vendor-notifee-core.mjs`). CI enables parallel workers (local `gradle.properties` keeps them low for laptops).
+
+NDK `ccache` is **not** wired yet: it needs CI-only CMake launcher hooks into React Native’s native build and can flake; revisit if release builds are still too slow after the above.
 
 #### Secrets Required
 
@@ -377,7 +391,7 @@ Ubuntu job: installs and builds `@ode/tokens`, runs `pnpm install --frozen-lockf
 
 **Jobs `build-desktop-bundles` (CI) and `release-desktop-bundles` (release)**
 
-Matrix build (mirrors CLI OS/arch coverage): **linux** amd64 + arm64, **windows** amd64 + arm64, **darwin** amd64 (`macos-15-intel`) + arm64 (`macos-latest`). Each runner installs Node + pnpm, restores formplayer artifact, installs Linux WebKitGTK packages where needed, runs `pnpm exec tauri build --target …` with a merged config so `beforeBuildCommand` runs **`pnpm build` only** (frontend + Vite output; embedded formplayer is already present). Builds use `Swatinem/rust-cache` scoped per platform.
+Matrix build (mirrors CLI OS/arch coverage): **linux** amd64 + arm64, **windows** amd64 + arm64, **darwin** amd64 (`macos-14`) + arm64 (`macos-latest`). **Pull requests** build **linux-amd64 only** (smoke packaging); **push to `main`/`dev`** and **release** build all six platforms. Each runner installs Node + pnpm, restores formplayer artifact, installs Linux WebKitGTK packages where needed, runs `pnpm exec tauri build --target …` with a merged config so `beforeBuildCommand` runs **`pnpm build` only** (frontend + Vite output; embedded formplayer is already present). Builds use `Swatinem/rust-cache` scoped per platform.
 
 **CI artifacts**
 

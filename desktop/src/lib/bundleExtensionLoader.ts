@@ -34,8 +34,7 @@ function normalizeJson(raw: Record<string, unknown>): {
       ?.definitions ??
     {};
   const functionsRaw = raw.functions as
-    | Record<string, Record<string, unknown>>
-    | undefined;
+    Record<string, Record<string, unknown>> | undefined;
   const functions: Record<string, ExtensionFunctionShape> = {};
   if (functionsRaw) {
     for (const [key, func] of Object.entries(functionsRaw)) {
@@ -47,8 +46,7 @@ function normalizeJson(raw: Record<string, unknown>): {
     }
   }
   const renderersRaw = raw.renderers as
-    | Record<string, Record<string, unknown>>
-    | undefined;
+    Record<string, Record<string, unknown>> | undefined;
   const renderers: Record<string, ExtensionRendererShape> = {};
   if (renderersRaw) {
     for (const [key, renderer] of Object.entries(renderersRaw)) {
@@ -58,8 +56,7 @@ function normalizeJson(raw: Record<string, unknown>): {
       >;
       const testerObj = (renderer.tester ?? {}) as Record<string, unknown>;
       const rendererTester = renderer.tester as
-        | Record<string, unknown>
-        | undefined;
+        Record<string, unknown> | undefined;
       renderers[key] = {
         name: key,
         format: String(renderer.format ?? rendererObj?.format ?? ''),
@@ -67,8 +64,7 @@ function normalizeJson(raw: Record<string, unknown>): {
           rendererObj?.path ?? rendererObj?.module ?? renderer.module ?? '',
         ),
         tester: (testerObj.export ?? rendererTester?.export) as
-          | string
-          | undefined,
+          string | undefined,
         renderer: String(rendererObj.export ?? rendererTester?.export ?? key),
       };
     }

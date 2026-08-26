@@ -117,6 +117,42 @@ const SwipeLayoutRenderer = ({
       : [uischema];
   }, [uischema, isExplicitSwipeLayout]);
 
+  // ----- Per-page validation reveal (A4) -----
+  // Show validation errors only on pages the enumerator has actually visited or
+  // moved past, so freshly-reached pages don't look "already failed". Seed from
+  // the initial validation mode: edits & draft resumes open in ValidateAndShow,
+  // so every page counts as already revealed; brand-new forms open hidden and
+  // reveal pages as the user advances. A host-pinned validationMode is honored
+  // by App (it ignores the events we dispatch here).
+  // Captured once at mount: edits/draft resumes open in ValidateAndShow.
+  const [initialValidationShown] = useState(
+    () => core?.validationMode === 'ValidateAndShow',
+  );
+  const revealedPagesRef = useRef<Set<number> | null>(null);
+  const getRevealedSet = useCallback((): Set<number> => {
+    if (!revealedPagesRef.current) {
+      const set = new Set<number>();
+      if (initialValidationShown) {
+        for (let i = 0; i < layouts.length; i += 1) set.add(i);
+      }
+      revealedPagesRef.current = set;
+    }
+    return revealedPagesRef.current;
+  }, [layouts.length, initialValidationShown]);
+
+  // Tell App whether to show validation for the page now in view.
+  useEffect(() => {
+    const revealed = getRevealedSet();
+    const onFinalize = layouts[currentPage]?.type === 'Finalize';
+    if (onFinalize) {
+      for (let i = 0; i < layouts.length; i += 1) revealed.add(i);
+    }
+    const show = onFinalize || revealed.has(currentPage);
+    window.dispatchEvent(
+      new CustomEvent('formSetValidationVisibility', { detail: { show } }),
+    );
+  }, [currentPage, layouts, getRevealedSet]);
+
   const { swipeOptions, nextButtonLabelOption, finalizeButtonLabelOption } =
     useMemo(() => {
       const raw = (uischema as any)?.options ?? {};
@@ -362,11 +398,12 @@ const SwipeLayoutRenderer = ({
       const isNavigatingForward = newPage > currentPage;
       const isOnFinalize = layouts[currentPage]?.type === 'Finalize';
 
-      // Deferred validation: once the enumerator moves forward, surface
-      // validation so empty/invalid required fields they are leaving behind are
-      // highlighted. App.tsx listens and switches JsonForms to ValidateAndShow.
+      // Deferred validation: reveal the page being left so its empty/invalid
+      // required fields are highlighted when the enumerator returns. The page
+      // they land on stays unrevealed, so it does not show premature errors.
+      // The per-page effect dispatches the resulting show/hide to App.
       if (isNavigatingForward) {
-        window.dispatchEvent(new CustomEvent('formShowValidation'));
+        getRevealedSet().add(currentPage);
       }
 
       if (isNavigatingForward && !isOnFinalize) {
@@ -403,6 +440,7 @@ const SwipeLayoutRenderer = ({
       performNavigation,
       snackbarOpen,
       t,
+      getRevealedSet,
     ],
   );
 
@@ -452,18 +490,25 @@ const SwipeLayoutRenderer = ({
 
   const trySubmitForm = useCallback(() => {
     if (!formInitData) return;
+    // Submitting reveals the whole form so any blocking errors become visible.
+    const revealed = getRevealedSet();
+    for (let i = 0; i < layouts.length; i += 1) revealed.add(i);
+    window.dispatchEvent(
+      new CustomEvent('formSetValidationVisibility', {
+        detail: { show: true },
+      }),
+    );
     const errors = core?.errors ?? [];
     if (errors.length > 0) {
       navigateToFirstBlockingError(errors);
       return;
     }
-    window.dispatchEvent(new CustomEvent('formShowValidation'));
     window.dispatchEvent(
       new CustomEvent('finalizeForm', {
         detail: { formInitData, data },
       }),
     );
-  }, [formInitData, data, core?.errors]);
+  }, [formInitData, data, core?.errors, getRevealedSet, layouts]);
 
   const keyboardSubmitAction = useMemo(() => {
     const errorCount = core?.errors?.length ?? 0;

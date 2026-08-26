@@ -5,6 +5,7 @@ import {
   exitsPath,
   MAX_LOG_BYTES,
   sessionPath,
+  tracesDir,
 } from './paths';
 
 const DEFAULT_DOC_DIR = '__unset__';
@@ -72,6 +73,10 @@ export function getExitsFilePath(): string {
 
 export function getSessionFilePath(): string {
   return sessionPath(docDir());
+}
+
+export function getTracesDirPath(): string {
+  return tracesDir(docDir());
 }
 
 async function ensureDir(): Promise<DiagnosticFs> {

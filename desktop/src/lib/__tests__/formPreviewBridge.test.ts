@@ -179,11 +179,9 @@ describe('handleFormPreviewBridgeMessage', () => {
     } as HTMLIFrameElement;
 
     const onFinalize = vi.fn(async () => ({ result: 'should-not-run' }));
-    const tryNested = vi.fn(
-      async (): Promise<{ result: string } | null> => ({
-        result: 'nested-synthetic-id',
-      }),
-    );
+    const tryNested = vi.fn(async (): Promise<{ result: string } | null> => ({
+      result: 'nested-synthetic-id',
+    }));
 
     await handleFormPreviewBridgeMessage(
       bridgeMessageFromIframe(nestedIframe, {
