@@ -1,0 +1,19 @@
+diff --git a/android/src/main/java/com/rnfs/RNFSManager.java b/android/src/main/java/com/rnfs/RNFSManager.java
+--- a/android/src/main/java/com/rnfs/RNFSManager.java
++++ b/android/src/main/java/com/rnfs/RNFSManager.java
+@@ -975,7 +975,14 @@
+       return;
+     }
+ 
+-    promise.reject(null, ex.getMessage());
++    // RN Kotlin PromiseImpl.reject requires a non-null code. Passing null
++    // (historical RNFS behavior) crashes the whole app on download/IO failure
++    // instead of rejecting the JS promise.
++    String message = ex.getMessage();
++    if (message == null || message.isEmpty()) {
++      message = ex.getClass().getSimpleName();
++    }
++    promise.reject("EUNSPECIFIED", message, ex);
+   }
+ 
+   private void rejectFileNotFound(Promise promise, String filepath) {
