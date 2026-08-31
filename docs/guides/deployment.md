@@ -432,6 +432,10 @@ sudo ufw enable
 
 ## Performance Tuning
 
+### Reverse proxy timeouts
+
+Field sync, photo upload, and app-bundle download can run for minutes on slow radio. The bundled [`nginx.conf`](https://github.com/OpenDataEnsemble/ode/blob/main/synkronus/nginx.conf) sets `proxy_send_timeout` and `proxy_read_timeout` to **600s**. If you use Caddy, Apache, or an institutional load balancer, set equivalent send/read (or idle) timeouts to at least 10 minutes. Leave login/refresh on the default short path — Synkronus already bounds `/api/auth/*` at 25s.
+
 ### PostgreSQL Optimization
 
 Add to `docker-compose.yml` under postgres service:

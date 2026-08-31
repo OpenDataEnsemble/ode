@@ -112,6 +112,8 @@ Details: [Installing Formulus](/docs/getting-started/installation/installing-for
 
 Synkronus limits attachment uploads to **32 MB** per file. Configure your reverse proxy body size limit to at least 32 MB.
 
+**Proxy timeouts:** field devices on slow radio can take minutes for a pull, push, photo, or app-bundle zip. Set reverse-proxy send/read timeouts to at least **600 seconds** (the bundled `nginx.conf` uses `proxy_send_timeout` / `proxy_read_timeout 600s`). Default nginx/Caddy idle values (~60s) will drop those transfers. Login and token refresh are bounded at **25 seconds** inside Synkronus; do not apply that short deadline to sync routes.
+
 ## Reference deployment pattern
 
 Typical self-hosted pattern (e.g. research institutions running custom apps like AnthroCollect):
@@ -129,6 +131,7 @@ Coordinate **Formulus and Synkronus versions** on upgrade—the mobile app check
 - [ ] Hardened reverse proxy with TLS (TLS 1.2+)
 - [ ] Pin Synkronus image tag (e.g. `v1.3.0`) rather than `:latest` in production
 - [ ] Proxy upload limit ≥ 32 MB per attachment
+- [ ] Proxy send/read timeouts ≥ 600s (sync, attachments, bundle zip)
 - [ ] Automated Postgres backups + tested restore
 - [ ] Backup `appdata` volume (attachments + bundles)
 - [ ] Volume/disk encryption at platform level

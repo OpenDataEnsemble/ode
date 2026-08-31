@@ -223,6 +223,7 @@ See [Security reference](/docs/reference/security) for deployment checklist and 
 
 - **Local Database**: Fast queries using WatermelonDB
 - **Incremental Sync**: Only sync changes since last sync
+- **Adaptive pages**: Formulus starts at 32 pull / 4 push, grows toward 500 / 100, floor 1
 - **Lazy Loading**: Load attachments on demand
 - **Caching**: Cache app bundles and form specifications
 

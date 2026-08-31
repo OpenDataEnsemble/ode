@@ -34,6 +34,7 @@ formulus/
 │   ├── navigation/       # Navigation configuration
 │   ├── screens/          # Screen components
 │   ├── services/         # Business logic services
+│   ├── sync/             # Adaptive pull/push sizes, retries
 │   ├── webview/          # WebView integration and bridge
 │   └── utils/            # Utility functions
 ├── android/              # Android native code
@@ -67,6 +68,8 @@ Two-phase synchronization protocol:
 
 1. **Observation Sync**: JSON metadata synchronization
 2. **Attachment Sync**: Binary file synchronization
+
+Pull and push unit sizes are **adaptive** (no enumerator preset). Fresh devices start at **32** observations per pull page and **4** per push batch, grow toward 500 / 100 on a fast link, and can shrink to **1** on very poor radio. Attachment downloads are serial. See [How Formulus sizes each request](/docs/using/synchronization#how-formulus-sizes-each-request).
 
 ### Form Rendering
 
@@ -276,12 +279,16 @@ When opening forms programmatically, `openFormplayer` accepts:
 3. **Push**: Send local changes to server
 4. **Resolve Conflicts**: Handle conflicts if any
 
+Page and batch sizes AIMD from conservative starts (pull **32**, push **4**) between floor **1** and ceiling **500** / **100**. Constants: `formulus/src/sync/networkProfile.ts`. Axios JSON timeout is 10 minutes.
+
 #### Phase 2: Attachment Sync
 
 1. **Download Manifest**: Get list of attachments to download
-2. **Download Files**: Download missing attachments
+2. **Download Files**: Download missing attachments (concurrency 1)
 3. **Upload Files**: Upload pending attachments
 4. **Update Status**: Mark attachments as synced
+
+Observation JSON can complete while attachment files remain pending.
 
 ### Sync State Management
 
