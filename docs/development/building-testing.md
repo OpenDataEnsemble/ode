@@ -234,10 +234,14 @@ The project uses GitHub Actions for continuous integration:
 ### Workflows
 
 **Synkronus Docker Build:**
-- Triggers on push to `main` or PRs affecting `synkronus/`
-- Builds Docker image
-- Publishes to GitHub Container Registry
-- Tags: `latest`, `v{version}`, `{branch-name}`
+- Builds on relevant pushes to `main` or `dev`, pull requests, published GitHub Releases, and manual dispatches
+- Publishes multi-platform images to GitHub Container Registry (pull requests build without publishing)
+- Stable releases publish `v{version}`, major/minor pointers, and `latest`
+- Pre-releases publish `v{version}-{pre}` and `latest-pre-release`
+- Branch pushes publish `main` or `dev` plus an immutable `sha-{short}` tag
+- Manual dispatches publish only `sha-{short}`; feature-branch images are not published automatically
+
+See the [Deployment guide](/docs/guides/deployment) for the image-tag channels and recommended uses.
 
 **Frontend Quality Checks:**
 - Runs on all PRs
