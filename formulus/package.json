@@ -85,7 +85,7 @@
     "@react-native/eslint-config": "0.84.1",
     "@react-native/gradle-plugin": "0.83.1",
     "@react-native/metro-config": "0.83.1",
-    "@react-native/typescript-config": "0.86.0",
+    "@react-native/typescript-config": "0.87.1",
     "@testing-library/react-native": "^13.3.3",
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "~30.0.0",

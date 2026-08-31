@@ -205,8 +205,8 @@ importers:
         specifier: 0.83.1
         version: 0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
       '@react-native/typescript-config':
-        specifier: 0.86.0
-        version: 0.86.0
+        specifier: 0.87.1
+        version: 0.87.1
       '@testing-library/react-native':
         specifier: ^13.3.3
         version: 13.3.3(jest@30.3.0(@types/node@24.13.3)(supports-color@10.2.2))(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))(react-test-renderer@19.2.4(react@19.2.4))(react@19.2.4)
@@ -1675,8 +1675,8 @@ packages:
   '@react-native/normalize-colors@0.83.1':
     resolution: {integrity: sha512-84feABbmeWo1kg81726UOlMKAhcQyFXYz2SjRKYkS78QmfhVDhJ2o/ps1VjhFfBz0i/scDwT1XNv9GwmRIghkg==}
 
-  '@react-native/typescript-config@0.86.0':
-    resolution: {integrity: sha512-oSuFIEMVAVEXdIvDnrdXsWmIF4fYdgtvAEr2ofn8OY534m7XWm9QAqHHpGUzoK0iwDPlPZ5n2Rb25gqF1SZ0rg==}
+  '@react-native/typescript-config@0.87.1':
+    resolution: {integrity: sha512-AaPFOTglk3GJ7OWSS/vuF9I4qotm5IyazRIgITMwIdAk6JF7iDTec77UZRadUs5/08G593gnF78unedM3skn/Q==}
 
   '@react-native/virtualized-lists@0.83.1':
     resolution: {integrity: sha512-MdmoAbQUTOdicCocm5XAFDJWsswxk7hxa6ALnm6Y88p01HFML0W593hAn6qOt9q6IM1KbAcebtH6oOd4gcQy8w==}
@@ -7092,7 +7092,7 @@ snapshots:
 
   '@react-native/normalize-colors@0.83.1': {}
 
-  '@react-native/typescript-config@0.86.0': {}
+  '@react-native/typescript-config@0.87.1': {}
 
   '@react-native/virtualized-lists@0.83.1(@types/react@19.2.18)(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))(react@19.2.4)':
     dependencies:
