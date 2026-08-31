@@ -199,8 +199,8 @@ importers:
         specifier: 0.84.1
         version: 0.84.1(eslint@9.39.5(supports-color@10.2.2))(jest@30.3.0(@types/node@24.13.3)(supports-color@10.2.2))(prettier@3.8.1)(supports-color@10.2.2)(typescript@5.9.3)
       '@react-native/gradle-plugin':
-        specifier: 0.83.1
-        version: 0.83.1
+        specifier: 0.87.1
+        version: 0.87.1
       '@react-native/metro-config':
         specifier: 0.83.1
         version: 0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2)
@@ -1657,6 +1657,10 @@ packages:
   '@react-native/gradle-plugin@0.83.1':
     resolution: {integrity: sha512-6ESDnwevp1CdvvxHNgXluil5OkqbjkJAkVy7SlpFsMGmVhrSxNAgD09SSRxMNdKsnLtzIvMsFCzyHLsU/S4PtQ==}
     engines: {node: '>= 20.19.4'}
+
+  '@react-native/gradle-plugin@0.87.1':
+    resolution: {integrity: sha512-bZ5X2BNxaSlfp2KlDtUM910QqW9G1yTIeZXghuv4ag8SAQLzm5Mf9j5GjJfT6ax2Qo2aRT15Vi3Tro/yLGJstA==}
+    engines: {node: ^22.13.0 || ^24.3.0 || >= 26.0.0}
 
   '@react-native/js-polyfills@0.83.1':
     resolution: {integrity: sha512-qgPpdWn/c5laA+3WoJ6Fak8uOm7CG50nBsLlPsF8kbT7rUHIVB9WaP6+GPsoKV/H15koW7jKuLRoNVT7c3Ht3w==}
@@ -7066,6 +7070,8 @@ snapshots:
   '@react-native/eslint-plugin@0.84.1': {}
 
   '@react-native/gradle-plugin@0.83.1': {}
+
+  '@react-native/gradle-plugin@0.87.1': {}
 
   '@react-native/js-polyfills@0.83.1': {}
 
