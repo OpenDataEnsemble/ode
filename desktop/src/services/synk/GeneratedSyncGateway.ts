@@ -189,7 +189,8 @@ async function toSyncGatewayError(
     const causeMessage =
       error.cause?.message?.trim() || 'network request failed before response';
     const timedOut =
-      causeName === 'AbortError' || causeMessage.toLowerCase().includes('timeout');
+      causeName === 'AbortError' ||
+      causeMessage.toLowerCase().includes('timeout');
     return new Error(
       timedOut
         ? `Synk ${operation} timed out after ${AUTH_REQUEST_TIMEOUT_MS / 1000}s while contacting ${attemptedEndpoint}. Check the server URL, connectivity, and TLS/certificate configuration.`

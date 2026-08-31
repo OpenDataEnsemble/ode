@@ -21,8 +21,14 @@ vi.mock('../store/useCustodianStore', () => ({
     }),
   selectActiveProfileState: (state: {
     activeProfileId: string;
-    profiles: Array<{ id: string; serverUrl?: string | null; username?: string | null }>;
-  }) => state.profiles.find(profile => profile.id === state.activeProfileId) ?? null,
+    profiles: Array<{
+      id: string;
+      serverUrl?: string | null;
+      username?: string | null;
+    }>;
+  }) =>
+    state.profiles.find(profile => profile.id === state.activeProfileId) ??
+    null,
   selectAuthSessionForActiveProfile: () =>
     mockSelectAuthSessionForActiveProfile(),
 }));

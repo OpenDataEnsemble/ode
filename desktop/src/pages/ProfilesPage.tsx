@@ -491,8 +491,8 @@ export function ProfilesPage() {
         {error ? <p className="notice error">{error}</p> : null}
         {!authBusy && authBlocked && !error ? (
           <p className="notice warn">
-            Automatic authentication failed for this profile. Review the server URL,
-            username, and saved password, then authenticate again.
+            Automatic authentication failed for this profile. Review the server
+            URL, username, and saved password, then authenticate again.
           </p>
         ) : null}
       </div>
