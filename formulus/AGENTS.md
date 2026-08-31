@@ -22,6 +22,7 @@
 | Area                                 | Purpose                                                                                                                                                                                                                                                                                                    |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/webview/`                       | **Bridge contract** — [`FormulusInterfaceDefinition.ts`](src/webview/FormulusInterfaceDefinition.ts) (source of truth for `window.formulus` / injected API). [`FormulusMessageHandlers.ts`](src/webview/FormulusMessageHandlers.ts), [`FormulusWebViewHandler.ts`](src/webview/FormulusWebViewHandler.ts). |
+| `src/sync/`                          | Adaptive pull/push unit sizes, retries, chunking. Knobs: [`networkProfile.ts`](src/sync/networkProfile.ts).                                                                                                                                                                                                |
 | `scripts/generateInjectionScript.ts` | Generates injection / loader script from the interface definition.                                                                                                                                                                                                                                         |
 | `src/screens/`, `src/navigation/`    | App screens and routing.                                                                                                                                                                                                                                                                                   |
 | Android / iOS                        | Native projects; **formplayer** static assets: `android/app/src/main/assets/formplayer_dist/`, `ios/formplayer_dist/` (see formplayer AGENTS for `build:copy`).                                                                                                                                            |
@@ -32,6 +33,29 @@
 
 - **Custom apps** are HTML/JS/CSS bundles loaded from Synkronus; they receive the **Formulus** injected API (see interface definition). Authors do not need this monorepo — public docs and [custom_app](https://github.com/OpenDataEnsemble/custom_app) describe usage.
 - **Formplayer** is a sibling package; after changing `FormulusInterfaceDefinition.ts`, run **`pnpm run sync-interface`** (or build) in **formulus-formplayer** so its copy stays aligned.
+
+## Adaptive sync (low connectivity)
+
+There is **no enumerator-facing network preset**. Every device starts small and AIMDs toward the API max on a good link. Knobs live in [`src/sync/networkProfile.ts`](src/sync/networkProfile.ts); AIMD in [`src/sync/adaptivePageSize.ts`](src/sync/adaptivePageSize.ts).
+
+| Unit | Floor | Start (fresh device) | Ceiling |
+| ---- | ----- | -------------------- | ------- |
+| Pull page | 1 | 32 | 500 (OpenAPI max) |
+| Push batch | 1 | 4 | 100 (uplink is worse than downlink) |
+
+- **Grow** if the last HTTP unit finished in **&lt; 8s**: additive `max(25, floor(current/4))`.
+- **Shrink** if it took **≥ 15s**: halve.
+- After retries, a failed **pull** halves the page and retries the same cursor; a failed **push** splits the batch and requeues (down to 1).
+- Prefetch the next pull page only once `pullPageSize >= 250`.
+- Attachment downloads stay **serial** (concurrency 1). Observation JSON can succeed while photos remain pending.
+- Axios JSON timeout is **10 minutes**. Health probes stay 10s.
+- Sizes persist in AsyncStorage (`@ode/adaptivePullPageSize`, `@ode/adaptivePushBatchSize`).
+
+The floor of 1 is for truly poor radio. The minimum grow step is still +25, so a device that just crawled at size 1 jumps back to 26 on the next fast unit.
+
+Server-side timeouts that used to kill long transfers live in Synkronus (`ReadHeaderTimeout` 25s; no global `ReadTimeout`/`WriteTimeout`; nginx `proxy_*_timeout` 600s). See [synkronus/AGENTS.md](../synkronus/AGENTS.md).
+
+---
 
 ## UI language (i18n)
 

@@ -240,27 +240,41 @@ export class SyncService {
         details: i18n.t('sync.progress.starting'),
       });
 
-      const finalVersion = await this.withAutoLoginRetry(
+      const result = await this.withAutoLoginRetry(
         () => synkronusApi.syncObservations(includeAttachments, syncOptions),
         'sync observations',
       );
+      const finalVersion = result.version;
+      const pendingAttachments =
+        result.pendingAttachmentDownloads + result.pendingAttachmentUploads;
 
       const repoGenStorage =
         (await AsyncStorage.getItem('@repository_generation')) ?? '(missing)';
       logger.info(
         'sync',
-        `observations sync done @ ${finalVersion} gen=${repoGenStorage}`,
+        `observations sync done @ ${finalVersion} gen=${repoGenStorage} pendingAttachments=${pendingAttachments}`,
       );
 
       this.updateProgress({
         current: 1,
         total: 1,
         phase: 'push_observations',
-        details: i18n.t('sync.progress.complete'),
+        details:
+          pendingAttachments > 0
+            ? i18n.t('sync.progress.attachmentsRemaining', {
+                count: pendingAttachments,
+              })
+            : i18n.t('sync.progress.complete'),
       });
       await AsyncStorage.setItem('@last_seen_version', finalVersion.toString());
 
-      this.updateStatus(`Sync completed @ data version ${finalVersion}`);
+      this.updateStatus(
+        pendingAttachments > 0
+          ? i18n.t('sync.completedWithPendingPhotos', {
+              count: pendingAttachments,
+            })
+          : `Sync completed @ data version ${finalVersion}`,
+      );
       await logger.breadcrumb('sync', 'end', { success: true });
       logger.info('sync', `completed @ data version ${finalVersion}`);
 

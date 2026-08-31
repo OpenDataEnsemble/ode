@@ -181,7 +181,11 @@ describe('SyncService - Auto-Login Integration', () => {
           response: { status: 401 },
           message: 'Unauthorized',
         })
-        .mockResolvedValueOnce(mockFinalVersion);
+        .mockResolvedValueOnce({
+          version: mockFinalVersion,
+          pendingAttachmentDownloads: 0,
+          pendingAttachmentUploads: 0,
+        });
 
       (isUnauthorizedError as jest.Mock).mockReturnValue(true);
       (autoLogin as jest.Mock).mockResolvedValue(mockUserInfo);
@@ -381,7 +385,11 @@ describe('SyncService - Auto-Login Integration', () => {
       await expect(first).rejects.toThrow('Sync cancelled');
       expect(syncService.getIsSyncing()).toBe(false);
 
-      (synkronusApi.syncObservations as jest.Mock).mockResolvedValueOnce(7);
+      (synkronusApi.syncObservations as jest.Mock).mockResolvedValueOnce({
+        version: 7,
+        pendingAttachmentDownloads: 0,
+        pendingAttachmentUploads: 0,
+      });
       await expect(syncService.syncObservations(true)).resolves.toBe(7);
     });
   });
