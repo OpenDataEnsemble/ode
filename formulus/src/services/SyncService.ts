@@ -6,7 +6,10 @@ import {
   type SyncProgress,
   type SynkronusSyncOptions,
 } from '../sync/syncProgress';
-import { notificationService } from './NotificationService';
+import {
+  notificationService,
+  type SyncNotificationOutcome,
+} from './NotificationService';
 import { getUserFacingAppBundleUpdateErrorMessage } from './appBundleUpdateErrors';
 import { FormService } from './FormService';
 import { formLocaleIndexService } from './FormLocaleIndexService';
@@ -26,8 +29,20 @@ import {
 } from '../utils/appBundleVersion';
 import { i18n } from '../i18n/instance';
 import { logger } from '../diagnostics/logger';
+import { isCancelledError } from '../sync/transientRetry';
+
 type SyncStatusCallback = (status: string) => void;
 type SyncProgressDetailCallback = (progress: SyncProgress) => void;
+
+type SyncOutcome =
+  | { kind: 'success'; finalVersion: number }
+  | {
+      kind: 'partial_success';
+      finalVersion: number;
+      pendingAttachments: number;
+    }
+  | { kind: 'cancelled' }
+  | { kind: 'failed'; errorMessage: string };
 
 export class SyncService {
   private static instance: SyncService;
@@ -82,7 +97,7 @@ export class SyncService {
     if (this.canCancel) {
       this.shouldCancel = true;
       logger.info('sync', 'cancel requested');
-      this.updateStatus('Cancelling sync...');
+      this.updateStatus(i18n.t('sync.progress.cancelling'));
     }
   }
 
@@ -268,70 +283,35 @@ export class SyncService {
       });
       await AsyncStorage.setItem('@last_seen_version', finalVersion.toString());
 
-      this.updateStatus(
+      const outcome: SyncOutcome =
         pendingAttachments > 0
-          ? i18n.t('sync.completedWithPendingPhotos', {
-              count: pendingAttachments,
-            })
-          : `Sync completed @ data version ${finalVersion}`,
-      );
-      await logger.breadcrumb('sync', 'end', { success: true });
-      logger.info('sync', `completed @ data version ${finalVersion}`);
+          ? {
+              kind: 'partial_success',
+              finalVersion,
+              pendingAttachments,
+            }
+          : { kind: 'success', finalVersion };
 
-      // Don't let notification service block sync completion
-      notificationService
-        .showSyncComplete(true)
-        .catch(error =>
-          logger.warn(
-            'sync',
-            error instanceof Error
-              ? error.message
-              : 'Failed to show sync completion notification',
-          ),
-        );
+      this.applySyncOutcome(outcome);
+      await logger.breadcrumb('sync', 'end', {
+        success: pendingAttachments === 0,
+        counts: pendingAttachments,
+      });
+      logger.info('sync', `completed @ data version ${finalVersion}`);
 
       return finalVersion;
     } catch (error) {
-      const cancelled =
-        error instanceof Error &&
-        error.message === 'Sync cancelled' &&
-        this.shouldCancel;
-      if (cancelled) {
+      if (isCancelledError(error)) {
         logger.info('sync', 'cancel observed, aborting');
-      } else {
-        logger.error(
-          'sync',
-          error instanceof Error ? error.message : 'Sync failed',
-        );
-      }
-      if (cancelled) {
-        notificationService
-          .showSyncCanceled()
-          .catch(notifError =>
-            logger.warn(
-              'sync',
-              notifError instanceof Error
-                ? notifError.message
-                : 'Failed to show sync canceled notification',
-            ),
-          );
+        this.applySyncOutcome({ kind: 'cancelled' });
         throw error;
       }
+      logger.error(
+        'sync',
+        error instanceof Error ? error.message : 'Sync failed',
+      );
       const errorMessage = getUserFacingSyncErrorMessage(error);
-      this.updateStatus(`Sync failed: ${errorMessage}`);
-
-      // Don't let notification service block error handling
-      notificationService
-        .showSyncComplete(false, errorMessage)
-        .catch(notifError =>
-          logger.warn(
-            'sync',
-            notifError instanceof Error
-              ? notifError.message
-              : 'Failed to show sync failure notification',
-          ),
-        );
-
+      this.applySyncOutcome({ kind: 'failed', errorMessage });
       throw error;
     } finally {
       this.isSyncing = false;
@@ -339,6 +319,50 @@ export class SyncService {
       this.shouldCancel = false;
       await notificationService.stopForegroundService();
     }
+  }
+
+  private applySyncOutcome(outcome: SyncOutcome): void {
+    let status: string;
+    let notificationOutcome: SyncNotificationOutcome;
+
+    switch (outcome.kind) {
+      case 'success':
+        status = `Sync completed @ data version ${outcome.finalVersion}`;
+        notificationOutcome = { kind: 'success' };
+        break;
+      case 'partial_success':
+        status = i18n.t('sync.completedWithPendingAttachments', {
+          count: outcome.pendingAttachments,
+        });
+        notificationOutcome = {
+          kind: 'partial_success',
+          pendingAttachments: outcome.pendingAttachments,
+        };
+        break;
+      case 'cancelled':
+        status = i18n.t('sync.notification.cancelledTitle');
+        notificationOutcome = { kind: 'cancelled' };
+        break;
+      case 'failed':
+        status = `Sync failed: ${outcome.errorMessage}`;
+        notificationOutcome = {
+          kind: 'failed',
+          error: outcome.errorMessage,
+        };
+        break;
+    }
+
+    this.updateStatus(status);
+    notificationService
+      .showSyncComplete(notificationOutcome)
+      .catch(error =>
+        logger.warn(
+          'sync',
+          error instanceof Error
+            ? error.message
+            : 'Failed to show sync outcome notification',
+        ),
+      );
   }
 
   /**

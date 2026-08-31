@@ -59,6 +59,8 @@ import {
 import { i18n } from '../../i18n/instance';
 
 const REPOSITORY_GENERATION_STORAGE_KEY = '@repository_generation';
+const DEFERRED_ATTACHMENT_DOWNLOADS_STORAGE_KEY =
+  '@deferred_attachment_downloads';
 
 /** Best-effort read of x-repository-generation from Axios response headers (case varies). */
 function headerRepositoryGeneration(
@@ -130,6 +132,11 @@ interface DownloadResult {
   filePath: string;
   bytesWritten: number;
 }
+
+type DeferredAttachmentDownload = {
+  attachmentId: string;
+  repositoryGeneration: number | null;
+};
 
 function throwIfSyncCancelled(isCancelled?: () => boolean): void {
   if (isCancelled?.()) {
@@ -529,8 +536,36 @@ class SynkronusApi {
 
       // Handle null operations array (server returns null when no operations)
       const operations = manifest.operations || [];
+      const deferredDownloads = await this.getDeferredAttachmentDownloads();
+      const currentDeferredDownloads = deferredDownloads.filter(
+        item => item.repositoryGeneration === manifestClientGen,
+      );
+      const currentDeferredIds = new Set(
+        currentDeferredDownloads.map(item => item.attachmentId),
+      );
 
-      if (operations.length === 0) {
+      // Process operations
+      const downloadOps = operations.filter(op => op.operation === 'download');
+      const deleteOps = operations.filter(op => op.operation === 'delete');
+      const manifestDownloadIds = new Set(
+        downloadOps.map(op => op.attachment_id),
+      );
+      const deferredDownloadOps: AttachmentOperation[] =
+        currentDeferredDownloads
+          .filter(item => !manifestDownloadIds.has(item.attachmentId))
+          .map(item => {
+            return {
+              attachment_id: item.attachmentId,
+              operation: 'download',
+            } as AttachmentOperation;
+          });
+      const effectiveDownloadOps = [...deferredDownloadOps, ...downloadOps];
+      const totalSteps = deleteOps.length + effectiveDownloadOps.length;
+
+      if (totalSteps === 0) {
+        await this.removeDeferredAttachmentDownloads(
+          currentDeferredDownloads.map(item => item.attachmentId),
+        );
         await AsyncStorage.setItem(
           '@last_attachment_version',
           manifest.current_version.toString(),
@@ -543,11 +578,6 @@ class SynkronusApi {
         });
         return 0;
       }
-
-      // Process operations
-      const downloadOps = operations.filter(op => op.operation === 'download');
-      const deleteOps = operations.filter(op => op.operation === 'delete');
-      const totalSteps = deleteOps.length + downloadOps.length;
 
       let doneSteps = 0;
       const bumpProgress = (currentItem?: string) => {
@@ -572,8 +602,8 @@ class SynkronusApi {
 
       // Process downloads
       const knobs = await networkProfileService.getSyncKnobs();
-      const failedDownloads = await this.processAttachmentDownloads(
-        downloadOps,
+      const failedAttachmentIds = await this.processAttachmentDownloads(
+        effectiveDownloadOps,
         {
           ...options,
           startDone: doneSteps,
@@ -588,28 +618,51 @@ class SynkronusApi {
       doneSteps = totalSteps;
       bumpProgress();
 
-      if (failedDownloads > 0) {
-        logger.info(
-          'sync',
-          `attachments remaining=${failedDownloads} cursor not advanced`,
-          { phase: 'pull_attachments', counts: failedDownloads },
-        );
-        reportSyncProgress(report, {
-          phase: 'pull_attachments',
-          current: Math.max(totalSteps - failedDownloads, 0),
-          total: Math.max(totalSteps, 1),
-          details: i18n.t('sync.progress.attachmentsRemaining', {
-            count: failedDownloads,
-          }),
-        });
-        return failedDownloads;
-      }
+      const failedCurrentRunIds = new Set(failedAttachmentIds);
+      const deferredIdsToPersist = Array.from(
+        new Set([
+          ...deferredDownloadOps
+            .map(op => op.attachment_id)
+            .filter(id => failedCurrentRunIds.has(id)),
+          ...downloadOps
+            .map(op => op.attachment_id)
+            .filter(id => failedCurrentRunIds.has(id)),
+        ]),
+      );
+      const retriedSuccessfullyIds = Array.from(currentDeferredIds).filter(
+        id => !failedCurrentRunIds.has(id),
+      );
 
-      // Update last processed version
+      await this.removeDeferredAttachmentDownloads(retriedSuccessfullyIds);
+      await this.replaceDeferredAttachmentDownloads(
+        deferredIdsToPersist,
+        manifestClientGen,
+      );
+
+      // Advance cursor even when some downloads fail so one bad file does not
+      // block later manifest pages forever.
       await AsyncStorage.setItem(
         '@last_attachment_version',
         manifest.current_version.toString(),
       );
+
+      if (failedAttachmentIds.length > 0) {
+        logger.info(
+          'sync',
+          `attachments remaining=${failedAttachmentIds.length} cursor advanced`,
+          { phase: 'pull_attachments', counts: failedAttachmentIds.length },
+        );
+        reportSyncProgress(report, {
+          phase: 'pull_attachments',
+          current: Math.max(totalSteps - failedAttachmentIds.length, 0),
+          total: Math.max(totalSteps, 1),
+          details: i18n.t('sync.progress.attachmentsRemaining', {
+            count: failedAttachmentIds.length,
+          }),
+        });
+        return failedAttachmentIds.length;
+      }
+
       return 0;
     } catch (error: unknown) {
       this.rethrowIfRepositoryResetConflict(error);
@@ -671,10 +724,10 @@ class SynkronusApi {
       concurrency?: number;
       onStepComplete?: (attachmentId: string) => void;
     },
-  ): Promise<number> {
+  ): Promise<string[]> {
     const isCancelled = options?.isCancelled;
     if (downloadOps.length === 0) {
-      return 0;
+      return [];
     }
     const syncedDirectory = syncedRoot();
     await RNFS.mkdir(syncedDirectory);
@@ -709,9 +762,11 @@ class SynkronusApi {
       { phase: 'pull_attachments', counts: downloadOps.length },
     );
 
+    const failedAttachmentIds: string[] = [];
     results.forEach((result, index) => {
       const op = downloadOps[index];
       if (!result.success) {
+        failedAttachmentIds.push(op.attachment_id);
         logger.warn(
           'sync',
           `Failed to download attachment ${op.attachment_id}: ${result.message}`,
@@ -719,7 +774,73 @@ class SynkronusApi {
       }
     });
 
-    return failed;
+    return failedAttachmentIds;
+  }
+
+  private async getDeferredAttachmentDownloads(): Promise<
+    DeferredAttachmentDownload[]
+  > {
+    try {
+      const raw = await AsyncStorage.getItem(
+        DEFERRED_ATTACHMENT_DOWNLOADS_STORAGE_KEY,
+      );
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (item): item is DeferredAttachmentDownload =>
+          item != null &&
+          typeof item === 'object' &&
+          typeof item.attachmentId === 'string' &&
+          ('repositoryGeneration' in item
+            ? item.repositoryGeneration === null ||
+              typeof item.repositoryGeneration === 'number'
+            : false),
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  private async setDeferredAttachmentDownloads(
+    items: DeferredAttachmentDownload[],
+  ): Promise<void> {
+    if (items.length === 0) {
+      await AsyncStorage.removeItem(DEFERRED_ATTACHMENT_DOWNLOADS_STORAGE_KEY);
+      return;
+    }
+    await AsyncStorage.setItem(
+      DEFERRED_ATTACHMENT_DOWNLOADS_STORAGE_KEY,
+      JSON.stringify(items),
+    );
+  }
+
+  private async removeDeferredAttachmentDownloads(
+    attachmentIds: string[],
+  ): Promise<void> {
+    if (attachmentIds.length === 0) return;
+    const removeSet = new Set(attachmentIds);
+    const next = (await this.getDeferredAttachmentDownloads()).filter(
+      item => !removeSet.has(item.attachmentId),
+    );
+    await this.setDeferredAttachmentDownloads(next);
+  }
+
+  private async replaceDeferredAttachmentDownloads(
+    attachmentIds: string[],
+    repositoryGeneration: number | null,
+  ): Promise<void> {
+    const keep = (await this.getDeferredAttachmentDownloads()).filter(
+      item => !attachmentIds.includes(item.attachmentId),
+    );
+    const next = [
+      ...keep,
+      ...attachmentIds.map(attachmentId => ({
+        attachmentId,
+        repositoryGeneration,
+      })),
+    ];
+    await this.setDeferredAttachmentDownloads(next);
   }
 
   private async getAttachmentsUploadManifest(): Promise<string[]> {
