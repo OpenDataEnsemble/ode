@@ -10,14 +10,18 @@ Quick reference for common CI/CD operations in the Open Data Ensemble monorepo.
 # Latest stable release
 docker pull ghcr.io/opendataensemble/synkronus:latest
 
-# Specific version
-docker pull ghcr.io/opendataensemble/synkronus:v1.0.0
+# Latest published pre-release
+docker pull ghcr.io/opendataensemble/synkronus:latest-pre-release
 
-# Development version
-docker pull ghcr.io/opendataensemble/synkronus:develop
+# Specific stable or pre-release version
+docker pull ghcr.io/opendataensemble/synkronus:v1.2.3
+docker pull ghcr.io/opendataensemble/synkronus:v1.2.3-alpha.4
 
-# Feature branch
-docker pull ghcr.io/opendataensemble/synkronus:feature-name
+# Development branch tip
+docker pull ghcr.io/opendataensemble/synkronus:dev
+
+# Main branch tip
+docker pull ghcr.io/opendataensemble/synkronus:main
 ```
 
 ### Run Image
@@ -34,30 +38,37 @@ docker run -d \
 
 ### Available Tags
 
-| Tag | Description | Use Case |
-|-----|-------------|----------|
-| `latest` | Latest from main | Production |
-| `v1.0.0` | Specific version | Production (pinned) |
-| `develop` | Development branch | Staging |
-| `feature-xyz` | Feature branch | Testing |
-| `main-abc123` | Specific commit | Debugging |
+| Tag | What it tracks | Recommended use |
+|-----|----------------|-----------------|
+| `latest` | Most recently published stable release | Auto-updating production |
+| `latest-pre-release` | Most recently published pre-release | Auto-updating demo/staging, including Watchtower |
+| `dev` | Tip of the `dev` branch | Bleeding-edge integration testing |
+| `main` | Tip of the `main` branch | Testing current main between releases |
+| `v1.2.3-alpha.4` | One specific pre-release | Pinned pre-release deployment |
+| `v1.2.3` | One specific stable release | Pinned production deployment |
+| `sha-abc1234` | One specific commit | Debugging and exact reproduction |
+
+`dev` is not the pre-release channel. Release pointer tags move only when a GitHub Release is published; `latest-pre-release` requires the release to be marked as a pre-release.
 
 ## 🔄 Triggering Builds
 
 ### Automatic Triggers
 
 Builds trigger automatically when:
-- Pushing to `main`, `develop`, or feature branches
-- Creating pull requests
-- Only when files in `synkronus/` change
+- Pushing relevant changes to `main` or `dev`
+- Creating pull requests with relevant changes (build only; no image is published)
+- Publishing a stable or pre-release GitHub Release
+
+Relevant paths include `synkronus/`, `synkronus-portal/`, shared `packages/`, the Dockerfiles, and the workflow itself.
 
 ### Manual Trigger
 
-1. Go to **Actions** → **Synkronus Docker Build & Publish**
+1. Go to **Actions** → **Synkronus & Portal Docker Build & Publish**
 2. Click **Run workflow**
-3. Select branch
-4. (Optional) Enter version tag
-5. Click **Run workflow**
+3. Select the branch or commit
+4. Click **Run workflow**
+
+Manual runs publish only an immutable `sha-{short}` tag; they do not move `latest`, `latest-pre-release`, `main`, or `dev`.
 
 ## 📦 Creating Releases
 
@@ -230,8 +241,9 @@ docker run -d [same options] ghcr.io/opendataensemble/synkronus:v1.0.0
 - ❌ Don't use `latest` in production
 
 ### Development
-- ✅ Use `develop` for staging
-- ✅ Use feature branches for testing
+- ✅ Use `latest-pre-release` for staging published releases
+- ✅ Use `dev` only for bleeding-edge branch testing
+- ✅ Use manually dispatched `sha-{short}` images for exact feature-branch testing
 - ✅ Test locally before pushing
 - ✅ Clean up old images regularly
 

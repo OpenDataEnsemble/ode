@@ -14,8 +14,8 @@ Visual representation of the Docker build and deployment workflow.
                     ▼              ▼              ▼
             ┌───────────┐  ┌───────────┐  ┌───────────┐
             │Push to    │  │Push to    │  │Create     │
-            │main       │  │develop/   │  │Pull       │
-            │           │  │feature    │  │Request    │
+            │main       │  │dev        │  │Pull       │
+            │           │  │           │  │Request    │
             └───────────┘  └───────────┘  └───────────┘
                     │              │              │
                     └──────────────┼──────────────┘
@@ -43,11 +43,11 @@ Visual representation of the Docker build and deployment workflow.
                     │              │              │
                     ▼              ▼              ▼
             ┌───────────┐  ┌───────────┐  ┌───────────┐
-            │main       │  │develop/   │  │PR         │
-            │→ latest   │  │feature    │  │→ pr-N     │
-            │→ main-sha │  │→ branch   │  │(validate  │
-            │           │  │→ branch-  │  │ only)     │
-            │           │  │  sha      │  │           │
+            │main       │  │dev        │  │PR         │
+            │→ main     │  │→ dev      │  │→ pr-N     │
+            │→ sha-*    │  │→ sha-*    │  │(validate  │
+            │           │  │           │  │ only)     │
+            │           │  │           │  │           │
             └───────────┘  └───────────┘  └───────────┘
                     │              │              │
                     └──────────────┼──────────────┘
@@ -70,7 +70,7 @@ Visual representation of the Docker build and deployment workflow.
                     ▼              ▼              ▼
             ┌───────────┐  ┌───────────┐  ┌───────────┐
             │Production │  │Staging    │  │Development│
-            │(latest)   │  │(develop)  │  │(feature-x)│
+            │(latest)   │  │(pre-rel.) │  │(dev)      │
             └───────────┘  └───────────┘  └───────────┘
 ```
 
@@ -93,8 +93,8 @@ GitHub Actions
     │   └─> Platform: linux/arm64
     │
     ├─> Tag images
-    │   ├─> latest
-    │   └─> main-{sha}
+    │   ├─> main
+    │   └─> sha-{short}
     │
     ├─> Push to GHCR
     │
@@ -103,48 +103,47 @@ GitHub Actions
     ▼
 GHCR
     │
-    ├─> ghcr.io/opendataensemble/synkronus:latest
-    └─> ghcr.io/opendataensemble/synkronus:main-abc123
+    ├─> ghcr.io/opendataensemble/synkronus:main
+    └─> ghcr.io/opendataensemble/synkronus:sha-abc1234
     │
     ▼
-Production Deployment
+Main Branch Test Deployment
     │
-    └─> docker pull ghcr.io/opendataensemble/synkronus:latest
+    └─> docker pull ghcr.io/opendataensemble/synkronus:main
 ```
 
-### Feature Branch Flow
+### Dev Branch Flow
 
 ```
 Developer
     │
-    ├─> git checkout -b feature-xyz
-    ├─> git push origin feature-xyz
+    ├─> git push origin dev
     │
     ▼
 GitHub Actions
     │
-    ├─> Detect synkronus/** changes
+    ├─> Detect relevant changes
     │
     ├─> Build Docker image
     │   ├─> Platform: linux/amd64
     │   └─> Platform: linux/arm64
     │
     ├─> Tag images
-    │   ├─> feature-xyz
-    │   └─> feature-xyz-{sha}
+    │   ├─> dev
+    │   └─> sha-{short}
     │
     └─> Push to GHCR
     │
     ▼
 GHCR
     │
-    ├─> ghcr.io/opendataensemble/synkronus:feature-xyz
-    └─> ghcr.io/opendataensemble/synkronus:feature-xyz-abc123
+    ├─> ghcr.io/opendataensemble/synkronus:dev
+    └─> ghcr.io/opendataensemble/synkronus:sha-abc1234
     │
     ▼
-Testing Environment
+Bleeding-edge Test Environment
     │
-    └─> docker pull ghcr.io/opendataensemble/synkronus:feature-xyz
+    └─> docker pull ghcr.io/opendataensemble/synkronus:dev
 ```
 
 ### Pull Request Flow
@@ -241,7 +240,7 @@ Running Container
 Developer
     │
     ├─> docker-compose.yml
-    │   └─> image: ghcr.io/opendataensemble/synkronus:develop
+    │   └─> image: ghcr.io/opendataensemble/synkronus:dev
     │
     ├─> docker-compose up -d
     │
@@ -427,13 +426,14 @@ GHCR
 
 | Symbol | Meaning |
 |--------|---------|
-| `main` | Main branch (production) |
-| `develop` | Development branch (staging) |
-| `feature-xyz` | Feature branch (testing) |
-| `pr-N` | Pull request number N |
-| `latest` | Latest stable release |
-| `v1.0.0` | Semantic version tag |
-| `{sha}` | Git commit SHA |
+| `main` | Tip of the main branch |
+| `dev` | Tip of the development branch |
+| `pr-N` | Pull-request build (not published) |
+| `latest` | Latest published stable release |
+| `latest-pre-release` | Latest published pre-release |
+| `v1.2.3` | Specific stable release |
+| `v1.2.3-alpha.4` | Specific pre-release |
+| `sha-{short}` | Specific Git commit |
 | GHCR | GitHub Container Registry |
 | OCI | Open Container Initiative |
 
