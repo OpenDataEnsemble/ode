@@ -14,11 +14,11 @@ The ODE monorepo uses GitHub Actions for continuous integration and deployment. 
 
 #### Triggers
 
-- **Push to `main`**: Builds and publishes release images
-- **Push to `dev`**: Builds and publishes pre-release images
-- **Push to feature branches**: Builds and publishes branch-specific images
+- **Push to `main`**: Builds and publishes the `main` branch image
+- **Push to `dev`**: Builds and publishes the `dev` branch image
+- **Published GitHub Release**: Publishes stable or pre-release version tags and their corresponding moving pointer
 - **Pull Requests**: Builds but does not publish (validation only)
-- **Manual Dispatch**: Allows manual triggering with optional version tag
+- **Manual Dispatch**: Publishes only a commit-specific `sha-{short}` tag
 
 #### Path Filters
 
@@ -42,17 +42,26 @@ Image tags are computed by `docker/metadata-action`. The highest-priority tag pe
 | Release published, **is** prerelease | `v{X.Y.Z}-{pre}`, `latest-pre-release` | Yes |
 | Push → `main` | `main`, `sha-{short}` | Yes |
 | Push → `dev` | `dev`, `sha-{short}` | Yes |
-| Push → other branch | `{branch-name}`, `sha-{short}` | Yes |
 | `workflow_dispatch` | `sha-{short}` | Yes |
 | Pull request | `pr-{number}` | No (build only) |
 
-Moving pointer tags:
+Choose a deployment tag based on the update channel you want:
 
-- **`latest`** — always points to the most recent **non-prerelease** GitHub Release. Never moved by branch pushes.
-- **`latest-pre-release`** — always points to the most recent **prerelease** GitHub Release (e.g. `-alpha.N`, `-rc.N`). Point demo/staging servers (e.g. via Watchtower) at this tag to track published pre-releases.
-- **`main`** / **`dev`** — track the tip of the respective branch.
+| Tag | What it tracks | Recommended use |
+|-----|----------------|-----------------|
+| `latest` | Most recently published **stable** GitHub Release | Production deployments that should auto-update between stable releases |
+| `latest-pre-release` | Most recently published GitHub Release marked **pre-release** | Demo/staging deployments and Watchtower-managed pre-release testing |
+| `dev` | Tip of the `dev` branch | Bleeding-edge integration testing; may contain unpublished work |
+| `main` | Tip of the `main` branch | Testing current main between releases |
+| `v{X.Y.Z}-{pre}` | One specific pre-release, such as `v1.2.3-alpha.4` | Reproducible pre-release deployment; does not auto-update |
+| `v{X.Y.Z}` | One specific stable release, such as `v1.2.3` | Reproducible production deployment; does not auto-update |
+| `sha-{short}` | One specific commit | Debugging or exact-build reproduction; does not auto-update |
 
-`workflow_dispatch` intentionally produces only `sha-{short}` so that manual runs cannot accidentally reassign `latest`, `main`, `dev`, or any other pointer tag.
+`dev` is a branch-head channel, not the published pre-release channel. Publishing a stable release updates `latest` but does not update `latest-pre-release`; there is no single tag that tracks the newest release regardless of whether it is stable or pre-release.
+
+Versioned and moving release tags are produced only when a GitHub Release is **published**. Merely pushing a Git tag is not enough, and the release must be marked as a pre-release for `latest-pre-release` to move.
+
+`workflow_dispatch` intentionally produces only `sha-{short}` so that manual runs cannot accidentally reassign `latest`, `main`, `dev`, or any other pointer tag. The workflow does not currently publish feature-branch tags: automatic push builds are limited to `main` and `dev`, while pull requests build without publishing.
 
 > **Version stamping of non-release builds.** `dev`, `main`, and feature-branch
 > builds bake a `git describe --tags --always` version (e.g. `v1.3.0-7-gabc1234`)
@@ -231,11 +240,7 @@ Tracks the tip of the `main` branch between releases.
 docker pull ghcr.io/opendataensemble/synkronus:main
 ```
 
-### Pull Feature Branch Build
-
-```bash
-docker pull ghcr.io/opendataensemble/synkronus:feature-xyz
-```
+Feature-branch images are not published automatically. To publish an exact commit for testing, manually dispatch the workflow from that branch and use the resulting `sha-{short}` tag.
 
 ## Release Process
 
