@@ -27,6 +27,21 @@ pkg/               # Shared libraries (auth, database, middleware, openapi, ...)
 
 ---
 
+## HTTP timeouts (slow field radio)
+
+`http.Server` **ReadTimeout / WriteTimeout are unset (0)**. Those are absolute deadlines from request start, so a 15s cap killed legitimate sync, attachment, and bundle-zip transfers on slow links.
+
+| Bound | Value | Where |
+| ----- | ----- | ----- |
+| Request headers | 25s (`ReadHeaderTimeout`) | [`pkg/httptimeout`](pkg/httptimeout/httptimeout.go) — Slowloris only |
+| Login / refresh | 25s (`http.TimeoutHandler`) | `/api/auth/*` only — not sync |
+| Keep-alive idle | 60s | `IdleTimeout` |
+| Reverse proxy send/read | 600s | [`nginx.conf`](nginx.conf) `proxy_send_timeout` / `proxy_read_timeout` |
+
+Do **not** wrap sync, attachments, or bundle download in `TimeoutHandler`. Formulus adaptive page sizes are documented in [formulus/AGENTS.md](../formulus/AGENTS.md#adaptive-sync-low-connectivity).
+
+---
+
 ## Local development
 
 - **Prerequisites:** Go 1.22+, PostgreSQL, configured env (see [README.md](README.md) and [DOCKER.md](DOCKER.md)).

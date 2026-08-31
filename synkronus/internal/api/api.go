@@ -12,6 +12,7 @@ import (
 	"github.com/opendataensemble/synkronus/internal/handlers"
 	"github.com/opendataensemble/synkronus/internal/models"
 	"github.com/opendataensemble/synkronus/pkg/attachment"
+	"github.com/opendataensemble/synkronus/pkg/httptimeout"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/middleware/auth"
 	"github.com/opendataensemble/synkronus/pkg/middleware/formulusversion"
@@ -113,7 +114,10 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 	)
 
 	r.Route("/api", func(r chi.Router) {
-		r.Route("/auth", authRoutes)
+		r.Group(func(r chi.Router) {
+			r.Use(httptimeout.Auth)
+			r.Route("/auth", authRoutes)
+		})
 
 		// Protected routes - require authentication
 		r.Group(func(r chi.Router) {

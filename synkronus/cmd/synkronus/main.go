@@ -21,6 +21,7 @@ import (
 	"github.com/opendataensemble/synkronus/pkg/config"
 	"github.com/opendataensemble/synkronus/pkg/database"
 	"github.com/opendataensemble/synkronus/pkg/dataexport"
+	"github.com/opendataensemble/synkronus/pkg/httptimeout"
 	"github.com/opendataensemble/synkronus/pkg/logger"
 	"github.com/opendataensemble/synkronus/pkg/migrations"
 	"github.com/opendataensemble/synkronus/pkg/presence"
@@ -255,13 +256,15 @@ func main() {
 		log.Warn("Invalid port in configuration, using default", "port", port)
 	}
 
-	// Configure server with timeouts for security and reliability
+	// ReadHeaderTimeout is the Slowloris bound. ReadTimeout/WriteTimeout are
+	// left unset (0): they are absolute deadlines from request start, so a 15s
+	// cap killed legitimate sync, attachment, and bundle-zip transfers on slow
+	// links. Auth login/refresh are still bounded via httptimeout.Auth.
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      router,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           router,
+		ReadHeaderTimeout: httptimeout.ReadHeaderTimeout,
+		IdleTimeout:       httptimeout.IdleTimeout,
 	}
 
 	// Start server in a goroutine so it doesn't block

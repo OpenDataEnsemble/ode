@@ -202,16 +202,16 @@ These fields are stored with the observation and returned on pull; push payloads
 ```
 
 #### Batch Sizes
-- **Default batch size**: 50 records
+- **Default batch size**: 50 records (OpenAPI `limit` default)
 - **Maximum batch size**: 500 records
-- Clients can request smaller batches with `limit` parameter
+- Clients can request smaller batches with the `limit` parameter (minimum 1)
 - Clients MUST NOT assume all responses will contain the requested number of records
+- **Formulus** starts conservative and grows on a good link (pull start 32, floor 1, ceiling 500; push start 4, floor 1, ceiling 100). See `formulus/src/sync/networkProfile.ts`.
 
 #### Timeout Handling
-- Server sets a reasonable timeout for each batch operation (typically 30 seconds)
-- If timeout is reached during processing, the server returns a partial result
-- Partial results include a valid `next_page_token` to resume from
-- Clients MUST check `has_more` flag to determine if additional requests are needed
+- Sync, attachment, and bundle routes have **no** short absolute `ReadTimeout`/`WriteTimeout` on the Go server. Header read is bounded at 25s (Slowloris); login/refresh are bounded at 25s via `http.TimeoutHandler`.
+- Reverse proxies in front of Synkronus should allow long transfers (reference `nginx.conf`: `proxy_send_timeout` / `proxy_read_timeout` 600s).
+- Clients paginate with `limit` and MUST check `has_more` (or the equivalent cursor) to resume. The server does not abort a successful page mid-stream to return a partial timeout result.
 
 #### Implementation Guidance
 - Clients SHOULD retry with exponential backoff on 429 or 5xx responses
