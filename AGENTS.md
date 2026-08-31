@@ -94,7 +94,7 @@ For stable, you usually **do not** re-bump client manifests if they already matc
 ### Increment rules
 
 - **Semver:** bump `MAJOR.MINOR.PATCH` in client manifests to match the release line (e.g. `1.1.1`).
-- **Android `versionCode`:** must increase monotonically for Google Play (+10 per release is a common convention; +1 per shipped alpha build is also fine).
+- **Android `versionCode`:** upstream `formulus/android/app/build.gradle` keeps one monotonic base code for Play and GitHub universal APKs (+10 per release is a common convention; +1 per shipped alpha build is also fine). F-Droid per-ABI codes are derived in F-Droid metadata/build configuration.
 - **In-app version display:** Formulus About/Settings use native `versionName` + `versionCode` via [`AppVersionService`](formulus/src/services/AppVersionService.ts); Desktop About uses Tauri `getVersion()`.
 
 ### Commands

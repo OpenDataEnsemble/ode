@@ -119,9 +119,9 @@ Builds Android APK for the Formulus React Native application, and builds/consume
 
 #### Triggers
 
-- **Push to `main`/`dev`** (formulus or formulus-formplayer changes): Builds Formplayer assets and then a release APK using those assets
+- **Push to `main`/`dev`** (formulus or formulus-formplayer changes): Builds Formplayer assets and then a release APK + AAB using those assets
 - **Pull Requests** (formulus or formulus-formplayer changes): Builds Formplayer assets and then a debug APK for validation
-- **Release**: Publishes APK to GitHub Release
+- **Release**: Publishes the universal APK and AAB to GitHub Release
 
 #### Path Filters
 
@@ -150,10 +150,10 @@ Formplayer assets are **not committed to git** and are ignored via `.gitignore`.
 #### Build Types
 
 - **Pull Requests**: Debug APK (unsigned), **arm64-v8a only** (smoke)
-- **Push to main/dev**: Release APK + AAB (signed), **arm64-v8a only** — CI artifacts, not F-Droid shippable
-- **GitHub Release**: Release APK + AAB (signed), **all four ABIs** from `formulus/android/gradle.properties` (F-Droid / Play); assets attached to the release
+- **Push to main/dev**: Release universal APK + AAB (signed) — CI artifacts
+- **GitHub Release**: Release universal APK + AAB (signed); assets attached to the release
 
-APK and AAB are built in **one** Gradle invocation (`assembleRelease bundleRelease`) so Metro/native work is shared. Gradle uses `gradle/actions/setup-gradle` (daemon left on). Vendored Notifee (`formulus/third_party/notifee`) is cached across runs (key = hash of `vendor-notifee-core.mjs`). CI enables parallel workers (local `gradle.properties` keeps them low for laptops).
+APK and AAB are built in **one** Gradle invocation (`assembleRelease bundleRelease`) so Metro/native work is shared. GitHub release/distribution should use the **universal APK** to avoid wrong-ABI selection and cross-ABI `versionCode` update failures. F-Droid keeps its own per-ABI builds from the same source tag via metadata/build properties; that split path is not the GitHub release artifact. Gradle uses `gradle/actions/setup-gradle` (daemon left on). Vendored Notifee (`formulus/third_party/notifee`) is cached across runs (key = hash of `vendor-notifee-core.mjs`). CI enables parallel workers (local `gradle.properties` keeps them low for laptops).
 
 NDK `ccache` is **not** wired yet: it needs CI-only CMake launcher hooks into React Native’s native build and can flake; revisit if release builds are still too slow after the above.
 
