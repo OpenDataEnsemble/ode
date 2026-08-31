@@ -94,7 +94,8 @@ For stable, you usually **do not** re-bump client manifests if they already matc
 ### Increment rules
 
 - **Semver:** bump `MAJOR.MINOR.PATCH` in client manifests to match the release line (e.g. `1.1.1`).
-- **Android `versionCode`:** upstream `formulus/android/app/build.gradle` keeps one monotonic base code for Play and GitHub universal APKs (+10 per release is a common convention; +1 per shipped alpha build is also fine). F-Droid per-ABI codes are derived in F-Droid metadata/build configuration.
+- **Android `versionCode`:** use four-code-aligned upstream bases (`40`, `44`, `48`, …) for each distinct APK/AAB shipped on a GitHub Release or uploaded to Play. Play and the GitHub universal APK use the base; F-Droid derives four ABI codes (`base` through `base + 3`). Before release, confirm the base exceeds the highest code in Play and the previous F-Droid block. See [`formulus/android/ANDROID_RELEASE.md`](formulus/android/ANDROID_RELEASE.md).
+- **iOS build number:** keep both `CURRENT_PROJECT_VERSION` values equal to the Android base; jumping by four is valid. Run `pnpm run validate:native-versions` to check alignment.
 - **In-app version display:** Formulus About/Settings use native `versionName` + `versionCode` via [`AppVersionService`](formulus/src/services/AppVersionService.ts); Desktop About uses Tauri `getVersion()`.
 
 ### Commands
