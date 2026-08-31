@@ -150,10 +150,10 @@ Formplayer assets are **not committed to git** and are ignored via `.gitignore`.
 #### Build Types
 
 - **Pull Requests**: Debug APK (unsigned), **arm64-v8a only** (smoke)
-- **Push to main/dev**: Release universal APK + AAB (signed) — CI artifacts
-- **GitHub Release**: Release universal APK + AAB (signed); assets attached to the release
+- **Push to main/dev**: Release ARM-universal APK + ARM AAB (signed) — CI artifacts
+- **GitHub Release**: Release ARM-universal APK + ARM AAB (signed); assets attached to the release
 
-APK and AAB are built in **one** Gradle invocation (`assembleRelease bundleRelease`) so Metro/native work is shared. GitHub release/distribution should use the **universal APK** to avoid wrong-ABI selection and cross-ABI `versionCode` update failures. F-Droid keeps its own per-ABI builds from the same source tag via metadata/build properties; that split path is not the GitHub release artifact. Gradle uses `gradle/actions/setup-gradle` (daemon left on). Vendored Notifee (`formulus/third_party/notifee`) is cached across runs (key = hash of `vendor-notifee-core.mjs`). CI enables parallel workers (local `gradle.properties` keeps them low for laptops).
+APK and AAB are built in **one** Gradle invocation (`assembleRelease bundleRelease`) so Metro/native work is shared. GitHub and Play builds contain `armeabi-v7a` and `arm64-v8a`, covering physical ARM devices without carrying x86/x86_64 native libraries in direct downloads. GitHub release/distribution uses the single ARM-universal APK to avoid wrong-ABI selection and cross-ABI `versionCode` update failures. F-Droid keeps four per-ABI builds—including x86/x86_64—from the same source tag via metadata/build properties; that path is independent of the normal release ABI set. Gradle uses `gradle/actions/setup-gradle` (daemon left on). Vendored Notifee (`formulus/third_party/notifee`) is cached across runs (key = hash of `vendor-notifee-core.mjs`). CI enables parallel workers (local `gradle.properties` keeps them low for laptops).
 
 NDK `ccache` is **not** wired yet: it needs CI-only CMake launcher hooks into React Native’s native build and can flake; revisit if release builds are still too slow after the above.
 
