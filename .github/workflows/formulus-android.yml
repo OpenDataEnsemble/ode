@@ -184,8 +184,9 @@ jobs:
           echo "FORMULUS_RELEASE_KEY_PASSWORD=${FORMULUS_RELEASE_KEY_PASSWORD}" >> formulus/android/local.properties
 
       # ABI policy:
-      # - PR + push to main/dev: arm64-v8a only (smoke / CI artifacts — not F-Droid shippable)
-      # - release: all four ABIs (F-Droid / Play)
+      # - PR: arm64-v8a only debug smoke build
+      # - push to main/dev + release: universal APK + AAB for GitHub/direct distribution
+      # - F-Droid: per-ABI APKs from the same source tag via fdroiddata metadata/build props
       # Local gradle.properties keeps parallel/workers low for laptops; CI overrides those.
       # setup-gradle prefers leaving the daemon on (no --no-daemon).
       - name: Build debug APK (PR, arm64-v8a only)
@@ -199,7 +200,7 @@ jobs:
           -Dorg.gradle.workers.max=4
           -PreactNativeArchitectures=${{ env.FORMULUS_ABIS_SMOKE }}
 
-      - name: Build release APK + AAB (push main/dev, arm64-v8a only)
+      - name: Build release universal APK + AAB (push main/dev)
         if: github.event_name == 'push'
         working-directory: formulus/android
         env:
@@ -210,7 +211,7 @@ jobs:
           -Dorg.gradle.workers.max=4
           -PreactNativeArchitectures=${{ env.FORMULUS_ABIS_SMOKE }}
 
-      - name: Build release APK + AAB (GitHub Release, all ABIs)
+      - name: Build release universal APK + AAB (GitHub Release)
         if: github.event_name == 'release'
         working-directory: formulus/android
         env:
@@ -236,12 +237,12 @@ jobs:
           path: |
             formulus/android/app/build/outputs/bundle/release/*.aab
 
-      - name: Upload APK to GitHub Release
+      - name: Upload universal APK + AAB to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
-            formulus/android/app/build/outputs/apk/**/**/*.apk
+            formulus/android/app/build/outputs/apk/**/**/*-universal-*.apk
             formulus/android/app/build/outputs/bundle/release/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

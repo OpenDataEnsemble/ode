@@ -88,11 +88,6 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-def perAbiVersionCode(int baseVersionCode, String abi) {
-    def offsets = ['armeabi-v7a': 1, 'arm64-v8a': 2, 'x86': 3, 'x86_64': 4]
-    return baseVersionCode + offsets.get(abi, 0) - 1
-}
-
 android {
     ndkVersion = rootProject.ext.ndkVersion
     buildToolsVersion = rootProject.ext.buildToolsVersion
@@ -122,7 +117,7 @@ android {
                 enable true
                 reset()
                 include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-                universalApk false
+                universalApk true
             }
         }
     }
@@ -156,18 +151,6 @@ android {
         }
     }
 
-    // Per-ABI versionCode when building split APKs (F-Droid uses explicit versionCode per gradleprops build).
-    if (!fdroidAbiFilter) {
-        applicationVariants.configureEach { variant ->
-            variant.outputs.each { output ->
-                def abi = output.getFilter(com.android.build.OutputFile.ABI)
-                if (abi != null) {
-                    output.versionCodeOverride = perAbiVersionCode(defaultConfig.versionCode, abi)
-                }
-            }
-        }
-    }
-
     // Custom APK naming (local builds; F-Droid metadata strips this block in prebuild).
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
@@ -176,7 +159,7 @@ android {
             def buildType = variant.buildType.name
             def date = new Date().format('yyyyMMdd')
             def abi = output.getFilter(com.android.build.OutputFile.ABI)
-            def abiSuffix = abi != null ? "-${abi}" : ""
+            def abiSuffix = abi != null ? "-${abi}" : "-universal"
 
             outputFileName = "formulus-v${versionName}-${versionCode}${abiSuffix}-${buildType}-${date}.apk"
         }

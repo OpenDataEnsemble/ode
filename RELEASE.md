@@ -128,8 +128,8 @@ When the release is published, the following workflows are triggered by the `rel
   - Attaches all binaries to the GitHub Release as assets
 
 - **Formulus Android (`formulus-android.yml`)**
-  - Uses the configured keystore (via GitHub secrets) to build a signed **release** APK
-  - Attaches the APK to the GitHub Release as an asset
+  - Uses the configured keystore (via GitHub secrets) to build a signed **universal release APK** and **AAB**
+  - Attaches the universal APK (direct installs / Obtainium) and AAB to the GitHub Release as assets
 
 ### 5. Usage of a pre‑release
 
@@ -186,15 +186,16 @@ Triggered by the `release: published` event:
   - Attaches them to the `v1.2.0` GitHub Release
 
 - **Formulus Android (`formulus-android.yml`)**
-  - Builds a **signed release APK**
-  - Attaches it to the `v1.2.0` GitHub Release
+  - Builds a signed **universal release APK** and **AAB**
+  - Attaches them to the `v1.2.0` GitHub Release
 
 ### 5. Usage of a full release
 
 - This GitHub Release is the **single source of truth** for:
   - Docker image versions
   - CLI downloads
-  - Android APK distribution
+  - Android universal APK distribution
+- F-Droid continues to build per-ABI Formulus APKs from the same source tag using its own metadata/build properties.
 - Production deployments should generally use the stable semver tag (`v1.2.0`) or the corresponding major/minor tags (`v1.2`), not `latest`, unless documented otherwise.
 
 
