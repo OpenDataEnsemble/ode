@@ -132,6 +132,7 @@ impl SyncHttpClient {
             .await
             .map_err(|e| format!("pull request failed: {e}"))?;
         let status = res.status().as_u16();
+        let server_generation = repo_gen_from_headers(res.headers());
         let bytes = res
             .bytes()
             .await
@@ -140,7 +141,7 @@ impl SyncHttpClient {
             return Err(format!("HTTP {status}: unauthorized"));
         }
         if status == 409 {
-            return Err(parse_repo_conflict(&bytes));
+            return Err(parse_repo_conflict(&bytes, server_generation));
         }
         if !status_is_success(status) {
             return Err(format!(
@@ -190,6 +191,7 @@ impl SyncHttpClient {
             .await
             .map_err(|e| format!("push probe failed: {e}"))?;
         let status = res.status().as_u16();
+        let server_generation = repo_gen_from_headers(res.headers());
         let bytes = res
             .bytes()
             .await
@@ -198,7 +200,7 @@ impl SyncHttpClient {
             return Err(format!("HTTP {status}: unauthorized"));
         }
         if status == 409 {
-            return Err(parse_repo_conflict(&bytes));
+            return Err(parse_repo_conflict(&bytes, server_generation));
         }
         if !status_is_success(status) {
             return Err(format!(
@@ -243,6 +245,7 @@ impl SyncHttpClient {
             .await
             .map_err(|e| format!("push failed: {e}"))?;
         let status = res.status().as_u16();
+        let server_generation = repo_gen_from_headers(res.headers());
         let bytes = res
             .bytes()
             .await
@@ -251,7 +254,7 @@ impl SyncHttpClient {
             return Err(format!("HTTP {status}: unauthorized"));
         }
         if status == 409 {
-            return Err(parse_repo_conflict(&bytes));
+            return Err(parse_repo_conflict(&bytes, server_generation));
         }
         if !status_is_success(status) {
             return Err(format!(
@@ -287,6 +290,7 @@ impl SyncHttpClient {
             .await
             .map_err(|e| format!("manifest failed: {e}"))?;
         let status = res.status().as_u16();
+        let server_generation = repo_gen_from_headers(res.headers());
         let bytes = res
             .bytes()
             .await
@@ -295,7 +299,7 @@ impl SyncHttpClient {
             return Err(format!("HTTP {status}: unauthorized"));
         }
         if status == 409 {
-            return Err(parse_repo_conflict(&bytes));
+            return Err(parse_repo_conflict(&bytes, server_generation));
         }
         if !status_is_success(status) {
             return Err(format!(
@@ -400,18 +404,52 @@ fn status_is_success(code: u16) -> bool {
     (200..300).contains(&code)
 }
 
-fn parse_repo_conflict(bytes: &[u8]) -> String {
+fn repo_gen_from_headers(headers: &reqwest::header::HeaderMap) -> Option<i64> {
+    headers
+        .get("x-repository-generation")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.trim().parse::<i64>().ok())
+        .filter(|&g| g > 0)
+}
+
+pub(crate) fn is_repository_reset_error(err: &str) -> bool {
+    err.contains("repository_reset_required")
+        || err.contains("Pull first to align")
+        || err.contains("Pull to archive this generation")
+        || err.contains("Pull to align")
+}
+
+pub(crate) fn repository_reset_server_generation(err: &str) -> Option<i64> {
+    let rest = err.split_once("server_generation=")?.1;
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    digits.parse().ok().filter(|&g| g > 0)
+}
+
+fn format_repo_reset_err(detail: String, server_generation: Option<i64>) -> String {
+    match server_generation {
+        Some(g) => format!("repository_reset_required server_generation={g}: {detail}"),
+        None => format!("repository_reset_required: {detail}"),
+    }
+}
+
+fn parse_repo_conflict(bytes: &[u8], server_generation: Option<i64>) -> String {
+    const FALLBACK: &str =
+        "Server repository was reset. Pull to archive this generation and align.";
     if let Ok(w) = serde_json::from_slice::<ErrorWire>(bytes) {
         if w.code.as_deref() == Some("repository_reset_required") {
-            return "repository_reset_required: Server repository was reset. Pull first to align."
-                .to_string();
+            let detail = w
+                .message
+                .filter(|s| !s.is_empty())
+                .or(w.error)
+                .unwrap_or_else(|| FALLBACK.to_string());
+            return format_repo_reset_err(detail, server_generation);
         }
         return w
             .message
             .or(w.error)
             .unwrap_or_else(|| "repository conflict".to_string());
     }
-    "repository_reset_required: Server repository was reset. Pull first to align.".to_string()
+    format_repo_reset_err(FALLBACK.to_string(), server_generation)
 }
 
 fn observation_id_from_failed_entry(obj: &serde_json::Map<String, Value>) -> Option<String> {
@@ -484,5 +522,43 @@ mod failed_record_tests {
             "error": "bad payload"
         })];
         assert_eq!(failed_record_ids(&failed), vec!["obs-b".to_string()]);
+    }
+}
+
+#[cfg(test)]
+mod repo_conflict_tests {
+    use super::*;
+
+    #[test]
+    fn parse_repo_conflict_includes_server_generation() {
+        let body = serde_json::to_vec(&json!({
+            "code": "repository_reset_required",
+            "message": "Client repository_generation does not match the server"
+        }))
+        .unwrap();
+        let err = parse_repo_conflict(&body, Some(5));
+        assert!(err.contains("repository_reset_required"));
+        assert!(err.contains("server_generation=5"));
+        assert_eq!(repository_reset_server_generation(&err), Some(5));
+        assert!(is_repository_reset_error(&err));
+    }
+
+    #[test]
+    fn parse_repo_conflict_without_header_still_tagged() {
+        let body = serde_json::to_vec(&json!({
+            "code": "repository_reset_required",
+            "message": "align generation before pulling"
+        }))
+        .unwrap();
+        let err = parse_repo_conflict(&body, None);
+        assert!(err.starts_with("repository_reset_required:"));
+        assert_eq!(repository_reset_server_generation(&err), None);
+    }
+
+    #[test]
+    fn is_repository_reset_error_matches_legacy_push_copy() {
+        assert!(is_repository_reset_error(
+            "Server repository was reset or upgraded. Pull first to align before pushing."
+        ));
     }
 }

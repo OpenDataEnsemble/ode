@@ -349,15 +349,27 @@ async fn run_push(
             },
         );
 
+        log_sync(format!(
+            "push align: local_generation={repo_gen} send_generation={}",
+            if repo_gen > 0 {
+                repo_gen.to_string()
+            } else {
+                "omit".to_string()
+            }
+        ));
         let server_gen = if repo_gen <= 0 {
             with_retries_http("probe", || async { api.sync_push_probe(true, 0).await }).await?
         } else {
             match api.sync_push_probe(false, repo_gen).await {
                 Ok(g) => g,
                 Err(e) => {
-                    if e.contains("repository_reset_required") {
+                    if api::is_repository_reset_error(&e) {
+                        let server = api::repository_reset_server_generation(&e);
+                        log_sync(format!(
+                            "push probe 409 repository_reset_required local_generation={repo_gen} server_generation={server:?}: {e}"
+                        ));
                         return Err(
-                            "Server repository was reset or upgraded. Pull first to align before pushing."
+                            "repository_reset_required: Server repository was reset or upgraded. Pull to archive this generation and align, then push."
                                 .to_string(),
                         );
                     }
@@ -365,6 +377,9 @@ async fn run_push(
                 }
             }
         };
+        log_sync(format!(
+            "push probe ok server_generation={server_gen} local_generation={repo_gen}"
+        ));
 
         if repo_gen <= 0 {
             crate::set_sync_state_merge(ctx, Some(server_gen), None, None)?;
@@ -591,7 +606,7 @@ async fn run_pull(
     let mut attachments_skipped_local = 0usize;
     let mut attachments_failed = 0usize;
 
-    let (mut repo_gen, obs_ver, _) = read_sync_tuple(ctx)?;
+    let (mut repo_gen, mut obs_ver, _) = read_sync_tuple(ctx)?;
 
     emit_progress(
         &app,
@@ -606,25 +621,74 @@ async fn run_pull(
         },
     );
 
-    let mut page = {
+    let mut realigned = false;
+    let mut page = loop {
         wait_unpaused(handle)
             .await
             .map_err(|_| "cancelled".to_string())?;
         let since = if obs_ver > 0 { Some(obs_ver) } else { None };
-        with_retries_http("pull", || async {
+        log_sync(format!(
+            "pull start local_generation={repo_gen} since={since:?} send_generation={}",
+            if repo_gen > 0 {
+                repo_gen.to_string()
+            } else {
+                "omit".to_string()
+            }
+        ));
+        match with_retries_http("pull", || async {
             api.sync_pull(since, repo_gen, 500).await
         })
-        .await?
+        .await
+        {
+            Ok(page) => {
+                log_sync(format!(
+                    "pull page ok server_generation={} change_cutoff={} has_more={} records={}",
+                    page.repository_generation,
+                    page.change_cutoff,
+                    page.has_more,
+                    page.records.len()
+                ));
+                if repo_gen > 0 && page.repository_generation > repo_gen {
+                    if realigned {
+                        return Err(format!(
+                            "pull still on older generation after realign (local={repo_gen} server={})",
+                            page.repository_generation
+                        ));
+                    }
+                    repo_gen = realign_workspace_after_generation_change(
+                        &app,
+                        ctx,
+                        job_id,
+                        &req.op,
+                        repo_gen,
+                        Some(page.repository_generation),
+                    )?;
+                    obs_ver = 0;
+                    realigned = true;
+                    continue;
+                }
+                break page;
+            }
+            Err(e) if api::is_repository_reset_error(&e) && !realigned => {
+                let server_gen = api::repository_reset_server_generation(&e);
+                log_sync(format!(
+                    "pull HTTP 409 repository_reset_required local_generation={repo_gen} server_generation={server_gen:?}: {e}"
+                ));
+                repo_gen = realign_workspace_after_generation_change(
+                    &app, ctx, job_id, &req.op, repo_gen, server_gen,
+                )?;
+                obs_ver = 0;
+                realigned = true;
+            }
+            Err(e) => return Err(e),
+        }
     };
 
-    if repo_gen > 0 && page.repository_generation > repo_gen {
-        crate::archive_workspace_for_repository_generation_inner(ctx)?;
-        crate::set_sync_state_merge(ctx, Some(page.repository_generation), Some(0), Some(0))?;
-        repo_gen = page.repository_generation;
-        page = with_retries_http("pull", || async {
-            api.sync_pull(None, repo_gen, 500).await
-        })
-        .await?;
+    if realigned {
+        log_sync(format!(
+            "pull resumed after realign local_generation={repo_gen} server_generation={}",
+            page.repository_generation
+        ));
     }
 
     loop {
@@ -778,6 +842,49 @@ fn tracing_or_log(msg: &str) {
     eprintln!("{msg}");
 }
 
+fn log_sync(msg: impl std::fmt::Display) {
+    eprintln!("[sync] {msg}");
+}
+
+/// After a server repository reset, local sqlite/attachments belong to the old
+/// epoch. Archive them, then adopt the server generation (or 0 = omit header).
+fn realign_workspace_after_generation_change(
+    app: &AppHandle,
+    ctx: &crate::AppCtxHandle,
+    job_id: &str,
+    op: &str,
+    local_gen: i64,
+    server_gen: Option<i64>,
+) -> Result<i64, String> {
+    log_sync(format!(
+        "realigning: archive local_generation={local_gen} adopt server_generation={server_gen:?}"
+    ));
+    emit_progress(
+        app,
+        ProgressEmit {
+            job_id,
+            op,
+            phase: "align",
+            done: 0,
+            total: 1,
+            detail: None,
+            message: "Server repository was reset. Archiving local data from the previous generation…",
+        },
+    );
+    let dest = crate::archive_workspace_for_repository_generation_inner(ctx)?;
+    log_sync(format!("archived previous generation workspace to {dest}"));
+    let adopted = server_gen.filter(|g| *g > 0).unwrap_or(0);
+    crate::set_sync_state_merge(ctx, Some(adopted), Some(0), Some(0))?;
+    // Archive moved the sqlite folder; recreate the running job row in the new DB
+    // so later status updates are not no-ops.
+    let conn = crate::open_db(ctx).map_err(|e| e.to_string())?;
+    let _ = job::insert_job(&conn, job_id, op, "running", "align");
+    log_sync(format!(
+        "realign complete: local_generation={adopted} (0 omits x-repository-generation)"
+    ));
+    Ok(adopted)
+}
+
 async fn run_job_inner(
     app: AppHandle,
     ctx: crate::AppCtxHandle,
@@ -878,7 +985,19 @@ async fn run_job_inner(
                 wait_unpaused(&handle)
                     .await
                     .map_err(|_| "cancelled".to_string())?;
-                api.admin_repository_reset().await?;
+                let new_gen = api.admin_repository_reset().await?;
+                log_sync(format!(
+                    "admin repository reset ok server_generation={new_gen}"
+                ));
+                let local_gen = read_sync_tuple(&ctx)?.0;
+                realign_workspace_after_generation_change(
+                    &app,
+                    &ctx,
+                    &job_id,
+                    &req.op,
+                    local_gen,
+                    Some(new_gen),
+                )?;
                 run_pull(app.clone(), &ctx, &job_id, &handle, &req).await
             }
             _ => Err(format!("unknown sync op: {op}")),
@@ -913,6 +1032,23 @@ async fn run_job_inner(
                 Some(e.as_str()),
             );
             emit_sync_state(&app, &job_id, "paused", Some("needs_auth"), Some(e));
+        }
+        Err(e) if api::is_repository_reset_error(e) => {
+            let _ = job::update_job_status(
+                &conn,
+                &job_id,
+                "failed",
+                "failed",
+                Some("repository_reset_required"),
+                Some(e.as_str()),
+            );
+            emit_sync_state(
+                &app,
+                &job_id,
+                "failed",
+                Some("repository_reset_required"),
+                Some(e),
+            );
         }
         Err(e) => {
             let _ = job::update_job_status(

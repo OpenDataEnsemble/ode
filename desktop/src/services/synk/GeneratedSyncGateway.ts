@@ -100,10 +100,24 @@ function mapObservationToOpenApi(observation: ObservationRecord): Observation {
 }
 
 const MAX_ERROR_BODY_LENGTH = 400;
+const AUTH_REQUEST_TIMEOUT_MS = 10000;
 const syncLogger = createLogger('sync-gateway');
 
 function truncate(value: string, max = MAX_ERROR_BODY_LENGTH): string {
   return value.length <= max ? value : `${value.slice(0, max)}...`;
+}
+
+function authRequestTimeoutInit(): RequestInit {
+  if (typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal) {
+    return {
+      signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
+    };
+  }
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), AUTH_REQUEST_TIMEOUT_MS);
+  return {
+    signal: controller.signal,
+  };
 }
 
 function tryExtractJsonMessage(value: unknown): string | null {
@@ -171,10 +185,16 @@ async function toSyncGatewayError(
   }
 
   if (error instanceof FetchError) {
+    const causeName = error.cause?.name?.trim() ?? '';
     const causeMessage =
       error.cause?.message?.trim() || 'network request failed before response';
+    const timedOut =
+      causeName === 'AbortError' ||
+      causeMessage.toLowerCase().includes('timeout');
     return new Error(
-      `Synk ${operation} failed before receiving an HTTP response at ${attemptedEndpoint}: ${causeMessage}. This usually indicates network, DNS, TLS/certificate, CORS, or server reachability issues (not invalid credentials).`,
+      timedOut
+        ? `Synk ${operation} timed out after ${AUTH_REQUEST_TIMEOUT_MS / 1000}s while contacting ${attemptedEndpoint}. Check the server URL, connectivity, and TLS/certificate configuration.`
+        : `Synk ${operation} failed before receiving an HTTP response at ${attemptedEndpoint}: ${causeMessage}. This usually indicates network, DNS, TLS/certificate, CORS, or server reachability issues (not invalid credentials).`,
     );
   }
 
@@ -201,10 +221,13 @@ export class GeneratedSyncGateway implements SyncGateway {
         username: request.username,
         password: request.password,
       };
-      const auth = await api.login({
-        xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-        loginRequest,
-      });
+      const auth = await api.login(
+        {
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+          loginRequest,
+        },
+        authRequestTimeoutInit(),
+      );
       return {
         baseUrl: request.baseUrl,
         token: auth.token,
@@ -223,10 +246,13 @@ export class GeneratedSyncGateway implements SyncGateway {
   async refreshSession(request: RefreshSessionRequest): Promise<AuthSession> {
     try {
       const api = this.createApi(request.baseUrl, '');
-      const auth = await api.refreshToken({
-        xOdeVersion: SYNKRONUS_CLIENT_VERSION,
-        refreshTokenRequest: { refreshToken: request.refreshToken },
-      });
+      const auth = await api.refreshToken(
+        {
+          xOdeVersion: SYNKRONUS_CLIENT_VERSION,
+          refreshTokenRequest: { refreshToken: request.refreshToken },
+        },
+        authRequestTimeoutInit(),
+      );
       return {
         baseUrl: request.baseUrl,
         token: auth.token,

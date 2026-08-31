@@ -89,7 +89,7 @@ export function ProfilesPage() {
     error,
   } = useCustodianStore();
   const active = useCustodianStore(selectActiveProfileState);
-  const { authSession, authBlocked, authReady, refreshAuth } =
+  const { authSession, authBlocked, authReady, authChecking, refreshAuth } =
     useProfileAutoSynkAuth(active?.id);
 
   const [label, setLabel] = useState('');
@@ -105,6 +105,7 @@ export function ProfilesPage() {
   >('warn');
   const [savedBaseline, setSavedBaseline] =
     useState<ProfileDraftBaseline | null>(null);
+  const [authSubmitting, setAuthSubmitting] = useState(false);
   const setProfileDraftDirty = useProfileDraftGuardStore(s => s.setIsDirty);
   const setProfileDraftAttemptLeave = useProfileDraftGuardStore(
     s => s.setAttemptLeave,
@@ -385,16 +386,17 @@ export function ProfilesPage() {
   }
 
   async function authenticate() {
-    if (!active) {
+    if (!active || authSubmitting) {
       return;
     }
+    setAuthSubmitting(true);
     setProfileNotice(null);
     setProfileNoticeTone('warn');
-    const saved = await saveCurrent();
-    if (!saved) {
-      return;
-    }
     try {
+      const saved = await saveCurrent();
+      if (!saved) {
+        return;
+      }
       let pwd = password;
       if (!pwd.trim()) {
         const fromStore = await tauriClient.credentialGet(active.id);
@@ -410,6 +412,8 @@ export function ProfilesPage() {
       await refreshAuth();
     } catch {
       // synkLogin reports via store `error`
+    } finally {
+      setAuthSubmitting(false);
     }
   }
 
@@ -418,17 +422,19 @@ export function ProfilesPage() {
   const derivedAttachments = ws ? workspaceAttachmentsDir(ws) : '';
 
   const isAuthenticated = authReady && Boolean(authSession) && !authBlocked;
-  const authChecking = Boolean(active) && !authReady;
+  const authBusy = authChecking || authSubmitting;
   const authIcon = isAuthenticated
     ? 'verified_user'
-    : authChecking
+    : authBusy
       ? 'hourglass_empty'
       : 'lock_open';
   const authLabel = isAuthenticated
     ? 'Authenticated'
-    : authChecking
-      ? 'Checking…'
-      : 'Authenticate';
+    : authSubmitting
+      ? 'Logging in…'
+      : authChecking
+        ? 'Checking…'
+        : 'Authenticate';
 
   return (
     <section className="page">
@@ -483,6 +489,12 @@ export function ProfilesPage() {
           </div>
         ) : null}
         {error ? <p className="notice error">{error}</p> : null}
+        {!authBusy && authBlocked && !error ? (
+          <p className="notice warn">
+            Automatic authentication failed for this profile. Review the server
+            URL, username, and saved password, then authenticate again.
+          </p>
+        ) : null}
       </div>
 
       {active ? (
@@ -537,7 +549,7 @@ export function ProfilesPage() {
                   <button
                     type="button"
                     className={`btn-icon${isAuthenticated ? ' btn-success' : ' secondary'}`}
-                    disabled={isAuthenticated || authChecking}
+                    disabled={isAuthenticated || authBusy}
                     onClick={() => void authenticate()}>
                     <span className="material-symbols-outlined" aria-hidden>
                       {authIcon}
