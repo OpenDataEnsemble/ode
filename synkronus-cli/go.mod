@@ -2,7 +2,7 @@ module github.com/OpenDataEnsemble/ode/synkronus-cli
 
 go 1.24
 
-toolchain go1.25.6
+toolchain go1.27.0
 
 require (
 	github.com/fatih/color v1.14.1
