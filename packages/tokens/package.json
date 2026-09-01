@@ -1,7 +1,7 @@
 {
   "name": "@ode/tokens",
   "version": "1.0.0",
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.25.0",
   "description": "ODE Design System - Unified design tokens for React Native, React Web, and all ODE applications",
   "main": "dist/js/tokens.js",
   "types": "dist/js/tokens.d.ts",

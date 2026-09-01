@@ -1,7 +1,7 @@
 {
   "name": "@ode/observation-query",
   "version": "1.0.0",
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.25.0",
   "description": "Structured observation query AST, SQL compiler, and golden test fixtures for ODE",
   "main": "src/index.ts",
   "types": "src/index.ts",
