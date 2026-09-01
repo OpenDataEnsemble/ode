@@ -87,8 +87,8 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
       hermes-compiler:
-        specifier: 0.14.0
-        version: 0.14.0
+        specifier: 0.17.0
+        version: 0.17.0
       i18next:
         specifier: ^26.4.0
         version: 26.4.0(typescript@5.9.3)
@@ -3220,6 +3220,9 @@ packages:
 
   hermes-compiler@0.14.0:
     resolution: {integrity: sha512-clxa193o+GYYwykWVFfpHduCATz8fR5jvU7ngXpfKHj+E9hr9vjLNtdLSEe8MUbObvVexV3wcyxQ00xTPIrB1Q==}
+
+  hermes-compiler@0.17.0:
+    resolution: {integrity: sha512-U7V2ghBtnmWFhCNdWj/oMQY6Vg838vBDYYTy798wHlCjWqpBXNCn034vq9ltXvDozD//omtPEDNPmIb+iPM2nw==}
 
   hermes-estree@0.25.1:
     resolution: {integrity: sha512-0wUoCcLp+5Ev5pDW2OriHC2MJCbwLwuRx+gAqMTOkGKJJiBCLjtrvy4PWUGn6MIVefecRpzoOZ/UV6iGdOr+Cw==}
@@ -8854,6 +8857,8 @@ snapshots:
       function-bind: 1.1.2
 
   hermes-compiler@0.14.0: {}
+
+  hermes-compiler@0.17.0: {}
 
   hermes-estree@0.25.1: {}
 
