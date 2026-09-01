@@ -23,6 +23,7 @@ overrides:
 
 patchedDependencies:
   '@nozbe/watermelondb@0.28.0': f6c43c3db6a32bda2502d4132837b3e47150a6498737ae9e0b0b77d5773b4872
+  react-native-camera-kit-no-google@17.0.4: 0247bf79f005a7c24dfe6f6be8e7b64a3a16220779a768e9547cd647c09aec96
   react-native-fs@2.20.0: e4ab7a7c056849070056cfcb7ee069812dc70c729529a05a187d7793a7e14e2c
 
 importers:
@@ -106,7 +107,7 @@ importers:
         version: 0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2)
       react-native-camera-kit-no-google:
         specifier: ^17.0.4
-        version: 17.0.4(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))(react@19.2.4)
+        version: 17.0.4(patch_hash=0247bf79f005a7c24dfe6f6be8e7b64a3a16220779a768e9547cd647c09aec96)(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))(react@19.2.4)
       react-native-device-info:
         specifier: ^15.0.2
         version: 15.0.2(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))
@@ -10238,7 +10239,7 @@ snapshots:
 
   react-is@19.2.8: {}
 
-  react-native-camera-kit-no-google@17.0.4(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))(react@19.2.4):
+  react-native-camera-kit-no-google@17.0.4(patch_hash=0247bf79f005a7c24dfe6f6be8e7b64a3a16220779a768e9547cd647c09aec96)(react-native@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2))(react@19.2.4):
     dependencies:
       react: 19.2.4
       react-native: 0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(@react-native-community/cli@20.2.0(supports-color@10.2.2)(typescript@5.9.3))(@react-native/metro-config@0.83.1(@babel/core@7.29.7(supports-color@10.2.2))(supports-color@10.2.2))(@types/react@19.2.18)(react@19.2.4)(supports-color@10.2.2)

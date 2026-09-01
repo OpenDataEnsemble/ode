@@ -27,6 +27,7 @@ import {
   resolveControlDescription,
   resolveControlLabel,
 } from '../utils/controlDisplayText';
+import { useFormContext } from '../App';
 
 /**
  * Tester function — matches any schema field with "format": "qrcode".
@@ -59,6 +60,7 @@ const QrcodeQuestionRenderer: React.FC<ControlProps> = props => {
   const [manualValue, setManualValue] = useState('');
 
   const formulusClient = useRef(FormulusClient.getInstance());
+  const { persistDraftNow } = useFormContext();
 
   // Extract field ID from path
   const fieldId = path.replace(/\//g, '_').replace(/^_/, '') || 'qrcode_field';
@@ -75,6 +77,7 @@ const QrcodeQuestionRenderer: React.FC<ControlProps> = props => {
     setError(null);
 
     try {
+      await persistDraftNow?.();
       console.log('Requesting QR code scanner for field:', fieldId);
       const result: QrcodeResult =
         await formulusClient.current.requestQrcode(fieldId);
@@ -117,7 +120,7 @@ const QrcodeQuestionRenderer: React.FC<ControlProps> = props => {
     } finally {
       setIsScanning(false);
     }
-  }, [fieldId, enabled, handleChange, path]);
+  }, [fieldId, enabled, handleChange, path, persistDraftNow]);
 
   // Handle manual entry submission
   const handleManualSubmit = useCallback(() => {
