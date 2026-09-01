@@ -7,7 +7,7 @@ title: Server Architecture for IT
 
 One-page overview for infrastructure teams evaluating or hosting ODE (Synkronus).
 
-> **Current ODE release:** [v1.3.0](https://github.com/OpenDataEnsemble/ode/releases/tag/v1.3.0) · **Reference stack:** [synkronus-quickstart](https://github.com/OpenDataEnsemble/synkronus-quickstart)
+> **Current ODE release:** [v1.3.2](https://github.com/OpenDataEnsemble/ode/releases/tag/v1.3.2) · [Downloads](/downloads) · **Reference stack:** [synkronus-quickstart](https://github.com/OpenDataEnsemble/synkronus-quickstart)
 
 ## Summary
 
@@ -41,7 +41,7 @@ Reference layout from [synkronus-quickstart](https://github.com/OpenDataEnsemble
 | Container / role | Image | Purpose |
 |------------------|-------|---------|
 | Reverse proxy | Caddy 2 (quickstart) or IT-standard proxy | TLS termination, forward to Synkronus |
-| `synkronus` | `ghcr.io/opendataensemble/synkronus:v1.3.0` | API, sync, auth, app-bundle hosting, Portal |
+| `synkronus` | `ghcr.io/opendataensemble/synkronus:v1.3.2` | API, sync, auth, app-bundle hosting, Portal |
 | `db` | `postgres:17` (quickstart) | Observations, users, metadata |
 
 ### Common deployment variants
@@ -122,14 +122,14 @@ Typical self-hosted pattern (e.g. research institutions running custom apps like
 2. [synkronus-quickstart](https://github.com/OpenDataEnsemble/synkronus-quickstart) installer → Caddy + Synkronus + Postgres
 3. DNS points to server; TLS via Let's Encrypt or institutional certificates on your proxy
 4. Project team uploads the app bundle via Portal or `synk` CLI
-5. Field tablets install Formulus **v1.3.0** via Obtainium or F-Droid; configure server URL in app settings
+5. Field tablets install Formulus **v1.3.2** via F-Droid, Obtainium, the App Store, or direct APK; configure server URL in app settings
 
 Coordinate **Formulus and Synkronus versions** on upgrade—the mobile app checks server compatibility and may refuse sync on mismatch.
 
 ## Operator checklist
 
 - [ ] Hardened reverse proxy with TLS (TLS 1.2+)
-- [ ] Pin Synkronus image tag (e.g. `v1.3.0`) rather than `:latest` in production
+- [ ] Pin Synkronus image tag (e.g. `v1.3.2`) rather than `:latest` in production
 - [ ] Proxy upload limit ≥ 32 MB per attachment
 - [ ] Proxy send/read timeouts ≥ 600s (sync, attachments, bundle zip)
 - [ ] Automated Postgres backups + tested restore

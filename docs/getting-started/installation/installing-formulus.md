@@ -4,15 +4,16 @@ sidebar_position: 2
 
 # Installing Formulus App
 
-Complete guide for installing the Formulus mobile application on Android devices.
+Complete guide for installing the Formulus mobile application on Android and iOS devices. For the current links, see [Downloads](/downloads).
 
 ## Overview
 
-Formulus is available for Android devices through multiple installation methods. Choose the method that best fits your needs:
+Formulus is available for Android and iOS. Choose the method that best fits your device:
 
-- **Obtainium** (Recommended) - Installs Formulus from GitHub releases with automatic updates. Install Obtainium via F-Droid or direct download.
-- **F-Droid** - Install Formulus directly from [F-Droid](https://f-droid.org/packages/org.opendataensemble.formulus/)
-- **Direct APK** - Download and install the APK file directly from [GitHub releases](https://github.com/OpenDataEnsemble/ode/releases) (current: **v1.3.0**)
+- **F-Droid** (recommended for Android) - Install Formulus directly from [F-Droid](https://f-droid.org/en/packages/org.opendataensemble.formulus/)
+- **Obtainium** (Android) - Installs Formulus from GitHub releases with automatic updates.
+- **Direct APK** (Android) - Download the current APK from [Downloads](/downloads) or [GitHub releases](https://github.com/OpenDataEnsemble/ode/releases).
+- **App Store** (iPhone/iPad) - Install Formulus from the [Apple App Store](https://apps.apple.com/dk/app/formulus/id6798318215).
 - **Development Build** - For developers who want to build from source
 
 ## System Requirements
@@ -22,6 +23,7 @@ Before installing, ensure your device meets these requirements:
 | Requirement | Minimum |
 |-------------|---------|
 | **Android Version** | Android 7.0 (API level 24) or higher |
+| **iOS Version** | iOS 15.1 or higher |
 | **Storage Space** | 50 MB free space |
 | **Internet Connection** | Required for initial setup and synchronization |
 | **Permissions** | Camera, Storage, Location (for form features) |
@@ -86,7 +88,7 @@ You have two options to install Obtainium:
 
 ![Obtainium Add App Screen](/img/installation/obtainium-add-app.png)
 
-**Stable release:** Install **v1.3.0** (or the latest [GitHub release](https://github.com/OpenDataEnsemble/ode/releases)). Pre-release toggles are only needed for alpha/beta testing.
+**Stable release:** Install **v1.3.2** (or the latest [GitHub release](https://github.com/OpenDataEnsemble/ode/releases)). Pre-release toggles are only needed for alpha/beta testing.
 
 #### Step 3: Install Formulus
 
@@ -97,7 +99,7 @@ You have two options to install Obtainium:
    - App name: **ode**
    - Developer: **OpenDataEnsemble**
    - Package: `org.opendataensemble.formulus`
-   - Latest version: **v1.3.0** (or current [release](https://github.com/OpenDataEnsemble/ode/releases))
+   - Latest version: **v1.3.2** (or current [release](https://github.com/OpenDataEnsemble/ode/releases))
    - Status: **Not installed**
 5. **Tap the "Install" button** at the bottom of the screen
 6. **Confirm installation** when prompted:
@@ -127,7 +129,7 @@ Obtainium will automatically check for updates:
 5. **Confirm the update** when prompted
 6. **App data is preserved** during update
 
-### Method 2: F-Droid
+### Method 2: F-Droid (recommended for Android)
 
 Install Formulus directly from F-Droid (no Obtainium required):
 
@@ -136,13 +138,13 @@ Install Formulus directly from F-Droid (no Obtainium required):
 3. Tap **Install** and wait for the download to complete
 4. Updates are available through F-Droid when a new version is published
 
-### Method 3: Direct APK Installation
+### Method 3: Direct APK Installation (Android)
 
 If Obtainium is not available or you prefer direct installation:
 
 #### Step 1: Download the APK
 
-1. **Download the latest APK** from the [releases page](https://github.com/OpenDataEnsemble/ode/releases)
+1. **Download the latest APK** from [Downloads](/downloads) or the [releases page](https://github.com/OpenDataEnsemble/ode/releases)
 2. **Save the file** to your device's Downloads folder
 
 #### Step 2: Enable Unknown Sources
@@ -165,7 +167,13 @@ If Obtainium is not available or you prefer direct installation:
 6. **Wait for installation** to complete
 7. **Tap "Open"** to launch the app
 
-### Method 4: Development Build
+### Method 4: App Store (iPhone and iPad)
+
+1. Open the [Formulus App Store page](https://apps.apple.com/dk/app/formulus/id6798318215) on your iPhone or iPad.
+2. Tap **Get**, then authenticate with Face ID, Touch ID, or your Apple ID.
+3. Wait for Formulus to install, then open it from your home screen.
+
+### Method 5: Development Build
 
 For developers who want to build and install from source, see the [Development Installation Guide](/docs/development/formulus-development).
 
@@ -273,7 +281,7 @@ To verify that Formulus is installed correctly:
 
 ### Via Direct APK
 
-1. **Download the latest APK** from the [releases page](https://github.com/OpenDataEnsemble/ode/releases)
+1. **Download the latest APK** from [Downloads](/downloads) or the [releases page](https://github.com/OpenDataEnsemble/ode/releases)
 2. **Install over existing installation** (no need to uninstall)
 3. **App data is preserved** during update
 

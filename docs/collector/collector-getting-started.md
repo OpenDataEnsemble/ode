@@ -17,33 +17,25 @@ Before starting, make sure you have:
 
 ## Step 1: Install Formulus
 
-### Option A: From Google Play Store (Android)
+### Option A: F-Droid (Android)
 
-1. Open **Google Play Store** on your Android phone
-2. Search for **"Formulus"**
-3. Tap **Install**
-4. Wait for installation to complete (usually 1-2 minutes)
+1. Open the [Formulus page on F-Droid](https://f-droid.org/en/packages/org.opendataensemble.formulus/)
+2. Install the F-Droid client if prompted
+3. Tap **Install** and wait for the download to complete
 
-### Option B: From App Store (iOS)
+### Option B: App Store (iPhone and iPad)
 
-1. Open **App Store** on your iPhone
-2. Search for **"Formulus"**
-3. Tap **Get**
-4. Authenticate with Face ID, Touch ID, or Apple ID
-5. Wait for installation to complete
+1. Open the [Formulus App Store page](https://apps.apple.com/dk/app/formulus/id6798318215)
+2. Tap **Get**
+3. Authenticate with Face ID, Touch ID, or Apple ID
+4. Wait for installation to complete
 
-### Option C: Direct Installation (Android)
+### Option C: Obtainium or direct APK (Android)
 
-If your project manager provided an APK file:
-
-1. Download the APK file to your phone
-2. Open your file manager and locate the APK
-3. Tap the file to install
-4. If prompted, allow installation from "Unknown Sources"
-5. Tap **Install**
+Use [Obtainium](https://github.com/ImranR98/Obtainium) with `https://github.com/OpenDataEnsemble/ode` for updates from GitHub Releases, or download the APK directly from [Downloads](/downloads).
 
 :::note
-If you don't have Google Play Store access or need a specific version, contact your project manager for a direct download link.
+The [Downloads](/downloads) page has the current Android APK and all desktop/CLI downloads.
 :::
 
 ## Step 2: Open Formulus & Connect to Your Project

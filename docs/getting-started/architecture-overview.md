@@ -6,7 +6,7 @@ sidebar_position: 1
 
 ODE (Open Data Ensemble) is a comprehensive platform for mobile data collection and synchronization. This guide explains the core architecture and components.
 
-> **Current ODE release:** [v1.3.0](https://github.com/OpenDataEnsemble/ode/releases/tag/v1.3.0)
+> **Current ODE release:** [v1.3.2](https://github.com/OpenDataEnsemble/ode/releases/tag/v1.3.2) · [Downloads](/downloads)
 
 ## Core Components
 

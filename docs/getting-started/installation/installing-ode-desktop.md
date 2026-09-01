@@ -6,9 +6,9 @@ sidebar_position: 3
 
 Complete guide for installing **ODE Desktop** on Windows, macOS, and Linux.
 
-:::info ODE v1.1.0
+:::info ODE v1.3.2
 
-ODE Desktop is part of the **ODE v1.1.0** release. Pre-built installers are published on [GitHub Releases](https://github.com/OpenDataEnsemble/ode/releases).
+ODE Desktop is part of the **ODE v1.3.2** release. Use the [Downloads](/downloads) page for direct, platform-matched installers or browse [GitHub Releases](https://github.com/OpenDataEnsemble/ode/releases).
 
 :::
 
@@ -36,8 +36,8 @@ Choose the installation method that fits your role:
 
 ## Method 1: GitHub Releases (recommended)
 
-1. Open [OpenDataEnsemble/ode releases](https://github.com/OpenDataEnsemble/ode/releases).
-2. Select the **v1.1.0** release (or the latest stable tag).
+1. Open [Downloads](/downloads) to download the installer matched to your platform, or open [OpenDataEnsemble/ode releases](https://github.com/OpenDataEnsemble/ode/releases).
+2. Select the **v1.3.2** release (or the latest stable tag).
 3. Download the artifact for your platform:
 
    | Platform | Typical artifact |

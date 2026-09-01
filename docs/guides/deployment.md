@@ -13,7 +13,7 @@ Complete guide to deploying ODE in production environments using containers (Doc
 
 ODE production deployments center on the **Synkronus container image** (`ghcr.io/opendataensemble/synkronus`). The reference stack is [synkronus-quickstart](https://github.com/OpenDataEnsemble/synkronus-quickstart): Synkronus, PostgreSQL, and **Caddy** for TLS. Your IT team may use any hardened reverse proxy (Nginx, Apache, cloud load balancer) instead of Caddy—the requirement is **TLS termination** forwarding to Synkronus on port 8080.
 
-Pin the image tag in production (e.g. `ghcr.io/opendataensemble/synkronus:v1.3.0`), not `:latest`.
+Pin the image tag in production (e.g. `ghcr.io/opendataensemble/synkronus:v1.3.2`), not `:latest`.
 
 ## Recommended Production Setup
 
