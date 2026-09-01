@@ -42,7 +42,7 @@ WORKDIR /app/synkronus-portal
 RUN pnpm run build
 
 # Stage 2: Build the Go application (Synkronus) with embedded portal
-FROM golang:1.26.0-alpine AS synkronus-builder
+FROM golang:1.27.0-alpine AS synkronus-builder
 
 RUN apk add --no-cache git
 

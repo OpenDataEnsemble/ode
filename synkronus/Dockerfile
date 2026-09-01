@@ -1,7 +1,7 @@
 # Multi-stage build for Synkronus
 # Stage 1: Build the Go application
 # Pure Go build (PostgreSQL only, SQLite/CGO disabled by default)
-FROM golang:1.26.0-alpine AS builder
+FROM golang:1.27.0-alpine AS builder
 
 # Install build dependencies (no C toolchain needed for pure Go build)
 RUN apk add --no-cache git
