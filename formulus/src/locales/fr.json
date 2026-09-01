@@ -32,6 +32,7 @@
   "tabs.more": "Plus",
   "sync.title": "Synchroniser",
   "sync.connectivity.title": "État de la connectivité",
+  "sync.connectivity.default": "Par défaut",
   "sync.connectivity.cautious": "Prudent",
   "sync.connectivity.balancedLow": "Équilibré (débit faible)",
   "sync.connectivity.balanced": "Équilibré",

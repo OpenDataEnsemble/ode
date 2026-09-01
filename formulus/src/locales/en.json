@@ -32,6 +32,7 @@
   "tabs.more": "More",
   "sync.title": "Sync",
   "sync.connectivity.title": "Connectivity status",
+  "sync.connectivity.default": "Default",
   "sync.connectivity.cautious": "Cautious",
   "sync.connectivity.balancedLow": "Balanced (low speed)",
   "sync.connectivity.balanced": "Balanced",
