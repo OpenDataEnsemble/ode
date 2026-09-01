@@ -1,5 +1,9 @@
 # pnpm 11: dependency lifecycle scripts are blocked unless listed here.
 # Run `pnpm approve-builds` locally to update; commit this file so CI matches.
+# Remove once openapi-generator's dependency chain requires shell-quote >=1.8.4.
+overrides:
+  shell-quote: 1.10.0
+
 allowBuilds:
   '@nestjs/core': true
   '@openapitools/openapi-generator-cli': true
