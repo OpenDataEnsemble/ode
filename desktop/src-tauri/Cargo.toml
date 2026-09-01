@@ -38,5 +38,5 @@ urlencoding = "2"
 tokio = { version = "1", features = ["sync", "time", "macros"] }
 arrow = { version = "59", default-features = false, features = ["chrono-tz"] }
 parquet = { version = "59", default-features = false, features = ["arrow", "snap"] }
-jsonschema = "0.30"
+jsonschema = "0.52"
 
