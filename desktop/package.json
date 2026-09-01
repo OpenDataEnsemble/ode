@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "~2.10.1",
-    "@tauri-apps/plugin-dialog": "~2.6.0",
+    "@tauri-apps/plugin-dialog": "~2.7.0",
     "@tauri-apps/plugin-opener": "~2.5.4",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
