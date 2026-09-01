@@ -1,6 +1,6 @@
 {
   "name": "formulus-app",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "packageManager": "pnpm@11.22.0",
   "type": "module",
   "private": true,

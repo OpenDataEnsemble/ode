@@ -24,13 +24,8 @@ import {
   getUserInfo,
   getUserFacingSyncErrorMessage,
 } from '../api/synkronus/Auth';
-import {
-  PULL_PAGE_CEILING,
-  PULL_PAGE_FLOOR,
-  PUSH_BATCH_CEILING,
-  PUSH_BATCH_FLOOR,
-} from '../sync/networkProfile';
 import { networkProfileService } from '../services/NetworkProfileService';
+import { getConnectivityMeterState } from '../sync/connectivityMeter';
 import { isCancelledError } from '../sync/transientRetry';
 import {
   isRepositoryResetRequiredError,
@@ -114,7 +109,9 @@ const SyncScreen = () => {
   const [animatedProgress] = useState(new Animated.Value(0));
   const [activeOperation, setActiveOperation] = useState<ActiveOperation>(null);
   const [connectivityLevel, setConnectivityLevel] = useState(2);
-  const [connectivityLabel, setConnectivityLabel] = useState('');
+  const [connectivityLabel, setConnectivityLabel] = useState(() =>
+    t('sync.connectivity.default'),
+  );
   const prevSyncWasActiveRef = useRef(false);
 
   const updatePendingUploads = useCallback(async () => {
@@ -181,32 +178,12 @@ const SyncScreen = () => {
   const refreshConnectivityStatus = useCallback(async () => {
     try {
       const knobs = await networkProfileService.getSyncKnobs();
-      const pullProgress =
-        (knobs.pullPageSize - PULL_PAGE_FLOOR) /
-        (PULL_PAGE_CEILING - PULL_PAGE_FLOOR);
-      const pushProgress =
-        (knobs.pushBatchSize - PUSH_BATCH_FLOOR) /
-        (PUSH_BATCH_CEILING - PUSH_BATCH_FLOOR);
-      const score = Math.max(
-        0,
-        Math.min(1, pullProgress * 0.6 + pushProgress * 0.4),
-      );
-      const level = Math.min(5, Math.max(1, Math.floor(score * 5) + 1));
-      const levelKey =
-        level === 1
-          ? 'sync.connectivity.cautious'
-          : level === 2
-            ? 'sync.connectivity.balancedLow'
-            : level === 3
-              ? 'sync.connectivity.balanced'
-              : level === 4
-                ? 'sync.connectivity.balancedHigh'
-                : 'sync.connectivity.fast';
-      setConnectivityLevel(level);
-      setConnectivityLabel(t(levelKey));
+      const meterState = getConnectivityMeterState(knobs);
+      setConnectivityLevel(meterState.level);
+      setConnectivityLabel(t(meterState.labelKey));
     } catch {
       setConnectivityLevel(2);
-      setConnectivityLabel(t('sync.connectivity.balancedLow'));
+      setConnectivityLabel(t('sync.connectivity.default'));
     }
   }, [t]);
 
