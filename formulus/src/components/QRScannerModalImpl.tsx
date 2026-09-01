@@ -25,6 +25,10 @@ import {
 import { colors } from '../theme/colors';
 import { odeSpacing, odeButton } from '../theme/odeDesign';
 import Button from './common/Button';
+import {
+  delayBeforeCameraOpen,
+  markCameraReleased,
+} from '../services/cameraReopenGate';
 
 const { width } = Dimensions.get('window');
 
@@ -81,23 +85,27 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
     'checking',
   );
   const resultSentRef = useRef(false);
+  const [cameraArmed, setCameraArmed] = useState(false);
 
   useEffect(() => {
-    if (!visible) return;
+    let cancelled = false;
     Promise.resolve().then(() => {
+      if (cancelled) return;
       setIsScanning(true);
       setScannedData(null);
       resultSentRef.current = false;
     });
+    return () => {
+      cancelled = true;
+    };
   }, [visible]);
 
+  // Re-check permission when the modal opens, but do not bounce granted →
+  // checking → granted. That remounts <Camera> and races CameraX unbind.
   useEffect(() => {
     if (!visible) return;
 
     let cancelled = false;
-    void Promise.resolve().then(() => {
-      if (!cancelled) setPerm('checking');
-    });
 
     (async () => {
       if (!cameraPermission) {
@@ -116,6 +124,27 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
       cancelled = true;
     };
   }, [visible]);
+
+  const previewActive =
+    visible && perm === 'granted' && isScanning && scannedData == null;
+
+  useEffect(() => {
+    if (!previewActive) {
+      return () => {
+        markCameraReleased();
+      };
+    }
+
+    const timer = setTimeout(() => {
+      setCameraArmed(true);
+    }, delayBeforeCameraOpen());
+
+    return () => {
+      clearTimeout(timer);
+      setCameraArmed(false);
+      markCameraReleased();
+    };
+  }, [previewActive]);
 
   const requestCameraPermission = useCallback(async () => {
     if (!cameraPermission) {
@@ -216,17 +245,23 @@ const QRScannerModalImpl: React.FC<QRScannerModalProps> = ({
       onRequestClose={handleCancel}>
       <StatusBar barStyle="light-content" backgroundColor="black" />
       <View style={styles.container}>
-        <Camera
-          style={styles.camera}
-          cameraType={CameraType.Back}
-          scanBarcode={isScanning}
-          showFrame
-          scanThrottleDelay={500}
-          allowedBarcodeTypes={
-            Platform.OS === 'android' ? ['qr'] : IOS_BARCODE_TYPES
-          }
-          onReadCode={onReadCode}
-        />
+        {cameraArmed && previewActive ? (
+          <Camera
+            style={styles.camera}
+            cameraType={CameraType.Back}
+            scanBarcode={isScanning}
+            showFrame
+            scanThrottleDelay={500}
+            allowedBarcodeTypes={
+              Platform.OS === 'android' ? ['qr'] : IOS_BARCODE_TYPES
+            }
+            onReadCode={onReadCode}
+          />
+        ) : (
+          <View style={[styles.camera, styles.centered]}>
+            <ActivityIndicator size="large" color={colors.neutral.white} />
+          </View>
+        )}
         <View style={styles.overlay}>
           <View style={styles.topOverlay}>
             <Text style={styles.instructionText}>

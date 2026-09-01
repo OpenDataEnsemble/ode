@@ -144,6 +144,9 @@ function AppInner(): React.JSX.Element {
       fieldId: string;
       onResult: (result: unknown) => void;
     }) => {
+      formplayerModalRefs.current.forEach(handle => {
+        handle?.flushDraft();
+      });
       setQrScannerData(data);
       setQrScannerVisible(true);
     };

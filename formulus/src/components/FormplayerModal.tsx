@@ -97,6 +97,8 @@ export interface FormplayerModalHandle {
     finalData: Record<string, unknown>;
     observationId?: string | null;
   }) => Promise<string>;
+  /** Ask the Formplayer WebView to flush a pending root draft to localStorage. */
+  flushDraft: () => void;
 }
 
 const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
@@ -700,7 +702,22 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
       previousIsActiveRef.current = isActive;
     }, [visible, isActive, webViewReady, currentFormType]);
 
-    useImperativeHandle(ref, () => ({ initializeForm, handleSubmission }));
+    useImperativeHandle(ref, () => ({
+      initializeForm,
+      handleSubmission,
+      flushDraft: () => {
+        webViewRef.current?.injectJavaScript(`
+          (function() {
+            try {
+              if (typeof window.__formulusFlushDraft === 'function') {
+                window.__formulusFlushDraft();
+              }
+            } catch (e) {}
+            true;
+          })();
+        `);
+      },
+    }));
 
     return (
       <Modal

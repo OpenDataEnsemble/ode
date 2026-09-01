@@ -336,6 +336,12 @@ interface FormContextType {
    * debounce races where `handleChange` alone does not reach `onChange` in time.
    */
   commitFormData?: (data: Record<string, unknown>) => void;
+  /**
+   * Flush the deferred draft write now (root sessions only). Nested sessions
+   * are a no-op. Used before opening the native camera so a crash does not
+   * lose the last household debounce.
+   */
+  persistDraftNow?: () => Promise<void>;
   /** Localized specs for linked child forms (sub-observation column labels). */
   linkedFormSpecs?: LinkedFormSpecsMap;
 }
@@ -364,6 +370,7 @@ export const FormContext = createContext<FormContextType>({
   keyboardEnterKeyHint: undefined,
   draftSessionKey: null,
   commitFormData: undefined,
+  persistDraftNow: undefined,
   linkedFormSpecs: undefined,
 });
 
@@ -1213,9 +1220,24 @@ function App() {
     persistDraftIfRootSession(refreshedData);
   }, [clearRefreshTimers, refreshFormData, persistDraftIfRootSession]);
 
+  /**
+   * Flush any pending draft, or persist the current root snapshot if the
+   * debounce already ran. Does not invent extra validator work when nothing
+   * is pending — nested sessions remain a no-op via persistDraftIfRootSession.
+   */
+  const persistDraftNow = useCallback(async () => {
+    if (refreshPendingRef.current) {
+      await flushRefreshAndPersist();
+      return;
+    }
+    persistDraftIfRootSession(dataRef.current as Record<string, unknown>);
+  }, [flushRefreshAndPersist, persistDraftIfRootSession]);
+
   // Stable handle for timers / global listeners so they always call the latest.
   const flushRefreshAndPersistRef = useRef(flushRefreshAndPersist);
   flushRefreshAndPersistRef.current = flushRefreshAndPersist;
+  const persistDraftNowRef = useRef(persistDraftNow);
+  persistDraftNowRef.current = persistDraftNow;
 
   const scheduleRefreshAndPersist = useCallback(() => {
     refreshPendingRef.current = true;
@@ -1279,10 +1301,16 @@ function App() {
   // (visibilitychange/pagehide), so a hidden app loses at most the current
   // keystroke; a foreground native crash cannot be flushed, and REFRESH_MAX_WAIT
   // bounds that window. On unmount, persist synchronously without React writes.
+  // Native also injects window.__formulusFlushDraft before opening the camera.
   useEffect(() => {
     mountedRef.current = true;
     const flush = () => {
       void flushRefreshAndPersistRef.current();
+    };
+    (
+      window as unknown as { __formulusFlushDraft?: () => void }
+    ).__formulusFlushDraft = () => {
+      void persistDraftNowRef.current();
     };
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
@@ -1293,6 +1321,8 @@ function App() {
     window.addEventListener('pagehide', flush);
     window.addEventListener('beforeunload', flush);
     return () => {
+      delete (window as unknown as { __formulusFlushDraft?: () => void })
+        .__formulusFlushDraft;
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', flush);
       window.removeEventListener('beforeunload', flush);
@@ -1673,6 +1703,7 @@ function App() {
             formInitData,
             draftSessionKey,
             commitFormData,
+            persistDraftNow,
             linkedFormSpecs,
           }}>
           <div
