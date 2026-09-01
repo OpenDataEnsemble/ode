@@ -19,7 +19,6 @@ on:
       - 'packages/tokens/**'
       - 'packages/components/**'
       - 'packages/observation-query/**'
-      - '.github/workflows/formulus-android.yml'
   release:
     types: [published]
 
@@ -83,6 +82,7 @@ jobs:
     needs: build-formplayer-assets
     permissions:
       contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -250,3 +250,13 @@ jobs:
             formulus/android/app/build/outputs/bundle/release/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  prepare-next-native-build-code:
+    name: Prepare next Formulus build code
+    if: github.event_name == 'release' && needs.build-android.result == 'success'
+    needs: build-android
+    uses: ./.github/workflows/prepare-next-formulus-build-code.yml
+    with:
+      target_branch: ${{ github.event.release.target_commitish }}
+      dry_run: false
+    secrets: inherit
