@@ -88,7 +88,7 @@ importers:
         version: 5.9.3
       web-vitals:
         specifier: ^5.1.0
-        version: 5.2.0
+        version: 5.3.0
     devDependencies:
       '@eslint/js':
         specifier: ^9.39.2
@@ -3907,8 +3907,8 @@ packages:
   walker@1.0.8:
     resolution: {integrity: sha512-ts/8E8l5b7kY0vlWLewOkDXMmPdLcVV4GmOQLyxuSswIJsweeFZtAsMF7k1Nszz+TYBQrlYRmzOnr398y1JemQ==}
 
-  web-vitals@5.2.0:
-    resolution: {integrity: sha512-i2z98bEmaCqSDiHEDu+gHl/dmR4Q+TxFmG3/13KkMO+o8UxQzCqWaDRCiLgEa41nlO4VpXSI0ASa1xWmO9sBlA==}
+  web-vitals@5.3.0:
+    resolution: {integrity: sha512-q6LWsLatGYZp5VGBIOvbTj6JBV2nOmC8KvWztXBmwJcfFAzhwKwbOxhUH306XY3CcaZDUlSmSuNPBsCn0bFu+g==}
 
   webidl-conversions@7.0.0:
     resolution: {integrity: sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==}
@@ -8104,7 +8104,7 @@ snapshots:
     dependencies:
       makeerror: 1.0.12
 
-  web-vitals@5.2.0: {}
+  web-vitals@5.3.0: {}
 
   webidl-conversions@7.0.0: {}
 
