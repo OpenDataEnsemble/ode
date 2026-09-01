@@ -1,7 +1,7 @@
 {
   "name": "formulus-formplayer",
   "version": "0.0.3",
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.25.0",
   "type": "module",
   "private": true,
   "license": "MIT",

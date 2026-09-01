@@ -1,7 +1,7 @@
 {
   "name": "@ode/components",
   "version": "1.0.0",
-  "packageManager": "pnpm@11.22.0",
+  "packageManager": "pnpm@11.25.0",
   "description": "ODE Design System - Unified UI components for React Native and React Web",
   "main": "src/index.ts",
   "types": "src/index.ts",
