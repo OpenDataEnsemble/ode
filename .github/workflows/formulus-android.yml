@@ -29,8 +29,8 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
-  # Full ABI set matches formulus/android/gradle.properties (F-Droid / Play shippable).
-  FORMULUS_ABIS_FULL: armeabi-v7a,arm64-v8a,x86,x86_64
+  # GitHub and Play target physical ARM devices; F-Droid requests all four ABIs in separate builds.
+  FORMULUS_ABIS_RELEASE: armeabi-v7a,arm64-v8a
   FORMULUS_ABIS_SMOKE: arm64-v8a
 
 jobs:
@@ -120,6 +120,10 @@ jobs:
         working-directory: formulus
         run: pnpm install --frozen-lockfile
 
+      - name: Validate native versions and build numbers
+        working-directory: formulus
+        run: pnpm run validate:native-versions
+
       # vendor-notifee-core.mjs is a no-op when third_party/notifee is already at the pinned commit.
       - name: Cache vendored Notifee
         uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -184,8 +188,9 @@ jobs:
           echo "FORMULUS_RELEASE_KEY_PASSWORD=${FORMULUS_RELEASE_KEY_PASSWORD}" >> formulus/android/local.properties
 
       # ABI policy:
-      # - PR + push to main/dev: arm64-v8a only (smoke / CI artifacts — not F-Droid shippable)
-      # - release: all four ABIs (F-Droid / Play)
+      # - PR: arm64-v8a only debug smoke build
+      # - push to main/dev + release: ARM32/ARM64 universal APK + AAB for physical devices
+      # - F-Droid: four per-ABI APKs, including x86/x86_64, via fdroiddata metadata/build props
       # Local gradle.properties keeps parallel/workers low for laptops; CI overrides those.
       # setup-gradle prefers leaving the daemon on (no --no-daemon).
       - name: Build debug APK (PR, arm64-v8a only)
@@ -199,27 +204,27 @@ jobs:
           -Dorg.gradle.workers.max=4
           -PreactNativeArchitectures=${{ env.FORMULUS_ABIS_SMOKE }}
 
-      - name: Build release APK + AAB (push main/dev, arm64-v8a only)
+      - name: Build release universal APK + AAB (push main/dev)
         if: github.event_name == 'push'
         working-directory: formulus/android
         env:
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: ${{ env.FORMULUS_ABIS_SMOKE }}
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: ${{ env.FORMULUS_ABIS_RELEASE }}
         run: >
           ./gradlew assembleRelease bundleRelease --stacktrace
           -Dorg.gradle.parallel=true
           -Dorg.gradle.workers.max=4
-          -PreactNativeArchitectures=${{ env.FORMULUS_ABIS_SMOKE }}
+          -PreactNativeArchitectures=${{ env.FORMULUS_ABIS_RELEASE }}
 
-      - name: Build release APK + AAB (GitHub Release, all ABIs)
+      - name: Build release universal APK + AAB (GitHub Release)
         if: github.event_name == 'release'
         working-directory: formulus/android
         env:
-          ORG_GRADLE_PROJECT_reactNativeArchitectures: ${{ env.FORMULUS_ABIS_FULL }}
+          ORG_GRADLE_PROJECT_reactNativeArchitectures: ${{ env.FORMULUS_ABIS_RELEASE }}
         run: >
           ./gradlew assembleRelease bundleRelease --stacktrace
           -Dorg.gradle.parallel=true
           -Dorg.gradle.workers.max=4
-          -PreactNativeArchitectures=${{ env.FORMULUS_ABIS_FULL }}
+          -PreactNativeArchitectures=${{ env.FORMULUS_ABIS_RELEASE }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -236,12 +241,12 @@ jobs:
           path: |
             formulus/android/app/build/outputs/bundle/release/*.aab
 
-      - name: Upload APK to GitHub Release
+      - name: Upload universal APK + AAB to GitHub Release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: |
-            formulus/android/app/build/outputs/apk/**/**/*.apk
+            formulus/android/app/build/outputs/apk/**/**/*-universal-*.apk
             formulus/android/app/build/outputs/bundle/release/*.aab
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

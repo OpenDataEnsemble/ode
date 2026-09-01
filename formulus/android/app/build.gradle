@@ -88,11 +88,6 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
-def perAbiVersionCode(int baseVersionCode, String abi) {
-    def offsets = ['armeabi-v7a': 1, 'arm64-v8a': 2, 'x86': 3, 'x86_64': 4]
-    return baseVersionCode + offsets.get(abi, 0) - 1
-}
-
 android {
     ndkVersion = rootProject.ext.ndkVersion
     buildToolsVersion = rootProject.ext.buildToolsVersion
@@ -104,8 +99,8 @@ android {
         applicationId = "org.opendataensemble.formulus"
         minSdk = rootProject.ext.minSdkVersion
         targetSdk = rootProject.ext.targetSdkVersion
-        versionCode = 36
-        versionName = "1.3.1"
+        versionCode = 64
+        versionName = "1.3.2"
 
         buildConfigField "boolean", "IS_NEW_ARCHITECTURE_ENABLED", (findProperty("newArchEnabled") ?: "false").toString()
 
@@ -121,8 +116,10 @@ android {
             abi {
                 enable true
                 reset()
-                include "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
-                universalApk false
+                // GitHub/Play target physical ARM devices. F-Droid bypasses this block
+                // and requests each ARM/x86 ABI explicitly via -PabiFilters.
+                include "armeabi-v7a", "arm64-v8a"
+                universalApk true
             }
         }
     }
@@ -156,18 +153,6 @@ android {
         }
     }
 
-    // Per-ABI versionCode when building split APKs (F-Droid uses explicit versionCode per gradleprops build).
-    if (!fdroidAbiFilter) {
-        applicationVariants.configureEach { variant ->
-            variant.outputs.each { output ->
-                def abi = output.getFilter(com.android.build.OutputFile.ABI)
-                if (abi != null) {
-                    output.versionCodeOverride = perAbiVersionCode(defaultConfig.versionCode, abi)
-                }
-            }
-        }
-    }
-
     // Custom APK naming (local builds; F-Droid metadata strips this block in prebuild).
     applicationVariants.all { variant ->
         variant.outputs.all { output ->
@@ -176,7 +161,7 @@ android {
             def buildType = variant.buildType.name
             def date = new Date().format('yyyyMMdd')
             def abi = output.getFilter(com.android.build.OutputFile.ABI)
-            def abiSuffix = abi != null ? "-${abi}" : ""
+            def abiSuffix = abi != null ? "-${abi}" : "-universal"
 
             outputFileName = "formulus-v${versionName}-${versionCode}${abiSuffix}-${buildType}-${date}.apk"
         }

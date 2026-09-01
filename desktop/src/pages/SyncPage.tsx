@@ -9,7 +9,12 @@ import {
   auditPendingPushMissingAttachments,
   type MissingAttachmentIssue,
 } from '../lib/pushAttachmentAudit';
-import { pushConfirmMessage } from '../lib/syncUiCopy';
+import {
+  failedJobRecoveryCopy,
+  formatFailedSyncErrorMessage,
+  isRepositoryResetSyncError,
+  pushConfirmMessage,
+} from '../lib/syncUiCopy';
 import { useSynkServerStatus } from '../hooks/useSynkServerStatus';
 import {
   selectActiveProfileState,
@@ -117,10 +122,22 @@ export function SyncPage() {
   const engineFailed = pausedJobStatus === 'failed';
   const enginePaused = engineResumablePaused || engineFailed;
   const blockedStart = activeInFlight || enginePaused;
+  const repositoryResetFailure =
+    engineFailed &&
+    isRepositoryResetSyncError(
+      syncPausedJob?.errorCode,
+      syncPausedJob?.errorMessage,
+    );
   // A failed job must not block Pull: a `repository_reset_required` push failure
   // instructs the user to pull to realign, so pull() below discards the stale
   // failed job first, then starts a fresh pull.
   const pullBlocked = activeInFlight || engineResumablePaused;
+
+  async function discardFailedJobIfNeeded() {
+    if (engineFailed && syncPausedJob) {
+      await syncCancelJob(syncPausedJob.id);
+    }
+  }
 
   async function pull() {
     if (!(await ensureAuth())) return;
@@ -128,9 +145,7 @@ export function SyncPage() {
     // A failed job (e.g. a push that hit `repository_reset_required`) is not
     // resumable into a pull and the backend rejects a new sync while it exists,
     // so discard it before realigning.
-    if (engineFailed && syncPausedJob) {
-      await syncCancelJob(syncPausedJob.id);
-    }
+    await discardFailedJobIfNeeded();
     try {
       await synkPull({ baseUrl: serverUrl });
     } catch {
@@ -186,7 +201,8 @@ export function SyncPage() {
 
   async function pullAndPush() {
     if (!(await ensureAuth())) return;
-    if (activeInFlight || enginePaused) return;
+    if (pullBlocked) return;
+    await discardFailedJobIfNeeded();
     try {
       await synkPull({ baseUrl: serverUrl });
     } catch {
@@ -285,26 +301,32 @@ export function SyncPage() {
             {syncPausedJob.phase}
           </p>
           {engineFailed && syncPausedJob.errorMessage ? (
-            <p className="muted">{syncPausedJob.errorMessage}</p>
+            <p className="muted">
+              {formatFailedSyncErrorMessage(syncPausedJob.errorMessage)}
+            </p>
           ) : null}
           {engineFailed ? (
             <p className="muted">
-              Discard this job, then Pull to realign — or use the Pull button
-              above, which discards it for you.
+              {failedJobRecoveryCopy({
+                failed: true,
+                repositoryReset: repositoryResetFailure,
+              })}
             </p>
           ) : null}
           <div className="button-row">
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => void resumePausedSyncEngineJob()}>
-              {engineFailed ? 'Retry job' : 'Resume job'}
-            </button>
+            {repositoryResetFailure ? null : (
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => void resumePausedSyncEngineJob()}>
+                {engineFailed ? 'Retry job' : 'Resume job'}
+              </button>
+            )}
             <button
               type="button"
               className="secondary danger"
               onClick={() => void syncCancelJob(syncPausedJob.id)}>
-              Discard job
+              {engineFailed ? 'Clear failed sync' : 'Discard paused sync'}
             </button>
           </div>
         </div>
@@ -315,7 +337,7 @@ export function SyncPage() {
           <button
             type="button"
             className="btn-icon btn-success"
-            disabled={blockedStart}
+            disabled={pullBlocked}
             onClick={() => void pullAndPush()}>
             <span className="material-symbols-outlined" aria-hidden>
               sync_alt

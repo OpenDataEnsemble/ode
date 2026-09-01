@@ -33,11 +33,23 @@ import {
 import type { AxiosError, AxiosResponse } from 'axios';
 import { effectiveRepositoryGenerationForRequest } from './repositoryGenerationRequest';
 import { pullPageOutcome } from './pullCursor';
-import {
-  ATTACHMENT_DOWNLOAD_CONCURRENCY,
-  PULL_PAGE_SIZE,
-} from '../../sync/syncConstants';
+import { SYNC_HTTP_TIMEOUT_MS } from '../../sync/syncConstants';
 import { failedDownloadCount, runWithConcurrency } from './downloadPool';
+import { chunkItems } from '../../sync/chunkItems';
+import {
+  isCancelledError,
+  isTransientError,
+  withTransientRetry,
+} from '../../sync/transientRetry';
+import { networkProfileService } from '../../services/NetworkProfileService';
+import {
+  PREFETCH_AFTER_PULL_PAGE_SIZE,
+  type SyncKnobs,
+} from '../../sync/networkProfile';
+import {
+  canSplitPushBatch,
+  splitFailedPushBatch,
+} from '../../sync/adaptivePageSize';
 import {
   formatCountProgress,
   type SynkronusSyncOptions,
@@ -47,6 +59,8 @@ import {
 import { i18n } from '../../i18n/instance';
 
 const REPOSITORY_GENERATION_STORAGE_KEY = '@repository_generation';
+const DEFERRED_ATTACHMENT_DOWNLOADS_STORAGE_KEY =
+  '@deferred_attachment_downloads';
 
 /** Best-effort read of x-repository-generation from Axios response headers (case varies). */
 function headerRepositoryGeneration(
@@ -86,6 +100,10 @@ function logAxiosErrorForRepoGen(operation: string, error: unknown): void {
     logRepositoryGenerationSync(`${operation} failed (no HTTP response)`, {
       message: ax.message,
     });
+    logger.info(
+      'sync',
+      `${operation} failed (no HTTP response) code=${ax.code ?? 'none'} ${ax.message ?? ''}`,
+    );
     return;
   }
   logRepositoryGenerationSync(`${operation} HTTP ${status}`, {
@@ -96,7 +114,17 @@ function logAxiosErrorForRepoGen(operation: string, error: unknown): void {
       ax.response?.headers,
     ),
   });
+  logger.info(
+    'sync',
+    `${operation} HTTP ${status} code=${ax.code ?? 'none'} ${ax.message ?? ''}`,
+  );
 }
+
+export type ObservationSyncResult = {
+  version: number;
+  pendingAttachmentDownloads: number;
+  pendingAttachmentUploads: number;
+};
 
 interface DownloadResult {
   success: boolean;
@@ -104,6 +132,11 @@ interface DownloadResult {
   filePath: string;
   bytesWritten: number;
 }
+
+type DeferredAttachmentDownload = {
+  attachmentId: string;
+  repositoryGeneration: number | null;
+};
 
 function throwIfSyncCancelled(isCancelled?: () => boolean): void {
   if (isCancelled?.()) {
@@ -147,6 +180,9 @@ class SynkronusApi {
         accessToken: async () => {
           const token = await AsyncStorage.getItem('@token');
           return token || '';
+        },
+        baseOptions: {
+          timeout: SYNC_HTTP_TIMEOUT_MS,
         },
       });
     }
@@ -348,28 +384,42 @@ class SynkronusApi {
     if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
 
     // Download the zip
-    const downloadResult = await synkronusDownload({
-      fromUrl: zipUrl,
-      toFile: tempZipPath,
-      authToken,
-      background: true,
-      progressInterval: 500,
-      progress: res => {
-        if (res.contentLength > 0) {
-          const percent = Math.round(
-            (res.bytesWritten / res.contentLength) * 50,
+    await withTransientRetry(
+      async () => {
+        const result = await synkronusDownload({
+          fromUrl: zipUrl,
+          toFile: tempZipPath,
+          authToken,
+          background: true,
+          progressInterval: 500,
+          progress: res => {
+            if (res.contentLength > 0) {
+              const percent = Math.round(
+                (res.bytesWritten / res.contentLength) * 50,
+              );
+              progressCallback?.(percent);
+            }
+          },
+        }).promise;
+        if (result.statusCode !== 200) {
+          if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
+          throw new Error(
+            `Bundle zip download failed (HTTP ${result.statusCode})`,
           );
-          progressCallback?.(percent);
         }
+        return result;
       },
-    }).promise;
-
-    if (downloadResult.statusCode !== 200) {
-      if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-      throw new Error(
-        `Bundle zip download failed (HTTP ${downloadResult.statusCode})`,
-      );
-    }
+      {
+        onRetry: (attempt, error, delayMs) => {
+          logger.info(
+            'sync',
+            `bundle zip retry attempt=${attempt} delay=${delayMs}ms ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        },
+      },
+    );
 
     progressCallback?.(50);
 
@@ -419,7 +469,7 @@ class SynkronusApi {
    */
   private async processAttachmentManifest(
     options?: SynkronusSyncOptions,
-  ): Promise<void> {
+  ): Promise<number> {
     const report = options?.onProgress;
     const isCancelled = options?.isCancelled;
     try {
@@ -430,7 +480,7 @@ class SynkronusApi {
 
       if (!clientId) {
         console.warn('No client ID available, skipping attachment sync');
-        return;
+        return 0;
       }
 
       reportSyncProgress(report, {
@@ -448,17 +498,31 @@ class SynkronusApi {
         clientXRepositoryGeneration: manifestClientGen ?? '(omitted)',
         sinceVersion: lastAttachmentVersion,
       });
-      const manifestResponse = await api.getAttachmentManifest({
-        xOdeVersion: ODE_VERSION,
-        attachmentManifestRequest: {
-          client_id: clientId,
-          since_version: lastAttachmentVersion,
-          ...(manifestClientGen != null
-            ? { repository_generation: manifestClientGen }
-            : {}),
+      const manifestResponse = await withTransientRetry(
+        () =>
+          api.getAttachmentManifest({
+            xOdeVersion: ODE_VERSION,
+            attachmentManifestRequest: {
+              client_id: clientId,
+              since_version: lastAttachmentVersion,
+              ...(manifestClientGen != null
+                ? { repository_generation: manifestClientGen }
+                : {}),
+            },
+            xRepositoryGeneration: manifestClientGen ?? undefined,
+          }),
+        {
+          isCancelled,
+          onRetry: (attempt, error, delayMs) => {
+            logger.info(
+              'sync',
+              `attachment manifest retry attempt=${attempt} delay=${delayMs}ms ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          },
         },
-        xRepositoryGeneration: manifestClientGen ?? undefined,
-      });
+      );
 
       const manifest = manifestResponse.data;
       this.ensureRepoGenResponseMatchesSent(
@@ -472,8 +536,36 @@ class SynkronusApi {
 
       // Handle null operations array (server returns null when no operations)
       const operations = manifest.operations || [];
+      const deferredDownloads = await this.getDeferredAttachmentDownloads();
+      const currentDeferredDownloads = deferredDownloads.filter(
+        item => item.repositoryGeneration === manifestClientGen,
+      );
+      const currentDeferredIds = new Set(
+        currentDeferredDownloads.map(item => item.attachmentId),
+      );
 
-      if (operations.length === 0) {
+      // Process operations
+      const downloadOps = operations.filter(op => op.operation === 'download');
+      const deleteOps = operations.filter(op => op.operation === 'delete');
+      const manifestDownloadIds = new Set(
+        downloadOps.map(op => op.attachment_id),
+      );
+      const deferredDownloadOps: AttachmentOperation[] =
+        currentDeferredDownloads
+          .filter(item => !manifestDownloadIds.has(item.attachmentId))
+          .map(item => {
+            return {
+              attachment_id: item.attachmentId,
+              operation: 'download',
+            } as AttachmentOperation;
+          });
+      const effectiveDownloadOps = [...deferredDownloadOps, ...downloadOps];
+      const totalSteps = deleteOps.length + effectiveDownloadOps.length;
+
+      if (totalSteps === 0) {
+        await this.removeDeferredAttachmentDownloads(
+          currentDeferredDownloads.map(item => item.attachmentId),
+        );
         await AsyncStorage.setItem(
           '@last_attachment_version',
           manifest.current_version.toString(),
@@ -484,13 +576,8 @@ class SynkronusApi {
           total: 1,
           details: i18n.t('sync.progress.upToDate'),
         });
-        return;
+        return 0;
       }
-
-      // Process operations
-      const downloadOps = operations.filter(op => op.operation === 'download');
-      const deleteOps = operations.filter(op => op.operation === 'delete');
-      const totalSteps = deleteOps.length + downloadOps.length;
 
       let doneSteps = 0;
       const bumpProgress = (currentItem?: string) => {
@@ -514,30 +601,84 @@ class SynkronusApi {
       }
 
       // Process downloads
-      await this.processAttachmentDownloads(downloadOps, {
-        ...options,
-        startDone: doneSteps,
-        totalSteps,
-        onStepComplete: (attachmentId: string) => {
-          doneSteps += 1;
-          bumpProgress(attachmentId);
+      const knobs = await networkProfileService.getSyncKnobs();
+      const failedAttachmentIds = await this.processAttachmentDownloads(
+        effectiveDownloadOps,
+        {
+          ...options,
+          startDone: doneSteps,
+          totalSteps,
+          concurrency: knobs.attachmentConcurrency,
+          onStepComplete: (attachmentId: string) => {
+            doneSteps += 1;
+            bumpProgress(attachmentId);
+          },
         },
-      });
+      );
       doneSteps = totalSteps;
       bumpProgress();
 
-      // Update last processed version
+      const failedCurrentRunIds = new Set(failedAttachmentIds);
+      const deferredIdsToPersist = Array.from(
+        new Set([
+          ...deferredDownloadOps
+            .map(op => op.attachment_id)
+            .filter(id => failedCurrentRunIds.has(id)),
+          ...downloadOps
+            .map(op => op.attachment_id)
+            .filter(id => failedCurrentRunIds.has(id)),
+        ]),
+      );
+      const retriedSuccessfullyIds = Array.from(currentDeferredIds).filter(
+        id => !failedCurrentRunIds.has(id),
+      );
+
+      await this.removeDeferredAttachmentDownloads(retriedSuccessfullyIds);
+      await this.replaceDeferredAttachmentDownloads(
+        deferredIdsToPersist,
+        manifestClientGen,
+      );
+
+      // Advance cursor even when some downloads fail so one bad file does not
+      // block later manifest pages forever.
       await AsyncStorage.setItem(
         '@last_attachment_version',
         manifest.current_version.toString(),
       );
+
+      if (failedAttachmentIds.length > 0) {
+        logger.info(
+          'sync',
+          `attachments remaining=${failedAttachmentIds.length} cursor advanced`,
+          { phase: 'pull_attachments', counts: failedAttachmentIds.length },
+        );
+        reportSyncProgress(report, {
+          phase: 'pull_attachments',
+          current: Math.max(totalSteps - failedAttachmentIds.length, 0),
+          total: Math.max(totalSteps, 1),
+          details: i18n.t('sync.progress.attachmentsRemaining', {
+            count: failedAttachmentIds.length,
+          }),
+        });
+        return failedAttachmentIds.length;
+      }
+
+      return 0;
     } catch (error: unknown) {
       this.rethrowIfRepositoryResetConflict(error);
       if (isRepositoryResetRequiredError(error)) {
         throw error;
       }
-      console.error('Failed to process attachment manifest:', error);
-      throw error; // Let the error bubble up so we can fix the root cause
+      if (isCancelledError(error)) {
+        throw error;
+      }
+      logger.warn(
+        'sync',
+        error instanceof Error
+          ? `attachment manifest failed: ${error.message}`
+          : 'attachment manifest failed',
+      );
+      return 1;
     }
   }
 
@@ -580,12 +721,13 @@ class SynkronusApi {
     options?: SynkronusSyncOptions & {
       startDone?: number;
       totalSteps?: number;
+      concurrency?: number;
       onStepComplete?: (attachmentId: string) => void;
     },
-  ): Promise<void> {
+  ): Promise<string[]> {
     const isCancelled = options?.isCancelled;
     if (downloadOps.length === 0) {
-      return;
+      return [];
     }
     const syncedDirectory = syncedRoot();
     await RNFS.mkdir(syncedDirectory);
@@ -602,15 +744,12 @@ class SynkronusApi {
       op => `${syncedDirectory}/${op.attachment_id}`,
     );
 
-    // Force overwrite any existing local copy: the manifest only returns ops
-    // with `version > cursor`, so being told to download at all means either
-    // (a) we don't have the file yet or (b) our local copy is stale or
-    // corrupt — re-fetching is always the correct action.
+    const concurrency = options?.concurrency ?? 1;
     const started = Date.now();
     const results = await this.downloadRawFiles(urls, localPaths, undefined, {
-      overwrite: true,
+      overwrite: false,
       isCancelled,
-      concurrency: ATTACHMENT_DOWNLOAD_CONCURRENCY,
+      concurrency,
       onFileComplete: (index: number) => {
         options?.onStepComplete?.(downloadOps[index].attachment_id);
       },
@@ -619,26 +758,89 @@ class SynkronusApi {
     const failed = failedDownloadCount(results);
     logger.info(
       'sync',
-      `attachments download=${Date.now() - started}ms files=${downloadOps.length} concurrency=${ATTACHMENT_DOWNLOAD_CONCURRENCY} failed=${failed}`,
+      `attachments download=${Date.now() - started}ms files=${downloadOps.length} concurrency=${concurrency} failed=${failed}`,
       { phase: 'pull_attachments', counts: downloadOps.length },
     );
 
+    const failedAttachmentIds: string[] = [];
     results.forEach((result, index) => {
       const op = downloadOps[index];
       if (!result.success) {
-        console.error(
+        failedAttachmentIds.push(op.attachment_id);
+        logger.warn(
+          'sync',
           `Failed to download attachment ${op.attachment_id}: ${result.message}`,
         );
       }
     });
 
-    // Leave `@last_attachment_version` unadvanced so the next sync retries
-    // the missing files instead of skipping them forever.
-    if (failed > 0) {
-      throw new Error(
-        `Failed to download ${failed} attachment${failed === 1 ? '' : 's'}`,
+    return failedAttachmentIds;
+  }
+
+  private async getDeferredAttachmentDownloads(): Promise<
+    DeferredAttachmentDownload[]
+  > {
+    try {
+      const raw = await AsyncStorage.getItem(
+        DEFERRED_ATTACHMENT_DOWNLOADS_STORAGE_KEY,
       );
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (item): item is DeferredAttachmentDownload =>
+          item != null &&
+          typeof item === 'object' &&
+          typeof item.attachmentId === 'string' &&
+          ('repositoryGeneration' in item
+            ? item.repositoryGeneration === null ||
+              typeof item.repositoryGeneration === 'number'
+            : false),
+      );
+    } catch {
+      return [];
     }
+  }
+
+  private async setDeferredAttachmentDownloads(
+    items: DeferredAttachmentDownload[],
+  ): Promise<void> {
+    if (items.length === 0) {
+      await AsyncStorage.removeItem(DEFERRED_ATTACHMENT_DOWNLOADS_STORAGE_KEY);
+      return;
+    }
+    await AsyncStorage.setItem(
+      DEFERRED_ATTACHMENT_DOWNLOADS_STORAGE_KEY,
+      JSON.stringify(items),
+    );
+  }
+
+  private async removeDeferredAttachmentDownloads(
+    attachmentIds: string[],
+  ): Promise<void> {
+    if (attachmentIds.length === 0) return;
+    const removeSet = new Set(attachmentIds);
+    const next = (await this.getDeferredAttachmentDownloads()).filter(
+      item => !removeSet.has(item.attachmentId),
+    );
+    await this.setDeferredAttachmentDownloads(next);
+  }
+
+  private async replaceDeferredAttachmentDownloads(
+    attachmentIds: string[],
+    repositoryGeneration: number | null,
+  ): Promise<void> {
+    const keep = (await this.getDeferredAttachmentDownloads()).filter(
+      item => !attachmentIds.includes(item.attachmentId),
+    );
+    const next = [
+      ...keep,
+      ...attachmentIds.map(attachmentId => ({
+        attachmentId,
+        repositoryGeneration,
+      })),
+    ];
+    await this.setDeferredAttachmentDownloads(next);
   }
 
   private async getAttachmentsUploadManifest(): Promise<string[]> {
@@ -774,26 +976,43 @@ class SynkronusApi {
         const localFilePath = localFilePaths[i];
         options?.onFileStart?.(i);
         try {
-          const result = await this.downloadRawFile(
-            url,
-            localFilePath,
-            concurrency === 1
-              ? (progress: RNFS.DownloadProgressCallbackResult) =>
-                  singleFileCallback(i, progress)
-              : undefined,
+          const result = await withTransientRetry(
+            () =>
+              this.downloadRawFile(
+                url,
+                localFilePath,
+                concurrency === 1
+                  ? (progress: RNFS.DownloadProgressCallbackResult) =>
+                      singleFileCallback(i, progress)
+                  : undefined,
+                {
+                  overwrite: options?.overwrite,
+                  isCancelled: options?.isCancelled,
+                  onJobStart: jobId => {
+                    activeJobIds.add(jobId);
+                  },
+                  onJobEnd: jobId => {
+                    activeJobIds.delete(jobId);
+                  },
+                },
+              ),
             {
-              overwrite: options?.overwrite,
               isCancelled: options?.isCancelled,
-              onJobStart: jobId => {
-                activeJobIds.add(jobId);
-              },
-              onJobEnd: jobId => {
-                activeJobIds.delete(jobId);
+              onRetry: (attempt, error, delayMs) => {
+                logger.info(
+                  'sync',
+                  `file download retry attempt=${attempt} delay=${delayMs}ms ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                );
               },
             },
           );
           return result;
         } catch (error) {
+          if (isCancelledError(error)) {
+            throw error;
+          }
           console.error(`Failed to download file ${localFilePath}: ${error}`);
           return {
             success: false,
@@ -833,26 +1052,28 @@ class SynkronusApi {
     throwIfSyncCancelled(options?.isCancelled);
 
     if (await RNFS.exists(localFilePath)) {
-      if (options?.overwrite) {
-        // Caller is re-fetching from authoritative source (e.g. attachment
-        // manifest cursor advanced past this file). Any existing local copy
-        // may be stale or corrupt — unlink so RNFS.downloadFile writes from
-        // a clean state.
+      if (!options?.overwrite) {
         try {
-          await RNFS.unlink(localFilePath);
-        } catch (err) {
-          console.warn(
-            `downloadRawFile: failed to unlink stale local file ${localFilePath}`,
-            err,
-          );
+          const st = await RNFS.stat(localFilePath);
+          if (Number(st.size) > 0) {
+            return {
+              success: true,
+              message: `File ${localFilePath} already exists, skipping download.`,
+              filePath: localFilePath,
+              bytesWritten: Number(st.size) || 0,
+            };
+          }
+        } catch {
+          // Fall through and re-fetch.
         }
-      } else {
-        return {
-          success: true,
-          message: `File ${localFilePath} already exists, skipping download.`,
-          filePath: localFilePath,
-          bytesWritten: 0,
-        };
+      }
+      try {
+        await RNFS.unlink(localFilePath);
+      } catch (err) {
+        console.warn(
+          `downloadRawFile: failed to unlink stale local file ${localFilePath}`,
+          err,
+        );
       }
     }
     {
@@ -865,6 +1086,15 @@ class SynkronusApi {
       }
     }
 
+    const tempPath = `${localFilePath}.download`;
+    if (await RNFS.exists(tempPath)) {
+      try {
+        await RNFS.unlink(tempPath);
+      } catch {
+        // Best-effort.
+      }
+    }
+
     throwIfSyncCancelled(options?.isCancelled);
 
     const authToken =
@@ -873,7 +1103,7 @@ class SynkronusApi {
     const watchCancel = Boolean(options?.isCancelled);
     const download = synkronusDownload({
       fromUrl: url,
-      toFile: localFilePath,
+      toFile: tempPath,
       authToken,
       background: true,
       progressInterval: 500,
@@ -896,20 +1126,43 @@ class SynkronusApi {
     let result: RNFS.DownloadResult;
     try {
       result = await download.promise;
+    } catch (error) {
+      if (await RNFS.exists(tempPath)) {
+        try {
+          await RNFS.unlink(tempPath);
+        } catch {
+          // Best-effort.
+        }
+      }
+      throw error;
     } finally {
       options?.onJobEnd?.(download.jobId);
     }
 
     if (result.statusCode !== 200) {
-      console.error(
+      if (await RNFS.exists(tempPath)) {
+        try {
+          await RNFS.unlink(tempPath);
+        } catch {
+          // Best-effort.
+        }
+      }
+      throw new Error(
         `Failed to download file from ${url}: ${result.statusCode}`,
       );
-      return {
-        success: false,
-        message: `Failed to download file from ${url}: ${result.statusCode}`,
-        filePath: localFilePath,
-        bytesWritten: 0,
-      };
+    }
+
+    try {
+      await RNFS.moveFile(tempPath, localFilePath);
+    } catch (error) {
+      if (await RNFS.exists(tempPath)) {
+        try {
+          await RNFS.unlink(tempPath);
+        } catch {
+          // Best-effort.
+        }
+      }
+      throw error;
     }
 
     return {
@@ -996,14 +1249,30 @@ class SynkronusApi {
             name: attachmentId,
           } as unknown as File;
 
-          await api.uploadAttachment({
-            attachmentId,
-            file,
-            xOdeVersion: ODE_VERSION,
-            xRepositoryGeneration:
-              (await this.getRepositoryGenerationForRequestOrNull()) ??
-              undefined,
-          });
+          await withTransientRetry(
+            async () => {
+              const pushGen =
+                (await this.getRepositoryGenerationForRequestOrNull()) ??
+                undefined;
+              return api.uploadAttachment({
+                attachmentId,
+                file,
+                xOdeVersion: ODE_VERSION,
+                xRepositoryGeneration: pushGen,
+              });
+            },
+            {
+              isCancelled,
+              onRetry: (attempt, error, delayMs) => {
+                logger.info(
+                  'sync',
+                  `attachment upload retry attempt=${attempt} delay=${delayMs}ms id=${attachmentId} ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                );
+              },
+            },
+          );
         }
 
         // Remove file from pending/ directory (upload complete).
@@ -1103,6 +1372,13 @@ class SynkronusApi {
 
     const repo = databaseService.getLocalRepo();
     const api = await this.getApi();
+    const knobs: SyncKnobs = await networkProfileService.getSyncKnobs();
+    let pullPageSize = knobs.pullPageSize;
+    logger.info(
+      'sync',
+      `pull knobs pageSize=${pullPageSize} prefetchAfter=${PREFETCH_AFTER_PULL_PAGE_SIZE}`,
+      { phase: 'pull_observations' },
+    );
     const schemaTypes = undefined; // TODO: Feature: Maybe allow partial sync
     let res: AxiosResponse<SyncPullResponse> | undefined;
     let currentSince = since;
@@ -1112,38 +1388,76 @@ class SynkronusApi {
     let finalVersion = since;
 
     const fetchPullPage = async (sinceVersion: number) => {
-      throwIfSyncCancelled(isCancelled);
-      const clientGen = await this.getRepositoryGenerationForRequestOrNull();
-      const fetchStarted = Date.now();
-      try {
-        const response = await api.syncPull({
-          xOdeVersion: ODE_VERSION,
-          limit: PULL_PAGE_SIZE,
-          syncPullRequest: {
-            client_id: clientId,
-            ...(clientGen != null ? { repository_generation: clientGen } : {}),
-            since: {
-              version: sinceVersion,
+      for (;;) {
+        throwIfSyncCancelled(isCancelled);
+        const clientGen = await this.getRepositoryGenerationForRequestOrNull();
+        const fetchStarted = Date.now();
+        const limit = pullPageSize;
+        try {
+          const response = await withTransientRetry(
+            () =>
+              api.syncPull({
+                xOdeVersion: ODE_VERSION,
+                limit,
+                syncPullRequest: {
+                  client_id: clientId,
+                  ...(clientGen != null
+                    ? { repository_generation: clientGen }
+                    : {}),
+                  since: {
+                    version: sinceVersion,
+                  },
+                  schema_types: schemaTypes,
+                },
+                xRepositoryGeneration: clientGen ?? undefined,
+              }),
+            {
+              isCancelled,
+              onRetry: (attempt, error, delayMs) => {
+                logger.info(
+                  'sync',
+                  `pull retry attempt=${attempt} delay=${delayMs}ms pageSize=${limit} ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                );
+              },
             },
-            schema_types: schemaTypes,
-          },
-          xRepositoryGeneration: clientGen ?? undefined,
-        });
-        logger.info(
-          'sync',
-          `pull fetch=${Date.now() - fetchStarted}ms records=${
-            response.data.records?.length ?? 0
-          }`,
-          {
-            phase: 'fetch',
-            counts: response.data.records?.length ?? 0,
-          },
-        );
-        return { response, clientGen };
-      } catch (err: unknown) {
-        logAxiosErrorForRepoGen('syncPull', err);
-        this.rethrowIfRepositoryResetConflict(err);
-        throw err;
+          );
+          const fetchMs = Date.now() - fetchStarted;
+          logger.info(
+            'sync',
+            `pull fetch=${fetchMs}ms records=${
+              response.data.records?.length ?? 0
+            } pageSize=${limit}`,
+            {
+              phase: 'fetch',
+              counts: response.data.records?.length ?? 0,
+            },
+          );
+          pullPageSize =
+            await networkProfileService.recordPullPageDuration(fetchMs);
+          return { response, clientGen };
+        } catch (err: unknown) {
+          logAxiosErrorForRepoGen('syncPull', err);
+          this.rethrowIfRepositoryResetConflict(err);
+          if (isCancelledError(err) || isRepositoryResetRequiredError(err)) {
+            throw err;
+          }
+          if (isTransientError(err) && pullPageSize > 1) {
+            const next =
+              await networkProfileService.shrinkPullPageAfterFailure(
+                pullPageSize,
+              );
+            logger.info(
+              'sync',
+              `pull shrink after failure size=${limit} → ${next}`,
+              { phase: 'fetch', counts: next },
+            );
+            pullPageSize = next;
+            continue;
+          }
+          throw err;
+        }
       }
     };
 
@@ -1213,7 +1527,10 @@ class SynkronusApi {
           `Sync pull stopped after page ${pullPage}: ${pageOutcome.reason}`,
         );
       }
-      if (pageOutcome.kind === 'continue') {
+      if (
+        pageOutcome.kind === 'continue' &&
+        pullPageSize >= PREFETCH_AFTER_PULL_PAGE_SIZE
+      ) {
         pendingPage = fetchPullPage(pageOutcome.nextSince);
       }
 
@@ -1268,8 +1585,10 @@ class SynkronusApi {
     // The observation cursor is already persisted (per page, above). Attachments
     // carry their own cursor, so a failure here no longer forces a full
     // re-pull of every observation on the next attempt.
+    let pendingAttachmentDownloads = 0;
     if (includeAttachments) {
-      await this.processAttachmentManifest(options);
+      pendingAttachmentDownloads =
+        await this.processAttachmentManifest(options);
     }
 
     reportSyncProgress(report, {
@@ -1284,7 +1603,7 @@ class SynkronusApi {
           : i18n.t('sync.progress.upToDate'),
     });
 
-    return finalVersion;
+    return { version: finalVersion, pendingAttachmentDownloads };
   }
 
   /**
@@ -1295,11 +1614,11 @@ class SynkronusApi {
   async pushObservations(
     includeAttachments: boolean = false,
     options?: SynkronusSyncOptions,
-  ): Promise<number> {
+  ): Promise<{ version: number; pendingAttachmentUploads: number }> {
     const report = options?.onProgress;
     const isCancelled = options?.isCancelled;
     const api = await this.getApi();
-    const transmissionId = randomId();
+    const knobs = await networkProfileService.getSyncKnobs();
 
     try {
       throwIfSyncCancelled(isCancelled);
@@ -1318,20 +1637,22 @@ class SynkronusApi {
             options,
           );
 
-          // Check for upload failures
           const failedUploads = attachmentUploadResults.filter(
             result => !result.success,
           );
           if (failedUploads.length > 0) {
-            console.warn(
-              `${failedUploads.length} attachment uploads failed:`,
-              failedUploads,
+            logger.warn(
+              'sync',
+              `${failedUploads.length} attachment uploads failed; continuing observation push`,
+              { counts: failedUploads.length },
             );
-            // Continue with observation sync even if some attachments failed
-            // The server should handle missing attachments gracefully
           }
         }
       }
+
+      const pendingAttachmentUploads = attachmentUploadResults.filter(
+        result => !result.success,
+      ).length;
 
       throwIfSyncCancelled(isCancelled);
 
@@ -1354,72 +1675,136 @@ class SynkronusApi {
           },
         );
 
-        return Number(await AsyncStorage.getItem('@last_seen_version')) || 0;
+        return {
+          version:
+            Number(await AsyncStorage.getItem('@last_seen_version')) || 0,
+          pendingAttachmentUploads,
+        };
       }
 
-      // 3. Push observations to server
-      const pushClientGen =
-        await this.getRepositoryGenerationForRequestOrNull();
-      const syncPushRequest: SyncPushRequest = {
-        client_id: await clientIdService.getClientId(),
-        records: localChanges.map(ObservationMapper.toApi),
-        transmission_id: transmissionId,
-        ...(pushClientGen != null
-          ? { repository_generation: pushClientGen }
-          : {}),
-      };
-
-      const request: DefaultApiSyncPushRequest = {
-        xOdeVersion: ODE_VERSION,
-        syncPushRequest,
-        xRepositoryGeneration: pushClientGen ?? undefined,
-      };
-
-      logRepositoryGenerationSync('syncPush request', {
-        clientXRepositoryGeneration: pushClientGen ?? '(omitted)',
-        observationCount: localChanges.length,
-      });
-
-      reportSyncProgress(report, {
-        phase: 'push_observations',
-        current: 0,
-        total: 1,
-        indeterminate: true,
-        details: i18n.t('sync.progress.uploadingObservations', {
-          count: localChanges.length,
-        }),
-      });
-
-      const res = await api.syncPush(request);
-
-      logRepositoryGenerationSync('syncPush response OK', {
-        clientSent: pushClientGen ?? '(omitted)',
-        bodyRepositoryGeneration: res.data.repository_generation,
-        bodyCurrentVersion: res.data.current_version,
-        headerXRepositoryGeneration: headerRepositoryGeneration(
-          (res as AxiosResponse<unknown>).headers,
-        ),
-      });
-
-      this.ensureRepoGenResponseMatchesSent(
-        'syncPush',
-        pushClientGen,
-        res.data.repository_generation,
-      );
-      await this.persistRepositoryGenerationFromResponse(
-        res.data.repository_generation,
+      let pushBatchSize = knobs.pushBatchSize;
+      const queue = chunkItems(localChanges, pushBatchSize);
+      logger.info(
+        'sync',
+        `push knobs batchSize=${pushBatchSize} batches=${queue.length} records=${localChanges.length}`,
+        { phase: 'push_observations', counts: localChanges.length },
       );
 
-      // 4. Update local database sync status
-      await repo.markObservationsAsSynced(
-        localChanges.map(record => record.observationId),
-      );
+      let lastVersion =
+        Number(await AsyncStorage.getItem('@last_seen_version')) || 0;
+      const clientId = await clientIdService.getClientId();
+      let pushedSoFar = 0;
 
-      // 5. Update last seen version
-      await AsyncStorage.setItem(
-        '@last_seen_version',
-        res.data.current_version.toString(),
-      );
+      while (queue.length > 0) {
+        throwIfSyncCancelled(isCancelled);
+        const batch = queue.shift()!;
+        const transmissionId = randomId();
+        const pushClientGen =
+          await this.getRepositoryGenerationForRequestOrNull();
+        const syncPushRequest: SyncPushRequest = {
+          client_id: clientId,
+          records: batch.map(ObservationMapper.toApi),
+          transmission_id: transmissionId,
+          ...(pushClientGen != null
+            ? { repository_generation: pushClientGen }
+            : {}),
+        };
+
+        const request: DefaultApiSyncPushRequest = {
+          xOdeVersion: ODE_VERSION,
+          syncPushRequest,
+          xRepositoryGeneration: pushClientGen ?? undefined,
+        };
+
+        logRepositoryGenerationSync('syncPush request', {
+          clientXRepositoryGeneration: pushClientGen ?? '(omitted)',
+          observationCount: batch.length,
+        });
+
+        reportSyncProgress(report, {
+          phase: 'push_observations',
+          current: pushedSoFar,
+          total: localChanges.length,
+          details: i18n.t('sync.progress.uploadingObservations', {
+            count: localChanges.length,
+          }),
+        });
+
+        try {
+          const pushStarted = Date.now();
+          const res = await withTransientRetry(() => api.syncPush(request), {
+            isCancelled,
+            onRetry: (attempt, error, delayMs) => {
+              logger.info(
+                'sync',
+                `push retry attempt=${attempt} delay=${delayMs}ms size=${batch.length} tx=${transmissionId} ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              );
+            },
+          });
+          const pushMs = Date.now() - pushStarted;
+
+          logRepositoryGenerationSync('syncPush response OK', {
+            clientSent: pushClientGen ?? '(omitted)',
+            bodyRepositoryGeneration: res.data.repository_generation,
+            bodyCurrentVersion: res.data.current_version,
+            headerXRepositoryGeneration: headerRepositoryGeneration(
+              (res as AxiosResponse<unknown>).headers,
+            ),
+          });
+
+          this.ensureRepoGenResponseMatchesSent(
+            'syncPush',
+            pushClientGen,
+            res.data.repository_generation,
+          );
+          await this.persistRepositoryGenerationFromResponse(
+            res.data.repository_generation,
+          );
+
+          await repo.markObservationsAsSynced(
+            batch.map(record => record.observationId),
+          );
+
+          lastVersion = res.data.current_version;
+          await AsyncStorage.setItem(
+            '@last_seen_version',
+            lastVersion.toString(),
+          );
+          pushedSoFar += batch.length;
+          pushBatchSize =
+            await networkProfileService.recordPushBatchDuration(pushMs);
+          logger.info(
+            'sync',
+            `push batch ok size=${batch.length} duration=${pushMs}ms nextSize=${pushBatchSize}`,
+            { phase: 'push_observations', counts: batch.length },
+          );
+        } catch (error: unknown) {
+          this.rethrowIfRepositoryResetConflict(error);
+          if (
+            isCancelledError(error) ||
+            isRepositoryResetRequiredError(error)
+          ) {
+            throw error;
+          }
+          if (isTransientError(error) && canSplitPushBatch(batch.length)) {
+            const { nextSize, pieces } = splitFailedPushBatch(batch);
+            await networkProfileService.shrinkPushBatchAfterFailure(
+              batch.length,
+            );
+            pushBatchSize = nextSize;
+            logger.info(
+              'sync',
+              `push split failed size=${batch.length} → ${nextSize} pieces=${pieces.length}`,
+              { phase: 'push_observations', counts: nextSize },
+            );
+            queue.unshift(...pieces);
+            continue;
+          }
+          throw error;
+        }
+      }
 
       if (includeAttachments && attachmentUploadResults.length > 0) {
         const successfulUploads = attachmentUploadResults.filter(
@@ -1437,7 +1822,7 @@ class SynkronusApi {
         details: i18n.t('sync.progress.uploadComplete'),
       });
 
-      return res.data.current_version;
+      return { version: lastVersion, pendingAttachmentUploads };
     } catch (error: unknown) {
       logAxiosErrorForRepoGen('syncPush', error);
       this.rethrowIfRepositoryResetConflict(error);
@@ -1458,7 +1843,7 @@ class SynkronusApi {
   async syncObservations(
     includeAttachments: boolean = false,
     options?: SynkronusSyncOptions,
-  ) {
+  ): Promise<ObservationSyncResult> {
     const rawStored = await AsyncStorage.getItem(
       REPOSITORY_GENERATION_STORAGE_KEY,
     );
@@ -1468,17 +1853,21 @@ class SynkronusApi {
       effectiveClientGen: effectiveGen ?? '(omitted)',
       includeAttachments,
     });
-    const version = await this.pullObservations(includeAttachments, options);
+    const pulled = await this.pullObservations(includeAttachments, options);
     throwIfSyncCancelled(options?.isCancelled);
-    await this.pushObservations(includeAttachments, options);
+    const pushed = await this.pushObservations(includeAttachments, options);
     const storageAfter = await AsyncStorage.getItem(
       REPOSITORY_GENERATION_STORAGE_KEY,
     );
     logRepositoryGenerationSync('syncObservations finished', {
-      observationDataVersion: version,
+      observationDataVersion: pushed.version,
       storageRepositoryGeneration: storageAfter ?? '(missing)',
     });
-    return version;
+    return {
+      version: pushed.version,
+      pendingAttachmentDownloads: pulled.pendingAttachmentDownloads,
+      pendingAttachmentUploads: pushed.pendingAttachmentUploads,
+    };
   }
 }
 

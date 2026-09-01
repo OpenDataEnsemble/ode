@@ -141,6 +141,7 @@ import { SyncService } from '../SyncService';
 import { synkronusApi } from '../../api/synkronus';
 import { autoLogin, isUnauthorizedError } from '../../api/synkronus/Auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { notificationService } from '../NotificationService';
 
 describe('SyncService - Auto-Login Integration', () => {
   let syncService: SyncService;
@@ -181,7 +182,11 @@ describe('SyncService - Auto-Login Integration', () => {
           response: { status: 401 },
           message: 'Unauthorized',
         })
-        .mockResolvedValueOnce(mockFinalVersion);
+        .mockResolvedValueOnce({
+          version: mockFinalVersion,
+          pendingAttachmentDownloads: 0,
+          pendingAttachmentUploads: 0,
+        });
 
       (isUnauthorizedError as jest.Mock).mockReturnValue(true);
       (autoLogin as jest.Mock).mockResolvedValue(mockUserInfo);
@@ -194,6 +199,9 @@ describe('SyncService - Auto-Login Integration', () => {
       expect(synkronusApi.clearTokenCache).toHaveBeenCalled();
       expect(synkronusApi.syncObservations).toHaveBeenCalledTimes(2);
       expect(result).toBe(mockFinalVersion);
+      expect(notificationService.showSyncComplete).toHaveBeenCalledWith({
+        kind: 'success',
+      });
     });
 
     test('should throw error if auto-login fails', async () => {
@@ -261,6 +269,52 @@ describe('SyncService - Auto-Login Integration', () => {
 
       expect(autoLogin).not.toHaveBeenCalled();
       expect(synkronusApi.syncObservations).toHaveBeenCalledTimes(1);
+      expect(notificationService.showSyncComplete).toHaveBeenCalledWith({
+        kind: 'failed',
+        error: expect.any(String),
+      });
+    });
+
+    test('should report partial success when attachments remain pending', async () => {
+      (synkronusApi.syncObservations as jest.Mock).mockResolvedValue({
+        version: 55,
+        pendingAttachmentDownloads: 2,
+        pendingAttachmentUploads: 1,
+      });
+
+      const result = await syncService.syncObservations(true);
+
+      expect(result).toBe(55);
+      expect(notificationService.showSyncComplete).toHaveBeenCalledWith({
+        kind: 'partial_success',
+        pendingAttachments: 3,
+      });
+    });
+
+    test('should report cancelled outcome when sync is cancelled', async () => {
+      (synkronusApi.syncObservations as jest.Mock).mockImplementation(
+        async (
+          _includeAttachments: boolean,
+          options: { isCancelled?: () => boolean },
+        ) => {
+          syncService.cancelSync();
+          if (options?.isCancelled?.()) {
+            throw new Error('Sync cancelled');
+          }
+          return {
+            version: 1,
+            pendingAttachmentDownloads: 0,
+            pendingAttachmentUploads: 0,
+          };
+        },
+      );
+
+      await expect(syncService.syncObservations(true)).rejects.toThrow(
+        'Sync cancelled',
+      );
+      expect(notificationService.showSyncComplete).toHaveBeenCalledWith({
+        kind: 'cancelled',
+      });
     });
   });
 
@@ -381,7 +435,11 @@ describe('SyncService - Auto-Login Integration', () => {
       await expect(first).rejects.toThrow('Sync cancelled');
       expect(syncService.getIsSyncing()).toBe(false);
 
-      (synkronusApi.syncObservations as jest.Mock).mockResolvedValueOnce(7);
+      (synkronusApi.syncObservations as jest.Mock).mockResolvedValueOnce({
+        version: 7,
+        pendingAttachmentDownloads: 0,
+        pendingAttachmentUploads: 0,
+      });
       await expect(syncService.syncObservations(true)).resolves.toBe(7);
     });
   });

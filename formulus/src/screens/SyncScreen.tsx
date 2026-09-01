@@ -24,14 +24,9 @@ import {
   getUserInfo,
   getUserFacingSyncErrorMessage,
 } from '../api/synkronus/Auth';
-
-function isSyncCancelledError(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.message === 'Sync cancelled' ||
-      error.message === 'Sync cancelled by user')
-  );
-}
+import { networkProfileService } from '../services/NetworkProfileService';
+import { getConnectivityMeterState } from '../sync/connectivityMeter';
+import { isCancelledError } from '../sync/transientRetry';
 import {
   isRepositoryResetRequiredError,
   type RepositoryResetRequiredError,
@@ -113,6 +108,10 @@ const SyncScreen = () => {
     useState<string>('Unknown');
   const [animatedProgress] = useState(new Animated.Value(0));
   const [activeOperation, setActiveOperation] = useState<ActiveOperation>(null);
+  const [connectivityLevel, setConnectivityLevel] = useState(2);
+  const [connectivityLabel, setConnectivityLabel] = useState(() =>
+    t('sync.connectivity.default'),
+  );
   const prevSyncWasActiveRef = useRef(false);
 
   const updatePendingUploads = useCallback(async () => {
@@ -175,6 +174,18 @@ const SyncScreen = () => {
       setIsReadOnly(false);
     }
   }, []);
+
+  const refreshConnectivityStatus = useCallback(async () => {
+    try {
+      const knobs = await networkProfileService.getSyncKnobs();
+      const meterState = getConnectivityMeterState(knobs);
+      setConnectivityLevel(meterState.level);
+      setConnectivityLabel(t(meterState.labelKey));
+    } catch {
+      setConnectivityLevel(2);
+      setConnectivityLabel(t('sync.connectivity.default'));
+    }
+  }, [t]);
 
   /**
    * Returns true when this device effectively has no local sync state to lose:
@@ -277,7 +288,7 @@ const SyncScreen = () => {
       await syncService.syncObservations(true);
       await refreshAfterOperation();
     } catch (error) {
-      if (isSyncCancelledError(error)) {
+      if (isCancelledError(error)) {
         // Cancel is requested, not a failure — do not Alert or paint the card red.
       } else if (isRepositoryResetRequiredError(error)) {
         syncError = getUserFacingSyncErrorMessage(error);
@@ -321,7 +332,7 @@ const SyncScreen = () => {
       const fs = await formService.FormService.getInstance();
       await fs.invalidateCache();
     } catch (error) {
-      if (isSyncCancelledError(error)) {
+      if (isCancelledError(error)) {
         finishSync();
       } else {
         const errorMessage = (error as Error).message;
@@ -369,7 +380,7 @@ const SyncScreen = () => {
           },
           t('sync.operationFailed'),
         );
-      } else if (isSyncCancelledError(error)) {
+      } else if (isCancelledError(error)) {
         finishSync();
       } else {
         const errorMessage = getUserFacingSyncErrorMessage(error);
@@ -488,6 +499,7 @@ const SyncScreen = () => {
     const initialize = async () => {
       await syncService.initialize();
       await refreshUserRole();
+      await refreshConnectivityStatus();
       const lastSyncTime = await AsyncStorage.getItem('@lastSync');
       if (lastSyncTime) {
         setLastSync(lastSyncTime);
@@ -507,6 +519,7 @@ const SyncScreen = () => {
     updatePendingObservations,
     updateProgress,
     refreshUserRole,
+    refreshConnectivityStatus,
   ]);
 
   // Refresh pending count and bundle status whenever the Sync screen gains focus
@@ -516,11 +529,13 @@ const SyncScreen = () => {
       updatePendingUploads();
       updatePendingObservations();
       refreshUserRole();
+      refreshConnectivityStatus();
       checkForUpdates();
     }, [
       updatePendingUploads,
       updatePendingObservations,
       refreshUserRole,
+      refreshConnectivityStatus,
       checkForUpdates,
     ]),
   );
@@ -556,6 +571,7 @@ const SyncScreen = () => {
       const timer = setTimeout(() => {
         updatePendingUploads();
         updatePendingObservations();
+        refreshConnectivityStatus();
         if (wasActive) {
           checkForUpdates();
         }
@@ -568,6 +584,7 @@ const SyncScreen = () => {
     syncState.error,
     updatePendingUploads,
     updatePendingObservations,
+    refreshConnectivityStatus,
     checkForUpdates,
   ]);
 
@@ -879,6 +896,60 @@ const SyncScreen = () => {
                   { color: themeColors.onSurface as string },
                 ]}>
                 {lastSync ? formatRelativeTime(lastSync) : t('sync.never')}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.card,
+              styles.connectivityCard,
+              {
+                borderColor: themeColors.divider as string,
+                backgroundColor: cardBg,
+              },
+            ]}>
+            <View style={styles.statusCardHeader}>
+              <Icon
+                name="speedometer"
+                size={20}
+                color={themeColors.onSurface as string}
+              />
+              <Text
+                style={[
+                  styles.statusCardTitle,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                {t('sync.connectivity.title')}
+              </Text>
+            </View>
+            <View style={styles.connectivityMeterRow}>
+              <View style={styles.connectivityMeter}>
+                {[0, 1, 2, 3, 4].map(index => {
+                  const active = index < connectivityLevel;
+                  return (
+                    <View
+                      key={index}
+                      style={[
+                        styles.connectivityMeterSegment,
+                        {
+                          backgroundColor: active
+                            ? (themeColors.primary as string)
+                            : isDark
+                              ? (colors.neutral[700] as string)
+                              : (colors.neutral[200] as string),
+                        },
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+              <Text
+                style={[
+                  styles.connectivityLabel,
+                  { color: themeColors.onSurface as string },
+                ]}>
+                {connectivityLabel}
               </Text>
             </View>
           </View>
@@ -1239,6 +1310,31 @@ const styles = StyleSheet.create({
   statusCardSubtext: {
     fontSize: odeTypography.caption,
     marginTop: odeSpacing.xxs,
+  },
+  connectivityCard: {
+    marginBottom: odeSpacing.md,
+  },
+  connectivityMeterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.sm,
+    marginTop: odeSpacing.xs,
+  },
+  connectivityMeter: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: odeSpacing.xxs,
+  },
+  connectivityMeterSegment: {
+    flex: 1,
+    height: 10,
+    borderRadius: odeRadius.inner,
+  },
+  connectivityLabel: {
+    fontSize: odeTypography.body,
+    fontWeight: '600',
+    minWidth: 128,
+    textAlign: 'right',
   },
   pendingSection: {
     marginBottom: odeSpacing.md,

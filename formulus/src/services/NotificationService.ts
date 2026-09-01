@@ -15,6 +15,12 @@ import {
 import { i18n } from '../i18n/instance';
 import { logger } from '../diagnostics/logger';
 
+export type SyncNotificationOutcome =
+  | { kind: 'success' }
+  | { kind: 'partial_success'; pendingAttachments: number }
+  | { kind: 'cancelled' }
+  | { kind: 'failed'; error: string };
+
 /** White-on-transparent status-bar glyph — not the adaptive launcher icon. */
 const SYNC_SMALL_ICON = 'ic_stat_formulus';
 
@@ -138,59 +144,52 @@ class NotificationService {
       }
     }, 1000);
     // In Node/Jest, unref avoids keeping the process alive.
-    if (
-      typeof cleanupTimer === 'object' &&
-      cleanupTimer !== null &&
-      'unref' in cleanupTimer &&
-      typeof cleanupTimer.unref === 'function'
-    ) {
-      cleanupTimer.unref();
+    const maybeNodeTimer = cleanupTimer as ReturnType<typeof setTimeout> & {
+      unref?: () => void;
+    };
+    if (typeof maybeNodeTimer === 'object' && maybeNodeTimer?.unref) {
+      maybeNodeTimer.unref();
     }
   }
 
-  async showSyncComplete(success: boolean, error?: string) {
+  async showSyncComplete(outcome: SyncNotificationOutcome) {
     await this.configure();
 
-    if (success) {
-      const now = new Date();
-      const timeString = now.toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
-      await notifee.displayNotification({
-        id: `sync_done_${Date.now()}`,
-        title: `Sync completed @ ${timeString}`,
-        body: 'All data synchronized successfully',
-        android: {
-          ...this.androidDefaults(),
-          autoCancel: true,
-          ongoing: false,
-          pressAction: { id: 'default' },
-        },
-      });
-    } else {
-      await notifee.displayNotification({
-        id: `sync_done_${Date.now()}`,
-        title: 'Sync failed',
-        body: error || 'An error occurred during synchronization',
-        android: {
-          ...this.androidDefaults(),
-          autoCancel: true,
-          ongoing: false,
-          pressAction: { id: 'default' },
-        },
-      });
+    let title: string;
+    let body: string;
+
+    switch (outcome.kind) {
+      case 'success':
+        title = `Sync completed @ ${timeString}`;
+        body = i18n.t('sync.notification.completed');
+        break;
+      case 'partial_success':
+        title = i18n.t('sync.notification.completedWithPendingAttachments');
+        body = i18n.t('sync.notification.pendingAttachmentsBody', {
+          count: outcome.pendingAttachments,
+        });
+        break;
+      case 'cancelled':
+        title = i18n.t('sync.notification.cancelledTitle');
+        body = i18n.t('sync.notification.cancelledBody');
+        break;
+      case 'failed':
+        title = i18n.t('sync.notification.failedTitle');
+        body = outcome.error || i18n.t('sync.notification.failedBody');
+        break;
     }
-  }
 
-  async showSyncCanceled() {
-    await this.configure();
     await notifee.displayNotification({
       id: `sync_done_${Date.now()}`,
-      title: 'Sync canceled',
-      body: 'Synchronization was canceled',
+      title,
+      body,
       android: {
         ...this.androidDefaults(),
         autoCancel: true,

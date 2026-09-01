@@ -43,6 +43,8 @@ cd ~/synkronus
 # Download configuration files
 wget https://raw.githubusercontent.com/opendataensemble/ode/main/synkronus/docker-compose.example.yml -O docker-compose.yml
 wget https://raw.githubusercontent.com/opendataensemble/ode/main/synkronus/nginx.conf
+# nginx.conf sets proxy_send_timeout / proxy_read_timeout to 600s so field
+# sync, photo upload, and bundle zip are not killed at the default ~60s.
 
 # Generate secure secrets
 JWT_SECRET=$(openssl rand -base64 32)

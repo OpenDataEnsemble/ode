@@ -6,6 +6,7 @@ Synkronus is a robust synchronization API for offline-first applications, built 
 
 - JWT-based authentication with role-based permissions
 - Sync operations for pushing and pulling data
+- HTTP timeouts suited to slow field radio (no short global read/write deadline; see [`pkg/httptimeout`](pkg/httptimeout/httptimeout.go) and [AGENTS.md](AGENTS.md#http-timeouts-slow-field-radio))
 - Attachment management
 - Form specifications for dynamic UI generation
 - API versioning support
@@ -131,7 +132,7 @@ Attachment download endpoints support `?original=true` to prefer full-resolution
 
 ## Sync protocol
 
-For the sync protocol design details (record model, attachment handling, pagination, and conflict strategy), see [`documentation/sync-protocol.md`](./documentation/sync-protocol.md).
+For the sync protocol design details (record model, attachment handling, pagination, and conflict strategy), see [`documentation/sync-protocol.md`](./documentation/sync-protocol.md). Formulus adaptive page sizes (pull start 32 / floor 1, push start 4 / floor 1) are in `formulus/src/sync/networkProfile.ts`.
 
 ## License
 

@@ -1,0 +1,3 @@
+# Keep React Native's devtools chain above the patched security floor.
+overrides:
+  shell-quote: 1.10.0
