@@ -1,9 +1,12 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
-  ],
+  "extends": ["config:recommended"],
   "labels": ["dependencies"],
+  "dependencyDashboard": true,
+  "branchConcurrentLimit": 2,
+  "prConcurrentLimit": 2,
+  "prHourlyLimit": 1,
+  "minimumReleaseAge": "3 days",
   "lockFileMaintenance": {
     "enabled": false
   },
@@ -16,6 +19,35 @@
       "matchManagers": ["npm"],
       "matchFileNames": ["formulus/package.json"],
       "rangeStrategy": "bump"
+    },
+    {
+      "description": "Group non-major JavaScript dependency updates",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "npm non-major dependencies"
+    },
+    {
+      "description": "Group non-major Rust dependency updates",
+      "matchManagers": ["cargo"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Rust non-major dependencies"
+    },
+    {
+      "description": "Group non-major Go dependency updates",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Go non-major dependencies"
+    },
+    {
+      "description": "Group GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "groupName": "GitHub Actions updates"
+    },
+    {
+      "description": "Keep major updates separate and manually reviewed",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
     },
     {
       "description": "Automerge patch and digest updates only after required CI status checks pass",

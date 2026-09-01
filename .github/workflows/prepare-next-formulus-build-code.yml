@@ -13,6 +13,17 @@ on:
         required: true
         default: true
         type: boolean
+  workflow_call:
+    inputs:
+      target_branch:
+        description: Branch that the release was prepared from and that should receive the next-code PR
+        required: true
+        type: string
+      dry_run:
+        description: Validate and show the proposed update without creating a branch or pull request
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: prepare-next-formulus-build-code-${{ inputs.target_branch }}
@@ -28,6 +39,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Verify target branch
+        env:
+          TARGET_BRANCH: ${{ inputs.target_branch }}
+        run: |
+          case "$TARGET_BRANCH" in
+            dev|main) ;;
+            *)
+              echo "::error::Target branch must be dev or main; received '$TARGET_BRANCH'."
+              echo "Create releases from one of those branches so the next-code PR has a safe target."
+              exit 1
+              ;;
+          esac
+
       - name: Checkout target branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
