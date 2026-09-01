@@ -1,6 +1,3 @@
-# pnpm 11: dependency lifecycle scripts are blocked unless listed here.
-# Run `pnpm approve-builds` locally to update; commit this file so CI matches.
-# (onlyBuiltDependencies was removed in pnpm 11 — allowBuilds is the replacement.)
 allowBuilds:
   '@nestjs/core': true
   '@openapitools/openapi-generator-cli': true
@@ -10,13 +7,13 @@ allowBuilds:
 overrides:
   # Core jest packages pinned to the devDependencies version. Migrated from the
   # package.json "pnpm.overrides" field, which pnpm 11 no longer reads.
-  jest: 30.3.0
-  '@jest/core': 30.3.0
-  jest-cli: 30.3.0
-  jest-config: 30.3.0
-  jest-circus: 30.3.0
-  jest-runner: 30.3.0
-  jest-runtime: 30.3.0
+  jest: 30.5.1
+  '@jest/core': 30.5.1
+  jest-cli: 30.5.1
+  jest-config: 30.5.1
+  jest-circus: 30.5.1
+  jest-runner: 30.5.1
+  jest-runtime: 30.5.1
   # Auxiliary jest packages bumped for audit fixes.
   jest-environment-node: ^30.4.1
   jest-haste-map: ^30.4.1
