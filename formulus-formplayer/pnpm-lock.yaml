@@ -16,16 +16,16 @@ importers:
         version: 11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1)
       '@jsonforms/core':
         specifier: ^3.7.0
-        version: 3.7.0
+        version: 3.8.0
       '@jsonforms/examples':
         specifier: ^3.7.0
-        version: 3.7.0(@jsonforms/core@3.7.0)(ajv@8.20.0)
+        version: 3.8.0(@jsonforms/core@3.8.0)(ajv@8.20.0)
       '@jsonforms/material-renderers':
         specifier: ^3.7.0
-        version: 3.7.0(b237866170d0c37d7a364055ad96225f)
+        version: 3.8.0(20e86cd01666a72c0edfb42b1d8a76e0)
       '@jsonforms/react':
         specifier: ^3.7.0
-        version: 3.7.0(@jsonforms/core@3.7.0)(react@19.2.6)
+        version: 3.8.0(@jsonforms/core@3.8.0)(react@19.2.6)
       '@mui/icons-material':
         specifier: ^7.3.7
         version: 7.3.11(@mui/material@7.3.11(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/react@19.2.14)(react@19.2.6)
@@ -829,30 +829,30 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@jsonforms/core@3.7.0':
-    resolution: {integrity: sha512-CE9viWtwi9QWLqlWLeOul1/R1GRAyOA9y6OoUpsCc0FhyR+g5p29F3k0fUExHWxL0Sf4KHcXYkfhtqfRBPS8ww==}
+  '@jsonforms/core@3.8.0':
+    resolution: {integrity: sha512-XSvaZuQSs/MceG5nDDcrE879onPHkGBy0xEuLeZMUkSM/M8wc1dEUrJtMOZVNSITocm9YXFY1qQ5gnsPP38zAg==}
 
-  '@jsonforms/examples@3.7.0':
-    resolution: {integrity: sha512-94SHe4eLG/tlq0GoFFZRF5+oMnWyFSfGim7ufewMnuareTX4kNMl+W9PjnbBUAeb5x3nQmbE0auQBnxyTj6vdg==}
+  '@jsonforms/examples@3.8.0':
+    resolution: {integrity: sha512-D+E53fkpawcrBEIjqWr4j7Zm/bu18ksjhLKkiSa+WfU7TMAXt9zINv7apHq4WyLIAe3o6eXG55YKcz3Yk1OCAQ==}
     peerDependencies:
-      '@jsonforms/core': 3.7.0
+      '@jsonforms/core': 3.8.0
 
-  '@jsonforms/material-renderers@3.7.0':
-    resolution: {integrity: sha512-WO9D3zigJ/x/gCckEGxvfQgrdLuy6X6g76hHMlo3KCsusEvabLQHvYz3EJmOOBsuEu8JYXgZetTKjZ44WaBXww==}
+  '@jsonforms/material-renderers@3.8.0':
+    resolution: {integrity: sha512-1+puTnu9R71xECPE3vlE26XsZmYAtH2Ps6jo3Llum6U/GwS0dupyS8dARO1b88hgxC9sdoJTcpP5PYsrMFm7Hw==}
     peerDependencies:
       '@emotion/react': ^11.5.0
       '@emotion/styled': ^11.3.0
-      '@jsonforms/core': 3.7.0
-      '@jsonforms/react': 3.7.0
+      '@jsonforms/core': 3.8.0
+      '@jsonforms/react': 3.8.0
       '@mui/icons-material': ^7.0.0
       '@mui/material': ^7.0.0
       '@mui/x-date-pickers': ^8.0.0
       react: ^16.12.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
-  '@jsonforms/react@3.7.0':
-    resolution: {integrity: sha512-HkY7qAx8vW97wPEgZ7GxCB3iiXG1c95GuObxtcDHGPBJWMwnxWBnVYJmv5h7nthrInKsQKHZL5OusnC/sj/1GQ==}
+  '@jsonforms/react@3.8.0':
+    resolution: {integrity: sha512-k81+yWLpCQl+3XizS1bLjXoBwYhW1OAkjSXFA8W5qNtfPZjSOXDgtiuMOGYDv4b60tu2e9RB8h2P2O7QhfkhiA==}
     peerDependencies:
-      '@jsonforms/core': 3.7.0
+      '@jsonforms/core': 3.8.0
       react: ^16.12.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   '@mdx-js/react@3.1.1':
@@ -4638,28 +4638,28 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@jsonforms/core@3.7.0':
+  '@jsonforms/core@3.8.0':
     dependencies:
       '@types/json-schema': 7.0.15
       ajv: 8.20.0
       ajv-formats: 2.1.1(ajv@8.20.0)
       lodash: 4.18.1
 
-  '@jsonforms/examples@3.7.0(@jsonforms/core@3.7.0)(ajv@8.20.0)':
+  '@jsonforms/examples@3.8.0(@jsonforms/core@3.8.0)(ajv@8.20.0)':
     dependencies:
-      '@jsonforms/core': 3.7.0
+      '@jsonforms/core': 3.8.0
       ajv-i18n: 4.2.0(ajv@8.20.0)
       lodash: 4.18.1
     transitivePeerDependencies:
       - ajv
 
-  '@jsonforms/material-renderers@3.7.0(b237866170d0c37d7a364055ad96225f)':
+  '@jsonforms/material-renderers@3.8.0(20e86cd01666a72c0edfb42b1d8a76e0)':
     dependencies:
       '@date-io/dayjs': 3.2.0(dayjs@1.10.7)
       '@emotion/react': 11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1)
       '@emotion/styled': 11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1)
-      '@jsonforms/core': 3.7.0
-      '@jsonforms/react': 3.7.0(@jsonforms/core@3.7.0)(react@19.2.6)
+      '@jsonforms/core': 3.8.0
+      '@jsonforms/react': 3.8.0(@jsonforms/core@3.8.0)(react@19.2.6)
       '@mui/icons-material': 7.3.11(@mui/material@7.3.11(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/react@19.2.14)(react@19.2.6)
       '@mui/material': 7.3.11(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@mui/x-date-pickers': 8.29.0(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@mui/material@7.3.11(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@mui/system@7.3.11(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6)(supports-color@8.1.1))(@types/react@19.2.14)(react@19.2.6))(@types/react@19.2.14)(dayjs@1.10.7)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -4667,9 +4667,9 @@ snapshots:
       lodash: 4.18.1
       react: 19.2.6
 
-  '@jsonforms/react@3.7.0(@jsonforms/core@3.7.0)(react@19.2.6)':
+  '@jsonforms/react@3.8.0(@jsonforms/core@3.8.0)(react@19.2.6)':
     dependencies:
-      '@jsonforms/core': 3.7.0
+      '@jsonforms/core': 3.8.0
       lodash: 4.18.1
       react: 19.2.6
 
