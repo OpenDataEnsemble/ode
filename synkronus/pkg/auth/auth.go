@@ -159,7 +159,9 @@ func (s *Service) CheckPasswordHash(password, hash string) bool {
 	return s.VerifyPassword(password, hash)
 }
 
-// Authenticate verifies user credentials and returns a user if valid
+const dummyPasswordHash = "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
+
+// Authenticate verifies user credentials and returns a user if valid.
 func (s *Service) Authenticate(ctx context.Context, username, password string) (*models.User, error) {
 	user, err := s.userRepository.GetByUsername(ctx, username)
 	if err != nil {
@@ -167,6 +169,8 @@ func (s *Service) Authenticate(ctx context.Context, username, password string) (
 	}
 
 	if user == nil {
+		// Keep nonexistent-user and wrong-password paths comparable to reduce timing enumeration.
+		_ = bcrypt.CompareHashAndPassword([]byte(dummyPasswordHash), []byte(password))
 		return nil, errors.New("invalid credentials")
 	}
 

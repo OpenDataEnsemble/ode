@@ -37,6 +37,11 @@ func setupTestService() (*Service, *mocks.MockUserRepository) {
 	return service, mockRepo
 }
 
+func TestDummyPasswordHashIsValid(t *testing.T) {
+	_, err := bcrypt.Cost([]byte(dummyPasswordHash))
+	require.NoError(t, err)
+}
+
 func TestAuthenticate(t *testing.T) {
 	// Setup
 	service, _ := setupTestService()
