@@ -60,6 +60,20 @@ services:
       # SYNKRONUS_RECOVERY_CREATE_USER: "admin"
       # SYNKRONUS_RECOVERY_CREATE_PASS: "TEMPORARY_RECOVERY_PASSWORD"
       MAX_VERSIONS_KEPT: "5"
+      # Authentication abuse controls. Limits are per Synkronus process and reset on restart.
+      SYNKRONUS_AUTH_MAX_BODY_BYTES: "16384"
+      SYNKRONUS_AUTH_IP_ATTEMPTS: "60"
+      SYNKRONUS_AUTH_IP_WINDOW_SECONDS: "60"
+      SYNKRONUS_AUTH_LOGIN_ATTEMPTS: "10"
+      SYNKRONUS_AUTH_LOGIN_WINDOW_SECONDS: "300"
+      SYNKRONUS_AUTH_ACCOUNT_ATTEMPTS: "100"
+      SYNKRONUS_AUTH_ACCOUNT_WINDOW_SECONDS: "900"
+      SYNKRONUS_AUTH_LIMITER_MAX_KEYS: "10000"
+      # Set this to the exact Synkronus-facing CIDR of proxies you control. When empty,
+      # X-Real-IP is ignored and proxied requests safely share the proxy source budget.
+      # SYNKRONUS_AUTH_TRUSTED_PROXY_CIDRS: "172.20.0.0/24"
+      # Keep true during the typed-token rollout; see DEPLOYMENT.md before disabling.
+      SYNKRONUS_ACCEPT_LEGACY_UNTYPED_TOKENS: "true"
       # Attachment content limit (128 MiB); keep nginx client_max_body_size above this for multipart overhead.
       SYNKRONUS_MAX_ATTACHMENT_UPLOAD_BYTES: "134217728"
       SYNKRONUS_MAX_CONCURRENT_ATTACHMENT_UPLOADS: "4"

@@ -77,6 +77,16 @@ Synkronus uses a flexible configuration system that supports both environment va
 | `JWT_SECRET` | Secret key for JWT token signing | (required, no default) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
 | `MAX_VERSIONS_KEPT` | Maximum number of app bundle versions to keep | `5` |
+| `SYNKRONUS_ACCEPT_LEGACY_UNTYPED_TOKENS` | Temporarily accept JWTs issued before token-purpose claims were added | `true` |
+| `SYNKRONUS_AUTH_MAX_BODY_BYTES` | Maximum login/refresh request body bytes | `16384` |
+| `SYNKRONUS_AUTH_IP_ATTEMPTS` | Login/refresh attempts allowed per source in the IP window | `60` |
+| `SYNKRONUS_AUTH_IP_WINDOW_SECONDS` | Per-source limiter window | `60` |
+| `SYNKRONUS_AUTH_LOGIN_ATTEMPTS` | Failed logins allowed per source and username | `10` |
+| `SYNKRONUS_AUTH_LOGIN_WINDOW_SECONDS` | Source-and-username failure window | `300` |
+| `SYNKRONUS_AUTH_ACCOUNT_ATTEMPTS` | Failed logins allowed per username across sources | `100` |
+| `SYNKRONUS_AUTH_ACCOUNT_WINDOW_SECONDS` | Account-wide failure window | `900` |
+| `SYNKRONUS_AUTH_LIMITER_MAX_KEYS` | Maximum tracked keys in each in-memory limiter | `10000` |
+| `SYNKRONUS_AUTH_TRUSTED_PROXY_CIDRS` | Comma-separated direct proxy CIDRs allowed to supply `X-Real-IP` | (empty) |
 | `SYNKRONUS_MAX_ATTACHMENT_UPLOAD_BYTES` | Maximum attachment content bytes | `134217728` (128 MiB) |
 | `SYNKRONUS_MAX_CONCURRENT_ATTACHMENT_UPLOADS` | Maximum concurrent attachment uploads | `4` |
 | `SYNKRONUS_MAX_CONCURRENT_IMAGE_PROCESSING` | Maximum concurrent image decode/transform jobs | `2` |
@@ -93,6 +103,10 @@ Synkronus uses a flexible configuration system that supports both environment va
 
 `ADMIN_USERNAME`/`ADMIN_PASSWORD` are only used when no users exist in the database.
 `SYNKRONUS_RECOVERY_CREATE_USER` + `SYNKRONUS_RECOVERY_CREATE_PASS` provide an emergency recovery flow: on startup, Synkronus creates or overwrites that user as an admin. Remove those recovery variables after regaining access to avoid resetting credentials on each restart.
+
+Authentication limits are in memory, apply independently to each Synkronus process, and reset when the process restarts. Multi-replica deployments should also enforce shared limits at the edge or use a shared limiter. Synkronus trusts `X-Real-IP` only when the direct socket peer is within `SYNKRONUS_AUTH_TRUSTED_PROXY_CIDRS`; configure only the exact CIDRs used by proxies you control. If it is empty, forwarded addresses are ignored. Excessive requests receive `429 Too Many Requests` with `Retry-After`.
+
+New JWTs are purpose-bound as access or refresh tokens. `SYNKRONUS_ACCEPT_LEGACY_UNTYPED_TOKENS` exists only for a backwards-compatible rollout. Set it to `false` only after all token-issuing Synkronus instances are upgraded and at least the previous seven-day refresh-token lifetime, plus operational and clock-skew margin, has elapsed since the last legacy issuer was removed.
 
 Attachment image processing is optional and only applies to supported image formats. If processing creates a smaller client-facing file, Synkronus stores it in `data/attachments/` and preserves the uploaded original in `data/attachments_uncompressed/` for export and explicit retrieval.
 

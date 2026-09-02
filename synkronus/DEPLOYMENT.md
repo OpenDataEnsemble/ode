@@ -178,6 +178,16 @@ Your Synkronus instance is now accessible at `https://synkronus.your-domain.com`
 | `PORT` | `8080` | HTTP server port |
 | `LOG_LEVEL` | `info` | Logging level (`debug`, `info`, `warn`, `error`) |
 | `MAX_VERSIONS_KEPT` | `5` | Number of app bundle versions to retain |
+| `SYNKRONUS_ACCEPT_LEGACY_UNTYPED_TOKENS` | `true` | Temporarily accept JWTs issued before token-purpose claims were added |
+| `SYNKRONUS_AUTH_MAX_BODY_BYTES` | `16384` | Maximum login/refresh request body bytes |
+| `SYNKRONUS_AUTH_IP_ATTEMPTS` | `60` | Login/refresh attempts allowed per source in the IP window |
+| `SYNKRONUS_AUTH_IP_WINDOW_SECONDS` | `60` | Per-source limiter window in seconds |
+| `SYNKRONUS_AUTH_LOGIN_ATTEMPTS` | `10` | Failed logins allowed per source and username |
+| `SYNKRONUS_AUTH_LOGIN_WINDOW_SECONDS` | `300` | Source-and-username failure window in seconds |
+| `SYNKRONUS_AUTH_ACCOUNT_ATTEMPTS` | `100` | Failed logins allowed per username across sources |
+| `SYNKRONUS_AUTH_ACCOUNT_WINDOW_SECONDS` | `900` | Account-wide failure window in seconds |
+| `SYNKRONUS_AUTH_LIMITER_MAX_KEYS` | `10000` | Maximum tracked keys in each in-memory limiter |
+| `SYNKRONUS_AUTH_TRUSTED_PROXY_CIDRS` | *(empty)* | Comma-separated direct proxy CIDRs allowed to supply `X-Real-IP` |
 | `SYNKRONUS_MAX_ATTACHMENT_UPLOAD_BYTES` | `134217728` | Maximum attachment content bytes (128 MiB); proxy request limits need multipart overhead |
 | `SYNKRONUS_MAX_CONCURRENT_ATTACHMENT_UPLOADS` | `4` | Maximum concurrent attachment request processing |
 | `SYNKRONUS_MAX_CONCURRENT_IMAGE_PROCESSING` | `2` | Maximum concurrent decoded image operations |
@@ -191,6 +201,18 @@ Your Synkronus instance is now accessible at `https://synkronus.your-domain.com`
 In the official container image, the process runs from **`/app`** (binary at **`/app/synkronus`**), so app bundles are stored at **`/app/data/app-bundle/active`** and **`/app/data/app-bundle/versions`**. Mount your persistent volume at **`/app/data`**.
 
 `ADMIN_USERNAME`/`ADMIN_PASSWORD` are bootstrap credentials and only apply when there are no users yet. For emergency recovery, set `SYNKRONUS_RECOVERY_CREATE_USER` and `SYNKRONUS_RECOVERY_CREATE_PASS` together; on startup, Synkronus creates or overwrites that user as admin. Remove these recovery variables after use so credentials are not reset on every restart.
+
+### Authentication security controls
+
+The login and refresh limits are bounded, in-memory controls. They apply independently to each Synkronus process and reset on restart; multiple replicas multiply the effective allowance. Horizontally scaled installations should add a shared limiter at the load balancer, API gateway, or another shared edge.
+
+By default, Synkronus ignores client-IP headers and keys source limits by the direct socket peer. When a reverse proxy is used, set `SYNKRONUS_AUTH_TRUSTED_PROXY_CIDRS` to the narrowest CIDR containing the proxy's Synkronus-facing address. Only a direct peer in one of those CIDRs may supply `X-Real-IP`. Never configure unrestricted ranges such as `0.0.0.0/0`, and do not trust a public ingress range unless every address in it is controlled and overwrites inbound `X-Real-IP`. The provided Nginx configuration overwrites `X-Real-IP` with its observed client address. If the setting remains empty behind a proxy, all proxied requests safely share the proxy's source budget rather than trusting spoofable headers.
+
+Excessive authentication requests receive `429 Too Many Requests` with a `Retry-After` header. Avoid permanent account lockouts: they let an attacker deny service to a known user. These controls reduce online guessing and bcrypt resource exhaustion but do not replace edge denial-of-service protection.
+
+Newly issued JWTs carry a signed access/refresh purpose. `SYNKRONUS_ACCEPT_LEGACY_UNTYPED_TOKENS` preserves compatibility with tokens from older servers. Disable it only after **all** issuing instances are upgraded and at least the old seven-day refresh-token lifetime, plus clock-skew and operational margin, has elapsed since the final legacy issuer was removed. Purpose-bound tokens used in the wrong context are rejected even while compatibility mode is enabled.
+
+JWT validation remains stateless. Password changes, role reductions, account deletion, or local sign-out cannot immediately revoke already-issued tokens; they remain valid until expiry. Rotating `JWT_SECRET` provides emergency global invalidation but signs out every user.
 
 ## Volume Management
 
