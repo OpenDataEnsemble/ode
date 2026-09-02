@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -14,6 +15,54 @@ import (
 
 	"github.com/opendataensemble/synkronus/pkg/config"
 )
+
+func TestValidateAttachmentID(t *testing.T) {
+	valid := []string{"file.txt", "photos/cam-01_2.jpg"}
+	for _, id := range valid {
+		if err := ValidateAttachmentID(id); err != nil {
+			t.Fatalf("valid ID %q rejected: %v", id, err)
+		}
+	}
+	invalid := []string{"", "../x", "a/../x", "/absolute", `a\\b`, "a b", "a//b", "a\nb"}
+	for _, id := range invalid {
+		if err := ValidateAttachmentID(id); err == nil {
+			t.Fatalf("invalid ID %q accepted", id)
+		}
+	}
+}
+
+func TestService_SaveDoesNotReplaceConcurrentDestination(t *testing.T) {
+	dir := t.TempDir()
+	svc, err := NewService(&config.Config{DataDir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Save(context.Background(), "same.txt", bytes.NewReader([]byte("first"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Save(context.Background(), "same.txt", bytes.NewReader([]byte("second"))); !os.IsExist(err) {
+		t.Fatalf("expected existence error, got %v", err)
+	}
+	body, err := os.ReadFile(filepath.Join(dir, "attachments", "same.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "first" {
+		t.Fatalf("destination replaced: %q", body)
+	}
+}
+
+func TestService_SaveUploadEnforcesConfiguredSize(t *testing.T) {
+	dir := t.TempDir()
+	svc, err := NewService(&config.Config{DataDir: dir, MaxAttachmentUploadBytes: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.SaveUpload(context.Background(), "video.bin", bytes.NewReader([]byte("123456789")), "application/octet-stream")
+	if !errors.Is(err, ErrAttachmentTooLarge) {
+		t.Fatalf("expected size error, got %v", err)
+	}
+}
 
 func TestService_WriteZip(t *testing.T) {
 	dir := t.TempDir()
@@ -89,7 +138,7 @@ func TestService_SaveUpload_CompressedStoresOriginalAndExportUsesOriginal(t *tes
 	}
 
 	raw := mustEncodeTestJPEG(t, makeTestImage(320, 240), 95)
-	result, err := svc.SaveUpload(context.Background(), "photos/cam.jpg", raw, "image/jpeg")
+	result, err := svc.SaveUpload(context.Background(), "photos/cam.jpg", bytes.NewReader(raw), "image/jpeg")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +192,7 @@ func TestService_SaveUpload_FallbackWithoutOriginal(t *testing.T) {
 	}
 
 	data := []byte("plain data")
-	result, err := svc.SaveUpload(context.Background(), "notes/a.txt", data, "text/plain")
+	result, err := svc.SaveUpload(context.Background(), "notes/a.txt", bytes.NewReader(data), "text/plain")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -60,6 +60,12 @@ services:
       # SYNKRONUS_RECOVERY_CREATE_USER: "admin"
       # SYNKRONUS_RECOVERY_CREATE_PASS: "TEMPORARY_RECOVERY_PASSWORD"
       MAX_VERSIONS_KEPT: "5"
+      # Attachment content limit (128 MiB); keep nginx client_max_body_size above this for multipart overhead.
+      SYNKRONUS_MAX_ATTACHMENT_UPLOAD_BYTES: "134217728"
+      SYNKRONUS_MAX_CONCURRENT_ATTACHMENT_UPLOADS: "4"
+      SYNKRONUS_MAX_CONCURRENT_IMAGE_PROCESSING: "2"
+      SYNKRONUS_MAX_DECODED_IMAGE_DIMENSION_PX: "16384"
+      SYNKRONUS_MAX_DECODED_IMAGE_PIXELS: "40000000"
     volumes:
       - synkronus_data:/app/data
     depends_on:

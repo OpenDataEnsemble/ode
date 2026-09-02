@@ -77,6 +77,11 @@ Synkronus uses a flexible configuration system that supports both environment va
 | `JWT_SECRET` | Secret key for JWT token signing | (required, no default) |
 | `LOG_LEVEL` | Logging level (debug, info, warn, error) | `info` |
 | `MAX_VERSIONS_KEPT` | Maximum number of app bundle versions to keep | `5` |
+| `SYNKRONUS_MAX_ATTACHMENT_UPLOAD_BYTES` | Maximum attachment content bytes | `134217728` (128 MiB) |
+| `SYNKRONUS_MAX_CONCURRENT_ATTACHMENT_UPLOADS` | Maximum concurrent attachment uploads | `4` |
+| `SYNKRONUS_MAX_CONCURRENT_IMAGE_PROCESSING` | Maximum concurrent image decode/transform jobs | `2` |
+| `SYNKRONUS_MAX_DECODED_IMAGE_DIMENSION_PX` | Maximum decoded image width or height | `16384` |
+| `SYNKRONUS_MAX_DECODED_IMAGE_PIXELS` | Maximum decoded image pixel count | `40000000` |
 | `ADMIN_USERNAME` | Initial admin username (bootstrap only) | `admin` |
 | `ADMIN_PASSWORD` | Initial admin password (bootstrap only) | `admin` |
 | `SYNKRONUS_RECOVERY_CREATE_USER` | Recovery admin username (must be paired with pass) | (empty) |

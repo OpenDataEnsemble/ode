@@ -17,6 +17,8 @@ type imageProcessOptions struct {
 	MaxWidthPx           int
 	MaxHeightPx          int
 	ApplyExifOrientation bool
+	MaxDimensionPx       int
+	MaxPixels            int64
 }
 
 type imageProcessResult struct {
@@ -30,14 +32,23 @@ func processImageForStorage(raw []byte, opts imageProcessOptions) (imageProcessR
 		return imageProcessResult{Processed: false}, nil
 	}
 
-	img, format, err := image.Decode(bytes.NewReader(raw))
+	imageConfig, format, err := image.DecodeConfig(bytes.NewReader(raw))
 	if err != nil {
 		return imageProcessResult{Processed: false}, nil
 	}
 	if format != "jpeg" && format != "png" {
 		return imageProcessResult{Processed: false}, nil
 	}
+	if imageConfig.Width <= 0 || imageConfig.Height <= 0 ||
+		(opts.MaxDimensionPx > 0 && (imageConfig.Width > opts.MaxDimensionPx || imageConfig.Height > opts.MaxDimensionPx)) ||
+		(opts.MaxPixels > 0 && int64(imageConfig.Width)*int64(imageConfig.Height) > opts.MaxPixels) {
+		return imageProcessResult{}, ErrAttachmentTooLarge
+	}
 
+	img, format, err := image.Decode(bytes.NewReader(raw))
+	if err != nil {
+		return imageProcessResult{Processed: false}, nil
+	}
 	processed := img
 	didTransform := false
 

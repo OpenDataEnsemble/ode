@@ -134,6 +134,7 @@ func NewRouter(log *logger.Logger, h *handlers.Handler) http.Handler {
 		attachmentService,
 		h.AttachmentManifestService(),
 		h.SyncService(),
+		h.GetConfig(),
 	)
 
 	r.Route("/api", func(r chi.Router) {

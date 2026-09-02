@@ -178,6 +178,11 @@ Your Synkronus instance is now accessible at `https://synkronus.your-domain.com`
 | `PORT` | `8080` | HTTP server port |
 | `LOG_LEVEL` | `info` | Logging level (`debug`, `info`, `warn`, `error`) |
 | `MAX_VERSIONS_KEPT` | `5` | Number of app bundle versions to retain |
+| `SYNKRONUS_MAX_ATTACHMENT_UPLOAD_BYTES` | `134217728` | Maximum attachment content bytes (128 MiB); proxy request limits need multipart overhead |
+| `SYNKRONUS_MAX_CONCURRENT_ATTACHMENT_UPLOADS` | `4` | Maximum concurrent attachment request processing |
+| `SYNKRONUS_MAX_CONCURRENT_IMAGE_PROCESSING` | `2` | Maximum concurrent decoded image operations |
+| `SYNKRONUS_MAX_DECODED_IMAGE_DIMENSION_PX` | `16384` | Maximum decoded image width or height |
+| `SYNKRONUS_MAX_DECODED_IMAGE_PIXELS` | `40000000` | Maximum decoded image pixel count |
 | `ADMIN_USERNAME` | `admin` | Initial admin username |
 | `ADMIN_PASSWORD` | `admin` | Initial admin password (CHANGE THIS!) |
 | `SYNKRONUS_RECOVERY_CREATE_USER` | *(empty)* | Recovery admin username (must be set with pass) |
