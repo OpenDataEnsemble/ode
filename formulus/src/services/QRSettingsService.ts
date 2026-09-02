@@ -1,5 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Keychain from 'react-native-keychain';
 import { decodeFRMLS } from '../utils/FRMLSHelpers';
 import { normalizeServerUrl } from './ServerConfigService';
 
@@ -32,28 +30,8 @@ export class QRSettingsService {
   }
 
   /**
-   * Updates app settings with parsed QR data
-   */
-  static async updateSettings(settings: SettingsUpdate): Promise<void> {
-    try {
-      // Save server URL to AsyncStorage
-      await AsyncStorage.setItem(
-        '@settings',
-        JSON.stringify({
-          serverUrl: settings.serverUrl,
-        }),
-      );
-
-      // Save credentials to Keychain
-      await Keychain.setGenericPassword(settings.username, settings.password);
-    } catch (error) {
-      console.error('Failed to update settings:', error);
-      throw new Error('Failed to save settings');
-    }
-  }
-
-  /**
-   * Complete QR code processing: parse and update settings
+   * Parse and normalize QR settings without persisting credentials. The caller
+   * saves the server choice and login() stores credentials only after auth succeeds.
    */
   static async processQRCode(qrString: string): Promise<SettingsUpdate> {
     const settings = this.parseQRCode(qrString);
@@ -61,8 +39,6 @@ export class QRSettingsService {
     if (!normalized.ok) {
       throw new Error(normalized.message);
     }
-    const next = { ...settings, serverUrl: normalized.href };
-    await this.updateSettings(next);
-    return next;
+    return { ...settings, serverUrl: normalized.href };
   }
 }

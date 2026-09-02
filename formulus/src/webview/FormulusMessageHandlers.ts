@@ -7,7 +7,7 @@ import { sequenceCounterService } from '../services/SequenceCounterService';
 import { qrcodeRequestCoordinator } from '../services/QrcodeRequestCoordinator';
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import RNFS from 'react-native-fs';
-import * as Keychain from 'react-native-keychain';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert, Platform } from 'react-native';
 import { i18n } from '../i18n/instance';
@@ -42,6 +42,7 @@ import { persistObservationWithAttachments } from '../services/attachmentStorage
 import { databaseService } from '../database/DatabaseService';
 import { SyncService } from '../services/SyncService';
 import { ServerConfigService } from '../services/ServerConfigService';
+import { getUserInfo } from '../api/synkronus/Auth';
 
 // NitroSound is disabled for emulator in react-native.config.js - do not load the module
 // to avoid "Sound HybridObject not registered" console errors. Load lazily only when
@@ -1211,38 +1212,17 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
       role?: 'read-only' | 'read-write' | 'admin';
     }> => {
       try {
-        const credentials = await Keychain.getGenericPassword();
-        if (!credentials) {
+        const user = await getUserInfo();
+        if (!user) {
           // Logged out — same shape as authenticated user; empty username is
           // the contract for callers (e.g. placeholder) and must not throw.
           return { username: '' };
         }
 
-        // Retrieve role from stored user info (set during login)
-        let role: 'read-only' | 'read-write' | 'admin' | undefined;
-        try {
-          const userJson = await AsyncStorage.getItem('@user');
-          if (userJson) {
-            const userInfo = JSON.parse(userJson);
-            if (
-              userInfo.role === 'admin' ||
-              userInfo.role === 'read-write' ||
-              userInfo.role === 'read-only'
-            ) {
-              role = userInfo.role;
-            }
-          }
-        } catch (roleError) {
-          console.warn(
-            'FormulusMessageHandlers: Failed to retrieve user role:',
-            roleError,
-          );
-        }
-
         return {
-          username: credentials.username,
-          displayName: credentials.username,
-          role,
+          username: user.username,
+          displayName: user.username,
+          role: user.role,
         };
       } catch (error) {
         console.error(

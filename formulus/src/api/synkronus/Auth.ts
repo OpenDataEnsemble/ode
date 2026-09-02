@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Keychain from 'react-native-keychain';
 import { ODE_VERSION } from '../../version';
 import { logger } from '../../diagnostics/logger';
+import { invalidateSettingsHydrationCache } from '../../services/SettingsHydrationCache';
 
 export type UserRole = 'read-only' | 'read-write' | 'admin';
 
@@ -97,35 +98,87 @@ function decodeJwtPayload(token: string) {
   }
 }
 
+const AUTH_STORAGE_KEYS = [
+  '@token',
+  '@refreshToken',
+  '@tokenExpiresAt',
+  '@user',
+];
+
+const getHttpStatus = (error: unknown): number | undefined => {
+  const httpError = error as HttpError | undefined;
+  return (
+    httpError?.response?.status ??
+    httpError?.status ??
+    httpError?.statusCode ??
+    httpError?.body?.status ??
+    httpError?.data?.status
+  );
+};
+
+const clearSession = async (): Promise<void> => {
+  synkronusApi.clearTokenCache();
+  invalidateSettingsHydrationCache();
+  await AsyncStorage.multiRemove(AUTH_STORAGE_KEYS);
+};
+
+const removeCredentialsIfMatching = async (
+  username: string,
+  password: string,
+): Promise<void> => {
+  try {
+    const saved = await Keychain.getGenericPassword();
+    if (saved && saved.username === username && saved.password === password) {
+      await Keychain.resetGenericPassword();
+    }
+  } catch (error) {
+    console.warn('Failed to remove rejected saved credentials:', error);
+  } finally {
+    invalidateSettingsHydrationCache();
+  }
+};
+
 export const login = async (
   username: string,
   password: string,
 ): Promise<UserInfo> => {
-  logger.info('auth', 'login ok');
   const api = await synkronusApi.getApi();
 
-  synkronusApi.clearTokenCache();
-
-  const res = await api.login({
-    xOdeVersion: ODE_VERSION,
-    loginRequest: { username, password },
-  });
+  let res;
+  try {
+    res = await api.login({
+      xOdeVersion: ODE_VERSION,
+      loginRequest: { username, password },
+    });
+  } catch (error) {
+    // A concrete login HTTP 401 confirms that these credentials are invalid.
+    // Transient failures and compatibility errors must leave the prior session intact.
+    if (getHttpStatus(error) === 401) {
+      await clearSession();
+      await removeCredentialsIfMatching(username, password);
+    }
+    throw error;
+  }
 
   const { token, refreshToken: refreshTokenValue, expiresAt } = res.data;
+
+  // Authentication has succeeded, so it is now safe to replace saved credentials.
+  await Keychain.setGenericPassword(username, password);
+  invalidateSettingsHydrationCache();
 
   await AsyncStorage.setItem('@token', token);
   await AsyncStorage.setItem('@refreshToken', refreshTokenValue);
   await AsyncStorage.setItem('@tokenExpiresAt', expiresAt.toString());
 
-  // Decode JWT to get user info
   const claims = decodeJwtPayload(token);
   const userInfo: UserInfo = {
     username: claims?.username || username,
     role: claims?.role || 'read-only',
   };
 
-  // Store user info
   await AsyncStorage.setItem('@user', JSON.stringify(userInfo));
+  synkronusApi.clearTokenCache();
+  logger.info('auth', 'login ok');
 
   return userInfo;
 };
@@ -143,12 +196,13 @@ export const getUserInfo = async (): Promise<UserInfo | null> => {
 };
 
 export const logout = async (): Promise<void> => {
-  await AsyncStorage.multiRemove([
-    '@token',
-    '@refreshToken',
-    '@tokenExpiresAt',
-    '@user',
+  synkronusApi.clearTokenCache();
+  invalidateSettingsHydrationCache();
+  await Promise.all([
+    AsyncStorage.multiRemove(AUTH_STORAGE_KEYS),
+    Keychain.resetGenericPassword(),
   ]);
+  invalidateSettingsHydrationCache();
 };
 
 // Function to retrieve the auth token from AsyncStorage
@@ -222,15 +276,7 @@ export const isUnauthorizedError = (error: unknown): boolean => {
 
   const httpError = error as HttpError;
 
-  // Axios errors: error.response.status
-  if (httpError.response?.status === 401) return true;
-
-  // Direct status properties
-  if (httpError.status === 401 || httpError.statusCode === 401) return true;
-
-  // ProblemDetail format (from OpenAPI spec)
-  if (httpError.body?.status === 401 || httpError.data?.status === 401)
-    return true;
+  if (getHttpStatus(error) === 401) return true;
 
   // Check error message for 401 or unauthorized
   if (typeof httpError.message === 'string') {
@@ -245,6 +291,9 @@ export const isUnauthorizedError = (error: unknown): boolean => {
 
   return false;
 };
+
+export const isRateLimitedError = (error: unknown): boolean =>
+  getHttpStatus(error) === 429;
 
 /** User-visible explanation when the server rejects observation upload (e.g. read-only role). */
 export const SYNC_WRITE_FORBIDDEN_MESSAGE =
