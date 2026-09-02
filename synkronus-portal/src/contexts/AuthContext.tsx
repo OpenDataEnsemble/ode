@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import { api } from '../services/api';
+import { ApiError, api } from '../services/api';
 import type { LoginRequest, User, AuthState } from '../types/auth';
 
 interface AuthContextType extends AuthState {
@@ -118,8 +118,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: true,
       });
     } catch (error) {
-      // Refresh failed, logout
-      logout();
+      // Preserve the current session during throttling and transient failures.
+      // Only a rejected refresh credential or malformed successful response is definitive.
+      if (
+        (error instanceof ApiError && error.status === 401) ||
+        (error instanceof Error && error.message === 'Invalid token format')
+      ) {
+        logout();
+      }
       throw error;
     }
   };

@@ -3,6 +3,9 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/utils"
@@ -17,6 +20,44 @@ func apiVersion() (string, error) {
 		return "", fmt.Errorf("api.version is required")
 	}
 	return version, nil
+}
+
+// RateLimitError indicates that Synkronus asked the client to back off.
+type RateLimitError struct {
+	RetryAfter time.Duration
+}
+
+func (e *RateLimitError) Error() string {
+	if e.RetryAfter > 0 {
+		return fmt.Sprintf("authentication rate limited; retry after %s", e.RetryAfter)
+	}
+	return "authentication rate limited; retry later"
+}
+
+func rateLimitError(response *http.Response) error {
+	if response == nil || response.StatusCode != http.StatusTooManyRequests {
+		return nil
+	}
+	value := response.Header.Get("Retry-After")
+	if seconds, err := strconv.Atoi(value); err == nil && seconds >= 0 {
+		return &RateLimitError{RetryAfter: time.Duration(seconds) * time.Second}
+	}
+	if retryAt, err := http.ParseTime(value); err == nil {
+		return &RateLimitError{RetryAfter: time.Until(retryAt).Round(time.Second)}
+	}
+	return &RateLimitError{}
+}
+
+func persistAuthConfig() error {
+	if err := viper.WriteConfig(); err != nil {
+		return err
+	}
+	if path := viper.ConfigFileUsed(); path != "" {
+		if err := os.Chmod(path, 0600); err != nil {
+			return fmt.Errorf("secure config permissions: %w", err)
+		}
+	}
+	return nil
 }
 
 // TokenResponse represents the response from the authentication endpoint
@@ -57,8 +98,11 @@ func Login(username, password string) (*TokenResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("login request failed: %w", err)
 	}
+	if err := rateLimitError(resp.HTTPResponse); err != nil {
+		return nil, err
+	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("login failed with status %d: %s", resp.StatusCode(), string(resp.Body))
+		return nil, fmt.Errorf("login failed with status %d", resp.StatusCode())
 	}
 	tokenResp := &TokenResponse{
 		Token:        resp.JSON200.Token,
@@ -66,11 +110,12 @@ func Login(username, password string) (*TokenResponse, error) {
 		ExpiresAt:    resp.JSON200.ExpiresAt,
 	}
 
-	// Save token to viper config
 	viper.Set("auth.token", tokenResp.Token)
 	viper.Set("auth.refresh_token", tokenResp.RefreshToken)
 	viper.Set("auth.expires_at", tokenResp.ExpiresAt)
-	viper.WriteConfig()
+	if err := persistAuthConfig(); err != nil {
+		return nil, fmt.Errorf("persist authentication: %w", err)
+	}
 
 	return tokenResp, nil
 }
@@ -97,8 +142,11 @@ func RefreshToken() (*TokenResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("refresh request failed: %w", err)
 	}
+	if err := rateLimitError(resp.HTTPResponse); err != nil {
+		return nil, err
+	}
 	if resp.JSON200 == nil {
-		return nil, fmt.Errorf("token refresh failed with status %d: %s", resp.StatusCode(), string(resp.Body))
+		return nil, fmt.Errorf("token refresh failed with status %d", resp.StatusCode())
 	}
 	tokenResp := &TokenResponse{
 		Token:        resp.JSON200.Token,
@@ -106,11 +154,12 @@ func RefreshToken() (*TokenResponse, error) {
 		ExpiresAt:    resp.JSON200.ExpiresAt,
 	}
 
-	// Save token to viper config
 	viper.Set("auth.token", tokenResp.Token)
 	viper.Set("auth.refresh_token", tokenResp.RefreshToken)
 	viper.Set("auth.expires_at", tokenResp.ExpiresAt)
-	viper.WriteConfig()
+	if err := persistAuthConfig(); err != nil {
+		return nil, fmt.Errorf("persist authentication: %w", err)
+	}
 
 	return tokenResp, nil
 }
@@ -162,5 +211,5 @@ func Logout() error {
 	viper.Set("auth.token", "")
 	viper.Set("auth.refresh_token", "")
 	viper.Set("auth.expires_at", 0)
-	return viper.WriteConfig()
+	return persistAuthConfig()
 }
