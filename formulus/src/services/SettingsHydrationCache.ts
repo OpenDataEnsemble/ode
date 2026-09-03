@@ -12,6 +12,7 @@ export type SettingsHydrationSnapshot =
 let snapshot: SettingsHydrationSnapshot = { ready: false };
 
 let inflight: Promise<SettingsHydrationSnapshot> | null = null;
+let generation = 0;
 
 function normalizeCredentials(
   raw: Awaited<ReturnType<typeof Keychain.getGenericPassword>>,
@@ -22,7 +23,9 @@ function normalizeCredentials(
   return { username: raw.username, password: raw.password };
 }
 
-async function fetchSnapshot(): Promise<SettingsHydrationSnapshot> {
+async function fetchSnapshot(
+  requestedGeneration: number,
+): Promise<SettingsHydrationSnapshot> {
   const [serverUrl, credentials] = await Promise.all([
     serverConfigService.getServerUrl(),
     Keychain.getGenericPassword(),
@@ -32,7 +35,9 @@ async function fetchSnapshot(): Promise<SettingsHydrationSnapshot> {
     serverUrl,
     credentials: normalizeCredentials(credentials),
   };
-  snapshot = next;
+  if (requestedGeneration === generation) {
+    snapshot = next;
+  }
   return next;
 }
 
@@ -45,9 +50,13 @@ export function loadSettingsHydrationFromStorage(): Promise<SettingsHydrationSna
   if (inflight) {
     return inflight;
   }
-  inflight = fetchSnapshot().finally(() => {
-    inflight = null;
+  const requestedGeneration = generation;
+  const request = fetchSnapshot(requestedGeneration).finally(() => {
+    if (inflight === request) {
+      inflight = null;
+    }
   });
+  inflight = request;
   return inflight;
 }
 
@@ -67,5 +76,7 @@ export function getSettingsHydrationCredentialPair(
 
 /** When storage may no longer match the cache (e.g. after server switch). */
 export function invalidateSettingsHydrationCache(): void {
+  generation += 1;
   snapshot = { ready: false };
+  inflight = null;
 }

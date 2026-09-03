@@ -59,8 +59,11 @@ import * as Keychain from 'react-native-keychain';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   autoLogin,
+  isRateLimitedError,
   isUnauthorizedError,
   isVersionMismatchError,
+  login,
+  logout,
 } from '../Auth';
 import { VersionMismatchError } from '../../../errors/VersionMismatchError';
 import { ODE_VERSION } from '../../../version';
@@ -127,6 +130,83 @@ describe('Auth - Auto-Login', () => {
     test('should return false for null/undefined', () => {
       expect(isUnauthorizedError(null)).toBe(false);
       expect(isUnauthorizedError(undefined)).toBe(false);
+    });
+  });
+
+  describe('isRateLimitedError', () => {
+    test('detects 429 without treating it as unauthorized', () => {
+      const error = { response: { status: 429 } };
+      expect(isRateLimitedError(error)).toBe(true);
+      expect(isUnauthorizedError(error)).toBe(false);
+    });
+  });
+
+  describe('session lifecycle', () => {
+    test('confirmed invalid credentials clear the prior session and rejected saved credentials', async () => {
+      const credentials = { username: 'testuser', password: 'wrong' };
+      (Keychain.getGenericPassword as jest.Mock).mockResolvedValue(credentials);
+      const mockApi = {
+        login: jest.fn().mockRejectedValue({ response: { status: 401 } }),
+      };
+      (synkronusApi.getApi as jest.Mock).mockResolvedValue(mockApi);
+
+      await expect(
+        login(credentials.username, credentials.password),
+      ).rejects.toEqual({
+        response: { status: 401 },
+      });
+
+      expect(AsyncStorage.multiRemove).toHaveBeenCalledWith([
+        '@token',
+        '@refreshToken',
+        '@tokenExpiresAt',
+        '@user',
+      ]);
+      expect(Keychain.resetGenericPassword).toHaveBeenCalled();
+      expect(synkronusApi.clearTokenCache).toHaveBeenCalled();
+    });
+
+    test('rate limiting preserves the prior session and credentials', async () => {
+      const mockApi = {
+        login: jest.fn().mockRejectedValue({ response: { status: 429 } }),
+      };
+      (synkronusApi.getApi as jest.Mock).mockResolvedValue(mockApi);
+
+      await expect(login('testuser', 'password')).rejects.toEqual({
+        response: { status: 429 },
+      });
+
+      expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
+      expect(Keychain.resetGenericPassword).not.toHaveBeenCalled();
+      expect(Keychain.setGenericPassword).not.toHaveBeenCalled();
+    });
+
+    test('successful login persists credentials only after authentication succeeds', async () => {
+      const mockApi = {
+        login: jest.fn().mockResolvedValue({
+          data: {
+            token: 'token',
+            refreshToken: 'refresh',
+            expiresAt: 123,
+          },
+        }),
+      };
+      (synkronusApi.getApi as jest.Mock).mockResolvedValue(mockApi);
+
+      await login('testuser', 'password');
+
+      expect(mockApi.login).toHaveBeenCalled();
+      expect(Keychain.setGenericPassword).toHaveBeenCalledWith(
+        'testuser',
+        'password',
+      );
+    });
+
+    test('logout clears session and saved credentials', async () => {
+      await logout();
+      expect(AsyncStorage.multiRemove).toHaveBeenCalled();
+      expect(Keychain.resetGenericPassword).toHaveBeenCalled();
+      expect(synkronusApi.clearTokenCache).toHaveBeenCalled();
     });
   });
 

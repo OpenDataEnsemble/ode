@@ -4,12 +4,41 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/OpenDataEnsemble/ode/synkronus-cli/internal/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
+
+func isSensitiveConfigKey(key string) bool {
+	key = strings.ToLower(key)
+	return strings.Contains(key, "password") || strings.Contains(key, "token") || strings.Contains(key, "secret")
+}
+
+func redactConfigMap(settings map[string]any) map[string]any {
+	redacted := make(map[string]any, len(settings))
+	for key, value := range settings {
+		if isSensitiveConfigKey(key) {
+			redacted[key] = "***REDACTED***"
+			continue
+		}
+		if nested, ok := value.(map[string]any); ok {
+			redacted[key] = redactConfigMap(nested)
+		} else {
+			redacted[key] = value
+		}
+	}
+	return redacted
+}
+
+func secureConfigFilePermissions() error {
+	if path := viper.ConfigFileUsed(); path != "" {
+		return os.Chmod(path, 0600)
+	}
+	return nil
+}
 
 func init() {
 	// Config command group
@@ -53,7 +82,7 @@ func init() {
 			// Create config directory if it doesn't exist
 			configDir := filepath.Dir(configPath)
 			if _, err := os.Stat(configDir); os.IsNotExist(err) {
-				if err := os.MkdirAll(configDir, 0755); err != nil {
+				if err := os.MkdirAll(configDir, 0700); err != nil {
 					return fmt.Errorf("error creating config directory: %w", err)
 				}
 			}
@@ -68,8 +97,11 @@ func init() {
 			}
 
 			// Write to file
-			if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
+			if err := os.WriteFile(configPath, yamlData, 0600); err != nil {
 				return fmt.Errorf("error writing config file: %w", err)
+			}
+			if err := os.Chmod(configPath, 0600); err != nil {
+				return fmt.Errorf("error securing config file: %w", err)
 			}
 
 			fmt.Printf("Configuration file created at %s\n", configPath)
@@ -87,7 +119,7 @@ func init() {
 		Long:  `Display the current configuration settings.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Get all settings
-			allSettings := viper.AllSettings()
+			allSettings := redactConfigMap(viper.AllSettings())
 
 			// Convert to YAML
 			yamlData, err := yaml.Marshal(allSettings)
@@ -116,8 +148,15 @@ func init() {
 			if err := viper.WriteConfig(); err != nil {
 				return fmt.Errorf("error writing config: %w", err)
 			}
+			if err := secureConfigFilePermissions(); err != nil {
+				return fmt.Errorf("error securing config: %w", err)
+			}
 
-			fmt.Printf("Set %s = %s\n", key, value)
+			displayedValue := value
+			if isSensitiveConfigKey(key) {
+				displayedValue = "***REDACTED***"
+			}
+			fmt.Printf("Set %s = %s\n", key, displayedValue)
 			return nil
 		},
 	}
@@ -152,8 +191,11 @@ func init() {
 			}
 
 			pointerPath := filepath.Join(home, ".synkronus_current")
-			if err := os.WriteFile(pointerPath, []byte(absPath+"\n"), 0644); err != nil {
+			if err := os.WriteFile(pointerPath, []byte(absPath+"\n"), 0600); err != nil {
 				return fmt.Errorf("error writing current config pointer: %w", err)
+			}
+			if err := os.Chmod(pointerPath, 0600); err != nil {
+				return fmt.Errorf("error securing current config pointer: %w", err)
 			}
 
 			fmt.Printf("Current config set to %s\n", absPath)

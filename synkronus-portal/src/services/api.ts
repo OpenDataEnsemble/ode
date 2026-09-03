@@ -40,6 +40,29 @@ const getApiOriginForGeneratedClient = (): string => {
 const API_BASE_URL = getApiBaseUrl();
 const GENERATED_CLIENT_BASE_PATH = getApiOriginForGeneratedClient();
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+    readonly retryAfterSeconds?: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export function parseRetryAfter(
+  value: string | null | undefined,
+  now = Date.now(),
+): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds);
+  const date = Date.parse(value);
+  if (Number.isNaN(date)) return undefined;
+  return Math.max(0, Math.ceil((date - now) / 1000));
+}
+
 const clearStoredAuth = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('refreshToken');
@@ -73,9 +96,30 @@ const toApiError = (
       if (redirectOnUnauthorized) {
         clearStoredAuth();
         window.location.href = '/';
-        return new Error('Your session has expired. Please log in again.');
+        return new ApiError(
+          'Your session has expired. Please log in again.',
+          status,
+        );
       }
-      return new Error(errorMessage || 'Invalid username or password');
+      return new ApiError(
+        errorMessage || 'Invalid username or password',
+        status,
+      );
+    }
+
+    if (status === 429) {
+      const retryAfterSeconds = parseRetryAfter(
+        axiosError.response?.headers['retry-after'] as string | undefined,
+      );
+      const retryMessage =
+        retryAfterSeconds !== undefined
+          ? ` Try again in ${retryAfterSeconds} seconds.`
+          : ' Try again later.';
+      return new ApiError(
+        `${errorMessage || 'Too many requests.'}${retryMessage}`,
+        status,
+        retryAfterSeconds,
+      );
     }
 
     if (status === 0 || (status !== undefined && status >= 500)) {
@@ -84,7 +128,10 @@ const toApiError = (
       errorMessage = 'No internet connection';
     }
 
-    return new Error(errorMessage || 'Network error: Unable to reach API');
+    return new ApiError(
+      errorMessage || 'Network error: Unable to reach API',
+      status,
+    );
   }
 
   if (error instanceof Error) return error;
@@ -172,7 +219,7 @@ export const api = {
       });
       return res.data as LoginResponse;
     } catch (error) {
-      throw toApiError(error);
+      throw toApiError(error, { redirectOnUnauthorized: false });
     }
   },
 

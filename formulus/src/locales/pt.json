@@ -205,6 +205,7 @@
   "settings.loginSuccess": "Sessão iniciada com sucesso!",
   "settings.loginFailedCredentials": "Verifique as suas credenciais.",
   "settings.loginFailed": "Falha no login: {{message}}",
+  "settings.loginThrottled": "Demasiadas tentativas de início de sessão. Aguarde antes de tentar novamente.",
   "settings.qrInvalid": "Formato de código QR inválido. Tente novamente.",
   "settings.qrError": "Erro no código QR: {{message}}",
   "settings.qrScanFailed": "Não foi possível ler o código QR. Tente novamente.",

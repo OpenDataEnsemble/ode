@@ -205,6 +205,7 @@
   "settings.loginSuccess": "Successfully logged in!",
   "settings.loginFailedCredentials": "Please check your credentials.",
   "settings.loginFailed": "Login failed: {{message}}",
+  "settings.loginThrottled": "Too many login attempts. Please wait before trying again.",
   "settings.qrInvalid": "Invalid QR code format. Please try again.",
   "settings.qrError": "QR code error: {{message}}",
   "settings.qrScanFailed": "Failed to scan QR code. Please try again.",

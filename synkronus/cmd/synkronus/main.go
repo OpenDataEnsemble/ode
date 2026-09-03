@@ -144,6 +144,14 @@ func main() {
 	authConfig := auth.DefaultConfig()
 	// Override auth config from configuration
 	authConfig.JWTSecret = cfg.JWTSecret
+	if raw := os.Getenv("SYNKRONUS_ACCEPT_LEGACY_UNTYPED_TOKENS"); raw != "" {
+		value, parseErr := strconv.ParseBool(raw)
+		if parseErr != nil {
+			log.Error("Invalid SYNKRONUS_ACCEPT_LEGACY_UNTYPED_TOKENS value", "error", parseErr)
+			return
+		}
+		authConfig.AcceptLegacyUntypedTokens = value
+	}
 
 	// These can still be overridden by environment variables for security
 	if adminUsername := os.Getenv("ADMIN_USERNAME"); adminUsername != "" {

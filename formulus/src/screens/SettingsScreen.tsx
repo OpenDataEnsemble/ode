@@ -17,9 +17,10 @@ import { Input as ODEInput, PasswordInput } from '../components/common';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import * as Keychain from 'react-native-keychain';
+
 import {
   login,
+  isRateLimitedError,
   isVersionMismatchError,
   getUserFacingSyncErrorMessage,
 } from '../api/synkronus/Auth';
@@ -387,7 +388,6 @@ const SettingsScreen = () => {
     try {
       await serverConfigService.saveServerUrl(norm.href);
 
-      await Keychain.setGenericPassword(trimmedUsername, trimmedPassword);
       await login(trimmedUsername, trimmedPassword);
       void loadSettingsHydrationFromStorage();
       ToastService.showShort(t('settings.loginSuccess'));
@@ -396,9 +396,11 @@ const SettingsScreen = () => {
       console.error('Login failed:', error);
       const message = isVersionMismatchError(error)
         ? error.message
-        : t('settings.loginFailed', {
-            message: t('settings.loginFailedCredentials'),
-          });
+        : isRateLimitedError(error)
+          ? t('settings.loginThrottled')
+          : t('settings.loginFailed', {
+              message: t('settings.loginFailedCredentials'),
+            });
       ToastService.showLong(message);
     } finally {
       setIsLoggingIn(false);
@@ -441,13 +443,9 @@ const SettingsScreen = () => {
         setUsername(settings.username);
         setPassword(settings.password);
 
-        if (settings.username && settings.password) {
-          await serverConfigService.saveServerUrl(settings.serverUrl);
+        await serverConfigService.saveServerUrl(settings.serverUrl);
 
-          await Keychain.setGenericPassword(
-            settings.username,
-            settings.password,
-          );
+        if (settings.username && settings.password) {
           try {
             await login(settings.username, settings.password);
             void loadSettingsHydrationFromStorage();
@@ -455,11 +453,14 @@ const SettingsScreen = () => {
             navigation.navigate('Sync');
           } catch (error) {
             console.error('Auto-login failed:', error);
-            ToastService.showLong(
-              t('settings.loginFailed', {
-                message: t('settings.loginFailedCredentials'),
-              }),
-            );
+            const message = isVersionMismatchError(error)
+              ? error.message
+              : isRateLimitedError(error)
+                ? t('settings.loginThrottled')
+                : t('settings.loginFailed', {
+                    message: t('settings.loginFailedCredentials'),
+                  });
+            ToastService.showLong(message);
           }
         } else {
           void loadSettingsHydrationFromStorage();

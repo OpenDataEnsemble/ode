@@ -205,6 +205,7 @@
   "settings.loginSuccess": "Connexion réussie !",
   "settings.loginFailedCredentials": "Vérifiez vos identifiants.",
   "settings.loginFailed": "Échec de la connexion : {{message}}",
+  "settings.loginThrottled": "Trop de tentatives de connexion. Veuillez patienter avant de réessayer.",
   "settings.qrInvalid": "Format de code QR invalide. Veuillez réessayer.",
   "settings.qrError": "Erreur de code QR : {{message}}",
   "settings.qrScanFailed": "Impossible de scanner le code QR. Veuillez réessayer.",

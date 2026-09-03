@@ -8,7 +8,7 @@ import {
   type SyncPullRequest,
   type SyncPushRequest,
 } from '../../generated/synkronus-client';
-import { SyncHttpError } from './syncErrors';
+import { parseRetryAfter, SyncHttpError } from './syncErrors';
 import {
   DEFAULT_OBSERVATION_FORM_TYPE,
   DEFAULT_OBSERVATION_FORM_VERSION,
@@ -176,11 +176,19 @@ async function toSyncGatewayError(
     const statusLine =
       `${error.response.status} ${error.response.statusText}`.trim();
     const endpoint = error.response.url || baseUrl;
+    const retryAfterSeconds = parseRetryAfter(
+      error.response.headers.get('retry-after'),
+    );
     const detailSuffix = responseDetails ? ` | ${responseDetails}` : '';
+    const retrySuffix =
+      error.response.status === 429 && retryAfterSeconds !== undefined
+        ? ` | retry after ${retryAfterSeconds}s`
+        : '';
     return new SyncHttpError(
-      `Synk ${operation} failed (HTTP ${statusLine}) at ${endpoint}${detailSuffix}`,
+      `Synk ${operation} failed (HTTP ${statusLine}) at ${endpoint}${detailSuffix}${retrySuffix}`,
       error.response.status,
       operation,
+      retryAfterSeconds,
     );
   }
 
