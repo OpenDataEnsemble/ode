@@ -316,11 +316,23 @@ article p img {
   background-color: transparent;
   border-color: var(--ode-primary);
   color: var(--ode-primary);
+  --ifm-button-color: var(--ode-primary);
 }
 
 .button--secondary:hover {
   background-color: var(--ode-primary);
   color: white;
+  --ifm-button-color: white;
+}
+
+[data-theme='dark'] .button--secondary {
+  color: var(--ode-primary-light);
+  --ifm-button-color: var(--ode-primary-light);
+}
+
+[data-theme='dark'] .button--secondary:hover {
+  color: white;
+  --ifm-button-color: white;
 }
 
 /* Alert boxes */
