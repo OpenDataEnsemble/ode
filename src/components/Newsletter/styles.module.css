@@ -110,6 +110,10 @@
   text-align: center;
 }
 
+[data-theme='dark'] .privacy {
+  color: var(--ode-neutral-800);
+}
+
 .thankYouMessage {
   background: white;
   border-radius: 8px;
