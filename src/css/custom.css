@@ -418,6 +418,41 @@ a:hover {
   text-decoration: none;
 }
 
+[data-theme='dark'] .footer,
+[data-theme='dark'] .footer--dark {
+  --ifm-footer-color: var(--ode-neutral-900);
+  --ifm-footer-title-color: var(--ode-neutral-900);
+  --ifm-footer-link-color: var(--ode-neutral-900);
+  color: var(--ode-neutral-900);
+}
+
+[data-theme='dark'] .footer__title,
+[data-theme='dark'] .footer__copyright {
+  color: var(--ode-neutral-900);
+}
+
+[data-theme='dark'] .footer .footer__link-item,
+[data-theme='dark'] .footer a.footer__link-item {
+  --ifm-link-color: var(--ode-neutral-900);
+  --ifm-footer-link-color: var(--ode-neutral-900);
+  color: var(--ode-neutral-900);
+}
+
+[data-theme='dark'] .footer .footer__link-item:hover,
+[data-theme='dark'] .footer a.footer__link-item:hover {
+  --ifm-link-hover-color: var(--ode-secondary);
+  color: var(--ode-secondary);
+}
+
+[data-theme='dark'] .footer a.footer__social-link {
+  color: var(--ode-neutral-900);
+}
+
+[data-theme='dark'] .footer a.footer__social-link:hover {
+  color: var(--ode-secondary);
+  text-decoration: none;
+}
+
 /* Responsive adjustments */
 @media (max-width: 996px) {
   h1 {
