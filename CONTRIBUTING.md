@@ -49,10 +49,10 @@ This is a monorepo, so the setup depends on the project you're touching. The ful
    ```
 
 4. When ready, push the changes to your for and create a PR from GitHub
-  
-  ```bash
-  git push -u origin my-change
-  ``` 
+
+   ```bash
+   git push -u origin my-change
+   ``` 
 
 ### Per-project setup
 
