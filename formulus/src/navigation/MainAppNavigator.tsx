@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import MainTabNavigator from './MainTabNavigator';
 import WelcomeScreen from '../screens/WelcomeScreen';
@@ -28,6 +29,7 @@ function ObservationDetailHeader({
   navigation: { goBack: () => void };
   themeColors: ThemeColors;
 }) {
+  const insets = useSafeAreaInsets();
   return (
     <View
       style={[
@@ -35,6 +37,7 @@ function ObservationDetailHeader({
         {
           backgroundColor: themeColors.surface,
           borderBottomColor: themeColors.divider as string,
+          paddingTop: insets.top + odeSpacing.md,
         },
       ]}>
       <TouchableOpacity
@@ -59,7 +62,8 @@ const observationDetailHeaderStyles = StyleSheet.create({
   wrapper: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    padding: odeSpacing.md,
+    paddingHorizontal: odeSpacing.md,
+    paddingBottom: odeSpacing.md,
     borderBottomWidth: odeBorderWidth.hairline,
     overflow: 'visible',
     borderTopWidth: 0,
