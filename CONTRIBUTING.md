@@ -32,7 +32,7 @@ This is a monorepo, so the setup depends on the project you're touching. The ful
 
 ### Get the code
 
-1. Fork the repository on GitHub.
+1. [Fork the ode monorepo on GitHub](https://github.com/OpenDataEnsemble/ode/fork).
 2. Clone your fork and add the upstream remote:
 
    ```bash
@@ -45,8 +45,14 @@ This is a monorepo, so the setup depends on the project you're touching. The ful
 
    ```bash
    git fetch upstream
-   git checkout -b my-change upstream/dev
+   git switch -c my-change upstream/dev
    ```
+
+4. When ready, push the changes to your for and create a PR from GitHub
+  
+  ```bash
+  git push -u origin my-change
+  ``` 
 
 ### Per-project setup
 
