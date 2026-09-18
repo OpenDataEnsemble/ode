@@ -71,7 +71,9 @@ ODE is a **young and vibrant open-source project**, and we're incredibly welcomi
 
 ...we'd love to have you join our ensemble! 
 
-## 🤝 Contributing
+## Contributing
+
+For the full contribution workflow — setup, commit rules, and PR checks — read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 We believe that diverse perspectives and varied skill sets make our project stronger. Don't worry if you're new to open source or if you think your skills might not be "technical enough" - there's a place for everyone here.
 
@@ -131,4 +133,4 @@ Ready to join the ensemble? We're excited to meet you and see what unique perspe
 
 ---
 
-*Building the future of open data collection, one contribution at a time.* ✨
+*Building the future of open data collection, one contribution at a time.*
