@@ -59,9 +59,13 @@ class ServerSwitchService {
     ObservationIndexService.getInstance(database).reset();
 
     // 4) Clear sync/app metadata + tokens
+    // Also drop @repository_generation: it is global (not per-server). Leaving
+    // the previous server's epoch causes a spurious repository_reset_required
+    // 409 against a fresh server still on generation 1.
     await AsyncStorage.multiRemove([
       '@last_seen_version',
       '@last_attachment_version',
+      '@repository_generation',
       '@lastSync',
       '@appVersion',
       '@settings',

@@ -95,6 +95,7 @@ describe('ServerSwitchService', () => {
     expect(mockAsyncStorage.multiRemove).toHaveBeenCalledWith([
       '@last_seen_version',
       '@last_attachment_version',
+      '@repository_generation',
       '@lastSync',
       '@appVersion',
       '@settings',
