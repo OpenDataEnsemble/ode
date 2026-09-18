@@ -7,7 +7,10 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { Observation } from '../database/models/Observation';
 import { FormService } from '../services/FormService';
@@ -45,6 +48,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
   const navigation = useNavigation();
   const { themeColors } = useAppTheme();
   const shellStyle = useScreenShellStyle();
+  const insets = useSafeAreaInsets();
   const { showConfirm } = useConfirmModal();
   const { t } = useTranslation();
   const [observation, setObservation] = useState<Observation | null>(null);
@@ -286,7 +290,7 @@ const ObservationDetailScreen: React.FC<ObservationDetailScreenProps> = ({
           contentContainerStyle={[
             styles.contentContainer,
             {
-              paddingTop: odeScreenHeaderHeight + odeSpacing.md,
+              paddingTop: insets.top + odeScreenHeaderHeight + odeSpacing.md,
             },
           ]}>
           <View style={styles.actionBar}>
