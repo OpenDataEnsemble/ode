@@ -1,5 +1,11 @@
 import { isNotFoundError, isVersionMismatchError } from '../api/synkronus/Auth';
+import {
+  APP_BUNDLE_INSUFFICIENT_STORAGE_USER_MESSAGE,
+  isInsufficientStorageError,
+} from '../errors/InsufficientStorageError';
 import { serverConfigService } from './ServerConfigService';
+
+export { APP_BUNDLE_INSUFFICIENT_STORAGE_USER_MESSAGE };
 
 /** Server responds on /health but app-bundle returned 404 — nothing published yet. */
 export const APP_BUNDLE_NOT_PUBLISHED_USER_MESSAGE =
@@ -30,6 +36,10 @@ export async function getUserFacingAppBundleUpdateErrorMessage(
 ): Promise<string> {
   if (isVersionMismatchError(error)) {
     return (error as Error).message;
+  }
+
+  if (isInsufficientStorageError(error)) {
+    return APP_BUNDLE_INSUFFICIENT_STORAGE_USER_MESSAGE;
   }
 
   const serverUrl = await serverConfigService.getServerUrl();

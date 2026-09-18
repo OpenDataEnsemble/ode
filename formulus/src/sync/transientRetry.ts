@@ -1,3 +1,4 @@
+import { isInsufficientStorageError } from '../errors/InsufficientStorageError';
 import { isRepositoryResetRequiredError } from '../errors/RepositoryResetRequiredError';
 import { isVersionMismatchError } from '../errors/VersionMismatchError';
 import { SYNC_CANCELLED_MESSAGE } from '../api/synkronus/downloadPool';
@@ -36,7 +37,11 @@ export function isTransientError(error: unknown): boolean {
   if (isCancelledError(error)) {
     return false;
   }
-  if (isRepositoryResetRequiredError(error) || isVersionMismatchError(error)) {
+  if (
+    isRepositoryResetRequiredError(error) ||
+    isVersionMismatchError(error) ||
+    isInsufficientStorageError(error)
+  ) {
     return false;
   }
 

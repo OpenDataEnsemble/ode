@@ -30,6 +30,18 @@ import {
   parseRepositoryResetFromAxios,
   RepositoryResetRequiredError,
 } from '../../errors/RepositoryResetRequiredError';
+import { asInsufficientStorageError } from '../../errors/InsufficientStorageError';
+import {
+  assertFreeSpace,
+  bundlePreviousPath,
+  bundleStagingPath,
+  bundleTempZipPath,
+  cleanupBundleInstallTemps,
+  commitBundleStagingAtomic,
+  MIN_FREE_BYTES_TO_START_BUNDLE,
+  recoverInterruptedBundleCommit,
+  requiredBytesForExtract,
+} from './bundleInstall';
 import type { AxiosError, AxiosResponse } from 'axios';
 import { effectiveRepositoryGenerationForRequest } from './repositoryGenerationRequest';
 import { pullPageOutcome } from './pullCursor';
@@ -362,9 +374,10 @@ class SynkronusApi {
   }
 
   /**
-   * Downloads the app bundle as a single zip, extracts to a temp directory,
-   * then atomically swaps into place so the old bundle stays intact until
-   * the new one is fully ready.
+   * Downloads the app bundle as a single zip, extracts to a staging directory
+   * on the same volume as the live bundle, then commits via rename so the old
+   * bundle stays intact until the new one is fully ready. Insufficient free
+   * space is checked before download/extract and mapped to a clear error.
    */
   async downloadAndInstallBundleZip(
     progressCallback?: (progressPercent: number) => void,
@@ -374,79 +387,98 @@ class SynkronusApi {
       this.fastGetToken_cachedToken ?? (await this.fastGetToken());
 
     const zipUrl = `${config.basePath}/api/app-bundle/download-zip`;
-    const tempZipPath = `${RNFS.CachesDirectoryPath}/bundle_temp.zip`;
-    const tempExtractPath = `${RNFS.CachesDirectoryPath}/bundle_staging`;
+    const tempZipPath = bundleTempZipPath();
+    const stagingRoot = bundleStagingPath();
+    const previousRoot = bundlePreviousPath();
     const appDir = `${RNFS.DocumentDirectoryPath}/app`;
     const formsDir = `${RNFS.DocumentDirectoryPath}/forms`;
 
-    // Clean up any leftover temp artifacts
-    if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-    if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
+    try {
+      // Restore live dirs if a prior commit was interrupted mid-rename.
+      await recoverInterruptedBundleCommit();
+      await cleanupBundleInstallTemps();
 
-    // Download the zip
-    await withTransientRetry(
-      async () => {
-        const result = await synkronusDownload({
-          fromUrl: zipUrl,
-          toFile: tempZipPath,
-          authToken,
-          background: true,
-          progressInterval: 500,
-          progress: res => {
-            if (res.contentLength > 0) {
-              const percent = Math.round(
-                (res.bytesWritten / res.contentLength) * 50,
-              );
-              progressCallback?.(percent);
-            }
-          },
-        }).promise;
-        if (result.statusCode !== 200) {
-          if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-          throw new Error(
-            `Bundle zip download failed (HTTP ${result.statusCode})`,
-          );
-        }
-        return result;
-      },
-      {
-        onRetry: (attempt, error, delayMs) => {
-          logger.info(
-            'sync',
-            `bundle zip retry attempt=${attempt} delay=${delayMs}ms ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
+      await assertFreeSpace(MIN_FREE_BYTES_TO_START_BUNDLE, 'before download');
+
+      // Download the zip
+      await withTransientRetry(
+        async () => {
+          const result = await synkronusDownload({
+            fromUrl: zipUrl,
+            toFile: tempZipPath,
+            authToken,
+            background: true,
+            progressInterval: 500,
+            progress: res => {
+              if (res.contentLength > 0) {
+                const percent = Math.round(
+                  (res.bytesWritten / res.contentLength) * 50,
+                );
+                progressCallback?.(percent);
+              }
+            },
+          }).promise;
+          if (result.statusCode !== 200) {
+            if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
+            throw new Error(
+              `Bundle zip download failed (HTTP ${result.statusCode})`,
+            );
+          }
+          return result;
         },
-      },
-    );
+        {
+          onRetry: (attempt, error, delayMs) => {
+            logger.info(
+              'sync',
+              `bundle zip retry attempt=${attempt} delay=${delayMs}ms ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          },
+        },
+      );
 
-    progressCallback?.(50);
+      progressCallback?.(50);
 
-    // Extract to staging directory
-    await RNFS.mkdir(tempExtractPath);
-    await unzip(tempZipPath, tempExtractPath);
-    progressCallback?.(80);
+      const zipStat = await RNFS.stat(tempZipPath);
+      await assertFreeSpace(
+        requiredBytesForExtract(zipStat.size),
+        'before extract',
+      );
 
-    // Atomic swap: remove old dirs, move staging content into place
-    if (await RNFS.exists(appDir)) await RNFS.unlink(appDir);
-    if (await RNFS.exists(formsDir)) await RNFS.unlink(formsDir);
+      // Extract onto DocumentDirectory so commit renames stay same-FS.
+      await RNFS.mkdir(stagingRoot);
+      await unzip(tempZipPath, stagingRoot);
+      progressCallback?.(80);
 
-    const stagingAppDir = `${tempExtractPath}/app`;
-    const stagingFormsDir = `${tempExtractPath}/forms`;
+      // Free zip space before commit; live bundle is still intact.
+      if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
 
-    if (await RNFS.exists(stagingAppDir))
-      await RNFS.moveFile(stagingAppDir, appDir);
-    if (await RNFS.exists(stagingFormsDir))
-      await RNFS.moveFile(stagingFormsDir, formsDir);
+      await commitBundleStagingAtomic({
+        stagingRoot,
+        appDir,
+        formsDir,
+        previousRoot,
+      });
 
-    progressCallback?.(95);
-
-    // Clean up temp files
-    if (await RNFS.exists(tempZipPath)) await RNFS.unlink(tempZipPath);
-    if (await RNFS.exists(tempExtractPath)) await RNFS.unlink(tempExtractPath);
-
-    progressCallback?.(100);
+      progressCallback?.(100);
+    } catch (error) {
+      // Never leave partial staging/zip behind; live dirs are only touched
+      // inside commitBundleStagingAtomic (which restores on failure).
+      try {
+        await cleanupBundleInstallTemps();
+      } catch (cleanupError) {
+        logger.warn(
+          'sync',
+          `bundle install cleanup failed: ${
+            cleanupError instanceof Error
+              ? cleanupError.message
+              : String(cleanupError)
+          }`,
+        );
+      }
+      throw asInsufficientStorageError(error);
+    }
   }
 
   private getAttachmentsDownloadManifest(

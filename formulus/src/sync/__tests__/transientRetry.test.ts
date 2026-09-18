@@ -1,4 +1,5 @@
 import { SYNC_CANCELLED_MESSAGE } from '../../api/synkronus/downloadPool';
+import { InsufficientStorageError } from '../../errors/InsufficientStorageError';
 import { RepositoryResetRequiredError } from '../../errors/RepositoryResetRequiredError';
 import { VersionMismatchError } from '../../errors/VersionMismatchError';
 import {
@@ -18,7 +19,7 @@ describe('isTransientError', () => {
     expect(isTransientError({ response: { status: 429 } })).toBe(true);
   });
 
-  it('does not retry auth, version, reset, or cancel', () => {
+  it('does not retry auth, version, reset, cancel, or storage-full', () => {
     expect(isTransientError({ response: { status: 401 } })).toBe(false);
     expect(isTransientError({ response: { status: 409 } })).toBe(false);
     expect(isTransientError({ response: { status: 426 } })).toBe(false);
@@ -27,6 +28,10 @@ describe('isTransientError', () => {
       false,
     );
     expect(isTransientError(new VersionMismatchError('upgrade', '9'))).toBe(
+      false,
+    );
+    expect(isTransientError(new InsufficientStorageError())).toBe(false);
+    expect(isTransientError(new Error('ENOSPC: no space left on device'))).toBe(
       false,
     );
   });
