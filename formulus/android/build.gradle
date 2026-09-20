@@ -4,7 +4,6 @@ buildscript {
         minSdkVersion = 24
         compileSdkVersion = 36
         targetSdkVersion = 36
-        // NDK r28 emits 16 KB-aligned native libraries by default.
         ndkVersion = "28.0.13004108"
         kotlinVersion = "2.1.20"
     }

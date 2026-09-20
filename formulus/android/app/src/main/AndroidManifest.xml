@@ -5,12 +5,7 @@
     
     <!-- Camera permission for QR scanning (react-native-camera-kit-no-google) -->
     <uses-permission android:name="android.permission.CAMERA" />
-    
-    <!--
-      Media is selected with Android's Storage Access Framework and copied into
-      app-private attachment storage. Broad shared-media access is not needed.
-    -->
-    
+
     <!-- Location permissions for geolocation services -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
