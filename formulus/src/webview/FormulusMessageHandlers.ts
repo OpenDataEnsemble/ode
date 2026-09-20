@@ -23,6 +23,7 @@ import {
 import {
   pick,
   types,
+  keepLocalCopy,
   isErrorWithCode,
   errorCodes,
 } from '@react-native-documents/picker';
@@ -457,9 +458,29 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               const draftDirectory = `${attachmentsDirectory}/draft`;
               const draftFilePath = `${draftDirectory}/${filename}`;
 
+              // Android pick() returns a content:// URI, which RNFS cannot read
+              // as a plain path. keepLocalCopy converts it into a local file in
+              // the app cache, then we move it into app-private attachment
+              // storage (move = rename on the same volume, no double copy).
+              const [localCopy] = await keepLocalCopy({
+                files: [{ uri: result.uri, fileName: filename }],
+                destination: 'cachesDirectory',
+              });
+
+              if (localCopy.status !== 'success') {
+                resolve({
+                  fieldId,
+                  status: 'error',
+                  message:
+                    localCopy.copyError ||
+                    'Failed to import the selected image',
+                });
+                return;
+              }
+
               await RNFS.mkdir(attachmentsDirectory);
               await RNFS.mkdir(draftDirectory);
-              await RNFS.copyFile(result.uri, draftFilePath);
+              await RNFS.moveFile(localCopy.localUri, draftFilePath);
 
               resolve({
                 fieldId,
