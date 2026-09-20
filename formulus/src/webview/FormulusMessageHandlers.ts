@@ -1018,10 +1018,24 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         const draftDirectory = `${attachmentsDirectory}/draft`;
         const draftFilePath = `${draftDirectory}/${basename}`;
 
+        const [localCopy] = await keepLocalCopy({
+          files: [{ uri: result.uri, fileName: basename }],
+          destination: 'cachesDirectory',
+        });
+
+        if (localCopy.status !== 'success') {
+          return {
+            fieldId,
+            status: 'error' as const,
+            message:
+              localCopy.copyError || 'Failed to import the selected file',
+          };
+        }
+
         await RNFS.mkdir(attachmentsDirectory);
         await RNFS.mkdir(draftDirectory);
 
-        await RNFS.copyFile(result.uri, draftFilePath);
+        await RNFS.moveFile(localCopy.localUri, draftFilePath);
 
         const webViewUrl = `file://${draftFilePath}`;
 
