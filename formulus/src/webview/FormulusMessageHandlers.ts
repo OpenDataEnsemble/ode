@@ -23,6 +23,7 @@ import {
 import {
   pick,
   types,
+  keepLocalCopy,
   isErrorWithCode,
   errorCodes,
 } from '@react-native-documents/picker';
@@ -311,19 +312,6 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
 
       return new Promise(resolve => {
         try {
-          if (!ImagePicker || !ImagePicker.launchImageLibrary) {
-            console.error(
-              'react-native-image-picker not available or not properly linked',
-            );
-            resolve({
-              fieldId,
-              status: 'error',
-              message:
-                'Image picker functionality not available. Please ensure react-native-image-picker is properly installed and linked.',
-            });
-            return;
-          }
-
           // Image picker options for react-native-image-picker
           const options = {
             mediaType: 'photo' as const,
@@ -436,6 +424,109 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
             }
           };
 
+          const selectImageWithSystemPicker = async () => {
+            try {
+              const [result] = await pick({
+                type: [types.images],
+                mode: 'import',
+                allowMultiSelection: false,
+              });
+
+              const originalName =
+                typeof result.name === 'string' && result.name.trim().length > 0
+                  ? result.name.trim()
+                  : 'image';
+              const extensionMatch = /\.([^.\\/]{1,32})$/.exec(originalName);
+              const subtype = result.type
+                ?.split('/')[1]
+                ?.split('+')[0]
+                ?.replace(/[^a-z0-9]/gi, '');
+              const extension =
+                extensionMatch?.[1]?.toLowerCase() ||
+                subtype?.toLowerCase() ||
+                'jpg';
+              const imageGuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
+                /[xy]/g,
+                c => {
+                  const r = Math.floor(Math.random() * 16);
+                  const v = c === 'x' ? r : (r % 4) + 8;
+                  return v.toString(16);
+                },
+              );
+              const filename = `${imageGuid}.${extension}`;
+              const attachmentsDirectory = `${RNFS.DocumentDirectoryPath}/attachments`;
+              const draftDirectory = `${attachmentsDirectory}/draft`;
+              const draftFilePath = `${draftDirectory}/${filename}`;
+
+              // Android pick() returns a content:// URI, which RNFS cannot read
+              // as a plain path. keepLocalCopy converts it into a local file in
+              // the app cache, then we move it into app-private attachment
+              // storage (move = rename on the same volume, no double copy).
+              const [localCopy] = await keepLocalCopy({
+                files: [{ uri: result.uri, fileName: filename }],
+                destination: 'cachesDirectory',
+              });
+
+              if (localCopy.status !== 'success') {
+                resolve({
+                  fieldId,
+                  status: 'error',
+                  message:
+                    localCopy.copyError ||
+                    'Failed to import the selected image',
+                });
+                return;
+              }
+
+              await RNFS.mkdir(attachmentsDirectory);
+              await RNFS.mkdir(draftDirectory);
+              await RNFS.moveFile(localCopy.localUri, draftFilePath);
+
+              resolve({
+                fieldId,
+                status: 'success',
+                data: {
+                  type: 'image',
+                  id: imageGuid,
+                  filename,
+                  uri: draftFilePath,
+                  url: `file://${draftFilePath}`,
+                  timestamp: new Date().toISOString(),
+                  metadata: {
+                    size: result.size || 0,
+                    mimeType: result.type || 'image/*',
+                    source: 'android-storage-access-framework',
+                    originalFileName: originalName,
+                    persistentStorage: true,
+                    storageLocation: 'draft_attachments',
+                    syncReady: false,
+                  },
+                },
+              });
+            } catch (error) {
+              if (
+                isErrorWithCode(error) &&
+                error.code === errorCodes.OPERATION_CANCELED
+              ) {
+                resolve({
+                  fieldId,
+                  status: 'cancelled',
+                  message: 'Image selection cancelled by user',
+                });
+                return;
+              }
+
+              resolve({
+                fieldId,
+                status: 'error',
+                message:
+                  error instanceof Error
+                    ? error.message
+                    : 'Failed to select an image',
+              });
+            }
+          };
+
           // Show action sheet with camera and gallery options
           Alert.alert(
             i18n.t('media.selectImageTitle'),
@@ -445,6 +536,14 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
                 text: i18n.t('media.camera'),
                 onPress: () => {
                   void (async () => {
+                    if (!ImagePicker.launchCamera) {
+                      resolve({
+                        fieldId,
+                        status: 'error',
+                        message: 'Camera functionality is not available.',
+                      });
+                      return;
+                    }
                     const perm = await ensureCameraPermission();
                     if (perm !== RESULTS.GRANTED) {
                       resolve({
@@ -467,10 +566,20 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
               {
                 text: i18n.t('media.gallery'),
                 onPress: () => {
-                  ImagePicker.launchImageLibrary(
-                    options,
-                    handleImagePickerResponse,
-                  );
+                  if (Platform.OS === 'android') {
+                    void selectImageWithSystemPicker();
+                  } else if (ImagePicker.launchImageLibrary) {
+                    ImagePicker.launchImageLibrary(
+                      options,
+                      handleImagePickerResponse,
+                    );
+                  } else {
+                    resolve({
+                      fieldId,
+                      status: 'error',
+                      message: 'Image picker functionality is not available.',
+                    });
+                  }
                 },
               },
               {
@@ -909,10 +1018,24 @@ export function createFormulusMessageHandlers(): FormulusMessageHandlers {
         const draftDirectory = `${attachmentsDirectory}/draft`;
         const draftFilePath = `${draftDirectory}/${basename}`;
 
+        const [localCopy] = await keepLocalCopy({
+          files: [{ uri: result.uri, fileName: basename }],
+          destination: 'cachesDirectory',
+        });
+
+        if (localCopy.status !== 'success') {
+          return {
+            fieldId,
+            status: 'error' as const,
+            message:
+              localCopy.copyError || 'Failed to import the selected file',
+          };
+        }
+
         await RNFS.mkdir(attachmentsDirectory);
         await RNFS.mkdir(draftDirectory);
 
-        await RNFS.copyFile(result.uri, draftFilePath);
+        await RNFS.moveFile(localCopy.localUri, draftFilePath);
 
         const webViewUrl = `file://${draftFilePath}`;
 

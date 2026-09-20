@@ -5,14 +5,7 @@
     
     <!-- Camera permission for QR scanning (react-native-camera-kit-no-google) -->
     <uses-permission android:name="android.permission.CAMERA" />
-    
-    <!-- Storage permissions for react-native-image-picker -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    
-    <!-- Optional: Media permissions for Android 13+ -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    
+
     <!-- Location permissions for geolocation services -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
