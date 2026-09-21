@@ -663,4 +663,4 @@ Before going live:
 
 ---
 
-**Your Synkronus instance is now ready for production! 🚀**
+**Your Synkronus instance is now ready for production!**

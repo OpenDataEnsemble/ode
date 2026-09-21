@@ -2,7 +2,7 @@
 
 Quick reference for common CI/CD operations in the Open Data Ensemble monorepo.
 
-## 🚀 Synkronus Docker Images
+## Synkronus Docker Images
 
 ### Pull Images
 
@@ -50,7 +50,7 @@ docker run -d \
 
 `dev` is not the pre-release channel. Release pointer tags move only when a GitHub Release is published; `latest-pre-release` requires the release to be marked as a pre-release.
 
-## 🔄 Triggering Builds
+## Triggering Builds
 
 ### Automatic Triggers
 
@@ -70,7 +70,7 @@ Relevant paths include `synkronus/`, `synkronus-portal/`, shared `packages/`, th
 
 Manual runs publish only an immutable `sha-{short}` tag; they do not move `latest`, `latest-pre-release`, `main`, or `dev`.
 
-## 📦 Creating Releases
+## Creating Releases
 
 ### Quick Release (Latest)
 ```bash
@@ -91,7 +91,7 @@ Creates:
 - `v1.0.0`
 - `v1.0`
 
-## 🔍 Monitoring
+## Monitoring
 
 ### View Workflow Runs
 ```
@@ -112,7 +112,7 @@ gh run list --workflow=synkronus-docker.yml
 gh run view <run-id>
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Build Failed
 
@@ -144,7 +144,7 @@ echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 docker manifest inspect ghcr.io/opendataensemble/synkronus:latest
 ```
 
-## 🔐 Authentication
+## Authentication
 
 ### GitHub CLI
 ```bash
@@ -160,7 +160,7 @@ echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
 gh auth token | docker login ghcr.io -u USERNAME --password-stdin
 ```
 
-## 📊 Image Information
+## Image Information
 
 ### View Image Details
 ```bash
@@ -180,7 +180,7 @@ docker images ghcr.io/opendataensemble/synkronus
 dive ghcr.io/opendataensemble/synkronus:latest
 ```
 
-## 🚢 Deployment
+## Deployment
 
 ### Coolify
 
@@ -216,7 +216,7 @@ spec:
         image: ghcr.io/opendataensemble/synkronus:latest
 ```
 
-## 🔄 Rollback
+## Rollback
 
 ### Quick Rollback
 ```bash
@@ -232,7 +232,7 @@ docker run -d [same options] ghcr.io/opendataensemble/synkronus:v1.0.0
 2. Select previous version
 3. Click "Redeploy"
 
-## 📝 Best Practices
+## Best Practices
 
 ### Production
 - ✅ Pin specific versions: `v1.0.0`
@@ -253,7 +253,7 @@ docker run -d [same options] ghcr.io/opendataensemble/synkronus:v1.0.0
 - ✅ Keep workflows updated
 - ✅ Document changes
 
-## 🔗 Quick Links
+## Quick Links
 
 - [Full CI/CD Documentation](CICD.md)
 - [Synkronus Docker Guide](../synkronus/DOCKER.md)
@@ -261,7 +261,7 @@ docker run -d [same options] ghcr.io/opendataensemble/synkronus:v1.0.0
 - [GitHub Actions Docs](https://docs.github.com/en/actions)
 - [GHCR Docs](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 
-## 💡 Tips
+## Tips
 
 ### Speed Up Local Development
 ```bash
