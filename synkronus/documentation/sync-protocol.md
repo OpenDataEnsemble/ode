@@ -1,6 +1,6 @@
 ## Synkronus Synchronization Protocol Design
 
-### 🎯 Objectives
+### Objectives
 - Efficient offline-capable synchronization
 - Minimal client-server round trips
 - Robust conflict detection and resolution
@@ -9,7 +9,7 @@
 
 ---
 
-### ✅ Core Sync Design
+### Core Sync Design
 - Pull → Push model: client pulls recent changes, then pushes local changes
 - **Repository generation (epoch)** is separate from the **change stream cursor** (`since.version` / `change_id`):
   - `repository_generation` is a monotonic integer on the server; it increments only when an administrator performs a **hard repository reset** (wiping observation/attachment sync state).
@@ -29,8 +29,8 @@
 
 ---
 
-### 🔄 Change Detection Strategy
-#### ✅ Cursor-based with `change_id`
+### Change Detection Strategy
+#### Cursor-based with `change_id`
 - Each record has a strictly increasing `change_id`, assigned server-side
 - Client stores last seen `change_id` per `schemaType`
 - Pull returns all records where `change_id > last_seen`
@@ -46,7 +46,7 @@
 
 ---
 
-### 🔍 Record Model Philosophy
+### Record Model Philosophy
 > Each **form submission is an entity**.
 
 - Each form type (JSONForms schema) defines an implicit "entity" type
@@ -54,8 +54,8 @@
 - SchemaType + Version provides namespacing for evolution
 
 **Evaluation:**
-- ✅ Good for flexibility and multi-purpose platforms
-- 🚫 Makes cross-form relationships more complex (if needed)
+- Good for flexibility and multi-purpose platforms
+- Makes cross-form relationships more complex (if needed)
 
 ---
 
@@ -79,7 +79,7 @@ These fields are stored with the observation and returned on pull; push payloads
 - If an attachment is deleted but still referenced, `_sync_state` becomes `missing`
 - Clients are responsible for checking `_sync_state` before using attachments
 
-### 🔐 Conflict Handling
+### Conflict Handling
 - If server’s hash ≠ client’s last seen hash, treat as conflict
 - Allow server to:
   - Accept overwrite with warning
@@ -88,7 +88,7 @@ These fields are stored with the observation and returned on pull; push payloads
 
 ---
 
-### 🗂 Attachments
+### Attachments
 - Managed as a separate collection, but referenced from within record `data`
 - Each file has:
   - `id` (UUID or content-addressed hash, assigned by client)
@@ -125,7 +125,7 @@ These fields are stored with the observation and returned on pull; push payloads
 
 ---
 
-### 📜 Schema Evolution
+### Schema Evolution
 - Each record points to `schemaType` + `schemaVersion`
 - Never mutate existing record structure
 - Schema validation performed at push using version-specific schema
@@ -133,14 +133,14 @@ These fields are stored with the observation and returned on pull; push payloads
 
 ---
 
-### 🔐 Authentication
+### Authentication
 - All routes require JWT with role claim
 - Roles: `read-only`, `read-write`
 - Token refresh support
 
 ---
 
-### 🔢 API Versioning
+### API Versioning
 
 #### Semantic Versioning
 - API versions follow [Semantic Versioning](https://semver.org/) (MAJOR.MINOR.PATCH)
@@ -173,20 +173,20 @@ These fields are stored with the observation and returned on pull; push payloads
 
 ---
 
-### 🧪 Change Logging
+### Change Logging
 - `sync_log` table: records who synced, when, and with what result
 - `audit_log`: append-only log of all updates with `old_hash`, `new_hash`, `change_id`, and `user`
 
 ---
 
-### 📦 Optional Enhancements
+### Optional Enhancements
 - Partial pull (filter by form type or custom query)
 - Soft delete cleanup mechanism
 - Record provenance (which user/client created/updated it)
 
 ---
 
-### 📄 Pagination and Batch Processing
+### Pagination and Batch Processing
 
 #### Cursor-based Pagination
 - All sync endpoints support pagination using cursor-based tokens
@@ -220,7 +220,7 @@ These fields are stored with the observation and returned on pull; push payloads
 
 ---
 
-### 🗜️ Attachment Processing
+### Attachment Processing
 
 #### Image Quality Variants
 The server automatically generates multiple quality variants for supported image types:
@@ -245,7 +245,7 @@ The server automatically generates multiple quality variants for supported image
 
 ---
 
-### 🔁 Idempotent Operations and Retry Handling
+### Idempotent Operations and Retry Handling
 
 #### Idempotent Push Operations
 - Each sync push operation MUST include a client-generated `transmission_id` (UUID v4)
@@ -275,7 +275,7 @@ The server automatically generates multiple quality variants for supported image
 
 ---
 
-### ✅ Data Validation Error Handling
+### Data Validation Error Handling
 
 #### HTTP Status Codes
 - **400 Bad Request**: Malformed request structure
@@ -316,7 +316,7 @@ Validation errors follow RFC 7807 (Problem Details for HTTP APIs) format:
 
 ---
 
-### 🔒 Transport and Encryption
+### Transport and Encryption
 - **Transport layer**:
   - Use standard HTTPS REST API
   - Enable gzip compression at reverse proxy (e.g. Caddy, Nginx) 
@@ -331,8 +331,7 @@ Validation errors follow RFC 7807 (Problem Details for HTTP APIs) format:
 
 ---
 
-### 🧭 Inspiration Sources
+### Inspiration Sources
 - **ODK Classic**: simple full pull/push
 - **ODK-X**: delta + sync log + client-side IDs
 - **DHIS2 Tracker**: metadata-driven forms with conflict tracking
-
