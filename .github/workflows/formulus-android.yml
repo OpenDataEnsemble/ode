@@ -255,6 +255,9 @@ jobs:
     name: Prepare next Formulus build code
     if: github.event_name == 'release' && needs.build-android.result == 'success'
     needs: build-android
+    permissions:
+      contents: write
+      pull-requests: write
     uses: ./.github/workflows/prepare-next-formulus-build-code.yml
     with:
       target_branch: ${{ github.event.release.target_commitish }}
