@@ -1,5 +1,12 @@
 import React, { memo, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../contexts/AppThemeContext';
@@ -9,6 +16,9 @@ import {
   odeBorderWidth,
 } from '../../theme/odeDesign';
 import type { FormSpec } from '../../services/FormService';
+
+// Below 600px, hide secondary columns to keep tables usable on small screens.
+const NARROW_WIDTH = 600;
 
 type FormListTableProps = {
   forms: FormSpec[];
@@ -24,24 +34,36 @@ type FormTableRowProps = {
   divider: string;
   primary: string;
   newLabel: string;
+  isNarrow: boolean;
 };
 
 const FormTableRow = memo<FormTableRowProps>(
-  ({ form, count, onCreate, cellColor, divider, primary, newLabel }) => {
+  ({
+    form,
+    count,
+    onCreate,
+    cellColor,
+    divider,
+    primary,
+    newLabel,
+    isNarrow,
+  }) => {
     const onPress = useCallback(() => onCreate(form.id), [onCreate, form.id]);
     return (
       <View style={[styles.row, { borderColor: divider }]}>
         <Text style={[styles.cellForm, { color: cellColor }]} numberOfLines={1}>
           {form.name || form.id}
         </Text>
-        <Text
-          style={[styles.cellCount, { color: cellColor }]}
-          numberOfLines={1}>
-          {count == null ? '—' : String(count)}
-        </Text>
+        {!isNarrow && (
+          <Text
+            style={[styles.cellCount, { color: cellColor }]}
+            numberOfLines={1}>
+            {count == null ? '—' : String(count)}
+          </Text>
+        )}
         <Pressable
           onPress={onPress}
-          style={styles.cellNew}
+          style={[styles.cellNew, isNarrow && styles.cellNewNarrow]}
           accessibilityRole="button"
           accessibilityLabel={newLabel}
           hitSlop={8}>
@@ -59,6 +81,8 @@ const FormListTable: React.FC<FormListTableProps> = ({
 }) => {
   const { t } = useTranslation();
   const { themeColors } = useAppTheme();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < NARROW_WIDTH;
   const headerColor = themeColors.onSurface as string;
   const cellColor = themeColors.onSurface as string;
   const divider = themeColors.divider as string;
@@ -74,19 +98,21 @@ const FormListTable: React.FC<FormListTableProps> = ({
         <Text style={[styles.cellForm, styles.header, { color: headerColor }]}>
           {t('forms.colFormType')}
         </Text>
-        <Text style={[styles.cellCount, styles.header, { color: headerColor }]}>
-          {t('forms.colObservationCount')}
-        </Text>
-        <Text
-          style={[
-            styles.cellNew,
-            styles.header,
-            styles.newHeader,
-            { color: headerColor },
-          ]}
-          numberOfLines={2}>
-          {t('forms.colNewObservation')}
-        </Text>
+        {!isNarrow && (
+          <Text
+            style={[styles.cellCount, styles.header, { color: headerColor }]}>
+            {t('forms.colObservationCount')}
+          </Text>
+        )}
+        <View style={[styles.cellNew, isNarrow && styles.cellNewNarrow]}>
+          {!isNarrow && (
+            <Text
+              style={[styles.header, styles.newHeader, { color: headerColor }]}
+              numberOfLines={2}>
+              {t('forms.colNewObservation')}
+            </Text>
+          )}
+        </View>
       </View>
       {forms.map(form => (
         <FormTableRow
@@ -102,6 +128,7 @@ const FormListTable: React.FC<FormListTableProps> = ({
           divider={divider}
           primary={primary}
           newLabel={newLabel}
+          isNarrow={isNarrow}
         />
       ))}
     </ScrollView>
@@ -137,15 +164,21 @@ const styles = StyleSheet.create({
     paddingRight: odeSpacing.xs,
   },
   cellCount: {
-    width: 216,
+    flex: 0.8,
+    minWidth: 0,
     fontSize: odeTypography.bodySm,
     paddingRight: odeSpacing.sm,
     textAlign: 'right',
   },
   cellNew: {
-    width: 160,
+    flex: 0.8,
+    minWidth: 0,
     alignItems: 'flex-end',
     justifyContent: 'center',
+  },
+  cellNewNarrow: {
+    flex: 0,
+    width: 40,
   },
   newHeader: {
     textAlign: 'right',

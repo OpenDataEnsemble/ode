@@ -1,5 +1,12 @@
 import React, { memo, useCallback } from 'react';
-import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../contexts/AppThemeContext';
 import colors from '../../theme/colors';
@@ -14,6 +21,8 @@ import {
 } from '../../database/observationListQuery';
 import { isObservationFullySynced } from '../../utils/observationSyncStatus';
 import { formatDateTimeShort } from '../../utils/dateUtils';
+
+const NARROW_WIDTH = 600;
 
 type ObservationListTableProps = {
   rows: ObservationListRow[];
@@ -31,6 +40,7 @@ type ObservationTableRowProps = {
   syncedColor: string;
   syncedLabel: string;
   pendingLabel: string;
+  isNarrow: boolean;
 };
 
 const ObservationTableRow = memo<ObservationTableRowProps>(
@@ -44,6 +54,7 @@ const ObservationTableRow = memo<ObservationTableRowProps>(
     syncedColor,
     syncedLabel,
     pendingLabel,
+    isNarrow,
   }) => {
     const synced = isObservationFullySynced(row);
     const onPress = useCallback(() => onPressRow(row), [onPressRow, row]);
@@ -66,16 +77,20 @@ const ObservationTableRow = memo<ObservationTableRowProps>(
           numberOfLines={1}>
           {synced ? syncedLabel : pendingLabel}
         </Text>
-        <Text
-          style={[styles.cellAuthor, { color: cellColor }]}
-          numberOfLines={1}>
-          {row.author || '—'}
-        </Text>
-        <Text
-          style={[styles.cellId, styles.mono, { color: cellColor }]}
-          numberOfLines={1}>
-          {formatObservationIdShort(row.observationId)}
-        </Text>
+        {!isNarrow && (
+          <>
+            <Text
+              style={[styles.cellAuthor, { color: cellColor }]}
+              numberOfLines={1}>
+              {row.author || '—'}
+            </Text>
+            <Text
+              style={[styles.cellId, styles.mono, { color: cellColor }]}
+              numberOfLines={1}>
+              {formatObservationIdShort(row.observationId)}
+            </Text>
+          </>
+        )}
       </Pressable>
     );
   },
@@ -88,6 +103,8 @@ const ObservationListTable: React.FC<ObservationListTableProps> = ({
 }) => {
   const { t } = useTranslation();
   const { themeColors } = useAppTheme();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < NARROW_WIDTH;
   const headerColor = themeColors.onSurface as string;
   const cellColor = themeColors.onSurface as string;
   const divider = themeColors.divider as string;
@@ -111,13 +128,22 @@ const ObservationListTable: React.FC<ObservationListTableProps> = ({
         <Text style={[styles.cellSync, styles.header, { color: headerColor }]}>
           {t('observations.colSync')}
         </Text>
-        <Text
-          style={[styles.cellAuthor, styles.header, { color: headerColor }]}>
-          {t('observations.colAuthor')}
-        </Text>
-        <Text style={[styles.cellId, styles.header, { color: headerColor }]}>
-          {t('observations.colId')}
-        </Text>
+        {!isNarrow && (
+          <>
+            <Text
+              style={[
+                styles.cellAuthor,
+                styles.header,
+                { color: headerColor },
+              ]}>
+              {t('observations.colAuthor')}
+            </Text>
+            <Text
+              style={[styles.cellId, styles.header, { color: headerColor }]}>
+              {t('observations.colId')}
+            </Text>
+          </>
+        )}
       </View>
       {rows.map(row => (
         <ObservationTableRow
@@ -131,6 +157,7 @@ const ObservationListTable: React.FC<ObservationListTableProps> = ({
           syncedColor={syncedColor}
           syncedLabel={syncedLabel}
           pendingLabel={pendingLabel}
+          isNarrow={isNarrow}
         />
       ))}
     </ScrollView>
