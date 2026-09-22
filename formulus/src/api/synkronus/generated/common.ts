@@ -16,6 +16,8 @@ import type { Configuration } from './configuration';
 import type { RequestArgs } from './base';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 import { RequiredError } from './base';
+import { profileActivity } from '../../../profiles/ProfileActivity';
+import { getActiveProfile } from '../../../profiles/ProfileRuntime';
 
 /**
  *
@@ -197,6 +199,16 @@ export const createRequestFunction = function (
         (axios.defaults.baseURL ? '' : (configuration?.basePath ?? basePath)) +
         axiosArgs.url,
     };
-    return axios.request<T, R>(axiosRequestArgs);
+    // Keep this guard when regenerating: cached clients must not start requests
+    // during a profile transition or send profile credentials to a stale URL.
+    return profileActivity.run('Synkronus request', async () => {
+      const serverUrl = getActiveProfile().serverUrl;
+      const requestBase =
+        axios.defaults.baseURL || configuration?.basePath || basePath;
+      if (!serverUrl || requestBase !== serverUrl) {
+        throw new Error('API server does not match the active profile');
+      }
+      return axios.request<T, R>(axiosRequestArgs);
+    });
   };
 };

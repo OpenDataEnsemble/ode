@@ -1,4 +1,5 @@
-import { database } from './database';
+import { getDatabase } from './database';
+import { profileActivity } from '../profiles/ProfileActivity';
 import { LocalRepoInterface } from './repositories/LocalRepoInterface';
 import { WatermelonDBRepo } from './repositories/WatermelonDBRepo';
 
@@ -10,7 +11,7 @@ class DatabaseService {
   private localRepo: LocalRepoInterface;
 
   private constructor() {
-    this.localRepo = new WatermelonDBRepo(database);
+    this.localRepo = new WatermelonDBRepo(getDatabase());
   }
 
   /**
@@ -27,6 +28,7 @@ class DatabaseService {
    * Get the local repository implementation
    */
   public getLocalRepo(): LocalRepoInterface {
+    profileActivity.assertAvailable();
     return this.localRepo;
   }
 }

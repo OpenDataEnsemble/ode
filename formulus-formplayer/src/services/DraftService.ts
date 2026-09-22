@@ -2,10 +2,11 @@
  * DraftService.ts
  *
  * Service for managing form drafts in localStorage.
- * Handles saving, loading, and cleaning up partial form data.
+ * Drafts survive profile inactivity until explicitly deleted or successfully submitted.
  */
 
 import { FormInitData } from '../types/FormulusInterfaceDefinition';
+import { formplayerStorage } from './ProfileStorage';
 
 /**
  * Interface for a saved draft
@@ -55,7 +56,7 @@ export interface DraftSummary {
 export class DraftService {
   private static instance: DraftService;
   private readonly STORAGE_KEY = 'formulus_drafts';
-  private readonly MAX_AGE_DAYS = 7;
+
 
   private constructor() {}
 
@@ -85,7 +86,7 @@ export class DraftService {
    */
   private getAllDrafts(): Draft[] {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = formplayerStorage.getItem(this.STORAGE_KEY);
       if (!stored) return [];
 
       const drafts = JSON.parse(stored) as Draft[];
@@ -103,7 +104,10 @@ export class DraftService {
       });
       if (migrated) {
         try {
-          localStorage.setItem(this.STORAGE_KEY, JSON.stringify(normalized));
+          formplayerStorage.setItem(
+            this.STORAGE_KEY,
+            JSON.stringify(normalized),
+          );
         } catch {
           /* ignore */
         }
@@ -111,7 +115,7 @@ export class DraftService {
       return normalized;
     } catch (error) {
       console.error('Error loading drafts from localStorage:', error);
-      return [];
+      throw error;
     }
   }
 
@@ -120,28 +124,13 @@ export class DraftService {
    */
   private saveAllDrafts(drafts: Draft[]): void {
     try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(drafts));
+      formplayerStorage.setItem(this.STORAGE_KEY, JSON.stringify(drafts));
     } catch (error) {
       console.error('Error saving drafts to localStorage:', error);
+      throw error;
     }
   }
 
-  /**
-   * Clean up drafts older than MAX_AGE_DAYS
-   */
-  private cleanupOldDrafts(drafts: Draft[]): Draft[] {
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - this.MAX_AGE_DAYS);
-
-    const validDrafts = drafts.filter(draft => draft.updatedAt > cutoffDate);
-    const removedCount = drafts.length - validDrafts.length;
-
-    if (removedCount > 0) {
-      console.log(`DraftService: Cleaned up ${removedCount} old drafts`);
-    }
-
-    return validDrafts;
-  }
 
   private draftMatches(
     draft: Draft,
@@ -224,8 +213,7 @@ export class DraftService {
       console.log(`DraftService: Created new draft ${draftId} for ${formType}`);
     }
 
-    const cleanedDrafts = this.cleanupOldDrafts(drafts);
-    this.saveAllDrafts(cleanedDrafts);
+    this.saveAllDrafts(drafts);
 
     return draftId;
   }
@@ -238,14 +226,7 @@ export class DraftService {
     formVersion?: string,
   ): DraftSummary[] {
     const drafts = this.getAllDrafts();
-    const cleanedDrafts = this.cleanupOldDrafts(drafts);
-
-    // Save cleaned drafts back to storage
-    if (cleanedDrafts.length !== drafts.length) {
-      this.saveAllDrafts(cleanedDrafts);
-    }
-
-    const formDrafts = cleanedDrafts.filter(draft => {
+    const formDrafts = drafts.filter(draft => {
       if (draft.formType !== formType) return false;
 
       // If formVersion is specified, only return drafts with matching version
@@ -354,31 +335,6 @@ export class DraftService {
     return deletedCount;
   }
 
-  /**
-   * Get count of drafts older than specified days
-   */
-  public getOldDraftCount(days: number = this.MAX_AGE_DAYS): number {
-    const drafts = this.getAllDrafts();
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
-
-    return drafts.filter(draft => draft.updatedAt <= cutoffDate).length;
-  }
-
-  /**
-   * Manually clean up old drafts and return count of removed drafts
-   */
-  public cleanupOldDraftsManually(): number {
-    const drafts = this.getAllDrafts();
-    const cleanedDrafts = this.cleanupOldDrafts(drafts);
-    const removedCount = drafts.length - cleanedDrafts.length;
-
-    if (removedCount > 0) {
-      this.saveAllDrafts(cleanedDrafts);
-    }
-
-    return removedCount;
-  }
 
   /**
    * Generate a preview string from form data for display purposes
@@ -427,7 +383,7 @@ export class DraftService {
    * Clear all drafts (for testing/debugging)
    */
   public clearAllDrafts(): void {
-    localStorage.removeItem(this.STORAGE_KEY);
+    formplayerStorage.removeItem(this.STORAGE_KEY);
     console.log('DraftService: Cleared all drafts');
   }
 }

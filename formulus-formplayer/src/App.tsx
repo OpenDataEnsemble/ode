@@ -119,6 +119,8 @@ import { additionalErrorsForDisplay } from './utils/additionalErrorsForDisplay';
 
 import ErrorBoundary from './components/ErrorBoundary';
 import { draftService } from './services/DraftService';
+import { initializeFormplayerStorage } from './services/ProfileStorage';
+import { DraftFlushQueue } from './services/DraftFlushQueue';
 import DraftSelector from './components/DraftSelector';
 import { loadExtensions } from './services/ExtensionsLoader';
 import { getBuiltinExtensions } from './builtinExtensions';
@@ -857,6 +859,7 @@ function App() {
       console.log('Received onFormInit event with data:', initData);
 
       try {
+        initializeFormplayerStorage(initData.params?.profileId);
         const { formType: receivedFormType, savedData, formSchema } = initData;
 
         if (!receivedFormType) {
@@ -1190,6 +1193,7 @@ function App() {
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshPendingRef = useRef(false);
+  const draftFlushQueue = useRef(new DraftFlushQueue());
 
   const clearRefreshTimers = useCallback(() => {
     if (refreshTimerRef.current) {
@@ -1202,23 +1206,34 @@ function App() {
     }
   }, []);
 
-  const flushRefreshAndPersist = useCallback(async () => {
-    clearRefreshTimers();
-    if (!refreshPendingRef.current) return;
-    refreshPendingRef.current = false;
-    const base = dataRef.current as Record<string, unknown>;
-    // After unmount, don't touch React state — just save the latest data.
-    if (!mountedRef.current) {
-      persistDraftIfRootSession(base);
-      return;
-    }
-    const refreshedData = await refreshFormData(base);
-    dataRef.current = refreshedData;
-    if (mountedRef.current) {
-      setData(refreshedData);
-    }
-    persistDraftIfRootSession(refreshedData);
-  }, [clearRefreshTimers, refreshFormData, persistDraftIfRootSession]);
+  const flushRefreshAndPersist = useCallback(
+    () =>
+      draftFlushQueue.current.run(async () => {
+        clearRefreshTimers();
+        while (refreshPendingRef.current) {
+          refreshPendingRef.current = false;
+          const base = dataRef.current as Record<string, unknown>;
+          try {
+            const refreshedData = mountedRef.current
+              ? await refreshFormData(base)
+              : base;
+            // An edit/child result arriving during asynchronous refresh wins. Refresh
+            // that newer snapshot instead of overwriting it with the stale result.
+            if (dataRef.current !== base) {
+              refreshPendingRef.current = true;
+              continue;
+            }
+            dataRef.current = refreshedData;
+            if (mountedRef.current) setData(refreshedData);
+            persistDraftIfRootSession(refreshedData);
+          } catch (error) {
+            refreshPendingRef.current = true;
+            throw error;
+          }
+        }
+      }),
+    [clearRefreshTimers, refreshFormData, persistDraftIfRootSession],
+  );
 
   /**
    * Flush any pending draft, or persist the current root snapshot if the
@@ -1226,10 +1241,9 @@ function App() {
    * is pending — nested sessions remain a no-op via persistDraftIfRootSession.
    */
   const persistDraftNow = useCallback(async () => {
-    if (refreshPendingRef.current) {
-      await flushRefreshAndPersist();
-      return;
-    }
+    // Also wait when the debounce already consumed the pending flag but its
+    // asynchronous refresh/write is still running.
+    await flushRefreshAndPersist();
     persistDraftIfRootSession(dataRef.current as Record<string, unknown>);
   }, [flushRefreshAndPersist, persistDraftIfRootSession]);
 
@@ -1245,11 +1259,15 @@ function App() {
       clearTimeout(refreshTimerRef.current);
     }
     refreshTimerRef.current = setTimeout(() => {
-      void flushRefreshAndPersistRef.current();
+      void flushRefreshAndPersistRef
+        .current()
+        .catch(error => console.error('Draft persistence failed:', error));
     }, REFRESH_DEBOUNCE_MS);
     if (!maxWaitTimerRef.current) {
       maxWaitTimerRef.current = setTimeout(() => {
-        void flushRefreshAndPersistRef.current();
+        void flushRefreshAndPersistRef
+          .current()
+          .catch(error => console.error('Draft persistence failed:', error));
       }, REFRESH_MAX_WAIT_MS);
     }
   }, []);
@@ -1281,16 +1299,14 @@ function App() {
     (newData: Record<string, unknown>) => {
       // Authoritative commit (e.g. sub-observation merge): supersede any pending
       // deferred pass so it cannot overwrite this with older data.
-      clearRefreshTimers();
-      refreshPendingRef.current = false;
-      void (async () => {
-        const refreshedData = await refreshFormData(newData);
-        dataRef.current = refreshedData;
-        setData(refreshedData);
-        persistDraftIfRootSession(refreshedData);
-      })();
+      dataRef.current = newData;
+      setData(newData);
+      refreshPendingRef.current = true;
+      void flushRefreshAndPersist().catch(error =>
+        console.error('Draft persistence failed:', error),
+      );
     },
-    [clearRefreshTimers, refreshFormData, persistDraftIfRootSession],
+    [flushRefreshAndPersist],
   );
 
   useEffect(() => {
@@ -1300,18 +1316,18 @@ function App() {
   // Hard flush points for the deferred draft write. Backgrounding is flushable
   // (visibilitychange/pagehide), so a hidden app loses at most the current
   // keystroke; a foreground native crash cannot be flushed, and REFRESH_MAX_WAIT
-  // bounds that window. On unmount, persist synchronously without React writes.
-  // Native also injects window.__formulusFlushDraft before opening the camera.
+  // bounds that window. Unload/unmount flushing is best-effort; normal native
+  // close awaits __formulusFlushDraft while the document is still mounted.
   useEffect(() => {
     mountedRef.current = true;
     const flush = () => {
-      void flushRefreshAndPersistRef.current();
+      void flushRefreshAndPersistRef
+        .current()
+        .catch(error => console.error('Draft persistence failed:', error));
     };
     (
-      window as unknown as { __formulusFlushDraft?: () => void }
-    ).__formulusFlushDraft = () => {
-      void persistDraftNowRef.current();
-    };
+      window as unknown as { __formulusFlushDraft?: () => Promise<void> }
+    ).__formulusFlushDraft = () => persistDraftNowRef.current();
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
         flush();
@@ -1321,8 +1337,9 @@ function App() {
     window.addEventListener('pagehide', flush);
     window.addEventListener('beforeunload', flush);
     return () => {
-      delete (window as unknown as { __formulusFlushDraft?: () => void })
-        .__formulusFlushDraft;
+      delete (
+        window as unknown as { __formulusFlushDraft?: () => Promise<void> }
+      ).__formulusFlushDraft;
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', flush);
       window.removeEventListener('beforeunload', flush);

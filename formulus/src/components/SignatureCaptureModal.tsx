@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, Alert, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Signature, { SignatureViewRef } from 'react-native-signature-canvas';
@@ -22,6 +22,22 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
   const { t } = useTranslation();
   const [_isCapturing, setIsCapturing] = useState(false);
   const signatureRef = useRef<SignatureViewRef>(null);
+  const session = useMemo(() => ({ fieldId, settled: !visible }), [fieldId, visible]);
+
+  useEffect(() => {
+    session.settled = !visible;
+    return () => { session.settled = true; };
+  }, [session, visible]);
+
+  const deliverResult = (result: unknown) => {
+    if (session.settled) return;
+    session.settled = true;
+    try {
+      onSignatureCapture(result);
+    } finally {
+      onClose();
+    }
+  };
   const { width, height } = Dimensions.get('window');
 
   const handleSignatureEnd = () => {
@@ -39,6 +55,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
   };
 
   const handleSignatureResult = (signature: string) => {
+    if (session.settled) return;
     if (signature) {
       // Generate GUID for signature
       const generateGUID = () => {
@@ -76,8 +93,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
         },
       };
 
-      onSignatureCapture(signatureResult);
-      onClose();
+      deliverResult(signatureResult);
     } else {
       Alert.alert(t('common.error'), t('signature.noData'));
     }
@@ -95,8 +111,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
       status: 'cancelled',
       message: 'User cancelled signature capture',
     };
-    onSignatureCapture(cancelResult);
-    onClose();
+    deliverResult(cancelResult);
   };
 
   const signatureStyle = `
@@ -126,12 +141,12 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
       visible={visible}
       animationType="slide"
       presentationStyle="fullScreen"
-      onRequestClose={onClose}>
+      onRequestClose={handleCancel}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>Capture Signature</Text>
+          <Text style={styles.title}>{t('signature.title')}</Text>
           <Text style={styles.subtitle}>
-            Draw your signature in the area below
+            {t('signature.hint')}
           </Text>
         </View>
 
@@ -141,12 +156,12 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
             onEnd={handleSignatureEnd}
             onBegin={handleSignatureBegin}
             onOK={handleSignatureResult}
-            onEmpty={() =>
-              Alert.alert(t('common.error'), t('signature.required'))
-            }
+            onEmpty={() => {
+              if (!session.settled) Alert.alert(t('common.error'), t('signature.required'));
+            }}
             descriptionText=""
-            clearText="Clear"
-            confirmText="Save"
+            clearText={t('signature.clear')}
+            confirmText={t('signature.save')}
             webStyle={signatureStyle}
             autoClear={false}
             imageType="image/png"
@@ -156,19 +171,19 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
 
         <View style={styles.buttonContainer}>
           <Button
-            title="Clear"
+            title={t('signature.clear')}
             onPress={handleClearSignature}
             variant="tertiary"
             size="medium"
           />
           <Button
-            title="Cancel"
+            title={t('common.cancel')}
             onPress={handleCancel}
             variant="secondary"
             size="medium"
           />
           <Button
-            title="Save Signature"
+            title={t('signature.save')}
             onPress={handleSaveSignature}
             variant="primary"
             size="medium"

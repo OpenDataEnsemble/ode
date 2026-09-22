@@ -55,30 +55,14 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   const [drafts, setDrafts] = useState<DraftSummary[]>([]);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
-  const [_cleanupMessage, setCleanupMessage] = useState<string | null>(null);
+
 
   // Load drafts on component mount and when formType changes
   const loadDrafts = useCallback(() => {
     const formDrafts = draftService.getDraftsForForm(formType, formVersion);
     setDrafts(formDrafts);
 
-    // Check for old drafts and show cleanup message
-    const oldDraftCount = draftService.getOldDraftCount();
-    if (oldDraftCount > 0) {
-      setCleanupMessage(
-        oldDraftCount === 1
-          ? t(
-              'draft.cleanupOldOne',
-              '1 draft older than 7 days will be automatically removed.',
-            )
-          : t(
-              'draft.cleanupOldMany',
-              '{{count}} drafts older than 7 days will be automatically removed.',
-              { count: oldDraftCount },
-            ),
-      );
-    }
-  }, [formType, formVersion, t]);
+  }, [formType, formVersion]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

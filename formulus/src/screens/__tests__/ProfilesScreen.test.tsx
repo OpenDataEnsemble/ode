@@ -1,0 +1,642 @@
+import React from 'react';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import ProfilesScreen from '../ProfilesScreen';
+import SettingsScreen from '../SettingsScreen';
+import WelcomeScreen from '../WelcomeScreen';
+import MenuDrawer from '../../components/MenuDrawer';
+import { profileRegistry } from '../../profiles/ProfileRegistry';
+import {
+  switchProfile,
+  deleteProfile,
+} from '../../profiles/ProfileTransitions';
+import { setCredentialsForProfile } from '../../profiles/ProfileKeychain';
+import { login } from '../../api/synkronus/Auth';
+import { serverConfigService } from '../../services/ServerConfigService';
+import { QRSettingsService } from '../../services/QRSettingsService';
+import { loadSettingsHydrationFromStorage } from '../../services/SettingsHydrationCache';
+import { ToastService } from '../../services/ToastService';
+import type { ScannerModalResults } from '../../components/QRScannerModal';
+
+const mockNavigate = jest.fn();
+const mockReset = jest.fn();
+const mockNavigation = { navigate: mockNavigate, reset: mockReset };
+const mockConfirm = jest.fn();
+const mockListeners = new Set<() => void>();
+let mockQRResult: (result: ScannerModalResults) => void;
+const makeProfile = (
+  id: string,
+  label: string,
+  serverUrl = '',
+  urlLocked = false,
+) => ({
+  id,
+  label,
+  serverUrl,
+  urlLocked,
+  username: '',
+  dbName: id,
+  legacyClientId: false,
+  legacyWebStorage: false,
+});
+let mockProfiles = [makeProfile('one', 'First', 'https://one.example', true)];
+let mockActive = mockProfiles[0];
+const notify = () => mockListeners.forEach(listener => listener());
+
+jest.mock(
+  '../../profiles/ProfileRegistry',
+  () => ({
+    profileRegistry: {
+      list: () => mockProfiles,
+      subscribe: (listener: () => void) => {
+        mockListeners.add(listener);
+        return () => mockListeners.delete(listener);
+      },
+      add: jest.fn(),
+      rename: jest.fn(),
+      updateConnection: jest.fn(),
+    },
+  }),
+  { virtual: true },
+);
+jest.mock(
+  '../../profiles/ProfileRuntime',
+  () => ({ getActiveProfile: () => mockActive }),
+  { virtual: true },
+);
+jest.mock(
+  '../../profiles/ProfileTransitions',
+  () => ({ switchProfile: jest.fn(), deleteProfile: jest.fn() }),
+  { virtual: true },
+);
+jest.mock(
+  '../../profiles/ProfileKeychain',
+  () => ({ setCredentialsForProfile: jest.fn() }),
+  { virtual: true },
+);
+jest.mock('../../navigation/ProfileNavigationIntent', () => ({
+  transitionToProfiles: (transition: () => Promise<void>) => transition(),
+}));
+jest.mock('@react-navigation/native', () => ({
+  useNavigation: () => mockNavigation,
+  useFocusEffect: (callback: () => void) =>
+    require('react').useEffect(callback, [callback]),
+}));
+jest.mock('react-i18next', () => {
+  const messages = require('../../locales/en.json');
+  const t = (key: string, options: Record<string, string> = {}) =>
+    (messages[key] || key).replace(
+      /\{\{(\w+)\}\}/g,
+      (_: string, name: string) => options[name] || '',
+    );
+  return { useTranslation: () => ({ t }) };
+});
+jest.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: require('react-native').View,
+}));
+jest.mock('@react-native-vector-icons/material-design-icons', () => 'Icon');
+jest.mock('../../contexts/AppThemeContext', () => ({
+  useAppTheme: () => ({
+    themeColors: {
+      primary: 'green',
+      onPrimary: 'white',
+      onSurface: 'black',
+      divider: 'gray',
+    },
+  }),
+}));
+jest.mock('../../hooks/useScreenShellStyle', () => ({
+  useScreenShellStyle: () => ({ flex: 1 }),
+}));
+jest.mock('../../contexts/ConfirmModalContext', () => ({
+  useConfirmModal: () => ({ showConfirm: mockConfirm }),
+}));
+jest.mock('../../theme/odeDesign', () => ({
+  odeSpacing: { xs: 4, sm: 8, md: 16, lg: 24 },
+  odeTypography: { body: 16 },
+  odeBorderWidth: { hairline: 1 },
+  odeRadius: { card: 8, inner: 4 },
+  odeScreenHeaderHeight: 60,
+}));
+jest.mock('../../components/common', () => {
+  const React = require('react');
+  const { Text, TouchableOpacity, TextInput, View } = require('react-native');
+  return {
+    Button: ({ title, onPress, disabled, accessibilityLabel }: any) => (
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || title}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
+        onPress={onPress}>
+        <Text>{title}</Text>
+      </TouchableOpacity>
+    ),
+    LocalePicker: () => <Text>Locale picker</Text>,
+    FormLocalePicker: () => <Text>Form locale picker</Text>,
+    Input: ({ disabled, rightAccessory, ...props }: any) => (
+      <View>
+        <TextInput
+          {...props}
+          editable={!disabled}
+          accessibilityState={{ disabled }}
+        />
+        {rightAccessory}
+      </View>
+    ),
+  };
+});
+jest.mock('../../components/QRScannerModal', () => ({
+  __esModule: true,
+  default: ({ onResult }: any) => {
+    mockQRResult = onResult;
+    return null;
+  },
+}));
+jest.mock('../../api/synkronus/Auth', () => ({
+  login: jest.fn(),
+  getUserInfo: jest.fn(async () => null),
+  isRateLimitedError: (error: any) => error?.status === 429,
+  isVersionMismatchError: (error: any) =>
+    error?.name === 'VersionMismatchError',
+}));
+jest.mock('../../services/ServerConfigService', () => ({
+  normalizeServerUrl: (raw: string) => {
+    try {
+      const url = new URL(
+        raw.includes('://') ? raw.trim() : `https://${raw.trim()}`,
+      );
+      return {
+        ok: true,
+        href: url.href.replace(/\/$/, '').toLowerCase(),
+        isHttp: url.protocol === 'http:',
+      };
+    } catch {
+      return { ok: false };
+    }
+  },
+  serverConfigService: { isHealthEndpointOk: jest.fn() },
+}));
+jest.mock('../../services/QRSettingsService', () => ({
+  QRSettingsService: { processQRCode: jest.fn() },
+}));
+jest.mock('../../services/SettingsHydrationCache', () => ({
+  loadSettingsHydrationFromStorage: jest.fn(),
+  getSettingsHydrationCredentialPair: (snapshot: any) =>
+    snapshot.credentials || null,
+}));
+jest.mock('../../services/ToastService', () => ({
+  ToastService: { showLong: jest.fn(), showShort: jest.fn() },
+}));
+
+jest.mock(
+  '../../components/common/Button',
+  () => require('../../components/common').Button,
+);
+jest.mock('@ode/tokens/dist/react-native/tokens-resolved', () => ({}), {
+  virtual: true,
+});
+jest.mock('../../theme/colors', () => {
+  const colors = {
+    neutral: { white: 'white', black: 'black', transparent: 'transparent' },
+    brand: { primary: { 500: 'green' } },
+    semantic: { error: { ios: 'red' }, info: { ios: 'blue' } },
+    ui: { gray: { medium: 'gray', ios: 'gray' } },
+  };
+  return { __esModule: true, default: colors, colors, withAlpha: () => 'gray' };
+});
+jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: 'Svg',
+  Defs: 'Defs',
+  LinearGradient: 'LinearGradient',
+  Stop: 'Stop',
+  Rect: 'Rect',
+}));
+jest.mock('lucide-react-native', () => ({
+  Moon: 'Moon',
+  Monitor: 'Monitor',
+  Sun: 'Sun',
+  Languages: 'Languages',
+}));
+jest.mock('../../services/AppVersionService', () => ({
+  appVersionService: { getFullVersion: async () => '1.3.3' },
+}));
+jest.mock('../../services/LocaleSettingsService', () => ({
+  localeSettingsService: { load: async () => {}, getPreference: () => 'auto' },
+}));
+jest.mock('../../services/FormLocaleSettingsService', () => ({
+  formLocaleSettingsService: {
+    load: async () => {},
+    getPreference: () => 'default',
+  },
+}));
+jest.mock('../../services/FormLocaleIndexService', () => ({
+  formLocaleIndexService: { getLocales: async () => [] },
+}));
+jest.mock('../../i18n', () => ({ syncFormulusI18nLanguage: jest.fn() }));
+jest.mock('../../webview/FormulusMessageHandlers', () => ({
+  appEvents: { addListener: jest.fn(), removeListener: jest.fn() },
+}));
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockListeners.clear();
+  mockProfiles = [
+    makeProfile('one', 'First', 'https://one.example', true),
+    makeProfile('two', 'Second'),
+  ];
+  mockActive = mockProfiles[0];
+  jest.mocked(loadSettingsHydrationFromStorage).mockResolvedValue({
+    ready: true,
+    serverUrl: mockActive.serverUrl,
+    credentials: false,
+  });
+  jest.mocked(serverConfigService.isHealthEndpointOk).mockResolvedValue(true);
+  jest
+    .mocked(login)
+    .mockResolvedValue({ username: 'new-user', role: 'read-write' });
+  jest.mocked(setCredentialsForProfile).mockResolvedValue(undefined);
+  jest
+    .mocked(profileRegistry.updateConnection)
+    .mockImplementation(async connection => {
+      mockActive = { ...mockActive, ...connection };
+      mockProfiles = mockProfiles.map(profile =>
+        profile.id === mockActive.id ? mockActive : profile,
+      );
+      notify();
+    });
+  jest.mocked(profileRegistry.rename).mockImplementation(async (id, label) => {
+    mockProfiles = mockProfiles.map(profile =>
+      profile.id === id ? { ...profile, label } : profile,
+    );
+    mockActive = mockProfiles.find(profile => profile.id === mockActive.id)!;
+    notify();
+  });
+  jest
+    .mocked(profileRegistry.add)
+    .mockImplementation(async (label, connection) => {
+      const created = {
+        ...makeProfile('three', label || 'Third'),
+        ...connection,
+      };
+      mockProfiles = [...mockProfiles, created];
+      notify();
+      return created;
+    });
+  jest.mocked(switchProfile).mockImplementation(async id => {
+    mockActive = mockProfiles.find(profile => profile.id === id)!;
+    notify();
+  });
+  jest.mocked(deleteProfile).mockImplementation(async id => {
+    mockProfiles = mockProfiles.filter(profile => profile.id !== id);
+    if (mockActive.id === id) mockActive = mockProfiles[0];
+    notify();
+  });
+  jest.mocked(QRSettingsService.processQRCode).mockResolvedValue({
+    serverUrl: 'https://one.example',
+    username: 'qr-user',
+    password: 'qr-secret',
+  });
+});
+
+async function setup() {
+  const screen = render(<ProfilesScreen />);
+  await waitFor(() =>
+    expect(screen.getByPlaceholderText('Username')).toHaveProp(
+      'editable',
+      true,
+    ),
+  );
+  return screen;
+}
+
+async function scan() {
+  await act(async () => {
+    mockQRResult({
+      status: 'success',
+      data: { value: 'encoded-qr' },
+    } as ScannerModalResults);
+  });
+}
+
+async function confirm() {
+  await act(async () => {
+    mockConfirm.mock.calls[0][0].buttons[1].onPress();
+  });
+}
+
+test('Welcome opens Profiles rather than device Settings', () => {
+  const screen = render(<WelcomeScreen />);
+  fireEvent.press(screen.getByRole('button', { name: 'Get started' }));
+  expect(mockReset).toHaveBeenCalledWith({
+    index: 0,
+    routes: [{ name: 'MainApp', params: { screen: 'Profiles' } }],
+  });
+});
+
+test('drawer shows the active label and routes Login to Profiles while preserving Settings', async () => {
+  const onNavigate = jest.fn();
+  const screen = render(
+    <MenuDrawer
+      visible
+      onClose={jest.fn()}
+      onNavigate={onNavigate}
+      onLogout={jest.fn()}
+    />,
+  );
+  expect(screen.getByText('First')).toBeTruthy();
+  fireEvent.press(screen.getByRole('button', { name: 'Login' }));
+  expect(onNavigate).toHaveBeenLastCalledWith('Profiles');
+  fireEvent.press(screen.getByText('Settings'));
+  expect(onNavigate).toHaveBeenLastCalledWith('Settings');
+  await act(async () => {
+    await profileRegistry.rename('one', 'New name');
+  });
+  expect(screen.getByText('New name')).toBeTruthy();
+});
+
+test('Settings keeps device theme, locale controls and version without connection fields', async () => {
+  const screen = render(<SettingsScreen />);
+  await waitFor(() => expect(screen.getByText('v1.3.3')).toBeTruthy());
+  expect(screen.getByLabelText('Theme: System')).toBeTruthy();
+  expect(screen.getByText('Locale picker')).toBeTruthy();
+  expect(screen.getByText('Form locale picker')).toBeTruthy();
+  expect(screen.queryByPlaceholderText('Server URL')).toBeNull();
+  expect(screen.queryByPlaceholderText('Username')).toBeNull();
+  expect(screen.queryByPlaceholderText('Password')).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Login' })).toBeNull();
+});
+
+test('locks a previously authenticated URL but allows re-authentication without wiping data', async () => {
+  const screen = await setup();
+  expect(screen.getByPlaceholderText('Server URL')).toHaveProp(
+    'editable',
+    false,
+  );
+  fireEvent.changeText(screen.getByPlaceholderText('Username'), ' new-user ');
+  fireEvent.changeText(screen.getByPlaceholderText('Password'), ' new-secret ');
+  fireEvent.press(screen.getByRole('button', { name: 'Login' }));
+  await waitFor(() =>
+    expect(login).toHaveBeenCalledWith('new-user', ' new-secret '),
+  );
+  expect(profileRegistry.updateConnection).toHaveBeenLastCalledWith({
+    username: 'new-user',
+    urlLocked: true,
+  });
+  expect(deleteProfile).not.toHaveBeenCalled();
+  expect(mockNavigate).toHaveBeenCalledWith('Sync');
+});
+
+test('normalizes the initial server and locks it only after successful login', async () => {
+  mockActive = mockProfiles[1];
+  const screen = await setup();
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Server URL'),
+    'Two.Example/',
+  );
+  fireEvent.changeText(screen.getByPlaceholderText('Username'), 'new-user');
+  fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret');
+  fireEvent.press(screen.getByRole('button', { name: 'Login' }));
+  await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('Sync'));
+  expect(profileRegistry.updateConnection).toHaveBeenNthCalledWith(1, {
+    serverUrl: 'https://two.example',
+    username: 'new-user',
+  });
+  expect(profileRegistry.updateConnection).toHaveBeenNthCalledWith(2, {
+    username: 'new-user',
+    urlLocked: true,
+  });
+});
+
+test.each([
+  [{ status: 429 }, 'Too many login attempts.'],
+  [
+    { name: 'VersionMismatchError', message: 'secret raw error' },
+    'incompatible versions',
+  ],
+  [new Error('secret raw error'), 'Login failed.'],
+])(
+  'reports safe login errors without locking an unconfigured profile',
+  async (error, message) => {
+    mockActive = mockProfiles[1];
+    jest.mocked(login).mockRejectedValueOnce(error);
+    const screen = await setup();
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Server URL'),
+      'two.example',
+    );
+    fireEvent.changeText(screen.getByPlaceholderText('Username'), 'new-user');
+    fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret');
+    fireEvent.press(screen.getByRole('button', { name: 'Login' }));
+    await waitFor(() =>
+      expect(ToastService.showLong).toHaveBeenCalledWith(
+        expect.stringContaining(message),
+      ),
+    );
+    expect(mockActive.urlLocked).toBe(false);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  },
+);
+
+test('does not send credentials when the health check fails', async () => {
+  jest
+    .mocked(serverConfigService.isHealthEndpointOk)
+    .mockResolvedValueOnce(false);
+  const screen = await setup();
+  fireEvent.changeText(screen.getByPlaceholderText('Username'), 'user');
+  fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret');
+  fireEvent.press(screen.getByRole('button', { name: 'Login' }));
+  await waitFor(() =>
+    expect(ToastService.showLong).toHaveBeenCalledWith(
+      expect.stringContaining('healthy server'),
+    ),
+  );
+  expect(login).not.toHaveBeenCalled();
+});
+
+test('same-server QR fills credentials and logs in without adding or switching', async () => {
+  const screen = await setup();
+  await scan();
+  await waitFor(() =>
+    expect(login).toHaveBeenCalledWith('qr-user', 'qr-secret'),
+  );
+  expect(screen.getByPlaceholderText('Password')).toHaveProp(
+    'value',
+    'qr-secret',
+  );
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  expect(switchProfile).not.toHaveBeenCalled();
+});
+
+test('different-server QR preserves the old profile and securely hands credentials to the new profile', async () => {
+  jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
+    serverUrl: 'https://new.example',
+    username: 'qr-user',
+    password: 'qr-secret',
+  });
+  jest
+    .mocked(loadSettingsHydrationFromStorage)
+    .mockResolvedValueOnce({
+      ready: true,
+      serverUrl: mockActive.serverUrl,
+      credentials: false,
+    })
+    .mockResolvedValueOnce({
+      ready: true,
+      serverUrl: 'https://new.example',
+      credentials: { username: 'qr-user', password: 'qr-secret' },
+    });
+  const screen = await setup();
+  await scan();
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  await confirm();
+  await waitFor(() =>
+    expect(screen.getByPlaceholderText('Password')).toHaveProp(
+      'value',
+      'qr-secret',
+    ),
+  );
+  expect(profileRegistry.add).toHaveBeenCalledWith(undefined, {
+    serverUrl: 'https://new.example',
+    username: 'qr-user',
+  });
+  expect(setCredentialsForProfile).toHaveBeenCalledWith(
+    'three',
+    'qr-user',
+    'qr-secret',
+  );
+  expect(
+    jest.mocked(setCredentialsForProfile).mock.invocationCallOrder[0],
+  ).toBeLessThan(jest.mocked(switchProfile).mock.invocationCallOrder[0]);
+  expect(mockProfiles[0].serverUrl).toBe('https://one.example');
+  expect(deleteProfile).not.toHaveBeenCalled();
+  expect(mockNavigate).toHaveBeenCalledWith('Profiles');
+});
+
+test('QR keychain failure keeps the created profile but never switches or stores plaintext credentials', async () => {
+  jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
+    serverUrl: 'https://new.example',
+    username: 'qr-user',
+    password: 'qr-secret',
+  });
+  jest
+    .mocked(setCredentialsForProfile)
+    .mockRejectedValueOnce(new Error('secret native error'));
+  await setup();
+  await scan();
+  await confirm();
+  await waitFor(() =>
+    expect(ToastService.showLong).toHaveBeenCalledWith(
+      expect.stringContaining('saved securely'),
+    ),
+  );
+  expect(switchProfile).not.toHaveBeenCalled();
+  expect(JSON.stringify(mockProfiles)).not.toContain('qr-secret');
+});
+
+test('rejected QR switch leaves the old profile selected and explains that rescanning is unnecessary', async () => {
+  jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
+    serverUrl: 'https://new.example',
+    username: 'qr-user',
+    password: 'qr-secret',
+  });
+  jest.mocked(switchProfile).mockRejectedValueOnce(new Error('busy'));
+  await setup();
+  await scan();
+  await confirm();
+  await waitFor(() =>
+    expect(ToastService.showLong).toHaveBeenCalledWith(
+      expect.stringContaining('do not need to scan again'),
+    ),
+  );
+  expect(mockActive.id).toBe('one');
+});
+
+test('rejects switching during sync or an open form and retains the active selection', async () => {
+  jest
+    .mocked(switchProfile)
+    .mockRejectedValueOnce(new Error('sensitive internal state'));
+  const screen = await setup();
+  fireEvent.press(screen.getByRole('radio', { name: 'Use profile Second' }));
+  await waitFor(() =>
+    expect(ToastService.showLong).toHaveBeenCalledWith(
+      expect.stringContaining('Close any open form'),
+    ),
+  );
+  expect(
+    screen.getByRole('radio', { name: 'Use profile First' }),
+  ).toHaveAccessibilityState({ checked: true });
+  expect(mockNavigate).not.toHaveBeenCalled();
+});
+
+test('adds without switching and renames through the registry', async () => {
+  const screen = await setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    ' Fieldwork ',
+  );
+  fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
+  await waitFor(() =>
+    expect(profileRegistry.add).toHaveBeenCalledWith('Fieldwork'),
+  );
+  expect(switchProfile).not.toHaveBeenCalled();
+  fireEvent.press(screen.getByRole('button', { name: 'Rename profile First' }));
+  fireEvent.changeText(screen.getByPlaceholderText('Profile name'), 'Renamed');
+  fireEvent.press(screen.getByRole('button', { name: 'Save name' }));
+  await waitFor(() =>
+    expect(
+      screen.getByRole('radio', { name: 'Use profile Renamed' }),
+    ).toBeTruthy(),
+  );
+});
+
+test('deleting the active profile asks for confirmation and uses the central fallback', async () => {
+  const screen = await setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Delete profile First' }));
+  expect(deleteProfile).not.toHaveBeenCalled();
+  expect(mockConfirm.mock.calls[0][0].message).toContain(
+    'Unsynced data will be lost',
+  );
+  await confirm();
+  await waitFor(() =>
+    expect(
+      screen.getByRole('radio', { name: 'Use profile Second' }),
+    ).toHaveAccessibilityState({ checked: true }),
+  );
+  expect(deleteProfile).toHaveBeenCalledWith('one');
+});
+
+test('disables deletion of the last profile', async () => {
+  mockProfiles = [mockActive];
+  const screen = await setup();
+  expect(
+    screen.getByRole('button', { name: 'Delete profile First' }),
+  ).toBeDisabled();
+});
+
+test('never copies a late keychain result from a previous profile into the new profile', async () => {
+  let resolveOld: (value: any) => void = () => {};
+  jest.mocked(loadSettingsHydrationFromStorage).mockImplementationOnce(
+    () =>
+      new Promise(resolve => {
+        resolveOld = resolve;
+      }),
+  );
+  const screen = render(<ProfilesScreen />);
+  fireEvent.press(screen.getByRole('radio', { name: 'Use profile Second' }));
+  await waitFor(() =>
+    expect(screen.getByPlaceholderText('Username')).toHaveProp(
+      'editable',
+      true,
+    ),
+  );
+  await act(async () =>
+    resolveOld({
+      ready: true,
+      credentials: { username: 'old-user', password: 'old-secret' },
+    }),
+  );
+  expect(screen.getByPlaceholderText('Password')).toHaveProp('value', '');
+  expect(screen.getByPlaceholderText('Username')).toHaveProp('value', '');
+});

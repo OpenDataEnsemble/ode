@@ -21,6 +21,7 @@ import { ObservationModel } from '../database/models/ObservationModel';
 import AppConfigService from './AppConfigService';
 import type { ObservationIndexDef } from '../types/AppConfig';
 import { logger } from '../diagnostics/logger';
+import { profileActivity } from '../profiles/ProfileActivity';
 
 type SqlArg = string | number | boolean | null;
 type SqlStatement = [string, SqlArg[]];
@@ -272,7 +273,14 @@ export class ObservationIndexService {
     // the rebuild was still running, and any failure went to a console warning
     // that nothing acted on. `bundleUpdated` still fires for the other
     // listeners; it just no longer owns the rebuild.
-    void this.ensureInitialRebuild();
+    void this.ensureInitialRebuild().catch(err => {
+      logger.warn(
+        'index',
+        err instanceof Error
+          ? err.message
+          : 'Initial index rebuild unavailable',
+      );
+    });
   }
 
   static getInstance(db: Database = database): ObservationIndexService {
@@ -317,6 +325,12 @@ export class ObservationIndexService {
    * rebuild or a wipe, and both clear this flag.
    */
   async isIndexUsable(): Promise<boolean> {
+    return profileActivity.run('Check observation index', () =>
+      this.isIndexUsableImpl(),
+    );
+  }
+
+  private async isIndexUsableImpl(): Promise<boolean> {
     if (this.indexUsable) return true;
 
     const generation = await this.readActiveGeneration();
@@ -367,7 +381,11 @@ export class ObservationIndexService {
     return this.initialRebuildFinished;
   }
 
-  async getStatus(): Promise<{
+  async getStatus() {
+    return profileActivity.run('Read index status', () => this.getStatusImpl());
+  }
+
+  private async getStatusImpl(): Promise<{
     activeGeneration: number;
     lastRebuildAt: string | null;
     defsSignature: string | null;
@@ -395,98 +413,102 @@ export class ObservationIndexService {
    * up-to-date index defs.
    */
   ensureInitialRebuild(): Promise<void> {
+    profileActivity.assertAvailable();
     if (this.initialRebuildPromise) return this.initialRebuildPromise;
-    this.initialRebuildPromise = (async () => {
-      try {
-        logger.info('index', 'ensureInitialRebuild start', {
-          phase: 'ensure',
-        });
-        await AppConfigService.getInstance()
-          .loadConfig()
-          .catch(err => {
-            logger.warn(
-              'index',
-              err instanceof Error
-                ? err.message
-                : 'loadConfig before initial rebuild failed',
-            );
+    this.initialRebuildPromise = profileActivity.run(
+      'Initialize observation index',
+      async () => {
+        try {
+          logger.info('index', 'ensureInitialRebuild start', {
+            phase: 'ensure',
           });
+          await AppConfigService.getInstance()
+            .loadConfig()
+            .catch(err => {
+              logger.warn(
+                'index',
+                err instanceof Error
+                  ? err.message
+                  : 'loadConfig before initial rebuild failed',
+              );
+            });
 
-        const status = await this.getStatus();
-        const indexCountRows = await this.query<{ cnt: number }>(
-          'SELECT COUNT(*) AS cnt FROM observation_index',
-        );
-        const indexCount = indexCountRows[0]?.cnt ?? 0;
+          const status = await this.getStatus();
+          const indexCountRows = await this.query<{ cnt: number }>(
+            'SELECT COUNT(*) AS cnt FROM observation_index',
+          );
+          const indexCount = indexCountRows[0]?.cnt ?? 0;
 
-        const obsCountRows = await this.query<{ cnt: number }>(
-          'SELECT COUNT(*) AS cnt FROM observations',
-        );
-        const observationCount = obsCountRows[0]?.cnt ?? 0;
+          const obsCountRows = await this.query<{ cnt: number }>(
+            'SELECT COUNT(*) AS cnt FROM observations',
+          );
+          const observationCount = obsCountRows[0]?.cnt ?? 0;
 
-        // A populated table is not evidence that it is *current*. If the stored
-        // signature does not match the definitions in force, the rows were
-        // built from a previous bundle or by a rebuild that never finished, and
-        // skipping here would leave that state in place permanently.
-        const signatureMatches =
-          status.defsSignature === computeDefsSignature(this.getIndexDefs());
+          // A populated table is not evidence that it is *current*. If the stored
+          // signature does not match the definitions in force, the rows were
+          // built from a previous bundle or by a rebuild that never finished, and
+          // skipping here would leave that state in place permanently.
+          const signatureMatches =
+            status.defsSignature === computeDefsSignature(this.getIndexDefs());
 
-        const skipBecausePopulated =
-          Boolean(status.lastRebuildAt) && indexCount > 0 && signatureMatches;
-        const skipBecauseEmptyInstall =
-          observationCount === 0 &&
-          Boolean(status.lastRebuildAt) &&
-          signatureMatches;
+          const skipBecausePopulated =
+            Boolean(status.lastRebuildAt) && indexCount > 0 && signatureMatches;
+          const skipBecauseEmptyInstall =
+            observationCount === 0 &&
+            Boolean(status.lastRebuildAt) &&
+            signatureMatches;
 
-        logger.info(
-          'index',
-          `ensureInitialRebuild obs=${observationCount} indexRows=${indexCount} stamped=${Boolean(status.lastRebuildAt)} sigMatch=${signatureMatches}`,
-          { phase: 'ensure', counts: observationCount },
-        );
-
-        if (skipBecausePopulated) {
-          logger.info('index', 'ensureInitialRebuild skip: populated', {
-            phase: 'skip',
-            counts: indexCount,
-            success: true,
-          });
-          this.initialRebuildFinished = true;
-          return;
-        }
-
-        if (skipBecauseEmptyInstall) {
-          logger.info('index', 'ensureInitialRebuild skip: empty install', {
-            phase: 'skip',
-            counts: 0,
-            success: true,
-          });
-          this.initialRebuildFinished = true;
-          return;
-        }
-
-        if (!signatureMatches && Boolean(status.lastRebuildAt)) {
           logger.info(
             'index',
-            'index definitions changed or a previous rebuild did not complete — rebuilding',
-            { phase: 'rebuild', counts: observationCount },
+            `ensureInitialRebuild obs=${observationCount} indexRows=${indexCount} stamped=${Boolean(status.lastRebuildAt)} sigMatch=${signatureMatches}`,
+            { phase: 'ensure', counts: observationCount },
           );
-        } else {
-          logger.info('index', 'ensureInitialRebuild running full rebuild', {
-            phase: 'rebuild',
-            counts: observationCount,
-          });
-        }
 
-        await this.rebuildAllIndexes();
-        this.initialRebuildFinished = true;
-      } catch (err) {
-        logger.warn(
-          'index',
-          err instanceof Error ? err.message : 'initial rebuild failed',
-        );
-        // Allow a future caller to retry.
-        this.initialRebuildPromise = null;
-      }
-    })();
+          if (skipBecausePopulated) {
+            logger.info('index', 'ensureInitialRebuild skip: populated', {
+              phase: 'skip',
+              counts: indexCount,
+              success: true,
+            });
+            this.initialRebuildFinished = true;
+            return;
+          }
+
+          if (skipBecauseEmptyInstall) {
+            logger.info('index', 'ensureInitialRebuild skip: empty install', {
+              phase: 'skip',
+              counts: 0,
+              success: true,
+            });
+            this.initialRebuildFinished = true;
+            return;
+          }
+
+          if (!signatureMatches && Boolean(status.lastRebuildAt)) {
+            logger.info(
+              'index',
+              'index definitions changed or a previous rebuild did not complete — rebuilding',
+              { phase: 'rebuild', counts: observationCount },
+            );
+          } else {
+            logger.info('index', 'ensureInitialRebuild running full rebuild', {
+              phase: 'rebuild',
+              counts: observationCount,
+            });
+          }
+
+          await this.rebuildAllIndexes();
+          this.initialRebuildFinished = true;
+        } catch (err) {
+          logger.warn(
+            'index',
+            err instanceof Error ? err.message : 'initial rebuild failed',
+          );
+          // Allow a future caller to retry.
+          this.initialRebuildPromise = null;
+        }
+      },
+    );
     return this.initialRebuildPromise;
   }
 
@@ -501,6 +523,14 @@ export class ObservationIndexService {
   async rebuildForBundleUpdate(
     onProgress?: (progress: IndexRebuildProgress) => void,
   ): Promise<void> {
+    return profileActivity.run('Rebuild bundle indexes', () =>
+      this.rebuildForBundleUpdateImpl(onProgress),
+    );
+  }
+
+  private async rebuildForBundleUpdateImpl(
+    onProgress?: (progress: IndexRebuildProgress) => void,
+  ): Promise<void> {
     await AppConfigService.getInstance().loadConfig(/* force */ true);
     try {
       await this.rebuildAllIndexes({ onProgress });
@@ -513,6 +543,14 @@ export class ObservationIndexService {
   }
 
   async rebuildAllIndexes(options?: {
+    onProgress?: (progress: IndexRebuildProgress) => void;
+  }) {
+    return profileActivity.run('Rebuild observation indexes', () =>
+      this.rebuildAllIndexesImpl(options),
+    );
+  }
+
+  private async rebuildAllIndexesImpl(options?: {
     onProgress?: (progress: IndexRebuildProgress) => void;
   }): Promise<{
     generation: number;
@@ -641,6 +679,16 @@ export class ObservationIndexService {
     formType: string,
     dataJson: string,
   ): Promise<void> {
+    return profileActivity.run('Reindex observation', () =>
+      this.incrementalReindexImpl(observationId, formType, dataJson),
+    );
+  }
+
+  private async incrementalReindexImpl(
+    observationId: string,
+    formType: string,
+    dataJson: string,
+  ): Promise<void> {
     const defs = this.getIndexDefs();
     if (!defs.length) return;
     await this.db.write(async () => {
@@ -674,6 +722,16 @@ export class ObservationIndexService {
       formType: string;
       dataJson: string | unknown;
     }>,
+    onProgress?: (progress: IndexRebuildProgress) => void,
+    isCancelled?: () => boolean,
+  ): Promise<void> {
+    return profileActivity.run('Reindex observations', () =>
+      this.incrementalReindexManyImpl(rows, onProgress, isCancelled),
+    );
+  }
+
+  private async incrementalReindexManyImpl(
+    rows: Parameters<ObservationIndexService['incrementalReindexMany']>[0],
     onProgress?: (progress: IndexRebuildProgress) => void,
     isCancelled?: () => boolean,
   ): Promise<void> {

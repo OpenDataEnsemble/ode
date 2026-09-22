@@ -1,4 +1,4 @@
-import { Database } from '@nozbe/watermelondb';
+import { Database, Q } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
 import { schemas } from './schema';
 import { ObservationModel } from './models/ObservationModel';
@@ -10,8 +10,12 @@ import { logger } from '../diagnostics/logger';
 import { installWatermelonLogBridge } from './installWatermelonLogBridge';
 import { logSqliteEngine } from './probeSqliteEngine';
 
-// Capture Watermelon's JSI-fallback warn before SQLiteAdapter runs initializeJSI.
-installWatermelonLogBridge();
+import {
+  getActiveProfile,
+  assertProfileReady,
+} from '../profiles/ProfileRuntime';
+import { prepareProfileDatabase } from '../profiles/nativeProfileLifecycle';
+import { profileActivity } from '../profiles/ProfileActivity';
 
 // Define migrations
 const migrations = schemaMigrations({
@@ -108,36 +112,64 @@ const migrations = schemaMigrations({
   ],
 });
 
-// Setup the adapter
-const adapter = new SQLiteAdapter({
-  schema: schemas,
-  // Optional database name
-  dbName: 'formulus',
-  // Configure migrations
-  migrations: migrations,
-  // Requests the bundled JSI SQLite. Confirm with logSqliteEngine — Android
-  // still falls back to system SQLite if WatermelonDBJSIPackage is missing.
-  jsi: true,
-  onSetUpError: error => {
-    logger.error(
-      'db',
-      error instanceof Error ? error.message : 'Database setup error',
+/** Compatibility live binding. Bootstrap must finish before importing App. */
+export let database: Database;
+let initializationPromise: Promise<void> | null = null;
+
+export function getDatabase(): Database {
+  if (!database) {
+    throw new Error(
+      'Profile database is not initialized. Await initializeProfileDatabase() before loading App.',
     );
-  },
-});
+  }
+  profileActivity.assertAvailable();
+  return database;
+}
 
-// Create the database
-export const database = new Database({
-  adapter,
-  modelClasses: [
-    ObservationModel,
-    // Add more models as needed
-  ],
-});
-
-void logSqliteEngine(database).catch(error => {
-  logger.warn(
-    'db',
-    error instanceof Error ? error.message : 'sqlite engine probe failed',
+/** Opens exactly one database for this immutable profile runtime. */
+export function initializeProfileDatabase(): Promise<void> {
+  if (initializationPromise) return initializationPromise;
+  initializationPromise = profileActivity.run(
+    'Initialize profile database',
+    async () => {
+      assertProfileReady();
+      const { dbName } = getActiveProfile();
+      // Native records this name for the process lifetime. Never construct an
+      // adapter before preparation, nor retry a failed open in the same runtime.
+      await prepareProfileDatabase(dbName);
+      installWatermelonLogBridge();
+      const adapter = new SQLiteAdapter({
+        schema: schemas,
+        dbName,
+        migrations,
+        jsi: true,
+        onSetUpError: error => {
+          logger.error(
+            'db',
+            error instanceof Error ? error.message : 'Database setup error',
+          );
+        },
+      });
+      await adapter.initializingPromise;
+      const candidate = new Database({
+        adapter,
+        modelClasses: [ObservationModel],
+      });
+      // Validate that the observation table is usable without scanning its rows.
+      await candidate.read(() =>
+        candidate
+          .get('observations')
+          .query(Q.unsafeSqlQuery('SELECT id FROM observations LIMIT 1'))
+          .unsafeFetchRaw(),
+      );
+      await logSqliteEngine(candidate).catch(error => {
+        logger.warn(
+          'db',
+          error instanceof Error ? error.message : 'sqlite engine probe failed',
+        );
+      });
+      database = candidate;
+    },
   );
-});
+  return initializationPromise;
+}

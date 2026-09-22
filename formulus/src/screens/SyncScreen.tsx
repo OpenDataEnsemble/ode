@@ -14,11 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { logger } from '../diagnostics/logger';
 import Icon from '@react-native-vector-icons/material-design-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../profiles/ProfileStorage';
+import { ProfileBusyError } from '../profiles/ProfileActivity';
+import { readPendingUploads } from './readPendingUploads';
 import { formatRelativeTime } from '../utils/dateUtils';
 import { syncService } from '../services/SyncService';
 import { useSyncContext } from '../contexts/SyncContext';
-import RNFS from 'react-native-fs';
+
 import { databaseService } from '../database/DatabaseService';
 import {
   getUserInfo,
@@ -113,40 +115,39 @@ const SyncScreen = () => {
     t('sync.connectivity.default'),
   );
   const prevSyncWasActiveRef = useRef(false);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const updatePendingUploads = useCallback(async () => {
+    if (!mountedRef.current) return;
     try {
-      const pendingDirectory = `${RNFS.DocumentDirectoryPath}/attachments/pending`;
-      await RNFS.mkdir(pendingDirectory);
-      const files = await RNFS.readDir(pendingDirectory);
-      const attachmentFiles = files.filter(file => file.isFile());
-
-      const count = attachmentFiles.length;
-      const totalSizeBytes = attachmentFiles.reduce(
-        (sum, file) => sum + file.size,
-        0,
-      );
-      const sizeMB = totalSizeBytes / (1024 * 1024);
-
-      setPendingUploads({ count, sizeMB });
+      const pending = await readPendingUploads();
+      if (mountedRef.current) setPendingUploads(pending);
     } catch (error) {
+      if (!mountedRef.current || error instanceof ProfileBusyError) return;
       console.error('Failed to get pending uploads info:', error);
       setPendingUploads({ count: 0, sizeMB: 0 });
     }
   }, []);
 
   const updatePendingObservations = useCallback(async () => {
+    if (!mountedRef.current) return;
     try {
       const repo = databaseService.getLocalRepo();
       const pendingChanges = await repo.getPendingChanges();
-      setPendingObservations(pendingChanges.length);
+      if (mountedRef.current) setPendingObservations(pendingChanges.length);
     } catch (error) {
+      if (!mountedRef.current || error instanceof ProfileBusyError) return;
       console.error('Failed to get pending observations count:', error);
       setPendingObservations(0);
     }
   }, []);
 
   const refreshAfterOperation = useCallback(async () => {
+    if (!mountedRef.current) return;
     const syncTime = new Date().toISOString();
     setLastSync(syncTime);
     try {
@@ -167,21 +168,25 @@ const SyncScreen = () => {
   }, [updatePendingUploads, updatePendingObservations]);
 
   const refreshUserRole = useCallback(async () => {
+    if (!mountedRef.current) return;
     try {
       const userInfo = await getUserInfo();
-      setIsReadOnly(userInfo?.role === 'read-only');
+      if (mountedRef.current) setIsReadOnly(userInfo?.role === 'read-only');
     } catch {
-      setIsReadOnly(false);
+      if (mountedRef.current) setIsReadOnly(false);
     }
   }, []);
 
   const refreshConnectivityStatus = useCallback(async () => {
+    if (!mountedRef.current) return;
     try {
       const knobs = await networkProfileService.getSyncKnobs();
+      if (!mountedRef.current) return;
       const meterState = getConnectivityMeterState(knobs);
       setConnectivityLevel(meterState.level);
       setConnectivityLabel(t(meterState.labelKey));
     } catch {
+      if (!mountedRef.current) return;
       setConnectivityLevel(2);
       setConnectivityLabel(t('sync.connectivity.default'));
     }
@@ -436,8 +441,10 @@ const SyncScreen = () => {
   ]);
 
   const checkForUpdates = useCallback(async () => {
+    if (!mountedRef.current) return;
     try {
       const status = await syncService.getAppBundleStatus();
+      if (!mountedRef.current) return;
       if (status) {
         setAppBundleVersion(status.localVersion);
         setServerBundleVersion(status.serverVersion);
@@ -446,6 +453,7 @@ const SyncScreen = () => {
         const localNorm = normalizeAppBundleVersion(
           await AsyncStorage.getItem('@appVersion'),
         );
+        if (!mountedRef.current) return;
         setAppBundleVersion(
           isNumericAppBundleVersionString(localNorm) ? localNorm : 'Unknown',
         );
@@ -496,21 +504,32 @@ const SyncScreen = () => {
     const unsubscribeProgress =
       syncService.subscribeToProgressUpdates(updateProgress);
 
+    let cancelled = false;
     const initialize = async () => {
       await syncService.initialize();
+      if (cancelled) return;
       await refreshUserRole();
+      if (cancelled) return;
       await refreshConnectivityStatus();
+      if (cancelled) return;
       const lastSyncTime = await AsyncStorage.getItem('@lastSync');
+      if (cancelled) return;
       if (lastSyncTime) {
         setLastSync(lastSyncTime);
       }
       await updatePendingUploads();
+      if (cancelled) return;
       await updatePendingObservations();
     };
 
-    initialize();
+    void initialize().catch(error => {
+      if (!cancelled && !(error instanceof ProfileBusyError)) {
+        console.warn('Failed to initialize sync screen:', error);
+      }
+    });
 
     return () => {
+      cancelled = true;
       unsubscribeStatus();
       unsubscribeProgress();
     };
@@ -569,6 +588,7 @@ const SyncScreen = () => {
 
     if (!syncState.isActive && !syncState.error) {
       const timer = setTimeout(() => {
+        if (!mountedRef.current) return;
         updatePendingUploads();
         updatePendingObservations();
         refreshConnectivityStatus();

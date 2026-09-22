@@ -35,7 +35,23 @@ const mockAsyncStorage = {
     (key: string, value: string) => Promise<void>
   >,
 };
-jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
+jest.mock('../../profiles/ProfileStorage', () => mockAsyncStorage, {
+  virtual: true,
+});
+jest.mock(
+  '../../profiles/ProfileActivity',
+  () => ({
+    profileActivity:
+      require('../testUtils/profileMocks').createProfileActivityMock(),
+  }),
+  { virtual: true },
+);
+jest.mock(
+  '../../profiles/ProfilePaths',
+  () =>
+    require('../testUtils/profileMocks').createProfilePathsMock('/mock/doc'),
+  { virtual: true },
+);
 
 const {
   isAttachmentBasename,

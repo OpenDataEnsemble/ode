@@ -9,6 +9,8 @@
  */
 
 import DeviceInfo from 'react-native-device-info';
+import { getActiveProfile } from '../profiles/ProfileRuntime';
+import { profileActivity } from '../profiles/ProfileActivity';
 
 export class ClientIdService {
   private static instance: ClientIdService;
@@ -30,6 +32,10 @@ export class ClientIdService {
    * Caches the result for performance
    */
   public async getClientId(): Promise<string> {
+    return profileActivity.run('Read client ID', () => this.getClientIdImpl());
+  }
+
+  private async getClientIdImpl(): Promise<string> {
     if (this.cachedClientId) {
       return this.cachedClientId;
     }
@@ -39,7 +45,10 @@ export class ClientIdService {
       // - Android: Returns Android ID (same as getAndroidId())
       // - iOS: Returns IDFV or generated ID stored in Keychain
       const deviceId = await DeviceInfo.getUniqueId();
-      this.cachedClientId = `formulus-${deviceId}`;
+      const profile = getActiveProfile();
+      this.cachedClientId = profile.legacyClientId
+        ? `formulus-${deviceId}`
+        : `formulus-${deviceId}-${profile.id}`;
 
       return this.cachedClientId;
     } catch (error) {

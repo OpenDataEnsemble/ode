@@ -5,6 +5,8 @@ import {
   UpdateObservationInput,
 } from '../database/models/Observation';
 import RNFS from 'react-native-fs';
+import { profilePath, profilePaths } from '../profiles/ProfilePaths';
+import { profileActivity } from '../profiles/ProfileActivity';
 import {
   resolveSharedChoiceRefs,
   SHARED_CHOICE_SCHEMA_ID,
@@ -159,10 +161,7 @@ export class FormService {
       // Support both bundle structures:
       // - Root-level forms/ (e.g. ODE testdata)
       // - app/forms/ (e.g. AnthroCollect bundles)
-      const formsDirs = [
-        RNFS.DocumentDirectoryPath + '/forms',
-        RNFS.DocumentDirectoryPath + '/app/forms',
-      ];
+      const formsDirs = [profilePaths.forms(), profilePath('app/forms')];
 
       const allFormSpecs: FormSpec[] = [];
       const seenIds = new Set<string>();
@@ -195,7 +194,7 @@ export class FormService {
       }
 
       // Ensure root forms dir exists for future downloads
-      const rootFormsDir = RNFS.DocumentDirectoryPath + '/forms';
+      const rootFormsDir = profilePaths.forms();
       const rootExists = await RNFS.exists(rootFormsDir);
       if (!rootExists) {
         await RNFS.mkdir(rootFormsDir);
@@ -216,6 +215,12 @@ export class FormService {
    * @returns Promise that resolves with the FormService instance
    */
   public static async getInstance(): Promise<FormService> {
+    return profileActivity.run('Initialize forms', () =>
+      FormService.getInstanceImpl(),
+    );
+  }
+
+  private static async getInstanceImpl(): Promise<FormService> {
     if (!FormService.instance) {
       FormService.instance = new FormService();
     }
@@ -257,6 +262,12 @@ export class FormService {
    * This should be called after app bundle updates
    */
   public async invalidateCache(): Promise<void> {
+    return profileActivity.run('Refresh forms', () =>
+      this.invalidateCacheImpl(),
+    );
+  }
+
+  private async invalidateCacheImpl(): Promise<void> {
     try {
       const specs = await this.getFormspecsFromStorage();
       this.formSpecs = specs;
@@ -302,27 +313,35 @@ export class FormService {
   public async getObservationsByFormType(
     formTypeId: string,
   ): Promise<Observation[]> {
-    const localRepo = databaseService.getLocalRepo();
-    return await localRepo.getObservationsByFormType(formTypeId);
+    return profileActivity.run('Read form observations', async () => {
+      const localRepo = databaseService.getLocalRepo();
+      return localRepo.getObservationsByFormType(formTypeId);
+    });
   }
 
   public async getActiveObservations(): Promise<Observation[]> {
-    const localRepo = databaseService.getLocalRepo();
-    return localRepo.getActiveObservations();
+    return profileActivity.run('Read active observations', async () => {
+      const localRepo = databaseService.getLocalRepo();
+      return localRepo.getActiveObservations();
+    });
   }
 
   public async getObservation(
     observationId: string,
   ): Promise<Observation | null> {
-    const localRepo = databaseService.getLocalRepo();
-    return localRepo.getObservation(observationId);
+    return profileActivity.run('Read observation', async () => {
+      const localRepo = databaseService.getLocalRepo();
+      return localRepo.getObservation(observationId);
+    });
   }
 
   public async listObservationsPage(
     query: ObservationListQuery,
   ): Promise<ObservationListPage> {
-    const localRepo = databaseService.getLocalRepo();
-    return localRepo.listObservationsPage(query);
+    return profileActivity.run('List observations', async () => {
+      const localRepo = databaseService.getLocalRepo();
+      return localRepo.listObservationsPage(query);
+    });
   }
 
   /**
@@ -337,6 +356,14 @@ export class FormService {
     /** @deprecated Use structured `filter` instead */
     whereClause?: string | null;
   }): Promise<Observation[]> {
+    return profileActivity.run('Query observations', () =>
+      this.getObservationsByQueryImpl(options),
+    );
+  }
+
+  private async getObservationsByQueryImpl(
+    options: Parameters<FormService['getObservationsByQuery']>[0],
+  ): Promise<Observation[]> {
     const localRepo = databaseService.getLocalRepo();
 
     if (options.filter) {
@@ -365,8 +392,10 @@ export class FormService {
    * @returns Promise that resolves when the observation is deleted
    */
   public async deleteObservation(observationId: string): Promise<void> {
-    const localRepo = databaseService.getLocalRepo();
-    await localRepo.deleteObservation(observationId);
+    return profileActivity.run('Delete observation', async () => {
+      const localRepo = databaseService.getLocalRepo();
+      await localRepo.deleteObservation(observationId);
+    });
   }
 
   /**
@@ -376,6 +405,15 @@ export class FormService {
    * @returns Promise that resolves to the ID of the saved observation
    */
   public async addNewObservation(
+    formType: string,
+    data: Record<string, unknown>,
+  ): Promise<string> {
+    return profileActivity.run('Save observation', () =>
+      this.addNewObservationImpl(formType, data),
+    );
+  }
+
+  private async addNewObservationImpl(
     formType: string,
     data: Record<string, unknown>,
   ): Promise<string> {
@@ -406,6 +444,15 @@ export class FormService {
     observationId: string,
     data: Record<string, unknown>,
   ): Promise<string> {
+    return profileActivity.run('Update observation', () =>
+      this.updateObservationImpl(observationId, data),
+    );
+  }
+
+  private async updateObservationImpl(
+    observationId: string,
+    data: Record<string, unknown>,
+  ): Promise<string> {
     const input: UpdateObservationInput = {
       observationId: observationId,
       data,
@@ -427,6 +474,12 @@ export class FormService {
    * This is a diagnostic function to help troubleshoot database issues
    */
   public async debugDatabase(): Promise<void> {
+    return profileActivity.run('Debug database', () =>
+      this.debugDatabaseImpl(),
+    );
+  }
+
+  private async debugDatabaseImpl(): Promise<void> {
     try {
       // Get the local repository
       const localRepo = databaseService.getLocalRepo();

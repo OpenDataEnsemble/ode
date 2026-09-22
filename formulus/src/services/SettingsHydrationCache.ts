@@ -1,5 +1,6 @@
-import * as Keychain from 'react-native-keychain';
+import { getProfileCredentials } from '../profiles/ProfileKeychain';
 import { serverConfigService } from './ServerConfigService';
+import { profileActivity } from '../profiles/ProfileActivity';
 
 export type SettingsHydrationSnapshot =
   | { ready: false }
@@ -15,7 +16,7 @@ let inflight: Promise<SettingsHydrationSnapshot> | null = null;
 let generation = 0;
 
 function normalizeCredentials(
-  raw: Awaited<ReturnType<typeof Keychain.getGenericPassword>>,
+  raw: Awaited<ReturnType<typeof getProfileCredentials>>,
 ): false | { username: string; password: string } {
   if (!raw || raw === false) {
     return false;
@@ -26,10 +27,8 @@ function normalizeCredentials(
 async function fetchSnapshot(
   requestedGeneration: number,
 ): Promise<SettingsHydrationSnapshot> {
-  const [serverUrl, credentials] = await Promise.all([
-    serverConfigService.getServerUrl(),
-    Keychain.getGenericPassword(),
-  ]);
+  const serverUrl = await serverConfigService.getServerUrl();
+  const credentials = await getProfileCredentials();
   const next: SettingsHydrationSnapshot = {
     ready: true,
     serverUrl,
@@ -47,15 +46,18 @@ async function fetchSnapshot(
  * screen critical path.
  */
 export function loadSettingsHydrationFromStorage(): Promise<SettingsHydrationSnapshot> {
+  profileActivity.assertAvailable();
   if (inflight) {
     return inflight;
   }
   const requestedGeneration = generation;
-  const request = fetchSnapshot(requestedGeneration).finally(() => {
-    if (inflight === request) {
-      inflight = null;
-    }
-  });
+  const request = profileActivity
+    .run('Load profile settings', () => fetchSnapshot(requestedGeneration))
+    .finally(() => {
+      if (inflight === request) {
+        inflight = null;
+      }
+    });
   inflight = request;
   return inflight;
 }

@@ -2,17 +2,59 @@
  * @format
  */
 
-// Mock all native modules BEFORE any imports
-jest.mock('react-native-keychain');
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  __esModule: true,
-  default: {
-    getItem: jest.fn(),
-    setItem: jest.fn(),
-    removeItem: jest.fn(),
-    multiRemove: jest.fn(),
+jest.mock('../../../diagnostics/logger', () => ({
+  logger: {
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+    breadcrumb: jest.fn(async () => {}),
   },
 }));
+
+// Mock all native modules BEFORE any imports
+jest.mock(
+  '../../../profiles/ProfileKeychain',
+  () => ({
+    getProfileCredentials: jest.fn(),
+    setProfileCredentials: jest.fn(),
+    resetProfileCredentials: jest.fn(),
+  }),
+  { virtual: true },
+);
+jest.mock(
+  '../../../profiles/ProfileActivity',
+  () => ({
+    profileActivity:
+      require('../../../services/testUtils/profileMocks').createProfileActivityMock(),
+  }),
+  { virtual: true },
+);
+jest.mock(
+  '../../../profiles/ProfileRuntime',
+  () => ({ getActiveProfile: () => ({ serverUrl: 'https://test.server' }) }),
+  { virtual: true },
+);
+jest.mock(
+  '../../../profiles/ProfileRegistry',
+  () => ({ profileRegistry: { updateConnection: jest.fn() } }),
+  { virtual: true },
+);
+jest.mock('../../../services/ServerConfigService', () => ({
+  serverConfigService: { getServerUrl: async () => 'https://test.server' },
+}));
+jest.mock(
+  '../../../profiles/ProfileStorage',
+  () => ({
+    __esModule: true,
+    default: {
+      getItem: jest.fn(),
+      setItem: jest.fn(),
+      removeItem: jest.fn(),
+      multiRemove: jest.fn(),
+    },
+  }),
+  { virtual: true },
+);
 jest.mock('react-native-fs', () => ({
   DocumentDirectoryPath: '/test/path',
   exists: jest.fn(),
@@ -55,8 +97,8 @@ import {
   beforeAll,
   afterAll,
 } from '@jest/globals';
-import * as Keychain from 'react-native-keychain';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Keychain from '../../../profiles/ProfileKeychain';
+import AsyncStorage from '../../../profiles/ProfileStorage';
 import {
   autoLogin,
   isRateLimitedError,
@@ -68,6 +110,8 @@ import {
 import { VersionMismatchError } from '../../../errors/VersionMismatchError';
 import { ODE_VERSION } from '../../../version';
 import { synkronusApi } from '../index';
+import { profileRegistry } from '../../../profiles/ProfileRegistry';
+import { deferred } from '../../../services/testUtils/profileMocks';
 
 describe('Auth - Auto-Login', () => {
   beforeAll(() => {
@@ -144,7 +188,9 @@ describe('Auth - Auto-Login', () => {
   describe('session lifecycle', () => {
     test('confirmed invalid credentials clear the prior session and rejected saved credentials', async () => {
       const credentials = { username: 'testuser', password: 'wrong' };
-      (Keychain.getGenericPassword as jest.Mock).mockResolvedValue(credentials);
+      (Keychain.getProfileCredentials as jest.Mock).mockResolvedValue(
+        credentials,
+      );
       const mockApi = {
         login: jest.fn().mockRejectedValue({ response: { status: 401 } }),
       };
@@ -162,7 +208,7 @@ describe('Auth - Auto-Login', () => {
         '@tokenExpiresAt',
         '@user',
       ]);
-      expect(Keychain.resetGenericPassword).toHaveBeenCalled();
+      expect(Keychain.resetProfileCredentials).toHaveBeenCalled();
       expect(synkronusApi.clearTokenCache).toHaveBeenCalled();
     });
 
@@ -177,8 +223,8 @@ describe('Auth - Auto-Login', () => {
       });
 
       expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
-      expect(Keychain.resetGenericPassword).not.toHaveBeenCalled();
-      expect(Keychain.setGenericPassword).not.toHaveBeenCalled();
+      expect(Keychain.resetProfileCredentials).not.toHaveBeenCalled();
+      expect(Keychain.setProfileCredentials).not.toHaveBeenCalled();
     });
 
     test('successful login persists credentials only after authentication succeeds', async () => {
@@ -196,16 +242,73 @@ describe('Auth - Auto-Login', () => {
       await login('testuser', 'password');
 
       expect(mockApi.login).toHaveBeenCalled();
-      expect(Keychain.setGenericPassword).toHaveBeenCalledWith(
+      expect(profileRegistry.updateConnection).toHaveBeenCalledWith({
+        serverUrl: 'https://test.server',
+        username: 'testuser',
+        urlLocked: true,
+      });
+      expect(
+        (profileRegistry.updateConnection as jest.Mock).mock
+          .invocationCallOrder[0],
+      ).toBeLessThan(
+        (Keychain.setProfileCredentials as jest.Mock).mock
+          .invocationCallOrder[0],
+      );
+      expect(Keychain.setProfileCredentials).toHaveBeenCalledWith(
         'testuser',
         'password',
       );
     });
 
+    test('does not persist credentials or tokens when durable URL binding fails', async () => {
+      (synkronusApi.getApi as jest.Mock).mockResolvedValue({
+        login: jest.fn().mockResolvedValue({
+          data: { token: 't', refreshToken: 'r', expiresAt: 1 },
+        }),
+      });
+      (profileRegistry.updateConnection as jest.Mock).mockRejectedValueOnce(
+        new Error('registry write failed'),
+      );
+      await expect(login('testuser', 'password')).rejects.toThrow(
+        'registry write failed',
+      );
+      expect(Keychain.setProfileCredentials).not.toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+    });
+
+    test('holds activity through registry and session persistence, and rejects new auth during transition', async () => {
+      const { profileActivity } = require('../../../profiles/ProfileActivity');
+      const bind = deferred<void>();
+      const bindingStarted = deferred<void>();
+      (synkronusApi.getApi as jest.Mock).mockResolvedValue({
+        login: jest.fn().mockResolvedValue({
+          data: { token: 't', refreshToken: 'r', expiresAt: 1 },
+        }),
+      });
+      (profileRegistry.updateConnection as jest.Mock).mockImplementationOnce(
+        () => {
+          bindingStarted.resolve();
+          return bind.promise;
+        },
+      );
+      const signingIn = login('testuser', 'password');
+      await bindingStarted.promise;
+      expect(profileActivity.isBusy()).toBe(true);
+      expect(() => profileActivity.block()).toThrow('Wait for profile jobs');
+      expect(Keychain.setProfileCredentials).not.toHaveBeenCalled();
+      bind.resolve();
+      await signingIn;
+      expect(profileActivity.isBusy()).toBe(false);
+      profileActivity.block();
+      await expect(autoLogin()).rejects.toThrow('Profile transition');
+      profileActivity.unblock();
+    });
+
     test('logout clears session and saved credentials', async () => {
       await logout();
+      expect(profileRegistry.updateConnection).not.toHaveBeenCalled();
       expect(AsyncStorage.multiRemove).toHaveBeenCalled();
-      expect(Keychain.resetGenericPassword).toHaveBeenCalled();
+      expect(Keychain.resetProfileCredentials).toHaveBeenCalled();
       expect(synkronusApi.clearTokenCache).toHaveBeenCalled();
     });
   });
@@ -251,7 +354,7 @@ describe('Auth - Auto-Login', () => {
 
     test('should successfully auto-login with stored credentials', async () => {
       // Mock Keychain to return credentials
-      (Keychain.getGenericPassword as jest.Mock).mockResolvedValue(
+      (Keychain.getProfileCredentials as jest.Mock).mockResolvedValue(
         mockCredentials,
       );
 
@@ -281,7 +384,7 @@ describe('Auth - Auto-Login', () => {
 
       const result = await autoLogin();
 
-      expect(Keychain.getGenericPassword).toHaveBeenCalledTimes(1);
+      expect(Keychain.getProfileCredentials).toHaveBeenCalledTimes(1);
       expect(mockApi.login).toHaveBeenCalledWith({
         xOdeVersion: ODE_VERSION,
         loginRequest: {
@@ -294,41 +397,41 @@ describe('Auth - Auto-Login', () => {
     });
 
     test('should return null when no credentials are stored', async () => {
-      (Keychain.getGenericPassword as jest.Mock).mockResolvedValue(false);
+      (Keychain.getProfileCredentials as jest.Mock).mockResolvedValue(false);
 
       const result = await autoLogin();
 
-      expect(Keychain.getGenericPassword).toHaveBeenCalledTimes(1);
+      expect(Keychain.getProfileCredentials).toHaveBeenCalledTimes(1);
       expect(synkronusApi.getApi).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
 
     test('should return null when credentials have no username', async () => {
-      (Keychain.getGenericPassword as jest.Mock).mockResolvedValue({
+      (Keychain.getProfileCredentials as jest.Mock).mockResolvedValue({
         password: 'testpass',
       });
 
       const result = await autoLogin();
 
-      expect(Keychain.getGenericPassword).toHaveBeenCalledTimes(1);
+      expect(Keychain.getProfileCredentials).toHaveBeenCalledTimes(1);
       expect(synkronusApi.getApi).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
 
     test('should return null when credentials have no password', async () => {
-      (Keychain.getGenericPassword as jest.Mock).mockResolvedValue({
+      (Keychain.getProfileCredentials as jest.Mock).mockResolvedValue({
         username: 'testuser',
       });
 
       const result = await autoLogin();
 
-      expect(Keychain.getGenericPassword).toHaveBeenCalledTimes(1);
+      expect(Keychain.getProfileCredentials).toHaveBeenCalledTimes(1);
       expect(synkronusApi.getApi).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
 
     test('should throw error when login fails', async () => {
-      (Keychain.getGenericPassword as jest.Mock).mockResolvedValue(
+      (Keychain.getProfileCredentials as jest.Mock).mockResolvedValue(
         mockCredentials,
       );
 
@@ -342,12 +445,12 @@ describe('Auth - Auto-Login', () => {
         'Auto-login failed: Invalid credentials. Please login manually.',
       );
 
-      expect(Keychain.getGenericPassword).toHaveBeenCalledTimes(1);
+      expect(Keychain.getProfileCredentials).toHaveBeenCalledTimes(1);
       expect(mockApi.login).toHaveBeenCalled();
     });
 
     test('should handle unknown error during login', async () => {
-      (Keychain.getGenericPassword as jest.Mock).mockResolvedValue(
+      (Keychain.getProfileCredentials as jest.Mock).mockResolvedValue(
         mockCredentials,
       );
 

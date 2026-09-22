@@ -1,17 +1,14 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../profiles/ProfileStorage';
+import { profilePath, profilePaths } from '../profiles/ProfilePaths';
+import { profileActivity } from '../profiles/ProfileActivity';
 import RNFS from 'react-native-fs';
 import { collectTranslationLocalesFromUiSchema } from '../lib/collectTranslationLocales';
 import { sortFormLocaleCodes } from '../lib/formLocale';
 import { normalizeAppBundleVersion } from '../utils/appBundleVersion';
 import { appEvents } from '../webview/FormulusMessageHandlers';
 
-const CACHE_DIR = `${RNFS.DocumentDirectoryPath}/app/.ode`;
-const CACHE_FILE = `${CACHE_DIR}/form-locale-index.json`;
-
-const FORMS_DIRS = [
-  `${RNFS.DocumentDirectoryPath}/forms`,
-  `${RNFS.DocumentDirectoryPath}/app/forms`,
-];
+const cacheDir = () => profilePath('app/.ode');
+const cacheFile = () => profilePath('app/.ode/form-locale-index.json');
 
 const RESERVED_FORM_DIR_NAMES = new Set(['extensions', 'question_types']);
 
@@ -51,9 +48,9 @@ export class FormLocaleIndexService {
 
   private async readCache(): Promise<FormLocaleIndexCache | null> {
     try {
-      const exists = await RNFS.exists(CACHE_FILE);
+      const exists = await RNFS.exists(cacheFile());
       if (!exists) return null;
-      const raw = await RNFS.readFile(CACHE_FILE, 'utf8');
+      const raw = await RNFS.readFile(cacheFile(), 'utf8');
       const parsed = JSON.parse(raw) as FormLocaleIndexCache;
       if (!Array.isArray(parsed.locales)) return null;
       return parsed;
@@ -71,21 +68,27 @@ export class FormLocaleIndexService {
       locales,
     };
     try {
-      const dirExists = await RNFS.exists(CACHE_DIR);
+      const dirExists = await RNFS.exists(cacheDir());
       if (!dirExists) {
-        await RNFS.mkdir(CACHE_DIR);
+        await RNFS.mkdir(cacheDir());
       }
-      await RNFS.writeFile(CACHE_FILE, JSON.stringify(payload), 'utf8');
+      await RNFS.writeFile(cacheFile(), JSON.stringify(payload), 'utf8');
     } catch (err) {
       console.warn('[FormLocaleIndexService] Failed to write cache:', err);
     }
   }
 
   async scanFromStorage(): Promise<string[]> {
+    return profileActivity.run('Scan form languages', () =>
+      this.scanFromStorageImpl(),
+    );
+  }
+
+  private async scanFromStorageImpl(): Promise<string[]> {
     const localeSet = new Set<string>();
     const seenFormIds = new Set<string>();
 
-    for (const formsDir of FORMS_DIRS) {
+    for (const formsDir of [profilePaths.forms(), profilePath('app/forms')]) {
       const dirExists = await RNFS.exists(formsDir);
       if (!dirExists) continue;
 
@@ -124,19 +127,28 @@ export class FormLocaleIndexService {
   }
 
   async refreshIndex(): Promise<string[]> {
+    profileActivity.assertAvailable();
     if (this.refreshPromise) return this.refreshPromise;
-    this.refreshPromise = (async () => {
-      const locales = await this.scanFromStorage();
-      await this.writeCache(locales);
-      return locales;
-    })().finally(() => {
-      this.refreshPromise = null;
-    });
+    this.refreshPromise = profileActivity
+      .run('Refresh form languages', async () => {
+        const locales = await this.scanFromStorage();
+        await this.writeCache(locales);
+        return locales;
+      })
+      .finally(() => {
+        this.refreshPromise = null;
+      });
     return this.refreshPromise;
   }
 
   /** Cached union when fresh; otherwise scan and cache. */
   async getLocales(): Promise<string[]> {
+    return profileActivity.run('Read form languages', () =>
+      this.getLocalesImpl(),
+    );
+  }
+
+  private async getLocalesImpl(): Promise<string[]> {
     const bundleVersion = await this.readBundleVersion();
     const cached = await this.readCache();
     if (cached && cached.bundleVersion === bundleVersion) {
