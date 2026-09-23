@@ -3,6 +3,7 @@ import { Box, IconButton, LinearProgress, Typography } from '@mui/material';
 import ChevronLeft from '@mui/icons-material/ChevronLeft';
 import ChevronRight from '@mui/icons-material/ChevronRight';
 import { tokens } from '../theme/tokens-adapter';
+import { useOdeT } from '../i18n/useOdeT';
 
 type JsonSchema = {
   type?: string | string[];
@@ -152,6 +153,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
   canNavigateNext = false,
   navigationDisabled = false,
 }) => {
+  const t = useOdeT();
   const progress = useMemo(() => {
     if (mode === 'screens' || mode === 'both') {
       if (totalScreens === 0) return 0;
@@ -226,7 +228,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
           <IconButton
             type="button"
             size="small"
-            aria-label="Previous screen"
+            aria-label={t('nav.previousScreen', 'Previous screen')}
             onClick={handlePrev}
             disabled={prevDisabled}
             edge="start"
@@ -272,7 +274,7 @@ const FormProgressBar: React.FC<FormProgressBarProps> = ({
           <IconButton
             type="button"
             size="small"
-            aria-label="Next screen"
+            aria-label={t('nav.nextScreen', 'Next screen')}
             onClick={handleNext}
             disabled={nextDisabled}
             edge="end"
