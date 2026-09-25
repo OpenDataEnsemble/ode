@@ -1,5 +1,6 @@
 import { synkronusApi } from '../api/synkronus';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { profileActivity } from '../profiles/ProfileActivity';
+import AsyncStorage from '../profiles/ProfileStorage';
 import { appEvents } from '../webview/FormulusMessageHandlers';
 import {
   formatCountProgress,
@@ -81,8 +82,10 @@ export class SyncService {
   private updateProgress(progress: SyncProgress): void {
     this.progressCallbacks.forEach(callback => callback(progress));
     // Note: showSyncProgress is now async, but we don't await to avoid blocking sync
-    notificationService
-      .showSyncProgress(progress)
+    profileActivity
+      .run('Sync notification', () =>
+        notificationService.showSyncProgress(progress),
+      )
       .catch(error =>
         logger.warn(
           'sync',
@@ -214,8 +217,14 @@ export class SyncService {
     }
   }
 
-  public async syncObservations(
-    includeAttachments: boolean = false,
+  public async syncObservations(includeAttachments = false): Promise<number> {
+    return profileActivity.run('Sync observations', () =>
+      this.syncObservationsImpl(includeAttachments),
+    );
+  }
+
+  private async syncObservationsImpl(
+    includeAttachments: boolean,
   ): Promise<number> {
     if (this.isSyncing) {
       throw new Error('Sync already in progress');
@@ -227,8 +236,10 @@ export class SyncService {
     this.autoLoginRetryCount = 0;
     this.updateStatus('Starting sync...');
 
-    notificationService
-      .clearAllSyncNotifications()
+    profileActivity
+      .run('Clear sync notifications', () =>
+        notificationService.clearAllSyncNotifications(),
+      )
       .catch(error =>
         logger.warn(
           'sync',
@@ -353,8 +364,10 @@ export class SyncService {
     }
 
     this.updateStatus(status);
-    notificationService
-      .showSyncComplete(notificationOutcome)
+    profileActivity
+      .run('Sync outcome notification', () =>
+        notificationService.showSyncComplete(notificationOutcome),
+      )
       .catch(error =>
         logger.warn(
           'sync',
@@ -368,7 +381,13 @@ export class SyncService {
   /**
    * Loads local and server app bundle versions in one manifest request.
    */
-  public async getAppBundleStatus(): Promise<{
+  public async getAppBundleStatus() {
+    return profileActivity.run('Check app bundle', () =>
+      this.getAppBundleStatusImpl(),
+    );
+  }
+
+  private async getAppBundleStatusImpl(): Promise<{
     localVersion: string;
     serverVersion: string;
     updateAvailable: boolean;
@@ -423,11 +442,19 @@ export class SyncService {
   }
 
   public async checkForUpdates(): Promise<boolean> {
-    const status = await this.getAppBundleStatus();
-    return status?.updateAvailable ?? false;
+    return profileActivity.run('Check for updates', async () => {
+      const status = await this.getAppBundleStatus();
+      return status?.updateAvailable ?? false;
+    });
   }
 
   public async updateAppBundle(): Promise<void> {
+    return profileActivity.run('Update app bundle', () =>
+      this.updateAppBundleImpl(),
+    );
+  }
+
+  private async updateAppBundleImpl(): Promise<void> {
     if (this.isSyncing) {
       throw new Error('Update already in progress');
     }
@@ -552,6 +579,10 @@ export class SyncService {
   }
 
   public async initialize(): Promise<void> {
+    return profileActivity.run('Initialize sync', () => this.initializeImpl());
+  }
+
+  private async initializeImpl(): Promise<void> {
     // Initialize any required state
     const lastSeenVersion = await AsyncStorage.getItem('@last_seen_version');
 

@@ -8,7 +8,11 @@
 
 import { WebViewMessageEvent, WebView } from 'react-native-webview';
 import { persistWebViewConsole, webViewTag } from '../diagnostics/logger';
-import { createFormulusMessageHandlers } from './FormulusMessageHandlers';
+import {
+  createFormulusMessageHandlers,
+  disposeFormulusMessageHandlers,
+} from './FormulusMessageHandlers';
+import { profileActivity } from '../profiles/ProfileActivity';
 import { FormInitData } from './FormulusInterfaceDefinition';
 
 /**
@@ -42,6 +46,7 @@ export class FormulusWebViewMessageManager {
   private formInitRetryCount = 0;
   private static readonly FORM_INIT_MAX_RETRIES = 12; // 12 * 500ms = 6 seconds
   private formInitRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readySignalTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     webViewRef: React.RefObject<WebView | null>,
@@ -54,6 +59,7 @@ export class FormulusWebViewMessageManager {
   }
 
   public setWebViewReady(isReady: boolean): void {
+    if (isReady) profileActivity.assertAvailable();
     this.isWebViewReady = isReady;
     if (isReady) this.processMessageQueue();
   }
@@ -88,6 +94,7 @@ export class FormulusWebViewMessageManager {
     data: unknown = {},
     requestId: string,
   ): void {
+    profileActivity.assertAvailable();
     if (!this.webViewRef.current) {
       console.error(
         `${this.logPrefix} WebView reference is null. Cannot send message: ${callbackName}`,
@@ -95,6 +102,7 @@ export class FormulusWebViewMessageManager {
       // Find the pending request and reject it
       const request = this.pendingRequests.get(requestId);
       if (request) {
+        clearTimeout(request.timeout);
         request.reject(new Error('WebView reference is null'));
         this.pendingRequests.delete(requestId);
       }
@@ -130,6 +138,7 @@ export class FormulusWebViewMessageManager {
 
   public send<T = void>(callbackName: string, data: unknown = {}): Promise<T> {
     return new Promise<T>((resolve, reject) => {
+      profileActivity.assertAvailable();
       if (!this.isWebViewReady) {
         this.queueMessage(callbackName, data, resolve, reject);
         return;
@@ -181,7 +190,11 @@ export class FormulusWebViewMessageManager {
         // Treat onFormulusReady as fallback: delay so formplayer React app can load
         // and mount (register window.onFormInit) before we process the queued form init.
         const delayMs = 1200;
-        setTimeout(() => this.handleReadySignal(payload), delayMs);
+        if (this.readySignalTimeout) clearTimeout(this.readySignalTimeout);
+        this.readySignalTimeout = setTimeout(() => {
+          this.readySignalTimeout = null;
+          this.handleReadySignal(payload);
+        }, delayMs);
       } else if (type === 'response') {
         const actualRequestId = messageId || payload.requestId;
         if (actualRequestId) {
@@ -261,21 +274,25 @@ export class FormulusWebViewMessageManager {
   };
 
   private handleReadySignal(_data?: unknown): void {
-    this.setWebViewReady(true);
-    // Optionally call native-side handler if it exists for onFormulusReady
-    if (this.nativeSideHandlers.onFormulusReady) {
-      try {
-        this.nativeSideHandlers.onFormulusReady();
-      } catch (error) {
-        console.error(
-          `${this.logPrefix} Error in native onFormulusReady handler:`,
+    try {
+      this.setWebViewReady(true);
+      void this.nativeSideHandlers.onFormulusReady().catch(error => {
+        console.warn(
+          `${this.logPrefix} WebView ready handler unavailable:`,
           error,
         );
-      }
+      });
+    } catch (error) {
+      console.warn(`${this.logPrefix} WebView readiness blocked:`, error);
     }
   }
 
   public notifyReceiveFocus(): void {
+    try {
+      profileActivity.assertAvailable();
+    } catch {
+      return;
+    }
     if (!this.webViewRef.current || !this.isWebViewReady) {
       return;
     }
@@ -302,7 +319,12 @@ export class FormulusWebViewMessageManager {
     // Optionally call native-side handler if it exists for onReceiveFocus
     if (this.nativeSideHandlers.onReceiveFocus) {
       try {
-        this.nativeSideHandlers.onReceiveFocus();
+        void this.nativeSideHandlers.onReceiveFocus().catch(error => {
+          console.warn(
+            `${this.logPrefix} WebView focus handler unavailable:`,
+            error,
+          );
+        });
       } catch (error) {
         console.error(
           `${this.logPrefix} Error in native onReceiveFocus handler:`,
@@ -391,6 +413,7 @@ export class FormulusWebViewMessageManager {
     let error: unknown;
 
     try {
+      profileActivity.assertAvailable();
       // Special-case WebView messages of type 'onFormulusReady'. These already
       // correspond to the onFormulusReady handler on the native side, so we
       // call it directly instead of routing through onUnknownMessage.
@@ -445,6 +468,11 @@ export class FormulusWebViewMessageManager {
   }
 
   public reset(): void {
+    disposeFormulusMessageHandlers(this.nativeSideHandlers);
+    if (this.readySignalTimeout) {
+      clearTimeout(this.readySignalTimeout);
+      this.readySignalTimeout = null;
+    }
     if (this.formInitRetryTimeout) {
       clearTimeout(this.formInitRetryTimeout);
       this.formInitRetryTimeout = null;
@@ -455,6 +483,9 @@ export class FormulusWebViewMessageManager {
       request.reject(new Error('WebViewMessageManager reset'));
     });
     this.pendingRequests.clear();
+    this.messageQueue.forEach(request =>
+      request.reject(new Error('WebViewMessageManager reset')),
+    );
     this.messageQueue = [];
     this.isWebViewReady = false;
   }

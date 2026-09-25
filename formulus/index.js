@@ -8,7 +8,7 @@ import notifee from '@notifee/react-native';
 // This ensures version mismatch errors are handled from the very first request
 import { setupSynkronusClientInterceptors } from './src/api/synkronus/client';
 import { installErrorHandlers } from './src/diagnostics';
-import App from './App';
+import ProfileRoot from './src/profiles/ProfileRoot';
 import { name as appName } from './app.json';
 
 // Set up interceptors immediately - before any React components or contexts load
@@ -21,4 +21,4 @@ if (Platform.OS === 'android') {
   });
 }
 
-AppRegistry.registerComponent(appName, () => App);
+AppRegistry.registerComponent(appName, () => ProfileRoot);
