@@ -41,6 +41,8 @@ window.formulus.editObservation(formType, observationId);
 window.formulus.deleteObservation(formType, observationId);
 ```
 
+Once the bridge is ready (`const api = await getFormulus()`), `api.getProfileId()` identifies the active host profile for this WebView and `api.getLocalStorageRef()` provides synchronous profile-scoped `getItem`, `setItem`, `removeItem`, and `clear` methods. Prefer this to raw `localStorage` for custom-app state. The host remounts the WebView on an in-app **Profiles** switch; shared `file://` raw storage is not isolated from other profiles or third-party scripts. See [profile-aware browser storage](/docs/guides/custom-applications#profile-aware-browser-storage) for the API and security caveats.
+
 ## Creating a Custom Application
 
 Custom applications are web-based interfaces that run within the Formulus mobile app. They integrate with ODE through the Formulus JavaScript interface.

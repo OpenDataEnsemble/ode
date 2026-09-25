@@ -53,6 +53,12 @@ Formulus uses WatermelonDB for local data storage:
 - **App Bundles**: Custom application files cached locally
 - **Sync State**: Tracks synchronization status
 
+### Profiles
+
+Formulus keeps local observations, attachments, app bundles, sync state, server connection, and credentials per profile. Open **Profiles** from the in-app menu (or tap the active profile in the drawer) to add, select, rename, or delete profiles. Switching profiles happens in the app and restarts/remounts the active app context; it does not change the profile of an already-open WebView. Configure the active profile's server URL and sign-in on **Profiles**, not in Settings. Deleting a profile removes its host-managed local observations, attachments, bundles, and namespaced browser keys when cleanup runs; it cannot guarantee removal of third-party raw browser keys. Sync anything you need to keep first. The last profile cannot be deleted.
+
+**Profiles provide organizational and storage namespacing, not a sandbox or confidentiality boundary.** Code in a custom app or form extension may be able to read data or attachments from other profiles through WebView file access (depending on platform and WebView configuration), and raw browser storage may expose keys across profiles. A connected Synkronus server can supply app bundles containing such code; this does not mean every server executes arbitrary code. Connect only to trusted servers and install only trusted app bundles. Do not store secrets in browser storage.
+
 ### Custom Application Hosting
 
 Formulus hosts custom web applications in WebViews:
@@ -61,6 +67,7 @@ Formulus hosts custom web applications in WebViews:
 - **JavaScript Bridge**: Communication between native and web
 - **Formulus API**: Injected JavaScript interface for custom apps
 - **Asset Loading**: Serves app bundle files from local storage
+- **Profile storage**: Host-owned databases, files, bundles, and Formplayer browser keys are scoped to the active profile. Custom apps should use the profile-scoped storage bridge below for their own browser keys.
 
 ### Synchronization Engine
 
@@ -97,6 +104,20 @@ const version = await api.getVersion();
 ```
 
 ### Core Methods
+
+#### getProfileId() and getLocalStorageRef()
+
+These methods are **synchronous** (do not `await` them). `getProfileId()` returns the immutable host profile ID captured when this WebView was created, not a profile label. `getLocalStorageRef()` returns a profile-scoped subset of browser storage: `getItem(key)`, `setItem(key, value)`, `removeItem(key)`, and `clear()`. It uses physical keys `ode:{profileId}:app:{key}`; `clear()` removes only the current profile's app keys, not Formplayer's keys or other storage. Storage errors (such as quota failures) propagate to the caller.
+
+```javascript
+const api = await getFormulus();
+const profileId = api.getProfileId();
+const storage = api.getLocalStorageRef();
+storage.setItem('lastView', 'visits');
+const lastView = storage.getItem('lastView'); // 'visits'
+```
+
+Use this reference instead of raw `window.localStorage` for custom-app preferences. This is **namespacing, not a security sandbox**: custom apps and third-party code loaded from a shared `file://` origin may access raw browser storage across profiles. The host does not monkeypatch `localStorage` and cannot guarantee removal of unrelated third-party raw keys when a profile is deleted. Do not put secrets in WebView storage; audit dependencies that write to raw storage. See [Custom applications](../guides/custom-applications.md#profile-aware-browser-storage).
 
 #### getVersion()
 
@@ -302,12 +323,12 @@ The app maintains sync state:
 
 ### Server Configuration
 
-Configured through Settings screen:
+Configure the active profile on **Profiles**:
 
-- **Server URL**: Synkronus server address
-- **Username**: User credentials
-- **Password**: User password
-- **Auto-login**: Enable automatic login
+- **Server URL**: Synkronus server address for this profile
+- **Username and password**: Credentials for this profile; sign in from Profiles
+
+Use the in-app **Profiles** screen to switch servers/workspaces. **Settings** is for preferences such as language and theme, not server credentials.
 
 ### Sync Configuration
 

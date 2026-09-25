@@ -19,6 +19,12 @@ The extension system enables you to:
 - **Reusable Components** - Package extensions for distribution to other implementations
 - **Automatic Distribution** - Deploy via app bundles; users get updates automatically
 
+## Profile-aware extensions
+
+Custom renderers and validators run in a Formplayer WebView for the **active host profile**. Formulus owns the profile's observation database, attachments, app bundle cache, and Formplayer draft storage. Switch profiles from the Formulus **Profiles** screen; switching remounts the WebView rather than changing its profile in place.
+
+For extension-owned browser preferences, use the synchronous bridge helpers `formulus.getProfileId()` and `formulus.getLocalStorageRef()` (after the bridge is ready). The latter supports `getItem`, `setItem`, `removeItem`, and `clear` for keys in `ode:{profileId}:app:{key}`; `clear` affects only this profile's app namespace. Avoid raw `localStorage`: a shared `file://` origin may expose raw keys to other profiles or third-party code. Profiles provide organizational/storage namespacing, **not a sandbox or confidentiality boundary**, nor a guarantee that third-party raw keys will be erased on profile deletion. Depending on WebView file-access settings and device behavior, code in a form extension or custom app may read other profiles' data or attachments via file access. A connected Synkronus server can supply bundles with such code, though connecting does not mean every server executes arbitrary code. Connect only to trusted servers and install only trusted app bundles; do not store secrets in browser storage. See [Formulus JavaScript interface](../reference/formulus.md#getprofileid-and-getlocalstorageref) and [custom-app storage guidance](./custom-applications.md#profile-aware-browser-storage).
+
 ## Sub-observations (`format: sub-observation`)
 
 :::tip Built-in Formplayer control

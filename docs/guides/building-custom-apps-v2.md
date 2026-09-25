@@ -584,6 +584,8 @@ The Formulus API:
 
 ## API reference
 
+The bridge also exposes synchronous `api.getProfileId()` and `api.getLocalStorageRef()` for profile-aware custom-app state. Use the storage reference instead of raw `localStorage` under the shared `file://` origin; see [profile-aware browser storage](./custom-applications.md#profile-aware-browser-storage) for examples and limitations.
+
 ### getObservations(formName)
 
 ```javascript
