@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import MenuDrawer from './MenuDrawer';
 import { getUserInfo } from '../api/synkronus/Auth';
@@ -107,7 +107,12 @@ test.each([
     />,
   );
 
-  const name = await waitFor(() => screen.getByText(username));
+  expect(mockedGetUserInfo).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await mockedGetUserInfo.mock.results[0].value;
+  });
+
+  const name = screen.getByText(username);
   expect(name).toHaveProp('accessibilityLabel', username);
   expect(name).toHaveProp('numberOfLines', 1);
   expect(name).toHaveProp('ellipsizeMode', 'tail');
@@ -129,7 +134,10 @@ test('does not show a username when signed out', async () => {
     />,
   );
 
-  await waitFor(() => expect(mockedGetUserInfo).toHaveBeenCalled());
+  expect(mockedGetUserInfo).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await mockedGetUserInfo.mock.results[0].value;
+  });
   expect(screen.getByText('menu.notLoggedIn')).toBeTruthy();
   expect(screen.queryByText('roles.readWrite')).toBeNull();
 });
