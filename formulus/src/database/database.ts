@@ -112,12 +112,13 @@ const migrations = schemaMigrations({
   ],
 });
 
-/** Compatibility live binding. Bootstrap must finish before importing App. */
+/** Retain each adapter for the lifetime of this JS runtime. Never reopen a visited name. */
 export let database: Database;
-let initializationPromise: Promise<void> | null = null;
+const instances = new Map<string, Database>();
+const initializations = new Map<string, Promise<void>>();
 
 export function getDatabase(): Database {
-  if (!database) {
+  if (!database || instances.get(getActiveProfile().id) !== database) {
     throw new Error(
       'Profile database is not initialized. Await initializeProfileDatabase() before loading App.',
     );
@@ -126,50 +127,64 @@ export function getDatabase(): Database {
   return database;
 }
 
-/** Opens exactly one database for this immutable profile runtime. */
-export function initializeProfileDatabase(): Promise<void> {
-  if (initializationPromise) return initializationPromise;
-  initializationPromise = profileActivity.run(
-    'Initialize profile database',
-    async () => {
-      assertProfileReady();
-      const { dbName } = getActiveProfile();
-      // Native records this name for the process lifetime. Never construct an
-      // adapter before preparation, nor retry a failed open in the same runtime.
-      await prepareProfileDatabase(dbName);
-      installWatermelonLogBridge();
-      const adapter = new SQLiteAdapter({
-        schema: schemas,
-        dbName,
-        migrations,
-        jsi: true,
-        onSetUpError: error => {
-          logger.error(
-            'db',
-            error instanceof Error ? error.message : 'Database setup error',
-          );
-        },
-      });
-      await adapter.initializingPromise;
-      const candidate = new Database({
-        adapter,
-        modelClasses: [ObservationModel],
-      });
-      // Validate that the observation table is usable without scanning its rows.
-      await candidate.read(() =>
-        candidate
-          .get('observations')
-          .query(Q.unsafeSqlQuery('SELECT id FROM observations LIMIT 1'))
-          .unsafeFetchRaw(),
-      );
-      await logSqliteEngine(candidate).catch(error => {
-        logger.warn(
+/** Opens a profile once; revisiting it selects its retained Database. */
+export function initializeProfileDatabase(
+  duringTransition = false,
+): Promise<void> {
+  assertProfileReady();
+  const { id, dbName } = getActiveProfile();
+  const existing = initializations.get(id);
+  if (existing) {
+    const retained = instances.get(id);
+    if (retained) database = retained;
+    return existing;
+  }
+  const open = async () => {
+    const selected = instances.get(id);
+    if (selected) {
+      database = selected;
+      return;
+    }
+    // Preparation is idempotent per name. A failed open must not be retried
+    // in this runtime: it may have left an adapter with native handles.
+    await prepareProfileDatabase(dbName);
+    installWatermelonLogBridge();
+    const adapter = new SQLiteAdapter({
+      schema: schemas,
+      dbName,
+      migrations,
+      jsi: true,
+      onSetUpError: error => {
+        logger.error(
           'db',
-          error instanceof Error ? error.message : 'sqlite engine probe failed',
+          error instanceof Error ? error.message : 'Database setup error',
         );
-      });
-      database = candidate;
-    },
-  );
-  return initializationPromise;
+      },
+    });
+    await adapter.initializingPromise;
+    const candidate = new Database({
+      adapter,
+      modelClasses: [ObservationModel],
+    });
+    // Validate that the observation table is usable without scanning its rows.
+    await candidate.read(() =>
+      candidate
+        .get('observations')
+        .query(Q.unsafeSqlQuery('SELECT id FROM observations LIMIT 1'))
+        .unsafeFetchRaw(),
+    );
+    await logSqliteEngine(candidate).catch(error => {
+      logger.warn(
+        'db',
+        error instanceof Error ? error.message : 'sqlite engine probe failed',
+      );
+    });
+    instances.set(id, candidate);
+    database = candidate;
+  };
+  const initialization = duringTransition
+    ? open()
+    : profileActivity.run('Initialize profile database', open);
+  initializations.set(id, initialization);
+  return initialization;
 }

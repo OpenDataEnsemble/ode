@@ -48,7 +48,6 @@ jest.mock(
       removeItem: jest.fn(),
     },
   }),
-  { virtual: true },
 );
 
 jest.mock('react-native-fs', () => ({

@@ -38,6 +38,7 @@ export class FormService {
   private static instance: FormService;
   private formSpecs: FormSpec[] = [];
   private static initializationPromise: Promise<void> | null = null;
+  private static cacheGeneration = 0;
   private cacheInvalidationCallbacks: Set<() => void> = new Set();
   private sharedChoiceSchemaByDir = new Map<
     string,
@@ -46,16 +47,37 @@ export class FormService {
 
   private constructor() {}
 
+  /** Drop in-memory form definitions; next getInstance reloads the active profile. */
+  public static invalidateForProfileSwitch(): void {
+    FormService.cacheGeneration += 1;
+    FormService.initializationPromise = null;
+    if (FormService.instance) {
+      FormService.instance.formSpecs = [];
+      FormService.instance.sharedChoiceSchemaByDir.clear();
+      FormService.instance.cacheInvalidationCallbacks.forEach(callback => {
+        try {
+          callback();
+        } catch (error) {
+          console.error(
+            'FormService: Error in cache invalidation callback:',
+            error,
+          );
+        }
+      });
+    }
+  }
+
   private async _initialize(): Promise<void> {
+    const generation = FormService.cacheGeneration;
     try {
       const specs = await this.getFormspecsFromStorage();
-      this.formSpecs = specs;
+      if (generation === FormService.cacheGeneration) this.formSpecs = specs;
     } catch (error) {
       console.error(
         'Failed to load default form types during FormService construction:',
         error,
       );
-      this.formSpecs = []; // Initialize with empty array if loading fails
+      if (generation === FormService.cacheGeneration) this.formSpecs = []; // Initialize with empty array if loading fails
     }
   }
 

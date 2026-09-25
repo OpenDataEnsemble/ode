@@ -31,7 +31,13 @@ jest.mock(
 );
 jest.mock(
   '../../../profiles/ProfileRuntime',
-  () => ({ getActiveProfile: () => ({ serverUrl: 'https://test.server' }) }),
+  () => ({
+    getActiveProfile: jest.fn(() => ({
+      id: 'profile-a',
+      serverUrl: 'https://test.server',
+      urlLocked: true,
+    })),
+  }),
   { virtual: true },
 );
 jest.mock(
@@ -111,6 +117,7 @@ import { VersionMismatchError } from '../../../errors/VersionMismatchError';
 import { ODE_VERSION } from '../../../version';
 import { synkronusApi } from '../index';
 import { profileRegistry } from '../../../profiles/ProfileRegistry';
+import { getActiveProfile } from '../../../profiles/ProfileRuntime';
 import { deferred } from '../../../services/testUtils/profileMocks';
 
 describe('Auth - Auto-Login', () => {
@@ -126,6 +133,11 @@ describe('Auth - Auto-Login', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(getActiveProfile).mockReturnValue({
+      id: 'profile-a',
+      serverUrl: 'https://test.server',
+      urlLocked: true,
+    } as ReturnType<typeof getActiveProfile>);
   });
 
   describe('isUnauthorizedError', () => {
@@ -310,6 +322,54 @@ describe('Auth - Auto-Login', () => {
       expect(AsyncStorage.multiRemove).toHaveBeenCalled();
       expect(Keychain.resetProfileCredentials).toHaveBeenCalled();
       expect(synkronusApi.clearTokenCache).toHaveBeenCalled();
+    });
+  });
+
+  describe('same-URL profile isolation', () => {
+    test('late login success cannot persist into a different profile', async () => {
+      const response = deferred<{
+        data: { token: string; refreshToken: string; expiresAt: number };
+      }>();
+      (synkronusApi.getApi as jest.Mock).mockResolvedValue({
+        login: jest.fn(() => response.promise),
+      });
+      const signingIn = login('alice', 'secret');
+      await Promise.resolve();
+      jest.mocked(getActiveProfile).mockReturnValue({
+        id: 'profile-b',
+        serverUrl: 'https://test.server',
+        urlLocked: true,
+      } as ReturnType<typeof getActiveProfile>);
+      response.resolve({
+        data: { token: 'old', refreshToken: 'old-refresh', expiresAt: 1 },
+      });
+      await expect(signingIn).rejects.toThrow('superseded');
+      expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+      expect(Keychain.setProfileCredentials).not.toHaveBeenCalled();
+    });
+
+    test('queued logout does not clear a new profile at the same URL', async () => {
+      const pending = deferred<void>();
+      (synkronusApi.getApi as jest.Mock).mockResolvedValue({
+        login: jest.fn().mockResolvedValue({
+          data: { token: 'a', refreshToken: 'r', expiresAt: 1 },
+        }),
+      });
+      (profileRegistry.updateConnection as jest.Mock).mockImplementationOnce(
+        () => pending.promise,
+      );
+      const signingIn = login('alice', 'secret');
+      await Promise.resolve();
+      const signingOut = logout();
+      jest.mocked(getActiveProfile).mockReturnValue({
+        id: 'profile-b',
+        serverUrl: 'https://test.server',
+        urlLocked: true,
+      } as ReturnType<typeof getActiveProfile>);
+      pending.resolve();
+      await expect(signingIn).rejects.toThrow('superseded');
+      await signingOut;
+      expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
     });
   });
 

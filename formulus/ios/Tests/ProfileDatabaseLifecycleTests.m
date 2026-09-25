@@ -28,13 +28,6 @@ static void CreateFiles(NSString *root, NSString *name) {
   for (NSString *suffix in Suffixes()) Write(Path(root, name, suffix));
 }
 
-static void ExpectColdLaunch(ProfileDatabaseLifecycle *lifecycle, NSString *name) {
-  NSError *error = nil;
-  Check(![lifecycle prepareDatabase:name error:&error], @"Preparation must require a cold launch");
-  Check(error.code == ProfileDatabaseErrorColdLaunchRequired, @"Explicit cold-launch error required");
-  Check([error.localizedDescription containsString:@"Fully close and reopen Formulus"], @"Cold-launch action missing");
-  Check([error.localizedDescription containsString:@"JavaScript reload is not sufficient"], @"Reload limitation missing");
-}
 
 static void RunFresh(const char *executable, NSArray<NSString *> *arguments) {
   NSTask *task = [NSTask new];
@@ -68,25 +61,17 @@ static void RacePreparation(NSString *root, BOOL sameName) {
   ProfileDatabaseLifecycle *second = [[ProfileDatabaseLifecycle alloc] initWithDirectory:root];
   __block BOOL firstPrepared = NO;
   __block BOOL secondPrepared = NO;
-  __block NSError *firstError = nil;
-  __block NSError *secondError = nil;
   dispatch_group_t group = dispatch_group_create();
   dispatch_queue_t queue = dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0);
-  dispatch_group_async(group, queue, ^{ firstPrepared = [first prepareDatabase:firstName error:&firstError]; });
-  dispatch_group_async(group, queue, ^{ secondPrepared = [second prepareDatabase:secondName error:&secondError]; });
+  dispatch_group_async(group, queue, ^{ firstPrepared = [first prepareDatabase:firstName error:NULL]; });
+  dispatch_group_async(group, queue, ^{ secondPrepared = [second prepareDatabase:secondName error:NULL]; });
   dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-  Check(firstPrepared != secondPrepared, @"Only one helper/name may win in a process");
-  Check((firstPrepared ? secondError : firstError).code == ProfileDatabaseErrorColdLaunchRequired, @"Racing loser needs cold launch");
-  ProfileDatabaseLifecycle *winner = firstPrepared ? first : second;
-  ProfileDatabaseLifecycle *loser = firstPrepared ? second : first;
-  NSString *winningName = firstPrepared ? firstName : secondName;
-  NSString *losingName = firstPrepared ? secondName : firstName;
-  Check([winner prepareDatabase:winningName error:NULL], @"Winner remains idempotent");
-  ExpectColdLaunch(loser, losingName);
-  if (!sameName) {
-    Check([[loser isDatabaseOpen:losingName error:NULL] isEqual:@NO], @"Rejected different name stays unmarked");
-    ExpectColdLaunch(winner, losingName);
-  }
+  Check(firstPrepared && secondPrepared, @"Both preparations succeed");
+  Check([[first isDatabaseOpen:firstName error:NULL] isEqual:@YES] &&
+        [[second isDatabaseOpen:secondName error:NULL] isEqual:@YES], @"Both names marked");
+  Check([first prepareDatabase:secondName error:NULL] && [second prepareDatabase:firstName error:NULL], @"Cross-helper preparation is idempotent");
+  Check([[first deleteDatabase:firstName error:NULL] isEqual:@NO] &&
+        [[second deleteDatabase:secondName error:NULL] isEqual:@NO], @"Both prepared names veto deletion");
 }
 
 int main(int argc, const char *argv[]) {
@@ -129,9 +114,11 @@ int main(int argc, const char *argv[]) {
         Check([[NSString stringWithContentsOfFile:Path(root, previouslyPrepared, suffix) encoding:NSUTF8StringEncoding error:NULL]
                isEqual:@"preserve me"], @"Cold preparation leaves files intact");
       }
-      ExpectColdLaunch([[ProfileDatabaseLifecycle alloc] initWithDirectory:root], previouslyPrepared);
-      ExpectColdLaunch(lifecycle, Name());
-      ExpectColdLaunch([[ProfileDatabaseLifecycle alloc] initWithDirectory:root], Name());
+      ProfileDatabaseLifecycle *reloaded = [[ProfileDatabaseLifecycle alloc] initWithDirectory:root];
+      Check([reloaded prepareDatabase:previouslyPrepared error:NULL], @"Reloaded helper can prepare same name");
+      NSString *other = Name();
+      Check([reloaded prepareDatabase:other error:NULL], @"Reloaded helper can prepare distinct name");
+      Check([[lifecycle deleteDatabase:other error:NULL] isEqual:@NO], @"Distinct prepared name defers deletion after reload");
       [files removeItemAtPath:root error:NULL];
       return 0;
     }
@@ -179,7 +166,7 @@ int main(int argc, const char *argv[]) {
       [files removeItemAtPath:Path(root, probeName, @".db.backup") error:NULL];
       [files removeItemAtPath:Path(root, probeName, @".db-wal-extra") error:NULL];
     }
-    // Probing multiple names must not consume the process's one preparation.
+    // Probing names must not mark them as prepared.
     ProfileDatabaseLifecycle *probeOnly = [[ProfileDatabaseLifecycle alloc] initWithDirectory:root];
     [probeOnly databaseExists:@"formulus" error:NULL];
     [probeOnly databaseExists:Name() error:NULL];
@@ -206,42 +193,39 @@ int main(int argc, const char *argv[]) {
     Check([lifecycle prepareDatabase:@"formulus" error:NULL], @"Prepare Default");
     Check([lifecycle prepareDatabase:@"formulus" error:NULL], @"Idempotent prepare");
     Check(![files fileExistsAtPath:Path(root, @"formulus", @".db")], @"Prepare must not create/open SQLite");
-    ExpectColdLaunch(probeOnly, @"formulus");
-    ExpectColdLaunch(probeOnly, neighbor);
-    Check([[lifecycle isDatabaseOpen:neighbor error:NULL] isEqual:@NO], @"Never-prepared target blocked but not marked");
+    Check([probeOnly prepareDatabase:@"formulus" error:NULL], @"Different helper can prepare Default again");
+    Check([[lifecycle isDatabaseOpen:neighbor error:NULL] isEqual:@NO], @"Never-prepared name remains unmarked");
     CreateFiles(root, @"formulus");
     Check([[lifecycle databaseExists:@"formulus" error:NULL] isEqual:@YES], @"Inspect opened name without SQLite");
     Check([[lifecycle deleteDatabase:@"formulus" error:NULL] isEqual:@NO], @"Opened Default defers");
     ProfileDatabaseLifecycle *reloaded = [[ProfileDatabaseLifecycle alloc] initWithDirectory:root];
     Check([[reloaded isDatabaseOpen:@"formulus" error:NULL] isEqual:@YES], @"Guard survives module replacement");
     Check([[reloaded deleteDatabase:@"formulus" error:NULL] isEqual:@NO], @"Reload cannot enable deletion");
-    ExpectColdLaunch(reloaded, @"formulus");
-    for (NSString *suffix in Suffixes()) {
-      Check([[NSString stringWithContentsOfFile:Path(root, @"formulus", suffix) encoding:NSUTF8StringEncoding error:NULL]
-             isEqualToString:@"preserve me"], @"Opened files modified");
-    }
-    ExpectColdLaunch(lifecycle, neighbor);
-    Check([[lifecycle isDatabaseOpen:neighbor error:NULL] isEqual:@NO], @"Rejected switch must not mark another DB");
-    ExpectColdLaunch(reloaded, neighbor);
-    ExpectColdLaunch(reloaded, @"formulus");
-    Check([lifecycle prepareDatabase:@"formulus" error:NULL], @"Rejection cannot change original helper selection");
+    Check([reloaded prepareDatabase:@"formulus" error:NULL], @"Reloaded helper prepares same name");
+    Check([[reloaded isDatabaseOpen:neighbor error:NULL] isEqual:@NO], @"Unprepared name remains unmarked");
+    Check([reloaded prepareDatabase:neighbor error:NULL], @"Distinct name prepares after Default");
+    Check([[lifecycle isDatabaseOpen:neighbor error:NULL] isEqual:@YES], @"Distinct name visible to other helpers");
+    Check([[lifecycle deleteDatabase:neighbor error:NULL] isEqual:@NO], @"Distinct prepared name vetoes deletion");
+    Check([lifecycle prepareDatabase:neighbor error:NULL], @"Cross-helper preparation idempotent");
     // Models module replacement only; no actual Watermelon connections are created.
     ProfileDatabaseLifecycle *returned = [[ProfileDatabaseLifecycle alloc] initWithDirectory:root];
-    ExpectColdLaunch(returned, @"formulus");
-    ExpectColdLaunch(returned, neighbor);
-    Check([[returned deleteDatabase:@"formulus" error:NULL] isEqual:@NO], @"A -> B -> A retains A deletion guard");
-    Check([[returned isDatabaseOpen:neighbor error:NULL] isEqual:@NO], @"Blocked warm A -> B must not mark B");
+    Check([returned prepareDatabase:@"formulus" error:NULL] && [returned prepareDatabase:neighbor error:NULL], @"A -> B -> A allowed");
+    Check([[returned deleteDatabase:@"formulus" error:NULL] isEqual:@NO] &&
+          [[returned deleteDatabase:neighbor error:NULL] isEqual:@NO], @"A -> B -> A retains both deletion guards");
     for (NSString *suffix in Suffixes()) {
       Check([[NSString stringWithContentsOfFile:Path(root, @"formulus", suffix) encoding:NSUTF8StringEncoding error:NULL]
-             isEqual:@"preserve me"], @"Rejected A revisit leaves files intact");
+             isEqual:@"preserve me"], @"Prepared A leaves files intact");
       Check([[NSString stringWithContentsOfFile:Path(root, neighbor, suffix) encoding:NSUTF8StringEncoding error:NULL]
-             isEqual:@"preserve me"], @"Rejected B revisit leaves files intact");
+             isEqual:@"preserve me"], @"Prepared B leaves files intact");
     }
     NSString *firstVisit = Name();
-    ExpectColdLaunch(returned, firstVisit);
-    ExpectColdLaunch(returned, firstVisit);
-    Check([[returned isDatabaseOpen:firstVisit error:NULL] isEqual:@NO], @"Rejected first visit does not mark name");
-    Check([[returned deleteDatabase:neighbor error:NULL] isEqual:@YES], @"Unopened tombstone is still physically deletable");
+    Check([[returned isDatabaseOpen:firstVisit error:NULL] isEqual:@NO], @"Unprepared name remains unmarked");
+    Check([returned prepareDatabase:firstVisit error:NULL] && [returned prepareDatabase:firstVisit error:NULL], @"First visit idempotent");
+    Check([[returned isDatabaseOpen:firstVisit error:NULL] isEqual:@YES], @"First visit marks name");
+    Check([[lifecycle deleteDatabase:firstVisit error:NULL] isEqual:@NO], @"First visit vetoes deletion");
+    NSString *unprepared = Name();
+    CreateFiles(root, unprepared);
+    Check([[returned deleteDatabase:unprepared error:NULL] isEqual:@YES], @"Unprepared tombstone deletable after other preparations");
 
     NSString *failed = Name();
     Write(Path(root, failed, @".db"));
@@ -275,12 +259,17 @@ int main(int argc, const char *argv[]) {
       RunFresh(argv[0], @[i % 2 == 0 ? @"--race-same" : @"--race-different"]);
     }
     RunFresh(argv[0], @[@"--cold-check"]);
-    for (NSString *coldTarget in @[@"formulus", firstVisit]) {
+    for (NSString *coldTarget in @[@"formulus", Name()]) {
+      if (![coldTarget isEqual:@"formulus"]) {
+        Check([[lifecycle isDatabaseOpen:coldTarget error:NULL] isEqual:@NO], @"Cold target not prepared in parent");
+      }
       RunFresh(argv[0], @[@"--cold-prepare", coldTarget]);
-      ExpectColdLaunch([[ProfileDatabaseLifecycle alloc] initWithDirectory:root], coldTarget);
+      ProfileDatabaseLifecycle *afterColdCheck = [[ProfileDatabaseLifecycle alloc] initWithDirectory:root];
+      Check([afterColdCheck prepareDatabase:coldTarget error:NULL] &&
+            [[afterColdCheck isDatabaseOpen:coldTarget error:NULL] isEqual:@YES], @"Cold child does not mark parent process");
     }
     Check([files removeItemAtPath:root error:NULL], @"Clean up fixtures");
-    NSLog(@"PASS: iOS all-switch cold-launch policy, bootstrap cleanup, and 64 fresh-process races");
+    NSLog(@"PASS: iOS retained prepared-name guard, bootstrap cleanup, and 64 fresh-process races");
   }
   return 0;
 }

@@ -26,7 +26,6 @@ static BOOL ValidateName(NSString *name, NSError **error) {
 
 @implementation ProfileDatabaseLifecycle {
   NSString *_directory;
-  NSString *_runningDatabase;
 }
 
 + (void)initialize {
@@ -58,14 +57,8 @@ static BOOL ValidateName(NSString *name, NSError **error) {
     if ([retiredDatabases containsObject:name]) {
       return Fail(error, ProfileDatabaseErrorState, @"A database scheduled for deletion cannot be reopened");
     }
-    // Watermelon's destroy hooks are process-global, not scoped to a DB/runtime.
-    // After ANY preparation, only this helper's selected name may be repeated.
-    if (openedDatabases.count > 0 && ![_runningDatabase isEqualToString:name]) {
-      return Fail(error, ProfileDatabaseErrorColdLaunchRequired,
-                  @"A profile database has already been prepared in this app process. Fully close and reopen Formulus before switching profiles or reinitializing the runtime; a JavaScript reload is not sufficient.");
-    }
+    // Retain every prepared name across module and runtime replacement.
     [openedDatabases addObject:name];
-    _runningDatabase = [name copy];
     return YES;
   }
 }

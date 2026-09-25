@@ -28,16 +28,6 @@ public final class ProfileDatabaseLifecycleTest {
         for (String suffix : SUFFIXES) Files.writeString(root.resolve(name + suffix), "preserve me");
     }
 
-    private static void expectColdLaunch(ProfileDatabaseLifecycle lifecycle, String name) {
-        try {
-            lifecycle.prepareDatabase(name);
-            throw new AssertionError("Preparation should require a cold launch: " + name);
-        } catch (ProfileDatabaseLifecycle.ColdLaunchRequiredException expected) {
-            check(expected.getMessage().contains("Fully close and reopen Formulus"), "Cold-launch action missing");
-            check(expected.getMessage().contains("JavaScript reload is not sufficient"), "Reload limitation missing");
-        }
-    }
-
     private static void runFresh(String... args) throws Exception {
         var command = new ArrayList<>(Arrays.asList(
             new File(System.getProperty("java.home"), "bin/java").getPath(),
@@ -82,27 +72,19 @@ public final class ProfileDatabaseLifecycleTest {
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Thread one = new Thread(() -> {
             try { start.await(); first.prepareDatabase(firstName); firstPrepared.set(true); }
-            catch (ProfileDatabaseLifecycle.ColdLaunchRequiredException expected) { }
             catch (Throwable error) { failure.set(error); }
         });
         Thread two = new Thread(() -> {
             try { start.await(); second.prepareDatabase(secondName); secondPrepared.set(true); }
-            catch (ProfileDatabaseLifecycle.ColdLaunchRequiredException expected) { }
             catch (Throwable error) { failure.set(error); }
         });
         one.start(); two.start(); start.countDown(); one.join(); two.join();
         check(failure.get() == null, "Unexpected preparation error: " + failure.get());
-        check(firstPrepared.get() != secondPrepared.get(), "Only one helper/name may win in a process");
-        ProfileDatabaseLifecycle winner = firstPrepared.get() ? first : second;
-        ProfileDatabaseLifecycle loser = firstPrepared.get() ? second : first;
-        String winningName = firstPrepared.get() ? firstName : secondName;
-        String losingName = firstPrepared.get() ? secondName : firstName;
-        winner.prepareDatabase(winningName);
-        expectColdLaunch(loser, losingName);
-        if (!sameName) {
-            check(!loser.isDatabaseOpen(losingName), "Rejected different name must remain unmarked");
-            expectColdLaunch(winner, losingName);
-        }
+        check(firstPrepared.get() && secondPrepared.get(), "Both preparations must succeed");
+        check(first.isDatabaseOpen(firstName) && second.isDatabaseOpen(secondName), "Both names must be marked");
+        first.prepareDatabase(secondName);
+        second.prepareDatabase(firstName);
+        check(!first.deleteDatabase(firstName) && !second.deleteDatabase(secondName), "Both prepared names veto deletion");
     }
 
     public static void main(String[] args) throws Exception {
@@ -142,9 +124,11 @@ public final class ProfileDatabaseLifecycleTest {
                 for (String suffix : SUFFIXES) {
                     check(Files.readString(root.resolve(previouslyPrepared + suffix)).equals("preserve me"), "Cold preparation changed data");
                 }
-                expectColdLaunch(new ProfileDatabaseLifecycle(root.toFile()), previouslyPrepared);
-                expectColdLaunch(lifecycle, name());
-                expectColdLaunch(new ProfileDatabaseLifecycle(root.toFile()), name());
+                ProfileDatabaseLifecycle reloaded = new ProfileDatabaseLifecycle(root.toFile());
+                reloaded.prepareDatabase(previouslyPrepared);
+                String other = name();
+                reloaded.prepareDatabase(other);
+                check(!lifecycle.deleteDatabase(other), "Distinct prepared name must defer deletion after reload");
                 return;
             }
 
@@ -187,7 +171,7 @@ public final class ProfileDatabaseLifecycleTest {
                 Files.delete(root.resolve(probeName + ".db.backup"));
                 Files.delete(root.resolve(probeName + ".db-wal-extra"));
             }
-            // Probing multiple names must not consume the process's one preparation.
+            // Probing names must not mark them as prepared.
             ProfileDatabaseLifecycle probeOnly = new ProfileDatabaseLifecycle(root.toFile());
             probeOnly.databaseExists("formulus");
             probeOnly.databaseExists(name());
@@ -214,39 +198,38 @@ public final class ProfileDatabaseLifecycleTest {
             lifecycle.prepareDatabase("formulus");
             lifecycle.prepareDatabase("formulus");
             check(!Files.exists(root.resolve("formulus.db")), "Preparing must not create/open SQLite");
-            expectColdLaunch(probeOnly, "formulus");
-            expectColdLaunch(probeOnly, neighbor);
-            check(!lifecycle.isDatabaseOpen(neighbor), "Never-prepared target is blocked but not marked");
+            probeOnly.prepareDatabase("formulus");
+            check(!lifecycle.isDatabaseOpen(neighbor), "Never-prepared target remains unmarked");
             createFiles(root, "formulus");
             check(lifecycle.databaseExists("formulus"), "Existence can inspect an opened name without SQLite");
             check(!lifecycle.deleteDatabase("formulus"), "Opened Default must defer");
             ProfileDatabaseLifecycle reloaded = new ProfileDatabaseLifecycle(root.toFile());
             check(reloaded.isDatabaseOpen("formulus"), "Opened guard must survive module replacement");
             check(!reloaded.deleteDatabase("formulus"), "Reload must not enable physical deletion");
-            expectColdLaunch(reloaded, "formulus");
-            for (String suffix : SUFFIXES) {
-                check(Files.readString(root.resolve("formulus" + suffix)).equals("preserve me"), "Opened files modified");
-            }
-            expectColdLaunch(lifecycle, neighbor);
-            check(!lifecycle.isDatabaseOpen(neighbor), "Rejected switch must not mark another database");
-            expectColdLaunch(reloaded, neighbor);
-            expectColdLaunch(reloaded, "formulus");
-            lifecycle.prepareDatabase("formulus"); // Rejection cannot change the original helper's selection.
+            reloaded.prepareDatabase("formulus");
+            check(!reloaded.isDatabaseOpen(neighbor), "Unprepared name remains unmarked");
+            reloaded.prepareDatabase(neighbor);
+            check(lifecycle.isDatabaseOpen(neighbor), "Distinct name must be visible to other helpers");
+            check(!lifecycle.deleteDatabase(neighbor), "Distinct prepared name vetoes deletion");
+            lifecycle.prepareDatabase(neighbor);
             // Models module replacement only; no actual Watermelon connections are created.
             ProfileDatabaseLifecycle returned = new ProfileDatabaseLifecycle(root.toFile());
-            expectColdLaunch(returned, "formulus");
-            expectColdLaunch(returned, neighbor);
-            check(!returned.deleteDatabase("formulus"), "A -> B -> A must retain A deletion guard");
-            check(!returned.isDatabaseOpen(neighbor), "Blocked warm A -> B must not mark B");
+            returned.prepareDatabase("formulus");
+            returned.prepareDatabase(neighbor);
+            check(!returned.deleteDatabase("formulus") && !returned.deleteDatabase(neighbor), "A -> B -> A retains both deletion guards");
             for (String suffix : SUFFIXES) {
-                check(Files.readString(root.resolve("formulus" + suffix)).equals("preserve me"), "Rejected A revisit changed data");
-                check(Files.readString(root.resolve(neighbor + suffix)).equals("preserve me"), "Rejected B revisit changed data");
+                check(Files.readString(root.resolve("formulus" + suffix)).equals("preserve me"), "Prepared A changed data");
+                check(Files.readString(root.resolve(neighbor + suffix)).equals("preserve me"), "Prepared B changed data");
             }
             String firstVisit = name();
-            expectColdLaunch(returned, firstVisit);
-            expectColdLaunch(returned, firstVisit);
-            check(!returned.isDatabaseOpen(firstVisit), "Rejected first visit must not mark the name");
-            check(returned.deleteDatabase(neighbor), "An unopened tombstone is still physically deletable");
+            check(!returned.isDatabaseOpen(firstVisit), "Unprepared name remains unmarked");
+            returned.prepareDatabase(firstVisit);
+            returned.prepareDatabase(firstVisit);
+            check(returned.isDatabaseOpen(firstVisit), "First visit must mark name");
+            check(!lifecycle.deleteDatabase(firstVisit), "First visit vetoes deletion");
+            String unprepared = name();
+            createFiles(root, unprepared);
+            check(returned.deleteDatabase(unprepared), "Unprepared tombstone is physically deletable after other preparations");
 
             String failed = name();
             Files.writeString(root.resolve(failed + ".db"), "preserve me");
@@ -283,11 +266,16 @@ public final class ProfileDatabaseLifecycleTest {
                 runFresh(i % 2 == 0 ? "--race-same" : "--race-different");
             }
             runFresh("--cold-check");
-            for (String coldTarget : new String[] {"formulus", firstVisit}) {
+            for (String coldTarget : new String[] {"formulus", name()}) {
+                if (!coldTarget.equals("formulus")) {
+                    check(!lifecycle.isDatabaseOpen(coldTarget), "Cold target not prepared in parent");
+                }
                 runFresh("--cold-prepare", coldTarget);
-                expectColdLaunch(new ProfileDatabaseLifecycle(root.toFile()), coldTarget);
+                ProfileDatabaseLifecycle afterColdCheck = new ProfileDatabaseLifecycle(root.toFile());
+                afterColdCheck.prepareDatabase(coldTarget);
+                check(afterColdCheck.isDatabaseOpen(coldTarget), "Cold child must not mark parent process");
             }
-            System.out.println("PASS: Android all-switch cold-launch policy, bootstrap cleanup, and 64 fresh-process races");
+            System.out.println("PASS: Android retained prepared-name guard, bootstrap cleanup, and 64 fresh-process races");
         } finally {
             try (var paths = Files.walk(root)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);

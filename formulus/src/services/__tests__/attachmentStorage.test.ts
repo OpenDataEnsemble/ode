@@ -35,9 +35,7 @@ const mockAsyncStorage = {
     (key: string, value: string) => Promise<void>
   >,
 };
-jest.mock('../../profiles/ProfileStorage', () => mockAsyncStorage, {
-  virtual: true,
-});
+jest.mock('../../profiles/ProfileStorage', () => mockAsyncStorage);
 jest.mock(
   '../../profiles/ProfileActivity',
   () => ({

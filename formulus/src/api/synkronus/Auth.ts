@@ -133,6 +133,7 @@ let persistenceQueue: Promise<void> = Promise.resolve();
 type AuthAttempt = {
   generation: number;
   serverUrl: string;
+  profileId: string;
   revision?: number;
 };
 
@@ -140,26 +141,43 @@ function captureAttempt(background = false): AuthAttempt {
   return {
     generation: authGeneration,
     serverUrl: getActiveProfile().serverUrl,
+    profileId: getActiveProfile().id,
     ...(background ? { revision: sessionRevision } : {}),
   };
 }
 
 function isCurrent(attempt: AuthAttempt): boolean {
-  return attempt.generation === authGeneration &&
+  return (
+    attempt.generation === authGeneration &&
     attempt.serverUrl === getActiveProfile().serverUrl &&
-    (attempt.revision === undefined || attempt.revision === sessionRevision);
+    attempt.profileId === getActiveProfile().id &&
+    (attempt.revision === undefined || attempt.revision === sessionRevision)
+  );
 }
 
 function assertCurrent(attempt: AuthAttempt): void {
   if (!isCurrent(attempt)) {
-    throw new Error('Authentication operation superseded by a session or server change; please retry.');
+    throw new Error(
+      'Authentication operation superseded by a session or server change; please retry.',
+    );
   }
 }
 
 function serializePersistence<T>(work: () => Promise<T>): Promise<T> {
   const result = persistenceQueue.then(work);
-  persistenceQueue = result.then(() => undefined, () => undefined);
+  persistenceQueue = result.then(
+    () => undefined,
+    () => undefined,
+  );
   return result;
+}
+
+// Call after a committed profile switch, before background auth can start again.
+// In-flight requests for the old profile must not persist even if URLs match.
+export function invalidateAuthForProfileSwitch(): void {
+  authGeneration += 1;
+  sessionRevision += 1;
+  invalidateSessionCaches();
 }
 
 function invalidateSessionCaches(): void {
@@ -189,9 +207,17 @@ async function persistSession(
   assertCurrent(attempt);
   // Other commits cannot run inside this queue. Only an explicit new intent or
   // a registry URL change can supersede us while native storage is in flight.
-  const owner: AuthAttempt = { generation: attempt.generation, serverUrl: attempt.serverUrl };
+  const owner: AuthAttempt = {
+    generation: attempt.generation,
+    serverUrl: attempt.serverUrl,
+    profileId: attempt.profileId,
+  };
   if (credentials) {
-    await profileRegistry.updateConnection({ serverUrl: owner.serverUrl, username: credentials.username, urlLocked: true });
+    await profileRegistry.updateConnection({
+      serverUrl: owner.serverUrl,
+      username: credentials.username,
+      urlLocked: true,
+    });
     assertCurrent(owner);
   }
   sessionRevision += 1;
@@ -214,9 +240,15 @@ async function persistSession(
   } catch (error) {
     // We own any partial writes until the queue advances. Remove them before a
     // later login/logout can persist, but never erase a different server's state.
-    if (getActiveProfile().serverUrl === owner.serverUrl) {
+    if (
+      getActiveProfile().id === owner.profileId &&
+      getActiveProfile().serverUrl === owner.serverUrl
+    ) {
       await clearSession(Boolean(credentials)).catch(cleanupError => {
-        console.warn('Failed to clear partial authentication state:', cleanupError);
+        console.warn(
+          'Failed to clear partial authentication state:',
+          cleanupError,
+        );
       });
     }
     throw error;
@@ -232,7 +264,12 @@ const removeCredentialsIfMatching = async (
 ): Promise<void> => {
   try {
     const saved = await getProfileCredentials();
-    if (isCurrent(attempt) && saved && saved.username === username && saved.password === password) {
+    if (
+      isCurrent(attempt) &&
+      saved &&
+      saved.username === username &&
+      saved.password === password
+    ) {
       await resetProfileCredentials();
     }
   } catch (error) {
@@ -247,44 +284,53 @@ async function authenticate(
   username: string,
   password: string,
 ): Promise<UserInfo> {
-    assertCurrent(attempt);
-    if (!attempt.serverUrl) throw new Error('Missing profile server URL');
-    const api = await synkronusApi.getApi();
-    assertCurrent(attempt);
+  assertCurrent(attempt);
+  if (!attempt.serverUrl) throw new Error('Missing profile server URL');
+  const api = await synkronusApi.getApi();
+  assertCurrent(attempt);
 
-    let res;
-    try {
-      res = await api.login({
-        xOdeVersion: ODE_VERSION,
-        loginRequest: { username, password },
+  let res;
+  try {
+    res = await api.login({
+      xOdeVersion: ODE_VERSION,
+      loginRequest: { username, password },
+    });
+  } catch (error) {
+    // A concrete login HTTP 401 confirms that these credentials are invalid.
+    // Transient failures and compatibility errors must leave the prior session intact.
+    if (getHttpStatus(error) === 401) {
+      await serializePersistence(async () => {
+        if (!isCurrent(attempt)) return;
+        sessionRevision += 1;
+        const owner = {
+          generation: attempt.generation,
+          serverUrl: attempt.serverUrl,
+          profileId: attempt.profileId,
+        };
+        await clearSession();
+        await removeCredentialsIfMatching(username, password, owner);
       });
-    } catch (error) {
-      // A concrete login HTTP 401 confirms that these credentials are invalid.
-      // Transient failures and compatibility errors must leave the prior session intact.
-      if (getHttpStatus(error) === 401) {
-        await serializePersistence(async () => {
-          if (!isCurrent(attempt)) return;
-          sessionRevision += 1;
-          const owner = { generation: attempt.generation, serverUrl: attempt.serverUrl };
-          await clearSession();
-          await removeCredentialsIfMatching(username, password, owner);
-        });
-      }
-      throw error;
     }
+    throw error;
+  }
 
-    const claims = decodeJwtPayload(res.data.token);
-    const userInfo: UserInfo = {
-      username: claims?.username || username,
-      role: claims?.role || 'read-only',
-    };
+  const claims = decodeJwtPayload(res.data.token);
+  const userInfo: UserInfo = {
+    username: claims?.username || username,
+    role: claims?.role || 'read-only',
+  };
 
-    await serializePersistence(() => persistSession(attempt, res.data, { username, password, user: userInfo }));
-    logger.info('auth', 'login ok');
-    return userInfo;
+  await serializePersistence(() =>
+    persistSession(attempt, res.data, { username, password, user: userInfo }),
+  );
+  logger.info('auth', 'login ok');
+  return userInfo;
 }
 
-export const login = async (username: string, password: string): Promise<UserInfo> =>
+export const login = async (
+  username: string,
+  password: string,
+): Promise<UserInfo> =>
   profileActivity.run('Sign in', async () => {
     authGeneration += 1;
     return authenticate(captureAttempt(), username, password);
@@ -306,10 +352,14 @@ export const getUserInfo = async (): Promise<UserInfo | null> =>
 export const logout = async (): Promise<void> =>
   profileActivity.run('Sign out', async () => {
     authGeneration += 1;
-    const serverUrl = getActiveProfile().serverUrl;
+    const { id, serverUrl } = getActiveProfile();
     invalidateSessionCaches();
     await serializePersistence(async () => {
-      if (getActiveProfile().serverUrl !== serverUrl) return;
+      if (
+        getActiveProfile().id !== id ||
+        getActiveProfile().serverUrl !== serverUrl
+      )
+        return;
       sessionRevision += 1;
       await clearSession(true);
     });
@@ -349,7 +399,10 @@ export const refreshToken = async () =>
     assertCurrent(attempt);
     let res;
     try {
-      res = await api.refreshToken({ xOdeVersion: ODE_VERSION, refreshTokenRequest: { refreshToken: refresh } });
+      res = await api.refreshToken({
+        xOdeVersion: ODE_VERSION,
+        refreshTokenRequest: { refreshToken: refresh },
+      });
     } catch (error) {
       if (getHttpStatus(error) === 401) {
         await serializePersistence(async () => {
@@ -390,7 +443,11 @@ export const autoLogin = async (): Promise<UserInfo | null> =>
       }
 
       assertCurrent(attempt);
-      const userInfo = await authenticate(attempt, credentials.username, credentials.password);
+      const userInfo = await authenticate(
+        attempt,
+        credentials.username,
+        credentials.password,
+      );
       logger.info('auth', 'auto-login ok');
       return userInfo;
     } catch (error: unknown) {

@@ -50,8 +50,6 @@ RCT_EXPORT_MODULE(UserAppModule);
     code = @"E_PROFILE_DATABASE_NAME";
   } else if (error.code == ProfileDatabaseErrorState) {
     code = @"E_PROFILE_DATABASE_STATE";
-  } else if (error.code == ProfileDatabaseErrorColdLaunchRequired) {
-    code = @"E_PROFILE_COLD_LAUNCH_REQUIRED";
   }
   reject(code, error.localizedDescription, error);
 }

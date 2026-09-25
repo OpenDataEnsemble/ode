@@ -15,6 +15,7 @@ import { profileActivity } from '../profiles/ProfileActivity';
 export class ClientIdService {
   private static instance: ClientIdService;
   private cachedClientId: string | null = null;
+  private cachedProfileId: string | null = null;
 
   private constructor() {}
 
@@ -36,7 +37,8 @@ export class ClientIdService {
   }
 
   private async getClientIdImpl(): Promise<string> {
-    if (this.cachedClientId) {
+    const profile = getActiveProfile();
+    if (this.cachedClientId && this.cachedProfileId === profile.id) {
       return this.cachedClientId;
     }
 
@@ -45,7 +47,9 @@ export class ClientIdService {
       // - Android: Returns Android ID (same as getAndroidId())
       // - iOS: Returns IDFV or generated ID stored in Keychain
       const deviceId = await DeviceInfo.getUniqueId();
-      const profile = getActiveProfile();
+      if (getActiveProfile().id !== profile.id)
+        throw new Error('Profile changed while reading client ID');
+      this.cachedProfileId = profile.id;
       this.cachedClientId = profile.legacyClientId
         ? `formulus-${deviceId}`
         : `formulus-${deviceId}-${profile.id}`;
@@ -66,6 +70,7 @@ export class ClientIdService {
    */
   public resetCache(): void {
     this.cachedClientId = null;
+    this.cachedProfileId = null;
   }
 
   /**

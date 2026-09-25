@@ -18,16 +18,7 @@ final class ProfileDatabaseLifecycle {
     private static final Set<String> OPENED_DATABASES = new HashSet<>();
     private static final Set<String> RETIRED_DATABASES = new HashSet<>();
 
-    static final class ColdLaunchRequiredException extends IllegalStateException {
-        private static final long serialVersionUID = 1L;
-
-        ColdLaunchRequiredException() {
-            super("A profile database has already been prepared in this app process. Fully close and reopen Formulus before switching profiles or reinitializing the runtime; a JavaScript reload is not sufficient.");
-        }
-    }
-
     private final File directory;
-    private String runningDatabase;
 
     ProfileDatabaseLifecycle(File directory) {
         this.directory = directory;
@@ -49,13 +40,8 @@ final class ProfileDatabaseLifecycle {
             if (RETIRED_DATABASES.contains(name)) {
                 throw new IllegalStateException("A database scheduled for deletion cannot be reopened");
             }
-            // Watermelon's destroy hooks are process-global, not scoped to a DB/runtime.
-            // After ANY preparation, only this helper's selected name may be repeated.
-            if (!OPENED_DATABASES.isEmpty() && !name.equals(runningDatabase)) {
-                throw new ColdLaunchRequiredException();
-            }
+            // Retain every prepared name across module and runtime replacement.
             OPENED_DATABASES.add(name);
-            runningDatabase = name;
         }
     }
 

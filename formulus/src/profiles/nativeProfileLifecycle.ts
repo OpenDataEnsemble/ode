@@ -47,10 +47,10 @@ function nativeLifecycle(): NativeProfileLifecycle {
 /**
  * Await BEFORE constructing any Watermelon SQLiteAdapter, including the migrated
  * Default (dbName "formulus"). Marks the name for the native process lifetime;
- * it does not open SQLite. Once ANY name has been prepared in this process,
- * only this helper/runtime's selected name is idempotent. All other preparations
- * reject with E_PROFILE_COLD_LAUNCH_REQUIRED, including unused names in a new
- * runtime. Fully close/reopen the app for EVERY switch; never create two adapters.
+ * it does not open SQLite. Preparing the same name again is idempotent, even
+ * after a runtime reload; distinct names may also be prepared concurrently.
+ * Retain adapters for prepared names rather than treating preparation as a
+ * SQLite connection-state probe.
  */
 export async function prepareProfileDatabase(dbName: string): Promise<void> {
   validateDatabaseName(dbName);
@@ -69,7 +69,7 @@ export async function deleteProfileDatabase(dbName: string): Promise<boolean> {
 
 /**
  * Conservative 'this name was prepared in this process', NOT a SQLite handle
- * probe or permission to initialize: a different prepared name also blocks it.
+ * probe. Other prepared names do not change the result for this name.
  */
 export async function isProfileDatabaseOpen(dbName: string): Promise<boolean> {
   validateDatabaseName(dbName);
@@ -98,9 +98,8 @@ export async function createProfileId(): Promise<string> {
 /**
  * NOT FOR PROFILE SWITCHING. Retained for explicit bootstrap retries before any
  * profile DB was prepared. Requests RN host reload, not OS process termination.
- * Once any DB was prepared, the replacement runtime cannot prepare ANY profile.
- * Every switch must persist selection, unmount profile UI, and show fully
- * close/reopen instructions instead. Native guards survive external/dev reloads.
+ * Native prepared-name guards survive external/dev reloads, but a reload does
+ * not close any retained adapters. Do not use this as a profile-switch mechanism.
  * Resolution acknowledges scheduling, not completion, and may be lost when JS
  * is destroyed. Never rely on post-await cleanup or automatic full app restart.
  */

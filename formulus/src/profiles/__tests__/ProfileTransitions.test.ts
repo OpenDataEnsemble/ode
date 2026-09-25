@@ -11,6 +11,15 @@ const {
 
 async function setup(twoProfiles = true) {
   const h = createHarness();
+  jest.doMock('../../database/database', () => ({
+    initializeProfileDatabase: jest.fn(async () => {}),
+  }));
+  jest.doMock('../../services/invalidateProfileServiceCaches', () => ({
+    invalidateProfileServiceCaches: jest.fn(),
+  }));
+  jest.doMock('../../navigation/MainAppNavigator', () => ({
+    resetProfilesNavigationIntentCache: jest.fn(),
+  }));
   h.seedRegistry(
     registry(twoProfiles ? [profile(A), profile(B)] : [profile(A)]),
   );
@@ -22,7 +31,7 @@ async function setup(twoProfiles = true) {
   return { h, app, host };
 }
 
-test('quiesces synchronously, awaits acknowledged unmount, commits, then requires closing without runtime reload', async () => {
+test('quiesces synchronously, awaits acknowledged unmount, commits and resumes without runtime reload', async () => {
   const { h, app, host } = await setup();
   const unmounted = deferred();
   const commitStarted = deferred();
@@ -72,13 +81,13 @@ test('quiesces synchronously, awaits acknowledged unmount, commits, then require
   await change;
   expect(phases).toEqual([
     { state: 'quiescing', selected: A, running: A, busy: true },
-    { state: 'close-required', selected: B, running: A, busy: true },
+    { state: 'idle', selected: B, running: B, busy: false },
   ]);
-  expect(app.runtime.getActiveProfile().id).toBe(A);
+  expect(app.runtime.getActiveProfile().id).toBe(B);
   expect(h.native.restartRuntime).not.toHaveBeenCalled();
   expect(h.native.prepareDatabase).not.toHaveBeenCalled();
   expect(h.native.deleteDatabase).not.toHaveBeenCalled();
-  expect(host.restore).not.toHaveBeenCalled();
+  expect(host.restore).toHaveBeenCalledTimes(1);
   for (const operation of [
     () => app.storage.getItem('@token'),
     () => app.storage.setItem('@token', 'bad'),
@@ -89,11 +98,26 @@ test('quiesces synchronously, awaits acknowledged unmount, commits, then require
     () => app.sequence.allocate('census'),
     () => app.client.getClientId(),
   ])
-    await expect(operation()).rejects.toThrow('wait for profile operations');
+    await operation();
   expect(h.values.has(prefix(A) + '@token')).toBe(false);
-  const cold = h.boot();
-  await cold.registry.initialize();
-  expect(cold.runtime.getActiveProfile().id).toBe(B);
+  expect(h.values.get(prefix(B) + '@token')).toBe('bad');
+});
+
+test('A → B → A works in one runtime, including profiles on the same URL', async () => {
+  const { app, h, host } = await setup();
+  await app.registry.updateConnection({ serverUrl: 'https://same.example' });
+  // The destination has the same URL; identity must still change.
+  await app.transitions.switchProfile(B);
+  await app.registry.updateConnection({ serverUrl: 'https://same.example' });
+  await app.storage.setItem('@token', 'B token');
+  await app.transitions.switchProfile(A);
+  expect(app.runtime.getActiveProfile().id).toBe(A);
+  expect(h.readRegistry().activeProfileId).toBe(A);
+  expect(h.values.get(prefix(B) + '@token')).toBe('B token');
+  expect(host.unmount).toHaveBeenCalledTimes(2);
+  expect(host.restore).toHaveBeenCalledTimes(2);
+  expect(h.native.restartRuntime).not.toHaveBeenCalled();
+  expect(app.transitions.getProfileTransitionState()).toBe('idle');
 });
 
 test('nested activity blocks switching until BOTH inner and outer operations finish', async () => {
@@ -157,7 +181,7 @@ test('unmount failure occurs before commit, restores old UI and permits a retry'
   expect(app.activity.isBusy()).toBe(false);
   await app.storage.setItem('@token', 'still running');
   await app.transitions.switchProfile(B);
-  expect(app.transitions.getProfileTransitionState()).toBe('close-required');
+  expect(app.transitions.getProfileTransitionState()).toBe('idle');
 });
 
 test.each([false, true])(
@@ -206,8 +230,8 @@ test.each([A, B])(
     expect(h.native.deleteDatabase).not.toHaveBeenCalled();
     expect(h.native.restartRuntime).not.toHaveBeenCalled();
     expect(host.unmount).toHaveBeenCalledTimes(1);
-    expect(app.runtime.getActiveProfile().id).toBe(A);
-    expect(app.transitions.getProfileTransitionState()).toBe('close-required');
+    expect(app.runtime.getActiveProfile().id).toBe(survivor);
+    expect(app.transitions.getProfileTransitionState()).toBe('idle');
     const cold = h.boot();
     await cold.registry.initialize();
     expect(h.values.has(prefix(id) + '@token')).toBe(false);

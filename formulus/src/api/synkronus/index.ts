@@ -13,6 +13,7 @@ import RNFS from 'react-native-fs';
 import AsyncStorage from '../../profiles/ProfileStorage';
 import { profilePaths, profilePath } from '../../profiles/ProfilePaths';
 import { profileActivity } from '../../profiles/ProfileActivity';
+import { getActiveProfile } from '../../profiles/ProfileRuntime';
 import { serverConfigService } from '../../services/ServerConfigService';
 import { assertProfileFilePath } from '../../services/profileFileAccess';
 import {
@@ -172,6 +173,13 @@ function reportSyncProgress(
 class SynkronusApi {
   private api: DefaultApi | null = null;
   private config: Configuration | null = null;
+  private apiProfileId: string | null = null;
+
+  /** Drop cached clients and native-download tokens after a committed profile switch. */
+  public invalidateForProfileSwitch(): void {
+    this.clearTokenCache();
+    this.apiProfileId = null;
+  }
 
   async getApi(): Promise<DefaultApi> {
     return profileActivity.run('Configure API', () => this.getApiImpl());
@@ -179,14 +187,19 @@ class SynkronusApi {
 
   private async getApiImpl(): Promise<DefaultApi> {
     profileActivity.assertAvailable();
+    const profileId = getActiveProfile().id;
     const serverUrl = await serverConfigService.getServerUrl();
+    if (getActiveProfile().id !== profileId) {
+      throw new Error('Profile changed while configuring API');
+    }
     if (!serverUrl) throw new Error('Missing profile server URL');
 
-    // If config exists but serverUrl changed, clear cache
-    if (this.config && this.config.basePath !== serverUrl) {
-      this.api = null;
-      this.config = null;
-      this.fastGetToken_cachedToken = null;
+    if (
+      this.apiProfileId !== profileId ||
+      (this.config && this.config.basePath !== serverUrl)
+    ) {
+      this.clearTokenCache();
+      this.apiProfileId = profileId;
     }
 
     // If API exists, return it (serverUrl hasn't changed)
@@ -194,17 +207,34 @@ class SynkronusApi {
 
     // Load config if not already loaded
     if (!this.config) {
-      this.config = new Configuration({
-        basePath: serverUrl,
-        accessToken: async () =>
-          profileActivity.run('Read API token', async () => {
-            const token = await AsyncStorage.getItem('@token');
-            return token || '';
-          }),
-        baseOptions: {
-          timeout: SYNC_HTTP_TIMEOUT_MS,
-        },
-      });
+      this.config = Object.assign(
+        new Configuration({
+          basePath: serverUrl,
+          accessToken: async () =>
+            profileActivity.run('Read API token', async () => {
+              if (
+                getActiveProfile().id !== profileId ||
+                getActiveProfile().serverUrl !== serverUrl
+              ) {
+                throw new Error(
+                  'API client belongs to another profile or server',
+                );
+              }
+              const token = await AsyncStorage.getItem('@token');
+              if (
+                getActiveProfile().id !== profileId ||
+                getActiveProfile().serverUrl !== serverUrl
+              ) {
+                throw new Error('Profile changed while reading API token');
+              }
+              return token || '';
+            }),
+          baseOptions: {
+            timeout: SYNC_HTTP_TIMEOUT_MS,
+          },
+        }),
+        { odeProfileId: profileId },
+      );
     }
 
     this.api = new DefaultApi(this.config);
@@ -998,14 +1028,20 @@ class SynkronusApi {
   }
 
   private fastGetToken_cachedToken: string | null = null;
+  private tokenProfileId: string | null = null;
   private async fastGetToken(): Promise<string> {
+    const profileId = getActiveProfile().id;
+    if (this.tokenProfileId !== profileId) this.fastGetToken_cachedToken = null;
     // Hint: Use like this to avoid unnecessary promise creation:
     // const authToken = this.fastGetToken_cachedToken ?? await this.fastGetToken();
     if (this.fastGetToken_cachedToken) {
       return this.fastGetToken_cachedToken;
     }
     const authToken = await getApiAuthToken();
+    if (getActiveProfile().id !== profileId)
+      throw new Error('Profile changed while reading API token');
     if (authToken) {
+      this.tokenProfileId = profileId;
       this.fastGetToken_cachedToken = authToken;
       return authToken;
     }
@@ -1014,6 +1050,7 @@ class SynkronusApi {
 
   public clearTokenCache(): void {
     this.fastGetToken_cachedToken = null;
+    this.tokenProfileId = null;
     // Clear API instance to force recreation with new token after auto-login
     this.api = null;
     this.config = null;

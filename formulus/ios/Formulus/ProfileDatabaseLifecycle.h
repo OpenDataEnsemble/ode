@@ -6,7 +6,6 @@ typedef NS_ENUM(NSInteger, ProfileDatabaseError) {
   ProfileDatabaseErrorName = 1,
   ProfileDatabaseErrorState = 2,
   ProfileDatabaseErrorIO = 3,
-  ProfileDatabaseErrorColdLaunchRequired = 4,
 };
 
 /** Filesystem-only guard; every adapter must be prepared before construction. */

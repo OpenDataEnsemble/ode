@@ -34,6 +34,13 @@
 - **Custom apps** are HTML/JS/CSS bundles loaded from Synkronus; they receive the **Formulus** injected API (see interface definition). Authors do not need this monorepo — public docs and [custom_app](https://github.com/OpenDataEnsemble/custom_app) describe usage.
 - **Formplayer** is a sibling package; after changing `FormulusInterfaceDefinition.ts`, run **`pnpm run sync-interface`** (or build) in **formulus-formplayer** so its copy stays aligned.
 
+## Profile lifecycle (mobile)
+
+- See [../documentation/formulus-profile-native-lifecycle.md](../documentation/formulus-profile-native-lifecycle.md) for the native guard, WatermelonDB ownership research, and manual release checks. `src/profiles/ProfileRegistry.ts` owns selection/tombstones; `src/profiles/ProfileTransitions.ts` quiesces work, unmounts the profile subtree (including WebViews), commits selection, then remounts the target **in-app**. Profile switching does **not** reload JS or call `restartProfileRuntime`.
+- `src/database/database.ts` retains one WatermelonDB instance per visited profile in the current JS runtime; returning to a profile selects its retained instance, not a second adapter for the same SQLite name. Always await `prepareProfileDatabase` before constructing any SQLite adapter. The native process-wide guard permits distinct names but vetoes deletion of **any prepared name** (even after switching away); it is not a SQLite handle-close probe. Do not add a WatermelonDB private close/reuse patch as a shortcut.
+- Deletions leave durable tombstones; physical DB cleanup of prepared names is deferred to a later real cold start, before adapter construction. An external/dev JS reload after preparation cannot reconstruct the retained instances: registry bootstrap shows a close/reopen screen instead of opening a duplicate adapter. RN reload is not an OS process restart.
+- Unmounting WebViews does **not** guarantee per-profile isolation of cookies, localStorage, IndexedDB, caches, or shared origins/namespaces. Do not claim full profile isolation or corruption immunity based on distinct DB names or helper tests. Manual native release checks on Android/iOS (JSI and fallback, A → B → A, deletion/cold cleanup, in-flight work and WebView state) are still needed; no E2E native test coverage is implied.
+
 ## Adaptive sync (low connectivity)
 
 There is **no enumerator-facing network preset**. Every device starts small and AIMDs toward the API max on a good link. Knobs live in [`src/sync/networkProfile.ts`](src/sync/networkProfile.ts); AIMD in [`src/sync/adaptivePageSize.ts`](src/sync/adaptivePageSize.ts).

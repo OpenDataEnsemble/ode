@@ -16,7 +16,7 @@
  *    landed.
  */
 import { Database, Q } from '@nozbe/watermelondb';
-import { database } from '../database/database';
+import { getDatabase } from '../database/database';
 import { ObservationModel } from '../database/models/ObservationModel';
 import AppConfigService from './AppConfigService';
 import type { ObservationIndexDef } from '../types/AppConfig';
@@ -258,7 +258,7 @@ export interface IndexRebuildProgress {
 }
 
 export class ObservationIndexService {
-  private static instance: ObservationIndexService;
+  private static instances = new WeakMap<Database, ObservationIndexService>();
   private readonly db: Database;
   private initialRebuildPromise: Promise<void> | null = null;
   private initialRebuildFinished = false;
@@ -283,11 +283,13 @@ export class ObservationIndexService {
     });
   }
 
-  static getInstance(db: Database = database): ObservationIndexService {
-    if (!ObservationIndexService.instance) {
-      ObservationIndexService.instance = new ObservationIndexService(db);
+  static getInstance(db: Database = getDatabase()): ObservationIndexService {
+    let instance = ObservationIndexService.instances.get(db);
+    if (!instance) {
+      instance = new ObservationIndexService(db);
+      ObservationIndexService.instances.set(db, instance);
     }
-    return ObservationIndexService.instance;
+    return instance;
   }
 
   getIndexDefs(): ObservationIndexDef[] {

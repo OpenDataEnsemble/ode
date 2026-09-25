@@ -302,6 +302,12 @@ function createHarness() {
   // explicitly clear opened to distinguish a cold process from a JS-only reload.
   function boot() {
     jest.resetModules();
+    jest.doMock('../../../database/database', () => ({
+      initializeProfileDatabase: jest.fn(async () => {}),
+    }));
+    jest.doMock('../../../services/invalidateProfileServiceCaches', () => ({
+      invalidateProfileServiceCaches: jest.fn(),
+    }));
     jest.doMock('@react-native-async-storage/async-storage', () => ({
       __esModule: true,
       default: storage,

@@ -2,10 +2,13 @@ import type { Profile } from './ProfileTypes';
 
 let active: Readonly<Profile> | null = null;
 
-/** Identity never follows the next-launch selection in the persisted registry. */
+/** Bootstrap binds the persisted selection before any profile services mount. */
 export function initializeProfileRuntime(profile: Profile): void {
-  if (active && (active.id !== profile.id || active.dbName !== profile.dbName)) {
-    throw new Error('Changing profiles requires a cold app launch');
+  if (
+    active &&
+    (active.id !== profile.id || active.dbName !== profile.dbName)
+  ) {
+    throw new Error('Profile bootstrap cannot replace a running profile');
   }
   active = Object.freeze({ ...profile });
 }
@@ -19,9 +22,17 @@ export function getActiveProfile(): Readonly<Profile> {
   return active!;
 }
 
+/** Called only by the transition coordinator after the old UI is unmounted. */
+export function selectProfileRuntime(profile: Profile): void {
+  active = Object.freeze({ ...profile });
+}
+
 /** Label/connection changes do not change the runtime's storage identity. */
 export function updateRuntimeProfile(profile: Profile): void {
-  if (getActiveProfile().id !== profile.id || active!.dbName !== profile.dbName) {
+  if (
+    getActiveProfile().id !== profile.id ||
+    active!.dbName !== profile.dbName
+  ) {
     throw new Error('Cannot replace a running profile');
   }
   active = Object.freeze({ ...profile });

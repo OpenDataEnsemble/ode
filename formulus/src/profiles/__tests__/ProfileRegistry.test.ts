@@ -495,6 +495,12 @@ describe('deletion tombstones', () => {
         );
         expect(h.databases.size).toBe(2);
         expect(h.native.deleteDatabase).toHaveBeenCalledTimes(2);
+        for (const id of [B, C]) {
+          expect(h.files.has(`${root(id)}/attachments/file`)).toBe(true);
+          expect(h.files.has(`${cacheRoot(id)}/export.zip`)).toBe(true);
+          expect(h.values.get(prefix(id) + '@token')).toBe(id);
+          expect(h.credentials.has(service(id))).toBe(true);
+        }
         const cold = h.boot();
         await cold.registry.initialize();
         expect(h.native.deleteDatabase).toHaveBeenCalledTimes(4);
@@ -650,7 +656,7 @@ describe('deletion tombstones', () => {
       expect(h.readRegistry().deletedProfiles[0].nativeCleanupComplete).toBe(
         false,
       );
-      expect(h.native.deleteDatabase).not.toHaveBeenCalled();
+      expect(h.native.deleteDatabase).toHaveBeenCalledTimes(1);
       await h.boot().registry.initialize();
       expect(h.credentials.has(service(B))).toBe(false);
       expect(h.readRegistry().deletedProfiles[0].nativeCleanupComplete).toBe(

@@ -28,8 +28,6 @@ class UserAppModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
             promise.resolve(operation())
         } catch (error: IllegalArgumentException) {
             promise.reject("E_PROFILE_DATABASE_NAME", error.message, error)
-        } catch (error: ProfileDatabaseLifecycle.ColdLaunchRequiredException) {
-            promise.reject("E_PROFILE_COLD_LAUNCH_REQUIRED", error.message, error)
         } catch (error: IllegalStateException) {
             promise.reject("E_PROFILE_DATABASE_STATE", error.message, error)
         } catch (error: IOException) {
@@ -78,7 +76,7 @@ class UserAppModule(reactContext: ReactApplicationContext) : ReactContextBaseJav
                 val host = application?.reactHost
                     ?: throw IllegalStateException("ReactHost is unavailable; close and relaunch Formulus")
                 // Retained for bootstrap retry before any DB preparation, not profile switches.
-                // The process-wide preparation guard survives this release-capable RN reload.
+                // Process-wide prepared-name guards survive this release-capable RN reload.
                 host.reload("Formulus bootstrap retry")
                 // Acknowledges scheduling only. The old JS runtime may die before observing this.
                 promise.resolve(null)

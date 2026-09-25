@@ -201,11 +201,20 @@ export const createRequestFunction = function (
     };
     // Keep this guard when regenerating: cached clients must not start requests
     // during a profile transition or send profile credentials to a stale URL.
+    const requestProfileId = getActiveProfile().id;
     return profileActivity.run('Synkronus request', async () => {
-      const serverUrl = getActiveProfile().serverUrl;
+      const { id, serverUrl } = getActiveProfile();
       const requestBase =
         axios.defaults.baseURL || configuration?.basePath || basePath;
-      if (!serverUrl || requestBase !== serverUrl) {
+      const clientProfileId = (
+        configuration as Configuration & { odeProfileId?: string }
+      )?.odeProfileId;
+      if (
+        id !== requestProfileId ||
+        (clientProfileId && clientProfileId !== id) ||
+        !serverUrl ||
+        requestBase !== serverUrl
+      ) {
         throw new Error('API server does not match the active profile');
       }
       return axios.request<T, R>(axiosRequestArgs);

@@ -29,6 +29,13 @@ export class NetworkProfileService {
     return NetworkProfileService.instance;
   }
 
+  /** Drop profile-owned tuning when the active storage namespace changes. */
+  invalidateForProfileSwitch(): void {
+    this.loaded = false;
+    this.adaptivePullPageSize = undefined;
+    this.adaptivePushBatchSize = undefined;
+  }
+
   /** Test-only: drop singleton state. */
   static resetForTests(): void {
     NetworkProfileService.instance = null;

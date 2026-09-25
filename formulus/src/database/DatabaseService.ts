@@ -8,11 +8,12 @@ import { WatermelonDBRepo } from './repositories/WatermelonDBRepo';
  */
 class DatabaseService {
   private static instance: DatabaseService;
-  private localRepo: LocalRepoInterface;
+  private readonly repositories = new WeakMap<
+    ReturnType<typeof getDatabase>,
+    LocalRepoInterface
+  >();
 
-  private constructor() {
-    this.localRepo = new WatermelonDBRepo(getDatabase());
-  }
+  private constructor() {}
 
   /**
    * Get the singleton instance of the DatabaseService
@@ -29,7 +30,13 @@ class DatabaseService {
    */
   public getLocalRepo(): LocalRepoInterface {
     profileActivity.assertAvailable();
-    return this.localRepo;
+    const db = getDatabase();
+    let repo = this.repositories.get(db);
+    if (!repo) {
+      repo = new WatermelonDBRepo(db);
+      this.repositories.set(db, repo);
+    }
+    return repo;
   }
 }
 

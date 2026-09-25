@@ -17,6 +17,32 @@ import { loadSettingsHydrationFromStorage } from '../../services/SettingsHydrati
 import { ToastService } from '../../services/ToastService';
 import type { ScannerModalResults } from '../../components/QRScannerModal';
 
+jest.mock('react-native', () => {
+  const native = jest.requireActual('react-native');
+  const primitives = new Set([
+    'Text',
+    'TextInput',
+    'View',
+    'Image',
+    'ScrollView',
+    'ActivityIndicator',
+  ]);
+  return new Proxy(native, {
+    get(target, key) {
+      if (key === 'TouchableOpacity') {
+        return ({ children, ...props }: any) =>
+          require('react').createElement(
+            'TouchableOpacity',
+            { accessible: true, ...props },
+            children,
+          );
+      }
+      if (primitives.has(String(key))) return String(key);
+      return Reflect.get(target, key);
+    },
+  });
+});
+
 const mockNavigate = jest.fn();
 const mockReset = jest.fn();
 const mockNavigation = { navigate: mockNavigate, reset: mockReset };
@@ -91,7 +117,10 @@ jest.mock('react-i18next', () => {
   return { useTranslation: () => ({ t }) };
 });
 jest.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: require('react-native').View,
+  SafeAreaView: ({ children, ...props }: any) => {
+    const { View } = require('react-native');
+    return <View {...props}>{children}</View>;
+  },
 }));
 jest.mock('@react-native-vector-icons/material-design-icons', () => 'Icon');
 jest.mock('../../contexts/AppThemeContext', () => ({
@@ -118,31 +147,41 @@ jest.mock('../../theme/odeDesign', () => ({
   odeScreenHeaderHeight: 60,
 }));
 jest.mock('../../components/common', () => {
-  const React = require('react');
-  const { Text, TouchableOpacity, TextInput, View } = require('react-native');
   return {
-    Button: ({ title, onPress, disabled, accessibilityLabel }: any) => (
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel || title}
-        accessibilityState={{ disabled }}
-        disabled={disabled}
-        onPress={onPress}>
-        <Text>{title}</Text>
-      </TouchableOpacity>
-    ),
-    LocalePicker: () => <Text>Locale picker</Text>,
-    FormLocalePicker: () => <Text>Form locale picker</Text>,
-    Input: ({ disabled, rightAccessory, ...props }: any) => (
-      <View>
-        <TextInput
-          {...props}
-          editable={!disabled}
+    Button: ({ title, onPress, disabled, accessibilityLabel }: any) => {
+      const { Text, TouchableOpacity } = require('react-native');
+      return (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel || title}
           accessibilityState={{ disabled }}
-        />
-        {rightAccessory}
-      </View>
-    ),
+          disabled={disabled}
+          onPress={onPress}>
+          <Text>{title}</Text>
+        </TouchableOpacity>
+      );
+    },
+    LocalePicker: () => {
+      const { Text } = require('react-native');
+      return <Text>Locale picker</Text>;
+    },
+    FormLocalePicker: () => {
+      const { Text } = require('react-native');
+      return <Text>Form locale picker</Text>;
+    },
+    Input: ({ disabled, rightAccessory, ...props }: any) => {
+      const { TextInput, View } = require('react-native');
+      return (
+        <View>
+          <TextInput
+            {...props}
+            editable={!disabled}
+            accessibilityState={{ disabled }}
+          />
+          {rightAccessory}
+        </View>
+      );
+    },
   };
 });
 jest.mock('../../components/QRScannerModal', () => ({
@@ -510,7 +549,7 @@ test('different-server QR preserves the old profile and securely hands credentia
   ).toBeLessThan(jest.mocked(switchProfile).mock.invocationCallOrder[0]);
   expect(mockProfiles[0].serverUrl).toBe('https://one.example');
   expect(deleteProfile).not.toHaveBeenCalled();
-  expect(mockNavigate).toHaveBeenCalledWith('Profiles');
+  expect(switchProfile).toHaveBeenCalledWith('three');
 });
 
 test('QR keychain failure keeps the created profile but never switches or stores plaintext credentials', async () => {
@@ -563,13 +602,14 @@ test('rejects switching during sync or an open form and retains the active selec
       expect.stringContaining('Close any open form'),
     ),
   );
-  expect(
-    screen.getByRole('radio', { name: 'Use profile First' }),
-  ).toHaveAccessibilityState({ checked: true });
+  expect(screen.getByRole('radio', { name: 'Use profile First' })).toHaveProp(
+    'accessibilityState',
+    { checked: true, disabled: true },
+  );
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 
-test('adds without switching and renames through the registry', async () => {
+test('adds and switches to the new profile, and renames through the registry', async () => {
   const screen = await setup();
   fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
   fireEvent.changeText(
@@ -580,7 +620,7 @@ test('adds without switching and renames through the registry', async () => {
   await waitFor(() =>
     expect(profileRegistry.add).toHaveBeenCalledWith('Fieldwork'),
   );
-  expect(switchProfile).not.toHaveBeenCalled();
+  await waitFor(() => expect(switchProfile).toHaveBeenCalledWith('three'));
   fireEvent.press(screen.getByRole('button', { name: 'Rename profile First' }));
   fireEvent.changeText(screen.getByPlaceholderText('Profile name'), 'Renamed');
   fireEvent.press(screen.getByRole('button', { name: 'Save name' }));
@@ -602,7 +642,7 @@ test('deleting the active profile asks for confirmation and uses the central fal
   await waitFor(() =>
     expect(
       screen.getByRole('radio', { name: 'Use profile Second' }),
-    ).toHaveAccessibilityState({ checked: true }),
+    ).toHaveProp('accessibilityState', { checked: true, disabled: true }),
   );
   expect(deleteProfile).toHaveBeenCalledWith('one');
 });

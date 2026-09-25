@@ -8,7 +8,12 @@ jest.mock(
 );
 jest.mock(
   '../../../profiles/ProfileRuntime',
-  () => ({ getActiveProfile: () => ({ serverUrl: 'https://bound.example' }) }),
+  () => ({
+    getActiveProfile: jest.fn(() => ({
+      id: 'profile-a',
+      serverUrl: 'https://bound.example',
+    })),
+  }),
   { virtual: true },
 );
 jest.mock(
@@ -30,12 +35,17 @@ import { synkronusDownload } from '../download';
 import { deferred } from '../../../services/testUtils/profileMocks';
 import RNFS from 'react-native-fs';
 import type { AxiosInstance } from 'axios';
+import { getActiveProfile } from '../../../profiles/ProfileRuntime';
 
 const { profileActivity } = require('../../../profiles/ProfileActivity');
 
 beforeEach(() => {
   jest.clearAllMocks();
   profileActivity.unblock();
+  jest.mocked(getActiveProfile).mockReturnValue({
+    id: 'profile-a',
+    serverUrl: 'https://bound.example',
+  } as ReturnType<typeof getActiveProfile>);
 });
 
 test('rejects a stale generated client and blocks cached client requests after transition', async () => {
@@ -51,6 +61,22 @@ test('rejects a stale generated client and blocks cached client requests after t
   expect(axios.request).not.toHaveBeenCalled();
   profileActivity.block();
   await expect(request()).rejects.toThrow('Profile transition');
+  expect(axios.request).not.toHaveBeenCalled();
+});
+
+test('rejects cached clients from another profile even when both use the same URL', async () => {
+  const axios = { defaults: {}, request: jest.fn() };
+  const request = createRequestFunction(
+    { url: '/api/sync/pull', options: {} },
+    axios as unknown as AxiosInstance,
+    'https://bound.example',
+    { basePath: 'https://bound.example', odeProfileId: 'profile-a' } as never,
+  );
+  jest.mocked(getActiveProfile).mockReturnValue({
+    id: 'profile-b',
+    serverUrl: 'https://bound.example',
+  } as ReturnType<typeof getActiveProfile>);
+  await expect(request()).rejects.toThrow('active profile');
   expect(axios.request).not.toHaveBeenCalled();
 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,8 +20,6 @@ import {
 import colors from '../theme/colors';
 
 const Stack = createStackNavigator<MainAppStackParamList>();
-// Share startup consumption across effect replays; a native restart resets this.
-let startupProfilesIntent: Promise<boolean> | undefined;
 
 function ObservationDetailHeader({
   navigation,
@@ -93,11 +91,12 @@ const MainAppNavigator: React.FC = () => {
   const { activeProfile } = useProfiles();
   const isConfigured = !!activeProfile.serverUrl;
   const [openProfiles, setOpenProfiles] = useState<boolean | null>(null);
+  const startupProfilesIntent = useRef<Promise<boolean> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    startupProfilesIntent ??= consumeProfilesNavigationIntent();
-    void startupProfilesIntent.then(open => {
+    startupProfilesIntent.current ??= consumeProfilesNavigationIntent();
+    void startupProfilesIntent.current.then(open => {
       if (!cancelled) setOpenProfiles(open);
     });
     return () => {

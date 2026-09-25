@@ -2,6 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getActiveProfile } from '../profiles/ProfileRuntime';
 
 const NAVIGATION_INTENT_KEY = '@ode/profiles/navigationIntent';
+let remountIntent = false;
+let remountEpoch = 0;
+
+/** A warm switch can remount before the caller's persisted-intent follow-up. */
+export function markProfilesNavigationRemount(): void {
+  remountIntent = true;
+  remountEpoch += 1;
+}
 
 /** Remember the destination for the cold launch; never reload or navigate here. */
 export async function transitionToProfiles(
@@ -9,6 +17,7 @@ export async function transitionToProfiles(
   targetProfileId?: string,
 ): Promise<void> {
   const intent = { fromProfileId: getActiveProfile().id, targetProfileId };
+  const initialEpoch = remountEpoch;
   await AsyncStorage.setItem(NAVIGATION_INTENT_KEY, JSON.stringify(intent));
   try {
     await transition();
@@ -17,6 +26,10 @@ export async function transitionToProfiles(
     // intent cannot redirect that profile on the next launch.
     await AsyncStorage.removeItem(NAVIGATION_INTENT_KEY).catch(() => {});
     throw error;
+  }
+  if (remountEpoch !== initialEpoch) {
+    await AsyncStorage.removeItem(NAVIGATION_INTENT_KEY).catch(() => {});
+    return;
   }
   // Inactive deletion keeps the same selected ID. Mark only after commit so
   // rejected transitions cannot redirect it. Failure here must not turn a
@@ -28,6 +41,11 @@ export async function transitionToProfiles(
 }
 
 export async function consumeProfilesNavigationIntent(): Promise<boolean> {
+  if (remountIntent) {
+    remountIntent = false;
+    await AsyncStorage.removeItem(NAVIGATION_INTENT_KEY).catch(() => {});
+    return true;
+  }
   try {
     const stored = await AsyncStorage.getItem(NAVIGATION_INTENT_KEY);
     if (!stored) return false;

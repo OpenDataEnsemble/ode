@@ -12,7 +12,7 @@ jest.mock(
   '../../profiles/ProfileRuntime',
   () => ({
     assertProfileReady: jest.fn(),
-    getActiveProfile: jest.fn(() => ({ dbName: 'formulus' })),
+    getActiveProfile: jest.fn(() => ({ id: 'default', dbName: 'formulus' })),
   }),
   { virtual: true },
 );
@@ -75,6 +75,7 @@ test('module import does not open SQLite; bootstrap awaits native preparation, s
   const readStarted = deferred<void>();
   const probeStarted = deferred<void>();
   runtime.getActiveProfile.mockReturnValue({
+    id: '11111111-2222-3333-4444-555555555555',
     dbName: 'formulus_11111111-2222-3333-4444-555555555555',
   });
   prepare.mockReturnValue(native.promise);
@@ -123,6 +124,30 @@ test('module import does not open SQLite; bootstrap awaits native preparation, s
   await db.initializeProfileDatabase();
   expect(prepare).toHaveBeenCalledTimes(1);
   expect(Adapter).toHaveBeenCalledTimes(1);
+});
+
+test('A → B → A retains the original adapter and database', async () => {
+  const { db, Adapter, Database, prepare, runtime } = context();
+  const first = { id: 'a', dbName: 'formulus' };
+  const second = {
+    id: 'b',
+    dbName: 'formulus_11111111-2222-3333-4444-555555555555',
+  };
+  runtime.getActiveProfile.mockReturnValue(first);
+  await db.initializeProfileDatabase();
+  const original = db.getDatabase();
+  runtime.getActiveProfile.mockReturnValue(second);
+  await db.initializeProfileDatabase();
+  expect(db.getDatabase()).not.toBe(original);
+  runtime.getActiveProfile.mockReturnValue(first);
+  await db.initializeProfileDatabase();
+  expect(db.getDatabase()).toBe(original);
+  expect(Adapter).toHaveBeenCalledTimes(2);
+  expect(Database).toHaveBeenCalledTimes(2);
+  expect(prepare.mock.calls.map(([name]: string[]) => name)).toEqual([
+    first.dbName,
+    second.dbName,
+  ]);
 });
 
 test('Default uses the legacy formulus name and a setup failure never publishes or reopens it', async () => {

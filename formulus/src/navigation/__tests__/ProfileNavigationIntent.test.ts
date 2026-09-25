@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   consumeProfilesNavigationIntent,
+  markProfilesNavigationRemount,
   transitionToProfiles,
 } from '../ProfileNavigationIntent';
 
@@ -15,13 +16,9 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
     mockStored = null;
   }),
 }));
-jest.mock(
-  '../../profiles/ProfileRuntime',
-  () => ({
-    getActiveProfile: () => ({ id: mockActiveId }),
-  }),
-  { virtual: true },
-);
+jest.mock('../../profiles/ProfileRuntime', () => ({
+  getActiveProfile: () => ({ id: mockActiveId }),
+}));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -38,6 +35,15 @@ test('records only profile IDs before a native restart and consumes the destinat
     mockActiveId = 'two';
   }, 'two');
   expect(await consumeProfilesNavigationIntent()).toBe(true);
+  expect(await consumeProfilesNavigationIntent()).toBe(false);
+});
+
+test('warm remount consumes the intent even when deleting an inactive profile', async () => {
+  await transitionToProfiles(async () => {
+    markProfilesNavigationRemount();
+    expect(await consumeProfilesNavigationIntent()).toBe(true);
+  });
+  expect(mockStored).toBeNull();
   expect(await consumeProfilesNavigationIntent()).toBe(false);
 });
 
