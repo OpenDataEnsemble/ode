@@ -1,8 +1,57 @@
 // Auto-generated from FormulusInterfaceDefinition.ts
 // Do not edit directly - this file will be overwritten
-// Last generated: 2026-06-19T12:32:54.430Z
+// Last generated: 2026-09-18T16:52:28.301Z
 
 (function () {
+  const profileId = globalThis.__odeProfileId;
+  if (typeof profileId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(profileId)) {
+    throw new Error(
+      'Formulus requires a host profile ID before bridge initialization',
+    );
+  }
+  const deletedIds = globalThis.__odeDeletedProfileIds || [];
+  if (
+    !Array.isArray(deletedIds) ||
+    deletedIds.some(
+      id => typeof id !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(id),
+    )
+  ) {
+    throw new Error('Invalid deleted profile IDs');
+  }
+  // Tombstones are permanent: each origin is cleaned when it is next loaded.
+  // Never clear the whole origin; unrelated third-party storage is not ours.
+  function removePrefix(storage, prefix) {
+    for (let i = storage.length - 1; i >= 0; i--) {
+      const key = storage.key(i);
+      if (key !== null && key.startsWith(prefix)) storage.removeItem(key);
+    }
+  }
+  if (deletedIds.length) {
+    const storage = globalThis.localStorage;
+    deletedIds.forEach(id => removePrefix(storage, 'ode:' + id + ':'));
+    if (deletedIds.includes(globalThis.__odeLegacyWebStorageProfileId)) {
+      storage.removeItem('formulus_drafts');
+      storage.removeItem('formulus_sticky_fields');
+    }
+  }
+  if (deletedIds.includes(profileId))
+    throw new Error('Active profile has been deleted');
+  const appPrefix = 'ode:' + profileId + ':app:';
+  const profileLocalStorage = Object.freeze({
+    getItem: function (key) {
+      return globalThis.localStorage.getItem(appPrefix + String(key));
+    },
+    setItem: function (key, value) {
+      globalThis.localStorage.setItem(appPrefix + String(key), String(value));
+    },
+    removeItem: function (key) {
+      globalThis.localStorage.removeItem(appPrefix + String(key));
+    },
+    clear: function () {
+      removePrefix(globalThis.localStorage, appPrefix);
+    },
+  });
+
   // Enhanced API availability detection and recovery
   function getFormulus() {
     // Check multiple locations where the API might exist
@@ -14,8 +63,21 @@
 
   function isFormulusAvailable() {
     const api = getFormulus();
+    if (
+      api &&
+      typeof api.getProfileId === 'function' &&
+      api.getProfileId() !== profileId
+    ) {
+      throw new Error(
+        'A Formulus browser context cannot change profiles; remount it',
+      );
+    }
     return (
-      api && typeof api === 'object' && typeof api.getVersion === 'function'
+      api &&
+      typeof api === 'object' &&
+      typeof api.getVersion === 'function' &&
+      typeof api.getProfileId === 'function' &&
+      typeof api.getLocalStorageRef === 'function'
     );
   }
 
@@ -72,7 +134,7 @@
         data = event.data; // Already an object
       } else {
         // console.warn('Global handleMessage: Received message with unexpected data type:', typeof event.data, event.data);
-        return; // Or handle error, but for now, just return to avoid breaking others.
+        return; // Or handle as an error, but for now, just return to avoid breaking others.
       }
 
       // Handle callbacks
@@ -109,6 +171,13 @@
 
   // Initialize the formulus interface
   globalThis.formulus = {
+    getProfileId: function () {
+      return profileId;
+    },
+    getLocalStorageRef: function () {
+      return profileLocalStorage;
+    },
+
     // getVersion:  => Promise<string>
     getVersion: function () {
       return new Promise((resolve, reject) => {
@@ -229,7 +298,7 @@
       });
     },
 
-    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown>, options: { subObservationMode?: boolean; skipFinalize?: boolean; skipDraftSelection?: boolean; } => Promise<FormCompletionResult>
+    // openFormplayer: formType: string, params: Record<string, unknown>, savedData: Record<string, unknown>, options: { subObservationMode?: boolean; skipFinalize?: boolean; skipDraftSelection?: boolean; observationId?: string; } => Promise<FormCompletionResult>
     openFormplayer: function (formType, params, savedData, options) {
       return new Promise((resolve, reject) => {
         const messageId =
@@ -356,7 +425,7 @@
       });
     },
 
-    // getObservationsByQuery: options: { formType: string; isDraft?: boolean; includeDeleted?: boolean; filter?: ObservationFilter; whereClause?: string; } => Promise<FormObservation[]>
+    // getObservationsByQuery: options: { formType: string; isDraft?: boolean; includeDeleted?: boolean; filter?: any; whereClause?: string; } => Promise<FormObservation[]>
     getObservationsByQuery: function (options) {
       return new Promise((resolve, reject) => {
         const messageId =

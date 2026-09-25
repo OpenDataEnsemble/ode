@@ -19,6 +19,9 @@ import { FormInitData } from '../webview/FormulusInterfaceDefinition';
 import { colors } from '../theme/colors';
 import { loadSettingsHydrationFromStorage } from '../services/SettingsHydrationCache';
 import { logger } from '../diagnostics/logger';
+import { getActiveProfile } from '../profiles/ProfileRuntime';
+import { profileRegistry } from '../profiles/ProfileRegistry';
+import { profilePaths } from '../profiles/ProfilePaths';
 
 export interface CustomAppWebViewHandle {
   reload: () => void;
@@ -44,6 +47,15 @@ interface CustomAppWebViewProps {
   transparentBackground?: boolean;
   /** WebView surface color behind HTML content (defaults to platform white on Android). */
   backgroundColor?: string;
+  /** Private host message, not a public Formulus API. */
+  onDraftFlushed?: (messageId: string, error?: string) => void;
+  /**
+   * iOS-only WKWebView read grant. Defaults to the active profile root. The
+   * bundled Formplayer lives outside Documents yet must display profile
+   * attachments, so it passes a wider grant. Profiles are not a security
+   * boundary for app code; see formulus/AGENTS.md.
+   */
+  iosReadAccessUrl?: string;
 }
 
 const INJECTION_SCRIPT_PATH =
@@ -179,10 +191,24 @@ const CustomAppWebView = forwardRef<
       onNavigateToSettings,
       transparentBackground = false,
       backgroundColor,
+      onDraftFlushed,
+      iosReadAccessUrl,
     },
     ref,
   ) => {
     const webViewRef = useRef<WebView | null>(null);
+    const [profileReadAccessUrl] = useState(
+      () => iosReadAccessUrl ?? `file://${profilePaths.root()}/`,
+    );
+    // The host remounts the whole tree on profile changes; never retarget a live document.
+    const [profileInjection] = useState(() => {
+      const id = getActiveProfile().id;
+      return `window.__odeProfileId = ${JSON.stringify(id)};
+        window.__odeLegacyWebStorageProfileId = ${JSON.stringify(profileRegistry.getLegacyWebStorageProfileId())};
+        window.__odeDeletedProfileIds = ${JSON.stringify(profileRegistry.getDeletedProfileIds())};\n`;
+    });
+    const onDraftFlushedRef = useRef(onDraftFlushed);
+    onDraftFlushedRef.current = onDraftFlushed;
     const hasLoadedOnceRef = useRef(false);
 
     const canGoBackRef = useRef(false);
@@ -221,6 +247,7 @@ const CustomAppWebView = forwardRef<
           }
 
           const fullScript =
+            profileInjection +
             consoleLogScript +
             '\n' +
             hashNavigationTrackingScript +
@@ -235,7 +262,7 @@ const CustomAppWebView = forwardRef<
         }
       };
       loadScript();
-    }, []);
+    }, [profileInjection]);
 
     const messageManager = useMemo(() => {
       const manager = new FormulusWebViewMessageManager(webViewRef, appName);
@@ -245,6 +272,11 @@ const CustomAppWebView = forwardRef<
       manager.handleWebViewMessage = event => {
         try {
           const eventData = JSON.parse(event.nativeEvent.data);
+
+          if (eventData.type === '__odeDraftFlushed') {
+            onDraftFlushedRef.current?.(eventData.messageId, eventData.error);
+            return;
+          }
 
           if (eventData.type === 'hashNavigationStateChange') {
             const newCanGoBack = !!eventData.canGoBack;
@@ -319,6 +351,8 @@ const CustomAppWebView = forwardRef<
 
       return manager;
     }, [appName]);
+
+    useEffect(() => () => messageManager.reset(), [messageManager]);
 
     useEffect(() => {
       const onLocationUpdate = (payload: {
@@ -486,7 +520,9 @@ const CustomAppWebView = forwardRef<
               if (typeof window.formulus === 'undefined' && typeof globalThis.formulus !== 'undefined') {
                 window.formulus = globalThis.formulus;
               }
-              if (typeof window.onFormulusReady === 'function') {
+              if (typeof window.formulus?.getProfileId === 'function' &&
+                  window.formulus.getProfileId() === window.__odeProfileId &&
+                  typeof window.onFormulusReady === 'function') {
                 window.onFormulusReady();
               }
             })();
@@ -508,15 +544,10 @@ const CustomAppWebView = forwardRef<
         allowFileAccess={true}
         allowUniversalAccessFromFileURLs={true}
         allowFileAccessFromFileURLs={true}
-        // iOS requires read access to the directory containing the file, not just the file itself
-        // For custom apps from DocumentDirectoryPath, allow access to the app directory
-        // For bundled assets (MainBundlePath), allow access to the bundle root
+        // Custom apps read their own profile tree by default; Formplayer
+        // overrides this because it is bundled outside Documents.
         allowingReadAccessToURL={
-          Platform.OS === 'ios'
-            ? appUrl.includes(MainBundlePath)
-              ? `file://${MainBundlePath}`
-              : appUrl.substring(0, appUrl.lastIndexOf('/'))
-            : undefined
+          Platform.OS === 'ios' ? profileReadAccessUrl : undefined
         }
         startInLoadingState={true}
         originWhitelist={['*']}
