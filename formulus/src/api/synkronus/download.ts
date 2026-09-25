@@ -4,6 +4,9 @@
  */
 import RNFS from 'react-native-fs';
 import { ODE_VERSION } from '../../version';
+import { profileActivity } from '../../profiles/ProfileActivity';
+import { getActiveProfile } from '../../profiles/ProfileRuntime';
+import { assertProfileFilePath } from '../../services/profileFileAccess';
 
 export interface SynkronusDownloadOptions {
   fromUrl: string;
@@ -27,7 +30,13 @@ export function synkronusDownload(options: SynkronusDownloadOptions): {
   jobId: number;
   promise: Promise<RNFS.DownloadResult>;
 } {
-  return RNFS.downloadFile({
+  profileActivity.assertAvailable();
+  assertProfileFilePath(options.toFile);
+  const serverUrl = getActiveProfile().serverUrl;
+  if (!serverUrl || !options.fromUrl.startsWith(`${serverUrl}/`)) {
+    throw new Error('Download server does not match the active profile');
+  }
+  const download = RNFS.downloadFile({
     fromUrl: options.fromUrl,
     toFile: options.toFile,
     headers: {
@@ -39,4 +48,8 @@ export function synkronusDownload(options: SynkronusDownloadOptions): {
     progressDivider: options.progressDivider,
     progress: options.progress,
   });
+  return {
+    jobId: download.jobId,
+    promise: profileActivity.run('Download file', () => download.promise),
+  };
 }

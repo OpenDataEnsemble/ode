@@ -22,7 +22,7 @@ const androidTargetDir = path.join(
   'formplayer_dist',
 );
 
-// iOS target directory - place in ios/Formulus/formplayer_dist so it can be added to Xcode as a folder reference
+// Xcode's folder reference copies ios/formplayer_dist to the application bundle root.
 const iosTargetDir = path.join(
   __dirname,
   '..',

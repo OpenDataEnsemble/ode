@@ -1,3 +1,12 @@
+jest.mock(
+  '../../profiles/ProfileActivity',
+  () => ({
+    profileActivity:
+      require('../../services/testUtils/profileMocks').createProfileActivityMock(),
+  }),
+  { virtual: true },
+);
+
 jest.mock('../../database/database', () => ({
   database: {
     write: jest.fn(async (fn: () => Promise<void>) => fn()),
