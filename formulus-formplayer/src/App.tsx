@@ -519,6 +519,22 @@ function App() {
   const isLoadingRef = useRef<boolean>(
     getStandaloneBrowserInitState().isLoading,
   );
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshPendingRef = useRef(false);
+  const draftFlushQueue = useRef(new DraftFlushQueue());
+  const submittedRef = useRef(false);
+
+  const clearRefreshTimers = useCallback(() => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    if (maxWaitTimerRef.current) {
+      clearTimeout(maxWaitTimerRef.current);
+      maxWaitTimerRef.current = null;
+    }
+  }, []);
 
   // Separate function to handle actual form initialization
   const initializeForm = useCallback(
@@ -528,6 +544,12 @@ function App() {
       newObservationDraftSessionKey?: string | null,
     ) => {
       try {
+        // A new form in the same document must not inherit the prior submit's
+        // write ban or any queued refresh from that session.
+        draftFlushQueue.current.retire();
+        submittedRef.current = false;
+        refreshPendingRef.current = false;
+        clearRefreshTimers();
         if (
           isSubObservationSession(initData) ||
           initData.observationId != null
@@ -850,6 +872,7 @@ function App() {
       setData,
       setLoadError,
       setIsLoading,
+      clearRefreshTimers,
     ],
   ); // isLoadingRef is a ref, not needed in deps
 
@@ -1156,7 +1179,7 @@ function App() {
   }, [pendingFormInit, initializeForm]);
 
   const refreshFormData = useCallback(
-    async (newData: Record<string, unknown>) => {
+    async (newData: Record<string, unknown>, isCurrent?: () => boolean) => {
       const autoRuntime = readAutoSequenceRuntime();
       const { data: sequencedData } = await applyAutoSequences(
         newData,
@@ -1169,14 +1192,23 @@ function App() {
         sequencedData,
         ajv,
       );
-      setCustomValidatorErrors(errors);
+      if (!isCurrent || isCurrent()) setCustomValidatorErrors(errors);
       return refreshedData;
     },
     [uischema, schema, ajv],
   );
 
+  // --- Deferred refresh + draft persistence (see REFRESH_* constants) ---
   const persistDraftIfRootSession = useCallback(
-    (refreshedData: Record<string, unknown>) => {
+    (refreshedData: Record<string, unknown>, epoch?: number) => {
+      // A refresh that began before a successful submit must not recreate the
+      // draft that submit deleted.
+      if (
+        submittedRef.current ||
+        (epoch !== undefined && !draftFlushQueue.current.isCurrent(epoch))
+      ) {
+        return;
+      }
       if (formInitData && !isSubObservationSession(formInitData)) {
         draftService.saveDraft(
           formInitData.formType,
@@ -1189,51 +1221,38 @@ function App() {
     [formInitData, draftSessionKey],
   );
 
-  // --- Deferred refresh + draft persistence (see REFRESH_* constants) ---
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const maxWaitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const refreshPendingRef = useRef(false);
-  const draftFlushQueue = useRef(new DraftFlushQueue());
-
-  const clearRefreshTimers = useCallback(() => {
-    if (refreshTimerRef.current) {
-      clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-    if (maxWaitTimerRef.current) {
-      clearTimeout(maxWaitTimerRef.current);
-      maxWaitTimerRef.current = null;
-    }
-  }, []);
-
-  const flushRefreshAndPersist = useCallback(
-    () =>
-      draftFlushQueue.current.run(async () => {
-        clearRefreshTimers();
-        while (refreshPendingRef.current) {
-          refreshPendingRef.current = false;
-          const base = dataRef.current as Record<string, unknown>;
-          try {
-            const refreshedData = mountedRef.current
-              ? await refreshFormData(base)
-              : base;
-            // An edit/child result arriving during asynchronous refresh wins. Refresh
-            // that newer snapshot instead of overwriting it with the stale result.
-            if (dataRef.current !== base) {
-              refreshPendingRef.current = true;
-              continue;
-            }
-            dataRef.current = refreshedData;
-            if (mountedRef.current) setData(refreshedData);
-            persistDraftIfRootSession(refreshedData);
-          } catch (error) {
+  const flushRefreshAndPersist = useCallback(() => {
+    const epoch = draftFlushQueue.current.currentEpoch();
+    return draftFlushQueue.current.run(async () => {
+      if (submittedRef.current || !draftFlushQueue.current.isCurrent(epoch))
+        return;
+      clearRefreshTimers();
+      while (refreshPendingRef.current) {
+        refreshPendingRef.current = false;
+        const base = dataRef.current as Record<string, unknown>;
+        try {
+          const refreshedData = mountedRef.current
+            ? await refreshFormData(base)
+            : base;
+          // An edit/child result arriving during asynchronous refresh wins. Refresh
+          // that newer snapshot instead of overwriting it with the stale result.
+          if (submittedRef.current || !draftFlushQueue.current.isCurrent(epoch))
+            return;
+          if (dataRef.current !== base) {
             refreshPendingRef.current = true;
-            throw error;
+            continue;
           }
+          dataRef.current = refreshedData;
+          if (mountedRef.current) setData(refreshedData);
+          persistDraftIfRootSession(refreshedData, epoch);
+        } catch (error) {
+          if (!submittedRef.current && draftFlushQueue.current.isCurrent(epoch))
+            refreshPendingRef.current = true;
+          throw error;
         }
-      }),
-    [clearRefreshTimers, refreshFormData, persistDraftIfRootSession],
-  );
+      }
+    });
+  }, [clearRefreshTimers, refreshFormData, persistDraftIfRootSession]);
 
   /**
    * Flush any pending draft, or persist the current root snapshot if the
@@ -1243,8 +1262,13 @@ function App() {
   const persistDraftNow = useCallback(async () => {
     // Also wait when the debounce already consumed the pending flag but its
     // asynchronous refresh/write is still running.
+    if (submittedRef.current) return;
+    const epoch = draftFlushQueue.current.currentEpoch();
     await flushRefreshAndPersist();
-    persistDraftIfRootSession(dataRef.current as Record<string, unknown>);
+    persistDraftIfRootSession(
+      dataRef.current as Record<string, unknown>,
+      epoch,
+    );
   }, [flushRefreshAndPersist, persistDraftIfRootSession]);
 
   // Stable handle for timers / global listeners so they always call the latest.
@@ -1254,6 +1278,7 @@ function App() {
   persistDraftNowRef.current = persistDraftNow;
 
   const scheduleRefreshAndPersist = useCallback(() => {
+    if (submittedRef.current) return;
     refreshPendingRef.current = true;
     if (refreshTimerRef.current) {
       clearTimeout(refreshTimerRef.current);
@@ -1392,11 +1417,16 @@ function App() {
 
     const handleRevalidate = () => {
       const current = dataRef.current as Record<string, unknown>;
-      if (!current || Object.keys(current).length === 0) {
+      if (submittedRef.current || !current || Object.keys(current).length === 0)
         return;
-      }
+      const epoch = draftFlushQueue.current.currentEpoch();
+      const isCurrent = () =>
+        !submittedRef.current &&
+        draftFlushQueue.current.isCurrent(epoch) &&
+        dataRef.current === current;
       void (async () => {
-        const refreshedData = await refreshFormData(current);
+        const refreshedData = await refreshFormData(current, isCurrent);
+        if (!isCurrent()) return;
         dataRef.current = refreshedData;
         setData(refreshedData);
       })();
@@ -1487,9 +1517,17 @@ function App() {
       }
 
       console.log('[App.tsx] Submitting form data:', payloadData);
+      const submitEpoch = draftFlushQueue.current.currentEpoch();
       formulusClient.current
         .submitObservationWithContext(payloadFormInit, payloadData)
-        .then(() => {
+        .then(async () => {
+          // A prior session's late submit must not disable the new session's drafts.
+          const activeSession = draftFlushQueue.current.isCurrent(submitEpoch);
+          if (activeSession) {
+            submittedRef.current = true;
+            draftFlushQueue.current.retire();
+          }
+          await draftFlushQueue.current.settled();
           if (payloadFormInit.observationId != null) {
             draftService.deleteDraftsForFormInstance(
               payloadFormInit.formType,
@@ -1515,11 +1553,25 @@ function App() {
               );
             }
           }
-          setSubmitError(null);
-          setShowFinalizeMessage(true);
+          if (
+            activeSession &&
+            submittedRef.current &&
+            draftFlushQueue.current.currentEpoch() === submitEpoch + 1
+          ) {
+            setSubmitError(null);
+            setShowFinalizeMessage(true);
+          }
         })
         .catch(error => {
           console.error('[App.tsx] Error submitting form:', error);
+          if (
+            !draftFlushQueue.current.isCurrent(submitEpoch) &&
+            !(
+              submittedRef.current &&
+              draftFlushQueue.current.currentEpoch() === submitEpoch + 1
+            )
+          )
+            return;
           setSubmitError(
             odeT(
               uiLocale,

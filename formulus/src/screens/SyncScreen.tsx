@@ -118,7 +118,9 @@ const SyncScreen = () => {
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   const updatePendingUploads = useCallback(async () => {

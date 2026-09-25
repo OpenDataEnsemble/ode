@@ -11,7 +11,8 @@ export function bootstrapProfileApp(): Promise<ComponentType> {
     bootstrap = (async () => {
       await initFormulusI18n();
       await profileRegistry.initialize();
-      const { initializeProfileDatabase } = await import('../database/database');
+      const { initializeProfileDatabase } =
+        await import('../database/database');
       await initializeProfileDatabase();
       const { default: App } = await import('../../App');
       return App;

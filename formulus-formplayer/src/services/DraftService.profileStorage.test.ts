@@ -42,10 +42,13 @@ it('preserves inactive drafts on lookup and save, including other forms and migr
   }));
   localStorage.setItem('formulus_drafts', JSON.stringify(oldDrafts));
   const { formplayerStorage } = await import('./ProfileStorage');
-  formplayerStorage.initialize({
-    __odeProfileId: 'legacy-owner',
-    __odeLegacyWebStorageProfileId: 'legacy-owner',
-  }, localStorage);
+  formplayerStorage.initialize(
+    {
+      __odeProfileId: 'legacy-owner',
+      __odeLegacyWebStorageProfileId: 'legacy-owner',
+    },
+    localStorage,
+  );
   const { draftService: draft } = await import('./DraftService');
   expect(draft.getDraftsForForm('household')).toHaveLength(1);
   expect(draft.getDraft('old-0')?.data).toEqual({ name: 'Unfinished' });

@@ -55,50 +55,53 @@ export {
 
 export async function exportDiagnosticsZip(): Promise<void> {
   return profileActivity.run('Export diagnostics', async () => {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-') + `-${++exportSequence}`;
-  const workDir = profileCachePath(`formulus-diagnostics-${stamp}`);
-  const zipName = `formulus-diagnostics-${stamp}.zip`;
-  const zipPath = profileCachePath(zipName);
+    const stamp =
+      new Date().toISOString().replace(/[:.]/g, '-') + `-${++exportSequence}`;
+    const workDir = profileCachePath(`formulus-diagnostics-${stamp}`);
+    const zipName = `formulus-diagnostics-${stamp}.zip`;
+    const zipPath = profileCachePath(zipName);
 
-  try {
-    await RNFS.mkdir(profilePaths.cache());
-    await RNFS.mkdir(workDir);
-    const events = await readFileIfExists(getEventsFilePath());
-    const exits = await readFileIfExists(getExitsFilePath());
-    await RNFS.writeFile(`${workDir}/events.ndjson`, events, 'utf8');
-    await RNFS.writeFile(`${workDir}/exits.ndjson`, exits, 'utf8');
+    try {
+      await RNFS.mkdir(profilePaths.cache());
+      await RNFS.mkdir(workDir);
+      const events = await readFileIfExists(getEventsFilePath());
+      const exits = await readFileIfExists(getExitsFilePath());
+      await RNFS.writeFile(`${workDir}/events.ndjson`, events, 'utf8');
+      await RNFS.writeFile(`${workDir}/exits.ndjson`, exits, 'utf8');
 
-    // Keep these reads sequential: a failure must not leave trace-copy IO
-    // running while the finally block removes its destination directory.
-    const traceFiles = await copyRecentTraces(workDir);
-    const lastExit = await readLastExit();
-    const recent = await readRecentEvents(40);
-    const serverUrl = await serverConfigService.getServerUrl();
-    const appVersion = await appVersionService.getFullVersion().catch(() => 'unknown');
-    const breadcrumbs = recent
-      .filter(event => event.kind === 'breadcrumb')
-      .slice(0, 20)
-      .map(event => `${event.ts} ${event.message}`);
+      // Keep these reads sequential: a failure must not leave trace-copy IO
+      // running while the finally block removes its destination directory.
+      const traceFiles = await copyRecentTraces(workDir);
+      const lastExit = await readLastExit();
+      const recent = await readRecentEvents(40);
+      const serverUrl = await serverConfigService.getServerUrl();
+      const appVersion = await appVersionService
+        .getFullVersion()
+        .catch(() => 'unknown');
+      const breadcrumbs = recent
+        .filter(event => event.kind === 'breadcrumb')
+        .slice(0, 20)
+        .map(event => `${event.ts} ${event.message}`);
 
-    const summary = buildSummaryText({
-      deviceModel: DeviceInfo.getModel(),
-      systemName: DeviceInfo.getSystemName(),
-      systemVersion: DeviceInfo.getSystemVersion(),
-      appVersion,
-      serverHost: serverHostnameOnly(serverUrl),
-      lastExitReason: lastExit ? formatExitReason(lastExit) : null,
-      breadcrumbs,
-      traceFiles,
-    });
-    await RNFS.writeFile(`${workDir}/summary.txt`, summary, 'utf8');
+      const summary = buildSummaryText({
+        deviceModel: DeviceInfo.getModel(),
+        systemName: DeviceInfo.getSystemName(),
+        systemVersion: DeviceInfo.getSystemVersion(),
+        appVersion,
+        serverHost: serverHostnameOnly(serverUrl),
+        lastExitReason: lastExit ? formatExitReason(lastExit) : null,
+        breadcrumbs,
+        traceFiles,
+      });
+      await RNFS.writeFile(`${workDir}/summary.txt`, summary, 'utf8');
 
-    await zip(workDir, zipPath);
-    await saveZipToDevice(zipPath, zipName);
-  } finally {
-    // Also clean up partial ZIPs when zip/save fails. Source logs remain global
-    // and are never removed; only this export's profile-owned staging is deleted.
-    await RNFS.unlink(workDir).catch(() => undefined);
-    await RNFS.unlink(zipPath).catch(() => undefined);
-  }
+      await zip(workDir, zipPath);
+      await saveZipToDevice(zipPath, zipName);
+    } finally {
+      // Also clean up partial ZIPs when zip/save fails. Source logs remain global
+      // and are never removed; only this export's profile-owned staging is deleted.
+      await RNFS.unlink(workDir).catch(() => undefined);
+      await RNFS.unlink(zipPath).catch(() => undefined);
+    }
   });
 }

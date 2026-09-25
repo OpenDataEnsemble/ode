@@ -53,7 +53,8 @@ import { formLocaleSettingsService } from '../services/FormLocaleSettingsService
 import { useTranslation } from 'react-i18next';
 import { getActiveProfile } from '../profiles/ProfileRuntime';
 import { profileActivity } from '../profiles/ProfileActivity';
-import { profilePath, profilePaths } from '../profiles/ProfilePaths';
+import { profilePaths } from '../profiles/ProfilePaths';
+import { commonAncestor } from '../utils/commonAncestor';
 
 async function buildLinkedFormSpecs(
   schema: unknown,
@@ -222,12 +223,18 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
     const [isClosing, setIsClosing] = useState(false);
     const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // iOS bootstrap mirrors bundled Formplayer inside this profile so WKWebView
-    // can read both its assets and sibling attachments with one profile-only grant.
+    // Formplayer is an app-owned build shared by every profile; it is never
+    // copied into a profile directory. On iOS the WebView must read both the
+    // bundle and this profile's attachments under Documents, so it is granted
+    // the common ancestor. Profiles are not a security boundary for app code.
     const formplayerUri =
       Platform.OS === 'android'
         ? 'file:///android_asset/formplayer_dist/index.html'
-        : `file://${profilePath('formplayer_dist/index.html')}`;
+        : `file://${RNFS.MainBundlePath}/formplayer_dist/index.html`;
+    const formplayerReadAccessUrl =
+      Platform.OS === 'ios'
+        ? `file://${commonAncestor(RNFS.MainBundlePath, RNFS.DocumentDirectoryPath)}`
+        : undefined;
 
     // Create a debounced close handler to prevent multiple rapid close attempts
     const performClose = useCallback(async () => {
@@ -891,6 +898,7 @@ const FormplayerModal = forwardRef<FormplayerModalHandle, FormplayerModalProps>(
             <CustomAppWebView
               ref={webViewRef}
               appUrl={formplayerUri}
+              iosReadAccessUrl={formplayerReadAccessUrl}
               appName="Formplayer"
               backgroundColor={themeColors.background as string}
               onLoadEndProp={handleWebViewLoad}

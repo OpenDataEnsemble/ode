@@ -331,6 +331,23 @@ class ProfileRegistry {
     });
   }
 
+  /**
+   * Recovery-only: after an ambiguous registry write, reread the durable
+   * registry and adopt it as the in-memory state. Throws if it is unreadable
+   * or invalid, in which case callers must stay fail-closed.
+   */
+  async rereadPersisted(): Promise<ProfileRegistryData> {
+    const raw = await AsyncStorage.getItem(PROFILE_REGISTRY_KEY);
+    if (raw === null) throw new Error('Profile registry is missing');
+    const persisted = parseRegistry(raw);
+    this.data = persisted;
+    return persisted;
+  }
+
+  getActiveProfileId(): string {
+    return this.current().activeProfileId;
+  }
+
   /** Transition-only: changes next-boot selection, never running identity. */
   async commitSelection(id: string, deleteId?: string): Promise<void> {
     const state = this.current();

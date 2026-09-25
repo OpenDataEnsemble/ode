@@ -88,7 +88,10 @@ function AppInner(): React.JSX.Element {
   );
 
   useEffect(() => {
-    profileActivity.setBlocker('open-native-form', formplayerStack.length > 0 || qrScannerVisible || signatureCaptureVisible);
+    profileActivity.setBlocker(
+      'open-native-form',
+      formplayerStack.length > 0 || qrScannerVisible || signatureCaptureVisible,
+    );
     return () => profileActivity.setBlocker('open-native-form', false);
   }, [formplayerStack.length, qrScannerVisible, signatureCaptureVisible]);
 

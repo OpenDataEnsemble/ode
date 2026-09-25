@@ -49,6 +49,13 @@ interface CustomAppWebViewProps {
   backgroundColor?: string;
   /** Private host message, not a public Formulus API. */
   onDraftFlushed?: (messageId: string, error?: string) => void;
+  /**
+   * iOS-only WKWebView read grant. Defaults to the active profile root. The
+   * bundled Formplayer lives outside Documents yet must display profile
+   * attachments, so it passes a wider grant. Profiles are not a security
+   * boundary for app code; see formulus/AGENTS.md.
+   */
+  iosReadAccessUrl?: string;
 }
 
 const INJECTION_SCRIPT_PATH =
@@ -185,11 +192,14 @@ const CustomAppWebView = forwardRef<
       transparentBackground = false,
       backgroundColor,
       onDraftFlushed,
+      iosReadAccessUrl,
     },
     ref,
   ) => {
     const webViewRef = useRef<WebView | null>(null);
-    const [profileReadAccessUrl] = useState(() => `file://${profilePaths.root()}/`);
+    const [profileReadAccessUrl] = useState(
+      () => iosReadAccessUrl ?? `file://${profilePaths.root()}/`,
+    );
     // The host remounts the whole tree on profile changes; never retarget a live document.
     const [profileInjection] = useState(() => {
       const id = getActiveProfile().id;
@@ -534,8 +544,8 @@ const CustomAppWebView = forwardRef<
         allowFileAccess={true}
         allowUniversalAccessFromFileURLs={true}
         allowFileAccessFromFileURLs={true}
-        // Both profile-local custom apps and mirrored Formplayer need sibling
-        // attachments/signatures, never Documents or another profile's tree.
+        // Custom apps read their own profile tree by default; Formplayer
+        // overrides this because it is bundled outside Documents.
         allowingReadAccessToURL={
           Platform.OS === 'ios' ? profileReadAccessUrl : undefined
         }

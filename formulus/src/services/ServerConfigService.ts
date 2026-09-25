@@ -2,8 +2,11 @@ import { getActiveProfile } from '../profiles/ProfileRuntime';
 import { profileRegistry } from '../profiles/ProfileRegistry';
 import { profileActivity } from '../profiles/ProfileActivity';
 
-import { normalizeServerUrl } from "./normalizeServerUrl";
-export { normalizeServerUrl, type NormalizeServerUrlResult } from "./normalizeServerUrl";
+import { normalizeServerUrl } from './normalizeServerUrl';
+export {
+  normalizeServerUrl,
+  type NormalizeServerUrlResult,
+} from './normalizeServerUrl';
 
 export class ServerConfigService {
   private static instance: ServerConfigService;

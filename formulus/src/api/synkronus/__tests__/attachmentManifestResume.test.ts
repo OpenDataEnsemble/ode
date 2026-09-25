@@ -38,17 +38,14 @@ jest.mock('../Auth', () => ({
   isForbiddenError: jest.fn(),
 }));
 
-jest.mock(
-  '../../../profiles/ProfileStorage',
-  () => ({
-    __esModule: true,
-    default: {
-      getItem: jest.fn(),
-      setItem: jest.fn(),
-      removeItem: jest.fn(),
-    },
-  }),
-);
+jest.mock('../../../profiles/ProfileStorage', () => ({
+  __esModule: true,
+  default: {
+    getItem: jest.fn(),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+  },
+}));
 
 jest.mock('react-native-fs', () => ({
   __esModule: true,

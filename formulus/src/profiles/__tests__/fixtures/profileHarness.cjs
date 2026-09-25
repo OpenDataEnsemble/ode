@@ -300,10 +300,37 @@ function createHarness() {
 
   // Reset JS singletons, not persisted storage or native process state. Tests
   // explicitly clear opened to distinguish a cold process from a JS-only reload.
+  // Simulated JS-runtime database ownership: which profiles opened OK and which
+  // attempted an open at all. Tests can fail the next open via `db.failNextOpen`.
+  const db = {
+    healthy: new Set(),
+    attempted: new Set(),
+    failNextOpen: null,
+  };
+
   function boot() {
     jest.resetModules();
+    db.healthy.clear();
+    db.attempted.clear();
+    db.failNextOpen = null;
     jest.doMock('../../../database/database', () => ({
-      initializeProfileDatabase: jest.fn(async () => {}),
+      initializeProfileDatabase: jest.fn(async () => {
+        const id = require('../../ProfileRuntime').getActiveProfile().id;
+        if (db.attempted.has(id)) {
+          if (!db.healthy.has(id))
+            throw new Error('Database open previously failed');
+          return;
+        }
+        db.attempted.add(id);
+        if (db.failNextOpen) {
+          const error = db.failNextOpen;
+          db.failNextOpen = null;
+          throw error;
+        }
+        db.healthy.add(id);
+      }),
+      hasHealthyProfileDatabase: jest.fn(id => db.healthy.has(id)),
+      wasProfileDatabaseAttempted: jest.fn(id => db.attempted.has(id)),
     }));
     jest.doMock('../../../services/invalidateProfileServiceCaches', () => ({
       invalidateProfileServiceCaches: jest.fn(),
@@ -339,6 +366,7 @@ function createHarness() {
   }
 
   return {
+    db,
     values,
     files,
     credentials,

@@ -101,12 +101,17 @@ support or another platform rejects; there is no silent success/no-op fallback.
    profile ID for the lifetime of the JS runtime. Revisits select that instance;
    they must not reopen the same SQLite name. Failed setup is not retried in the
    same runtime because it may have left native handles.
-5. A switch unmounts the profile subtree (including WebViews) and quiesces work
-   before persisting selection, then selects the target runtime and initializes
-   its DB in-process (or reuses its retained instance), invalidates profile
-   service caches and remounts. It does **not** call `restartProfileRuntime`,
-   reload JS, or use a WatermelonDB close patch. On a post-commit error the UI
-   stays in recovery rather than resuming writers against ambiguous state.
+5. A switch unmounts the profile subtree (including WebViews) and quiesces work,
+   creates the destination's directories, persists selection, then selects the
+   target runtime and initializes its DB in-process (or reuses its retained
+   instance), invalidates profile service caches and remounts. It does **not**
+   call `restartProfileRuntime`, reload JS, or use a WatermelonDB close patch.
+   On a post-commit error (ambiguous registry write or failed destination open)
+   the coordinator rereads the durable registry and resumes in-app only against
+   a profile whose retained DB is healthy or was never opened; a failed adapter
+   is never retried in the same runtime. If the durable selection cannot be
+   opened and the previous profile is healthy and still registered, it is
+   reselected. Otherwise the UI stays on a fail-closed recovery screen.
 6. Deletion persists a tombstone and switches away if needed. A prepared name
    remains protected from physical deletion even after switching away. Cleanup
    runs at a later cold bootstrap, before adapter preparation, and keeps the
@@ -117,7 +122,12 @@ support or another platform rejects; there is no silent success/no-op fallback.
 A successful in-app switch returns to the target profile without an app or JS
 restart. An open form/native picker blocks the unmount rather than being silently
 lost. If commit or target initialization fails after commit was attempted, the
-profile root shows a recovery screen, not an automatically resumed old profile.
+profile root shows a brief “restoring” state while the coordinator rereads the
+registry; it resumes a provably safe profile or stays on the recovery screen.
+Formplayer is the app-owned bundled build on both platforms (never copied per
+profile); on iOS its WebView read grant covers the common ancestor of the bundle
+and Documents so profile attachments render. Profiles are **not** a security
+boundary for code supplied by a server or custom app.
 A JS reload after preparation is different: bootstrap sees prepared names and
 shows the localized close/reopen screen; an actual process restart is needed to
 reconstruct a fresh runtime and to retry deferred cleanup.

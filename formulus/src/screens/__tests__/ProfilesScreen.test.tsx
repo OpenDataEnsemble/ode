@@ -612,6 +612,9 @@ test('rejects switching during sync or an open form and retains the active selec
 test('adds and switches to the new profile, and renames through the registry', async () => {
   const screen = await setup();
   fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
+  expect(
+    screen.getAllByText(/Only connect to trusted Synkronus servers/).length,
+  ).toBeGreaterThan(0);
   fireEvent.changeText(
     screen.getByPlaceholderText('Profile name'),
     ' Fieldwork ',

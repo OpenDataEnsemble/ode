@@ -25,7 +25,8 @@ export interface ProfileRegistryData {
 }
 
 export const PROFILE_REGISTRY_KEY = '@ode/profiles/registry';
-export const PROFILE_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+export const PROFILE_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export function assertProfileId(id: string): void {
   if (typeof id !== 'string' || PROFILE_ID_PATTERN.exec(id)?.[0] !== id) {

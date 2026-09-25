@@ -13,7 +13,13 @@ export function profileCacheRootFor(id: string): string {
 }
 
 function child(root: string, relative: string): string {
-  if (!relative || relative.startsWith('/') || relative.includes('\\') || relative.includes('\0') || relative.split('/').some(part => part === '..' || part === '.')) {
+  if (
+    !relative ||
+    relative.startsWith('/') ||
+    relative.includes('\\') ||
+    relative.includes('\0') ||
+    relative.split('/').some(part => part === '..' || part === '.')
+  ) {
     throw new Error('Expected a profile-relative path');
   }
   return `${root}/${relative}`;
@@ -38,7 +44,14 @@ export const profilePaths = {
 
 export async function ensureProfileDirectories(id: string): Promise<void> {
   const root = profileRootFor(id);
-  for (const relative of ['attachments/draft', 'attachments/pending', 'attachments/synced', 'app', 'forms', 'signatures']) {
+  for (const relative of [
+    'attachments/draft',
+    'attachments/pending',
+    'attachments/synced',
+    'app',
+    'forms',
+    'signatures',
+  ]) {
     await RNFS.mkdir(`${root}/${relative}`);
   }
   await RNFS.mkdir(profileCacheRootFor(id));

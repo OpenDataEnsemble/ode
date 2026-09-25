@@ -1,6 +1,8 @@
 export class ProfileBusyError extends Error {
   constructor() {
-    super('Close open forms and wait for profile operations to finish before switching.');
+    super(
+      'Close open forms and wait for profile operations to finish before switching.',
+    );
     this.name = 'ProfileBusyError';
   }
 }
@@ -32,7 +34,9 @@ export class ProfileActivity {
   }
 
   isBusy(): boolean {
-    return this.transitioning || this.operations.size > 0 || this.blockers.size > 0;
+    return (
+      this.transitioning || this.operations.size > 0 || this.blockers.size > 0
+    );
   }
 
   beginTransition(): void {

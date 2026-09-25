@@ -57,7 +57,6 @@ export class DraftService {
   private static instance: DraftService;
   private readonly STORAGE_KEY = 'formulus_drafts';
 
-
   private constructor() {}
 
   /**
@@ -130,7 +129,6 @@ export class DraftService {
       throw error;
     }
   }
-
 
   private draftMatches(
     draft: Draft,
@@ -334,7 +332,6 @@ export class DraftService {
     }
     return deletedCount;
   }
-
 
   /**
    * Generate a preview string from form data for display purposes

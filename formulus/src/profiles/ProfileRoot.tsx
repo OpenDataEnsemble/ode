@@ -83,7 +83,9 @@ export default function ProfileRoot(): React.JSX.Element {
             ? 'profiles.closeTitle'
             : failed
               ? 'profiles.recoveryTitle'
-              : 'profiles.working',
+              : transition === 'recovering'
+                ? 'profiles.recoveringTitle'
+                : 'profiles.working',
           { defaultValue: 'Formulus profiles' },
         )}
       </Text>
@@ -93,7 +95,9 @@ export default function ProfileRoot(): React.JSX.Element {
             ? 'profiles.closeMessage'
             : failed
               ? 'profiles.recoveryMessage'
-              : 'profiles.starting',
+              : transition === 'recovering'
+                ? 'profiles.recoveringMessage'
+                : 'profiles.starting',
           { defaultValue: 'Preparing your profile. Do not clear app data.' },
         )}
       </Text>

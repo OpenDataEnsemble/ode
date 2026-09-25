@@ -56,12 +56,10 @@ export const DraftSelector: React.FC<DraftSelectorProps> = ({
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
 
-
   // Load drafts on component mount and when formType changes
   const loadDrafts = useCallback(() => {
     const formDrafts = draftService.getDraftsForForm(formType, formVersion);
     setDrafts(formDrafts);
-
   }, [formType, formVersion]);
 
   useEffect(() => {

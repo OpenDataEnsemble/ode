@@ -117,6 +117,16 @@ export let database: Database;
 const instances = new Map<string, Database>();
 const initializations = new Map<string, Promise<void>>();
 
+/** True when this profile's retained instance passed its readiness check. */
+export function hasHealthyProfileDatabase(profileId: string): boolean {
+  return instances.has(profileId);
+}
+
+/** True when an open was attempted for this profile in this runtime (healthy or not). */
+export function wasProfileDatabaseAttempted(profileId: string): boolean {
+  return initializations.has(profileId);
+}
+
 export function getDatabase(): Database {
   if (!database || instances.get(getActiveProfile().id) !== database) {
     throw new Error(

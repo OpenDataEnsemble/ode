@@ -22,16 +22,24 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
   const { t } = useTranslation();
   const [_isCapturing, setIsCapturing] = useState(false);
   const signatureRef = useRef<SignatureViewRef>(null);
-  const session = useMemo(() => ({ fieldId, settled: !visible }), [fieldId, visible]);
+  const session = useMemo(() => ({ fieldId, visible }), [fieldId, visible]);
+  const sessionState = useRef({ session, settled: !visible });
 
   useEffect(() => {
-    session.settled = !visible;
-    return () => { session.settled = true; };
+    sessionState.current = { session, settled: !visible };
+    return () => {
+      if (sessionState.current.session === session)
+        sessionState.current.settled = true;
+    };
   }, [session, visible]);
 
   const deliverResult = (result: unknown) => {
-    if (session.settled) return;
-    session.settled = true;
+    if (
+      sessionState.current.session !== session ||
+      sessionState.current.settled
+    )
+      return;
+    sessionState.current.settled = true;
     try {
       onSignatureCapture(result);
     } finally {
@@ -55,7 +63,11 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
   };
 
   const handleSignatureResult = (signature: string) => {
-    if (session.settled) return;
+    if (
+      sessionState.current.session !== session ||
+      sessionState.current.settled
+    )
+      return;
     if (signature) {
       // Generate GUID for signature
       const generateGUID = () => {
@@ -145,9 +157,7 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>{t('signature.title')}</Text>
-          <Text style={styles.subtitle}>
-            {t('signature.hint')}
-          </Text>
+          <Text style={styles.subtitle}>{t('signature.hint')}</Text>
         </View>
 
         <View style={styles.signatureContainer}>
@@ -157,7 +167,11 @@ const SignatureCaptureModal: React.FC<SignatureCaptureModalProps> = ({
             onBegin={handleSignatureBegin}
             onOK={handleSignatureResult}
             onEmpty={() => {
-              if (!session.settled) Alert.alert(t('common.error'), t('signature.required'));
+              if (
+                sessionState.current.session === session &&
+                !sessionState.current.settled
+              )
+                Alert.alert(t('common.error'), t('signature.required'));
             }}
             descriptionText=""
             clearText={t('signature.clear')}

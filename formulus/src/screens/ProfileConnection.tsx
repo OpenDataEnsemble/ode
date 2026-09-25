@@ -184,7 +184,6 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
       } catch {
         throw new ProfileUIError('profiles.qrSwitchFailed');
       }
-
     }, 'profiles.addFailed');
   };
 
@@ -256,6 +255,11 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
           profile.urlLocked ? 'profiles.urlLocked' : 'profiles.connectionHint',
         )}
       </Text>
+      {!profile.urlLocked && (
+        <Text style={[styles.hint, { color: themeColors.onSurface }]}>
+          {t('profiles.trustWarning')}
+        </Text>
+      )}
       <Input
         placeholder={t('settings.serverUrl')}
         value={serverUrl}

@@ -78,7 +78,6 @@ const ProfilesScreen = () => {
   const selectProfile = (id: string) => {
     void runAction(async () => {
       await transitionToProfiles(() => switchProfile(id), id);
-
     }, 'profiles.switchFailed');
   };
 
@@ -94,7 +93,10 @@ const ProfilesScreen = () => {
           // Close the editor once creation commits, even if switching is busy.
           if (mountedRef.current) setEditor(null);
           try {
-            await transitionToProfiles(() => switchProfile(created.id), created.id);
+            await transitionToProfiles(
+              () => switchProfile(created.id),
+              created.id,
+            );
           } catch {
             throw new ProfileUIError('profiles.addSwitchFailed');
           }
@@ -230,6 +232,15 @@ const ProfilesScreen = () => {
           )}
           {editor ? (
             <View style={styles.editor}>
+              {!editor.id && (
+                <Text
+                  style={[
+                    styles.description,
+                    { color: themeColors.onSurface },
+                  ]}>
+                  {t('profiles.trustWarning')}
+                </Text>
+              )}
               <Input
                 placeholder={t('profiles.name')}
                 value={editor.label}
