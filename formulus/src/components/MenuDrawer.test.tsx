@@ -1,9 +1,8 @@
 import React from 'react';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
-import MenuDrawer from './MenuDrawer';
-import { getUserInfo, type UserInfo } from '../api/synkronus/Auth';
-import { getActiveProfile } from '../profiles/ProfileRuntime';
+import MenuDrawer, { MenuDrawerSignedIn } from './MenuDrawer';
+import { getUserInfo } from '../api/synkronus/Auth';
 
 jest.mock('react-native', () => {
   const native = jest.requireActual('react-native');
@@ -32,7 +31,7 @@ jest.mock('../navigation/useProfiles', () => ({
   useProfiles: () => ({ activeProfile: mockActiveProfile }),
 }));
 jest.mock('../profiles/ProfileRuntime', () => ({
-  getActiveProfile: jest.fn(() => mockActiveProfile),
+  getActiveProfile: () => mockActiveProfile,
 }));
 jest.mock('../api/synkronus/Auth', () => ({ getUserInfo: jest.fn() }));
 jest.mock('../contexts/AppThemeContext', () => ({
@@ -85,45 +84,23 @@ jest.mock('../theme/colors', () => ({
 jest.mock('./common/Button', () => () => null);
 
 const mockedGetUserInfo = jest.mocked(getUserInfo);
-const mockedGetActiveProfile = jest.mocked(getActiveProfile);
 
 beforeEach(() => {
   mockMode = 'light';
   mockedGetUserInfo.mockReset();
-  mockedGetActiveProfile.mockClear();
 });
 
 test.each([
   ['light', 'dark-text'],
   ['dark', 'light-text'],
-])('shows the signed-in username and role in %s mode', async (mode, color) => {
+])('renders the signed-in drawer section in %s mode', (mode, color) => {
   mockMode = mode;
   const username = 'a-very-long-username-that-must-not-overlap-the-badge';
-  let resolveUserInfo!: (info: UserInfo | null) => void;
-  mockedGetUserInfo.mockImplementation(
-    () =>
-      new Promise<UserInfo | null>(resolve => {
-        resolveUserInfo = resolve;
-      }),
-  );
-
   const screen = render(
-    <MenuDrawer
-      visible
-      onClose={jest.fn()}
-      onNavigate={jest.fn()}
-      onLogout={jest.fn()}
-    />,
+    <MenuDrawerSignedIn userInfo={{ username, role: 'read-write' }} />,
   );
 
-  expect(mockedGetUserInfo).toHaveBeenCalledTimes(1);
-  await act(async () => {
-    resolveUserInfo({ username, role: 'read-write' });
-  });
-  await waitFor(() => expect(mockedGetActiveProfile).toHaveBeenCalledTimes(1));
-  expect(mockedGetActiveProfile.mock.results[0].value.id).toBe('one');
-
-  const name = await waitFor(() => screen.getByText(username));
+  const name = screen.getByText(username);
   expect(name).toHaveProp('accessibilityLabel', username);
   expect(name).toHaveProp('numberOfLines', 1);
   expect(name).toHaveProp('ellipsizeMode', 'tail');

@@ -90,6 +90,67 @@ const MenuDivider = ({ color }: { color: string }) => {
   );
 };
 
+export const MenuDrawerSignedIn = ({ userInfo }: { userInfo: UserInfo }) => {
+  const { t } = useTranslation();
+  const { themeColors, resolvedMode } = useAppTheme();
+  const textColor =
+    resolvedMode === 'dark'
+      ? (themeColors.onSurface as string)
+      : (colors.neutral[900] as string);
+  const getRoleBadgeStyle = (role: UserRole) => {
+    switch (role) {
+      case 'admin':
+        return styles.roleBadgeAdmin;
+      case 'read-write':
+        return styles.roleBadgeReadWrite;
+      default:
+        return styles.roleBadgeReadOnly;
+    }
+  };
+
+  return (
+    <View
+      style={[
+        styles.userSection,
+        { backgroundColor: themeColors.surface as string },
+      ]}>
+      <View
+        style={[styles.userAvatar, { backgroundColor: themeColors.primary }]}>
+        <Icon name="account" size={32} color={themeColors.onPrimary} />
+      </View>
+      <View style={styles.userInfo}>
+        <Text
+          style={[
+            styles.userName,
+            styles.loggedInUserName,
+            { color: textColor },
+          ]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+          accessibilityLabel={userInfo.username}>
+          {userInfo.username}
+        </Text>
+        <View
+          style={[
+            styles.roleBadge,
+            getRoleBadgeStyle(userInfo.role),
+            userInfo.role === 'admin' && {
+              backgroundColor: themeColors.primary as string,
+            },
+          ]}>
+          <Text style={styles.roleBadgeText}>
+            {userInfo.role === 'admin'
+              ? t('roles.admin')
+              : userInfo.role === 'read-write'
+                ? t('roles.readWrite')
+                : t('roles.readOnly')}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 const MenuDrawer: React.FC<MenuDrawerProps> = ({
   visible,
   onClose,
@@ -153,17 +214,6 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
     if (!item.minRole) return true;
     return hasMinRole(userInfo?.role, item.minRole);
   });
-
-  const getRoleBadgeStyle = (role: UserRole) => {
-    switch (role) {
-      case 'admin':
-        return styles.roleBadgeAdmin;
-      case 'read-write':
-        return styles.roleBadgeReadWrite;
-      default:
-        return styles.roleBadgeReadOnly;
-    }
-  };
 
   if (!visible) {
     return null;
@@ -238,49 +288,7 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
           {/* User Info Section */}
           {userInfo ? (
             <>
-              <View
-                style={[styles.userSection, { backgroundColor: sectionBg }]}>
-                <View
-                  style={[
-                    styles.userAvatar,
-                    { backgroundColor: themeColors.primary },
-                  ]}>
-                  <Icon
-                    name="account"
-                    size={32}
-                    color={themeColors.onPrimary}
-                  />
-                </View>
-                <View style={styles.userInfo}>
-                  <Text
-                    style={[
-                      styles.userName,
-                      styles.loggedInUserName,
-                      { color: textColor },
-                    ]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                    accessibilityLabel={userInfo.username}>
-                    {userInfo.username}
-                  </Text>
-                  <View
-                    style={[
-                      styles.roleBadge,
-                      getRoleBadgeStyle(userInfo.role),
-                      userInfo.role === 'admin' && {
-                        backgroundColor: themeColors.primary as string,
-                      },
-                    ]}>
-                    <Text style={styles.roleBadgeText}>
-                      {userInfo.role === 'admin'
-                        ? t('roles.admin')
-                        : userInfo.role === 'read-write'
-                          ? t('roles.readWrite')
-                          : t('roles.readOnly')}
-                    </Text>
-                  </View>
-                </View>
-              </View>
+              <MenuDrawerSignedIn userInfo={userInfo} />
               <MenuDivider color={menuModalBorderColor} />
             </>
           ) : (
