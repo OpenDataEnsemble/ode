@@ -27,6 +27,7 @@
   "profiles.deleteLabel": "Eliminar o perfil {{label}}",
   "profiles.name": "Nome do perfil",
   "profiles.saveName": "Guardar nome",
+  "profiles.saveChanges": "Guardar alterações",
   "profiles.lastProfileHint": "Mantenha pelo menos um perfil. O último perfil não pode ser eliminado.",
   "profiles.deleteTitle": "Eliminar perfil?",
   "profiles.deleteMessage": "Eliminar «{{label}}»? Os dados não sincronizados serão perdidos. A eliminação dos dados do perfil está agendada para depois de fechar completamente e reabrir o Formulus. Para remover os dados locais de forma mais completa, desinstale o Formulus (isto remove todos os perfis; cópias de segurança ou credenciais do sistema podem persistir). Os dados do servidor não serão eliminados. Se este perfil estiver ativo, outro será selecionado na aplicação.",

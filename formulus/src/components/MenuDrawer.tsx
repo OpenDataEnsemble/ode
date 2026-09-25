@@ -118,7 +118,7 @@ export const MenuDrawerSignedIn = ({ userInfo }: { userInfo: UserInfo }) => {
         style={[styles.userAvatar, { backgroundColor: themeColors.primary }]}>
         <Icon name="account" size={32} color={themeColors.onPrimary} />
       </View>
-      <View style={styles.userInfo}>
+      <View style={[styles.userInfo, styles.signedInUserInfo]}>
         <Text
           style={[
             styles.userName,
@@ -134,6 +134,7 @@ export const MenuDrawerSignedIn = ({ userInfo }: { userInfo: UserInfo }) => {
           style={[
             styles.roleBadge,
             getRoleBadgeStyle(userInfo.role),
+            styles.signedInRoleBadge,
             userInfo.role === 'admin' && {
               backgroundColor: themeColors.primary as string,
             },
@@ -470,8 +471,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-end',
   },
+  signedInUserInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: odeSpacing.sm,
+  },
   loggedInUserName: {
-    alignSelf: 'stretch',
+    flex: 1,
+    marginBottom: 0,
   },
   userName: {
     fontSize: odeTypography.body,
@@ -486,6 +493,7 @@ const styles = StyleSheet.create({
   loginHint: {
     fontSize: odeTypography.caption,
   },
+  signedInRoleBadge: { alignSelf: 'center' },
   roleBadge: {
     alignSelf: 'flex-end',
     paddingHorizontal: odeSpacing.xs,
