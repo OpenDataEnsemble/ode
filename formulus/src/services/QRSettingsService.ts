@@ -1,5 +1,5 @@
 import { decodeFRMLS } from '../utils/FRMLSHelpers';
-import { normalizeServerUrl } from './ServerConfigService';
+import { normalizeServerUrl } from './normalizeServerUrl';
 
 export interface SettingsUpdate {
   serverUrl: string;

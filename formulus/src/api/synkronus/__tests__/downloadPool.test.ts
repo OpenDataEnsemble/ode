@@ -44,6 +44,32 @@ describe('runWithConcurrency', () => {
     expect(maxInFlight).toBe(1);
   });
 
+  it('joins sibling workers before rejecting a failed worker and starts no more items', async () => {
+    let finishSibling!: () => void;
+    const sibling = new Promise<void>(resolve => {
+      finishSibling = resolve;
+    });
+    const started: number[] = [];
+    const failure = new Error('download failed');
+    let settled = false;
+    const run = runWithConcurrency([1, 2, 3], 2, async n => {
+      started.push(n);
+      if (n === 1) throw failure;
+      await sibling;
+      return n;
+    });
+    const outcome = run.catch(error => {
+      settled = true;
+      return error;
+    });
+    await delay(0);
+    expect(settled).toBe(false);
+    expect(started).toEqual([1, 2]);
+    finishSibling();
+    expect(await outcome).toBe(failure);
+    expect(started).toEqual([1, 2]);
+  });
+
   it('returns an empty list without starting workers', async () => {
     const worker = jest.fn();
     await expect(runWithConcurrency([], 4, worker)).resolves.toEqual([]);

@@ -7,7 +7,8 @@ import {
   useNavigation,
 } from '@react-navigation/native';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { MainTabParamList, VisibleMainTab } from '../types/NavigationTypes';
+import { VisibleMainTab } from '../types/NavigationTypes';
+import { MainTabParamList } from '../navigation/ProfileNavigationTypes';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
 import MenuDrawer from '../components/MenuDrawer';
 import { logout } from '../api/synkronus/Auth';
@@ -59,7 +60,10 @@ const MoreScreen: React.FC = () => {
   const handleNavigate = (screen: string) => {
     setDrawerVisible(false);
     const target =
-      screen === 'Settings' || screen === 'About' || screen === 'Help'
+      screen === 'Profiles' ||
+      screen === 'Settings' ||
+      screen === 'About' ||
+      screen === 'Help'
         ? screen
         : 'Home';
     navigation.navigate(target as keyof MainTabParamList);

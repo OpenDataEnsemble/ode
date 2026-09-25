@@ -1,8 +1,9 @@
 import RNFS from 'react-native-fs';
+import { profileActivity } from '../profiles/ProfileActivity';
 import { zip } from 'react-native-zip-archive';
 import { saveZipToDevice } from './saveZipToDevice';
 
-const ATTACHMENTS_DIR = `${RNFS.DocumentDirectoryPath}/attachments`;
+import { profilePaths, profileCachePath } from '../profiles/ProfilePaths';
 
 async function directoryHasAnyFile(dirPath: string): Promise<boolean> {
   const entries = await RNFS.readDir(dirPath);
@@ -25,26 +26,30 @@ async function directoryHasAnyFile(dirPath: string): Promise<boolean> {
  */
 export const attachmentExportService = {
   async exportDeviceLocalAttachmentsZip(): Promise<void> {
-    const exists = await RNFS.exists(ATTACHMENTS_DIR);
-    if (!exists) {
-      throw new Error('No local attachment data found.');
-    }
+    return profileActivity.run('Export attachments', async () => {
+      const attachmentsDir = profilePaths.attachments();
+      const exists = await RNFS.exists(attachmentsDir);
+      if (!exists) {
+        throw new Error('No local attachment data found.');
+      }
 
-    const hasFiles = await directoryHasAnyFile(ATTACHMENTS_DIR);
-    if (!hasFiles) {
-      throw new Error('No local attachment data found.');
-    }
+      const hasFiles = await directoryHasAnyFile(attachmentsDir);
+      if (!hasFiles) {
+        throw new Error('No local attachment data found.');
+      }
 
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const zipName = `formulus-attachments-${stamp}.zip`;
-    const zipPath = `${RNFS.CachesDirectoryPath}/${zipName}`;
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const zipName = `formulus-attachments-${stamp}.zip`;
+      const zipPath = profileCachePath(zipName);
+      await RNFS.mkdir(profilePaths.cache());
 
-    if (await RNFS.exists(zipPath)) {
-      await RNFS.unlink(zipPath);
-    }
+      if (await RNFS.exists(zipPath)) {
+        await RNFS.unlink(zipPath);
+      }
 
-    await zip(ATTACHMENTS_DIR, zipPath);
+      await zip(attachmentsDir, zipPath);
 
-    await saveZipToDevice(zipPath, zipName);
+      await saveZipToDevice(zipPath, zipName);
+    });
   },
 };

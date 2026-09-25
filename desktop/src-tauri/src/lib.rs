@@ -145,6 +145,9 @@ struct ServerProfile {
 struct AppConfigFile {
     #[serde(default = "schema_version_default")]
     schema_version: u32,
+    /// Permanent tombstones for cleanup when a browser origin is next loaded.
+    #[serde(default)]
+    deleted_profile_ids: Vec<String>,
     active_profile_id: String,
     profiles: Vec<ServerProfile>,
 }
@@ -487,6 +490,7 @@ struct AuthSession {
 #[serde(rename_all = "camelCase")]
 struct SettingsResponse {
     active_profile_id: String,
+    deleted_profile_ids: Vec<String>,
     profiles: Vec<ServerProfile>,
     /// App data dir for constructing default per-profile DB paths in the UI.
     data_directory: String,
@@ -837,6 +841,7 @@ fn default_app_config(data_dir: &Path) -> AppConfigFile {
     let db_path = sqlite_path_for_workspace(&workspace_dir);
     AppConfigFile {
         schema_version: 3,
+        deleted_profile_ids: Vec::new(),
         active_profile_id: id.clone(),
         profiles: vec![ServerProfile {
             id,
@@ -862,6 +867,7 @@ fn migrate_legacy_workspace(workspace_path: &str, _data_dir: &Path) -> AppConfig
     let db = sqlite_path_for_workspace(&ws);
     AppConfigFile {
         schema_version: 3,
+        deleted_profile_ids: Vec::new(),
         active_profile_id: id.clone(),
         profiles: vec![ServerProfile {
             id,
@@ -2300,6 +2306,7 @@ fn get_settings(ctx: tauri::State<'_, AppCtxHandle>) -> Result<SettingsResponse,
         .map_err(|_| "failed to lock config".to_string())?;
     Ok(SettingsResponse {
         active_profile_id: cfg.active_profile_id.clone(),
+        deleted_profile_ids: cfg.deleted_profile_ids.clone(),
         profiles: cfg.profiles.clone(),
         data_directory: ctx.data_dir.to_string_lossy().to_string(),
     })
@@ -2346,6 +2353,9 @@ fn upsert_profile(
             .config
             .lock()
             .map_err(|_| "failed to lock config".to_string())?;
+        if cfg.deleted_profile_ids.contains(&profile.id) {
+            return Err("deleted profile IDs cannot be reused".to_string());
+        }
         if let Some(i) = cfg.profiles.iter().position(|p| p.id == profile.id) {
             cfg.profiles[i] = profile;
         } else {
@@ -2365,6 +2375,12 @@ fn delete_profile(profile_id: String, ctx: tauri::State<'_, AppCtxHandle>) -> Re
             .map_err(|_| "failed to lock config".to_string())?;
         if cfg.profiles.len() <= 1 {
             return Err("cannot delete the last profile".to_string());
+        }
+        if !cfg.profiles.iter().any(|p| p.id == profile_id) {
+            return Err("profile not found".to_string());
+        }
+        if !cfg.deleted_profile_ids.contains(&profile_id) {
+            cfg.deleted_profile_ids.push(profile_id.clone());
         }
         cfg.profiles.retain(|p| p.id != profile_id);
         if cfg.active_profile_id == profile_id {
@@ -5865,6 +5881,19 @@ mod tests {
     use serde_json::Value;
     use std::io::Read;
     use std::time::Instant;
+
+    #[test]
+    fn profile_browser_storage_tombstones_survive_config_round_trip() {
+        let mut cfg = super::default_app_config(Path::new("/tmp/ode-profile-test"));
+        cfg.deleted_profile_ids.push("deleted-id".to_string());
+        let json = serde_json::to_string(&cfg).unwrap();
+        let restored: super::AppConfigFile = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.deleted_profile_ids, vec!["deleted-id"]);
+        let mut legacy = serde_json::to_value(&cfg).unwrap();
+        legacy.as_object_mut().unwrap().remove("deletedProfileIds");
+        let restored: super::AppConfigFile = serde_json::from_value(legacy).unwrap();
+        assert!(restored.deleted_profile_ids.is_empty());
+    }
 
     #[test]
     fn attachment_copy_progress_step_scales_with_batch_size() {
