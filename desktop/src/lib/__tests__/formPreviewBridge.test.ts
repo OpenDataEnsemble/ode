@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   DESKTOP_FORM_PREVIEW_PREFIX,
@@ -72,6 +74,25 @@ describe('FORMULUS_INJECTION_REQUEST_TYPES', () => {
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('submitObservation');
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('persistObservation');
     expect(FORMULUS_INJECTION_REQUEST_TYPES).toContain('requestVideo');
+  });
+});
+
+describe('FORM_PREVIEW_FORMULUS_INTERFACE_VERSION', () => {
+  it('matches the canonical Formulus interface version', () => {
+    const interfaceDefinitionPath = resolve(
+      import.meta.dirname,
+      '../../../../formulus/src/webview/FormulusInterfaceDefinition.ts',
+    );
+    const interfaceDefinition = readFileSync(interfaceDefinitionPath, 'utf8');
+    const versionMatch = interfaceDefinition.match(
+      /export\s+const\s+FORMULUS_INTERFACE_VERSION\s*=\s*(['"])([^'"]+)\1/,
+    );
+
+    expect(
+      versionMatch?.[2],
+      `Canonical FORMULUS_INTERFACE_VERSION not found in ${interfaceDefinitionPath}`,
+    ).toBeDefined();
+    expect(FORM_PREVIEW_FORMULUS_INTERFACE_VERSION).toBe(versionMatch?.[2]);
   });
 });
 
