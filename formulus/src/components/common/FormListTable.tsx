@@ -1,12 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import Icon from '@react-native-vector-icons/material-design-icons';
 import { useTranslation } from 'react-i18next';
 import { useAppTheme } from '../../contexts/AppThemeContext';
@@ -16,9 +9,7 @@ import {
   odeBorderWidth,
 } from '../../theme/odeDesign';
 import type { FormSpec } from '../../services/FormService';
-
-// Below 600px, hide secondary columns to keep tables usable on small screens.
-const NARROW_WIDTH = 600;
+import { useIsNarrowScreen } from '../../hooks/useIsNarrowScreen';
 
 type FormListTableProps = {
   forms: FormSpec[];
@@ -81,8 +72,7 @@ const FormListTable: React.FC<FormListTableProps> = ({
 }) => {
   const { t } = useTranslation();
   const { themeColors } = useAppTheme();
-  const { width } = useWindowDimensions();
-  const isNarrow = width < NARROW_WIDTH;
+  const isNarrow = useIsNarrowScreen();
   const headerColor = themeColors.onSurface as string;
   const cellColor = themeColors.onSurface as string;
   const divider = themeColors.divider as string;
