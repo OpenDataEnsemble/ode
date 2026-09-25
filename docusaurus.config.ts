@@ -74,6 +74,11 @@ const config: Config = {
           position: 'right',
         },
         {
+          to: '/downloads',
+          label: 'Downloads',
+          position: 'right',
+        },
+        {
           label: 'Components',
           position: 'right',
           items: [
@@ -165,6 +170,10 @@ const config: Config = {
             {
               label: 'Overview',
               to: '/docs',
+            },
+            {
+              label: 'Downloads',
+              to: '/downloads',
             },
             {
               label: 'Getting Started',

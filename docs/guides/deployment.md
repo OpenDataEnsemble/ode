@@ -13,7 +13,7 @@ Complete guide to deploying ODE in production environments using containers (Doc
 
 ODE production deployments center on the **Synkronus container image** (`ghcr.io/opendataensemble/synkronus`). The reference stack is [synkronus-quickstart](https://github.com/OpenDataEnsemble/synkronus-quickstart): Synkronus, PostgreSQL, and **Caddy** for TLS. Your IT team may use any hardened reverse proxy (Nginx, Apache, cloud load balancer) instead of Caddy—the requirement is **TLS termination** forwarding to Synkronus on port 8080.
 
-Pin the image tag in production (e.g. `ghcr.io/opendataensemble/synkronus:v1.3.0`), not `:latest`.
+Pin the image tag in production (e.g. `ghcr.io/opendataensemble/synkronus:v1.3.2`), not `:latest`.
 
 ## Recommended Production Setup
 
@@ -160,20 +160,43 @@ services:
 
 Pre-built images are automatically published to GitHub Container Registry (GHCR) via CI/CD.
 
-### Pull the Latest Image
+### Choose an Image Tag
+
+Choose a deployment tag based on the update channel you want:
+
+| Tag | What it tracks | Recommended use |
+|-----|----------------|-----------------|
+| `latest` | Most recently published **stable** GitHub Release | Production deployments that intentionally auto-update between stable releases |
+| `latest-pre-release` | Most recently published GitHub Release marked **pre-release** | Demo/staging deployments and Watchtower-managed pre-release testing |
+| `dev` | Tip of the `dev` branch | Bleeding-edge integration testing; may contain unpublished work |
+| `main` | Tip of the `main` branch | Testing current main between releases |
+| `v1.2.3-alpha.4` | One specific pre-release | Reproducible pre-release deployment; does not auto-update |
+| `v1.2.3` | One specific stable release | Reproducible production deployment; does not auto-update |
+| `sha-abc1234` | One specific commit | Debugging or exact-build reproduction; does not auto-update |
+
+`dev` is a branch-head channel, **not** the published pre-release channel. To track published alpha or release-candidate images, use `latest-pre-release`:
 
 ```bash
-docker pull ghcr.io/opendataensemble/synkronus:latest
+docker pull ghcr.io/opendataensemble/synkronus:latest-pre-release
 ```
 
-### Available Tags
+Versioned and moving release tags are produced only when a GitHub Release is **published**. Merely pushing a Git tag is not enough, and the release must be marked as a pre-release for `latest-pre-release` to move. Publishing a stable release updates `latest` but does not update `latest-pre-release`; there is no single tag that tracks the newest release regardless of whether it is stable or pre-release.
 
-| Tag | Description |
-|-----|-------------|
-| `latest` | Latest stable release from main branch |
-| `v1.0.0` | Specific version tags |
-| `develop` | Development branch (pre-release) |
-| `feature-xyz` | Feature branches (pre-release) |
+Feature-branch images are not published automatically. A manually dispatched workflow run publishes only an immutable `sha-{short}` tag and does not move `latest`, `latest-pre-release`, `main`, or `dev`.
+
+### Automatic Updates with Watchtower
+
+Watchtower follows the tag configured on the running container. For a demo server that should receive each published pre-release, configure the Synkronus service with the moving pre-release tag:
+
+```yaml
+services:
+  synkronus:
+    image: ghcr.io/opendataensemble/synkronus:latest-pre-release
+```
+
+Use `latest` instead to follow stable releases. Do not use a versioned tag such as `v1.2.3-alpha.4` if you expect automatic upgrades; versioned and `sha-*` tags identify fixed builds.
+
+For production, pin a tested version tag and perform controlled upgrades rather than relying on an automatically moving tag.
 
 ### Run Pre-built Image
 
@@ -431,6 +454,10 @@ sudo ufw enable
 ```
 
 ## Performance Tuning
+
+### Reverse proxy timeouts
+
+Field sync, photo upload, and app-bundle download can run for minutes on slow radio. The bundled [`nginx.conf`](https://github.com/OpenDataEnsemble/ode/blob/main/synkronus/nginx.conf) sets `proxy_send_timeout` and `proxy_read_timeout` to **600s**. If you use Caddy, Apache, or an institutional load balancer, set equivalent send/read (or idle) timeouts to at least 10 minutes. Leave login/refresh on the default short path — Synkronus already bounds `/api/auth/*` at 25s.
 
 ### PostgreSQL Optimization
 

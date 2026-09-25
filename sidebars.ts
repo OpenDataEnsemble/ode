@@ -31,6 +31,11 @@ const sidebars: SidebarsConfig = {
         'getting-started/why-ode',
         'getting-started/key-concepts',
         {
+          type: 'link',
+          label: 'Downloads',
+          href: '/downloads',
+        },
+        {
           type: 'category',
           label: 'Installation',
           link: { type: 'doc', id: 'getting-started/installation' },

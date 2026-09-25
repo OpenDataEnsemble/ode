@@ -212,10 +212,12 @@ The app automatically syncs when:
 
 ### Sync Process
 
-1. **Pull**: Download new forms and server data
-2. **Push**: Upload pending observations
-3. **Attachments**: Upload photos, audio, and other files
+1. **Pull**: Download new forms and server data (starts at 32 observations per page)
+2. **Push**: Upload pending observations (starts at 4 per batch)
+3. **Attachments**: Upload photos, audio, and other files (one at a time)
 4. **Confirmation**: Server acknowledges receipt
+
+Observation records can finish syncing while photos are still transferring. Page sizes grow on a good link and shrink on a slow one; there is no Settings control for this.
 
 ### Sync Indicators
 

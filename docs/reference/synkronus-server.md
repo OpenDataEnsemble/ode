@@ -19,10 +19,10 @@ Synkronus is a robust synchronization API server built with Go. It provides REST
 Production deployments should pin a release tag rather than `:latest`:
 
 ```
-ghcr.io/opendataensemble/synkronus:v1.3.0
+ghcr.io/opendataensemble/synkronus:v1.3.2
 ```
 
-Images are published on [GitHub Container Registry](https://github.com/OpenDataEnsemble/ode/pkgs/container/synkronus) for each [ODE release](https://github.com/OpenDataEnsemble/ode/releases).
+Images are published on [GitHub Container Registry](https://github.com/OpenDataEnsemble/ode/pkgs/container/synkronus) for each [ODE release](https://github.com/OpenDataEnsemble/ode/releases). See the [Deployment guide](/docs/guides/deployment) for stable, pre-release, and branch tracking channels.
 
 ## Architecture
 
@@ -33,6 +33,19 @@ Images are published on [GitHub Container Registry](https://github.com/OpenDataE
 - **Authentication**: JWT (JSON Web Tokens)
 - **API**: RESTful HTTP API
 - **Documentation**: OpenAPI 3.0 specification
+
+### HTTP timeouts
+
+Go `ReadTimeout` / `WriteTimeout` are **unset**. Those clocks start when the request begins, so a short cap (historically 15s) aborted legitimate sync, photo, and app-bundle transfers on slow radio.
+
+| Bound | Duration | Scope |
+|-------|----------|--------|
+| Request headers (`ReadHeaderTimeout`) | 25s | Slowloris protection only |
+| Login / refresh | 25s | `http.TimeoutHandler` on `/api/auth/*` only |
+| Keep-alive idle | 60s | Between requests |
+| Reverse proxy send/read | 600s | Reference `nginx.conf` in the Synkronus tree |
+
+Do not wrap `/sync`, attachments, or bundle download in a short handler timeout. Pull `limit` default is 50, maximum 500 (OpenAPI). Formulus requests smaller pages first — see [Synchronization — How Formulus sizes each request](/docs/using/synchronization#how-formulus-sizes-each-request).
 
 ### Project Structure
 
@@ -49,6 +62,7 @@ synkronus/
     ├── auth/              # Authentication utilities
     ├── database/          # Database connection and migrations
     ├── logger/            # Structured logging
+    ├── httptimeout/       # ReadHeaderTimeout, auth TimeoutHandler
     ├── middleware/        # HTTP middleware
     └── openapi/           # OpenAPI generated code
 ```

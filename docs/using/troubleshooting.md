@@ -483,6 +483,8 @@ If you encounter errors not covered here:
 - Check server performance and load
 - Verify attachment sizes are reasonable
 - Consider syncing during off-peak hours
+- On slow radio, Formulus starts with small pages (32 pulled / 4 pushed) and can drop to one observation at a time. Observation data can finish while photos are still downloading.
+- Confirm the reverse proxy allows ~10 minute transfers (see [Server Architecture for IT](/docs/guides/server-architecture-for-it))
 
 ## Getting Additional Help
 

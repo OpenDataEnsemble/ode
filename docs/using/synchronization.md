@@ -46,7 +46,7 @@ Syncs observation records (forms) and their metadata:
    - Client updates its last seen `change_id`
 
 2. **Push Phase** - Send local observations to server
-   - Client sends all unsync ed observations
+   - Client sends unsynced observations in small batches
    - Each observation includes a transmission ID for idempotency
    - Server validates and stores observations
    - Server returns success/failure for each record
@@ -73,6 +73,21 @@ Syncs binary files attached to observations (photos, audio, documents):
    - Periodically upload each file to server
    - Once successful, remove from local pending queue
    - Mark as synced
+
+## How Formulus sizes each request
+
+Formulus does not expose a network-quality setting. Every device starts with **small** pages so a first attempt can finish on slow radio, then grows on a good link:
+
+| Direction | First attempt | Smallest (poor radio) | Largest (good link) |
+|-----------|---------------|------------------------|---------------------|
+| Pull (download observations) | 32 | 1 | 500 |
+| Push (upload observations) | 4 | 1 | 100 |
+
+- Fast pages grow; slow or failed pages shrink (halve), down to one observation at a time.
+- Photos and other attachments download **one at a time**. Observation JSON can finish while photos are still pending.
+- There is nothing to configure in Settings for this.
+
+A reverse proxy in front of Synkronus must allow long transfers (about **10 minutes**). See [Server Architecture for IT](/docs/guides/server-architecture-for-it).
 
 ## Understanding the Sync Algorithm
 
@@ -271,7 +286,7 @@ A conflict occurs when:
 
 ## Sync Settings
 
-Users can configure synchronization behavior:
+Users can configure when sync runs (interval, Wi-Fi vs cellular). **Page and batch sizes are automatic** — there is no network-quality picker. See [How Formulus sizes each request](#how-formulus-sizes-each-request).
 
 ### Auto-Sync Interval
 

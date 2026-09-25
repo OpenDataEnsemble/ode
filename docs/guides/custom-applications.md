@@ -16,6 +16,22 @@ Custom applications are **web applications** (HTML, CSS, and JavaScript) that ru
 The **ODE repository** (Formulus, Formplayer, Synkronus Portal, design packages) uses **pnpm** — see [Development Setup](/docs/development/setup#package-manager-pnpm). **Your** custom app project can use **npm**, **pnpm**, or **yarn**; the examples below use common **npm** script names from the [custom_app](https://github.com/OpenDataEnsemble/custom_app) template.
 ::: You may author them with **any** stack—plain static files, **Vite**, **React**, **Vue**, **Svelte**, or another bundler—**as long as the build output** can be packaged as described in the [app bundle format](/docs/reference/app-bundle-format) (entry HTML, assets, and `forms/` layout). They provide specialized workflows, custom navigation, integration with the ODE form system, and interfaces tailored to your use case.
 
+## Profile-aware browser storage
+
+Formulus hosts each custom app for the active **profile**. Users add and switch profiles in the in-app **Profiles** screen; the host remounts the WebView when switching. The host scopes observations, attachments, bundle files, and Formplayer drafts to the active profile. Custom apps should use the synchronous profile-aware browser storage reference after the bridge is ready:
+
+```javascript
+const api = await getFormulus();
+const profileId = api.getProfileId(); // stable for this WebView; not the display name
+const storage = api.getLocalStorageRef();
+storage.setItem('lastTab', 'home');
+const lastTab = storage.getItem('lastTab');
+storage.removeItem('lastTab');
+// storage.clear() removes only this profile's custom-app keys.
+```
+
+The reference uses physical keys `ode:{profileId}:app:{key}`. Both helpers are synchronous, and storage errors propagate. Do **not** use raw `localStorage` for profile-specific state: custom apps and dependencies loaded under a shared `file://` origin may read or write raw storage outside the namespace. This is organizational/storage namespacing, **not a sandbox or confidentiality boundary**; deleting a profile cannot guarantee removal of unrelated third-party raw keys. Depending on WebView file-access settings and device behavior, code in a custom app or form extension may also read other profiles' data or attachments via file access. A connected Synkronus server can distribute app bundles containing code; not every server necessarily does so. Connect only to trusted servers and install only trusted bundles. Do not store secrets in browser storage. See the [Formulus bridge reference](../reference/formulus.md#getprofileid-and-getlocalstorageref).
+
 ## Scaffolding
 
 ODE does **not** require a special installer: start from a **standard** project scaffold (for example **`npm create vite@latest`** with React, Svelte, or Solid templates) and then align the **folder layout** with the app bundle spec. Copy-paste commands, a **Vite `outDir` example**, and a post-scaffold checklist are maintained in the **[custom_app](https://github.com/OpenDataEnsemble/custom_app)** repository README on GitHub (AI and author context for the Formulus API and forms live in that repo as well).
