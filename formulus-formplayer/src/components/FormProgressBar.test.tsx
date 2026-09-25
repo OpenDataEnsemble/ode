@@ -4,6 +4,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import FormProgressBar from './FormProgressBar';
+import { FormplayerLocaleContext } from '../i18n/FormplayerLocaleContext';
+import type { OdeUiLocale } from '../i18n/localeUtils';
 
 const theme = createTheme();
 
@@ -11,17 +13,20 @@ afterEach(() => cleanup());
 
 const renderBar = (
   props: Partial<React.ComponentProps<typeof FormProgressBar>> = {},
+  locale: OdeUiLocale = 'en',
 ) =>
   render(
     <ThemeProvider theme={theme}>
-      <FormProgressBar
-        currentPage={0}
-        totalScreens={3}
-        mode="screens"
-        onNavigatePrevious={vi.fn()}
-        onNavigateNext={vi.fn()}
-        {...props}
-      />
+      <FormplayerLocaleContext.Provider value={locale}>
+        <FormProgressBar
+          currentPage={0}
+          totalScreens={3}
+          mode="screens"
+          onNavigatePrevious={vi.fn()}
+          onNavigateNext={vi.fn()}
+          {...props}
+        />
+      </FormplayerLocaleContext.Provider>
     </ThemeProvider>,
   );
 
@@ -72,5 +77,13 @@ describe('FormProgressBar header navigation', () => {
     screen.getByLabelText('Next screen').click();
     expect(onNavigatePrevious).toHaveBeenCalledTimes(1);
     expect(onNavigateNext).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses Portuguese accessible labels when the ODE UI locale is pt', () => {
+    renderBar({}, 'pt');
+    expect(screen.getByLabelText('Ecrã anterior')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ecrã seguinte')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Previous screen')).toBeNull();
+    expect(screen.queryByLabelText('Next screen')).toBeNull();
   });
 });

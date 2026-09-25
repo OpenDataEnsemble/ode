@@ -1,4 +1,6 @@
 import RNFS from 'react-native-fs';
+import { profileActivity } from '../profiles/ProfileActivity';
+import { profileCachePath, profilePaths } from '../profiles/ProfilePaths';
 import { zip } from 'react-native-zip-archive';
 import { Observation } from '../database/models/Observation';
 import { databaseService } from '../database/DatabaseService';
@@ -64,44 +66,47 @@ async function removeDirectoryRecursive(dirPath: string): Promise<void> {
  */
 export const observationExportService = {
   async exportAllObservationsZip(): Promise<void> {
-    const observations = await databaseService
-      .getLocalRepo()
-      .getAllObservations();
+    return profileActivity.run('Export observations', async () => {
+      const observations = await databaseService
+        .getLocalRepo()
+        .getAllObservations();
 
-    if (observations.length === 0) {
-      throw new Error('No observations to export.');
-    }
-
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const workDir = `${RNFS.CachesDirectoryPath}/formulus-obs-export-${stamp}`;
-    const zipName = `formulus-observations-${stamp}.zip`;
-    const zipPath = `${RNFS.CachesDirectoryPath}/${zipName}`;
-
-    if (await RNFS.exists(workDir)) {
-      await removeDirectoryRecursive(workDir);
-    }
-    await RNFS.mkdir(workDir);
-
-    try {
-      const usedNames = new Set<string>();
-      for (const obs of observations) {
-        const fileName = uniqueJsonFileName(obs.observationId, usedNames);
-        const filePath = `${workDir}/${fileName}`;
-        const json = JSON.stringify(observationToExportJson(obs), null, 2);
-        await RNFS.writeFile(filePath, json, 'utf8');
+      if (observations.length === 0) {
+        throw new Error('No observations to export.');
       }
 
-      if (await RNFS.exists(zipPath)) {
-        await RNFS.unlink(zipPath);
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const workDir = profileCachePath(`formulus-obs-export-${stamp}`);
+      const zipName = `formulus-observations-${stamp}.zip`;
+      const zipPath = profileCachePath(zipName);
+      await RNFS.mkdir(profilePaths.cache());
+
+      if (await RNFS.exists(workDir)) {
+        await removeDirectoryRecursive(workDir);
+      }
+      await RNFS.mkdir(workDir);
+
+      try {
+        const usedNames = new Set<string>();
+        for (const obs of observations) {
+          const fileName = uniqueJsonFileName(obs.observationId, usedNames);
+          const filePath = `${workDir}/${fileName}`;
+          const json = JSON.stringify(observationToExportJson(obs), null, 2);
+          await RNFS.writeFile(filePath, json, 'utf8');
+        }
+
+        if (await RNFS.exists(zipPath)) {
+          await RNFS.unlink(zipPath);
+        }
+
+        await zip(workDir, zipPath);
+      } finally {
+        await removeDirectoryRecursive(workDir).catch(() => {
+          /* best-effort cleanup */
+        });
       }
 
-      await zip(workDir, zipPath);
-    } finally {
-      await removeDirectoryRecursive(workDir).catch(() => {
-        /* best-effort cleanup */
-      });
-    }
-
-    await saveZipToDevice(zipPath, zipName);
+      await saveZipToDevice(zipPath, zipName);
+    });
   },
 };

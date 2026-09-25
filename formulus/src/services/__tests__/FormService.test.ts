@@ -1,6 +1,21 @@
 import { FormService as FormServiceType, FormSpec } from '../FormService';
 import { Observation } from '../../database/repositories/LocalRepoInterface';
 
+jest.mock(
+  '../../profiles/ProfileActivity',
+  () => ({
+    profileActivity:
+      require('../testUtils/profileMocks').createProfileActivityMock(),
+  }),
+  { virtual: true },
+);
+jest.mock(
+  '../../profiles/ProfilePaths',
+  () =>
+    require('../testUtils/profileMocks').createProfilePathsMock('/test/path'),
+  { virtual: true },
+);
+
 jest.mock('react-native-fs', () => ({
   DocumentDirectoryPath: '/test/path',
   exists: jest.fn(),

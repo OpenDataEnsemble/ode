@@ -9,6 +9,11 @@ import {
   VideoResult,
 } from '../types/FormulusInterfaceDefinition';
 
+import {
+  createNamespacedStorage,
+  type ProfileStorageContext,
+} from '../services/ProfileStorage';
+
 interface MockWebView {
   postMessage: (message: string) => void;
 }
@@ -218,6 +223,10 @@ class WebViewMock {
 
     // Only initialize if ReactNativeWebView doesn't already exist
     if (!mockWindow.ReactNativeWebView) {
+      const context = mockWindow as MockWindow & ProfileStorageContext;
+      context.__odeProfileId = 'formplayer-dev';
+      context.__odeLegacyWebStorageProfileId = null;
+      context.__odeDeletedProfileIds = [];
       mockWindow.ReactNativeWebView = {
         postMessage: this.postMessage,
       };
@@ -236,7 +245,14 @@ class WebViewMock {
       // getVersion is required by formulus-load.js so it accepts this as a valid API.
       // Create a partial mock that captures the methods we care about.
       // getVersion is required by formulus-load.js so it accepts this as a valid API.
+      const id = (mockWindow as MockWindow & ProfileStorageContext)
+        .__odeProfileId;
+      if (!id)
+        throw new Error('Mock requires an explicit development profile ID');
+      const storage = createNamespacedStorage(id, 'app', window.localStorage);
       mockGlobal.formulus = {
+        getProfileId: () => id,
+        getLocalStorageRef: () => storage,
         getVersion: (): Promise<string> => Promise.resolve('mock-dev'),
         allocateSequence: (
           scopeKey: string,

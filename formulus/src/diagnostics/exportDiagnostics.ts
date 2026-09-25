@@ -2,6 +2,8 @@ import DeviceInfo from 'react-native-device-info';
 import RNFS from 'react-native-fs';
 import { zip } from 'react-native-zip-archive';
 import { saveZipToDevice } from '../services/saveZipToDevice';
+import { profileActivity } from '../profiles/ProfileActivity';
+import { profileCachePath, profilePaths } from '../profiles/ProfilePaths';
 import { serverConfigService } from '../services/ServerConfigService';
 import { appVersionService } from '../services/AppVersionService';
 import {
@@ -17,6 +19,7 @@ import { buildSummaryText, serverHostnameOnly } from './exportDiagnosticsText';
 
 /** Cap bundled traces defensively; the native side already prunes to a few. */
 const MAX_BUNDLED_TRACES = 4;
+let exportSequence = 0;
 
 async function copyRecentTraces(destDir: string): Promise<string[]> {
   const sourceDir = getTracesDirPath();
@@ -51,58 +54,54 @@ export {
 } from './exportDiagnosticsText';
 
 export async function exportDiagnosticsZip(): Promise<void> {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const workDir = `${RNFS.CachesDirectoryPath}/formulus-diagnostics-${stamp}`;
-  const zipName = `formulus-diagnostics-${stamp}.zip`;
-  const zipPath = `${RNFS.CachesDirectoryPath}/${zipName}`;
+  return profileActivity.run('Export diagnostics', async () => {
+    const stamp =
+      new Date().toISOString().replace(/[:.]/g, '-') + `-${++exportSequence}`;
+    const workDir = profileCachePath(`formulus-diagnostics-${stamp}`);
+    const zipName = `formulus-diagnostics-${stamp}.zip`;
+    const zipPath = profileCachePath(zipName);
 
-  if (await RNFS.exists(workDir)) {
-    await RNFS.unlink(workDir);
-  }
-  await RNFS.mkdir(workDir);
+    try {
+      await RNFS.mkdir(profilePaths.cache());
+      await RNFS.mkdir(workDir);
+      const events = await readFileIfExists(getEventsFilePath());
+      const exits = await readFileIfExists(getExitsFilePath());
+      await RNFS.writeFile(`${workDir}/events.ndjson`, events, 'utf8');
+      await RNFS.writeFile(`${workDir}/exits.ndjson`, exits, 'utf8');
 
-  try {
-    const events = await readFileIfExists(getEventsFilePath());
-    const exits = await readFileIfExists(getExitsFilePath());
-    await RNFS.writeFile(`${workDir}/events.ndjson`, events, 'utf8');
-    await RNFS.writeFile(`${workDir}/exits.ndjson`, exits, 'utf8');
+      // Keep these reads sequential: a failure must not leave trace-copy IO
+      // running while the finally block removes its destination directory.
+      const traceFiles = await copyRecentTraces(workDir);
+      const lastExit = await readLastExit();
+      const recent = await readRecentEvents(40);
+      const serverUrl = await serverConfigService.getServerUrl();
+      const appVersion = await appVersionService
+        .getFullVersion()
+        .catch(() => 'unknown');
+      const breadcrumbs = recent
+        .filter(event => event.kind === 'breadcrumb')
+        .slice(0, 20)
+        .map(event => `${event.ts} ${event.message}`);
 
-    const [traceFiles, lastExit, recent, serverUrl, appVersion] =
-      await Promise.all([
-        copyRecentTraces(workDir),
-        readLastExit(),
-        readRecentEvents(40),
-        serverConfigService.getServerUrl(),
-        appVersionService.getFullVersion().catch(() => 'unknown'),
-      ]);
-    const breadcrumbs = recent
-      .filter(event => event.kind === 'breadcrumb')
-      .slice(0, 20)
-      .map(event => `${event.ts} ${event.message}`);
-
-    const summary = buildSummaryText({
-      deviceModel: DeviceInfo.getModel(),
-      systemName: DeviceInfo.getSystemName(),
-      systemVersion: DeviceInfo.getSystemVersion(),
-      appVersion,
-      serverHost: serverHostnameOnly(serverUrl),
-      lastExitReason: lastExit ? formatExitReason(lastExit) : null,
-      breadcrumbs,
-      traceFiles,
-    });
-    await RNFS.writeFile(`${workDir}/summary.txt`, summary, 'utf8');
-
-    if (await RNFS.exists(zipPath)) {
-      await RNFS.unlink(zipPath);
-    }
-    await zip(workDir, zipPath);
-  } finally {
-    if (await RNFS.exists(workDir)) {
-      await RNFS.unlink(workDir).catch(() => {
-        /* best-effort */
+      const summary = buildSummaryText({
+        deviceModel: DeviceInfo.getModel(),
+        systemName: DeviceInfo.getSystemName(),
+        systemVersion: DeviceInfo.getSystemVersion(),
+        appVersion,
+        serverHost: serverHostnameOnly(serverUrl),
+        lastExitReason: lastExit ? formatExitReason(lastExit) : null,
+        breadcrumbs,
+        traceFiles,
       });
-    }
-  }
+      await RNFS.writeFile(`${workDir}/summary.txt`, summary, 'utf8');
 
-  await saveZipToDevice(zipPath, zipName);
+      await zip(workDir, zipPath);
+      await saveZipToDevice(zipPath, zipName);
+    } finally {
+      // Also clean up partial ZIPs when zip/save fails. Source logs remain global
+      // and are never removed; only this export's profile-owned staging is deleted.
+      await RNFS.unlink(workDir).catch(() => undefined);
+      await RNFS.unlink(zipPath).catch(() => undefined);
+    }
+  });
 }

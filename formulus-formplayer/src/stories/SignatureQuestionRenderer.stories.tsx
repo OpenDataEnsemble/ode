@@ -1,4 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import React from 'react';
+import type { FormulusInterface } from '../types/FormulusInterfaceDefinition';
+import FormulusClient from '../services/FormulusInterface';
 import { JsonFormsControlWrapper } from './JsonFormsControlWrapper';
 import SignatureQuestionRenderer, {
   signatureQuestionTester,
@@ -32,6 +35,21 @@ const renderers = [
 const meta: Meta<typeof JsonFormsControlWrapper> = {
   title: 'Question Renderers/SignatureQuestionRenderer',
   component: JsonFormsControlWrapper,
+  decorators: [
+    Story => {
+      const mock = {
+        getAttachmentUri: async (ref: string | { filename?: string }) =>
+          (typeof ref === 'string' ? ref : ref.filename) === 'sig.png'
+            ? sigPng
+            : null,
+      } as FormulusInterface;
+      (
+        window as unknown as { getFormulus: () => Promise<FormulusInterface> }
+      ).getFormulus = async () => mock;
+      FormulusClient.clearCachedFormulusApi();
+      return <Story />;
+    },
+  ],
   parameters: {
     layout: 'centered',
   },

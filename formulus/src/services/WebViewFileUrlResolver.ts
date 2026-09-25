@@ -4,6 +4,8 @@
  */
 
 import RNFS from 'react-native-fs';
+import { profilePaths } from '../profiles/ProfilePaths';
+import { profileActivity } from '../profiles/ProfileActivity';
 
 /** Convert an absolute filesystem path to a file:// URL (Android/iOS). */
 export function pathToFileUrl(absolutePath: string): string {
@@ -32,8 +34,7 @@ export function safeAttachmentBasename(raw: unknown): string | null {
   return base;
 }
 
-const attachmentsRoot = (): string =>
-  `${RNFS.DocumentDirectoryPath}/attachments`;
+const attachmentsRoot = (): string => profilePaths.attachments();
 const draftRoot = (): string => `${attachmentsRoot()}/draft`;
 const syncedRoot = (): string => `${attachmentsRoot()}/synced`;
 const pendingRoot = (): string => `${attachmentsRoot()}/pending`;
@@ -42,8 +43,8 @@ const pendingRoot = (): string => `${attachmentsRoot()}/pending`;
 // if they never exist.
 const legacyCommittedRoot = (): string => attachmentsRoot();
 const legacyPendingRoot = (): string => `${attachmentsRoot()}/pending_upload`;
-const customAppRoot = (): string => `${RNFS.DocumentDirectoryPath}/app`;
-const formsRoot = (): string => `${RNFS.DocumentDirectoryPath}/forms`;
+const customAppRoot = (): string => profilePaths.app();
+const formsRoot = (): string => profilePaths.forms();
 
 /**
  * Return `file://` URL for an attachment file.
@@ -63,27 +64,29 @@ const formsRoot = (): string => `${RNFS.DocumentDirectoryPath}/forms`;
 export async function resolveAttachmentFileUrl(
   fileName: string,
 ): Promise<string | null> {
-  const base = safeAttachmentBasename(fileName);
-  if (!base) {
-    return null;
-  }
-  const candidates = [
-    `${draftRoot()}/${base}`,
-    `${syncedRoot()}/${base}`,
-    `${pendingRoot()}/${base}`,
-    `${legacyCommittedRoot()}/${base}`,
-    `${legacyPendingRoot()}/${base}`,
-  ];
-  try {
-    for (const p of candidates) {
-      if (await RNFS.exists(p)) {
-        return pathToFileUrl(p);
-      }
+  return profileActivity.run('Resolve attachment', async () => {
+    const base = safeAttachmentBasename(fileName);
+    if (!base) {
+      return null;
     }
-  } catch {
+    const candidates = [
+      `${draftRoot()}/${base}`,
+      `${syncedRoot()}/${base}`,
+      `${pendingRoot()}/${base}`,
+      `${legacyCommittedRoot()}/${base}`,
+      `${legacyPendingRoot()}/${base}`,
+    ];
+    try {
+      for (const p of candidates) {
+        if (await RNFS.exists(p)) {
+          return pathToFileUrl(p);
+        }
+      }
+    } catch {
+      return null;
+    }
     return null;
-  }
-  return null;
+  });
 }
 
 /**

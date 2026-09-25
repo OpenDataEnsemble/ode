@@ -103,6 +103,32 @@ describe('probeSqliteEngine', () => {
     });
   });
 
+  it('waits for adapter setup before issuing either diagnostic query', async () => {
+    const db = mockDb({});
+    let finishSetup!: () => void;
+    db.adapter.underlyingAdapter.initializingPromise = new Promise<void>(
+      resolve => {
+        finishSetup = resolve;
+      },
+    );
+    const probe = probeSqliteEngine(db as never);
+    expect(db.get).not.toHaveBeenCalled();
+    finishSetup();
+    await probe;
+    expect(db.get).toHaveBeenCalledTimes(2);
+  });
+
+  it('propagates setup failure instead of probing an unusable adapter', async () => {
+    const db = mockDb({});
+    db.adapter.underlyingAdapter.initializingPromise = Promise.reject(
+      new Error('setup failed'),
+    );
+    await expect(probeSqliteEngine(db as never)).rejects.toThrow(
+      'setup failed',
+    );
+    expect(db.get).not.toHaveBeenCalled();
+  });
+
   it('records json_extract as missing when the probe query fails', async () => {
     const db = mockDb({
       dispatcher: 'asynchronous',
