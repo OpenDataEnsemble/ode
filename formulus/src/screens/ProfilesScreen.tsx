@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from '@react-native-vector-icons/material-design-icons';
 
 import { useTranslation } from 'react-i18next';
-import { Button, Input } from '../components/common';
+import { Input } from '../components/common';
 import { useAppTheme } from '../contexts/AppThemeContext';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import { useScreenShellStyle } from '../hooks/useScreenShellStyle';
@@ -37,7 +37,6 @@ export type RunProfileAction = (
 ) => Promise<void>;
 
 type LabelEditor = {
-  id?: string;
   label: string;
   initialSettings?: SettingsUpdate;
 };
@@ -106,21 +105,12 @@ const ProfilesScreen = () => {
     });
   };
 
-  const saveLabel = () => {
-    if (!editor?.id || !editor.label.trim()) return;
-    const { id, label } = editor;
-    void runAction(async () => {
-      await profileRegistry.rename(id, label.trim());
-      if (mountedRef.current) setEditor(null);
-    }, 'profiles.renameFailed');
-  };
-
   const createProfile = async (connection: {
     serverUrl: string;
     username: string;
     password: string;
   }) => {
-    if (!editor || editor.id || !editor.label.trim()) return;
+    if (!editor || !editor.label.trim()) return;
     const created = await profileRegistry.add(editor.label.trim(), {
       serverUrl: connection.serverUrl,
       username: connection.username,
@@ -184,38 +174,67 @@ const ProfilesScreen = () => {
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
-          <View style={styles.selectorRow}>
-            <TouchableOpacity
-              style={[styles.dropdown, { borderColor: themeColors.divider }]}
-              accessibilityRole="button"
-              accessibilityLabel={t('profiles.choose')}
-              accessibilityState={{ expanded: dropdownOpen, disabled: busy }}
-              disabled={busy}
-              onPress={() => setDropdownOpen(open => !open)}>
-              <View style={styles.dropdownLabel}>
+          <View
+            style={[styles.selectorRow, dropdownOpen && styles.selectorOpen]}>
+            <View style={styles.selectorControl}>
+              <TouchableOpacity
+                style={[styles.dropdown, { borderColor: themeColors.divider }]}
+                accessibilityRole="button"
+                accessibilityLabel={t('profiles.choose')}
+                accessibilityState={{ expanded: dropdownOpen, disabled: busy }}
+                disabled={busy}
+                onPress={() => setDropdownOpen(open => !open)}>
                 <Text
                   numberOfLines={1}
                   style={[
                     styles.profileLabel,
+                    styles.dropdownLabel,
                     { color: themeColors.onSurface },
                   ]}>
                   {activeProfile.label}
                 </Text>
-                <Text
-                  numberOfLines={1}
+                <Icon
+                  name={dropdownOpen ? 'chevron-up' : 'chevron-down'}
+                  size={24}
+                  color={themeColors.onSurface}
+                />
+              </TouchableOpacity>
+              {dropdownOpen && (
+                <View
                   style={[
-                    styles.description,
-                    { color: themeColors.onSurface },
+                    styles.options,
+                    {
+                      borderColor: themeColors.divider,
+                      backgroundColor: themeColors.surface,
+                    },
                   ]}>
-                  {activeProfile.serverUrl || t('profiles.notConfigured')}
-                </Text>
-              </View>
-              <Icon
-                name={dropdownOpen ? 'chevron-up' : 'chevron-down'}
-                size={24}
-                color={themeColors.onSurface}
-              />
-            </TouchableOpacity>
+                  {profiles.map(profile => (
+                    <TouchableOpacity
+                      key={profile.id}
+                      style={styles.option}
+                      accessibilityRole="radio"
+                      accessibilityLabel={t('profiles.selectLabel', {
+                        label: profile.label,
+                      })}
+                      accessibilityState={{
+                        checked: profile.id === activeProfile.id,
+                        disabled: busy,
+                      }}
+                      disabled={busy}
+                      onPress={() => selectProfile(profile.id)}>
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.profileLabel,
+                          { color: themeColors.onSurface },
+                        ]}>
+                        {profile.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
             <TouchableOpacity
               style={[
                 styles.addButton,
@@ -232,107 +251,7 @@ const ProfilesScreen = () => {
               <Icon name="plus" size={26} color={themeColors.onPrimary} />
             </TouchableOpacity>
           </View>
-          {dropdownOpen && (
-            <View
-              style={[styles.options, { borderColor: themeColors.divider }]}>
-              {profiles.map(profile => {
-                const active = profile.id === activeProfile.id;
-                return (
-                  <View key={profile.id} style={styles.optionGroup}>
-                    <TouchableOpacity
-                      style={styles.option}
-                      accessibilityRole="radio"
-                      accessibilityLabel={t('profiles.selectLabel', {
-                        label: profile.label,
-                      })}
-                      accessibilityState={{ checked: active, disabled: busy }}
-                      disabled={busy}
-                      onPress={() => selectProfile(profile.id)}>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.profileLabel,
-                          { color: themeColors.onSurface },
-                        ]}>
-                        {profile.label}
-                      </Text>
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.description,
-                          { color: themeColors.onSurface },
-                        ]}>
-                        {profile.serverUrl || t('profiles.notConfigured')}
-                      </Text>
-                      {active && (
-                        <Icon
-                          name="check"
-                          size={20}
-                          color={themeColors.primary}
-                        />
-                      )}
-                    </TouchableOpacity>
-                    {!active && (
-                      <View style={styles.optionActions}>
-                        <Button
-                          title={t('profiles.rename')}
-                          accessibilityLabel={t('profiles.renameLabel', {
-                            label: profile.label,
-                          })}
-                          variant="tertiary"
-                          size="small"
-                          disabled={busy}
-                          onPress={() => {
-                            setDropdownOpen(false);
-                            setEditor({ id: profile.id, label: profile.label });
-                          }}
-                        />
-                        <Button
-                          title={t('common.delete')}
-                          accessibilityLabel={t('profiles.deleteLabel', {
-                            label: profile.label,
-                          })}
-                          variant="danger"
-                          size="small"
-                          disabled={busy || profiles.length <= 1}
-                          onPress={() => {
-                            setDropdownOpen(false);
-                            confirmDelete(profile.id, profile.label);
-                          }}
-                        />
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          )}
-          <View style={styles.actions}>
-            <Button
-              title={t('profiles.rename')}
-              accessibilityLabel={t('profiles.renameLabel', {
-                label: activeProfile.label,
-              })}
-              variant="tertiary"
-              size="small"
-              disabled={busy}
-              onPress={() =>
-                setEditor({ id: activeProfile.id, label: activeProfile.label })
-              }
-            />
-            <Button
-              title={t('common.delete')}
-              accessibilityLabel={t('profiles.deleteLabel', {
-                label: activeProfile.label,
-              })}
-              variant="danger"
-              size="small"
-              disabled={busy || profiles.length <= 1}
-              onPress={() =>
-                confirmDelete(activeProfile.id, activeProfile.label)
-              }
-            />
-          </View>
+
           {profiles.length === 1 && (
             <Text
               style={[styles.description, { color: themeColors.onSurface }]}>
@@ -343,53 +262,41 @@ const ProfilesScreen = () => {
             <View style={[styles.editor, { borderColor: themeColors.divider }]}>
               <Text
                 style={[styles.profileLabel, { color: themeColors.onSurface }]}>
-                {t(editor.id ? 'profiles.rename' : 'profiles.add')}
+                {t('profiles.add')}
               </Text>
               <Input
                 label={t('profiles.name')}
                 placeholder={t('profiles.name')}
-                required={!editor.id}
+                required
                 value={editor.label}
                 onChangeText={label => setEditor({ ...editor, label })}
                 disabled={busy}
                 autoCorrect={false}
               />
-              {!editor.id && (
-                <ProfileConnection
-                  key={`new-${activeProfile.id}`}
-                  profile={activeProfile}
-                  busy={busy}
-                  runAction={runAction}
-                  creation={{
-                    name: editor.label,
-                    initialSettings: editor.initialSettings,
-                    onCreate: createProfile,
-                  }}
-                />
-              )}
-              <View style={styles.actions}>
-                <Button
-                  title={t('common.cancel')}
-                  variant="tertiary"
-                  disabled={busy}
-                  onPress={() => setEditor(null)}
-                />
-                {!!editor.id && (
-                  <Button
-                    title={t('profiles.saveName')}
-                    disabled={busy || !editor.label.trim()}
-                    onPress={saveLabel}
-                  />
-                )}
-              </View>
+              <ProfileConnection
+                key={`new-${activeProfile.id}`}
+                profile={activeProfile}
+                busy={busy}
+                runAction={runAction}
+                creation={{
+                  name: editor.label,
+                  initialSettings: editor.initialSettings,
+                  onCreate: createProfile,
+                }}
+                onCancelCreation={() => setEditor(null)}
+              />
             </View>
           )}
-          {(!editor || !!editor.id) && (
+          {!editor && (
             <ProfileConnection
               key={activeProfile.id}
               profile={activeProfile}
               busy={busy}
               runAction={runAction}
+              onDelete={() =>
+                confirmDelete(activeProfile.id, activeProfile.label)
+              }
+              canDelete={profiles.length > 1}
               onNewProfileFromQR={settings =>
                 setEditor({ label: '', initialSettings: settings })
               }
@@ -418,11 +325,12 @@ const styles = StyleSheet.create({
   description: { fontSize: odeTypography.bodySm },
   selectorRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: odeSpacing.sm,
   },
+  selectorOpen: { zIndex: 2 },
+  selectorControl: { flex: 1 },
   dropdown: {
-    flex: 1,
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
@@ -432,13 +340,21 @@ const styles = StyleSheet.create({
   },
   dropdownLabel: { flex: 1 },
   options: {
+    position: 'absolute',
+    top: 56,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    elevation: 4,
     borderWidth: odeBorderWidth.hairline,
     borderRadius: odeSpacing.sm,
     overflow: 'hidden',
   },
-  optionGroup: { padding: odeSpacing.xs },
-  option: { minHeight: 52, padding: odeSpacing.sm },
-  optionActions: { flexDirection: 'row', gap: odeSpacing.sm },
+  option: {
+    minHeight: 48,
+    paddingHorizontal: odeSpacing.md,
+    justifyContent: 'center',
+  },
   addButton: {
     width: 48,
     height: 48,
@@ -447,7 +363,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileLabel: { fontSize: odeTypography.body, fontWeight: '600' },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: odeSpacing.sm },
+
   editor: {
     borderWidth: odeBorderWidth.hairline,
     borderRadius: odeSpacing.sm,

@@ -106,7 +106,8 @@ test.each([
   expect(name).toHaveProp('ellipsizeMode', 'tail');
   expect(StyleSheet.flatten(name.props.style)).toMatchObject({
     color,
-    alignSelf: 'stretch',
+    flex: 1,
+    marginBottom: 0,
   });
   expect(screen.getByText('roles.readWrite')).toBeTruthy();
 });
