@@ -2,7 +2,7 @@ import React from 'react';
 import { act, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import MenuDrawer from './MenuDrawer';
-import { getUserInfo } from '../api/synkronus/Auth';
+import { getUserInfo, type UserInfo } from '../api/synkronus/Auth';
 import { getActiveProfile } from '../profiles/ProfileRuntime';
 
 jest.mock('react-native', () => {
@@ -99,7 +99,13 @@ test.each([
 ])('shows the signed-in username and role in %s mode', async (mode, color) => {
   mockMode = mode;
   const username = 'a-very-long-username-that-must-not-overlap-the-badge';
-  mockedGetUserInfo.mockResolvedValue({ username, role: 'read-write' });
+  let resolveUserInfo!: (info: UserInfo | null) => void;
+  mockedGetUserInfo.mockImplementation(
+    () =>
+      new Promise<UserInfo | null>(resolve => {
+        resolveUserInfo = resolve;
+      }),
+  );
 
   const screen = render(
     <MenuDrawer
@@ -112,10 +118,7 @@ test.each([
 
   expect(mockedGetUserInfo).toHaveBeenCalledTimes(1);
   await act(async () => {
-    expect(await mockedGetUserInfo.mock.results[0].value).toEqual({
-      username,
-      role: 'read-write',
-    });
+    resolveUserInfo({ username, role: 'read-write' });
   });
   expect(mockedGetActiveProfile).toHaveBeenCalledTimes(1);
   expect(mockedGetActiveProfile.mock.results[0].value.id).toBe('one');
