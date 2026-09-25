@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import MenuDrawer from './MenuDrawer';
 import { getUserInfo, type UserInfo } from '../api/synkronus/Auth';
@@ -120,10 +120,10 @@ test.each([
   await act(async () => {
     resolveUserInfo({ username, role: 'read-write' });
   });
-  expect(mockedGetActiveProfile).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(mockedGetActiveProfile).toHaveBeenCalledTimes(1));
   expect(mockedGetActiveProfile.mock.results[0].value.id).toBe('one');
 
-  const name = screen.getByText(username);
+  const name = await waitFor(() => screen.getByText(username));
   expect(name).toHaveProp('accessibilityLabel', username);
   expect(name).toHaveProp('numberOfLines', 1);
   expect(name).toHaveProp('ellipsizeMode', 'tail');
