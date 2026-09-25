@@ -127,6 +127,7 @@ jest.mock('../../contexts/AppThemeContext', () => ({
   useAppTheme: () => ({
     themeColors: {
       primary: 'green',
+      secondary: 'blue',
       onPrimary: 'white',
       onSurface: 'black',
       divider: 'gray',
@@ -360,8 +361,33 @@ async function scan() {
 
 async function confirm() {
   await act(async () => {
-    mockConfirm.mock.calls[0][0].buttons[1].onPress();
+    mockConfirm.mock.lastCall![0].buttons[1].onPress();
   });
+}
+
+function cancel() {
+  act(() => {
+    mockConfirm.mock.lastCall![0].buttons[0].onPress();
+  });
+}
+
+function openProfiles(screen: ReturnType<typeof render>) {
+  fireEvent.press(screen.getByRole('button', { name: 'Choose profile' }));
+}
+
+function addFromEditor(screen: ReturnType<typeof render>) {
+  fireEvent.press(screen.getAllByRole('button', { name: 'Add profile' })[1]);
+}
+
+async function openQRCreation(screen: ReturnType<typeof render>) {
+  await scan();
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  expect(mockConfirm.mock.lastCall![0].title).toBe(
+    'Add a profile for this server?',
+  );
+  await confirm();
+  expect(screen.getByPlaceholderText('Profile name')).toHaveProp('value', '');
+  expect(profileRegistry.add).not.toHaveBeenCalled();
 }
 
 test('Welcome opens Profiles rather than device Settings', () => {
@@ -412,6 +438,9 @@ test('locks a previously authenticated URL but allows re-authentication without 
     'editable',
     false,
   );
+  expect(screen.queryByText(/server URL is locked/i)).toBeNull();
+  expect(screen.queryByText(/Keep each server/)).toBeNull();
+  expect(screen.queryByText(/Deleted profiles are cleaned up/)).toBeNull();
   fireEvent.changeText(screen.getByPlaceholderText('Username'), ' new-user ');
   fireEvent.changeText(screen.getByPlaceholderText('Password'), ' new-secret ');
   fireEvent.press(screen.getByRole('button', { name: 'Login' }));
@@ -507,6 +536,53 @@ test('same-server QR fills credentials and logs in without adding or switching',
   expect(switchProfile).not.toHaveBeenCalled();
 });
 
+test('locked-server QR cancellation keeps the active connection and creates nothing', async () => {
+  jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
+    serverUrl: 'https://new.example',
+    username: 'qr-user',
+    password: 'qr-secret',
+  });
+  const screen = await setup();
+  await scan();
+  expect(
+    mockConfirm.mock.lastCall![0].buttons.map(
+      (button: { text: string }) => button.text,
+    ),
+  ).toEqual(['Cancel', 'Add profile']);
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  cancel();
+  expect(screen.queryByPlaceholderText('Profile name')).toBeNull();
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  expect(mockActive.id).toBe('one');
+});
+
+test('QR creation requires a name before persisting scanned fields', async () => {
+  jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
+    serverUrl: 'https://new.example',
+    username: 'qr-user',
+    password: 'qr-secret',
+  });
+  const screen = await setup();
+  await openQRCreation(screen);
+  expect(screen.getByPlaceholderText('Profile name')).toHaveProp(
+    'required',
+    true,
+  );
+  expect(
+    screen
+      .UNSAFE_getAllByType('TextInput')
+      .map(input => input.props.placeholder),
+  ).toEqual(['Profile name', 'Server URL', 'Username', 'Password']);
+  expect(
+    screen.getAllByRole('button', { name: 'Add profile' })[1],
+  ).toBeDisabled();
+  fireEvent.changeText(screen.getByPlaceholderText('Profile name'), '   ');
+  expect(
+    screen.getAllByRole('button', { name: 'Add profile' })[1],
+  ).toBeDisabled();
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+});
+
 test('different-server QR preserves the old profile and securely hands credentials to the new profile', async () => {
   jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
     serverUrl: 'https://new.example',
@@ -526,19 +602,30 @@ test('different-server QR preserves the old profile and securely hands credentia
       credentials: { username: 'qr-user', password: 'qr-secret' },
     });
   const screen = await setup();
-  await scan();
-  expect(profileRegistry.add).not.toHaveBeenCalled();
-  await confirm();
-  await waitFor(() =>
-    expect(screen.getByPlaceholderText('Password')).toHaveProp(
-      'value',
-      'qr-secret',
-    ),
+  await openQRCreation(screen);
+  expect(screen.getByPlaceholderText('Server URL')).toHaveProp(
+    'value',
+    'https://new.example',
   );
-  expect(profileRegistry.add).toHaveBeenCalledWith(undefined, {
-    serverUrl: 'https://new.example',
-    username: 'qr-user',
-  });
+  expect(screen.getByPlaceholderText('Username')).toHaveProp(
+    'value',
+    'qr-user',
+  );
+  expect(screen.getByPlaceholderText('Password')).toHaveProp(
+    'value',
+    'qr-secret',
+  );
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    ' QR fieldwork ',
+  );
+  addFromEditor(screen);
+  await waitFor(() =>
+    expect(profileRegistry.add).toHaveBeenCalledWith('QR fieldwork', {
+      serverUrl: 'https://new.example',
+      username: 'qr-user',
+    }),
+  );
   expect(setCredentialsForProfile).toHaveBeenCalledWith(
     'three',
     'qr-user',
@@ -550,6 +637,12 @@ test('different-server QR preserves the old profile and securely hands credentia
   expect(mockProfiles[0].serverUrl).toBe('https://one.example');
   expect(deleteProfile).not.toHaveBeenCalled();
   expect(switchProfile).toHaveBeenCalledWith('three');
+  await waitFor(() =>
+    expect(screen.getByPlaceholderText('Password')).toHaveProp(
+      'value',
+      'qr-secret',
+    ),
+  );
 });
 
 test('QR keychain failure keeps the created profile but never switches or stores plaintext credentials', async () => {
@@ -561,34 +654,90 @@ test('QR keychain failure keeps the created profile but never switches or stores
   jest
     .mocked(setCredentialsForProfile)
     .mockRejectedValueOnce(new Error('secret native error'));
-  await setup();
-  await scan();
-  await confirm();
+  const screen = await setup();
+  await openQRCreation(screen);
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    'QR fieldwork',
+  );
+  addFromEditor(screen);
   await waitFor(() =>
     expect(ToastService.showLong).toHaveBeenCalledWith(
       expect.stringContaining('saved securely'),
     ),
   );
+  expect(profileRegistry.add).toHaveBeenCalledWith('QR fieldwork', {
+    serverUrl: 'https://new.example',
+    username: 'qr-user',
+  });
   expect(switchProfile).not.toHaveBeenCalled();
+  expect(mockActive.id).toBe('one');
   expect(JSON.stringify(mockProfiles)).not.toContain('qr-secret');
 });
 
-test('rejected QR switch leaves the old profile selected and explains that rescanning is unnecessary', async () => {
+test('rejected QR switch leaves the old profile selected and explains that adding again is unnecessary', async () => {
   jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
     serverUrl: 'https://new.example',
     username: 'qr-user',
     password: 'qr-secret',
   });
   jest.mocked(switchProfile).mockRejectedValueOnce(new Error('busy'));
-  await setup();
-  await scan();
-  await confirm();
+  const screen = await setup();
+  await openQRCreation(screen);
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    'QR fieldwork',
+  );
+  addFromEditor(screen);
   await waitFor(() =>
     expect(ToastService.showLong).toHaveBeenCalledWith(
-      expect.stringContaining('do not need to scan again'),
+      expect.stringContaining('Do not add it again'),
     ),
   );
   expect(mockActive.id).toBe('one');
+});
+
+test('dropdown radio options appear only after expanding and Cancel leaves the active profile unchanged', async () => {
+  const screen = await setup();
+  expect(screen.getByRole('button', { name: 'Choose profile' })).toHaveProp(
+    'accessibilityState',
+    { expanded: false, disabled: false },
+  );
+  expect(
+    screen.queryByRole('radio', { name: 'Use profile Second' }),
+  ).toBeNull();
+  openProfiles(screen);
+  expect(screen.getByRole('radio', { name: 'Use profile First' })).toHaveProp(
+    'accessibilityState',
+    { checked: true, disabled: false },
+  );
+  fireEvent.press(screen.getByRole('radio', { name: 'Use profile Second' }));
+  expect(mockConfirm.mock.lastCall![0].title).toBe('Switch profile?');
+  expect(mockConfirm.mock.lastCall![0].message).toContain('Second');
+  expect(
+    mockConfirm.mock.lastCall![0].buttons.map(
+      (button: { text: string }) => button.text,
+    ),
+  ).toEqual(['Cancel', 'OK']);
+  expect(switchProfile).not.toHaveBeenCalled();
+  cancel();
+  expect(switchProfile).not.toHaveBeenCalled();
+  expect(mockActive.id).toBe('one');
+  expect(screen.queryByRole('radio')).toBeNull();
+});
+
+test('confirming a dropdown selection switches to the chosen profile', async () => {
+  const screen = await setup();
+  openProfiles(screen);
+  fireEvent.press(screen.getByRole('radio', { name: 'Use profile Second' }));
+  expect(switchProfile).not.toHaveBeenCalled();
+  await confirm();
+  await waitFor(() => expect(switchProfile).toHaveBeenCalledWith('two'));
+  expect(mockActive.id).toBe('two');
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Scan QR' })).not.toBeDisabled(),
+  );
+  expect(screen.getByRole('button', { name: 'Choose profile' })).toBeTruthy();
 });
 
 test('rejects switching during sync or an open form and retains the active selection', async () => {
@@ -596,42 +745,232 @@ test('rejects switching during sync or an open form and retains the active selec
     .mocked(switchProfile)
     .mockRejectedValueOnce(new Error('sensitive internal state'));
   const screen = await setup();
+  openProfiles(screen);
   fireEvent.press(screen.getByRole('radio', { name: 'Use profile Second' }));
+  await confirm();
   await waitFor(() =>
     expect(ToastService.showLong).toHaveBeenCalledWith(
       expect.stringContaining('Close any open form'),
     ),
   );
-  expect(screen.getByRole('radio', { name: 'Use profile First' })).toHaveProp(
+  expect(screen.getByRole('button', { name: 'Choose profile' })).toHaveProp(
     'accessibilityState',
-    { checked: true, disabled: true },
+    { expanded: false, disabled: false },
   );
+  expect(mockActive.id).toBe('one');
   expect(mockNavigate).not.toHaveBeenCalled();
 });
 
-test('adds and switches to the new profile, and renames through the registry', async () => {
+test('new-profile panel requires a name and Cancel abandons manual entry', async () => {
   const screen = await setup();
   fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
   expect(
-    screen.getAllByText(/Only connect to trusted Synkronus servers/).length,
-  ).toBeGreaterThan(0);
+    screen.getAllByRole('button', { name: 'Add profile' })[1],
+  ).toBeDisabled();
+  fireEvent.changeText(screen.getByPlaceholderText('Profile name'), '   ');
+  expect(
+    screen.getAllByRole('button', { name: 'Add profile' })[1],
+  ).toBeDisabled();
+  fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByPlaceholderText('Profile name')).toBeNull();
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+});
+
+test('creation QR fills manual fields without saving until a name is entered', async () => {
+  jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
+    serverUrl: 'https://scanned.example',
+    username: 'scan-user',
+    password: 'scan-secret',
+  });
+  const screen = await setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
   fireEvent.changeText(
     screen.getByPlaceholderText('Profile name'),
     ' Fieldwork ',
   );
-  fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
-  await waitFor(() =>
-    expect(profileRegistry.add).toHaveBeenCalledWith('Fieldwork'),
+  await scan();
+  expect(mockConfirm).not.toHaveBeenCalled();
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  expect(screen.getByPlaceholderText('Profile name')).toHaveProp(
+    'value',
+    ' Fieldwork ',
   );
-  await waitFor(() => expect(switchProfile).toHaveBeenCalledWith('three'));
-  fireEvent.press(screen.getByRole('button', { name: 'Rename profile First' }));
-  fireEvent.changeText(screen.getByPlaceholderText('Profile name'), 'Renamed');
+  expect(screen.getByPlaceholderText('Server URL')).toHaveProp(
+    'value',
+    'https://scanned.example',
+  );
+  expect(screen.getByPlaceholderText('Username')).toHaveProp(
+    'value',
+    'scan-user',
+  );
+  expect(screen.getByPlaceholderText('Password')).toHaveProp(
+    'value',
+    'scan-secret',
+  );
+  addFromEditor(screen);
+  await waitFor(() =>
+    expect(profileRegistry.add).toHaveBeenCalledWith('Fieldwork', {
+      serverUrl: 'https://scanned.example',
+      username: 'scan-user',
+    }),
+  );
+  expect(setCredentialsForProfile).toHaveBeenCalledWith(
+    'three',
+    'scan-user',
+    'scan-secret',
+  );
+  expect(
+    jest.mocked(setCredentialsForProfile).mock.invocationCallOrder[0],
+  ).toBeLessThan(jest.mocked(switchProfile).mock.invocationCallOrder[0]);
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Scan QR' })).not.toBeDisabled(),
+  );
+});
+
+test('failed registry add does not save credentials or switch profiles', async () => {
+  jest
+    .mocked(profileRegistry.add)
+    .mockRejectedValueOnce(new Error('internal add failure'));
+  const screen = await setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    ' Fieldwork ',
+  );
+  addFromEditor(screen);
+  await waitFor(() =>
+    expect(ToastService.showLong).toHaveBeenCalledWith(
+      expect.stringContaining('Could not add the profile'),
+    ),
+  );
+  expect(profileRegistry.add).toHaveBeenCalledWith('Fieldwork', {
+    serverUrl: '',
+    username: '',
+  });
+  expect(setCredentialsForProfile).not.toHaveBeenCalled();
+  expect(switchProfile).not.toHaveBeenCalled();
+  expect(mockActive.id).toBe('one');
+});
+
+test('a false keychain save result blocks switching to a scanned profile', async () => {
+  jest.mocked(QRSettingsService.processQRCode).mockResolvedValueOnce({
+    serverUrl: 'https://new.example',
+    username: 'qr-user',
+    password: 'qr-secret',
+  });
+  jest.mocked(setCredentialsForProfile).mockResolvedValueOnce(false);
+  const screen = await setup();
+  await openQRCreation(screen);
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    'QR fieldwork',
+  );
+  addFromEditor(screen);
+  await waitFor(() =>
+    expect(ToastService.showLong).toHaveBeenCalledWith(
+      expect.stringContaining('saved securely'),
+    ),
+  );
+  expect(switchProfile).not.toHaveBeenCalled();
+  expect(mockActive.id).toBe('one');
+  expect(JSON.stringify(mockProfiles)).not.toContain('qr-secret');
+});
+
+test('does not attach a password to a profile without a server URL and username', async () => {
+  const screen = await setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    'Fieldwork',
+  );
+  fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret');
+  addFromEditor(screen);
+  await waitFor(() =>
+    expect(ToastService.showLong).toHaveBeenCalledWith(
+      expect.stringContaining('Enter a server URL and username'),
+    ),
+  );
+  expect(profileRegistry.add).not.toHaveBeenCalled();
+  expect(setCredentialsForProfile).not.toHaveBeenCalled();
+});
+
+test('can rename and delete an inactive profile from the dropdown', async () => {
+  const screen = await setup();
+  openProfiles(screen);
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Rename profile Second' }),
+  );
+  fireEvent.changeText(screen.getByPlaceholderText('Profile name'), 'Away');
   fireEvent.press(screen.getByRole('button', { name: 'Save name' }));
   await waitFor(() =>
-    expect(
-      screen.getByRole('radio', { name: 'Use profile Renamed' }),
-    ).toBeTruthy(),
+    expect(profileRegistry.rename).toHaveBeenCalledWith('two', 'Away'),
   );
+  expect(mockActive.id).toBe('one');
+  openProfiles(screen);
+  fireEvent.press(screen.getByRole('button', { name: 'Delete profile Away' }));
+  expect(deleteProfile).not.toHaveBeenCalled();
+  await confirm();
+  await waitFor(() => expect(deleteProfile).toHaveBeenCalledWith('two'));
+  expect(mockActive.id).toBe('one');
+});
+
+test('adds a named profile via manual connection and renames the active profile', async () => {
+  const screen = await setup();
+  fireEvent.press(screen.getByRole('button', { name: 'Add profile' }));
+  expect(
+    screen.getByText(
+      'Make sure to only connect to trusted Synkronus servers. Custom app code may access data from other profiles on this device!',
+    ),
+  ).toBeTruthy();
+  expect(screen.getByRole('alert')).toBeTruthy();
+  expect(
+    screen
+      .UNSAFE_getAllByType('Icon')
+      .some(icon => icon.props.name === 'alert-circle-outline'),
+  ).toBe(true);
+  expect(
+    screen
+      .UNSAFE_getAllByType('TextInput')
+      .map(input => input.props.placeholder),
+  ).toEqual(['Profile name', 'Server URL', 'Username', 'Password']);
+  expect(screen.getByPlaceholderText('Profile name')).toHaveProp(
+    'required',
+    true,
+  );
+  expect(screen.getByRole('button', { name: 'Scan QR' })).toBeTruthy();
+  expect(
+    screen
+      .UNSAFE_getAllByType('Icon')
+      .some(icon => icon.props.name === 'qrcode-scan'),
+  ).toBe(true);
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Profile name'),
+    ' Fieldwork ',
+  );
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Server URL'),
+    'New.Example/',
+  );
+  fireEvent.changeText(screen.getByPlaceholderText('Username'), ' user ');
+  addFromEditor(screen);
+  await waitFor(() =>
+    expect(profileRegistry.add).toHaveBeenCalledWith('Fieldwork', {
+      serverUrl: 'https://new.example',
+      username: 'user',
+    }),
+  );
+  await waitFor(() => expect(switchProfile).toHaveBeenCalledWith('three'));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Scan QR' })).not.toBeDisabled(),
+  );
+  expect(mockActive.label).toBe('Fieldwork');
+  fireEvent.press(
+    screen.getByRole('button', { name: 'Rename profile Fieldwork' }),
+  );
+  fireEvent.changeText(screen.getByPlaceholderText('Profile name'), 'Renamed');
+  fireEvent.press(screen.getByRole('button', { name: 'Save name' }));
+  await waitFor(() => expect(mockActive.label).toBe('Renamed'));
+  expect(profileRegistry.rename).toHaveBeenCalledWith('three', 'Renamed');
 });
 
 test('deleting the active profile asks for confirmation and uses the central fallback', async () => {
@@ -641,12 +980,16 @@ test('deleting the active profile asks for confirmation and uses the central fal
   expect(mockConfirm.mock.calls[0][0].message).toContain(
     'Unsynced data will be lost',
   );
-  await confirm();
-  await waitFor(() =>
-    expect(
-      screen.getByRole('radio', { name: 'Use profile Second' }),
-    ).toHaveProp('accessibilityState', { checked: true, disabled: true }),
+  expect(mockConfirm.mock.calls[0][0].message).toContain(
+    'the next time you fully close and reopen Formulus',
   );
+  expect(mockConfirm.mock.calls[0][0].message).toContain('uninstall Formulus');
+  await confirm();
+  await waitFor(() => expect(mockActive.id).toBe('two'));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Scan QR' })).not.toBeDisabled(),
+  );
+  expect(screen.getByRole('button', { name: 'Choose profile' })).toBeTruthy();
   expect(deleteProfile).toHaveBeenCalledWith('one');
 });
 
@@ -667,7 +1010,9 @@ test('never copies a late keychain result from a previous profile into the new p
       }),
   );
   const screen = render(<ProfilesScreen />);
+  openProfiles(screen);
   fireEvent.press(screen.getByRole('radio', { name: 'Use profile Second' }));
+  await confirm();
   await waitFor(() =>
     expect(screen.getByPlaceholderText('Username')).toHaveProp(
       'editable',

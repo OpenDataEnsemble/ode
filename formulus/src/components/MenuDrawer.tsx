@@ -252,6 +252,17 @@ const MenuDrawer: React.FC<MenuDrawerProps> = ({
                   />
                 </View>
                 <View style={styles.userInfo}>
+                  <Text
+                    style={[
+                      styles.userName,
+                      styles.loggedInUserName,
+                      { color: textColor },
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                    accessibilityLabel={userInfo.username}>
+                    {userInfo.username}
+                  </Text>
                   <View
                     style={[
                       styles.roleBadge,
@@ -447,8 +458,12 @@ const styles = StyleSheet.create({
   userInfo: {
     marginLeft: odeSpacing.sm,
     flex: 1,
+    minWidth: 0,
     justifyContent: 'center',
     alignItems: 'flex-end',
+  },
+  loggedInUserName: {
+    alignSelf: 'stretch',
   },
   userName: {
     fontSize: odeTypography.body,

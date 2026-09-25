@@ -9,13 +9,11 @@ import QRScannerModal, {
   ScannerModalResults,
 } from '../components/QRScannerModal';
 import { useAppTheme } from '../contexts/AppThemeContext';
+import { withAlpha } from '../theme/colors';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import type { MainTabParamList } from '../navigation/ProfileNavigationTypes';
-import { transitionToProfiles } from '../navigation/ProfileNavigationIntent';
 import { profileRegistry } from '../profiles/ProfileRegistry';
 import { getActiveProfile } from '../profiles/ProfileRuntime';
-import { switchProfile } from '../profiles/ProfileTransitions';
-import * as ProfileKeychain from '../profiles/ProfileKeychain';
 import {
   login,
   isRateLimitedError,
@@ -42,17 +40,41 @@ type Props = {
   profile: ReturnType<typeof getActiveProfile>;
   busy: boolean;
   runAction: RunProfileAction;
+  creation?: {
+    name: string;
+    initialSettings?: SettingsUpdate;
+    onCreate: (connection: {
+      serverUrl: string;
+      username: string;
+      password: string;
+    }) => Promise<void>;
+  };
+  onNewProfileFromQR?: (settings: SettingsUpdate) => void;
 };
 
-const ProfileConnection = ({ profile, busy, runAction }: Props) => {
+const ProfileConnection = ({
+  profile,
+  busy,
+  runAction,
+  creation,
+  onNewProfileFromQR,
+}: Props) => {
   const { t } = useTranslation();
   const { themeColors } = useAppTheme();
   const { showConfirm } = useConfirmModal();
   const navigation =
     useNavigation<BottomTabNavigationProp<MainTabParamList, 'Profiles'>>();
-  const [serverUrl, setServerUrl] = useState(profile.serverUrl || '');
-  const [username, setUsername] = useState(profile.username || '');
-  const [password, setPassword] = useState('');
+  const isCreating = !!creation;
+  const initialServerUrl = creation?.initialSettings?.serverUrl;
+  const initialUsername = creation?.initialSettings?.username;
+  const initialPassword = creation?.initialSettings?.password;
+  const [serverUrl, setServerUrl] = useState(
+    isCreating ? initialServerUrl || '' : profile.serverUrl || '',
+  );
+  const [username, setUsername] = useState(
+    isCreating ? initialUsername || '' : profile.username || '',
+  );
+  const [password, setPassword] = useState(initialPassword || '');
   const [showPassword, setShowPassword] = useState(false);
   const [hydrating, setHydrating] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
@@ -62,8 +84,19 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
     useCallback(() => {
       let cancelled = false;
       focusedRef.current = true;
-      setHydrating(true);
       setShowPassword(false);
+      if (isCreating) {
+        setServerUrl(initialServerUrl || '');
+        setUsername(initialUsername || '');
+        setPassword(initialPassword || '');
+        setHydrating(false);
+        return () => {
+          focusedRef.current = false;
+          setShowScanner(false);
+          setPassword('');
+        };
+      }
+      setHydrating(true);
       setPassword('');
       const active = getActiveProfile();
       setServerUrl(active.serverUrl || '');
@@ -89,7 +122,14 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
         setShowScanner(false);
         setPassword('');
       };
-    }, [profile.id, t]),
+    }, [
+      profile.id,
+      isCreating,
+      initialServerUrl,
+      initialUsername,
+      initialPassword,
+      t,
+    ]),
   );
 
   const assertCurrent = () => {
@@ -155,35 +195,19 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
     }, 'profiles.connectionFailed');
   };
 
-  const createFromQR = (settings: SettingsUpdate) => {
+  const handleCreate = () => {
+    if (!creation?.name.trim() || busy) return;
     void runAction(async () => {
       assertCurrent();
-      const created = await profileRegistry.add(undefined, {
-        serverUrl: settings.serverUrl,
-        username: settings.username,
+      if (password && (!serverUrl.trim() || !username.trim()))
+        throw new ProfileUIError('profiles.credentialsIncomplete');
+      const normalized = serverUrl.trim() ? normalizedUrl(serverUrl) : null;
+      if (normalized) warnHttp(normalized.isHttp);
+      await creation.onCreate({
+        serverUrl: normalized?.href || '',
+        username: username.trim(),
+        password: password.trim(),
       });
-      // Switching requires a cold launch. Stage credentials only in native
-      // secure storage; the new profile hydrates them for an explicit login.
-      if (settings.username && settings.password) {
-        try {
-          const saved = await ProfileKeychain.setCredentialsForProfile(
-            created.id,
-            settings.username,
-            settings.password,
-          );
-          if (saved === false) {
-            throw new ProfileUIError('profiles.qrCredentialsFailed');
-          }
-        } catch {
-          throw new ProfileUIError('profiles.qrCredentialsFailed');
-        }
-      }
-      try {
-        assertCurrent();
-        await transitionToProfiles(() => switchProfile(created.id), created.id);
-      } catch {
-        throw new ProfileUIError('profiles.qrSwitchFailed');
-      }
     }, 'profiles.addFailed');
   };
 
@@ -206,6 +230,12 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
       const normalized = normalizedUrl(settings.serverUrl);
       settings = { ...settings, serverUrl: normalized.href };
       warnHttp(normalized.isHttp);
+      if (creation) {
+        setServerUrl(settings.serverUrl);
+        setUsername(settings.username);
+        setPassword(settings.password);
+        return;
+      }
       const current = getActiveProfile();
       const previous = current.serverUrl
         ? normalizeServerUrl(current.serverUrl)
@@ -226,7 +256,7 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
             {
               text: t('profiles.add'),
               variant: 'primary',
-              onPress: () => createFromQR(settings),
+              onPress: () => onNewProfileFromQR?.(settings),
             },
           ],
         });
@@ -247,18 +277,50 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
   const disabled = busy || hydrating;
   return (
     <View style={styles.section}>
-      <Text style={[styles.heading, { color: themeColors.onSurface }]}>
-        {t('profiles.connectionTitle', { label: profile.label })}
-      </Text>
-      <Text style={[styles.hint, { color: themeColors.onSurface }]}>
-        {t(
-          profile.urlLocked ? 'profiles.urlLocked' : 'profiles.connectionHint',
-        )}
-      </Text>
-      {!profile.urlLocked && (
-        <Text style={[styles.hint, { color: themeColors.onSurface }]}>
-          {t('profiles.trustWarning')}
+      {!creation && (
+        <>
+          <Text style={[styles.heading, { color: themeColors.onSurface }]}>
+            {t('profiles.connectionTitle', { label: profile.label })}
+          </Text>
+          {!profile.urlLocked && (
+            <Text style={[styles.hint, { color: themeColors.onSurface }]}>
+              {t('profiles.connectionHint')}
+            </Text>
+          )}
+        </>
+      )}
+      <TouchableOpacity
+        style={[styles.scanButton, { borderColor: themeColors.secondary }]}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={t('profiles.scanQr')}
+        accessibilityState={{ disabled }}
+        onPress={() => setShowScanner(true)}>
+        <Icon name="qrcode-scan" size={20} color={themeColors.secondary} />
+        <Text style={[styles.scanText, { color: themeColors.secondary }]}>
+          {t('profiles.scanQr')}
         </Text>
+      </TouchableOpacity>
+      {(creation || !profile.urlLocked) && (
+        <View
+          style={[
+            styles.trustNotice,
+            {
+              backgroundColor: withAlpha(themeColors.primary as string, 0.12),
+              borderColor: themeColors.primary,
+            },
+          ]}
+          accessible
+          accessibilityRole="alert">
+          <Icon
+            name="alert-circle-outline"
+            size={22}
+            color={themeColors.primary}
+          />
+          <Text style={[styles.trustText, { color: themeColors.onSurface }]}>
+            {t('profiles.trustWarning')}
+          </Text>
+        </View>
       )}
       <Input
         placeholder={t('settings.serverUrl')}
@@ -267,13 +329,7 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
-        disabled={disabled || profile.urlLocked}
-      />
-      <Button
-        title={t('settings.scanQr')}
-        variant="secondary"
-        disabled={disabled}
-        onPress={() => setShowScanner(true)}
+        disabled={disabled || (!creation && profile.urlLocked)}
       />
       <Input
         placeholder={t('settings.username')}
@@ -307,16 +363,27 @@ const ProfileConnection = ({ profile, busy, runAction }: Props) => {
           </TouchableOpacity>
         }
       />
-      <Button
-        title={t(busy ? 'profiles.working' : 'settings.login')}
-        onPress={handleLogin}
-        loading={busy}
-        disabled={
-          disabled || !serverUrl.trim() || !username.trim() || !password
-        }
-        fullWidth
-        size="large"
-      />
+      {creation ? (
+        <Button
+          title={t('profiles.add')}
+          onPress={handleCreate}
+          loading={busy}
+          disabled={disabled || !creation.name.trim()}
+          fullWidth
+          size="large"
+        />
+      ) : (
+        <Button
+          title={t(busy ? 'profiles.working' : 'settings.login')}
+          onPress={handleLogin}
+          loading={busy}
+          disabled={
+            disabled || !serverUrl.trim() || !username.trim() || !password
+          }
+          fullWidth
+          size="large"
+        />
+      )}
       <QRScannerModal
         visible={showScanner}
         onClose={() => setShowScanner(false)}
@@ -330,6 +397,26 @@ const styles = StyleSheet.create({
   section: { marginTop: odeSpacing.md, gap: odeSpacing.xs },
   heading: { fontSize: odeTypography.sectionTitle, fontWeight: '600' },
   hint: { fontSize: odeTypography.bodySm, marginBottom: odeSpacing.sm },
+  trustNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: odeSpacing.sm,
+    padding: odeSpacing.md,
+    borderWidth: 1,
+    borderRadius: odeSpacing.sm,
+  },
+  trustText: { flex: 1, fontSize: odeTypography.bodySm },
+  scanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: odeSpacing.xs,
+    borderWidth: 1,
+    borderRadius: odeSpacing.xs,
+    padding: odeSpacing.sm,
+    minHeight: 48,
+  },
+  scanText: { fontSize: odeTypography.bodySm, fontWeight: '600' },
   passwordToggle: {
     padding: odeSpacing.sm,
     minWidth: 44,
