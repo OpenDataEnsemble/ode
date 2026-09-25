@@ -3,6 +3,7 @@ import { act, render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import MenuDrawer from './MenuDrawer';
 import { getUserInfo } from '../api/synkronus/Auth';
+import { getActiveProfile } from '../profiles/ProfileRuntime';
 
 jest.mock('react-native', () => {
   const native = jest.requireActual('react-native');
@@ -31,7 +32,7 @@ jest.mock('../navigation/useProfiles', () => ({
   useProfiles: () => ({ activeProfile: mockActiveProfile }),
 }));
 jest.mock('../profiles/ProfileRuntime', () => ({
-  getActiveProfile: () => mockActiveProfile,
+  getActiveProfile: jest.fn(() => mockActiveProfile),
 }));
 jest.mock('../api/synkronus/Auth', () => ({ getUserInfo: jest.fn() }));
 jest.mock('../contexts/AppThemeContext', () => ({
@@ -84,10 +85,12 @@ jest.mock('../theme/colors', () => ({
 jest.mock('./common/Button', () => () => null);
 
 const mockedGetUserInfo = jest.mocked(getUserInfo);
+const mockedGetActiveProfile = jest.mocked(getActiveProfile);
 
 beforeEach(() => {
   mockMode = 'light';
   mockedGetUserInfo.mockReset();
+  mockedGetActiveProfile.mockClear();
 });
 
 test.each([
@@ -109,8 +112,13 @@ test.each([
 
   expect(mockedGetUserInfo).toHaveBeenCalledTimes(1);
   await act(async () => {
-    await mockedGetUserInfo.mock.results[0].value;
+    expect(await mockedGetUserInfo.mock.results[0].value).toEqual({
+      username,
+      role: 'read-write',
+    });
   });
+  expect(mockedGetActiveProfile).toHaveBeenCalledTimes(1);
+  expect(mockedGetActiveProfile.mock.results[0].value.id).toBe('one');
 
   const name = screen.getByText(username);
   expect(name).toHaveProp('accessibilityLabel', username);
