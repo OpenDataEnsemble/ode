@@ -9,7 +9,10 @@ import {
   switchProfile,
   deleteProfile,
 } from '../../profiles/ProfileTransitions';
-import { setCredentialsForProfile } from '../../profiles/ProfileKeychain';
+import {
+  resetProfileCredentials,
+  setCredentialsForProfile,
+} from '../../profiles/ProfileKeychain';
 import { login } from '../../api/synkronus/Auth';
 import { serverConfigService } from '../../services/ServerConfigService';
 import { QRSettingsService } from '../../services/QRSettingsService';
@@ -96,7 +99,10 @@ jest.mock(
 );
 jest.mock(
   '../../profiles/ProfileKeychain',
-  () => ({ setCredentialsForProfile: jest.fn() }),
+  () => ({
+    setCredentialsForProfile: jest.fn(),
+    resetProfileCredentials: jest.fn(),
+  }),
   { virtual: true },
 );
 jest.mock('../../navigation/ProfileNavigationIntent', () => ({
@@ -221,6 +227,7 @@ jest.mock('../../services/QRSettingsService', () => ({
 }));
 jest.mock('../../services/SettingsHydrationCache', () => ({
   loadSettingsHydrationFromStorage: jest.fn(),
+  invalidateSettingsHydrationCache: jest.fn(),
   getSettingsHydrationCredentialPair: (snapshot: any) =>
     snapshot.credentials || null,
 }));
@@ -296,6 +303,7 @@ beforeEach(() => {
     .mocked(login)
     .mockResolvedValue({ username: 'new-user', role: 'read-write' });
   jest.mocked(setCredentialsForProfile).mockResolvedValue(undefined);
+  jest.mocked(resetProfileCredentials).mockResolvedValue(true);
   jest
     .mocked(profileRegistry.updateConnection)
     .mockImplementation(async connection => {
@@ -551,7 +559,10 @@ test('locked-server QR cancellation keeps the active connection and creates noth
   ).toEqual(['Cancel', 'Add profile']);
   expect(profileRegistry.add).not.toHaveBeenCalled();
   cancel();
-  expect(screen.queryByPlaceholderText('Profile name')).toBeNull();
+  expect(screen.getByPlaceholderText('Profile name')).toHaveProp(
+    'value',
+    'First',
+  );
   expect(profileRegistry.add).not.toHaveBeenCalled();
   expect(mockActive.id).toBe('one');
 });
@@ -772,7 +783,10 @@ test('new-profile panel requires a name and Cancel abandons manual entry', async
     screen.getAllByRole('button', { name: 'Add profile' })[1],
   ).toBeDisabled();
   fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
-  expect(screen.queryByPlaceholderText('Profile name')).toBeNull();
+  expect(screen.getByPlaceholderText('Profile name')).toHaveProp(
+    'value',
+    'First',
+  );
   expect(profileRegistry.add).not.toHaveBeenCalled();
 });
 
@@ -894,24 +908,24 @@ test('does not attach a password to a profile without a server URL and username'
   expect(setCredentialsForProfile).not.toHaveBeenCalled();
 });
 
-test('can rename and delete an inactive profile from the dropdown', async () => {
+test('dropdown displays only profile names and no editing actions', async () => {
   const screen = await setup();
   openProfiles(screen);
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Rename profile Second' }),
-  );
-  fireEvent.changeText(screen.getByPlaceholderText('Profile name'), 'Away');
-  fireEvent.press(screen.getByRole('button', { name: 'Save name' }));
-  await waitFor(() =>
-    expect(profileRegistry.rename).toHaveBeenCalledWith('two', 'Away'),
-  );
-  expect(mockActive.id).toBe('one');
-  openProfiles(screen);
-  fireEvent.press(screen.getByRole('button', { name: 'Delete profile Away' }));
-  expect(deleteProfile).not.toHaveBeenCalled();
-  await confirm();
-  await waitFor(() => expect(deleteProfile).toHaveBeenCalledWith('two'));
-  expect(mockActive.id).toBe('one');
+  expect(
+    screen.getByRole('radio', { name: 'Use profile Second' }),
+  ).toBeTruthy();
+  expect(screen.queryByText('https://one.example')).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Rename profile Second' }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Delete profile Second' }),
+  ).toBeNull();
+  expect(
+    screen
+      .UNSAFE_getAllByType('Icon')
+      .some(icon => icon.props.name === 'check'),
+  ).toBe(false);
 });
 
 test('adds a named profile via manual connection and renames the active profile', async () => {
@@ -964,13 +978,50 @@ test('adds a named profile via manual connection and renames the active profile'
     expect(screen.getByRole('button', { name: 'Scan QR' })).not.toBeDisabled(),
   );
   expect(mockActive.label).toBe('Fieldwork');
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Rename profile Fieldwork' }),
-  );
   fireEvent.changeText(screen.getByPlaceholderText('Profile name'), 'Renamed');
-  fireEvent.press(screen.getByRole('button', { name: 'Save name' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
   await waitFor(() => expect(mockActive.label).toBe('Renamed'));
   expect(profileRegistry.rename).toHaveBeenCalledWith('three', 'Renamed');
+});
+
+test('save changes persists the active name, URL, username and password without logging in', async () => {
+  mockActive = mockProfiles[1];
+  const screen = await setup();
+  fireEvent.changeText(screen.getByPlaceholderText('Profile name'), ' Field ');
+  fireEvent.changeText(
+    screen.getByPlaceholderText('Server URL'),
+    'Two.Example/',
+  );
+  fireEvent.changeText(screen.getByPlaceholderText('Username'), ' new-user ');
+  fireEvent.changeText(screen.getByPlaceholderText('Password'), 'secret');
+  fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() =>
+    expect(profileRegistry.rename).toHaveBeenCalledWith('two', 'Field'),
+  );
+  expect(profileRegistry.updateConnection).toHaveBeenCalledWith({
+    serverUrl: 'https://two.example',
+    username: 'new-user',
+  });
+  expect(setCredentialsForProfile).toHaveBeenCalledWith(
+    'two',
+    'new-user',
+    'secret',
+  );
+  expect(login).not.toHaveBeenCalled();
+});
+
+test('saving a changed username without a password clears outdated stored credentials', async () => {
+  const screen = await setup();
+  fireEvent.changeText(screen.getByPlaceholderText('Username'), 'another-user');
+  fireEvent.press(screen.getByRole('button', { name: 'Save changes' }));
+  await waitFor(() =>
+    expect(profileRegistry.updateConnection).toHaveBeenCalledWith({
+      serverUrl: 'https://one.example',
+      username: 'another-user',
+    }),
+  );
+  expect(resetProfileCredentials).toHaveBeenCalledTimes(1);
+  expect(setCredentialsForProfile).not.toHaveBeenCalled();
 });
 
 test('deleting the active profile asks for confirmation and uses the central fallback', async () => {

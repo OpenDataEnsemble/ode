@@ -27,6 +27,7 @@
   "profiles.deleteLabel": "Delete profile {{label}}",
   "profiles.name": "Profile name",
   "profiles.saveName": "Save name",
+  "profiles.saveChanges": "Save changes",
   "profiles.lastProfileHint": "Keep at least one profile. The last profile cannot be deleted.",
   "profiles.deleteTitle": "Delete profile?",
   "profiles.deleteMessage": "Delete “{{label}}”? Unsynced data will be lost. Profile data is scheduled for deletion the next time you fully close and reopen Formulus. For more complete removal of local data, uninstall Formulus (this removes all profiles; OS backups and saved credentials may persist). Server data is not deleted. If this profile is active, another will be selected in the app.",

@@ -13,6 +13,10 @@ import { withAlpha } from '../theme/colors';
 import { useConfirmModal } from '../contexts/ConfirmModalContext';
 import type { MainTabParamList } from '../navigation/ProfileNavigationTypes';
 import { profileRegistry } from '../profiles/ProfileRegistry';
+import {
+  resetProfileCredentials,
+  setCredentialsForProfile,
+} from '../profiles/ProfileKeychain';
 import { getActiveProfile } from '../profiles/ProfileRuntime';
 import {
   login,
@@ -29,6 +33,7 @@ import {
 } from '../services/QRSettingsService';
 import {
   getSettingsHydrationCredentialPair,
+  invalidateSettingsHydrationCache,
   loadSettingsHydrationFromStorage,
 } from '../services/SettingsHydrationCache';
 import { ToastService } from '../services/ToastService';
@@ -50,6 +55,9 @@ type Props = {
     }) => Promise<void>;
   };
   onNewProfileFromQR?: (settings: SettingsUpdate) => void;
+  onCancelCreation?: () => void;
+  onDelete?: () => void;
+  canDelete?: boolean;
 };
 
 const ProfileConnection = ({
@@ -58,6 +66,9 @@ const ProfileConnection = ({
   runAction,
   creation,
   onNewProfileFromQR,
+  onCancelCreation,
+  onDelete,
+  canDelete = false,
 }: Props) => {
   const { t } = useTranslation();
   const { themeColors } = useAppTheme();
@@ -68,6 +79,7 @@ const ProfileConnection = ({
   const initialServerUrl = creation?.initialSettings?.serverUrl;
   const initialUsername = creation?.initialSettings?.username;
   const initialPassword = creation?.initialSettings?.password;
+  const [name, setName] = useState(profile.label);
   const [serverUrl, setServerUrl] = useState(
     isCreating ? initialServerUrl || '' : profile.serverUrl || '',
   );
@@ -97,6 +109,7 @@ const ProfileConnection = ({
         };
       }
       setHydrating(true);
+      setName(profile.label);
       setPassword('');
       const active = getActiveProfile();
       setServerUrl(active.serverUrl || '');
@@ -124,6 +137,7 @@ const ProfileConnection = ({
       };
     }, [
       profile.id,
+      profile.label,
       isCreating,
       initialServerUrl,
       initialUsername,
@@ -192,6 +206,41 @@ const ProfileConnection = ({
       setServerUrl(normalized.href);
       await saveConnection(normalized.href, username.trim());
       await signIn(normalized.href, username.trim(), password);
+    }, 'profiles.connectionFailed');
+  };
+
+  const handleSave = () => {
+    if (hydrating || !name.trim()) return;
+    void runAction(async () => {
+      assertCurrent();
+      if (password && (!serverUrl.trim() || !username.trim()))
+        throw new ProfileUIError('profiles.credentialsIncomplete');
+      const normalized = serverUrl.trim() ? normalizedUrl(serverUrl) : null;
+      if (normalized) warnHttp(normalized.isHttp);
+      const current = getActiveProfile();
+      if (
+        !password &&
+        (current.username !== username.trim() ||
+          current.serverUrl !== (normalized?.href || ''))
+      ) {
+        await resetProfileCredentials();
+      }
+      await saveConnection(normalized?.href || '', username.trim());
+      if (password) {
+        const saved = await setCredentialsForProfile(
+          profile.id,
+          username.trim(),
+          password,
+        );
+        if (saved === false)
+          throw new ProfileUIError('profiles.qrCredentialsFailed');
+      }
+      invalidateSettingsHydrationCache();
+      assertCurrent();
+      if (name.trim() !== profile.label) {
+        await profileRegistry.rename(profile.id, name.trim());
+      }
+      ToastService.showShort(t('profiles.connectionSaved'));
     }, 'profiles.connectionFailed');
   };
 
@@ -276,7 +325,7 @@ const ProfileConnection = ({
 
   const disabled = busy || hydrating;
   return (
-    <View style={styles.section}>
+    <View style={[styles.section, creation && styles.creationSection]}>
       {!creation && (
         <>
           <Text style={[styles.heading, { color: themeColors.onSurface }]}>
@@ -288,6 +337,17 @@ const ProfileConnection = ({
             </Text>
           )}
         </>
+      )}
+      {!creation && (
+        <Input
+          label={t('profiles.name')}
+          placeholder={t('profiles.name')}
+          value={name}
+          onChangeText={setName}
+          disabled={disabled}
+          autoCorrect={false}
+          style={styles.nameInput}
+        />
       )}
       <TouchableOpacity
         style={[styles.scanButton, { borderColor: themeColors.secondary }]}
@@ -364,25 +424,50 @@ const ProfileConnection = ({
         }
       />
       {creation ? (
-        <Button
-          title={t('profiles.add')}
-          onPress={handleCreate}
-          loading={busy}
-          disabled={disabled || !creation.name.trim()}
-          fullWidth
-          size="large"
-        />
+        <View style={styles.actions}>
+          <Button
+            title={t('common.cancel')}
+            variant="tertiary"
+            disabled={busy}
+            onPress={() => onCancelCreation?.()}
+          />
+          <Button
+            title={t('profiles.add')}
+            onPress={handleCreate}
+            loading={busy}
+            disabled={disabled || !creation.name.trim()}
+          />
+        </View>
       ) : (
-        <Button
-          title={t(busy ? 'profiles.working' : 'settings.login')}
-          onPress={handleLogin}
-          loading={busy}
-          disabled={
-            disabled || !serverUrl.trim() || !username.trim() || !password
-          }
-          fullWidth
-          size="large"
-        />
+        <>
+          <View style={styles.actions}>
+            <Button
+              title={t('profiles.saveChanges')}
+              onPress={handleSave}
+              loading={busy}
+              disabled={disabled || !name.trim()}
+            />
+            <Button
+              title={t('common.delete')}
+              accessibilityLabel={t('profiles.deleteLabel', {
+                label: profile.label,
+              })}
+              variant="danger"
+              disabled={disabled || !canDelete}
+              onPress={() => onDelete?.()}
+            />
+          </View>
+          <Button
+            title={t(busy ? 'profiles.working' : 'settings.login')}
+            onPress={handleLogin}
+            loading={busy}
+            disabled={
+              disabled || !serverUrl.trim() || !username.trim() || !password
+            }
+            fullWidth
+            size="large"
+          />
+        </>
       )}
       <QRScannerModal
         visible={showScanner}
@@ -395,6 +480,13 @@ const ProfileConnection = ({
 
 const styles = StyleSheet.create({
   section: { marginTop: odeSpacing.md, gap: odeSpacing.xs },
+  creationSection: { marginTop: 0 },
+  nameInput: { marginBottom: 0 },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: odeSpacing.sm,
+  },
   heading: { fontSize: odeTypography.sectionTitle, fontWeight: '600' },
   hint: { fontSize: odeTypography.bodySm, marginBottom: odeSpacing.sm },
   trustNotice: {
