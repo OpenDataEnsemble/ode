@@ -198,7 +198,7 @@ Builds and publishes the Docusaurus site in [`docs/`](../docs/) to [opendataense
 | Event | Result |
 |-------|--------|
 | Pull request to `main` or `dev` touching `docs/**` | Validate and build only |
-| Push to `dev` touching `docs/**` | Validate, build, and deploy |
+| Push to `main` touching `docs/**` | Validate, build, and deploy |
 | `workflow_dispatch` | Validate and build |
 
 #### Notes
