@@ -1,0 +1,93 @@
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ode-spacing-2);
+  font-family: var(--ode-font-family-sans);
+  font-weight: var(--ode-font-weight-regular);
+  line-height: var(--ode-line-height-tight);
+  border-radius: var(--ode-border-radius-md);
+  border: var(--ode-border-width-thin) solid;
+}
+
+/* Size Variants */
+.tag--sm {
+  padding: var(--ode-spacing-1) var(--ode-spacing-2_5);
+  font-size: var(--ode-font-size-xs);
+}
+
+.tag--md {
+  padding: var(--ode-spacing-2) var(--ode-spacing-3);
+  font-size: var(--ode-font-size-sm);
+}
+
+.tagContent {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tagRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: var(--ode-spacing-1);
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--ode-font-size-lg);
+  line-height: 1;
+  opacity: var(--ode-opacity-60);
+  transition: opacity var(--ode-duration-fast) var(--ode-easing-ease-out);
+  width: 1em;
+  height: 1em;
+}
+
+.tagRemove:hover {
+  opacity: var(--ode-opacity-100);
+}
+
+.tagRemove:focus {
+  outline: var(--ode-border-width-medium) solid currentColor;
+  outline-offset: var(--ode-spacing-0_5);
+  border-radius: var(--ode-border-radius-sm);
+}
+
+/* Primary Variant */
+.tag--primary {
+  background-color: var(--ode-color-brand-primary-50);
+  border-color: var(--ode-color-brand-primary-200);
+  color: var(--ode-color-brand-primary-700);
+}
+
+[data-theme='dark'] .tag--primary {
+  background-color: var(--ode-color-brand-primary-900);
+  border-color: var(--ode-color-brand-primary-700);
+  color: var(--ode-color-brand-primary-200);
+}
+
+/* Secondary Variant */
+.tag--secondary {
+  background-color: var(--ode-color-brand-secondary-50);
+  border-color: var(--ode-color-brand-secondary-200);
+  color: var(--ode-color-brand-secondary-800);
+}
+
+[data-theme='dark'] .tag--secondary {
+  background-color: var(--ode-color-brand-secondary-900);
+  border-color: var(--ode-color-brand-secondary-700);
+  color: var(--ode-color-brand-secondary-200);
+}
+
+/* Neutral Variant */
+.tag--neutral {
+  background-color: var(--ode-color-neutral-100);
+  border-color: var(--ode-color-neutral-300);
+  color: var(--ode-color-neutral-700);
+}
+
+[data-theme='dark'] .tag--neutral {
+  background-color: var(--ode-color-neutral-800);
+  border-color: var(--ode-color-neutral-600);
+  color: var(--ode-color-neutral-200);
+}
+
